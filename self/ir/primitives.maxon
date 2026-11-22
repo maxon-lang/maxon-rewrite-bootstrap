@@ -939,7 +939,7 @@ function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.T
 	if kind == ast.TypeKind.builtinArray 'array'
 		return holdsInterpreterOnly(p, ms: ms, t: elementType(p, ms: ms, bt: t), visiting: visiting)
 	end 'array'
-	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown 'shared'
+	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'shared'
 		return holdsInterpreterOnly(p, ms: ms, t: heldType(p, ms: ms, t: t), visiting: visiting)
 	end 'shared'
 	if kind == ast.TypeKind.builtinMap or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'only'

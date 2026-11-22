@@ -151,8 +151,6 @@ error E3207: <fragment>:27:8: 'stamp' writes 'table' (it calls 'add', which writ
 ```
 
 <!-- test: immutable-only-param-given-mutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `relay` sends `t` to a service whose message takes `immutable Table`, so `t` is immutable only and a mutable argument is refused.
 
@@ -182,8 +180,7 @@ type Auditor
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function check(table immutable Table)
+	export function check(table frozen with Table)
 		print("audited {table.count()} rows\n")
 	end 'check'
 end 'Auditor'
@@ -193,7 +190,6 @@ function relay(t Table, auditor Auditor.handle)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Auditor.create()
 	var live = Table.create()
 	live.add(1)
@@ -206,7 +202,6 @@ error E3207: <fragment>:39:8: 'relay' needs 't' frozen (line 32: `try auditor.ch
 ```
 
 <!-- test: param-needed-both-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `both` writes `t` and also hands it to a parameter declared `immutable`, so no single capability fits the parameter.
 
@@ -231,8 +226,7 @@ type Table
 	end 'add'
 end 'Table'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function audit(table immutable Table)
+function audit(table frozen with Table)
 	print("audited {table.count()} rows\n")
 end 'audit'
 
@@ -282,7 +276,6 @@ error E3208: <fragment>:18:15: 'pick' returns 'a' or 'b'; they must both be muta
 ```
 
 <!-- test: result-path-disagrees -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The declared result is `immutable Row`; the first return gives a fresh mutable row, so that path does not fit it.
 
@@ -295,8 +288,7 @@ type Row
 	end 'create'
 end 'Row'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function settle(text String, fresh bool) returns immutable Row
+function settle(text String, fresh bool) returns frozen with Row
 	if fresh 'fresh'
 		return Row.create(text)
 	end 'fresh'
@@ -389,7 +381,6 @@ error E3205: <fragment>:19:11: cannot call 'settle' inside 'fill'; it may yield 
 <!-- test: may-wait-call-inside-modify-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `ask` awaits a message reply, so it may wait on another party, which no call inside the block may do.
 
@@ -413,7 +404,6 @@ function ask(oracle Oracle.handle) returns Tally
 end 'ask'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let oracle = spawn Oracle.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
@@ -430,7 +420,7 @@ error E3205: <fragment>:24:11: cannot call 'ask' inside 'fill'; it may wait (it 
 ```
 
 <!-- test: result-of-a-call-returning-its-parameter-keeps-the-argument-capability -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `same` returns its parameter, so `c` is the frozen `b` and the write through it is refused.
 
@@ -449,8 +439,7 @@ function same(b Box) returns Box
 	return b
 end 'same'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function poke(b immutable Box)
+function poke(b frozen with Box)
 	var c = same(b)
 	c.n = 5
 end 'poke'
@@ -466,7 +455,7 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'c', which is immutable
 ```
 
 <!-- test: element-read-of-a-frozen-array-is-frozen -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `rows.get(0)` hands back an element of the frozen array, so `first` is frozen and the write through it is refused.
 
@@ -481,8 +470,7 @@ end 'Row'
 
 typealias RowArray = Array with Row
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function rewrite(rows immutable RowArray)
+function rewrite(rows frozen with RowArray)
 	var first = try rows.get(0) otherwise panic("rewrite: called with a row")
 	first.text = "x"
 end 'rewrite'
@@ -566,7 +554,6 @@ error E3207: <fragment>:23:7: 'edit' writes 'b'; 'pinned' is immutable
 <!-- test: call-that-only-spawns-a-waiting-factory-reports-the-chain -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `start` waits only through the factory it spawns, and no call that may wait runs inside the block. The factory
 is also refused where it is declared, because a factory never waits.
@@ -590,7 +577,6 @@ type Relay
 	var seen as Tally
 
 	static function create() returns Self
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let oracle = spawn Oracle.create()
 		let n = try await oracle.answer() otherwise 0
 		return Self{seen: n}
@@ -602,7 +588,6 @@ type Relay
 end 'Relay'
 
 function start() returns Relay.handle
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	return spawn Relay.create()
 end 'start'
 
@@ -709,7 +694,6 @@ error E3197: <fragment>:16:2: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: ternary-joining-frozen-and-fresh-data-is-read-only -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pinned if flag else Box.create(0)` joins frozen data with a fresh mutable box, so the merge is read-only and the write through it is refused.
 
@@ -724,8 +708,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, flag bool)
+function edit(pinned frozen with Box, flag bool)
 	var e = pinned if flag else Box.create(0)
 	e.n = 5
 end 'edit'
@@ -741,7 +724,6 @@ error E3197: <fragment>:14:2: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: match-joining-frozen-and-fresh-data-is-read-only -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` giving frozen data in one arm and a fresh mutable box in another is read-only afterwards, and the write through its result is refused.
 
@@ -756,8 +738,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, k Tally)
+function edit(pinned frozen with Box, k Tally)
 	var e = match k 'pick'
 		0 gives pinned
 		default gives Box.create(0)
@@ -776,7 +757,7 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: ternary-joining-two-frozen-values-stays-immutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Both arms of the ternary are frozen, so the merge is frozen and the write through it is refused as a write through immutable data.
 
@@ -791,8 +772,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(first immutable Box, second immutable Box, flag bool)
+function edit(first frozen with Box, second frozen with Box, flag bool)
 	var e = first if flag else second
 	e.n = 5
 end 'edit'
@@ -809,7 +789,6 @@ error E3197: <fragment>:14:2: cannot write 'n' through 'e', which is immutable
 ```
 
 <!-- test: var-assigned-frozen-data-in-one-branch-is-read-only-after-the-merge -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `e` holds a fresh box and one branch assigns it frozen data, so after the merge `e` is read-only and the write through it is refused.
 
@@ -824,8 +803,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, flag bool)
+function edit(pinned frozen with Box, flag bool)
 	var e = Box.create(0)
 	if flag 'branch'
 		e = pinned
@@ -844,7 +822,6 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: var-reassigned-frozen-data-is-immutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `e = pinned` rebinds `e` to frozen data, so the write through it is refused.
 
@@ -859,8 +836,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box)
+function edit(pinned frozen with Box)
 	var e = Box.create(0)
 	e = pinned
 	e.n = 5
@@ -877,7 +853,6 @@ error E3197: <fragment>:15:2: cannot write 'n' through 'e', which is immutable
 ```
 
 <!-- test: ternary-joining-isolated-data-with-mutable-data-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `a` is isolated and `b` is mutable data of this region, so a ternary over them has no one capability.
@@ -893,8 +868,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pick(a isolated Box, flag bool) returns Tally
+function pick(consumes a Box, flag bool) returns Tally
 	let b = Box.create(2)
 	let c = a if flag else b
 	return c.n
@@ -912,7 +886,6 @@ error E3200: <fragment>:14:12: a join of an isolated value with data that is not
 ```
 
 <!-- test: ternary-joining-two-isolated-values-is-isolated -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Both arms are isolated, so the ternary is isolated and its count is read through a one-statement open.
 
@@ -927,8 +900,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pick(a isolated Box, b isolated Box, flag bool) returns Tally
+function pick(consumes a Box, consumes b Box, flag bool) returns Tally
 	let c = a if flag else b
 	return c.n
 end 'pick'
@@ -1141,7 +1113,6 @@ error E3102: <fragment>:21:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: loop-body-write-through-a-variable-the-back-edge-assigns-frozen-data -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The first trip writes through the fresh box, but `e = pinned` hands the next trip frozen data, so at the loop header `e` joins immutable and mutable data and the write through it is refused.
 
@@ -1156,8 +1127,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var e = Box.create(0)
 	var i = 0 as Tally
 	while i < rounds 'again'
@@ -1178,7 +1148,6 @@ error E3197: <fragment>:17:3: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: for-body-write-through-a-variable-the-back-edge-assigns-frozen-data -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal in a `for` loop: the counter advances through the step block, and the back edge still carries `e = pinned` to the header.
 
@@ -1193,8 +1162,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var e = Box.create(0)
 	for round in 0 upto rounds 'each'
 		e.n = round
@@ -1213,7 +1181,6 @@ error E3197: <fragment>:16:3: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: loop-write-through-a-field-path-of-a-variable-the-back-edge-assigns-frozen-data -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The write goes through `h.box`, a field read of the carried `h`, so it is judged against the header join of `h` and not the fresh holder the first trip sees.
 
@@ -1236,8 +1203,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Holder, rounds Tally)
+function edit(pinned frozen with Holder, rounds Tally)
 	var h = Holder.create(0)
 	var i = 0 as Tally
 	while i < rounds 'again'
@@ -1258,7 +1224,6 @@ error E3197: <fragment>:25:3: cannot write 'n' through 'h.box', which is read-on
 ```
 
 <!-- test: nested-loop-write-through-a-variable-the-outer-back-edge-assigns-frozen-data -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The inner loop assigns nothing, but the outer loop's back edge carries `e = pinned` to the outer header, which the inner header inherits.
 
@@ -1273,8 +1238,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var e = Box.create(0)
 	var i = 0 as Tally
 	while i < rounds 'outer'
@@ -1299,7 +1263,6 @@ error E3197: <fragment>:20:4: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: loop-body-merge-of-a-variable-the-back-edge-assigns-frozen-data -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `e` is replaced by a fresh box on the first trip only, so after the `if` it joins that box with the carried `e`, which the back edge makes read-only.
 
@@ -1314,8 +1277,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var e = Box.create(0)
 	var i = 0 as Tally
 	while i < rounds 'again'
@@ -1339,7 +1301,6 @@ error E3197: <fragment>:21:3: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `h.box = e` stores the carried `e` into a mutable field, and the next trip stores frozen data there, so the store is judged against the header join of `e`.
 
@@ -1362,8 +1323,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var e = Box.create(0)
 	var h = Holder.create(0)
 	var i = 0 as Tally
@@ -1385,7 +1345,6 @@ error E3196: <fragment>:26:11: cannot store a read-only 'Box' into 'box', as it 
 ```
 
 <!-- test: loop-call-of-a-writer-on-a-variable-the-back-edge-assigns-frozen-data -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `e.bump()` writes its receiver, and the next trip's receiver is the frozen box, so the call is refused.
 
@@ -1404,8 +1363,7 @@ type Box
 	end 'bump'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var e = Box.create(0)
 	var i = 0 as Tally
 	while i < rounds 'again'
@@ -1459,7 +1417,6 @@ end 'main'
 ```
 
 <!-- test: loop-read-of-a-variable-the-back-edge-assigns-frozen-data-runs -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 The body only reads `e` before `e = pinned` hands the next trip frozen data, which a read-only join allows.
 
 ```maxon
@@ -1473,8 +1430,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function total(pinned immutable Box, rounds Tally) returns Tally
+function total(pinned frozen with Box, rounds Tally) returns Tally
 	var e = Box.create(5)
 	var sum = 0 as Tally
 	var i = 0 as Tally
@@ -1500,7 +1456,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-to-an-isolated-parameter-is-moved -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `consume` declares `box` isolated, so the call takes the region from `a` and the read of `a` afterwards is a use of a moved value.
@@ -1516,8 +1471,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(box isolated Box) returns Tally
+function consume(consumes box Box) returns Tally
 	return box.n
 end 'consume'
 
@@ -1539,9 +1493,7 @@ error E3102: <fragment>:19:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-parameter-owns-its-region-and-drops-it-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The callee owns an `isolated` parameter and releases it exactly once: an isolated local, a fresh call result, a forwarded parameter and a returned parameter each reach one owner, so the program ends with no allocation held.
 
 ```maxon
@@ -1555,19 +1507,15 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(box isolated Box) returns Tally
+function consume(consumes box Box) returns Tally
 	return box.n
 end 'consume'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function forward(box isolated Box) returns Tally
+function forward(consumes box Box) returns Tally
 	return consume(box)
 end 'forward'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function identity(box isolated Box) returns isolated Box
+function identity(consumes box Box) returns Box
 	return box
 end 'identity'
 
@@ -1592,7 +1540,6 @@ end 'main'
 ```
 
 <!-- test: isolated-parameter-never-read-is-still-dropped-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A parameter named `_` is never read, yet the callee still owns the region it was handed and releases it, so nothing leaks.
 
@@ -1607,8 +1554,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function discard(_ isolated Box) returns Tally
+function discard(consumes _ Box) returns Tally
 	return 7
 end 'discard'
 
@@ -1628,7 +1574,6 @@ end 'main'
 
 <!-- test: mutable-isolated-parameter-leaves-the-callers-variable-usable -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `mutable isolated` parameter is by reference and is re-isolated after the call, so the caller keeps its region and reads it after both calls.
 
@@ -1643,8 +1588,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function bump(mutates box isolated Box)
+function bump(mutates box Box)
 	// TODO: modify blocks are not supported in minimaxon
 	modify box 'edit'
 		box.n = box.n + 10
@@ -1668,7 +1612,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-twice-in-one-call-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The first position takes the region out of `a`, so naming `a` again in the same call is a use of a moved value.
@@ -1684,8 +1627,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function both(first isolated Box, second isolated Box) returns Tally
+function both(consumes first Box, consumes second Box) returns Tally
 	return first.n + second.n
 end 'both'
 
@@ -1701,7 +1643,6 @@ error E3102: <fragment>:18:18: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-local-stored-by-a-factory-parameter-is-moved -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Holder.create` keeps its isolated parameter in a field, so the call takes the region from `a`.
@@ -1721,8 +1662,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var item as isolated Box
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(item isolated Box) returns Self
+	static function create(consumes item Box) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1745,7 +1685,6 @@ error E3102: <fragment>:27:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-local-stored-by-a-factory-parameter-runs -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The holder owns the region it was handed and releases it with the holder, once.
 
@@ -1764,8 +1703,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var item as isolated Box
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(item isolated Box) returns Self
+	static function create(consumes item Box) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1791,7 +1729,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-through-a-function-type-is-moved -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Take` declares its parameter isolated, so calling it with `a` takes the region from `a` whichever function it names.
@@ -1809,8 +1746,7 @@ end 'Box'
 
 typealias Take = function(Box) returns Tally
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(box isolated Box) returns Tally
+function consume(consumes box Box) returns Tally
 	return box.n
 end 'consume'
 
@@ -1832,7 +1768,6 @@ error E3102: <fragment>:21:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-argument-through-a-function-type-is-dropped-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Whichever declared function the function value names takes the isolated region it is called with, from a local and from a fresh call result alike, and releases it once.
 
@@ -1849,13 +1784,11 @@ end 'Box'
 
 typealias Take = function(Box) returns Tally
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(box isolated Box) returns Tally
+function consume(consumes box Box) returns Tally
 	return box.n
 end 'consume'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function bumped(box isolated Box) returns Tally
+function bumped(consumes box Box) returns Tally
 	return box.n + 1
 end 'bumped'
 
@@ -1878,7 +1811,6 @@ end 'main'
 ```
 
 <!-- test: let-of-an-isolated-parameter-moves-it -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` parameter is owned by the function, so `let b = a` hands its region to `b` and the read of `a` afterwards is a use of a moved value.
@@ -1894,8 +1826,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function moveOnly(a isolated Box) returns Tally
+function moveOnly(consumes a Box) returns Tally
 	let b = a
 	let reread = a.n
 	return b.n + reread
@@ -1913,7 +1844,6 @@ error E3102: <fragment>:14:15: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: freeze-of-an-isolated-parameter-moves-it -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `freeze a` consumes the parameter exactly as it consumes a local, so the read of `a` afterwards is a use of a moved value.
@@ -1929,8 +1859,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useParam(a isolated Box) returns Tally
+function useParam(consumes a Box) returns Tally
 	let frozen = freeze(a)
 	let reread = a.n
 	return frozen.n + reread
@@ -1948,7 +1877,6 @@ error E3102: <fragment>:14:15: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: ternary-over-two-isolated-parameters-consumes-the-false-arm -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Both parameters are owned isolated regions, so the ternary moves each of them into its result and the read of `b` afterwards is a use of a moved value.
@@ -1964,8 +1892,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pick(a isolated Box, b isolated Box, flag bool) returns Tally
+function pick(consumes a Box, consumes b Box, flag bool) returns Tally
 	let c = a if flag else b
 	let again = b.n
 	return c.n + again
@@ -1985,7 +1912,6 @@ error E3102: <fragment>:14:14: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: match-over-two-isolated-parameters-consumes-both -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` expression whose arms give isolated parameters moves each of them into the result, so the read of `a` afterwards is a use of a moved value.
@@ -2001,8 +1927,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pick(a isolated Box, b isolated Box, flag bool) returns Tally
+function pick(consumes a Box, consumes b Box, flag bool) returns Tally
 	let c = match flag 'which'
 		true gives a
 		default gives b
@@ -2025,7 +1950,6 @@ error E3102: <fragment>:18:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-parameter-moved-in-one-branch-is-live-in-its-sibling -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The branch that hands the parameter to `b` moves it and the other branch still reads it, so neither branch is refused and each releases the region once.
 
 ```maxon
@@ -2039,24 +1963,22 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function route(a isolated Box, flag bool) returns Tally
+function route(consumes a Box, flag bool) returns Tally
 	let seen = a.n
 	if flag 'moving'
 		let b = a
-		return b.n + seen
+		return try b.n + seen otherwise panic("out of range")
 	end 'moving'
-	return a.n + seen
+	return try a.n + seen otherwise panic("out of range")
 end 'route'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function settle(a isolated Box, flag bool) returns Tally
+function settle(consumes a Box, flag bool) returns Tally
 	var total = 0 as Tally
 	if flag 'moving'
 		let b = a
 		total = b.n
 	end 'moving' else 'keeping'
-		total = a.n + 100
+		total = try a.n + 100 otherwise panic("out of range")
 	end 'keeping'
 	return total
 end 'settle'
@@ -2211,7 +2133,6 @@ error E3200: <fragment>:25:7: 'fresh' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: loop-freeze-of-an-isolated-variable-the-back-edge-assigns-data -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `freeze e` needs an isolated region on every trip, but `e = fresh` assigns mutable data of this region to a variable that holds an isolated region, which is refused where it is assigned.
@@ -2227,8 +2148,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function read(box immutable Box) returns Tally
+function read(box frozen with Box) returns Tally
 	return box.n
 end 'read'
 
@@ -2407,7 +2327,6 @@ error E3102: <fragment>:15:10: use of moved value 'a': its ownership moved to th
 
 <!-- test: returned-isolated-local-runs-and-leaks-nothing -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 `return a` hands the region to the caller, which owns and releases it, and nothing in the callee releases it again.
 
 ```maxon
@@ -2421,8 +2340,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function make() returns isolated Box
+function make() returns Box
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(1) as isolated Box
 	return a
@@ -2442,7 +2360,6 @@ end 'main'
 ```
 
 <!-- test: returning-an-isolated-parameter-as-a-plain-result-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pass` declares no `isolated` result, so `return box` would hand a closed region to the caller as ordinary mutable data; it is merged where it is returned.
@@ -2458,8 +2375,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pass(box isolated Box) returns Box
+function pass(consumes box Box) returns Box
 	return box
 end 'pass'
 
@@ -2511,7 +2427,6 @@ error E3209: <fragment>:14:9: a return does not fit the declared result: 'a' is 
 
 <!-- test: returning-a-merged-isolated-parameter-as-a-plain-result-runs -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `return merge box` moves the region into the caller's, where the result is ordinary mutable data.
 
@@ -2526,8 +2441,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pass(box isolated Box) returns Box
+function pass(consumes box Box) returns Box
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	return merge box
 end 'pass'
@@ -2549,7 +2463,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-through-an-interface-requirement-is-moved -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Sink.take` declares its parameter isolated, so a call through the requirement takes the region from `a` whichever conformer is behind it.
@@ -2566,8 +2479,7 @@ type Box
 end 'Box'
 
 interface Sink
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(mutates self, box isolated Box)
+	function take(mutates self, consumes box Box)
 end 'Sink'
 
 type Counter implements Sink
@@ -2577,8 +2489,7 @@ type Counter implements Sink
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(box isolated Box)
+	function take(consumes box Box)
 		let added = box.n
 		self.total = self.total + added
 	end 'take'
@@ -2615,7 +2526,6 @@ error E3102: <fragment>:43:10: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-argument-through-an-interface-requirement-is-dropped-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A conformer takes the isolated region it is called with, from a local and from a fresh call result alike, whether the call names the interface-typed parameter or a stored interface value, and releases it once.
 
@@ -2631,8 +2541,7 @@ type Box
 end 'Box'
 
 interface Sink
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(mutates self, box isolated Box)
+	function take(mutates self, consumes box Box)
 end 'Sink'
 
 type Counter implements Sink
@@ -2642,8 +2551,7 @@ type Counter implements Sink
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(box isolated Box)
+	function take(consumes box Box)
 		let added = box.n
 		self.total = self.total + added
 	end 'take'
@@ -2692,7 +2600,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-to-an-async-call-is-moved -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `work` declares its parameter isolated, so spawning it with `a` takes the region from `a` and the read of `a` afterwards is a use of a moved value.
@@ -2708,8 +2615,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function work(box isolated Box) returns Tally
+function work(consumes box Box) returns Tally
 	sleep(1)
 	return box.n
 end 'work'
@@ -2729,7 +2635,6 @@ error E3102: <fragment>:20:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-argument-of-an-async-call-is-dropped-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The spawned coroutine owns the isolated region it was handed, from a local and from a fresh call result alike, and releases it once when it finishes.
 
@@ -2744,8 +2649,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function work(box isolated Box) returns Tally
+function work(consumes box Box) returns Tally
 	sleep(1)
 	return box.n
 end 'work'
@@ -2769,7 +2673,6 @@ end 'main'
 ```
 
 <!-- test: isolated-parameter-of-a-throwing-callee-is-dropped-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The callee owns the isolated region it was handed whether it returns or throws, so both calls end with no allocation held.
 
@@ -2788,8 +2691,7 @@ enum LimitError implements Error
 	exceeded
 end 'LimitError'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function check(box isolated Box, limit Tally) returns Tally throws LimitError
+function check(consumes box Box, limit Tally) returns Tally throws LimitError
 	if box.n > limit 'tooBig'
 		throw LimitError.exceeded
 	end 'tooBig'
@@ -2815,7 +2717,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-made-in-each-loop-trip-is-moved-and-dropped-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Each trip makes its own isolated region and hands it to `consume`, which releases it, so the loop ends with no allocation held.
 
@@ -2830,8 +2731,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(box isolated Box) returns Tally
+function consume(consumes box Box) returns Tally
 	return box.n
 end 'consume'
 
@@ -2854,7 +2754,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture-of-an-isolated-parameter-moves-it -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure owns the region it captures from the parameter, so the read of `a` afterwards is a use of a moved value.
@@ -2870,8 +2769,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function capture(a isolated Box) returns Tally
+function capture(consumes a Box) returns Tally
 	let f = function() gives a.n
 	let k = a.n
 	return f() + k
@@ -2890,7 +2788,6 @@ error E3102: <fragment>:14:10: use of moved value 'a': its ownership moved to th
 
 <!-- test: mutable-isolated-requirement-parameter-leaves-the-callers-variable-usable -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `Sink.grow` declares its parameter `mutable isolated`, so a call through the requirement borrows the caller's region exactly as a call to a function does, and the caller reads it afterwards.
 
@@ -2906,8 +2803,7 @@ type Box
 end 'Box'
 
 interface Sink
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function grow(mutates self, mutates box isolated Box)
+	function grow(mutates self, mutates box Box)
 end 'Sink'
 
 type Counter implements Sink
@@ -2917,8 +2813,7 @@ type Counter implements Sink
 		return Self{calls: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function grow(mutates box isolated Box)
+	function grow(mutates box Box)
 		self.calls = self.calls + 1
 		// TODO: modify blocks are not supported in minimaxon
 		modify box 'edit'
@@ -2953,9 +2848,7 @@ end 'main'
 ```
 
 <!-- test: isolated-argument-of-a-message-is-moved-and-dropped-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message handler takes its `isolated` parameter, so the sender gives up the region it sends and the service releases it once.
 
 ```maxon
@@ -2976,8 +2869,7 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(box isolated Box)
+	export function take(consumes box Box)
 		let added = box.n
 		self.total = self.total + added
 	end 'take'
@@ -2988,7 +2880,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(3) as isolated Box
@@ -3007,9 +2898,7 @@ end 'main'
 ```
 
 <!-- test: isolated-local-sent-in-a-message-is-moved -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The handler's `isolated` parameter takes the region out of `a`, so reading `a` after the send is a use of a moved value.
 
@@ -3031,15 +2920,13 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(box isolated Box)
+	export function take(consumes box Box)
 		let added = box.n
 		self.total = self.total + added
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(3) as isolated Box
@@ -3074,8 +2961,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function bump(mutates box isolated Box)
+function bump(mutates box Box)
 	// TODO: modify blocks are not supported in minimaxon
 	modify box 'edit'
 		box.n = box.n + 10
@@ -3103,7 +2989,6 @@ end 'main'
 ```
 
 <!-- test: frozen-local-handed-to-a-factory-parameter-that-stores-it-runs -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `Holder.build` declares `item` `immutable` and keeps it in a frozen field. The factory takes its own reference to what it keeps, and that reference is the frozen data `pinned` names, so a frozen local is accepted.
 
@@ -3122,8 +3007,7 @@ type Holder
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	export var held as immutable Box
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function build(item immutable Box) returns Self
+	static function build(item frozen with Box) returns Self
 		return Self{held: item}
 	end 'build'
 end 'Holder'
@@ -3143,7 +3027,6 @@ end 'main'
 ```
 
 <!-- test: immutable-parameter-stored-into-a-mutable-field-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `create` declares `held` `immutable`, but the field is an ordinary mutable `Box`, so storing it would let `h.held.n = 7` write the frozen record `pinned` names.
 
@@ -3161,8 +3044,7 @@ end 'Box'
 type Holder
 	export var held as Box
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(held immutable Box) returns Self
+	static function create(held frozen with Box) returns Self
 		return Self{held: held}
 	end 'create'
 end 'Holder'
@@ -3643,7 +3525,6 @@ error E3207: <fragment>:23:15: 'wrap' writes 'item' (line 18: `return Slot.fille
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-mutable-array -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `items.push(e)` stores the carried `e` into a mutable-element array, and the next trip stores frozen data there, so the store is judged against the header join of `e`.
 
@@ -3660,8 +3541,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var items = Boxes.create(0)
 	var e = Box.create(0)
 	var i = 0 as Tally
@@ -3683,7 +3563,6 @@ error E3196: <fragment>:19:14: cannot store a read-only 'Box' into 'an element o
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-struct-literal -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Self{box: e}` stores the carried `e` into a mutable field, and the next trip stores frozen data there.
 
@@ -3701,8 +3580,7 @@ end 'Box'
 type Holder
 	export var box as Box
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function build(pinned immutable Box, rounds Tally) returns Self
+	static function build(pinned frozen with Box, rounds Tally) returns Self
 		var e = Box.create(0)
 		var h = Self{box: e}
 		var i = 0 as Tally
@@ -3727,7 +3605,6 @@ error E3196: <fragment>:21:18: cannot store a read-only 'Box' into 'Holder.box',
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-tuple-literal -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The tuple `(e, Box.create(1))` types its first item from the first trip's `e`, and the next trip's frozen `e` would sit in a mutable item.
 
@@ -3742,8 +3619,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var e = Box.create(0)
 	var pair = (e, Box.create(1))
 	var i = 0 as Tally
@@ -3766,7 +3642,6 @@ error E3196: <fragment>:18:11: cannot store a read-only 'Box' into 'an item of t
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-map-literal -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `["k": e]` stores the carried `e` as a map value, and the next trip stores frozen data there.
 
@@ -3781,8 +3656,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var e = Box.create(0)
 	var m = ["k": e]
 	var i = 0 as Tally
@@ -3806,7 +3680,6 @@ error E3196: <fragment>:18:13: cannot store a read-only 'Box' into 'a value of t
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-declared-generic -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `stack.push(e)` is a store into the `T` slot of a mutable instance, and the next trip pushes frozen data.
 
@@ -3840,8 +3713,7 @@ end 'Stack'
 
 typealias BoxStack = Stack with Box
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally)
+function edit(pinned frozen with Box, rounds Tally)
 	var stack = BoxStack.create()
 	var e = Box.create(0)
 	var i = 0 as Tally
@@ -4732,7 +4604,6 @@ error E3207: <fragment>:33:13: 'edit' writes 'y' (it calls 'grow', which writes 
 ```
 
 <!-- test: a-mixed-join-joined-with-immutable-data-is-read -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 `own` is `p` or a fresh box, and `choose` hands back either `own` or its `immutable` parameter `fixed`, so the result is only ever read.
 
 ```maxon
@@ -4746,8 +4617,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function choose(p Box, fixed immutable Box, flag bool) returns Box
+function choose(p Box, fixed frozen with Box, flag bool) returns Box
 	let own = p if flag else Box.create(1)
 	return own if flag else fixed
 end 'choose'
@@ -4767,7 +4637,6 @@ end 'main'
 ```
 
 <!-- test: a-mixed-join-joined-with-immutable-data-is-not-written-through -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The result of `choose` may be `fixed`, so a mutable `p` does not make it writable: a result whose paths mix mutable and `immutable` data is read-only for the caller.
 
@@ -4782,8 +4651,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function choose(p Box, fixed immutable Box, flag bool) returns Box
+function choose(p Box, fixed frozen with Box, flag bool) returns Box
 	let own = p if flag else Box.create(1)
 	return own if flag else fixed
 end 'choose'
@@ -4801,7 +4669,6 @@ error E3197: <fragment>:22:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: a-mixed-join-joined-with-immutable-data-is-read-only-for-frozen-arguments -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 Given frozen arguments the result of `choose` may be either frozen box, so writing through it is refused.
 
@@ -4816,8 +4683,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function choose(p Box, fixed immutable Box, flag bool) returns Box
+function choose(p Box, fixed frozen with Box, flag bool) returns Box
 	let own = p if flag else Box.create(1)
 	return own if flag else fixed
 end 'choose'

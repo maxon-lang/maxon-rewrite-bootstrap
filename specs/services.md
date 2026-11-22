@@ -145,7 +145,6 @@ the backend and PANICS the compiler, where the same substrate reached by `sleep`
 ## Tests
 
 <!-- test: companions-resolve-as-types -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `spawn` makes the type a service, and both synthesized companions are then nameable TYPES — in a
 signature written by a function that spawns nothing.
 
@@ -191,7 +190,6 @@ end 'describe'
 
 function main() returns ExitCode
 	_ = describe
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	return serve(h) as ExitCode
 end 'main'
@@ -203,7 +201,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: companions-come-from-a-spawn-in-another-file -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ Whether a type is a service is a WHOLE-PROGRAM property. The file that declares `Calc` and names
 `Calc.handle` writes no `spawn` at all; the file that spawns declares nothing. The companions exist
 because the two are compiled together — the `Unknown type` a per-file decision would report is what this
@@ -221,8 +218,8 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	function bump(by Integer)
-		self.count = self.count + by
+	function bump(mutates self, by Integer)
+		self.count = try self.count + by otherwise panic("out of range")
 	end 'bump'
 end 'Calc'
 
@@ -233,9 +230,8 @@ end 'serve'
 typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	return serve(h) as ExitCode
+	return try serve(h) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -243,7 +239,6 @@ end 'main'
 ```
 
 <!-- test: a-spawn-inside-a-method-body-is-found -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ The walk that decides which types are services reads EVERY token of every file, and this is the case
 that says why it cannot ride the declaration sweep: that sweep consumes a `type` declaration whole and
 resumes past its `end`, so a `spawn` in a METHOD BODY would be invisible to an arm written inside it. The
@@ -266,8 +261,8 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	function bump(by Integer)
-		self.count = self.count + by
+	function bump(mutates self, by Integer)
+		self.count = try self.count + by otherwise panic("out of range")
 	end 'bump'
 end 'Calc'
 
@@ -285,14 +280,13 @@ type Runner
 	end 'create'
 
 	function start() returns Integer
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Calc.create()
 		return serve(h)
 	end 'start'
 end 'Runner'
 
 function main() returns ExitCode
-	return Runner.create().start() as ExitCode
+	return try Runner.create().start() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -300,7 +294,6 @@ end 'main'
 ```
 
 <!-- test: a-spawn-of-a-type-in-another-directory-by-its-qualified-name -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Calc` is declared in `sub/`, so `main` names it `sub.Calc`, the spelling a direct call and an `async` accept,
 and the spawn starts that type as a service.
 ```maxon
@@ -320,10 +313,9 @@ end 'Calc'
 export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn sub.Calc.create()
 	let total = try await h.total() otherwise 0
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -331,7 +323,6 @@ end 'main'
 ```
 
 <!-- test: a-spawn-of-a-nested-directory-type-by-its-qualified-name -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Calc` is declared two directories down, in `outer/inner/`, so `main` names it `outer.inner.Calc`, and the
 spawn starts that type as a service exactly as it does for a one-segment qualifier.
 ```maxon
@@ -351,7 +342,6 @@ end 'Calc'
 export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn outer.inner.Calc.create()
 	let total = try await h.total() otherwise 0
 	return total as ExitCode
@@ -399,7 +389,6 @@ export typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-spawn-reaches-a-service-in-a-directory-named-like-a-type -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `sub/` declares a type `Calc`, and `sub/Calc/` is a directory of its own holding the service `Inner`.
 `Calc` declares no member `Inner`, so `sub.Calc.Inner` is the directory chain and the spawn starts
 `Inner`, while `sub.Calc.make()` still names the type (8 + 1).
@@ -428,7 +417,6 @@ export type Inner
 end 'Inner'
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn sub.Calc.Inner.create()
 	let total = try await h.total() otherwise 0
 	return (total + sub.Calc.make().v) as ExitCode
@@ -439,7 +427,6 @@ end 'main'
 ```
 
 <!-- test: error.spawn-of-a-bare-function-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⚖ There is no unstructured green thread in this language. `spawn work()` names no type, so it starts no
 service, and the refusal teaches the one form rather than reporting a syntax error.
@@ -449,7 +436,6 @@ function work() returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn work()
 	return 0
 end 'main'
@@ -461,12 +447,9 @@ error E3134: <fragment>:7:10: `spawn work…` does not start a service: `spawn` 
 ```
 
 <!-- test: error.spawn-of-an-undeclared-type-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 Nothing declares `type Calc`, so there is no type to be a service.
 ```maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	return 0
 end 'main'
@@ -476,8 +459,6 @@ error E3134: <fragment>:3:10: `spawn Calc.create(…)` does not start a service:
 ```
 
 <!-- test: error.a-spawn-whose-head-is-a-binding-is-refused-as-a-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A chain whose head is a binding in scope is a value expression, so `spawn sub.Calc.create()` names no
 type even though a directory `sub` declares one: the refusal names the value, and no service is
 started for the directory's `Calc`.
@@ -499,7 +480,6 @@ export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
 	let sub = "a value"
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn sub.Calc.create()
 	return 0
 end 'main'
@@ -509,12 +489,9 @@ error E3134: <fragment>:19:10: `spawn sub.Calc.create(…)` does not start a ser
 ```
 
 <!-- test: error.spawn-of-a-chain-naming-no-type-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 Nothing declares `foo`, so the qualified chain `foo.bar` names no type to be a service.
 ```maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn foo.bar.baz()
 	return 0
 end 'main'
@@ -589,7 +566,6 @@ error E3134: <fragment>:22:19: `spawn sub.Calc.create(…)` does not start a ser
 ```
 
 <!-- test: error.spawn-of-an-instance-method-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `bump` is a message, not a factory. A `spawn` calls its factory DIRECTLY — there is no service yet for a
 message to reach — so the target must be a `static`.
@@ -607,7 +583,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.bump()
 	return 0
 end 'main'
@@ -619,7 +594,6 @@ error E3134: <fragment>:15:10: `spawn Calc.bump(…)` does not start a service: 
 ```
 
 <!-- test: error.spawn-of-a-static-that-returns-something-else-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A static that does not hand back the type has produced no state for the message loop to own.
 ```maxon
@@ -640,7 +614,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.version()
 	return 0
 end 'main'
@@ -652,7 +625,6 @@ error E3134: <fragment>:19:10: `spawn Calc.version(…)` does not start a servic
 ```
 
 <!-- test: error.spawn-self-dot-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The whole-program walk that decides which types are services reads tokens with no type scope, so `Self`
 resolves to nothing there. It is refused in its own words rather than dying as an unexpected token.
@@ -665,7 +637,6 @@ type Calc
 	end 'create'
 
 	static function start() returns Integer
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Self.create()
 		return 0
 	end 'start'
@@ -682,7 +653,6 @@ error E2015: <fragment>:10:11: Unsupported: `spawn Self.…` — the whole-progr
 ```
 
 <!-- test: error.message-param-promise-not-transferable -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send MOVES its arguments to another green thread, and a `Promise` is a handle its awaiter owns. The
 diagnostic fires at the `spawn`, because that is what made `Calc` a service.
@@ -702,7 +672,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	return 0
 end 'main'
@@ -714,7 +683,6 @@ error E3217: <fragment>:17:10: parameter `p` of the message `Calc.hold` is a Pro
 ```
 
 <!-- test: error.message-param-function-value-not-transferable -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A function value is a reference-counted closure record that every copy of it shares, so a message
 parameter of a function type is refused.
@@ -734,7 +702,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	return 0
 end 'main'
@@ -746,8 +713,6 @@ error E3217: <fragment>:17:10: parameter `op` of the message `Calc.apply` is a f
 ```
 
 <!-- test: error.message-param-array-of-promises-not-transferable -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A promise belongs to the strand that started its coroutine, so no type that can hold one crosses to a service: an
 array of promises is refused as a message parameter, however many it holds.
@@ -770,14 +735,12 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(ps isolated PromiseArray)
+	export function take(consumes ps PromiseArray)
 		self.n = self.n + (1 if ps.isEmpty() else 2)
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	var ps = PromiseArray.create(0)
 	ps.push(async forever())
@@ -791,8 +754,6 @@ error E3217: <fragment>:24:10: parameter `ps` of the message `Sink.take` is a `P
 ```
 
 <!-- test: error.message-param-empty-array-of-promises-not-transferable -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The type decides, not the value: the same message is refused when the array sent is empty.
 ```maxon
@@ -809,14 +770,12 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(ps isolated PromiseArray)
+	export function take(consumes ps PromiseArray)
 		self.n = self.n + (1 if ps.isEmpty() else 2)
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	let ps = PromiseArray.create(0)
 	try h.take(ps) otherwise panic("an open mailbox with room takes the send")
@@ -829,8 +788,6 @@ error E3217: <fragment>:19:10: parameter `ps` of the message `Sink.take` is a `P
 ```
 
 <!-- test: error.message-param-union-carrying-a-promise-not-transferable -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A union that has a case carrying a promise is refused as a message parameter even when the value sent is the
 case that carries none.
@@ -851,8 +808,7 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(s isolated Slot)
+	export function take(consumes s Slot)
 		match s 'slot'
 			idle then self.n = self.n + 1
 			held then self.n = self.n + 2
@@ -861,7 +817,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	try h.take(Slot.idle) otherwise panic("an open mailbox with room takes the send")
 	h.shutdown()
@@ -873,8 +828,6 @@ error E3217: <fragment>:26:10: parameter `s` of the message `Sink.take` is a `Sl
 ```
 
 <!-- test: error.message-reply-record-holding-a-promise-not-transferable -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply is handed to the strand that awaits it, so a reply whose type holds a promise is refused as a parameter is.
 ```maxon
@@ -902,14 +855,12 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function make() returns isolated Holder
+	export function make() returns Holder
 		return Holder.create()
 	end 'make'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	h.shutdown()
 	return 0
@@ -920,7 +871,6 @@ error E3217: <fragment>:31:10: the message `Sink.make` returns a `Holder` that c
 ```
 
 <!-- test: error.spawn-factory-argument-promise-not-transferable -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `spawn`'s factory runs on the service's strand, so a promise handed to it would cross to a strand that does not
 own its coroutine.
@@ -948,7 +898,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create(async forever())
 	h.shutdown()
 	return 0
@@ -959,8 +908,6 @@ error E3217: <fragment>:24:10: parameter `p` of the factory `Sink.create` is a `
 ```
 
 <!-- test: error.spawn-factory-argument-record-holding-a-promise-not-transferable -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A record that holds a promise is refused as a factory argument as the promise itself is.
 ```maxon
@@ -984,8 +931,7 @@ end 'Holder'
 type Sink
 	var n as Integer
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(h isolated Holder) returns Self
+	static function create(consumes h Holder) returns Self
 		let done = h.held.isComplete()
 		return Self{n: 1 if done else 0}
 	end 'create'
@@ -996,7 +942,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create(Holder.create())
 	h.shutdown()
 	return 0
@@ -1007,8 +952,6 @@ error E3217: <fragment>:32:10: parameter `h` of the factory `Sink.create` is a `
 ```
 
 <!-- test: services.a-message-may-carry-a-value-at-an-interface-type -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A value held at an interface type crosses a message whole: its witness names the conformer's own ownership
 walk and release, so the service becomes the one owner of the conformer and dispatches through it.
 ```maxon
@@ -1035,8 +978,7 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function measure(s isolated Shape)
+	export function measure(consumes s Shape)
 		self.count = self.count + s.area()
 	end 'measure'
 
@@ -1046,7 +988,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	try h.measure(Square.create(3)) otherwise panic("an open mailbox with room takes the send")
 	try h.measure(Square.create(2)) otherwise panic("an open mailbox with room takes the send")
@@ -1063,8 +1004,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.message-param-type-parameter-not-transferable -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A generic service is spawnable, and a message PARAMETER typed at the type parameter is still refused: a send
 MOVES its argument, and the send site cannot know from an opaque `T` whether what it is moving is managed at
 all. The RETURN road is the asymmetry that makes this a rule rather than a gap — `peek() returns T` is legal
@@ -1083,7 +1022,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(1)
 	return 0
 end 'main'
@@ -1093,7 +1031,6 @@ error E3217: <fragment>:15:10: parameter `x` of the message `Box.put` is an opaq
 ```
 
 <!-- test: error.a-constrained-generic-service-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A CONSTRAINED generic service is refused, and the refusal is a mechanism rather than caution: an instance method of a constrained generic takes one hidden witness pointer per constraint,
 and `Box.__behave` is synthesized with no `self` to source one from. Compare
@@ -1128,7 +1065,6 @@ type Coin
 end 'Coin'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(Coin.create(3))
 	return 0
 end 'main'
@@ -1140,7 +1076,6 @@ error E2015: <fragment>:31:10: Unsupported: `spawn Box.create(…)` — `type Bo
 ```
 
 <!-- test: error.a-generic-factory-that-fixes-no-type-argument-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `spawn` names its type outright and cannot spell a type argument — the discovery walk reads raw tokens — so
 the instantiation is read off the FACTORY'S OWN ARGUMENTS. A factory taking none fixes nothing, and there is
@@ -1159,7 +1094,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create()
 	return 0
 end 'main'
@@ -1171,7 +1105,6 @@ error E2015: <fragment>:15:10: Unsupported: `spawn Box.create(…)` fixes nothin
 ```
 
 <!-- test: error.a-spawn-inside-a-generic-body-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same rule one level out: a `spawn` inside another generic's body fixes the service's type arguments to
 the ENCLOSING declaration's type parameters, which name no layout. `Box.__behave` is synthesized per
@@ -1197,7 +1130,6 @@ type Outer uses U
 	end 'create'
 
 	function go() returns Whole
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Box.create(self.seed)
 		return 0
 	end 'go'
@@ -1215,7 +1147,6 @@ error E2015: <fragment>:22:11: Unsupported: `spawn Box.create(…)` fixes `type 
 ```
 
 <!-- test: a-private-method-is-not-a-message -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Only `export`/`public` INSTANCE methods are messages. `record` is unmarked and `version` is a static,
 so neither is subject to the transferability rule — a `Promise` parameter on either is perfectly legal on
 a type that is spawned, which is what this case pins. Compare
@@ -1240,13 +1171,12 @@ type Calc
 		return 1
 	end 'record'
 
-	export function bump(by Integer)
-		self.count = self.count + by
+	export function bump(mutates self, by Integer)
+		self.count = try self.count + by otherwise panic("out of range")
 	end 'bump'
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	spawn Calc.create()
 	return 0
 end 'main'
@@ -1258,7 +1188,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-factory-may-be-spelled-with-a-keyword -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ A keyword may be a DECLARED NAME, and `FilePath.from` in `stdlib/FilePath.maxon` proves the shape is live corpus:
 `public static function from(path String) returns FilePath`. So `spawn Reader.from(3)` must be recognized
 as a spawn — both halves of `<Type>.<factory>` go through the same name reader every other declaration
@@ -1281,7 +1210,6 @@ type Reader
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	spawn Reader.from(3)
 	return 0
 end 'main'
@@ -1293,7 +1221,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: spawn-is-not-a-keyword -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ `spawn` is a CONTEXTUAL keyword and must stay an ordinary identifier everywhere else: a declared
 static named `spawn`, a call to it, a parameter, a local, and a field all keep their meaning. Two live
 declarations in this tree depend on it (`specs/associated-types.md` declares
@@ -1301,7 +1228,6 @@ declarations in this tree depend on it (`specs/associated-types.md` declares
 `TokenKind` would have retokenized both.
 ```maxon
 type Job
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var spawn as Integer
 
 	static function create(n Integer) returns Self
@@ -1320,13 +1246,13 @@ type Launcher
 end 'Launcher'
 
 function run(spawn Integer) returns Integer
-	return spawn + 1
+	return try spawn + 1 otherwise panic("out of range")
 end 'run'
 
 function main() returns ExitCode
 	let j = Launcher.spawn(3)
 	let spawn = 4
-	return (j.tally() + run(spawn) + spawn) as ExitCode
+	return try (j.tally() + run(spawn) + spawn) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1336,7 +1262,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-send-error-is-declared-and-nameable -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message's send error is a declared type with a name an author can write: `Store.ping.sendError` in a
 `throws` clause, and its cases in a `match`. The mailbox runtime produces it — here a send after `shutdown()`
 — and `ping` takes no parameters, so `mailboxFull` and `serviceStopped` carry nothing.
@@ -1358,7 +1283,6 @@ function poke(h Store.handle) throws Store.ping.sendError
 end 'poke'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	h.shutdown()
 	try poke(h) otherwise (e) 'failed'
@@ -1377,7 +1301,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-service-whose-state-is-one-small-immutable-field-shuts-down-cleanly -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service whose whole state is one small immutable field answers and then shuts down cleanly.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1395,7 +1318,6 @@ type A
 end 'A'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn A.create()
 	let v = try await h.ping() otherwise 0
 	print("{v}\n")
@@ -1410,7 +1332,6 @@ end 'main'
 ```
 
 <!-- test: spawn-send-and-the-service-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ The first case in this file that starts a real green thread. `spawn` hands back a `Counter.handle`; a call
 on that handle is a MESSAGE, enqueued and returned from at once; the service's own green thread runs the
 handler. Dropping the handle at the end of `main` closes the mailbox, the loop's `recv` answers 0 and the
@@ -1428,8 +1349,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	export function tick()
-		self.n = self.n + 1
+	export function tick(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'tick'
 
 	export function report()
@@ -1438,7 +1359,6 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
 	try h.tick() otherwise panic("an open mailbox with room takes the send")
 	try h.tick() otherwise panic("an open mailbox with room takes the send")
@@ -1456,7 +1376,6 @@ n=2
 ```
 
 <!-- test: messages-are-serialized-in-fifo-order -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Handlers run one at a time, in send order — so three digits pushed in order read back as one number.
 ```maxon
 type Log
@@ -1466,8 +1385,8 @@ type Log
 		return Self{acc: 0}
 	end 'create'
 
-	export function push(d Integer)
-		self.acc = self.acc * 10 + d
+	export function push(mutates self, d Integer)
+		self.acc = try self.acc * 10 + d otherwise panic("out of range")
 	end 'push'
 
 	export function read()
@@ -1476,7 +1395,6 @@ type Log
 end 'Log'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Log.create()
 	try h.push(1) otherwise panic("an open mailbox with room takes the send")
 	try h.push(2) otherwise panic("an open mailbox with room takes the send")
@@ -1495,7 +1413,6 @@ acc=123
 ```
 
 <!-- test: a-long-backlog-of-string-messages-keeps-fifo-order -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐ **A BACKLOG LONGER THAN ONE TURN'S BATCH, EVERY MESSAGE CARRYING A HEAP `String`.** At one processor with preemption off the
@@ -1519,14 +1436,14 @@ type FifoTape
 		return Self{seen: 0, misplaced: 0, trail: ""}
 	end 'create'
 
-	export function note(s String)
+	export function note(mutates self, s String)
 		if s != "m{self.seen}" 'outOfPlace'
-			self.misplaced = self.misplaced + 1
+			self.misplaced = try self.misplaced + 1 otherwise panic("out of range")
 		end 'outOfPlace'
 		if self.seen < edge or self.seen >= backlog - edge 'atAnEdge'
 			self.trail.append(" {s}")
 		end 'atAnEdge'
-		self.seen = self.seen + 1
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 	end 'note'
 
 	export function report() returns String
@@ -1535,7 +1452,6 @@ type FifoTape
 end 'FifoTape'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn FifoTape.create()
 	for i in 0 upto backlog 'fill'
 		try h.note("m{i}") otherwise panic("an open mailbox with room takes the send")
@@ -1555,7 +1471,6 @@ seen=100 misplaced=0 m0 m1 m2 m97 m98 m99
 ```
 
 <!-- test: the-first-message-to-a-service-that-has-never-run-and-the-queue-behind-it-keep-fifo-order -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐ **THE FIRST MESSAGE TO A SERVICE THAT HAS NEVER RUN, AND EVERY MESSAGE BEHIND IT.** At one processor with preemption off
@@ -1580,14 +1495,14 @@ type InboxTape
 		return Self{seen: 0, misplaced: 0, trail: ""}
 	end 'create'
 
-	export function note(s String)
+	export function note(mutates self, s String)
 		if s != "m{self.seen}" 'outOfPlace'
-			self.misplaced = self.misplaced + 1
+			self.misplaced = try self.misplaced + 1 otherwise panic("out of range")
 		end 'outOfPlace'
 		if self.seen < edge or self.seen >= backlog - edge 'atAnEdge'
 			self.trail.append(" {s}")
 		end 'atAnEdge'
-		self.seen = self.seen + 1
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 	end 'note'
 
 	export function report() returns String
@@ -1596,7 +1511,6 @@ type InboxTape
 end 'InboxTape'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn InboxTape.create()
 	for i in 0 upto backlog 'fill'
 		try h.note("m{i}") otherwise panic("an open mailbox with room takes the send")
@@ -1616,7 +1530,6 @@ seen=19 misplaced=0 m0 m1 m17 m18
 ```
 
 <!-- test: a-send-to-a-shut-down-service-hands-every-argument-back -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **A BACKLOG SENT AFTER `shutdown()`, EVERY MESSAGE CARRYING A HEAP `String`.** `shutdown()` closes the
 mailbox, so each of 100 `keep` sends is refused with `serviceStopped` and hands its `String` back, in send
 order: the handler never runs, no `kept` line prints, and `misplaced` counts any returned `String` that is not
@@ -1656,7 +1569,6 @@ function countMisplaced(s String, index Tally) returns Tally
 end 'countMisplaced'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Backlog.create()
 	h.shutdown()
 	var refused = 0 as Tally
@@ -1693,7 +1605,6 @@ refused=100 misplaced=0 valueRefused=4
 ```
 
 <!-- test: a-queue-refilled-after-it-drained-keeps-fifo-order -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐ **A QUEUE THAT DRAINED COMPLETELY AND FILLS AGAIN KEEPS SEND ORDER.** At one processor with preemption off the service runs
@@ -1717,11 +1628,11 @@ type WrapTape
 		return Self{seen: 0, misplaced: 0}
 	end 'create'
 
-	export function note(s String)
+	export function note(mutates self, s String)
 		if s != "m{self.seen}" 'outOfPlace'
-			self.misplaced = self.misplaced + 1
+			self.misplaced = try self.misplaced + 1 otherwise panic("out of range")
 		end 'outOfPlace'
-		self.seen = self.seen + 1
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 	end 'note'
 
 	export function sync() returns Tally
@@ -1734,7 +1645,6 @@ type WrapTape
 end 'WrapTape'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn WrapTape.create()
 	var next = 0 as Tally
 	for _ in 0 upto firstBatch 'first'
@@ -1765,7 +1675,6 @@ seen=24 misplaced=0
 ```
 
 <!-- test: a-long-queue-refilled-after-it-drained-keeps-fifo-order -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐ **A LONG QUEUE THAT DRAINED COMPLETELY AND FILLS AGAIN KEEPS SEND ORDER.** At one processor with preemption off the service
@@ -1786,11 +1695,11 @@ type ShrinkTape
 		return Self{seen: 0, misplaced: 0}
 	end 'create'
 
-	export function note(s String)
+	export function note(mutates self, s String)
 		if s != "m{self.seen}" 'outOfPlace'
-			self.misplaced = self.misplaced + 1
+			self.misplaced = try self.misplaced + 1 otherwise panic("out of range")
 		end 'outOfPlace'
-		self.seen = self.seen + 1
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 	end 'note'
 
 	export function sync() returns Tally
@@ -1803,7 +1712,6 @@ type ShrinkTape
 end 'ShrinkTape'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn ShrinkTape.create()
 	var next = 0 as Tally
 	for _ in 0 upto burst 'grow'
@@ -1834,7 +1742,6 @@ seen=80 misplaced=0
 ```
 
 <!-- test: two-instances-are-independent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Two spawns of one type are two services with two states.
 
 ⚠ **THE ORDER OF THE TWO PRINTS IS FORCED BY CAUSALITY AND NOT BY LUCK.** `b` prints its own count and then
@@ -1851,8 +1758,8 @@ type Counter
 		return Self{id: id, n: 0}
 	end 'create'
 
-	export function tick()
-		self.n = self.n + 1
+	export function tick(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'tick'
 
 	export function report()
@@ -1866,9 +1773,7 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Counter.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Counter.create(2)
 	try a.tick() otherwise panic("an open mailbox with room takes the send")
 	try a.tick() otherwise panic("an open mailbox with room takes the send")
@@ -1888,7 +1793,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: the-same-type-is-used-directly-and-spawned -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ The location-transparency property, and the test a dedicated `service` declaration would have made
 impossible: one type, one method, reached both ways in one program. The direct calls run before the `spawn`
 exists, so the two lines are ordered by the program rather than by the scheduler.
@@ -1900,8 +1804,8 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	export function bump(by Integer)
-		self.count = self.count + by
+	export function bump(mutates self, by Integer)
+		self.count = try self.count + by otherwise panic("out of range")
 	end 'bump'
 
 	export function total()
@@ -1910,10 +1814,9 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	let direct = Calc.create()
+	var direct = Calc.create()
 	direct.bump(4)
 	direct.total()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	try h.bump(3) otherwise panic("an open mailbox with room takes the send")
 	try h.total() otherwise panic("an open mailbox with room takes the send")
@@ -1931,7 +1834,6 @@ total=3
 ```
 
 <!-- test: error.a-private-method-is-absent-from-the-handle -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A private helper is not on the handle, so a call to it through the handle is not a message.
 ```maxon
@@ -1948,7 +1850,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	h.record(1)
 	return 0
@@ -1961,7 +1862,6 @@ error E3136: <fragment>:16:4: `record` is declared on `type Calc` but is not a m
 ```
 
 <!-- test: shutdown-drains-what-is-queued -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `shutdown()` is a graceful drain, not a kill: it closes the mailbox once everything already queued has run, so
 every message sent before it still runs.
 
@@ -1977,8 +1877,8 @@ type Log
 		return Self{acc: 0}
 	end 'create'
 
-	export function push(d Integer)
-		self.acc = self.acc + d
+	export function push(mutates self, d Integer)
+		self.acc = try self.acc + d otherwise panic("out of range")
 	end 'push'
 
 	export function read()
@@ -1987,7 +1887,6 @@ type Log
 end 'Log'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Log.create()
 	try h.push(1) otherwise panic("an open mailbox with room takes the send")
 	try h.push(2) otherwise panic("an open mailbox with room takes the send")
@@ -2006,7 +1905,6 @@ acc=3
 ```
 
 <!-- test: a-let-sent-after-shutdown-is-handed-back-and-released -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐⭐ **A `let` THE REFUSED SEND MOVED COMES BACK, AND IS RELEASED EXACTLY ONCE.** The second `keep` is sent
@@ -2028,7 +1926,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let first = "a{1}"
 	try h.keep(first) otherwise panic("an open mailbox with room takes the send")
@@ -2060,7 +1957,6 @@ Every send throws at the send when the mailbox is full or the service has stoppe
 `<Svc>.<msg>.sendError`: `mailboxFull(…)` and `serviceStopped(…)`, each carrying the arguments the send was given.
 
 <!-- test: a-full-mailbox-refuses-a-send-and-hands-its-arguments-back -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 At one processor with preemption off the service runs nothing until `main` returns, so the first two sends
@@ -2081,8 +1977,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 2) Store.create()
+	let h = spawn(capacity: 2) Store.create()
 	for i in 0 upto 3 'fill'
 		try h.keep("s{i}") otherwise (e) 'refused'
 			match e 'why'
@@ -2107,7 +2002,6 @@ kept s1
 ```
 
 <!-- test: a-handed-back-argument-can-be-resent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 The `String` a refused send hands back is the caller's own, so it can be sent again. A capacity of one
@@ -2129,9 +2023,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn(capacity: 1) Store.create(1)
 	let other = spawn Store.create(2)
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
 	try h.keep("s{1}") otherwise (e) 'refused'
@@ -2169,7 +2061,6 @@ store1 kept s2
 ```
 
 <!-- test: a-send-after-shutdown-fails-stopped-with-its-arguments -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A send after `shutdown()` is refused with `serviceStopped` and gets its `String` back; the message sent before the
@@ -2189,7 +2080,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	try h.keep("a{1}") otherwise panic("an open mailbox with room takes the send")
 	h.shutdown()
@@ -2213,7 +2103,6 @@ kept a1
 ```
 
 <!-- test: a-reply-bearing-send-to-a-full-mailbox-fails-at-the-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A reply-bearing send fails at the send too, and the one `try` of `try await` catches it: `value` takes no
@@ -2226,8 +2115,8 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(s String)
-		self.n = self.n + 1
+	export function keep(mutates self, s String)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		print("kept {s}\n")
 	end 'keep'
 
@@ -2237,8 +2126,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.keep("a{1}") otherwise panic("a capacity of one takes the first send")
 	let v = try await h.value() otherwise (e) 'refused'
 		match e 'why'
@@ -2262,7 +2150,6 @@ kept a1
 ```
 
 <!-- test: a-stored-reply-send-needs-its-own-try -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A reply that is stored rather than awaited takes its own `try` for the send, and the promise it yields
 carries only the handler's errors: `Promise with (Integer, StoreError)`, matched exhaustively by `empty`.
 ```maxon
@@ -2281,8 +2168,8 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function add(by Integer)
-		self.n = self.n + by
+	export function add(mutates self, by Integer)
+		self.n = try self.n + by otherwise panic("out of range")
 	end 'add'
 
 	export function value() returns Integer throws StoreError
@@ -2294,9 +2181,8 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
-	let ps = ValuePromiseArray.create(0)
+	var ps = ValuePromiseArray.create(0)
 	ps.push(try h.value() otherwise panic("an open mailbox with room takes the send"))
 	try h.add(5) otherwise panic("an open mailbox with room takes the send")
 	ps.push(try h.value() otherwise panic("an open mailbox with room takes the send"))
@@ -2324,7 +2210,6 @@ value=5
 ```
 
 <!-- test: error.a-bare-send-requires-try -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send can fail, so a send with no `try` is the ordinary refusal of a throwing call made without one.
 ```maxon
@@ -2342,7 +2227,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	h.keep("a{1}")
 	return 0
@@ -2355,7 +2239,6 @@ error E3057: <fragment>:17:2: throwing function requires try: 'Store.keep'
 ```
 
 <!-- test: error.a-reply-bearing-message-sent-as-a-statement-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message that returns or throws sent as a statement drops its reply, and with it the value or the
 handler's error. The send's own error is handled here, so the drop is the only fault: await the reply,
@@ -2374,7 +2257,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	try h.value() otherwise ignore
 	return 0
@@ -2387,7 +2269,6 @@ error E3190: <fragment>:16:2: `Store.value` returns or throws, so a send of it d
 ```
 
 <!-- test: shutdown-of-a-full-mailbox-runs-what-is-queued -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `shutdown()` takes no slot, so it succeeds on a full mailbox: both queued messages still run, and the send
@@ -2407,8 +2288,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 2) Store.create()
+	let h = spawn(capacity: 2) Store.create()
 	try h.keep("a{1}") otherwise panic("a capacity of two takes the first send")
 	try h.keep("b{2}") otherwise panic("a capacity of two takes the second send")
 	h.shutdown()
@@ -2433,7 +2313,6 @@ kept b2
 ```
 
 <!-- test: the-default-capacity-queues-1024-messages -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A bare `spawn` takes `DefaultMailboxCapacity`: 1024 sends queue before the service runs, the 1025th is
@@ -2463,7 +2342,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var queued = 0 as Tally
 	for i in 0 upto attempts 'fill'
@@ -2489,7 +2367,6 @@ ran 1024 last=s1023
 ```
 
 <!-- test: a-propagated-send-error-carries-its-arguments -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A bare `try` propagates the send's error through a function declared to throw `Store.keep.sendError`, and
@@ -2513,8 +2390,7 @@ function stash(h Store.handle, tag Integer) throws Store.keep.sendError
 end 'stash'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try stash(h, tag: 1) otherwise panic("a capacity of one takes the first send")
 	try stash(h, tag: 2) otherwise (e) 'refused'
 		match e 'why'
@@ -2536,8 +2412,6 @@ kept s1
 ```
 
 <!-- test: a-shared-argument-handed-back-leaves-the-callers-value-intact -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A read-only parameter is shared with the service rather than moved into the message, and a refused send hands
@@ -2558,8 +2432,7 @@ type Store
 		return Self{n: 0, tag: tag}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(w immutable Wrap)
+	export function keep(w frozen with Wrap)
 		match w 'm'
 			held(t) then self.take(t)
 			empty then self.n = self.n + 100
@@ -2585,8 +2458,7 @@ function describe(w Wrap)
 	end 'again'
 end 'describe'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function offer(h Store.handle, other Store.handle, w immutable Wrap)
+function offer(h Store.handle, other Store.handle, w frozen with Wrap)
 	try h.keep(w) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back) then try other.keep(back.clone()) otherwise panic("a service with room takes the send")
@@ -2596,9 +2468,7 @@ function offer(h Store.handle, other Store.handle, w immutable Wrap)
 end 'offer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn(capacity: 1) Store.create(1)
 	let other = spawn Store.create(2)
 	let first = Wrap.held("first{1}")
 	for _ in 0 upto 3 'many'
@@ -2623,8 +2493,6 @@ still holds first1
 ```
 
 <!-- test: a-propagated-send-error-hands-a-shared-argument-back-to-be-resent -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `offer` shares its read-only parameter with the service and propagates the refusal with a bare `try`, through a
@@ -2644,8 +2512,7 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(w immutable Wrap)
+	export function keep(w frozen with Wrap)
 		match w 'm'
 			held(t) then print("kept {t}\n")
 			empty then self.n = self.n + 100
@@ -2660,15 +2527,12 @@ function describe(w Wrap)
 	end 'again'
 end 'describe'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function offer(h Store.handle, w immutable Wrap) throws Store.keep.sendError
+function offer(h Store.handle, w frozen with Wrap) throws Store.keep.sendError
 	try h.keep(w)
 end 'offer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn(capacity: 1) Store.create()
 	let other = spawn Store.create()
 	let first = Wrap.held("first{1}")
 	try offer(h, w: first) otherwise panic("a capacity of one takes the first send")
@@ -2694,8 +2558,6 @@ kept first1
 ```
 
 <!-- test: a-shared-value-that-cannot-be-cloned-is-handed-back-retained -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `Port` is a `Shape` that owns a listening socket, which cannot be duplicated, so no `Holder` — whose field is
@@ -2752,14 +2614,12 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function look(h immutable Holder)
+	export function look(h frozen with Holder)
 		self.seen = self.seen + h.measure()
 	end 'look'
 end 'Door'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function offer(h Door.handle, held immutable Holder)
+function offer(h Door.handle, held frozen with Holder)
 	try h.look(held) otherwise (e) 'refused'
 		match e 'why'
 			serviceStopped(back) then print("stopped, handed back a holder measuring {back.measure()}\n")
@@ -2770,7 +2630,6 @@ end 'offer'
 
 function main() returns ExitCode
 	_ = sizeof(Port)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let holder = freeze(Holder.create(Plain.create()))
@@ -2788,7 +2647,6 @@ the original measures 1
 ```
 
 <!-- test: a-caught-send-error-can-be-thrown-on -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 The binding that caught a send's error owns it alone, so `throw e` hands it on to the caller, which gets the
@@ -2814,8 +2672,7 @@ function relay(h Store.handle, tag Integer) throws Store.keep.sendError
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try relay(h, tag: 1) otherwise panic("a capacity of one takes the first send")
 	try relay(h, tag: 2) otherwise (e) 'refused'
 		match e 'why'
@@ -2837,7 +2694,6 @@ kept s1
 ```
 
 <!-- test: error.a-throws-clause-over-a-send-whose-error-is-handled-never-throws -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send's error caught with `otherwise` leaves nothing for the declared clause to carry, so the clause is
 refused as one the body can never throw.
@@ -2859,7 +2715,6 @@ function poke(h Store.handle) throws Store.ping.sendError
 end 'poke'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	try poke(h) otherwise return 1
 	return 0
@@ -2872,7 +2727,6 @@ error E3168: <fragment>:14:10: 'throws Store.ping.sendError' is declared but not
 ```
 
 <!-- test: a-send-error-may-be-thrown-from-a-value-the-function-was-handed -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A send-error a function is handed may be thrown by it: the box the send failed on is counted, so the catcher and
 the function each hold a counted reference to it.
 ```maxon
@@ -2893,8 +2747,7 @@ function again(e Store.keep.sendError) throws Store.keep.sendError
 end 'again'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.keep("a") otherwise panic("a capacity of one takes the first send")
 	try h.keep("b") otherwise (e) 'refused'
 		try again(e) otherwise ignore
@@ -2909,7 +2762,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-capacity-out-of-range-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 A capacity is a `MailboxCapacity`, `int(1 to 2^31)`, so a literal outside it is the ordinary ranged-literal
@@ -2930,8 +2782,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 0) Store.create()
+	let h = spawn(capacity: 0) Store.create()
 	try h.keep("a{1}") otherwise panic("a mailbox with room takes the send")
 	return 0
 end 'main'
@@ -2943,7 +2794,6 @@ error E3005: <fragment>:16:26: Value 0 is outside the range of 'MailboxCapacity'
 ```
 
 <!-- test: a-capacity-that-is-not-a-power-of-two-fills-drains-and-fills-again-in-order -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A capacity of 20 is not a power of two, so 20 sends queue ahead of the service and the 21st is refused, whether or
@@ -2964,7 +2814,7 @@ type Ledger
 	end 'create'
 
 	export function take(n Tally)
-		self.taken = self.taken + 1
+		self.taken = try self.taken + 1 otherwise panic("out of range")
 		self.log.append(" {n}")
 	end 'take'
 
@@ -2988,8 +2838,7 @@ function fill(h Ledger.handle, base Tally) returns Tally
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 20) Ledger.create()
+	let h = spawn(capacity: 20) Ledger.create()
 	Scheduler.yield()
 	let first = fill(h, base: 0)
 	Scheduler.yield()
@@ -3040,7 +2889,6 @@ keys=1024
 ```
 
 <!-- test: a-send-with-a-timeout-waits-for-room -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A send given `sendTimeout:` waits for room instead of failing at once. The first send fills a capacity of one
@@ -3064,8 +2912,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
 	try h.keep("s{1}", sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
@@ -3090,7 +2937,6 @@ sent s1
 ```
 
 <!-- test: a-waiting-sender-of-a-capacity-one-mailbox-is-admitted-behind-what-was-queued -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐ **A WAITING SENDER IS ADMITTED BEHIND WHAT WAS QUEUED WHEN THE SERVICE STARTS ITS FIRST MESSAGE.** The first send fills a
@@ -3119,8 +2965,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
 	try h.keep("s{1}", sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
@@ -3153,7 +2998,6 @@ count=3
 ```
 
 <!-- test: a-waiting-sender-of-a-capacity-seventeen-mailbox-is-admitted-in-fifo-order -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐ **A WAITING SENDER BEHIND A FULL QUEUE IS ADMITTED LAST.** A capacity of 17 takes 17 messages while the service has not
@@ -3187,8 +3031,7 @@ type FullRingTape
 end 'FullRingTape'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 17) FullRingTape.create()
+	let h = spawn(capacity: 17) FullRingTape.create()
 	for i in 0 upto queued 'fill'
 		try h.note("m{i}") otherwise panic("a capacity of 17 takes the first 17 sends")
 	end 'fill'
@@ -3214,7 +3057,6 @@ seen=18 misplaced=0
 ```
 
 <!-- test: shutdown-before-the-service-runs-fails-a-waiting-sender-and-still-runs-the-queued-message -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐ **A WAITING SENDER BEHIND THE QUEUED MESSAGE OF A SERVICE THAT HAS NEVER RUN, AND A `shutdown()` BEFORE IT DOES.** The waiting
@@ -3251,9 +3093,7 @@ type Closer
 end 'Closer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn(capacity: 1) Store.create()
 	let closer = spawn Closer.create()
 	try h.keep("s{0}") otherwise panic("the service has never run, so its one slot is free")
 	try closer.close(h.clone()) otherwise panic("an open mailbox with room takes the send")
@@ -3280,7 +3120,6 @@ kept s0
 ```
 
 <!-- test: a-parameterless-message-takes-only-a-named-send-timeout -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `sendTimeout:` is optional, so it is named wherever it appears, even as a call's only argument: a message with
@@ -3302,8 +3141,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.ping() otherwise panic("a capacity of one takes the first send")
 	try h.ping(sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
@@ -3328,7 +3166,6 @@ sent the second ping
 ```
 
 <!-- test: a-message-with-a-defaulted-first-parameter-may-name-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 type Meter
 	var n as Integer
@@ -3347,7 +3184,6 @@ type Meter
 end 'Meter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Meter.create(start: 5)
 	try h.bump() otherwise panic("an open mailbox with room takes the send")
 	try h.bump(by: 2) otherwise panic("an open mailbox with room takes the send")
@@ -3368,7 +3204,6 @@ total=11
 ```
 
 <!-- test: a-message-with-a-defaulted-first-parameter-takes-it-positionally -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 type Meter
 	var n as Integer
@@ -3387,7 +3222,6 @@ type Meter
 end 'Meter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Meter.create(5)
 	try h.bump(2) otherwise panic("an open mailbox with room takes the send")
 	try h.bump(3, sendTimeout: 1000) otherwise panic("an open mailbox with room takes the send")
@@ -3407,7 +3241,6 @@ total=10
 ```
 
 <!-- test: an-awaited-send-with-a-timeout-waits-for-room -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `try await` takes `sendTimeout:` too. The send waits for the service to take `s0`, as in
@@ -3433,8 +3266,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
 	let n = try await h.tally("s{1}", sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
@@ -3459,7 +3291,6 @@ n=2
 ```
 
 <!-- test: a-send-whose-timeout-expires-fails-mailbox-full -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A send whose timeout expires before room appears fails `mailboxFull` and hands its `String` back. The yield
@@ -3498,8 +3329,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create(released.clone())
+	let h = spawn(capacity: 1) Store.create(released.clone())
 	try h.hold() otherwise panic("an empty mailbox takes the first send")
 	Scheduler.yield()
 	try h.keep("s{0}") otherwise panic("the service took hold, so its one slot is free")
@@ -3531,7 +3361,6 @@ kept s0
 ```
 
 <!-- test: shutdown-wakes-a-sender-waiting-for-room -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `shutdown()` wakes a send waiting for room, and the send fails `serviceStopped` with its `String`. The waiting
@@ -3582,9 +3411,7 @@ end 'Closer'
 
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create(released.clone())
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let h = spawn(capacity: 1) Store.create(released.clone())
 	let closer = spawn Closer.create()
 	try h.hold() otherwise panic("an empty mailbox takes the first send")
 	Scheduler.yield()
@@ -3615,7 +3442,6 @@ kept s0
 ```
 
 <!-- test: a-coroutine-dropped-while-waiting-for-room-gives-up-its-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A coroutine parked on a full mailbox's sender queue has its promise dropped. The drop takes it off the queue and
@@ -3668,8 +3494,7 @@ end 'begForRoom'
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
 	let gaveUp = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create(released.clone())
+	let h = spawn(capacity: 1) Store.create(released.clone())
 	try h.hold() otherwise panic("an empty mailbox takes the first send")
 	Scheduler.yield()
 	try h.keep("s0") otherwise panic("the service took hold, so its one slot is free")
@@ -3701,7 +3526,6 @@ kept s0
 ```
 
 <!-- test: a-renounced-coroutine-does-not-wait-for-room -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A coroutine whose promise was dropped while it slept may not begin a wait on a far end, and a send given
@@ -3754,8 +3578,7 @@ end 'napThenBeg'
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
 	let gaveUp = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create(released.clone())
+	let h = spawn(capacity: 1) Store.create(released.clone())
 	try h.hold() otherwise panic("an empty mailbox takes the first send")
 	Scheduler.yield()
 	try h.keep("s0") otherwise panic("the service took hold, so its one slot is free")
@@ -3787,7 +3610,6 @@ kept s0
 ```
 
 <!-- test: a-zero-send-timeout-fails-at-once -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `sendTimeout: 0` is the default spelled out: a full mailbox fails `mailboxFull` at once, exactly as
@@ -3808,8 +3630,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
 	try h.keep("s{1}", sendTimeout: 0) otherwise (e) 'refused'
 		match e 'why'
@@ -3833,7 +3654,6 @@ kept s0
 ```
 
 <!-- test: the-largest-send-timeout-waits-for-room-instead-of-failing-at-once -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A `sendTimeout:` of `Milliseconds` maximum is a wait with no practical end, not an overflowed deadline that
@@ -3857,8 +3677,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
 	try h.keep("s{1}", sendTimeout: longestTimeoutMs) otherwise (e) 'refused'
 		match e 'why'
@@ -3883,7 +3702,6 @@ sent s1
 ```
 
 <!-- test: an-indefinite-send-waits-past-a-sleeping-handler-and-delivers -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A send whose `sendTimeout:` is so large that its deadline cannot be represented arms no timer, so nothing but a
@@ -3930,8 +3748,7 @@ end 'publishRelease'
 
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create(released.clone())
+	let h = spawn(capacity: 1) Store.create(released.clone())
 	try h.hold() otherwise panic("an empty mailbox takes the first send")
 	Scheduler.yield()
 	try h.keep("s{0}") otherwise panic("the service took hold, so its one slot is free")
@@ -3962,7 +3779,6 @@ sent s1
 ```
 
 <!-- test: error.a-message-that-sends-without-end-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send that waits without end on a mailbox nobody will ever receive from is a deadlock, as Go's blocking send on
 a channel nobody reads is. A message that makes one — `stall` fills its own service's one slot with `fill` and
@@ -3989,8 +3805,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	try h.stall(h.clone()) otherwise panic("an empty mailbox takes the first send")
 	return 0
 end 'main'
@@ -4002,7 +3817,6 @@ error E3221: <fragment>:9:18: the message 'stall' may wait (it sends with a time
 ```
 
 <!-- test: error.a-message-that-sends-with-a-timeout-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send with a `sendTimeout:` of anything but a literal `0` waits for room in a full mailbox, so a message that
 makes one holds its own service while it waits and is refused. A `sendTimeout:` of `0` is the default spelled out:
@@ -4033,9 +3847,7 @@ type Pusher
 end 'Pusher'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let store = spawn (capacity: 1) Store.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let store = spawn(capacity: 1) Store.create()
 	let pusher = spawn Pusher.create()
 	try pusher.push(store.clone()) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -4048,7 +3860,6 @@ error E3221: <fragment>:21:18: the message 'push' may wait (it sends with a time
 ```
 
 <!-- test: error.a-message-that-awaits-a-promise-it-cannot-see-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A promise a message did not start itself comes from a coroutine the compiler cannot see, so awaiting it may wait on
 anything and is refused like an await of a reply. An await of a coroutine the message started itself, and that
@@ -4081,7 +3892,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	return 0
 end 'main'
@@ -4091,7 +3901,6 @@ error E3221: <fragment>:21:18: the message 'settle' may wait (it awaits a promis
 ```
 
 <!-- test: error.a-message-that-sends-with-a-computed-timeout-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Only a literal `sendTimeout: 0` is known not to wait. A timeout the compiler cannot read as that literal may be any
 duration, so a message that sends with one is refused even when every caller passes `0`.
@@ -4121,9 +3930,7 @@ type Probe
 end 'Probe'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let probe = spawn Probe.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let peer = spawn Peer.create()
 	try probe.post(peer.clone(), ms: 0) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -4136,8 +3943,6 @@ error E3221: <fragment>:21:18: the message 'post' may wait (it sends with a time
 ```
 
 <!-- test: error.a-message-that-starts-a-waiting-coroutine-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 Starting a coroutine whose body waits is a wait: the message holds its own service while it awaits the coroutine,
 and the coroutine waits on another service's reply. The chain names the coroutine's function and the `await`
 inside it.
@@ -4174,9 +3979,7 @@ type Probe
 end 'Probe'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let probe = spawn Probe.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let peer = spawn Peer.create()
 	_ = probe
 	_ = peer
@@ -4188,7 +3991,6 @@ error E3221: <fragment>:27:18: the message 'relay' may wait (it starts 'waitsOnP
 ```
 
 <!-- test: a-message-may-send-with-a-literal-zero-timeout -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A literal `sendTimeout: 0` is not a wait, so a message may make that send. `forward` posts three bumps to a
@@ -4233,9 +4035,7 @@ type Relay
 end 'Relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let counter = spawn (capacity: 1) Counter.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let counter = spawn(capacity: 1) Counter.create()
 	let relay = spawn Relay.create()
 	let refused = try await relay.forward(counter.clone(), times: 3) otherwise 99
 	let total = try await counter.total(sendTimeout: ForeverMs) otherwise 0
@@ -4253,7 +4053,6 @@ refused=2 total=1
 ```
 
 <!-- test: a-request-and-its-reply-are-two-messages -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service that needs another service's answer sends the request with its own handle and receives the answer as a
 message. `Asker.start` posts `Oracle.ask` with a clone of its own handle and returns at once; `Oracle.ask` posts
 `Asker.answer` back and returns; neither waits. `main` polls `Asker.result` until the answer has landed.
@@ -4281,7 +4080,7 @@ type Asker
 		try oracle.ask(me.clone(), question: 21) otherwise panic("an open mailbox with room takes the send")
 	end 'start'
 
-	export function answer(value Integer)
+	export function answer(mutates self, value Integer)
 		self.got = value
 	end 'answer'
 
@@ -4291,9 +4090,7 @@ type Asker
 end 'Asker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let oracle = spawn Oracle.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let asker = spawn Asker.create()
 	try asker.start(oracle, me: asker.clone()) otherwise panic("an open mailbox with room takes the send")
 	var answer = 0 as Integer
@@ -4315,7 +4112,6 @@ answer=42
 ```
 
 <!-- test: error.a-message-may-not-declare-a-send-timeout-parameter -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `sendTimeout:` is reserved on every message call, so a message may not declare a parameter of that name: a
 call could not tell the payload from the timeout.
@@ -4334,7 +4130,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	try h.keep("a{1}", sendTimeout: 3) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -4347,7 +4142,6 @@ error E3192: <fragment>:16:10: the message `Store.keep` declares a parameter nam
 ```
 
 <!-- test: dropping-the-last-handle-shuts-the-service-down -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⚠ **THE TWO PINS ARE THIS CASE'S OWN STATED PREMISE, WRITTEN DOWN WHERE THE RUNNER CAN READ THEM.** The
@@ -4391,10 +4185,8 @@ type Beeper
 end 'Beeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let outer = spawn Beeper.create(2)
 	if true 'early'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let inner = spawn Beeper.create(1)
 		try inner.beep() otherwise panic("an open mailbox with room takes the send")
 	end 'early'
@@ -4413,7 +4205,6 @@ beep 2
 ```
 
 <!-- test: a-cloned-handle-keeps-the-service-alive -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handle is an ordinary box, so `.clone()` reaches it — and on a handle the clone is a second HANDLE to the
 SAME service, not a second service. Dropping one leaves the mailbox open; the last one to go closes it.
 ```maxon
@@ -4424,8 +4215,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	export function tick()
-		self.n = self.n + 1
+	export function tick(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'tick'
 
 	export function report()
@@ -4434,7 +4225,6 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Counter.create()
 	let b = a.clone()
 	try a.tick() otherwise panic("an open mailbox with room takes the send")
@@ -4704,7 +4494,6 @@ error E3104: <fragment>:18:3: this construct lowers to the runtime entry '__cown
 ```
 
 <!-- test: a-handle-moved-into-another-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handle is a transferable message payload: `Worker` is handed the `Logger`'s handle, sends to it, and then
 DROPS it — the un-consumed payload drop the loop owes for every message it runs. `logger` is a `var`, so the
 send MOVES it: that drop is the `Logger`'s last handle, and the logger shuts down without `main` ever naming
@@ -4735,9 +4524,7 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let logger = spawn Logger.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	try worker.run(logger) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -4753,7 +4540,6 @@ log: from the worker
 ```
 
 <!-- test: handles-in-an-array -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Handles are ordinary boxes and live in containers — which means the array's element drop is the handle drop,
 and two services shut down when the array does.
 ```maxon
@@ -4764,20 +4550,18 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	export function tick()
-		self.n = self.n + 1
+	export function tick(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'tick'
 end 'Counter'
 
 typealias CounterHandleArray = Array with Counter.handle
 
 function main() returns ExitCode
-	let hs = CounterHandleArray.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	var hs = CounterHandleArray.create(0)
 	hs.push(spawn Counter.create())
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	hs.push(spawn Counter.create())
-	return hs.count() as ExitCode
+	return try hs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -4787,7 +4571,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-handle-read-out-of-an-array-survives-a-second-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A HANDLE READ *OUT OF* A CONTAINER, WHICH `handles-in-an-array` NEVER DOES — IT ONLY PUSHES AND
 DROPS.** Binding an element to a local promotes a BORROW to an owned name, and for a handle that retain
 must step the mailbox's `handles`/`refs` pair (`SignatureIndex.managedNameRetainCallee`) at BOTH retain
@@ -4809,8 +4592,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	export function bump(by Integer) returns Integer
-		self.n = self.n + by
+	export function bump(mutates self, by Integer) returns Integer
+		self.n = try self.n + by otherwise panic("out of range")
 		return self.n
 	end 'bump'
 end 'Counter'
@@ -4820,10 +4603,9 @@ typealias CounterHandleArray = Array with Counter.handle
 typealias BumpReplyArray = Array with Promise with Integer
 
 function main() returns ExitCode
-	let hs = CounterHandleArray.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	var hs = CounterHandleArray.create(0)
 	hs.push(spawn Counter.create())
-	let replies = BumpReplyArray.create(0)
+	var replies = BumpReplyArray.create(0)
 	for step in 1 to 3 'eachSend'
 		let h = try hs.get(0) otherwise panic("hs.get(0)")
 		replies.push(try h.bump(step) otherwise panic("an open mailbox with room takes the send"))
@@ -4832,7 +4614,7 @@ function main() returns ExitCode
 	for r in replies 'eachReply'
 		total = await r
 	end 'eachReply'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -4842,7 +4624,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-handle-payload-beside-a-consumed-string-payload -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **TWO SERVICES, TWO PAYLOAD KINDS, AND THE CROSSING BETWEEN TWO NAME TABLES.** `Logger.say` takes a
 `String` and CALLS A METHOD on it; `Worker.run` takes a `Logger.handle`. Neither is remarkable alone — the
 cases above pin each — and together they are the first program in this file whose signature-index and project
@@ -4868,8 +4649,8 @@ type Logger
 		return Self{bytes: 0}
 	end 'create'
 
-	export function say(s String)
-		self.bytes = self.bytes + (s.byteLength() as Integer)
+	export function say(mutates self, s String)
+		self.bytes = try self.bytes + (s.byteLength() as Integer) otherwise panic("out of range")
 	end 'say'
 
 	export function report()
@@ -4891,9 +4672,7 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let logger = spawn Logger.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	try worker.run(logger.clone()) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -4909,7 +4688,6 @@ bytes=15
 ```
 
 <!-- test: a-string-argument-moves-into-the-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `var` argument is MOVED: the sending frame hands over the reference it holds and the service becomes the
 box's one owner. Nothing is increfed at the send and nothing is dropped by the sender, which is what keeps
 the plain refcount correct across a green thread. The bare literal is an immortal `.rdata` record, promoted
@@ -4922,14 +4700,13 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(s String)
-		self.n = self.n + 1
+	export function keep(mutates self, s String)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		print("kept {s} ({self.n})\n")
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let a = "one-{1}"
 	try h.keep(a) otherwise panic("an open mailbox with room takes the send")
@@ -4951,7 +4728,6 @@ kept a literal (3)
 ```
 
 <!-- test: a-throwing-message-is-sent-fire-and-forget -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A `throws` CLAUSE IS WHAT MAKES A MESSAGE REPLY-BEARING, AND ITS REPLY CAN STILL BE DISCARDED ON
 PURPOSE.** Sent as a bare statement it is E3190, because the reply would be dropped without anyone seeing the
 error; `_ = try h.keep(…)` drops it deliberately. The handler runs and its error has nowhere to go. What must
@@ -4973,7 +4749,7 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(s String) throws StoreError
+	export function keep(mutates self, s String) throws StoreError
 		if self.n > 0 'alreadyHoldsOne'
 			throw StoreError.full
 		end 'alreadyHoldsOne'
@@ -4983,7 +4759,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	_ = try h.keep("a{1}") otherwise panic("an open mailbox with room takes the send")
 	_ = try h.keep("b{2}") otherwise panic("an open mailbox with room takes the send")
@@ -5000,7 +4775,6 @@ kept a1
 ```
 
 <!-- test: unioncases-tags-the-request-variants -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The synthesized request union is an ordinary union, so its `.unionCases` companion exists — and the first
 message an author declares is variant 0, the next variant 1.
 ```maxon
@@ -5021,7 +4795,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	spawn Calc.create()
 	print("{Calc.request.unionCases.bump.rawValue} {Calc.request.unionCases.total.rawValue}\n")
 	return 0
@@ -5037,7 +4810,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: an-idle-service-that-is-never-sent-to-still-exits-zero -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Process exit must not hang on a service parked in `recv`, which is its steady state. Here the mailbox is
 closed by the handle's own drop — at the end of the `spawn` STATEMENT, since nothing binds it — well before
 `main` returns, so the loop's `recv` answers 0 the first time it is asked and the exit drain has one
@@ -5054,13 +4826,12 @@ type Idler
 		return Self{n: 0}
 	end 'create'
 
-	export function tick()
-		self.n = self.n + 1
+	export function tick(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'tick'
 end 'Idler'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	spawn Idler.create()
 	return 0
 end 'main'
@@ -5072,7 +4843,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: fire-and-forget-cycle-is-legal -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ The case that pins that a post is not a wait — without it a later tightening would silently ban correct
 programs. `A` names `B`'s handle in a message and `B` names `A`'s, which is a ring of services and no wait at
 all, because neither send waits.
@@ -5088,8 +4858,8 @@ type A
 		try b.pong() otherwise panic("an open mailbox with room takes the send")
 	end 'ping'
 
-	export function ack()
-		self.n = self.n + 1
+	export function ack(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'ack'
 end 'A'
 
@@ -5100,15 +4870,13 @@ type B
 		return Self{n: 0}
 	end 'create'
 
-	export function pong()
-		self.n = self.n + 1
+	export function pong(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'pong'
 end 'B'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn A.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn B.create()
 	try a.ping(b) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -5121,7 +4889,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-ring-of-posts-answers-through-continuations -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A POST IS NOT A WAIT, SO A RING OF POSTS IS A REQUEST AND ITS REPLY.** `A.kick` posts `B.work` and answers
 at once; `B.work` posts `A.ack` with `B`'s own handle and returns; `A.ack` posts the answer back to `B.acked` and
 returns. The services name each other in a ring, and no message waits for anything, so `A` is free to serve `B`'s
@@ -5158,9 +4925,9 @@ type B
 		try back.ack(me.clone()) otherwise panic("an open mailbox with room takes the send")
 	end 'work'
 
-	export function acked(v Integer)
+	export function acked(mutates self, v Integer)
 		print("acked {v}\n")
-		self.heard = self.heard + 1
+		self.heard = try self.heard + 1 otherwise panic("out of range")
 	end 'acked'
 
 	export function replies() returns Integer
@@ -5169,15 +4936,13 @@ type B
 end 'B'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn A.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn B.create()
 	let v = try await a.kick(b.clone(), mine: a.clone()) otherwise 0
 	while (try await b.replies() otherwise 0) < 1 'untilAcked'
 		Scheduler.yield()
 	end 'untilAcked'
-	return (v + 5) as ExitCode
+	return try (v + 5) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -5190,7 +4955,6 @@ acked 7
 ```
 
 <!-- test: an-export-reached-only-by-message-is-not-unused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An export method reachable only as a MESSAGE must count as used, or the unused-export check would refuse
 every service whose handle is the only caller. It is credited by the send op naming `Calc.bump` — the same
 `maxonOpCalleeKind` road an ordinary call is credited by, which is why this needs no arm of its own.
@@ -5203,16 +4967,15 @@ export type Calc
 		return Self{count: 0}
 	end 'create'
 
-	export function bump(by Integer)
-		self.count = self.count + by
+	export function bump(mutates self, by Integer)
+		self.count = try self.count + by otherwise panic("out of range")
 	end 'bump'
 end 'Calc'
 
 export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn Calc.create()
+	let h = spawn calc.Calc.create()
 	try h.bump(1) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -5222,7 +4985,6 @@ end 'main'
 ```
 
 <!-- test: error.a-sent-value-is-moved-and-reading-it-back-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `var` argument MOVES: the send consumes it, the source is poisoned and a read is E3102.
 
@@ -5239,13 +5001,12 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(s String)
-		self.n = self.n + 1
+	export function keep(mutates self, s String)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var buf = "hello {1}"
 	try h.keep(buf) otherwise panic("an open mailbox with room takes the send")
@@ -5260,7 +5021,6 @@ error E3102: <fragment>:18:10: use of moved value 'buf': its ownership moved to 
 ```
 
 <!-- test: error.a-sent-let-is-moved-and-reading-it-back-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `let` argument MOVES exactly as a `var` does: the send consumes the binding and a later read is E3102.
 ```maxon
@@ -5271,13 +5031,12 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(s String)
-		self.n = self.n + (s.byteLength() as Integer)
+	export function keep(mutates self, s String)
+		self.n = try self.n + (s.byteLength() as Integer) otherwise panic("out of range")
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let buf = "hello {1}"
 	try h.keep(buf) otherwise panic("an open mailbox with room takes the send")
@@ -5292,7 +5051,6 @@ error E3102: <fragment>:18:10: use of moved value 'buf': its ownership moved to 
 ```
 
 <!-- test: a-sent-let-is-moved-and-the-service-frees-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The service becomes the sole owner of a `let` it was sent, and releases it exactly once.
 ```maxon
 type Store
@@ -5302,8 +5060,8 @@ type Store
 		return Self{sum: 0}
 	end 'create'
 
-	export function keep(s String)
-		self.sum = self.sum + (s.byteLength() as Integer)
+	export function keep(mutates self, s String)
+		self.sum = try self.sum + (s.byteLength() as Integer) otherwise panic("out of range")
 		print("kept {s}\n")
 	end 'keep'
 
@@ -5313,7 +5071,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let buf = "hello padded out long enough to heap allocate {1}"
 	try h.keep(buf) otherwise panic("an open mailbox with room takes the send")
@@ -5333,7 +5090,6 @@ kept hello padded out long enough to heap allocate 1
 ```
 
 <!-- test: a-string-a-container-also-holds-is-sent-with-its-owners-counted -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A String a container also holds has a second owner on this green thread, and a send of it is correct: the box
 counts its owners, so the service and the sender each hold a counted reference to one String.
 ```maxon
@@ -5344,17 +5100,16 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(s String) returns Integer
-		self.n = self.n + 1
-		return s.byteLength()
+	export function keep(mutates self, s String) returns Integer
+		self.n = try self.n + 1 otherwise panic("out of range")
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let buf = "hello {1}"
-	let held = Strings.create(0)
+	var held = Strings.create(0)
 	held.push(buf)
 	let got = try await h.keep(buf) otherwise panic("an open mailbox with room takes the send")
 	print("{got} {held.count()}\n")
@@ -5373,8 +5128,6 @@ typealias Strings = Array with String
 ```
 
 <!-- test: a-borrowed-parameter-nothing-writes-is-shared-with-the-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message argument the sender does not own is SHARED when nothing can write it: `p` arrived as a borrowed
 struct parameter, `forward` never writes it, and the handler only reads it. The graph is marked shared, so every
 count in it steps atomically, and both threads read the one record. `forward`'s caller still holds `p` and reads
@@ -5396,20 +5149,17 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(p immutable Payload) returns Integer
-		self.seen = self.seen + 1
+	export function keep(mutates self, p frozen with Payload) returns Integer
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.n
 	end 'keep'
 end 'Store'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function forward(h Store.handle, p immutable Payload) returns Integer
-	return (try await h.keep(p) otherwise 0) + p.n
+function forward(h Store.handle, p frozen with Payload) returns Integer
+	return try (try await h.keep(p.clone()) otherwise 0) + p.n otherwise panic("out of range")
 end 'forward'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let p = freeze(Payload.create(7))
 	let total = forward(h, p: p)
@@ -5427,8 +5177,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-borrowed-parameter-the-sender-writes-may-not-be-sent -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `forward` writes `p`, so the record is not read-only for the thread that sends it: the service would read it
 while `forward` changes it.
@@ -5448,8 +5197,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Payload) returns Integer
+	export function keep(consumes p Payload) returns Integer
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
@@ -5461,7 +5209,6 @@ function forward(h Store.handle, p Payload) returns Integer
 end 'forward'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var p = Payload.create(7)
 	return forward(h, p: p) as ExitCode
@@ -5475,8 +5222,6 @@ error E3200: <fragment>:25:26: 'p' is not isolated: only a clean call, a `swap` 
 
 <!-- test: error.a-borrowed-parameter-the-handler-writes-may-not-be-sent -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The handler writes its parameter, so a record both threads reach would be written by the service while the sender
 reads it.
@@ -5496,8 +5241,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function bump(p isolated Payload) returns Integer
+	export function bump(consumes p Payload) returns Integer
 		// TODO: modify blocks are not supported in minimaxon
 		modify p 'write'
 			p.n = p.n + 1
@@ -5512,7 +5256,6 @@ function forward(h Store.handle, p Payload) returns Integer
 end 'forward'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let p = Payload.create(7)
 	return forward(h, p: p) as ExitCode
@@ -5525,9 +5268,7 @@ error E3200: <fragment>:28:26: 'p' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: error.a-var-read-again-is-not-handed-to-a-function-that-sends-it-shared -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `forward` sends its parameter to the service, which owns it afterwards, so a binding the caller reads again is a
 moved value.
@@ -5547,20 +5288,17 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Payload) returns Integer
+	export function keep(consumes p Payload) returns Integer
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function forward(h Store.handle, p isolated Payload) returns Integer
+function forward(h Store.handle, consumes p Payload) returns Integer
 	return try await h.keep(p) otherwise 0
 end 'forward'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let p = Payload.create(7) as isolated Payload
@@ -5575,8 +5313,6 @@ error E3102: <fragment>:31:18: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: a-module-let-record-is-shared-with-the-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A module-level `let` is read-only for the whole program, so a message may carry it directly. The sender does not own
 the record, nothing can write it, and the handler only reads it: the graph is marked shared, every count in it steps
 atomically, and both threads read the one record.
@@ -5596,18 +5332,16 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(p immutable Payload) returns Integer
-		self.seen = self.seen + 1
+	export function keep(mutates self, p frozen with Payload) returns Integer
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let shared = freeze(Payload.create(7))
-	let total = (try await h.keep(shared) otherwise 0) + shared.n
+	let total = try (try await h.keep(shared) otherwise 0) + shared.n otherwise panic("out of range")
 	print("{total}\n")
 	return 0
 end 'main'
@@ -5622,9 +5356,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-let-field-record-is-shared-with-the-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `let` field has no other writer for the record's whole life, so the record read out of one is a read-only root the
 sender does not own, and a message shares it exactly as it shares a module-level `let`.
 ```maxon
@@ -5652,15 +5384,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(p immutable Payload) returns Integer
+	export function keep(p frozen with Payload) returns Integer
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let holder = Holder.create(5)
 	let total = (try await h.keep(holder.payload) otherwise 0) + holder.payload.n
@@ -5678,8 +5408,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-module-let-record-the-handler-writes-may-not-be-sent -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The handler writes its parameter, so a record both threads reach would be written by the service while the sender
 and every other reader of the module-level `let` see it. A read-only value is shared only with a handler that reads.
@@ -5699,19 +5427,17 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function bump(p immutable Payload) returns Integer
-		p.n = p.n + 1
-		self.seen = self.seen + 1
+	export function bump(p frozen with Payload) returns Integer
+		p.n = try p.n + 1 otherwise panic("out of range")
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.n
 	end 'bump'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let shared = freeze(Payload.create(7))
-	return (try await h.bump(shared) otherwise 0) as ExitCode
+	return try (try await h.bump(shared) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -5721,8 +5447,6 @@ error E3197: <fragment>:18:3: cannot write 'n' through 'p', which is immutable
 ```
 
 <!-- test: a-shared-value-read-is-shared-with-the-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A value `SharedValue.current()` answers is read-only for the whole program and owned by the cell, so a message may carry
 it directly: the graph is shared, every count in it steps atomically, and the handler only reads it.
 ```maxon
@@ -5741,8 +5465,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(c immutable Config) returns Integer
+	export function keep(c frozen with Config) returns Integer
 		self.seen = self.seen + 1
 		return c.n
 	end 'keep'
@@ -5750,7 +5473,6 @@ end 'Store'
 
 function main() returns ExitCode
 	let cell = ConfigCell.create(Config.create(7))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let shared = freeze(cell.current().clone())
 	let total = (try await h.keep(shared) otherwise 0) + cell.current().n
@@ -5770,8 +5492,6 @@ typealias ConfigCell = SharedValue with Config
 ```
 
 <!-- test: error.a-shared-value-read-the-handler-writes-may-not-be-sent -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The handler writes its parameter, so the record the cell hands every reader would be written by the service while the
 cell's other readers see it.
@@ -5791,8 +5511,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function bump(c immutable Config) returns Integer
+	export function bump(c frozen with Config) returns Integer
 		c.n = c.n + 1
 		self.seen = self.seen + 1
 		return c.n
@@ -5801,7 +5520,6 @@ end 'Store'
 
 function main() returns ExitCode
 	let cell = ConfigCell.create(Config.create(7))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let shared = freeze(cell.current().clone())
 	return (try await h.bump(shared) otherwise 0) as ExitCode
@@ -5816,7 +5534,6 @@ error E3197: <fragment>:18:3: cannot write 'n' through 'c', which is immutable
 ```
 
 <!-- test: error.a-service-is-rejected-on-wasm -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 ⭐ On a target with no service substrate, BOTH ops are refused at their own source span with `E3104`,
@@ -5849,7 +5566,6 @@ type Plot
 end 'Plot'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Plot.create()
 	try h.at(1) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -5863,8 +5579,6 @@ error E3104: <fragment>:16:6: a message send lowers to the runtime entry '__cown
 ```
 
 <!-- test: a-scalar-only-record-crosses-whole -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ The simplest shape that crosses, and the control for the `deepmove.*` cases below: a record whose every
 slot is a machine word holds no reference to anything, so the walk has nothing to visit and moving it moves
 the whole of it. Built at the send, so this frame gives up the only reference there was.
@@ -5885,15 +5599,13 @@ type Plot
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function at(p isolated Point)
-		self.n = self.n + 1
+	export function at(mutates self, consumes p Point)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		print("at {p.x},{p.y} ({self.n})\n")
 	end 'at'
 end 'Plot'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Plot.create()
 	try h.at(Point.create(1, y: 2)) otherwise panic("an open mailbox with room takes the send")
 	try h.at(Point.create(3, y: 4)) otherwise panic("an open mailbox with room takes the send")
@@ -5912,8 +5624,6 @@ at 3,4 (2)
 
 <!-- test: deepmove.a-record-with-managed-fields-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A record with managed fields crosses at the `spawn`, as the factory's argument, and its three fields are
 the three answers the walk gives. The literal `String` is an immortal `.rdata` record: nothing ever steps
 its count, so it has none to check and passes. The interpolated `String` is a heap record the walk visits
@@ -5946,8 +5656,7 @@ end 'Holder'
 type Svc
 	var held as Holder
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(held isolated Holder) returns Self
+	static function create(consumes held Holder) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{held: merge held}
 	end 'create'
@@ -5958,7 +5667,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(Holder.create(7))
 	try h.report() otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -5976,8 +5684,6 @@ literal heap 7 2
 <!-- test: deepmove.a-reply-carries-a-container-back -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The reply road runs the same walk in the other direction, and a container whose whole graph is fresh
 crosses: the handler mints the array in its own frame and every element is a scalar, so the walk finds
 nothing to refuse and the awaiter takes the container whole.
@@ -5991,8 +5697,7 @@ type Source
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function values() returns isolated IntegerArray
+	export function values() returns IntegerArray
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let xs = IntegerArray.create(0) as isolated IntegerArray
 		// TODO: modify blocks are not supported in minimaxon
@@ -6006,7 +5711,6 @@ type Source
 end 'Source'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Source.create()
 	let xs = try await h.values() otherwise IntegerArray.create(0)
 	var sum = 0 as Integer
@@ -6023,8 +5727,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: deepmove.a-reply-carries-a-record-with-a-string-back -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A record HOLDING a `String` comes back the way a bare `String` does: the record and the heap string inside
 it are both minted by the handler, so the walk finds nothing to refuse and the record moves with its field.
 ```maxon
@@ -6043,14 +5745,12 @@ type Author
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function write(k Integer) returns isolated Note
+	export function write(k Integer) returns Note
 		return Note.create(k)
 	end 'write'
 end 'Author'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Author.create()
 	let note = try await h.write(4) otherwise Note.create(0)
 	print("{note.text}\n")
@@ -6067,8 +5767,6 @@ note 4
 ```
 
 <!-- test: deepmove.error.a-reply-holding-a-shared-record-is-refused -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6093,8 +5791,7 @@ type Store
 		return Self{cells: cells}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function snapshot() returns isolated CellArray
+	export function snapshot() returns CellArray
 		var out = CellArray.create(0)
 		let first = try self.cells.get(0) otherwise Cell.create()
 		out.push(first)
@@ -6103,10 +5800,9 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let got = try await h.snapshot() otherwise CellArray.create(0)
-	return got.count() as ExitCode
+	return try got.count() as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -6117,9 +5813,7 @@ error E3200: <fragment>:26:10: 'out' is not isolated: only a clean call, a `swap
 
 <!-- test: deepmove.a-container-crosses-with-its-elements -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A container crosses WHOLE. `push` increfs what it is handed, so an element's count says nothing the type can
 promise about the frame that filled the array — which is why soleness is proved at the SEND, by a walk over
 the value's graph, rather than declared from the type. Each `Cell` here has the array as its only owner, the
@@ -6143,8 +5837,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(cs isolated CellArray)
+	export function take(consumes cs CellArray)
 		var sum = 0 as Integer
 		for c in cs 'each'
 			sum = sum + c.n
@@ -6162,7 +5855,6 @@ function main() returns ExitCode
 		cs.push(Cell.create())
 		cs.push(Cell.create())
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(cs) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -6179,8 +5871,7 @@ sum 2
 ```
 
 <!-- test: deepmove.error.a-container-holding-a-shared-record-is-refused-at-the-send -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6202,8 +5893,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(cs isolated CellArray)
+	export function take(consumes cs CellArray)
 		print("svc {cs.count()}\n")
 	end 'take'
 end 'Svc'
@@ -6212,7 +5902,6 @@ function main() returns ExitCode
 	var cell = Cell.create()
 	var cs = CellArray.create(0)
 	cs.push(cell)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(cs) otherwise panic("an open mailbox with room takes the send")
 	return cell.n as ExitCode
@@ -6225,9 +5914,7 @@ error E3200: <fragment>:29:13: 'cs' is not isolated: only a clean call, a `swap`
 ```
 
 <!-- test: deepmove.a-cloned-array-detaches-its-shared-buffer-at-the-send -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A shared BUFFER is not a shared record. `a.clone()` yields a second array RECORD viewing `a`'s buffer until
 one of them writes. The send moves `b`, and its walk detaches the shared buffer
 as a write would — copying the elements out of `a`'s buffer into `b`'s own, exactly as `b.push(…)` would
@@ -6243,8 +5930,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(xs isolated IntegerArray) returns Integer
+	export function take(consumes xs IntegerArray) returns Integer
 		for x in xs 'each'
 			print("svc {x}\n")
 		end 'each'
@@ -6259,7 +5945,6 @@ function main() returns ExitCode
 	a.push(3)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = a.clone() as isolated IntegerArray
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let n = try await h.take(b) otherwise 0
 	for x in a 'each'
@@ -6285,7 +5970,6 @@ crossed 3
 ```
 
 <!-- test: deepmove.a-cloned-string-crosses-while-the-sender-keeps-its-source -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `String` moved by a send is walked like every other managed argument. A clone is a fresh record of its own,
 so the walk finds nothing outside the graph and the temporary crosses while `main` goes on reading and writing
 the source it was copied from. The reply sequences the two sides.
@@ -6297,15 +5981,14 @@ type Svc
 		return Self{last: ""}
 	end 'create'
 
-	export function keep(s String) returns Integer
-		self.last = s
+	export function keep(mutates self, s String) returns Integer
+		self.last = s.clone()
 		print("svc {self.last}\n")
-		return self.last.byteLength() as Integer
+		return try self.last.byteLength() as Integer otherwise panic("out of range")
 	end 'keep'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var src = "payload {42}"
 	let n = try await h.keep(src.clone()) otherwise 0
@@ -6325,7 +6008,6 @@ main payload 42! after the service kept 10 bytes
 ```
 
 <!-- test: deepmove.a-slice-written-at-the-send-crosses-while-the-sender-keeps-its-source -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A slice is a temporary too: each `slice` form hands back the fresh record `sliceBytes` builds, a view onto
 the source's bytes that nothing but the send can name. It moves, the walk detaches the view onto bytes of its
 own, and `main` goes on reading and writing the source.
@@ -6337,15 +6019,14 @@ type Svc
 		return Self{last: ""}
 	end 'create'
 
-	export function keep(s String) returns Integer
-		self.last = s
+	export function keep(mutates self, s String) returns Integer
+		self.last = s.clone()
 		print("svc {self.last}\n")
-		return self.last.byteLength() as Integer
+		return try self.last.byteLength() as Integer otherwise panic("out of range")
 	end 'keep'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var src = "payload {42}"
 	let n = try await h.keep(src.sliceLength(src.startIndex(), length: 7)) otherwise 0
@@ -6368,7 +6049,6 @@ main payload 42!? after the service kept 7 and 11 bytes
 ```
 
 <!-- test: deepmove.a-string-whose-bytes-the-sender-still-views-crosses-the-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An owned `String` keeps its bytes inline, so a `toByteArray()` view counts the String's own RECORD. The view is the
 record's second owner, so the record's count turns shared at the view and every step of it from then on is
 atomic: the service drops the String on its own green thread while this one drops the view, and neither frees the
@@ -6382,12 +6062,11 @@ type Svc
 	end 'create'
 
 	export function take(s String) returns Integer
-		return s.byteLength() as Integer
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'take'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var s = ""
 	s = "payload {42}"
@@ -6407,7 +6086,6 @@ service 10 view 10
 ```
 
 <!-- test: deepmove.a-grown-string-whose-bytes-the-sender-still-views-detaches-at-the-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 16 -->
 A String that has been APPENDED to owns a separate buffer, so a `toByteArray()` view counts that buffer and
 not the record. A shared buffer is what copy-on-write is for: the move's walk detaches `s` onto a private copy,
@@ -6429,8 +6107,8 @@ type Reader
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(s String)
-		self.sum = self.sum + (s.byteLength() as Integer)
+	export function take(mutates self, s String)
+		self.sum = try self.sum + (s.byteLength() as Integer) otherwise panic("out of range")
 	end 'take'
 
 	export function report() returns Integer
@@ -6441,10 +6119,9 @@ end 'Reader'
 typealias ReaderHandles = Array with Reader.handle
 
 function main() returns ExitCode
-	let readers = ReaderHandles.create(0)
+	var readers = ReaderHandles.create(0)
 	for _ in 1 to serviceCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		readers.push(spawn (capacity: rounds) Reader.create())
+		readers.push(spawn(capacity: rounds) Reader.create())
 	end 'spawnEach'
 	var kept = 0 as Count
 	for i in 1 to rounds 'round'
@@ -6453,12 +6130,12 @@ function main() returns ExitCode
 		s.append("payload {i mod 10}")
 		let bytes = s.toByteArray()
 		try r.take(s) otherwise panic("an open mailbox with room takes the send")
-		kept = kept + bytes.count()
+		kept = try kept + bytes.count() otherwise panic("out of range")
 	end 'round'
 	var total = 0 as Integer
 	for k in 0 upto serviceCount 'collect'
 		let r = try readers.get(k) otherwise panic("readers.get({k})")
-		total = total + (try await r.report() otherwise 0)
+		total = try total + (try await r.report() otherwise 0) otherwise panic("out of range")
 	end 'collect'
 	print("total {total} kept {kept}\n")
 	return 0
@@ -6472,7 +6149,6 @@ total 900000 kept 900000
 ```
 
 <!-- test: deepmove.a-string-viewed-by-the-sender-crosses-repeatedly -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 16 -->
 A String whose bytes live inline in its record is viewed by the sender and sent, round after round, to eight
 readers. The view is the record's second owner and turns its count shared, so the sender's release of the view and
@@ -6492,8 +6168,8 @@ type Reader
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(s String)
-		self.sum = self.sum + (s.byteLength() as Integer)
+	export function take(mutates self, s String)
+		self.sum = try self.sum + (s.byteLength() as Integer) otherwise panic("out of range")
 	end 'take'
 
 	export function report() returns Integer
@@ -6504,10 +6180,9 @@ end 'Reader'
 typealias ReaderHandles = Array with Reader.handle
 
 function main() returns ExitCode
-	let readers = ReaderHandles.create(0)
+	var readers = ReaderHandles.create(0)
 	for _ in 1 to serviceCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		readers.push(spawn (capacity: rounds) Reader.create())
+		readers.push(spawn(capacity: rounds) Reader.create())
 	end 'spawnEach'
 	var kept = 0 as Count
 	for i in 1 to rounds 'round'
@@ -6516,12 +6191,12 @@ function main() returns ExitCode
 		s = "payload {i mod 10}"
 		let bytes = s.toByteArray()
 		try r.take(s) otherwise panic("an open mailbox with room takes the send")
-		kept = kept + bytes.count()
+		kept = try kept + bytes.count() otherwise panic("out of range")
 	end 'round'
 	var total = 0 as Integer
 	for k in 0 upto serviceCount 'collect'
 		let r = try readers.get(k) otherwise panic("readers.get({k})")
-		total = total + (try await r.report() otherwise 0)
+		total = try total + (try await r.report() otherwise 0) otherwise panic("out of range")
 	end 'collect'
 	print("total {total} kept {kept}\n")
 	return 0
@@ -6536,9 +6211,7 @@ total 900000 kept 900000
 
 <!-- test: deepmove.a-chain-crosses-with-its-elements -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The SECOND element-bearing record crosses too, and it is a different walk: a chain owns its record, a node
 per element and each node's element, so `__list_sole` proves all three where the buffer's walk proves the
 record and its slots. Every `String` here is minted at the append, so each node and each element has one
@@ -6553,8 +6226,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(xs isolated Texts)
+	export function take(consumes xs Texts)
 		for x in xs 'each'
 			print("svc {x}\n")
 		end 'each'
@@ -6569,7 +6241,6 @@ function main() returns ExitCode
 		xs.append("a {1}")
 		xs.append("b {2}")
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(xs) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -6586,8 +6257,7 @@ svc b 2
 ```
 
 <!-- test: deepmove.error.a-chain-holding-a-shared-record-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6609,8 +6279,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(xs isolated Cells)
+	export function take(consumes xs Cells)
 		print("svc {xs.count()}\n")
 	end 'take'
 end 'Svc'
@@ -6619,7 +6288,6 @@ function main() returns ExitCode
 	var xs = Cells.create()
 	var cell = Cell.create()
 	xs.append(cell)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(xs) otherwise panic("an open mailbox with room takes the send")
 	return cell.n as ExitCode
@@ -6633,9 +6301,7 @@ error E3200: <fragment>:29:13: 'xs' is not isolated: only a clean call, a `swap`
 
 <!-- test: deepmove.a-map-crosses-with-its-keys-and-values -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `Map` is a declared record over two element-bearing containers, so it crosses through the ordinary field
 cascade and its keys and values are proved by the containers' own element walks. Nothing here is a special
 case for `Map`, which is the point: a record that holds containers is a record.
@@ -6649,8 +6315,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(m isolated Names)
+	export function take(consumes m Names)
 		print("svc {m.count()}\n")
 		let v = try m.get("a 1") otherwise "missing"
 		print("got {v}\n")
@@ -6664,7 +6329,6 @@ function main() returns ExitCode
 	modify m 'fill'
 		m.upsert("a {1}", value: "x {2}")
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(m) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -6681,8 +6345,7 @@ got x 2
 ```
 
 <!-- test: deepmove.error.a-map-holding-a-shared-value-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6704,8 +6367,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(m isolated Cells)
+	export function take(consumes m Cells)
 		print("svc {m.count()}\n")
 	end 'take'
 end 'Svc'
@@ -6714,7 +6376,6 @@ function main() returns ExitCode
 	var m = Cells.create()
 	var cell = Cell.create()
 	m.upsert("k {1}", value: cell)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(m) otherwise panic("an open mailbox with room takes the send")
 	return cell.n as ExitCode
@@ -6728,9 +6389,7 @@ error E3200: <fragment>:29:13: 'm' is not isolated: only a clean call, a `swap` 
 
 <!-- test: deepmove.a-map-releases-a-removed-entry-so-the-map-crosses -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `remove` releases the key and the value it takes out, so the map no longer owns them. `main` still holds both
 records, but the map's slot is empty, and the map crosses. A tombstone that kept its occupants would share `key`
 and `text` between `main` and the service while `main` owns them outside the map, and the service's release of the
@@ -6745,8 +6404,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(m isolated Texts) returns Integer
+	export function take(consumes m Texts) returns Integer
 		return m.count() as Integer
 	end 'take'
 end 'Svc'
@@ -6763,7 +6421,6 @@ function main() returns ExitCode
 		m.upsert("kept {2}", value: "value {8}")
 		removed = m.remove(key)
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let n = try await h.take(m) otherwise 0
 	print("removed {removed}, the service holds {n}, main still reads {key} and {text}\n")
@@ -6781,9 +6438,7 @@ removed true, the service holds 1, main still reads gone 1 and value 7
 
 <!-- test: deepmove.a-set-releases-a-removed-member-so-the-set-crosses -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Set.remove` releases the member it takes out, exactly as `Map.remove` does, so the set crosses while `main`
 keeps reading the record it removed.
 ```maxon
@@ -6812,8 +6467,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(s isolated Cells) returns Integer
+	export function take(consumes s Cells) returns Integer
 		return s.count() as Integer
 	end 'take'
 end 'Svc'
@@ -6828,7 +6482,6 @@ function main() returns ExitCode
 		s.insert(freeze(cell.clone()))
 		removed = s.remove(cell)
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let n = try await h.take(s) otherwise 0
 	print("removed {removed}, the service holds {n}, main still reads {cell.n}\n")
@@ -6847,9 +6500,7 @@ removed true, the service holds 0, main still reads 1
 <!-- test: deepmove.a-map-releases-a-removed-record-value-so-the-map-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same release for a record value: `main` keeps `key` and `cell` after `remove`, and the map crosses holding
 only the entry it still owns.
 ```maxon
@@ -6870,8 +6521,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(m isolated Cells) returns Integer
+	export function take(consumes m Cells) returns Integer
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedM = merge m
 		let kept = try ownedM.get("kept 2") otherwise panic("the kept entry crossed with the map")
@@ -6891,7 +6541,6 @@ function main() returns ExitCode
 		m.upsert("kept {2}", value: Cell.create(8))
 		removed = m.remove(key)
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let n = try await h.take(m) otherwise 0
 	cell.n = cell.n + 1
@@ -6910,9 +6559,7 @@ removed true, the service read 9, main still reads gone 1 and 8
 
 <!-- test: deepmove.a-set-releases-one-of-two-members-so-the-set-crosses -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A set that keeps a member after `remove` crosses with that member, and `main` keeps reading the one it removed.
 ```maxon
 typealias Names = Set with String
@@ -6924,8 +6571,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(s isolated Names) returns Integer
+	export function take(consumes s Names) returns Integer
 		if s.contains("kept 2") 'kept'
 			return s.count() as Integer
 		end 'kept'
@@ -6944,7 +6590,6 @@ function main() returns ExitCode
 		s.insert("kept {2}")
 		removed = s.remove(gone)
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let n = try await h.take(s) otherwise 0
 	print("removed {removed}, the service holds {n}, main still reads {gone}\n")
@@ -6963,9 +6608,7 @@ removed true, the service holds 1, main still reads gone 1
 <!-- test: deepmove.a-map-whose-value-was-built-inside-the-upsert-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A record built as the `value:` argument has no owner but the map, so the map crosses with it.
 ```maxon
 type Cell
@@ -6985,8 +6628,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(m isolated Cells) returns Integer
+	export function take(consumes m Cells) returns Integer
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedM = merge m
 		let kept = try ownedM.get("kept 2") otherwise panic("the kept entry crossed with the map")
@@ -7001,7 +6643,6 @@ function main() returns ExitCode
 	modify m 'fill'
 		m.upsert("kept {2}", value: Cell.create())
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let n = try await h.take(m) otherwise 0
 	print("crossed {n}\n")
@@ -7018,8 +6659,6 @@ crossed 7
 ```
 
 <!-- test: deepmove.a-union-payload-crosses-and-a-shared-one-aborts -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A boxed union crosses under its TAG: the walk proves the box, reads the discriminant and descends only into
 the LIVE case's managed payloads, so a variant that owns nothing costs one refcount test. The payload here is
 the service's own to keep.
@@ -7036,8 +6675,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(s isolated Shape)
+	export function take(consumes s Shape)
 		match s 'k'
 			empty then print("empty\n")
 			labelled(t) then print("labelled {t}\n")
@@ -7046,7 +6684,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(Shape.labelled("heap {1 + 1}")) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -7062,8 +6699,7 @@ labelled heap 2
 ```
 
 <!-- test: deepmove.error.a-union-payload-with-a-second-owner-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -7088,8 +6724,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(s isolated Shape)
+	export function take(consumes s Shape)
 		match s 'k'
 			empty then print("empty\n")
 			held(c) then print("held {c.n}\n")
@@ -7100,7 +6735,6 @@ end 'Svc'
 function main() returns ExitCode
 	var cell = Cell.create()
 	var s = Shape.held(cell)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(s) otherwise panic("an open mailbox with room takes the send")
 	return cell.n as ExitCode
@@ -7114,8 +6748,6 @@ error E3200: <fragment>:34:13: 's' is not isolated: only a clean call, a `swap` 
 
 <!-- test: deepmove.a-deep-graph-crosses-and-is-released-on-the-service -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE GRAPH IS BUILT ON `main` AND RELEASED ON THE SERVICE, AND A GREEN THREAD'S STACK STARTS AT 2 KB.**
 The handler reads one scalar and returns, so the only frames that release the chain are the per-type
 cascade's own — `__destruct_S63` calling `__destruct_S62`, once per level. A cascade recurses to the depth
@@ -7706,8 +7338,7 @@ type Sink
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(root isolated S63)
+	export function take(consumes root S63)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedRoot = merge root
 		self.seen = self.seen + ownedRoot.n
@@ -7719,7 +7350,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	try h.take(S63.create()) otherwise panic("an open mailbox with room takes the send")
 	try h.report() otherwise panic("an open mailbox with room takes the send")
@@ -7737,8 +7367,6 @@ released 63
 
 <!-- test: deepmove.dag.a-record-held-by-two-fields-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A moved graph may reach one record twice. `Pair.create` puts its one `Bag` in both fields, so the bag's count
 is 2 and both owners are inside the graph: nothing outside it can write the bag once it crosses, and the walk
 counts the owners it meets rather than demanding a count of 1. The bag is descended once, so its `CellArray`
@@ -7779,8 +7407,7 @@ end 'Pair'
 type Svc
 	var held as Pair
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(held isolated Pair) returns Self
+	static function create(consumes held Pair) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{held: merge held}
 	end 'create'
@@ -7792,7 +7419,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(Pair.create())
 	try h.report() otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -7809,8 +7435,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: deepmove.dag.an-array-holding-one-record-twice-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same inside a container: both slots hold one `Cell`, the array is that cell's only other owner, and the
 service's write through slot 0 is what slot 1 reads.
 ```maxon
@@ -7835,8 +7459,7 @@ end 'oneCellTwice'
 type Svc
 	var cells as CellArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(cells isolated CellArray) returns Self
+	static function create(consumes cells CellArray) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{cells: merge cells}
 	end 'create'
@@ -7850,7 +7473,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(oneCellTwice())
 	try h.report() otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -7867,8 +7489,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: deepmove.dag.a-union-payload-shared-with-a-sibling-field-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A union payload and a sibling field may be one record: the walk meets the `Cell` once under the live case and
 once under the field, both inside the graph, so the frame crosses and the service's write through the field
 is what the payload reads.
@@ -7899,8 +7519,7 @@ end 'Frame'
 type Svc
 	var frame as Frame
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(frame isolated Frame) returns Self
+	static function create(consumes frame Frame) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{frame: merge frame}
 	end 'create'
@@ -7915,7 +7534,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(Frame.create())
 	try h.report() otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -7931,8 +7549,6 @@ held 7
 ```
 
 <!-- test: deepmove.dag.a-reply-holding-one-record-twice-crosses -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The reply road admits the same shape: the handler mints a `Pair` whose two fields hold one `Bag`, and the
 awaiter's write through `left` is what `right` reads.
 ```maxon
@@ -7951,7 +7567,7 @@ type Bag
 	export var cells as CellArray
 
 	static function create() returns Self
-		let cells = CellArray.create(0)
+		var cells = CellArray.create(0)
 		cells.push(Cell.create())
 		cells.push(Cell.create())
 		return Self{n: 1, cells: cells}
@@ -7975,16 +7591,14 @@ type Maker
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function make() returns isolated Pair
+	export function make() returns Pair
 		return Pair.create()
 	end 'make'
 end 'Maker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create()
-	let p = try await h.make() otherwise Pair.create()
+	var p = try await h.make() otherwise Pair.create()
 	p.left.n = 5
 	print("{p.right.n} {p.right.cells.count()}\n")
 	return 0
@@ -8000,8 +7614,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: deepmove.dag.an-outside-owner-of-a-record-reached-twice-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -8044,15 +7657,13 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(p isolated Pair)
+	export function take(consumes p Pair)
 		print("svc {p.right.n}\n")
 	end 'take'
 end 'Svc'
 
 function main() returns ExitCode
 	var bag = Bag.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	try h.take(Pair.around(bag)) otherwise panic("an open mailbox with room takes the send")
 	return bag.n as ExitCode
@@ -8065,9 +7676,7 @@ error E3200: <fragment>:48:13: 'Pair.around(bag)' is not isolated: only a clean 
 ```
 
 <!-- test: deepmove.dag.a-string-and-its-bytes-cross-together -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A move meets a view's reference to the String record its bytes live in before it detaches the view, so a moved
 `Holder` owning `text` and a view of it crosses: both of the record's owners are inside the graph.
 ```maxon
@@ -8087,14 +7696,12 @@ type Reader
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function read(h isolated Holder) returns Integer
+	export function read(consumes h Holder) returns Integer
 		return h.text.byteLength() + (h.bytes.count() as BytePos)
 	end 'read'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let r = spawn Reader.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let holder = Holder.around("payload {42}") as isolated Holder
@@ -8114,8 +7721,6 @@ n=20
 
 <!-- test: deepmove.dag.a-map-holding-one-record-under-two-keys-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `Map`'s value column may hold one record under two keys: both owners are slots of the moved map, so it
 crosses, and the service's write through one key is what the other reads.
 ```maxon
@@ -8140,8 +7745,7 @@ end 'oneCellUnderTwoKeys'
 type Svc
 	var cells as Cells
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(cells isolated Cells) returns Self
+	static function create(consumes cells Cells) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{cells: merge cells}
 	end 'create'
@@ -8155,7 +7759,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(oneCellUnderTwoKeys())
 	try h.report() otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -8172,8 +7775,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: deepmove.dag.a-chain-holding-one-record-twice-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The chain's walk admits the same shape: two nodes hold one `Cell`, the chain is its only owner, and the
 service's write through the first node is what the second reads.
 ```maxon
@@ -8198,8 +7799,7 @@ end 'oneCellTwice'
 type Svc
 	var cells as Cells
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(cells isolated Cells) returns Self
+	static function create(consumes cells Cells) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{cells: merge cells}
 	end 'create'
@@ -8214,7 +7814,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(oneCellTwice())
 	try h.report() otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -8232,8 +7831,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: deepmove.dag.many-records-each-reached-twice-cross -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Forty records, each held by two slots of one array: every one of them is met twice, and the graph crosses.
 ```maxon
 type Cell
@@ -8259,8 +7856,7 @@ end 'pairedCells'
 type Svc
 	var cells as CellArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(cells isolated CellArray) returns Self
+	static function create(consumes cells CellArray) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{cells: merge cells}
 	end 'create'
@@ -8275,7 +7871,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(pairedCells(40))
 	try h.report() otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -8291,8 +7886,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: deepmove.dag.an-outside-owner-among-many-records-reached-twice-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -8322,8 +7915,7 @@ end 'pairedCellsAround'
 type Svc
 	var cells as CellArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(cells isolated CellArray) returns Self
+	static function create(consumes cells CellArray) returns Self
 		return Self{cells: cells}
 	end 'create'
 
@@ -8334,7 +7926,6 @@ end 'Svc'
 
 function main() returns ExitCode
 	var kept = Cell.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(pairedCellsAround(kept, pairs: 40))
 	try h.report() otherwise panic("an open mailbox with room takes the send")
 	return kept.n as ExitCode
@@ -8348,7 +7939,6 @@ error E3200: <fragment>:40:27: 'pairedCellsAround(kept, pairs: 40)' is not isola
 ```
 
 <!-- test: borrow.error.a-let-string-read-after-its-awaited-send-is-use-after-move -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `let` local handed to a message is MOVED: the service becomes its owner, and the sender's binding is gone
 even after the reply it awaited.
@@ -8361,12 +7951,11 @@ type Meter
 	end 'create'
 
 	export function measure(s String) returns Integer
-		return s.count() as Integer
+		return try s.count() as Integer otherwise panic("out of range")
 	end 'measure'
 end 'Meter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Meter.create()
 	let buf = "hello {1}"
 	let n = try await h.measure(buf) otherwise 0
@@ -8382,7 +7971,6 @@ error E3102: <fragment>:19:29: use of moved value 'buf': its ownership moved to 
 ```
 
 <!-- test: borrow.a-cloned-let-string-is-sent-while-the-sender-keeps-its-source -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A clone bound to a `let` is moved by the send, and its walk meets a record of its own: the source it was
 copied from is not part of the graph, so `main` may go on writing it after the send.
 ```maxon
@@ -8394,12 +7982,11 @@ type Meter
 	end 'create'
 
 	export function measure(s String) returns Integer
-		return s.byteLength() as Integer
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'measure'
 end 'Meter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Meter.create()
 	var src = "payload {42}"
 	let part = src.clone()
@@ -8420,9 +8007,7 @@ service read 10 bytes, sender wrote payload 42!
 
 <!-- test: borrow.a-record-clone-bound-to-a-let-or-a-var-is-sent-while-the-sender-keeps-its-source -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `.clone()` of a record holding an array of records and a map, bound to a `let` or a `var` before the send,
 is a graph of its own exactly as the same clone written inside the call is, so the send moves it. The second
 copy's map is empty.
@@ -8463,8 +8048,7 @@ end 'Shelf'
 type Keeper
 	let shelf as Shelf
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(shelf isolated Shelf) returns Self
+	static function create(consumes shelf Shelf) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{shelf: merge shelf}
 	end 'create'
@@ -8489,14 +8073,12 @@ function main() returns ExitCode
 	let original = shelf(true)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let copy = original.clone() as isolated Shelf
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let first = spawn Keeper.create(copy)
 	let firstSaw = try await first.weight() otherwise 0
 	print("let copy: service {firstSaw}, sender {original.weight()}\n")
 	let unindexed = shelf(false)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let moved = unindexed.clone() as isolated Shelf
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let second = spawn Keeper.create(moved)
 	let secondSaw = try await second.weight() otherwise 0
 	print("var copy: service {secondSaw}, sender {unindexed.weight()}\n")
@@ -8514,7 +8096,6 @@ var copy: service 5, sender 5
 ```
 
 <!-- test: borrow.a-let-string-whose-bytes-the-sender-still-views-crosses-the-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `toByteArray()` view of an owned `String` counts the String's own record, because its bytes are inline. The
 send turns that count shared, so the service's release and the view's release step one atomic count
 (`deepmove.a-string-whose-bytes-the-sender-still-views-crosses-the-send`).
@@ -8527,12 +8108,11 @@ type Meter
 	end 'create'
 
 	export function measure(s String) returns Integer
-		return s.byteLength() as Integer
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'measure'
 end 'Meter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Meter.create()
 	let s = "payload {42}"
 	let bytes = s.toByteArray()
@@ -8551,8 +8131,6 @@ service 10 view 10
 ```
 
 <!-- test: borrow.two-services-and-the-sender-each-read-a-copy-of-one-graph -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 One `let` graph — a record holding a `String`, an array of records and a union with a managed payload — is
 cloned into a send to each of two services, and all three green threads read their own copy while both
 replies are outstanding.
@@ -8561,7 +8139,7 @@ type Tag
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Tag'
 
@@ -8578,7 +8156,7 @@ type Doc
 	export var note as Note
 
 	static function create(k Integer) returns Self
-		let tags = Tags.create(0)
+		var tags = Tags.create(0)
 		tags.push(Tag.create("red {k}"))
 		tags.push(Tag.create("green {k}"))
 		tags.push(Tag.create("blue {k}"))
@@ -8589,16 +8167,16 @@ end 'Doc'
 function noteLength(n Note) returns Integer
 	return match n 'length'
 		blank gives 0
-		written(body) gives body.count() as Integer
+		written(body) gives try body.count() as Integer otherwise panic("out of range")
 	end 'length'
 end 'noteLength'
 
 function digest(d Doc) returns Integer
-	var total = d.title.count() as Integer
+	var total = try d.title.count() as Integer otherwise panic("out of range")
 	for t in d.tags 'each'
-		total = total + (t.text.count() as Integer)
+		total = try total + (t.text.count() as Integer) otherwise panic("out of range")
 	end 'each'
-	return total + noteLength(d.note)
+	return try total + noteLength(d.note) otherwise panic("out of range")
 end 'digest'
 
 type Reader
@@ -8608,16 +8186,13 @@ type Reader
 		return Self{id: id}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function read(d isolated Doc) returns Integer
-		return self.id * 1000 + digest(d)
+	export function read(consumes d Doc) returns Integer
+		return try self.id * 1000 + digest(d) otherwise panic("out of range")
 	end 'read'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let one = spawn Reader.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let two = spawn Reader.create(2)
 	let doc = Doc.create(7)
 	let first = try one.read(doc.clone()) otherwise panic("an open mailbox with room takes the send")
@@ -8643,8 +8218,6 @@ sender 29
 ```
 
 <!-- test: borrow.one-graph-cloned-into-many-sends-to-one-service -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A clone of the same `let` graph sent 200 times to one service: every queued message owns its copy, and the
 mailbox's FIFO puts `report` behind the last of them. `main` reads its own graph once the tallies are in.
 ```maxon
@@ -8652,7 +8225,7 @@ type Leaf
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Leaf'
 
@@ -8663,7 +8236,7 @@ type Tree
 	export var leaves as Leaves
 
 	static function create(size Integer) returns Self
-		let leaves = Leaves.create(0)
+		var leaves = Leaves.create(0)
 		for i in 1 to size 'grow'
 			leaves.push(Leaf.create("leaf {i}"))
 		end 'grow'
@@ -8679,14 +8252,13 @@ type Tally
 		return Self{sends: 0, letters: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(t isolated Tree)
-		var read = t.name.count() as Integer
+	export function take(mutates self, consumes t Tree)
+		var read = try t.name.count() as Integer otherwise panic("out of range")
 		for leaf in t.leaves 'each'
-			read = read + (leaf.text.count() as Integer)
+			read = try read + (leaf.text.count() as Integer) otherwise panic("out of range")
 		end 'each'
-		self.sends = self.sends + 1
-		self.letters = self.letters + read
+		self.sends = try self.sends + 1 otherwise panic("out of range")
+		self.letters = try self.letters + read otherwise panic("out of range")
 	end 'take'
 
 	export function report() returns String
@@ -8695,7 +8267,6 @@ type Tally
 end 'Tally'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Tally.create()
 	let tree = Tree.create(4)
 	for _ in 1 to 200 'send'
@@ -8719,9 +8290,7 @@ sender still reads tree 4 with 4 leaves
 
 <!-- test: borrow.the-sender-releases-first-and-the-service-frees-the-graph -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `sendAndReturn` sends its graph and returns while the message is still queued, so the queued message is the
@@ -8759,8 +8328,7 @@ type Keeper
 		return Self{seen: "nothing"}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(t isolated Tree)
+	export function take(consumes t Tree)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedT = merge t
 		let first = try ownedT.leaves.get(0) otherwise panic("a tree has leaves")
@@ -8780,7 +8348,6 @@ function sendAndReturn(h Keeper.handle)
 end 'sendAndReturn'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Keeper.create()
 	sendAndReturn(h)
 	let report = try await h.report() otherwise "gone"
@@ -8799,9 +8366,7 @@ service read tree 3 starting with leaf 1
 ```
 
 <!-- test: borrow.a-handler-may-write-a-copy-of-a-record-inside-its-sent-parameter-through-a-self-writing-method -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `copy` is the handler's own record, so `bump` writes it whatever the send moved.
 ```maxon
 type Box
@@ -8831,8 +8396,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function poke(target isolated Holder)
+	export function poke(consumes target Holder)
 		let copy = target.inner.clone()
 		copy.bump()
 		print("{copy.n}\n")
@@ -8840,7 +8404,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Holder.create() as isolated Holder
@@ -8858,9 +8421,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.dag.a-graph-reaching-one-record-twice-is-sent -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A sent graph may reach one record through two fields: the second owner is inside the graph the service
 owns, not outside it, so the send's walk admits it.
 ```maxon
@@ -8903,15 +8464,13 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function look(target isolated Pair) returns Integer
+	export function look(consumes target Pair) returns Integer
 		print("service reads {target.right.n}\n")
 		return target.right.cells.count() as Integer
 	end 'look'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let p = Pair.create() as isolated Pair
@@ -8931,9 +8490,7 @@ service counted 2 cells
 ```
 
 <!-- test: borrow.dag.a-graph-reaching-one-record-twice-is-sent-twice -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A clone of that graph is sent first and the graph itself second; each send's walk admits what it meets.
 ```maxon
 type Cell
@@ -8975,15 +8532,13 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function look(target isolated Pair) returns Integer
+	export function look(consumes target Pair) returns Integer
 		print("service reads {target.right.n}\n")
 		return target.right.cells.count() as Integer
 	end 'look'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let p = Pair.create() as isolated Pair
@@ -9006,9 +8561,7 @@ service counted 4 cells
 
 <!-- test: borrow.dag.an-array-holding-one-record-twice-is-sent -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The container's walk meets the one `Cell` in both slots and counts the second slot against its owners.
 ```maxon
 type Cell
@@ -9040,8 +8593,7 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function look(shelf isolated Shelf) returns Integer
+	export function look(consumes shelf Shelf) returns Integer
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedShelf = merge shelf
 		let second = try ownedShelf.cells.get(1) otherwise panic("two cells were pushed")
@@ -9050,7 +8602,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shelf = Shelf.create() as isolated Shelf
@@ -9069,8 +8620,7 @@ service read 1
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-record-reached-twice-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -9112,15 +8662,13 @@ type Svc
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function look(target isolated Pair) returns Integer
+	export function look(consumes target Pair) returns Integer
 		return target.right.n
 	end 'look'
 end 'Svc'
 
 function main() returns ExitCode
 	let bag = Bag.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let p = Pair.around(bag)
 	let n = try await h.look(p) otherwise 0
@@ -9135,9 +8683,7 @@ error E3200: <fragment>:48:27: 'p' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: borrow.dag.bytes-and-their-string-are-sent-together -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An owned `String` keeps its bytes inline, so a `toByteArray()` view holds a reference to the String's own record.
 `Holder` declares the view before `text`, so the walk meets the record through the view before it meets it
 through `text`, and counts both references: both owners are inside the sent graph, and the graph crosses.
@@ -9158,14 +8704,12 @@ type Reader
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function read(h isolated Holder) returns Integer
+	export function read(consumes h Holder) returns Integer
 		return h.text.byteLength() + (h.bytes.count() as BytePos)
 	end 'read'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let r = spawn Reader.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let holder = Holder.around("payload {42}") as isolated Holder
@@ -9184,8 +8728,6 @@ n=20
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-viewed-string-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -9206,14 +8748,12 @@ type Reader
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function read(h isolated Holder) returns Integer
+	export function read(consumes h Holder) returns Integer
 		return h.text.byteLength() + (h.bytes.count() as BytePos)
 	end 'read'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let r = spawn Reader.create()
 	let holder = Holder.around("payload {42}")
 	var kept = TextArray.create(0)
@@ -9232,8 +8772,6 @@ error E3200: <fragment>:28:27: 'holder' is not isolated: only a clean call, a `s
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-string-its-bytes-reach-first-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -9254,14 +8792,12 @@ type Reader
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function read(h isolated Holder) returns Integer
+	export function read(consumes h Holder) returns Integer
 		return h.text.byteLength() + (h.bytes.count() as BytePos)
 	end 'read'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let r = spawn Reader.create()
 	let holder = Holder.around("payload {42}")
 	var kept = TextArray.create(0)
@@ -9280,7 +8816,6 @@ error E3200: <fragment>:28:27: 'holder' is not isolated: only a clean call, a `s
 ```
 
 <!-- test: borrow.a-sent-handle-may-be-kept-by-the-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service handle may be kept by the handler it is sent to: `Relay` keeps a clone of `counter` in its state and
 sends through it in a later message, while `main` goes on sending through its own binding. `Relay` posts its
 send and answers without waiting for the counter's reply, and `relay.forward` is answered before `main`'s own
@@ -9293,8 +8828,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	export function bump(by Integer) returns Integer
-		self.n = self.n + by
+	export function bump(mutates self, by Integer) returns Integer
+		self.n = try self.n + by otherwise panic("out of range")
 		return self.n
 	end 'bump'
 end 'Counter'
@@ -9308,24 +8843,22 @@ type Relay
 		return Self{peers: CounterHandles.create(0)}
 	end 'create'
 
-	export function adopt(peer Counter.handle)
-		self.peers.push(peer)
+	export function adopt(mutates self, peer Counter.handle)
+		self.peers.push(peer.clone())
 	end 'adopt'
 
 	export function forward(by Integer) returns Integer
 		var sent = 0 as Integer
 		for peer in self.peers 'each'
 			_ = try peer.bump(by) otherwise panic("an open mailbox with room takes the send")
-			sent = sent + 1
+			sent = try sent + 1 otherwise panic("out of range")
 		end 'each'
 		return sent
 	end 'forward'
 end 'Relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let counter = spawn Counter.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let relay = spawn Relay.create()
 	try relay.adopt(counter.clone()) otherwise panic("an open mailbox with room takes the send")
 	let viaRelay = try await relay.forward(5) otherwise 0
@@ -9347,9 +8880,7 @@ direct 7
 
 <!-- test: borrow.a-door-on-a-sibling-arm-does-not-follow-the-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A door on the OTHER arm of the `match` whose arm sent the graph does not follow the send: no path runs both, so
 `route` may hand `b` to `stash`, which keeps it, on the arm that did not send it.
 ```maxon
@@ -9375,8 +8906,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9402,7 +8932,6 @@ function route(h Svc.handle, xs Boxes, n Integer, way Route)
 end 'route'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let xs = Boxes.create(0)
 	route(h, xs: xs, n: 2, way: Route.toService)
@@ -9426,9 +8955,7 @@ kept 1 holding 5
 
 <!-- test: borrow.error.a-door-after-the-branch-that-sent-follows-the-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A door after the `match` follows the send on the arm that sent: a path runs the send and then `stash`, which
 reads `b` after it moved.
@@ -9455,8 +8982,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9479,7 +9005,6 @@ function route(h Svc.handle, xs Boxes, n Integer, way Route)
 end 'route'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var xs = Boxes.create(0)
 	route(h, xs: xs, n: 2, way: Route.toService)
@@ -9494,9 +9019,7 @@ error E3102: <fragment>:41:24: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-door-on-a-sibling-arm-inside-a-loop-follows-the-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Inside a loop a door on the sibling arm of the send follows it, though the text places it first: the next trip
 takes the other arm while `b`, bound before the loop, has already moved.
@@ -9523,8 +9046,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9540,7 +9062,6 @@ function routeFor(trip Integer) returns Route
 end 'routeFor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var xs = Boxes.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -9565,9 +9086,7 @@ error E3102: <fragment>:46:39: use of moved value 'b': it was moved in an earlie
 
 <!-- test: borrow.a-let-rebound-each-trip-is-sent-afresh -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The loop case above with `b` bound INSIDE the loop: the next trip binds a fresh record, so the door the back edge
 reaches is not the binding the send moved and `stash` may keep it.
 ```maxon
@@ -9593,8 +9112,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9614,7 +9132,6 @@ function routeFor(trip Integer) returns Route
 end 'routeFor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let xs = Boxes.create(0)
 	var trip = 0 as Integer
@@ -9650,9 +9167,7 @@ kept 2 totalling 6
 
 <!-- test: borrow.error.a-sent-let-may-not-be-bound-to-a-var -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 From the send on, a sent `let` is gone: binding it to a `var` reads a moved value.
 ```maxon
@@ -9671,8 +9186,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9680,7 +9194,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -9698,9 +9211,7 @@ error E3102: <fragment>:28:10: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-assigned-to-a-var -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Assigning a sent `let` to an existing `var` reads it after the move, as binding one does.
 ```maxon
@@ -9719,8 +9230,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9728,7 +9238,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var m = Box.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -9747,9 +9256,7 @@ error E3102: <fragment>:29:6: use of moved value 'b': its ownership moved to ano
 
 <!-- test: borrow.error.a-value-read-out-of-a-sent-let-is-use-after-move -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Reading a field out of a sent binding reads the moved binding: `p.inner` names `p`, which the send took.
 ```maxon
@@ -9776,8 +9283,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(p isolated Pair)
+	export function take(consumes p Pair)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedP = merge p
 		self.seen = self.seen + ownedP.inner.n
@@ -9785,7 +9291,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let p = Pair.create(Box.create()) as isolated Pair
@@ -9803,9 +9308,7 @@ error E3102: <fragment>:36:10: use of moved value 'p': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-stored-in-a-field -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Storing a sent value in a field of a mutable record reads it after the move.
 ```maxon
@@ -9832,8 +9335,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9841,7 +9343,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var holder = Holder.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -9859,9 +9360,7 @@ error E3102: <fragment>:37:16: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-wrapped-in-a-new-record -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Constructing a record around a sent value reads it after the move, exactly as a field assignment does. The
 record here is a union payload, because a struct literal is legal only inside its own type.
@@ -9886,8 +9385,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9895,7 +9393,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -9913,9 +9410,7 @@ error E3102: <fragment>:33:20: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-stored-in-a-container -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Pushing a sent value into a container reads it after the move.
 ```maxon
@@ -9936,8 +9431,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9945,7 +9439,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var xs = Boxes.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -9963,9 +9456,7 @@ error E3102: <fragment>:31:10: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-returned -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Returning a sent value hands back a binding the send already took.
 ```maxon
@@ -9984,8 +9475,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -9993,7 +9483,6 @@ type Svc
 end 'Svc'
 
 function sendAndKeep() returns Box
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -10014,9 +9503,7 @@ error E3102: <fragment>:28:9: use of moved value 'b': its ownership moved to ano
 
 <!-- test: borrow.error.a-sent-let-may-not-be-captured-by-a-closure -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A closure that captures a sent value reads it after the move.
 ```maxon
@@ -10035,8 +9522,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -10044,7 +9530,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -10061,9 +9546,7 @@ error E3102: <fragment>:28:30: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.a-handler-may-keep-a-sent-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The service owns what a send moves to it, so `keep` may push its parameter into the service's state.
 ```maxon
 type Box
@@ -10083,15 +9566,13 @@ type Svc
 		return Self{kept: Boxes.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(given isolated Box)
+	export function keep(consumes given Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.kept.push(merge given)
 	end 'keep'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -10107,9 +9588,7 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: borrow.a-handler-may-keep-what-it-reads-out-of-a-sent-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 What a handler reads out of a sent parameter is part of the graph it owns, so it may keep `p.inner`.
 ```maxon
 type Box
@@ -10137,8 +9616,7 @@ type Svc
 		return Self{kept: Boxes.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Pair)
+	export function keep(consumes p Pair)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedP = merge p
 		self.kept.push(ownedP.inner)
@@ -10146,7 +9624,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let pair = Pair.create(Box.create()) as isolated Pair
@@ -10161,9 +9638,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-let-sent-to-a-handler-that-writes-it -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handler may write a parameter a send moved to it: the sender's binding is gone, so nothing else sees the
 record.
 ```maxon
@@ -10182,14 +9657,12 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function bump(target isolated Box)
+	export function bump(consumes target Box)
 		target.n = target.n + 1
 	end 'bump'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -10204,9 +9677,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-its-sent-parameter-through-a-self-writing-method -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A method that writes its own receiver may write a parameter the send moved to the handler.
 ```maxon
 type Box
@@ -10228,14 +9699,12 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function poke(target isolated Box)
+	export function poke(consumes target Box)
 		target.bump()
 	end 'poke'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -10250,9 +9719,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-a-record-inside-its-sent-parameter-through-a-self-writing-method -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The moved graph is everything the parameter reaches, so the handler may write `target.inner` too.
 ```maxon
 type Box
@@ -10282,14 +9749,12 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function poke(target isolated Holder)
+	export function poke(consumes target Holder)
 		target.inner.bump()
 	end 'poke'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Holder.create() as isolated Holder
@@ -10304,9 +9769,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-a-record-inside-its-sent-parameter-one-frame-down-through-a-self-writing-method -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same write one frame down: `nudge` writes what the handler was sent.
 ```maxon
 type Box
@@ -10340,14 +9803,12 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function poke(target isolated Holder)
+	export function poke(consumes target Holder)
 		nudge(target)
 	end 'poke'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Holder.create() as isolated Holder
@@ -10363,9 +9824,7 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: borrow.a-handler-may-push-into-a-container-a-call-hands-back-from-inside-its-sent-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `pick` hands back the array `target` holds, and the handler may push into it: the send moved the whole graph.
 ```maxon
 typealias Counts = Array with Integer
@@ -10389,8 +9848,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function poke(target isolated Holder)
+	export function poke(consumes target Holder)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedTarget = merge target
 		pick(ownedTarget).push(1)
@@ -10398,7 +9856,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Holder.create() as isolated Holder
@@ -10413,8 +9870,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-promise-may-not-be-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A `Promise` is a green-thread handle its awaiter owns, and a message MOVES its arguments to another green
 thread — so sending one would leave a second thread holding a thread this one is still waiting on.
 
@@ -10442,7 +9897,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let p = async work()
 	try h.keep(p) otherwise panic("an open mailbox with room takes the send")
@@ -10455,7 +9909,6 @@ error E3005: <fragment>:23:13: argument type mismatch for 'value': expected 'Int
 ```
 
 <!-- test: error.a-send-argument-of-another-alias-names-the-cast -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to u64.max)
@@ -10475,7 +9928,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let w = 5 as Wide
 	try h.keep(w) otherwise panic("an open mailbox with room takes the send")
@@ -10487,7 +9939,6 @@ error E3005: <fragment>:20:13: type mismatch: 'expected Narrow, got Wide' — ca
 ```
 
 <!-- test: error.a-handle-of-another-service-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Two services' handles are two nominal types, so handing one where the other is expected is the ordinary
 struct-identity mismatch and needs no rule of its own.
@@ -10517,9 +9968,7 @@ type Logger
 end 'Logger'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Calc.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let l = spawn Logger.create()
 	try l.say(l) otherwise panic("an open mailbox with room takes the send")
 	return 0
@@ -10532,7 +9981,6 @@ error E3005: <fragment>:29:12: argument type mismatch for 'peer': expected 'Calc
 ```
 
 <!-- test: error.a-message-that-returns-nothing-and-throws-nothing-has-no-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐ **A MESSAGE THAT RETURNS NOTHING IS SENT AS A STATEMENT, AND THE REFUSAL POINTS AT THE DECLARATION.** A
 message that returns nothing and throws nothing carries no `__reply` slot at all, so the send mints no cell
@@ -10554,7 +10002,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let n = try h.bump() otherwise panic("an open mailbox with room takes the send")
 	return n as ExitCode
@@ -10567,7 +10014,6 @@ error E2015: <fragment>:16:10: Unsupported: the value of `Calc.bump` sent as a M
 ```
 
 <!-- test: send-and-await-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A value-returning message is awaitable RPC.
 ```maxon
 type Calc
@@ -10577,8 +10023,8 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	export function bump(by Integer)
-		self.count = self.count + by
+	export function bump(mutates self, by Integer)
+		self.count = try self.count + by otherwise panic("out of range")
 	end 'bump'
 
 	export function total() returns Integer
@@ -10587,11 +10033,10 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	try h.bump(3) otherwise panic("a running service with room takes the send")
 	let n = try await h.total() otherwise 0
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -10601,7 +10046,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-message-throws-and-the-handler-error-merges-with-the-send-errors -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 One `try` covers the send and the handler: the error it binds has the send's two arms, `mailboxFull` and
 `serviceStopped`, beside the handler's own cases.
 ```maxon
@@ -10625,7 +10069,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let v = try await h.divide(10, by: 0) otherwise (e) 'oops'
 		match e 'why'
@@ -10644,7 +10087,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-call-after-shutdown-fails-service-stopped -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A call to a stopped service fails at the send with `serviceStopped`, so the awaiter never has a reply to wait for.
 ```maxon
 type Calc
@@ -10660,7 +10102,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	h.shutdown()
 	let v = try await h.total() otherwise (e) 'gone'
@@ -10669,7 +10110,7 @@ function main() returns ExitCode
 			serviceStopped then return 9
 		end 'why'
 	end 'gone'
-	return v as ExitCode
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -10679,8 +10120,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-reply-may-not-alias-service-state -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A handler must not return a value this frame does not solely own, or the caller ends up aliasing a box the
 service still names — two green threads naming one box, with a plain refcount between them. `return self` is
@@ -10698,14 +10137,12 @@ type Store
 		return Self{n: 1}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function itself() returns immutable Store
+	export function itself() returns frozen with Store
 		return self
 	end 'itself'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	return 0
 end 'main'
@@ -10718,8 +10155,6 @@ error E3209: <fragment>:10:3: a return does not fit the declared result: the ret
 
 <!-- test: a-reply-swapped-out-of-a-field-is-sole -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The swap idiom: `let old = self.items` followed by `self.items = Items.create()` moves the record out of the
 field. The replacement is fresh and every store to the field is fresh, so `old` is the record's only holder and
 the reply crosses without a `.clone()`.
@@ -10741,14 +10176,12 @@ type Store
 		self.items.push(n)
 	end 'put'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function take() returns isolated Items
+	export function take() returns Items
 		return exchange(self.items, value: Items.create(0))
 	end 'take'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	try h.put(4) otherwise panic("a running service with room takes the send")
 	let got = try await h.take() otherwise return 2
@@ -10764,8 +10197,6 @@ end 'main'
 ```
 
 <!-- test: error.a-read-of-the-field-between-the-swap-load-and-store-keeps-the-reply-aliased -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A read of `self.items` between the load and the store may hand the record to a second holder, so the swap no
 longer proves `old` is the only one and the reply is refused.
@@ -10785,8 +10216,7 @@ type Store
 		self.items.push(n)
 	end 'put'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function take() returns immutable Items
+	export function take() returns frozen with Items
 		var old = self.items
 		let seen = self.items.count()
 		self.items = Items.create(0)
@@ -10795,7 +10225,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	try h.put(4) otherwise panic("a running service with room takes the send")
 	let got = try await h.take() otherwise return 2
@@ -10810,9 +10239,6 @@ error E3209: <fragment>:20:3: a return does not fit the declared result: the ret
 
 <!-- test: error.a-field-another-store-fills-with-a-borrowed-record-is-not-swapped-out -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `replace` stores a record it was handed into `items`, so the record `old` holds may be one its sender still names.
 The swap in `take` does not prove `old` is the only holder, and the reply is refused.
@@ -10832,14 +10258,12 @@ type Store
 		self.items.push(n)
 	end 'put'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function replace(given isolated Items)
+	export function replace(consumes given Items)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.items = merge given
 	end 'replace'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function take() returns immutable Items
+	export function take() returns frozen with Items
 		var old = self.items
 		self.items = Items.create(0)
 		return old
@@ -10847,7 +10271,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	try h.put(4) otherwise panic("a running service with room takes the send")
 	let got = try await h.take() otherwise return 2
@@ -10861,7 +10284,6 @@ error E3209: <fragment>:23:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: a-reply-may-be-a-message-parameter -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `s` is a message PARAMETER, which arrives borrowed out of the message the behaviour still owns. Handing it back
 gives the awaiter a counted reference to the same String, which is correct because the String's box counts its
 owners.
@@ -10874,12 +10296,11 @@ type Store
 	end 'create'
 
 	export function echo(s String) returns String
-		return s
+		return s.clone()
 	end 'echo'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let r = try await h.echo("hi") otherwise ""
 	print("{r}\n")
@@ -10896,7 +10317,6 @@ hi
 ```
 
 <!-- test: a-reply-a-method-of-the-state-builds-fresh-crosses -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A method called on the service's state that returns a `String` it builds itself hands back a value no one else
 holds, so the handler may return it.
 ```maxon
@@ -10916,7 +10336,7 @@ type Keeper
 	let shelf as Shelf
 
 	static function create(shelf Shelf) returns Self
-		return Self{shelf: shelf}
+		return Self{shelf: shelf.clone()}
 	end 'create'
 
 	export function describe() returns String
@@ -10925,7 +10345,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Keeper.create(Shelf.create(4))
 	let text = try await k.describe() otherwise "gone"
 	print("{text}\n")
@@ -10942,7 +10361,6 @@ shelf of 4
 ```
 
 <!-- test: error.two-services-that-await-each-other-are-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Mutual reentrancy is made unrepresentable rather than diagnosed at run time: a message never waits for another
 service's reply, so two services cannot wait on each other, and each message that awaits one is refused.
@@ -10976,14 +10394,11 @@ type B
 end 'B'
 
 function spawnA() returns A.handle
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	return spawn A.create()
 end 'spawnA'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn A.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn B.create()
 	return 0
 end 'main'
@@ -10996,7 +10411,6 @@ error E3221: <fragment>:25:18: the message 'pong' may wait (it awaits a reply fr
 ```
 
 <!-- test: a-reply-error-type-with-one-member-is-nameable -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **A MESSAGE THAT THROWS NOTHING FAILS ONLY AT THE SEND, AND THAT ERROR HAS A NAME.** The awaited `total()` can
 fail only because the mailbox is full or the service has stopped, so its error type is `Calc.total.sendError` —
 the per-message type a `throws` clause can spell, which is what lets a bare `try` PROPAGATE it out of an
@@ -11020,7 +10434,6 @@ function fetch(h Calc.handle) returns Integer throws Calc.total.sendError
 end 'fetch'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let v = try fetch(h) otherwise 1
 	return v as ExitCode
@@ -11033,7 +10446,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.bare-try-propagation-of-a-two-member-reply-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message that THROWS has two error sources: the send, which fails with `Calc.divide.sendError`, and the
 handler, which throws `MathError`. A bare `try await` of it has no single error type to propagate, so
@@ -11065,7 +10477,6 @@ function fetch(h Calc.handle) returns Integer throws MathError
 end 'fetch'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	return 0
 end 'main'
@@ -11077,7 +10488,6 @@ error E3059: <fragment>:22:9: type mismatch: '`try await` of 'Calc.divide' can f
 ```
 
 <!-- test: a-split-send-and-await-propagates-the-handlers-error -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE SPLIT THE PREVIOUS CASE'S REFUSAL NAMES.** The send is its own `try` and the await is another: the send
 is handled where it is made, and the bare `try await` of the stored promise propagates the handler's `MathError`
 alone, which `fetch` declares. `main` catches it at the call and selects the handler's case.
@@ -11107,14 +10517,13 @@ function fetch(h Calc.handle) returns Integer throws MathError
 end 'fetch'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let v = try fetch(h) otherwise (e) 'oops'
 		match e 'why'
 			divideByZero then return 71
 		end 'why'
 	end 'oops'
-	return v as ExitCode
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -11124,7 +10533,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.an-ambiguous-bare-arm-over-a-merged-reply-error-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Merging the send's error with the handler's into one dispatch table can collide on a bare case name: `Halt`
 declares a `serviceStopped` of its own, so `serviceStopped` in the `match` names both
@@ -11153,7 +10561,6 @@ type Guard
 end 'Guard'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Guard.create()
 	try await h.risky() otherwise (e) 'oops'
 		match e 'why'
@@ -11172,7 +10579,6 @@ error E3085: <fragment>:26:4: case 'serviceStopped' is shared by multiple union 
 ```
 
 <!-- test: shutdown-resolves-pending-replies -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE LIVENESS OBLIGATION, ON BOTH OF ITS ROADS.** No awaiter hangs. A message queued before `shutdown()` still
 runs, so its stored reply resolves with the handler's value; a message sent after it fails at the send with
 `serviceStopped`, so there is no reply to wait for. The case passes by TERMINATING at all, and its exit code
@@ -11192,7 +10598,6 @@ end 'Slow'
 
 function main() returns ExitCode
 	var stops = 0 as Integer
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Slow.create()
 	let queued = try h.value() otherwise panic("a running service with room takes the send")
 	h.shutdown()
@@ -11203,7 +10608,7 @@ function main() returns ExitCode
 			serviceStopped then stops = stops + 1
 		end 'w2'
 	end 'second'
-	return (answer + stops) as ExitCode
+	return try (answer + stops) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -11213,7 +10618,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-string-moves-in-and-a-fresh-string-comes-back -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The reply carries a MANAGED value across green threads. It is sound for the reason the send's move is: the
 handler's result is freshly minted in the handler's own frame, so the service gives up its only reference and
 the awaiter takes it — one owner throughout, which is what a plain refcount requires.
@@ -11231,7 +10635,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	let out = try await h.say("hi") otherwise 'gone'
 		return 9
@@ -11247,7 +10650,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: reply-discarded-is-dropped-clean -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ A reply-bearing message whose reply is discarded on purpose with `_ =` mints a cell nobody binds, so the promise
 is dropped at statement end while the cell is still PENDING. The dropper may not free it — the replier is about to write into
 it — so it adds the consumer ticket only, and the reply's own completion supplies the runner's half. The managed
@@ -11266,7 +10668,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	_ = try h.say("a") otherwise panic("a running service with room takes the send")
 	_ = try h.say("b") otherwise panic("a running service with room takes the send")
@@ -11280,7 +10681,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: pending-reply-dropped-then-answered -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The dropped cell of the first send is still pending when the SECOND send's await parks `main` and the
 service runs, so the replier writes into a cell its awaiter has already renounced. That is the ordering the
 teardown rendezvous exists for, and freeing the cell at the drop is a clobbered green thread rather than a
@@ -11303,11 +10703,10 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	_ = try h.say("a") otherwise panic("a running service with room takes the send")
 	let n = try await h.count() otherwise 0
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -11317,7 +10716,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: completed-reply-dropped-is-reclaimed -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The other order: `p`'s first cell COMPLETES while `main` is parked on the middle await and the service runs
 (its message is ahead in FIFO order), and only THEN is it dropped — by the RE-ARM on the next line. The drop
 finds the runner ticket already there and reclaims; an arm that took a completed cell as merely queued would
@@ -11336,7 +10734,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var p = try h.count() otherwise panic("a running service with room takes the send")
 	let n = try await h.count() otherwise 0
@@ -11353,7 +10750,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-reply-completed-by-a-service-readies-a-waiting-coroutine -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A REPLY COMPLETED ON ANOTHER GREEN THREAD WAKES THE COROUTINE THAT AWAITS IT.** `doubled` is a coroutine of
 `main` that awaits a reply from `Inner`: the await parks the coroutine, `Inner` runs on its own stack, and the
 reply that completes the cell readies the awaiter. A message body never waits, so the awaiter is `main`'s
@@ -11373,15 +10769,14 @@ end 'Inner'
 
 function doubled(inner Inner.handle) returns Integer
 	let v = try await inner.value() otherwise 0
-	return v * 2
+	return try v * 2 otherwise panic("out of range")
 end 'doubled'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let i = spawn Inner.create()
 	let pending = async doubled(i)
 	let v = await pending
-	return v as ExitCode
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -11391,7 +10786,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.double-await-of-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Per-await linearity composes for free, because it keys on the promise's own identity rather than on what
 produced it — a reply cell is a `Promise` like any other. Which is also why the refusal is the parser's
@@ -11412,12 +10806,11 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let p = try h.total() otherwise panic("a running service with room takes the send")
 	let a = await p
 	let b = await p
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -11427,7 +10820,6 @@ error E3142: <fragment>:18:16: this promise was already consumed by an earlier '
 ```
 
 <!-- test: error.plain-await-of-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Every send throws, whatever the message itself declares — so a plain `await` of a send is E3057 by construction.
 Only the promise a send returns is awaited without `try`, when the handler cannot throw.
@@ -11445,7 +10837,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let n = await h.total()
 	return n as ExitCode
@@ -11458,7 +10849,6 @@ error E3057: <fragment>:16:16: throwing function requires try: 'Calc.total'
 ```
 
 <!-- test: error.a-message-that-throws-a-payload-carrying-union-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⚠ **THE ONE ERROR SHAPE A REPLY CANNOT CARRY, REFUSED RATHER THAN MISCOMPILED.** The reply's error word is a
 single word holding the handler error's `ordinal + bias`; a payload-carrying union's flag is a heap POINTER
@@ -11486,7 +10876,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	return 0
 end 'main'
@@ -11498,7 +10887,6 @@ error E3140: <fragment>:19:10: the message `Store.wipe` declares a reply that th
 ```
 
 <!-- test: error.a-message-that-waits-through-a-helper-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A wait is transitive through ordinary functions: `A.ping` calls `relay`, which awaits a `B.handle`, so `A.ping`
 may wait even though its own body names no `B` message.
@@ -11539,9 +10927,7 @@ type B
 end 'B'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn A.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn B.create()
 	return 0
 end 'main'
@@ -11554,7 +10940,6 @@ error E3221: <fragment>:29:18: the message 'pong' may wait (it awaits a reply fr
 ```
 
 <!-- test: error.a-message-that-awaits-a-peer-of-its-own-type-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⚠ **A MESSAGE THAT AWAITS A PEER OF ITS OWN TYPE IS REFUSED LIKE ANY OTHER AWAIT, AND THIS IS THE ONE USERS WILL
 HIT.** Two instances of the same service could not actually deadlock, but the refusal is a property of the message
@@ -11578,7 +10963,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Worker.create()
 	_ = try w.ask(w.clone()) otherwise panic("a running service with room takes the send")
 	return 0
@@ -11591,7 +10975,6 @@ error E3221: <fragment>:9:18: the message 'ask' may wait (it awaits a reply from
 ```
 
 <!-- test: error.a-message-with-two-awaits-is-refused-at-the-first -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⛔⛔ **A MESSAGE WITH TWO AWAITS IS REFUSED, AND THE FIRST WAIT IS THE ONE IT NAMES.** `A.ping` awaits `B` and then
 `C`. This case is `error.two-services-that-await-each-other-are-refused` with **one extra, unrelated `await`
@@ -11642,16 +11025,12 @@ type C
 end 'C'
 
 function spawnA() returns A.handle
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	return spawn A.create()
 end 'spawnA'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn A.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn B.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn C.create()
 	_ = try a.ping(b, c: c) otherwise panic("a running service with room takes the send")
 	return 0
@@ -11665,8 +11044,6 @@ error E3221: <fragment>:27:18: the message 'pong' may wait (it awaits a reply fr
 ```
 
 <!-- test: error.a-message-that-calls-a-waiting-closure-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 ⛔⛔ **A WAIT BEHIND A CLOSURE VALUE IS A WAIT, AND THE REFUSAL FOLLOWS THE CLOSURE'S BODY.** `A.kick` calls a
 local function value, whose body is decided at the call site rather than at a callee's name; the closure awaits
 `B.work`'s reply, so `kick` may wait while it holds `A`, and the chain names the closure and the `await` inside
@@ -11705,9 +11082,7 @@ type B
 end 'B'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn A.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn B.create()
 	let v = try await a.kick(b.clone(), mine: a.clone()) otherwise 0
 	return v as ExitCode
@@ -11719,7 +11094,6 @@ error E3221: <fragment>:28:18: the message 'work' may wait (it awaits a reply fr
 ```
 
 <!-- test: a-scheduler-deadlock-decides-the-same-at-four-processors -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⛔⛔ **THE HALF OF THE DEADLOCK RULE THAT IS A RUNTIME PROPERTY.** No message of a service waits, so the only
 parked green thread a program can end up with is `main` or a coroutine of it, and a wait that nothing can end
@@ -11752,9 +11126,7 @@ type Idle
 end 'Idle'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let first = spawn Idle.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let second = spawn Idle.create()
 	try first.touch() otherwise panic("an open mailbox with room takes the send")
 	try second.touch() otherwise panic("an open mailbox with room takes the send")
@@ -11771,7 +11143,6 @@ fatal error: runtime abort 92 (schedulerDeadlock)
 ```
 
 <!-- test: deep-chain-of-continuations-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Three services in a chain, each handing the work to the next. A message never waits for another service's reply,
 so each one posts its request to the next with the handle it was given and answers at once; the replies the old
 shape awaited arrive as messages to `Sink`, which `main` polls until all three have landed. Nothing in the chain
@@ -11789,9 +11160,9 @@ type Sink
 		return Self{count: 0, sum: 0}
 	end 'create'
 
-	export function add(by Integer)
-		self.count = self.count + 1
-		self.sum = self.sum + by
+	export function add(mutates self, by Integer)
+		self.count = try self.count + 1 otherwise panic("out of range")
+		self.sum = try self.sum + by otherwise panic("out of range")
 	end 'add'
 
 	export function arrived() returns Integer
@@ -11842,20 +11213,16 @@ type A
 end 'A'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn C.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn B.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn A.create()
 	try a.value(b, last: c, sink: sink.clone()) otherwise panic("an open mailbox with room takes the send")
 	while (try await sink.arrived() otherwise 0) < 3 'untilAllArrived'
 		Scheduler.yield()
 	end 'untilAllArrived'
 	let v = try await sink.total() otherwise 0
-	return v as ExitCode
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -11865,7 +11232,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: awaitany-returns-the-completed-index -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **ONE WAITING PRIMITIVE COVERS SERVICE REPLIES, FILE IO AND SUBPROCESS DRAINS, AND THIS IS THE HALF THAT
 MAKES IT TRUE.** A reply is an ordinary `Promise`, so it goes into an `Array with Promise with …` and
 its `awaitAny()` selects over it exactly as it does over `async` spawns — no separate "channel select"
@@ -11898,7 +11264,6 @@ type Slow
 end 'Slow'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Slow.create()
 	let ps = ReplyPromiseArray.create(0)
 	ps.push(try h.value() otherwise panic("a running service with room takes the send"))
@@ -11913,7 +11278,6 @@ end 'main'
 ```
 
 <!-- test: a-throwing-reply-stores-in-a-promise-naming-its-errors -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **A THROWING MESSAGE'S REPLY IS STORED UNDER THE HANDLER'S OWN ERROR.** A message that throws replies with
 `Promise with (T, <what the message throws>)`, an ordinary declared type, because the send's failure surfaces at
 the send and never in the promise. The storage road therefore binds only the handler's cases, and the
@@ -11945,7 +11309,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let ps = DivideReplyArray.create(0)
 	ps.push(try h.divide(10, by: 0) otherwise panic("a running service with room takes the send"))
@@ -11963,8 +11326,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-over-a-declared-type-stores-in-a-promise-naming-it -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **A REPLY'S RESULT MAY BE A DECLARED TYPE, AND THE STORAGE TYPE THAT NAMES ONE IS THE SAME INSTANCE THE
 SEND MINTS.** `Promise with (T, E)` is interned on its base and its ARGUMENTS, and a declared type reaches
 the two roads under two different tags — `structRef` off the message's `returns` clause, `named` off the
@@ -11989,9 +11350,8 @@ type Counter
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function bumped(by Integer) returns isolated Tally
-		self.count = self.count + by
+	export function bumped(mutates self, by Integer) returns Tally
+		self.count = try self.count + by otherwise panic("out of range")
 		return Tally.create(self.count)
 	end 'bumped'
 end 'Counter'
@@ -12001,13 +11361,12 @@ typealias TallyReply = Promise with Tally
 typealias TallyReplyArray = Array with TallyReply
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
-	let ps = TallyReplyArray.create(0)
+	var ps = TallyReplyArray.create(0)
 	ps.push(try h.bumped(4) otherwise panic("a running service with room takes the send"))
 	let p = try ps.remove(0) otherwise panic("the reply was pushed into slot 0")
 	let tally = await p
-	return tally.n as ExitCode
+	return try tally.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -12015,7 +11374,6 @@ end 'main'
 ```
 
 <!-- test: error.a-stored-reply-that-names-the-wrong-errors-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `ReplyPromise` names `OtherError`, which is not the error `Calc.divide` throws; storing the reply under it
 would make the awaiter decode the handler's flag as another enum: a silent wrong `match` arm rather than a
@@ -12051,7 +11409,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	var ps = ReplyPromiseArray.create(0)
 	ps.push(try h.divide(10, by: 2) otherwise panic("a running service with room takes the send"))
@@ -12063,7 +11420,6 @@ error E3098: <fragment>:32:5: a promise of 'Integer' throwing 'MathError' cannot
 ```
 
 <!-- test: a-stopped-service-stores-no-reply-and-its-send-fails-serviceStopped -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A STORED REPLY NEVER CARRIES THE STOP.** A reply awaited out of an array is described by its STORAGE TYPE,
 which names only what the handler throws; the failure of the send is read where the send is made. This shuts the
 service down first, so the send fails with `serviceStopped` before any reply exists: the `if let` takes its
@@ -12089,10 +11445,9 @@ end 'Slow'
 
 function main() returns ExitCode
 	var stops = 0 as Integer
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Slow.create()
 	h.shutdown()
-	let ps = ReplyPromiseArray.create(0)
+	var ps = ReplyPromiseArray.create(0)
 	if let reply = try h.value() 'sent'
 		ps.push(reply)
 	end 'sent' else (e) 'gone'
@@ -12101,7 +11456,7 @@ function main() returns ExitCode
 			serviceStopped then stops = stops + 1
 		end 'w'
 	end 'gone'
-	return (stops + ps.count() as Integer) as ExitCode
+	return try (stops + ps.count() as Integer) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -12109,7 +11464,6 @@ end 'main'
 ```
 
 <!-- test: error.a-reply-stored-without-its-error-type-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply from a message that throws carries the handler's error, so a `Promise with T` storage would erase it and
 leave a `try await` with nothing to bind `e` at. The refusal names the MESSAGE rather than *"this promise's
@@ -12142,7 +11496,6 @@ type Slow
 end 'Slow'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Slow.create()
 	var ps = BarePromiseArray.create(0)
 	ps.push(try h.value() otherwise panic("a running service with room takes the send"))
@@ -12154,7 +11507,6 @@ error E3098: <fragment>:28:5: a promise of 'Integer' throwing 'SlowError' cannot
 ```
 
 <!-- test: a-generic-service-is-supported -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A generic type may be spawned, and ONE companion pair serves every instantiation of it. A `T`-typed message
 payload is an opaque 8-byte slot carrying the layout descriptor, which is the same dictionary-passing model
 every generic body in the compiler already compiles under — the companions never needed to be monomorphic, only the
@@ -12174,7 +11526,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(1)
 	let v = (try await h.peek() otherwise 0) as FullRangeInt
 	return v as ExitCode
@@ -12185,7 +11536,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-service-is-instantiated-from-a-generic-function-result -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The factory's argument is the result of a generic function call, whose type is known only once that
 function's instance is: the spawn reads the instantiation off it all the same.
 ```maxon
@@ -12206,7 +11556,6 @@ function same(x T) uses T returns T
 end 'same'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(same(1 as Whole))
 	let v = try await h.peek() otherwise 0
 	return v as ExitCode
@@ -12219,7 +11568,6 @@ typealias Whole = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-generic-service-argument-from-an-undefined-call-is-the-only-report -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An argument whose type nothing knows fixes no instantiation, and it has already been refused at its own
 call, so the spawn reports nothing.
@@ -12237,7 +11585,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(nowhere(1 as Whole))
 	return 0
 end 'main'
@@ -12249,7 +11596,6 @@ error E3004: <fragment>:15:27: call to undefined function 'nowhere'
 ```
 
 <!-- test: two-instantiations-of-one-generic-service-coexist -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 TWO instantiations of one generic service in one program, under one `Box.request` and one `Box.handle`.
 Nothing about a companion names a type argument, so this is the case that would break first if the payload
 slot were typed rather than opaque — and it is the reason a per-instantiation companion pair is not needed.
@@ -12272,9 +11618,7 @@ typealias Small = int(0 to 100)
 typealias Large = int(0 to 100000)
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Box.create(7 as Small)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Box.create(35 as Large)
 	let x = try await a.peek() otherwise 0
 	let y = try await b.peek() otherwise 0
@@ -12288,7 +11632,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-generic-reply-that-is-the-services-own-string-state-crosses -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The reply IS the state, at a type the body cannot see: one body serves every instantiation. With `T` a `String`,
 the caller and the service's own green thread each hold a counted reference to one string record, which is
 correct because the String's box counts its owners.
@@ -12306,7 +11649,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create("ok")
 	let s = try await h.peek() otherwise ""
 	return s.byteLength() as ExitCode
@@ -12318,9 +11660,6 @@ end 'main'
 
 <!-- test: a-generic-reply-of-a-fresh-container-over-a-managed-record-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The control for the rule above: a container the handler MINTS is not the state, and its graph is walkable
 once `T` is an `Item`. The handler's `return` defers on a type an instantiation still fixes, and the `spawn`
 walks the substitution and accepts it.
@@ -12339,23 +11678,20 @@ type Box uses T
 	export typealias Items = List with T
 	var seen as Count
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(first isolated T) returns Self
+	static function create(consumes first T) returns Self
 		let held = Items.create()
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		held.append(merge first)
 		return Self{seen: held.count() as Count}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function all() returns isolated Items
+	export function all() returns Items
 		self.seen = self.seen + 1
 		return Items.create()
 	end 'all'
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(Item.create("a label long enough to be a heap string"))
 	let items = try await h.all() otherwise panic("the box is running")
 	return items.count() as ExitCode
@@ -12366,8 +11702,6 @@ end 'main'
 ```
 
 <!-- test: error.an-inner-alias-of-the-type-parameter-is-refused-at-its-declaration -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 An alias of the type parameter is refused where it is WRITTEN, which is what lets the reply rule ask about a
 bare `T` and nothing else: no message can reach the state through a second spelling of `T`.
 ```maxon
@@ -12385,7 +11719,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create("a label long enough to be a heap string")
 	let s = try await h.peek() otherwise panic("the box is running")
 	return s.byteLength() as ExitCode
@@ -12396,7 +11729,6 @@ error E2015: <fragment>:3:26: Unsupported: a typealias over 'identifier' (a type
 ```
 
 <!-- test: a-generic-service-handle-reaches-a-parameter-through-its-spelling -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `spawn` hands back a handle at the INSTANTIATION (`Box.handle with Small`), and a `typealias` over that is
 what carries it anywhere else — the companion is a generic instance like any other, so it is spelled the way
 `Array with Byte` is. ⚠ There is no INLINE spelling here or anywhere: `function f(xs Array with Whole)` is
@@ -12422,7 +11754,6 @@ function readIt(h SmallBoxHandle) returns Whole
 end 'readIt'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(4 as Small)
 	return readIt(h) as ExitCode
 end 'main'
@@ -12436,7 +11767,6 @@ typealias Whole = int(i64.min to i64.max)
 ```
 
 <!-- test: a-generic-service-handle-lives-in-a-struct-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handle in a FIELD, which co-owns it. ⭐ **A generic handle is `genericInstance`-tagged, not
 `structRef`-tagged after its companion's name**, and a retain router that reads it as the latter lets a
 co-owning store fall through to `__mm_incref` — which steps the box while the release still steps a
@@ -12471,7 +11801,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let holder = Holder.create(spawn Box.create(5 as Small))
 	return holder.ask() as ExitCode
 end 'main'
@@ -12485,7 +11814,6 @@ typealias Whole = int(i64.min to i64.max)
 ```
 
 <!-- test: a-generic-service-handle-lives-in-an-array -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The third road the spelling opens, and the one that proves the element type survives a container: `Array with
 SmallBoxHandle` holds a real 8-byte handle box, and `get` hands back something a `T`-replying message can
 still be sent through.
@@ -12508,7 +11836,6 @@ typealias HandleArray = Array with SmallBoxHandle
 
 function main() returns ExitCode
 	let hs = HandleArray.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	hs.push(spawn Box.create(6 as Small))
 	let h = try hs.get(0) otherwise return 1
 	let s = try await h.peek() otherwise 0
@@ -12522,7 +11849,6 @@ typealias Small = int(0 to 100)
 ```
 
 <!-- test: error.a-type-parameter-reply-through-a-bare-handle-slot-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The boundary the three cases above sit inside. A slot typed at the BARE `Box.handle` names no instantiation —
 there is one handle companion and every instantiation shares it — so a message replying at `T` has no type to
@@ -12548,7 +11874,6 @@ function readIt(h Box.handle) returns Whole
 end 'readIt'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(1)
 	return 0
 end 'main'
@@ -12560,7 +11885,6 @@ error E3145: <fragment>:17:22: `Box.peek` replies at `Box`'s own type parameter 
 ```
 
 <!-- test: a-generic-handle-is-an-opaque-element-of-another-generic -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE RED GATE FOR THE FOURTH DECIDER.** A handle reaches a shared generic body as an OPAQUE element
 here, so its retain is chosen from the layout descriptor's `retainFunc` rather than from the value's tag — a
 fourth road, and one only the handle's `with` spelling opens. With the protocol classifier blind to a
@@ -12598,7 +11922,6 @@ end 'Cell'
 typealias HandleCell = Cell with SmallBoxHandle
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = HandleCell.create(spawn Box.create(3 as Small))
 	let first = c.grab()
 	let a = try await first.peek() otherwise 0
@@ -12614,7 +11937,6 @@ typealias Small = int(0 to 100)
 ```
 
 <!-- test: a-monomorphic-handle-is-co-owned-in-a-struct-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⚠ **NOT A GENERIC PROGRAM, AND THAT IS THE POINT.** `a-generic-service-handle-lives-in-a-struct-field`
 above pins the generic road; the monomorphic road into the same co-owning store is this case's. The field
 co-owns the handle box through a plain `__mm_incref`, so a program whose ONLY incref comes from a handle
@@ -12628,8 +11950,8 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	export function bump() returns Whole
-		self.count = self.count + 1
+	export function bump(mutates self) returns Whole
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return self.count
 	end 'bump'
 end 'Calc'
@@ -12638,7 +11960,7 @@ type Holder
 	var h as Calc.handle
 
 	static function create(h Calc.handle) returns Self
-		return Self{h: h}
+		return Self{h: h.clone()}
 	end 'create'
 
 	function ask() returns Whole
@@ -12647,11 +11969,10 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let holder = Holder.create(spawn Calc.create())
 	let a = holder.ask()
 	let b = holder.ask()
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Whole = int(i64.min to i64.max)
@@ -12661,7 +11982,6 @@ typealias Whole = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-generic-reply-the-cell-cannot-carry-is-refused-at-the-instantiation -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐ **THE ONLY CASE THAT PROVES THE SECOND ASK IS REACHABLE.** `classifyServiceRoster` is asked twice —
 `declarationOnly` before the factory call, `atInstance` after — and every other refusal it can reach is
@@ -12683,7 +12003,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(1.5 as Real)
 	return 0
 end 'main'
@@ -12695,7 +12014,6 @@ error E3140: <fragment>:15:10: the message `Box.peek` declares a reply whose val
 ```
 
 <!-- test: error.awaiting-shutdown-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `shutdown` carries no reply, so there is nothing for a `try await` to resolve — the same answer a void
 MESSAGE gets one rule over (`error.void-message-sent-for-its-value`). It is the handle's own method rather than
@@ -12716,7 +12034,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let n = try await h.bump() otherwise 0
 	try await h.shutdown() otherwise return 1 as ExitCode
@@ -12730,7 +12047,6 @@ error E2015: <fragment>:18:14: Unsupported: the value of `Calc.shutdown()` — `
 ```
 
 <!-- test: a-spawn-inside-a-generic-body-over-an-inferred-instance -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE OTHER HALF OF `error.a-spawn-inside-a-generic-body-is-refused`, AND THE HALF THAT MUST WORK.** That
 case refuses a `spawn` whose type arguments fix to the enclosing declaration's own type parameters, which
 name no layout. Here they fix to a CONCRETE type, so there is nothing to refuse and the service is ordinary.
@@ -12757,12 +12073,11 @@ end 'Calc'
 type Outer uses U
 	var seed as U
 
-	static function create(seed U) returns Self
-		return Self{seed: seed}
+	static function create(seed U) returns Self where U implements Copyable
+		return Self{seed: seed.clone()}
 	end 'create'
 
 	function go() returns Whole
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Calc.create(3)
 		return try await h.peek() otherwise 0
 	end 'go'
@@ -12770,7 +12085,7 @@ end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.create(1 as Whole)
-	return o.go() as ExitCode
+	return try o.go() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -12778,7 +12093,6 @@ end 'main'
 ```
 
 <!-- test: a-spawn-inside-a-generic-body-whose-factory-fixes-nothing -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The third corner of the enclosing-generic family. `error.a-spawn-inside-a-generic-body-is-refused`
 covers arguments fixed to the enclosing declaration's type parameters;
 `a-spawn-inside-a-generic-body-over-an-inferred-instance` covers arguments fixed to a concrete type. Here
@@ -12808,7 +12122,6 @@ type Outer uses U
 	end 'create'
 
 	function go() returns Whole
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Calc.create(3)
 		return try await h.peek() otherwise 0
 	end 'go'
@@ -12824,8 +12137,6 @@ end 'main'
 ```
 
 <!-- test: error.a-spawn-whose-factory-returns-another-type-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 `create` returns an `Other`: it does not start a service, and the spawn is refused at the call.
 ```maxon
 public typealias Whole = int(i64.min to i64.max)
@@ -12855,7 +12166,6 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create(40)
 	let total = try await h.peek() otherwise 0
 	return total as ExitCode
@@ -12867,8 +12177,6 @@ error E3134: <fragment>:29:10: `spawn Counter.create(…)` does not start a serv
 
 <!-- test: error.a-value-popped-from-a-field-container-is-moved-out-not-solely-owned -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `take` that returns `self.queue.pop()` moves the element out of the queue, but the queue may have shared it: `stash` pushed the very `Job` that `current` still names. The element is not provably solely owned, so sending it is refused.
 ```maxon
@@ -12908,8 +12216,7 @@ type Worker
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function run(j isolated Job) returns Integer
+	export function run(consumes j Job) returns Integer
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedJ = merge j
 		self.total = self.total + ownedJ.n
@@ -12921,7 +12228,6 @@ function main() returns ExitCode
 	var h = Holder.create()
 	h.stash()
 	let j = h.take()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let total = try await worker.run(j) otherwise panic("running")
 	return total as ExitCode
@@ -12933,8 +12239,6 @@ error E3200: <fragment>:51:35: 'j' is not isolated: only a clean call, a `swap` 
 
 <!-- test: error.a-value-popped-from-a-generic-stack-is-moved-out-not-solely-owned -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same through a generic `Stack with Job`: `pop` returns `self.items.pop()`, the pushed `Job` is still held by `current`, and the send is refused.
 ```maxon
@@ -12974,8 +12278,7 @@ type Worker
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function run(j isolated Job) returns Integer
+	export function run(consumes j Job) returns Integer
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedJ = merge j
 		self.total = self.total + ownedJ.n
@@ -12988,7 +12291,6 @@ function main() returns ExitCode
 	var s = JobStack.create()
 	s.push(current)
 	let j = s.pop()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let total = try await worker.run(j) otherwise panic("running")
 	return (total + current.n) as ExitCode
@@ -12999,7 +12301,6 @@ error E3200: <fragment>:53:35: 'j' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: a-borrowed-string-parameter-is-copied-into-the-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A BORROWED `String` PARAMETER IS COPIED INTO THE SEND.** `buf` arrived as a borrowed parameter and the
 caller still holds it. A `String` is a value type, so the send hands the service a COPY and `buf` stays
 readable afterwards: the service owns its own record and the caller's is untouched, with no `.clone()`
@@ -13016,19 +12317,18 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(s String) returns Integer
-		self.n = self.n + 1
-		return s.byteLength() as Integer
+	export function keep(mutates self, s String) returns Integer
+		self.n = try self.n + 1 otherwise panic("out of range")
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'keep'
 end 'Store'
 
 function forward(h Store.handle, buf String) returns Integer
-	let kept = try await h.keep(buf) otherwise 0
-	return kept + (buf.byteLength() as Integer)
+	let kept = try await h.keep(buf.clone()) otherwise 0
+	return try kept + (buf.byteLength() as Integer) otherwise panic("out of range")
 end 'forward'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let total = forward(h, buf: "hello")
 	print("{total}\n")
@@ -13045,7 +12345,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-borrowed-parameter-may-be-sent-as-a-clone -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⚠ **NOTHING IN THIS CASE MAY REST ON WHICH GREEN THREAD REACHES `stdout` FIRST.** Its subject is OWNERSHIP,
 so `main` is the only writer and the awaited `report` is what puts the service's `keep` before the line that
 reads it back — a CAUSAL order rather than a timed one.
@@ -13070,9 +12369,9 @@ type Store
 		return Self{n: 0, last: ""}
 	end 'create'
 
-	export function keep(s String)
-		self.n = self.n + 1
-		self.last = s
+	export function keep(mutates self, s String)
+		self.n = try self.n + 1 otherwise panic("out of range")
+		self.last = s.clone()
 	end 'keep'
 
 	export function report() returns String
@@ -13085,7 +12384,6 @@ function forward(h Store.handle, buf String)
 end 'forward'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let s = "hello"
 	forward(h, buf: s)
@@ -13106,8 +12404,6 @@ kept hello (1)
 ```
 
 <!-- test: a-static-factory-forwarding-to-its-sibling-static-sends-a-fresh-record -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A bare call inside a type body names the type's own member first, so `create`'s `return build()` hands back the
 record `build` constructs — a fresh record the send moves into the service.
 ```maxon
@@ -13134,9 +12430,8 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Payload)
-		self.n = self.n + p.count()
+	export function keep(mutates self, consumes p Payload)
+		self.n = try self.n + p.count() otherwise panic("out of range")
 	end 'keep'
 
 	export function total() returns Integer
@@ -13145,11 +12440,10 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	try h.keep(Payload.create()) otherwise panic("a running service with room takes the send")
 	let total = try await h.total() otherwise panic("the service answers")
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -13159,7 +12453,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-borrowed-parameter-may-be-sent-as-a-fresh-interpolation -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⚠ **NOTHING IN THIS CASE MAY REST ON WHICH GREEN THREAD REACHES `stdout` FIRST.** Its subject is OWNERSHIP,
 so `main` is the only writer and the awaited `report` is what puts the service's `keep` before the line that
 reads it back — a CAUSAL order rather than a timed one.
@@ -13185,9 +12478,9 @@ type Store
 		return Self{n: 0, last: ""}
 	end 'create'
 
-	export function keep(s String)
-		self.n = self.n + 1
-		self.last = s
+	export function keep(mutates self, s String)
+		self.n = try self.n + 1 otherwise panic("out of range")
+		self.last = s.clone()
 	end 'keep'
 
 	export function report() returns String
@@ -13200,7 +12493,6 @@ function forward(h Store.handle, buf String)
 end 'forward'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let s = "hello"
 	forward(h, buf: s)
@@ -13221,7 +12513,6 @@ kept hello (1)
 ```
 
 <!-- test: error.use-after-await-of-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐⭐ **A REPLY IS A PROMISE, SO IT IS MOVE-ONLY TOO.** A reply cell is minted at the interned
 `Promise with (T[, E])`, as a spawn's promise is. Minted as a bare `ValueTypeTag.integer` word instead,
@@ -13246,7 +12537,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let p = try h.total() otherwise panic("a running service with room takes the send")
 	let a = await p
@@ -13262,7 +12552,6 @@ error E3142: <fragment>:18:10: this promise was already consumed by an earlier '
 ```
 
 <!-- test: error.return-a-reply-as-its-result-type -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply is not its result. `grab` is declared `returns Integer` and returns `h.total()`, which is the reply —
 the value that will eventually produce an `Integer`, not an `Integer`. An untyped cell word would let this
@@ -13286,7 +12575,6 @@ function grab(h Calc.handle) returns Integer
 end 'grab'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	print("grabbed {grab(h)}")
 	return 0
@@ -13299,7 +12587,6 @@ error E3005: <fragment>:15:2: Cannot return 'Promise with int' from function dec
 ```
 
 <!-- test: error.arithmetic-on-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply is not a number, so it has no arithmetic. On an untyped cell word, `p + 1` would be pointer
 arithmetic on a green-thread cell address.
@@ -13317,7 +12604,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let p = try h.total() otherwise panic("a running service with room takes the send")
 	let bumped = p + 1
@@ -13332,7 +12618,6 @@ error E2004: <fragment>:17:17: Cannot operate on Promise with int and int
 ```
 
 <!-- test: error.a-reply-in-an-integer-parameter -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `Integer` parameter does not take a reply. The cure is to `await` it and pass the RESULT — which is also
 the only spelling that keeps the cell's one owner intact. A reply renders as a `Promise` instance over its result.
@@ -13354,7 +12639,6 @@ function takesInt(n Integer) returns Integer
 end 'takesInt'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	return takesInt(try h.total() otherwise panic("a running service with room takes the send")) as ExitCode
 end 'main'
@@ -13366,7 +12650,6 @@ error E3005: <fragment>:20:9: argument type mismatch for 'n': expected 'Integer'
 ```
 
 <!-- test: error.clone-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐ The one that would be a double-reclaim rather than merely a wrong type. A reply cell is the two-party
 teardown rendezvous between the awaiter and the service loop, and exactly one owner may arrive at it; a
@@ -13386,7 +12669,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let p = try h.total() otherwise panic("a running service with room takes the send")
 	let copy = p.clone()
@@ -13401,7 +12683,6 @@ error E3141: <fragment>:17:15: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: a-reply-inner-compiles-in-the-library-tier -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 A reply's `.inner` is library-tier surface: `promise-typing.md:promise-typing.error.inner-is-library-tier`
 is this program refused in the user tier. A library-tier source reads it as the reply → `int` conversion. It peeks at the cell word without consuming
@@ -13420,7 +12701,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let p = try h.total() otherwise panic("a running service with room takes the send")
 	let named = p.inner > 0
@@ -13438,7 +12718,6 @@ names a thread true
 ```
 
 <!-- test: a-handler-that-awaits-its-coroutine-before-it-returns-leaves-nothing-in-flight -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A handler may start a coroutine and yield to it, as long as it `await`s the coroutine before it returns: the result goes
 in the state and nothing in flight outlives the message. The service may be shut down with the coroutine long done, and the
@@ -13448,7 +12727,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function work(n Integer) returns Integer
 	sleep(1)
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'work'
 
 type Worker
@@ -13458,16 +12737,15 @@ type Worker
 		return Self{total: 0}
 	end 'create'
 
-	export function add(v Integer) returns Integer
+	export function add(mutates self, v Integer) returns Integer
 		let p = async work(v)
 		Scheduler.yield()
-		self.total = self.total + (await p)
+		self.total = try self.total + (await p) otherwise panic("out of range")
 		return self.total
 	end 'add'
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Worker.create()
 	var last = 0 as Integer
 	for round in 1 to 4 'rounds'
@@ -13486,7 +12764,6 @@ total=20
 ```
 
 <!-- test: an-idle-service-holds-no-green-thread -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐⭐ **A SERVICE WITH NOTHING QUEUED OWNS NO GREEN THREAD.** A hundred services are spawned one after another, each answers
@@ -13520,7 +12797,6 @@ function main() returns ExitCode
 	let handles = ProbeHandles.create(0)
 	var total = 0 as Integer
 	for i in 0 upto services 'eachService'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Probe.create(i)
 		total = total + (try await h.value() otherwise 0)
 		handles.push(h)
@@ -13538,7 +12814,6 @@ total=4950 idleServicesHoldNoThread=true
 ```
 
 <!-- test: known-gap-a-promise-captured-by-a-closure-in-service-state-aborts-when-the-state-drops -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⚠ **A KNOWN GAP: THE STATE-FIELD REFUSAL SEES A PROMISE IN A FIELD'S TYPE, NOT ONE A CLOSURE CAPTURED.** `Keeper.size` is a
 function-typed field, so no `Promise` appears in the state's type and the build accepts it. The factory starts a coroutine,
 keeps its promise in a local array, and stores a closure that captures the array. The coroutine belongs to the strand that ran
@@ -13561,7 +12836,7 @@ type Keeper
 	var size as Sizer
 
 	static function create() returns Self
-		let ps = PromiseArray.create(0)
+		var ps = PromiseArray.create(0)
 		ps.push(async compute())
 		let w = function() gives ps.count() as Count
 		return Self{size: w}
@@ -13573,7 +12848,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Keeper.create()
 	let n = try await h.reading() otherwise 0
 	print("reading={n}\n")
@@ -13591,7 +12865,6 @@ fatal error: promise dropped by a machine that does not hold its strand
 ```
 
 <!-- test: a-cown-yields-its-processor-after-a-batch -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐⭐ **A SERVICE TAKES AT MOST 64 MESSAGES PER TURN AND THEN LETS EVERY OTHER RUNNABLE SERVICE RUN.** At one processor with
@@ -13638,10 +12911,8 @@ function main() returns ExitCode
 	let countB = CountCell.create(0 as Count)
 	let seenA = CountCell.create(0 as Count)
 	let seenB = CountCell.create(0 as Count)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 8192) Ticker.create(countA.clone(), theirs: countB.clone(), seen: seenA.clone())
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let b = spawn (capacity: 8192) Ticker.create(countB.clone(), theirs: countA.clone(), seen: seenB.clone())
+	let a = spawn(capacity: 8192) Ticker.create(countA.clone(), theirs: countB.clone(), seen: seenA.clone())
+	let b = spawn(capacity: 8192) Ticker.create(countB.clone(), theirs: countA.clone(), seen: seenB.clone())
 	for _ in 0 upto backlog 'fill'
 		try a.tick() otherwise panic("a capacity of 8192 takes 5000 sends")
 	end 'fill'
@@ -13662,7 +12933,6 @@ done=5000 5000 interleaved=true
 ```
 
 <!-- test: error.a-service-field-holding-a-promise-array-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A service's state is run by whichever green thread takes its next message, and a coroutine belongs to the strand that started it,
 so a promise kept in the state could be awaited or dropped by a strand that does not own its coroutine. A field of an array of
@@ -13697,7 +12967,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	let a = try await h.start() otherwise 0
 	let b = try await h.finish() otherwise 0
@@ -13709,7 +12978,6 @@ error E3216: <fragment>:29:10: `Svc.pending` is a `IntPromiseArray` that can hol
 ```
 
 <!-- test: error.a-service-field-holding-a-promise-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same rule for a field whose type is a `Promise` itself.
 ```maxon
@@ -13735,7 +13003,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	h.shutdown()
 	return 0
@@ -13746,7 +13013,6 @@ error E3216: <fragment>:23:10: `Svc.held` is a `IntPromise` that can hold a Prom
 ```
 
 <!-- test: error.a-service-field-holding-a-record-that-holds-a-promise-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A record that holds a promise is as much a promise in the state as the promise itself.
 ```maxon
@@ -13780,7 +13046,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	h.shutdown()
 	return 0
@@ -13791,7 +13056,6 @@ error E3216: <fragment>:31:10: `Svc.slot` is a `Holder` that can hold a Promise,
 ```
 
 <!-- test: main-is-never-run-on-top-of-a-coroutine-awaiting-a-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ⛔⛔ **NOTHING RUNS ON TOP OF A PARKED GREEN THREAD, SO `main` MAY WAKE WHILE ITS OWN COROUTINES ARE WAITING ON A
 SERVICE THAT IS ITSELF WAITING.** Two coroutines of `main` each await `Slow.get`, which parks them both.
@@ -13833,7 +13097,6 @@ end 'askSlow'
 function main() returns ExitCode
 	let begun = FlagCell.create(false)
 	let released = FlagCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Slow.create(begun.clone(), released: released.clone())
 	let r1 = async askSlow(s.clone())
 	while not begun.current() 'untilSlowBegins'
@@ -13855,7 +13118,6 @@ a=7 b=7
 ```
 
 <!-- test: an-unsent-message-that-calls-the-library-still-compiles -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **A MESSAGE NOBODY SENDS IS STILL REACHABLE, BECAUSE THE SERVICE'S BEHAVIOUR DISPATCHES IT.** `spawn` makes the
 synthesized `Reader.__behave` live, and its switch names every message the type exports, so `read` is
 code the program keeps whether or not any handle ever calls it. Its call to `String.count` is therefore a live
@@ -13874,12 +13136,11 @@ type Reader
 
 	export function read() returns Integer
 		let line = "hello"
-		return line.count() as Integer
+		return try line.count() as Integer otherwise panic("out of range")
 	end 'read'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	_ = reader
 	return 7
@@ -13890,7 +13151,6 @@ end 'main'
 ```
 
 <!-- test: an-unsent-message-of-a-generic-service-that-calls-the-library-still-compiles -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same edge through a GENERIC service. The loop dispatches a message by its base name whatever the
 instantiation, so the library body its unsent message reaches must be built for every instantiation the
 program spawns.
@@ -13911,9 +13171,7 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let small = spawn Box.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let named = spawn Box.create("one")
 	_ = small
 	_ = named
@@ -13925,7 +13183,6 @@ end 'main'
 ```
 
 <!-- test: a-message-that-spawns-a-service-keeps-that-services-unsent-messages-alive -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The edge is transitive. `Outer.start` is sent, and its body spawns `Inner`, so `Inner.__behave` is live and every
 message it dispatches is reached — including `Inner.read`, which nobody sends and which calls the library.
 ```maxon
@@ -13940,7 +13197,7 @@ type Inner
 
 	export function read() returns Integer
 		let line = "hello"
-		return line.count() as Integer
+		return try line.count() as Integer otherwise panic("out of range")
 	end 'read'
 end 'Inner'
 
@@ -13952,7 +13209,6 @@ type Outer
 	end 'create'
 
 	export function start() returns Integer
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let inner = spawn Inner.create()
 		_ = inner
 		return 7
@@ -13960,10 +13216,9 @@ type Outer
 end 'Outer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let outer = spawn Outer.create()
 	let r = try await outer.start() otherwise 0
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -13971,8 +13226,6 @@ end 'main'
 ```
 
 <!-- test: services.a-reply-built-by-a-sibling-method-is-fresh -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message that returns what a private sibling method built returns a record nothing but the reply names:
 the sibling constructs it and keeps no reference, so it crosses to the caller as its one owner.
 ```maxon
@@ -13993,19 +13246,16 @@ type Worker
 		return Self{scale: 2}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function measure(n Tally) returns isolated Report
+	export function measure(n Tally) returns Report
 		return build(n)
 	end 'measure'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function build(n Tally) returns isolated Report
-		return Report.create(n * self.scale)
+	function build(n Tally) returns Report
+		return Report.create(try n * self.scale otherwise panic("out of range"))
 	end 'build'
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -14018,8 +13268,6 @@ end 'main'
 ```
 
 <!-- test: services.a-reply-built-by-a-free-function-is-fresh -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same through a free function: a callee that returns a record it just constructed hands back a fresh one.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -14033,7 +13281,7 @@ type Report
 end 'Report'
 
 function buildReport(n Tally) returns Report
-	return Report.create(n * 2)
+	return Report.create(try n * 2 otherwise panic("out of range"))
 end 'buildReport'
 
 type Worker
@@ -14043,15 +13291,13 @@ type Worker
 		return Self{calls: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function measure(n Tally) returns isolated Report
-		self.calls = self.calls + 1
+	export function measure(mutates self, n Tally) returns Report
+		self.calls = try self.calls + 1 otherwise panic("out of range")
 		return buildReport(n)
 	end 'measure'
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -14064,7 +13310,6 @@ end 'main'
 ```
 
 <!-- test: services.a-spawn-factory-may-delegate-to-another-factory -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The factory a `spawn` names may return what another static factory of the type built, including through
 `try … otherwise panic`: the delegate constructs the record and keeps nothing, so the service still
 becomes its one owner.
@@ -14090,12 +13335,11 @@ type Worker
 	end 'create'
 
 	export function measure(n Tally) returns Tally
-		return n * self.scale
+		return try n * self.scale otherwise panic("out of range")
 	end 'measure'
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create(2)
 	let total = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{total}\n")
@@ -14108,8 +13352,6 @@ end 'main'
 ```
 
 <!-- test: error.reply-forwarded-from-a-sibling-that-returns-state-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply forwarded from a sibling is only as fresh as what the sibling returns, and `current` returns the
 service's own `report` — the caller would hold a second reference to it.
@@ -14131,8 +13373,7 @@ type Worker
 		return Self{report: Report.create(42)}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure() returns immutable Report
+	export function measure() returns frozen with Report
 		return current()
 	end 'measure'
 
@@ -14142,7 +13383,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure() otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -14155,8 +13395,6 @@ error E3209: <fragment>:20:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-through-a-function-returning-its-parameter-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `pass` builds nothing: it hands back the record it was given, which is the service's own `report`.
 ```maxon
@@ -14181,14 +13419,12 @@ type Worker
 		return Self{report: Report.create(42)}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure() returns immutable Report
+	export function measure() returns frozen with Report
 		return pass(self.report)
 	end 'measure'
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure() otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -14201,8 +13437,6 @@ error E3209: <fragment>:24:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-from-a-sibling-that-keeps-the-record-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `build` constructs the record but also stores it in the service's `history`, so the record it returns has
 a second owner.
@@ -14226,8 +13460,7 @@ type Worker
 		return Self{history: ReportArray.create(0)}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure(n Tally) returns immutable Report
+	export function measure(n Tally) returns frozen with Report
 		return build(n)
 	end 'measure'
 
@@ -14239,7 +13472,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -14252,8 +13484,6 @@ error E3209: <fragment>:21:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-to-a-local-closure-named-like-a-fresh-function-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The `buildReport` that `build` calls is its own local closure, which hands back the service's `report`,
 not the free function of that name that builds one — so `build` is not fresh, and neither is the reply.
@@ -14279,8 +13509,7 @@ type Worker
 		return Self{report: buildReport(21)}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure(n Tally) returns immutable Report
+	export function measure(n Tally) returns frozen with Report
 		return build(n)
 	end 'measure'
 
@@ -14292,7 +13521,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -14306,9 +13534,7 @@ error E3209: <fragment>:24:3: a return does not fit the declared result: the ret
 
 <!-- test: error.spawn-factory-delegating-to-a-factory-that-returns-its-parameter-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `create` delegates to `adopt`, which builds nothing: it returns the `Worker` it was handed. The `spawn` moves that
 argument to the service's thread, so `main` may not read `seed` afterwards.
@@ -14326,8 +13552,7 @@ type Worker
 		return seed
 	end 'adopt'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(seed isolated Worker) returns Self
+	static function create(consumes seed Worker) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedSeed = merge seed
 		return adopt(ownedSeed)
@@ -14341,7 +13566,6 @@ end 'Worker'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let seed = Worker.make(2) as isolated Worker
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create(seed)
 	let total = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{total} {seed.scale}\n")
@@ -14355,8 +13579,6 @@ error E3102: <fragment>:30:18: use of moved value 'seed': its ownership moved to
 
 <!-- test: error.spawn-factory-argument-borrowed-from-a-parameter-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `start` borrows `shelf` from `main`, and the `spawn` moves its factory's arguments to the service, so `shelf`
 would be shared with `main` across two green threads.
@@ -14374,8 +13596,7 @@ end 'Shelf'
 type Keeper
 	var shelf as Shelf
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(shelf isolated Shelf) returns Self
+	static function create(consumes shelf Shelf) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{shelf: merge shelf}
 	end 'create'
@@ -14386,7 +13607,6 @@ type Keeper
 end 'Keeper'
 
 function start(shelf Shelf) returns Tally
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Keeper.create(shelf)
 	let n = try await k.count() otherwise panic("the keeper is running")
 	k.shutdown()
@@ -14406,8 +13626,6 @@ error E3200: <fragment>:25:30: 'shelf' is not isolated: only a clean call, a `sw
 
 <!-- test: error.spawn-factory-argument-read-off-an-earlier-statements-temporary-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `settings` was read out of a temporary `Holder` one statement before the `spawn`, so that `Holder` lives to the
 end of `main` and still holds `settings` while the service runs. Only a temporary built inside the factory's
@@ -14434,8 +13652,7 @@ end 'Holder'
 type Surveyor
 	var settings as Settings
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(settings isolated Settings) returns Self
+	static function create(consumes settings Settings) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{settings: merge settings}
 	end 'create'
@@ -14447,7 +13664,6 @@ end 'Surveyor'
 
 function main() returns ExitCode
 	let settings = Holder.create(Settings.create(true)).settings
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let surveyor = spawn Surveyor.create(settings)
 	let total = try await surveyor.measure(21) otherwise panic("the surveyor is running")
 	print("{total}\n")
@@ -14460,7 +13676,6 @@ error E3200: <fragment>:34:39: 'settings' is not isolated: only a clean call, a 
 ```
 
 <!-- test: a-spawn-factory-string-argument-borrowed-from-a-parameter-is-copied -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A borrowed `String` a factory keeps in the service's state is copied, exactly as a message argument is
 (`a-borrowed-string-parameter-is-copied-into-the-send`): the service owns its own record and `name` stays
 readable in `start`. Every other borrowed argument is still refused
@@ -14470,7 +13685,7 @@ type Greeter
 	var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 
 	export function greet() returns String
@@ -14479,8 +13694,7 @@ type Greeter
 end 'Greeter'
 
 function start(name String) returns String
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let g = spawn Greeter.create(name)
+	let g = spawn Greeter.create(name.clone())
 	let text = try await g.greet() otherwise panic("the greeter is running")
 	g.shutdown()
 	return text
@@ -14500,8 +13714,6 @@ hello ada
 
 <!-- test: services.a-spawn-factory-argument-read-two-fields-off-a-temporary-starts-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A factory argument read two fields deep out of a temporary built in the factory's own argument list: the
 `Outer` is released at the `spawn`, and with it the `Holder` it held, so the `Settings` has the service as its
 one owner.
@@ -14535,8 +13747,7 @@ end 'Outer'
 type Surveyor
 	var settings as Settings
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(settings isolated Settings) returns Self
+	static function create(consumes settings Settings) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{settings: merge settings}
 	end 'create'
@@ -14547,7 +13758,6 @@ type Surveyor
 end 'Surveyor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let surveyor = spawn Surveyor.create(Outer.create(Holder.create(Settings.create(true))).holder.settings.clone())
 	let total = try await surveyor.measure(21) otherwise panic("the surveyor is running")
 	print("{total}\n")
@@ -14563,8 +13773,6 @@ end 'main'
 ```
 
 <!-- test: error.reply-forwarded-through-a-local-named-like-a-type-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Inside `build`, `Report` is a local holding the service's own record, so `Report.echo(1)` calls the INSTANCE
 `echo` on it — which returns that record — and not the static `make` that builds one.
@@ -14591,8 +13799,7 @@ type Worker
 		return Self{report: Report.make(41)}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure() returns immutable Report
+	export function measure() returns frozen with Report
 		return build()
 	end 'measure'
 
@@ -14603,7 +13810,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure() otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -14616,8 +13822,6 @@ error E3209: <fragment>:25:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: services.a-reply-built-by-a-user-type-named-like-a-stdlib-type-is-fresh -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A program's own `type Clock` moves the stdlib `Clock` out of its way, so `Clock.make` here is the program's
 factory and nothing else: the reply `build` forwards is still one it just constructed.
 ```maxon
@@ -14638,19 +13842,16 @@ type Worker
 		return Self{scale: 2}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function measure(n Tally) returns isolated Clock
+	export function measure(n Tally) returns Clock
 		return build(n)
 	end 'measure'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function build(n Tally) returns isolated Clock
-		return Clock.make(n * self.scale)
+	function build(n Tally) returns Clock
+		return Clock.make(try n * self.scale otherwise panic("out of range"))
 	end 'build'
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let clock = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{clock.ticks}\n")
@@ -14663,7 +13864,6 @@ end 'main'
 ```
 
 <!-- test: services.an-or-arm-matches-a-handler-error-merged-with-the-send-errors -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An awaited message's error is the handler's own error set merged with the send's `mailboxFull` and
 `serviceStopped`, and a `match` over it takes the same `or` arms a match over any error enum does.
 ```maxon
@@ -14690,7 +13890,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let calc = spawn Calc.create()
 	let value = try await calc.divide(10, by: 0) otherwise (e) 'failed'
 		match e 'why'
@@ -14715,10 +13914,7 @@ no answer
 <!-- test: services.a-reply-built-from-a-local-var-crosses-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message that fills a local `var` and returns a record built around it hands the caller the only owner of
 that record: the local was moved into the record, so nothing on the service's green thread still names it.
 ```maxon
@@ -14729,8 +13925,7 @@ typealias Tally = int(0 to 1000)
 type Cell
 	export var flags as Flags
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(flags isolated Flags) returns Self
+	static function create(consumes flags Flags) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{flags: merge flags}
 	end 'create'
@@ -14743,8 +13938,7 @@ type Worker
 		return Self{calls: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function report() returns isolated Cell
+	export function report() returns Cell
 		self.calls = self.calls + 1
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let flags = Flags.create(0) as isolated Flags
@@ -14758,7 +13952,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let cell = try await worker.report() otherwise panic("the worker is running")
 	print("{cell.flags.count()}\n")
@@ -14776,10 +13969,7 @@ end 'main'
 <!-- test: services.a-reply-built-over-a-message-parameter-crosses-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A reply may hold a message parameter: the loop releases the message's reference to the argument before the
 reply is handed to the caller, so the caller becomes the only owner of everything the reply reaches.
 ```maxon
@@ -14790,8 +13980,7 @@ typealias Tally = int(0 to 1000)
 type Cell
 	export var flags as Flags
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(flags isolated Flags) returns Self
+	static function create(consumes flags Flags) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{flags: merge flags}
 	end 'create'
@@ -14804,16 +13993,13 @@ type Worker
 		return Self{calls: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function wrap(flags isolated Flags) returns isolated Cell
+	export function wrap(consumes flags Flags) returns Cell
 		self.calls = self.calls + 1
 		return Cell.create(flags)
 	end 'wrap'
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let flags = Flags.create(0) as isolated Flags
@@ -14835,8 +14021,6 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-reply-that-is-the-services-own-state-is-refused-at-the-spawn -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 The same rule where the substitution is a container: `T` is an `Array with bool`, so the array the state
 names is the array the reply hands back. The `spawn` that fixes `T` refuses it, before the service runs.
 ```maxon
@@ -14857,7 +14041,6 @@ end 'Box'
 function main() returns ExitCode
 	var flags = Flags.create(0)
 	flags.push(true)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(flags)
 	let got = try await h.peek() otherwise panic("the box is running")
 	print("{got.count()}\n")
@@ -14871,8 +14054,6 @@ error E3217: <fragment>:19:10: the message `Box.peek` returns a `Flags` with no 
 <!-- test: services.a-reply-of-records-holding-an-interface-field-crosses -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A reply typed `List with Holder`, whose elements are records holding a value at an interface type, crosses and
 dispatches: the loop walks each element's `Shape` field through the witness beside it, and the caller reads
 the conformer's answer back out of the element it now owns alone.
@@ -14923,14 +14104,12 @@ type Maker
 		return Self{items: items}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function drain() returns isolated Holders
+	export function drain() returns Holders
 		return exchange(self.items, value: Holders.create())
 	end 'drain'
 end 'Maker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create(2)
 	let items = try await h.drain() otherwise panic("the maker is running")
 	// TODO: modify blocks are not supported in minimaxon
@@ -14947,8 +14126,6 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-factory-argument-that-is-an-os-handle-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 The factory's argument fixes `T`, and it crosses to the service's thread. A `MachinePin`'s machine pin is walked by
 no per-type walk that could prove it sole, so the `spawn` refuses the argument (E3217). A socket is not such a
 handle: its box counts its owners, and a `TcpListener` crosses when its sender holds it alone.
@@ -14972,7 +14149,6 @@ type Maker uses T
 end 'Maker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create(MachinePin.acquire())
 	let items = try await h.make() otherwise panic("the maker is running")
 	print("{items}\n")
@@ -14985,8 +14161,6 @@ error E3217: <fragment>:21:10: parameter `seed` of the factory `Maker.create` is
 
 <!-- test: services.a-reply-a-sibling-builds-in-a-local-is-fresh -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A sibling that builds its record in a local, fills it, and returns the local hands back a record nothing
 else names: the local is the only reference and the `return` moves it out.
 ```maxon
@@ -15007,13 +14181,11 @@ type Worker
 		return Self{scale: 2}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function measure(n Tally) returns isolated Report
+	export function measure(n Tally) returns Report
 		return summarize(n)
 	end 'measure'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function summarize(n Tally) returns isolated Report
+	function summarize(n Tally) returns Report
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let report = Report.create(n * self.scale) as isolated Report
 		return report
@@ -15021,7 +14193,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -15036,8 +14207,6 @@ end 'main'
 <!-- test: services.a-reply-a-sibling-fills-in-a-var-is-fresh -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same with a `var` the sibling fills before returning it — pushing into the record's own array field
 and assigning a scalar field keep the record the local's alone.
 ```maxon
@@ -15061,13 +14230,11 @@ type Worker
 		return Self{scale: 2}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function measure(n Tally) returns isolated Report
+	export function measure(n Tally) returns Report
 		return summarize(n)
 	end 'measure'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function summarize(n Tally) returns isolated Report
+	function summarize(n Tally) returns Report
 		let scaled = n * self.scale
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let report = Report.create() as isolated Report
@@ -15081,7 +14248,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total} {report.lines.count()}\n")
@@ -15094,8 +14260,6 @@ end 'main'
 ```
 
 <!-- test: error.reply-a-sibling-builds-in-a-local-it-also-keeps-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `summarize` builds its record in a local but pushes the local into the service's `history` before
 returning it, so the record has a second owner.
@@ -15119,8 +14283,7 @@ type Worker
 		return Self{history: ReportArray.create(0)}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure(n Tally) returns immutable Report
+	export function measure(n Tally) returns frozen with Report
 		return summarize(n)
 	end 'measure'
 
@@ -15132,7 +14295,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -15145,8 +14307,6 @@ error E3209: <fragment>:21:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-another-local-aliases-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `copy` names the same record as `report`, so returning `report` does not hand back the only reference.
 ```maxon
@@ -15167,8 +14327,7 @@ type Worker
 		return Self{last: 0}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure(n Tally) returns immutable Report
+	export function measure(n Tally) returns frozen with Report
 		return summarize(n)
 	end 'measure'
 
@@ -15181,7 +14340,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -15194,8 +14352,6 @@ error E3209: <fragment>:20:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-its-own-method-stored-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `keepIn` is an instance method, so it is handed the record itself — and it pushes `self` into the service's
 `history`. A method called on the local may keep it, so the local is not fresh.
@@ -15223,8 +14379,7 @@ type Worker
 		return Self{history: ReportArray.create(0)}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure(n Tally) returns immutable Report
+	export function measure(n Tally) returns frozen with Report
 		return summarize(n)
 	end 'measure'
 
@@ -15236,7 +14391,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -15249,8 +14403,6 @@ error E3209: <fragment>:25:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-it-keys-a-map-with-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `summarize` writes its local as a KEY of the map literal it stores in the service's `ranks`. After a `,` a key
 is spelled exactly like a named argument's label, but it stores the record, so the local is not fresh.
@@ -15282,8 +14434,7 @@ type Worker
 		return Self{ranks: ReportRanks.create()}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function measure(n Tally) returns immutable Report
+	export function measure(n Tally) returns frozen with Report
 		return summarize(n)
 	end 'measure'
 
@@ -15296,7 +14447,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let report = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{report.total}\n")
@@ -15309,8 +14459,7 @@ error E3209: <fragment>:29:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: services.a-reply-whose-local-shares-a-field-with-the-state-is-refused -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -15340,8 +14489,7 @@ type Worker
 		return Self{kept: Inner.create(0)}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function measure(n Tally) returns isolated Report
+	export function measure(n Tally) returns Report
 		return summarize(n)
 	end 'measure'
 
@@ -15353,7 +14501,6 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let got = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{got.inner.n}\n")
@@ -15366,7 +14513,6 @@ error E3200: <fragment>:28:10: 'summarize(n)' is not isolated: only a clean call
 ```
 
 <!-- test: services.a-service-state-may-hold-a-value-at-an-interface-type -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service's own state may hold a value at an interface type: the `spawn` walks it through the conformer's
 witness, so the record the factory built crosses whole and dispatches on the service's green thread.
 ```maxon
@@ -15384,7 +14530,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Tally
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
@@ -15401,7 +14547,6 @@ type Surveyor
 end 'Surveyor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let surveyor = spawn Surveyor.create(3)
 	let area = try await surveyor.measure() otherwise panic("the surveyor is running")
 	print("{area}\n")
@@ -15414,8 +14559,6 @@ end 'main'
 ```
 
 <!-- test: services.a-reply-may-be-a-value-at-an-interface-type -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A reply held at an interface type is a record the handler built, handed back through its witness: the
 caller owns the conformer and dispatches through it.
 ```maxon
@@ -15444,15 +14587,13 @@ type Factory
 		return Self{made: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function make(side Tally) returns isolated Shape
+	export function make(side Tally) returns Shape
 		self.made = self.made + 1
 		return Square.create(side)
 	end 'make'
 end 'Factory'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let factory = spawn Factory.create()
 	let shape = try await factory.make(4) otherwise panic("the factory is running")
 	print("{shape.area()}\n")
@@ -15465,9 +14606,7 @@ end 'main'
 ```
 
 <!-- test: services.a-sent-interface-argument-crosses-through-its-witness -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `let` binding held at an interface type is moved by the send, exactly as a `let` record is: the send walks it
 through its witness, and the service dispatches through it.
 ```maxon
@@ -15500,8 +14639,7 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function measure(s isolated Shape)
+	export function measure(consumes s Shape)
 		self.count = self.count + s.area()
 	end 'measure'
 
@@ -15511,7 +14649,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shape = squareOf(3) as isolated Shape
@@ -15528,8 +14665,6 @@ end 'main'
 ```
 
 <!-- test: services.a-second-owner-inside-a-conformer-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -15573,8 +14708,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(s isolated Shape)
+	export function take(consumes s Shape)
 		self.seen = s.area()
 	end 'take'
 end 'Svc'
@@ -15583,7 +14717,6 @@ function main() returns ExitCode
 	var cells = Cells.create()
 	var cell = Cell.create()
 	cells.append(cell)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	var shape = crateOf(cells)
 	try h.take(shape) otherwise panic("a running service with room takes the send")
@@ -15595,9 +14728,7 @@ error E3200: <fragment>:52:13: 'shape' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: services.a-conformer-holding-a-string-crosses -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A conformer whose record holds a `String` is walked into that record as a field of it is, and crosses whole.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -15629,8 +14760,7 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function measure(s isolated Shape)
+	export function measure(consumes s Shape)
 		self.count = self.count + s.area()
 	end 'measure'
 
@@ -15640,7 +14770,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shape = labelOf(1234) as isolated Shape
@@ -15656,8 +14785,6 @@ end 'main'
 ```
 
 <!-- test: services.an-interface-reply-nobody-awaits-is-released -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A reply held at an interface type that no one awaits is released with its cell, through the witness the cell
 carries beside the value: the conformer's heap `String` is freed, so the program exits clean rather than
 leaking (exit 101).
@@ -15687,8 +14814,7 @@ type Factory
 		return Self{made: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function make(width Tally) returns isolated Shape
+	export function make(width Tally) returns Shape
 		self.made = self.made + 1
 		return Label.create("w{width}")
 	end 'make'
@@ -15699,7 +14825,6 @@ type Factory
 end 'Factory'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let factory = spawn Factory.create()
 	_ = try factory.make(1234) otherwise panic("a running service with room takes the send")
 	let made = try await factory.count() otherwise panic("the factory is running")
@@ -15716,8 +14841,6 @@ end 'main'
 ```
 
 <!-- test: error.a-message-argument-that-does-not-implement-the-interface -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message argument at an interface-typed parameter widens as a call argument does, so a value whose type does
 not conform is refused.
@@ -15735,14 +14858,12 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function measure(s isolated Shape)
+	export function measure(consumes s Shape)
 		self.count = self.count + s.area()
 	end 'measure'
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	try h.measure(7 as Tally) otherwise panic("a running service with room takes the send")
 	return 0
@@ -15753,8 +14874,6 @@ error E3005: <fragment>:22:16: argument type mismatch for 's' of the message 'me
 ```
 
 <!-- test: error.a-generic-service-spawned-over-an-interface-type-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A `spawn` reads a generic service's type arguments off its factory's arguments, and a value held at an interface
 type cannot be one: the instance would stand a two-word fat pointer in a slot a type parameter gives one word.
 ```maxon
@@ -15793,7 +14912,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(squareOf(2))
 	let n = try await h.size() otherwise panic("the box is running")
 	print("{n}\n")
@@ -15806,9 +14924,6 @@ error E2015: <fragment>:37:10: Unsupported: a type argument inferred from a fact
 ```
 
 <!-- test: services.an-interface-argument-sent-to-a-stopped-service-is-handed-back -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A send to a service that has stopped fails with `serviceStopped` and hands the interface-typed argument back,
 still held at its interface type: the arm calls through its witness, and when the binding dies the conformer's
 heap `String` is released rather than leaked (exit 101). An awaited send to the same service fails the same way
@@ -15839,14 +14954,12 @@ type Factory
 		return Self{made: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function make(width Tally) returns isolated Shape
+	export function make(width Tally) returns Shape
 		self.made = self.made + 1
 		return Label.create("w{width}")
 	end 'make'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function inspect(s isolated Shape)
+	export function inspect(consumes s Shape)
 		self.made = self.made + s.area()
 	end 'inspect'
 end 'Factory'
@@ -15856,7 +14969,6 @@ function labelOf(width Tally) returns Shape
 end 'labelOf'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let factory = spawn Factory.create()
 	var stops = 0 as Tally
 	var area = 0 as Tally
@@ -15881,9 +14993,7 @@ end 'main'
 ```
 
 <!-- test: services.interface-arguments-each-take-their-own-payload-slot -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Each interface-typed parameter of a message takes its witness half in the payload slot after its own, so a
 scalar parameter between two of them still reads its own slot, and a moved binding and a moved temporary cross in
 one send.
@@ -15933,15 +15043,13 @@ type Calc
 		return Self{calls: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function combine(a isolated Shape, scale Tally, b isolated Shape) returns Tally
+	export function combine(consumes a Shape, scale Tally, consumes b Shape) returns Tally
 		self.calls = self.calls + 1
 		return a.area() * scale + b.area()
 	end 'combine'
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let sent = squareOf(2) as isolated Shape
@@ -15957,9 +15065,7 @@ end 'main'
 ```
 
 <!-- test: borrow.a-handler-may-write-a-sent-interface-argument -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handler may write an interface-typed parameter through its witness: the send moved the conformer to it.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -15996,14 +15102,12 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function poke(c isolated Counter)
+	export function poke(consumes c Counter)
 		c.bump()
 	end 'poke'
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let c = counterOf() as isolated Counter
@@ -16017,9 +15121,7 @@ end 'main'
 
 <!-- test: borrow.a-handler-may-keep-a-sent-interface-argument -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handler may store an interface-typed parameter in its state: the send moved the conformer to it.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -16051,15 +15153,13 @@ type Keeper
 		return Self{last: Square.create(1)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(s isolated Shape)
+	export function keep(consumes s Shape)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.last = merge s
 	end 'keep'
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Keeper.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let s = squareOf(2) as isolated Shape
@@ -16072,7 +15172,6 @@ end 'main'
 ```
 
 <!-- test: services.a-generic-conformer-crosses-inside-an-interface-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A value held at an interface type whose conformer is an instance of a generic type crosses and dispatches.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -16085,12 +15184,12 @@ type Wrapper uses T implements Shape
 	var item as T
 	var side as Tally
 
-	static function create(item T, side Tally) returns Self
-		return Self{item: item, side: side}
+	static function create(item T, side Tally) returns Self where T implements Copyable
+		return Self{item: item.clone(), side: side}
 	end 'create'
 
 	function area() returns Tally
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Wrapper'
 
@@ -16109,7 +15208,6 @@ type Surveyor
 end 'Surveyor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let surveyor = spawn Surveyor.create(3)
 	let area = try await surveyor.measure() otherwise panic("the surveyor is running")
 	print("{area}\n")
@@ -16122,8 +15220,6 @@ end 'main'
 ```
 
 <!-- test: services.a-conformer-no-walk-reaches-is-refused-when-sent-at-its-interface-type -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -16157,14 +15253,12 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function measure(s isolated Shape)
+	export function measure(consumes s Shape)
 		self.count = self.count + s.area()
 	end 'measure'
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	var shape = portOf(MachinePin.acquire())
 	try h.measure(shape) otherwise panic("a running service with room takes the send")
@@ -16176,8 +15270,6 @@ error E3217: <fragment>:37:10: parameter `s` of the message `Calc.measure` is a 
 ```
 
 <!-- test: error.a-conformer-no-walk-reaches-sent-at-its-own-type-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Where the conformer is known at the send, the refusal is made at compile time: the argument widens to the
 interface at the request payload, and it is walked as the record it is.
@@ -16207,14 +15299,12 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function measure(s isolated Shape)
+	export function measure(consumes s Shape)
 		self.count = self.count + s.area()
 	end 'measure'
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	try h.measure(Port.create(MachinePin.acquire())) otherwise panic("a running service with room takes the send")
 	return 0
@@ -16225,8 +15315,6 @@ error E3217: <fragment>:33:10: parameter `s` of the message `Calc.measure` is a 
 ```
 
 <!-- test: error.a-reply-may-not-alias-an-interface-value-the-state-holds -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply held at an interface type that the service's state still holds would hand the caller a second
 reference to the conformer's box on another green thread, exactly as returning a state record would.
@@ -16256,14 +15344,12 @@ type Surveyor
 		return Self{shape: Square.create(side)}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function peek() returns immutable Shape
+	export function peek() returns frozen with Shape
 		return self.shape
 	end 'peek'
 end 'Surveyor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let surveyor = spawn Surveyor.create(3)
 	let shape = try await surveyor.peek() otherwise panic("the surveyor is running")
 	return shape.area() as ExitCode
@@ -16275,8 +15361,6 @@ error E3209: <fragment>:28:3: a return does not fit the declared result: the ret
 
 <!-- test: services.a-spawn-factory-delegating-to-a-factory-that-stores-its-argument-starts-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A factory that hands its argument to another factory, which stores it, starts the service with the one
 owner of that argument: the temporary moved into `create`, `create` moved it into `prepare`, and nothing
 on the spawning side still names it when the state is walked.
@@ -16298,8 +15382,7 @@ type Surveyor
 		return Self{settings: settings}
 	end 'prepare'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(settings isolated Settings) returns Self
+	static function create(consumes settings Settings) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedSettings = merge settings
 		return prepare(ownedSettings)
@@ -16311,7 +15394,6 @@ type Surveyor
 end 'Surveyor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let surveyor = spawn Surveyor.create(Settings.create(true))
 	let total = try await surveyor.measure(21) otherwise panic("the surveyor is running")
 	print("{total}\n")
@@ -16327,8 +15409,6 @@ end 'main'
 ```
 
 <!-- test: services.a-message-argument-built-by-a-delegating-factory-crosses-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message argument built by a factory that hands its own argument to another factory, which stores it, has
 one owner at the send: the temporary the outer call took is released before the argument's graph is walked.
 ```maxon
@@ -16346,7 +15426,7 @@ type Holder
 	export var settings as Settings
 
 	static function prepare(settings Settings) returns Self
-		return Self{settings: settings}
+		return Self{settings: settings.clone()}
 	end 'prepare'
 
 	static function create(settings Settings) returns Self
@@ -16361,15 +15441,13 @@ type Keeper
 		return Self{kept: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(holder isolated Holder) returns Tally
-		self.kept = self.kept + 1
+	export function keep(mutates self, consumes holder Holder) returns Tally
+		self.kept = try self.kept + 1 otherwise panic("out of range")
 		return 42 if holder.settings.doubled else 0
 	end 'keep'
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create()
 	let total = try await keeper.keep(Holder.create(Settings.create(true))) otherwise panic("the keeper is running")
 	print("{total}\n")
@@ -16386,8 +15464,6 @@ end 'main'
 
 <!-- test: services.a-spawn-factory-delegating-two-stored-arguments-through-try-starts-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The delegation may be a `try … otherwise panic(…)` and may store two arguments, one of them a literal: every
 temporary the spawn's factory call took is released before the state is walked.
 ```maxon
@@ -16416,8 +15492,7 @@ type Surveyor
 		return Self{settings: settings, label: label}
 	end 'prepare'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(settings isolated Settings, label String) returns Self
+	static function create(consumes settings Settings, label String) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedSettings = merge settings
 		return try prepare(ownedSettings, label: label) otherwise panic("prepare refused")
@@ -16429,7 +15504,6 @@ type Surveyor
 end 'Surveyor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let surveyor = spawn Surveyor.create(Settings.create(true), label: "abc")
 	let total = try await surveyor.measure(21) otherwise panic("the surveyor is running")
 	print("{total}\n")
@@ -16446,8 +15520,6 @@ end 'main'
 
 <!-- test: services.a-spawn-factory-argument-read-off-a-temporary-starts-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A factory argument read out of a temporary's field keeps that temporary alive only for the read: the
 `Holder` the argument was read from is released before the state is walked, so the `Settings` it held
 has the service as its one owner.
@@ -16473,8 +15545,7 @@ end 'Holder'
 type Surveyor
 	var settings as Settings
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(settings isolated Settings) returns Self
+	static function create(consumes settings Settings) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{settings: merge settings}
 	end 'create'
@@ -16485,7 +15556,6 @@ type Surveyor
 end 'Surveyor'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let surveyor = spawn Surveyor.create(Holder.create(Settings.create(true)).settings.clone())
 	let total = try await surveyor.measure(21) otherwise panic("the surveyor is running")
 	print("{total}\n")
@@ -16501,8 +15571,6 @@ end 'main'
 ```
 
 <!-- test: services.a-message-argument-built-from-a-temporarys-field-crosses-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message argument built from a field read out of a temporary has one owner at the send: the temporary the
 field was read from is released before the argument's graph is walked.
 ```maxon
@@ -16520,7 +15588,7 @@ type Holder
 	export var settings as Settings
 
 	static function create(settings Settings) returns Self
-		return Self{settings: settings}
+		return Self{settings: settings.clone()}
 	end 'create'
 end 'Holder'
 
@@ -16531,15 +15599,13 @@ type Keeper
 		return Self{kept: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(holder isolated Holder) returns Tally
-		self.kept = self.kept + 1
+	export function keep(mutates self, consumes holder Holder) returns Tally
+		self.kept = try self.kept + 1 otherwise panic("out of range")
 		return 42 if holder.settings.doubled else 0
 	end 'keep'
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create()
 	let total = try await keeper.keep(Holder.create(Holder.create(Settings.create(true)).settings.clone())) otherwise panic("the keeper is running")
 	print("{total}\n")
@@ -16555,8 +15621,6 @@ end 'main'
 ```
 
 <!-- test: services.a-send-inside-a-larger-expression-releases-only-what-its-arguments-built -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The release at a send reaches only what its own argument list built. A field read before the send keeps
 its temporary, a `try` fork inside the arguments hands its temporaries back before the release, and an
 interpolated argument crosses as the one owner of its record.
@@ -16579,7 +15643,7 @@ type Namer
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Namer'
 
@@ -16587,7 +15651,7 @@ type Holder
 	export var settings as Settings
 
 	static function create(settings Settings) returns Self
-		return Self{settings: settings}
+		return Self{settings: settings.clone()}
 	end 'create'
 end 'Holder'
 
@@ -16598,9 +15662,8 @@ type Keeper
 		return Self{kept: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(holder isolated Holder, label String) returns Tally
-		self.kept = self.kept + 1
+	export function keep(mutates self, consumes holder Holder, label String) returns Tally
+		self.kept = try self.kept + 1 otherwise panic("out of range")
 		return 42 if holder.settings.doubled and label.byteLength() == 5 else 0
 	end 'keep'
 end 'Keeper'
@@ -16613,7 +15676,6 @@ function parseSettings(text String) returns Settings throws SetupError
 end 'parseSettings'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create()
 	let mark = Namer.create("ab").name.byteLength() as Tally
 	let total = try await keeper.keep(Holder.create(try parseSettings(Namer.create("on").name) otherwise panic("the settings parse")), label: "{Namer.create("ab").name}cde") otherwise panic("the keeper is running")
@@ -16631,8 +15693,6 @@ end 'main'
 
 <!-- test: services.a-spawn-as-a-call-argument-releases-only-what-its-factory-built -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `spawn` written as one argument of a call releases what its factory's arguments built and nothing the
 call's other arguments build after it.
 ```maxon
@@ -16657,8 +15717,7 @@ end 'Holder'
 type Surveyor
 	var settings as Settings
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(settings isolated Settings) returns Self
+	static function create(consumes settings Settings) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{settings: merge settings}
 	end 'create'
@@ -16675,7 +15734,6 @@ function measureWith(surveyor Surveyor.handle, extra Holder) returns Tally
 end 'measureWith'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let total = measureWith(spawn Surveyor.create(Holder.create(Settings.create(true)).settings.clone()), extra: Holder.create(Holder.create(Settings.create(false)).settings))
 	print("{total}\n")
 	return 0
@@ -16689,7 +15747,6 @@ end 'main'
 ```
 
 <!-- test: services.a-var-string-sent-to-a-service-is-moved -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send moves the reference and consumes the sender's `var`.
 ```maxon
@@ -16702,14 +15759,13 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var word = "hello padded out long enough to heap allocate {1}"
 	let loud = try await h.shout(word) otherwise "stopped"
@@ -16723,7 +15779,6 @@ error E3102: <fragment>:22:10: use of moved value 'word': its ownership moved to
 ```
 
 <!-- test: services.a-cell-resident-var-sent-to-a-service-is-moved -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `word` lives in a cell because `fill` reassigns its parameter; the send takes the cell's contents.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -16735,8 +15790,8 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
@@ -16746,7 +15801,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var word = "hello padded out long enough to heap allocate {1}"
 	fill(word, n: 2)
@@ -16763,7 +15817,6 @@ filled 2 padded out long enough to heap allocate!
 ```
 
 <!-- test: services.a-cell-resident-var-read-after-a-send-is-use-after-move -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same cell-resident `var`, read after the send.
 ```maxon
@@ -16776,8 +15829,8 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
@@ -16787,7 +15840,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var word = "hello padded out long enough to heap allocate {1}"
 	fill(word, n: 2)
@@ -16802,7 +15854,6 @@ error E3102: <fragment>:27:10: use of moved value 'word': its ownership moved to
 ```
 
 <!-- test: services.a-var-reassigned-after-a-closure-captured-it-is-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The closure owns the value it captured, so the `var` reassigned afterwards holds a new value of its own, and that
 value moves to the service while the closure goes on reading the first.
 ```maxon
@@ -16815,14 +15866,13 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var word = "hello padded out long enough to heap allocate {0}"
 	let peek = function() gives word.byteLength()
@@ -16837,7 +15887,6 @@ second padded out long enough to heap allocate 1! 47
 ```
 
 <!-- test: services.error.a-cell-resident-var-a-closure-only-reads-cannot-be-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A closure that only READS a cell-resident `var` takes the cell's occupant, so sending the `var` afterwards is a
 use after move.
@@ -16851,8 +15900,8 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
@@ -16866,7 +15915,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var (word, _) = opening()
 	fill(word, n: 2)
@@ -16882,9 +15930,7 @@ error E3102: <fragment>:30:31: use of moved value 'word': its ownership moved to
 
 <!-- test: services.error.one-let-sent-twice-in-one-message-is-use-after-move -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The first argument moves `b` into the message, so the second reads a moved value.
 ```maxon
@@ -16903,8 +15949,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take2(a isolated Box, other isolated Box)
+	export function take2(consumes a Box, consumes other Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedA = merge a
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16914,7 +15959,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -16930,9 +15974,7 @@ error E3102: <fragment>:28:24: use of moved value 'b': its ownership moved to an
 
 <!-- test: services.error.a-let-and-its-alias-sent-in-one-message-are-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `c` names the record `b` holds, so moving `b` into the message leaves `c` a second owner of it.
 ```maxon
@@ -16951,8 +15993,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take2(a isolated Box, other isolated Box)
+	export function take2(consumes a Box, consumes other Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedA = merge a
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16962,7 +16003,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -16979,9 +16019,7 @@ error E3102: <fragment>:29:14: use of moved value 'b': its ownership moved to an
 
 <!-- test: services.error.a-sent-let-used-as-a-method-receiver-is-use-after-move -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A sent `let` is gone from the send on, so calling a method on it reads a moved value.
 ```maxon
@@ -17004,8 +16042,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -17013,7 +16050,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -17029,9 +16065,7 @@ error E3102: <fragment>:32:9: use of moved value 'b': its ownership moved to ano
 
 <!-- test: services.error.a-sent-let-passed-to-an-async-call-is-use-after-move -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A sent `let` is gone from the send on, so handing it to a coroutine reads a moved value.
 ```maxon
@@ -17050,8 +16084,7 @@ type Svc
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box)
+	export function take(consumes b Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.seen = self.seen + ownedB.n
@@ -17064,7 +16097,6 @@ function readIt(b Box) returns Integer
 end 'readIt'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Box.create() as isolated Box
@@ -17080,8 +16112,7 @@ error E3102: <fragment>:33:23: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: error.a-var-the-loop-iterates-is-not-sent-inside-the-loop -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 <!-- positions: moved -->
 The loop holds a counted reference to the array it iterates, so the `var` `items` is no longer the record's only
 owner inside the loop body, and the send, which would move it to the service while the loop still reads it, is
@@ -17098,8 +16129,7 @@ type Summer
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function add(words isolated Words) returns Integer
+	export function add(consumes words Words) returns Integer
 		for word in words 'each'
 			self.total = self.total + (word.byteLength() as Integer)
 		end 'each'
@@ -17108,7 +16138,6 @@ type Summer
 end 'Summer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Summer.create()
 	var items = Words.create(0)
 	items.push("first padded out long enough to heap allocate {1}")
@@ -17127,9 +16156,7 @@ error E3200: <fragment>:28:27: 'items' is not isolated: only a clean call, a `sw
 
 <!-- test: error.an-isolated-local-the-loop-iterates-is-not-sent-inside-the-loop -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The `for` opens `items` for the whole loop, so the `break` after the send does not help: the send would hand the service a region the loop still reads, and `x` is read from it afterwards.
 ```maxon
@@ -17144,8 +16171,7 @@ type Summer
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function add(words isolated Words) returns Integer
+	export function add(consumes words Words) returns Integer
 		for word in words 'each'
 			self.total = self.total + (word.byteLength() as Integer)
 		end 'each'
@@ -17154,7 +16180,6 @@ type Summer
 end 'Summer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Summer.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let items = Words.create(0) as isolated Words
@@ -17177,9 +16202,7 @@ error E3200: <fragment>:31:27: 'items' is iterated by an enclosing `for`, which 
 
 <!-- test: error.an-isolated-local-the-loop-iterates-with-an-iterator-is-not-sent-inside-the-loop -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `items.withIterator()` makes the loop read `items` the same way, so the send is refused the same way.
 ```maxon
@@ -17194,8 +16217,7 @@ type Summer
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function add(words isolated Words) returns Integer
+	export function add(consumes words Words) returns Integer
 		for word in words 'each'
 			self.total = self.total + (word.byteLength() as Integer)
 		end 'each'
@@ -17204,7 +16226,6 @@ type Summer
 end 'Summer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Summer.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let items = Words.create(0) as isolated Words
@@ -17227,9 +16248,7 @@ error E3200: <fragment>:31:27: 'items' is iterated by an enclosing `for`, which 
 
 <!-- test: services.a-var-the-loop-iterated-is-sent-after-the-loop -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Once the loop has ended it holds nothing, so the `var` is the record's only owner again and the send moves it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -17243,8 +16262,7 @@ type Summer
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function add(words isolated Words) returns Integer
+	export function add(consumes words Words) returns Integer
 		for word in words 'each'
 			self.total = self.total + (word.byteLength() as Integer)
 		end 'each'
@@ -17253,7 +16271,6 @@ type Summer
 end 'Summer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Summer.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let items = Words.create(0) as isolated Words
@@ -17280,9 +16297,7 @@ end 'main'
 
 <!-- test: services.a-value-whose-field-a-closure-holds-is-refused-at-the-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -17312,8 +16327,7 @@ type Holder
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Outer) returns Integer
+	export function take(consumes b Outer) returns Integer
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedB = merge b
 		self.total = self.total + ownedB.inner.n
@@ -17322,7 +16336,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Holder.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let b = Outer.create() as isolated Outer
@@ -17338,8 +16351,6 @@ error E3202: <fragment>:38:14: 'b.inner' is mutable and cannot leave the stateme
 
 <!-- test: services.error.an-argument-whose-graph-holds-a-function-value-is-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message argument whose record holds a function value cannot be walked across, and the refusal names the
 function value.
@@ -17363,8 +16374,7 @@ type Calc
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function run(j isolated Job)
+	export function run(consumes j Job)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let ownedJ = merge j
 		self.count = ownedJ.op(self.count)
@@ -17372,7 +16382,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	try h.run(Job.create(function(n Tally) gives n + 1)) otherwise panic("a running service with room takes the send")
 	return 0
@@ -17383,7 +16392,6 @@ error E3217: <fragment>:28:10: parameter `j` of the message `Calc.run` is a `Job
 ```
 
 <!-- test: services.error.a-function-valued-reply-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply is handed to another green thread too, and a function value is refused there by name.
 ```maxon
@@ -17405,7 +16413,6 @@ type Maker
 end 'Maker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create()
 	let op = try await h.make() otherwise panic("the maker is running")
 	return op(1) as ExitCode
@@ -17416,7 +16423,6 @@ error E3217: <fragment>:19:10: the message `Maker.make` returns a function value
 ```
 
 <!-- test: services.a-handle-bound-to-a-local-then-pushed-is-freed-once -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handle moved from a local into an array is owned by the array alone, so each is released once when the array goes.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -17430,22 +16436,21 @@ type Worker
 		return Self{total: 0}
 	end 'create'
 
-	export function add(n Integer) returns Integer
-		self.total = self.total + n
+	export function add(mutates self, n Integer) returns Integer
+		self.total = try self.total + n otherwise panic("out of range")
 		return self.total
 	end 'add'
 end 'Worker'
 
 function main() returns ExitCode
-	let workers = WorkerHandleArray.create(0)
+	var workers = WorkerHandleArray.create(0)
 	for _ in 1 to 4 'spawnThem'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let w = spawn Worker.create()
 		workers.push(w)
 	end 'spawnThem'
 	var sum = 0 as Integer
 	for w in workers 'useThem'
-		sum = sum + (try await w.add(1) otherwise 0)
+		sum = try sum + (try await w.add(1) otherwise 0) otherwise panic("out of range")
 	end 'useThem'
 	if sum == 4 'allAnswered'
 		return 42
@@ -17458,7 +16463,6 @@ end 'main'
 ```
 
 <!-- test: services.an-array-of-handles-walks-with-its-iterator -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -17480,7 +16484,6 @@ end 'Worker'
 function main() returns ExitCode
 	let workers = WorkerHandleArray.create(0)
 	for _ in 1 to 4 'spawnThem'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		workers.push(spawn Worker.create())
 	end 'spawnThem'
 	var sum = 0 as Integer
@@ -17498,8 +16501,6 @@ end 'main'
 ```
 
 <!-- test: services.a-view-of-an-immutable-record-sent-to-a-service-is-sent -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `v` is a `let` bound to a record with only `let` fields of a value type, so it is a value and crosses to the service; a second `let` elsewhere in the body changes nothing.
 
 ```maxon
@@ -17528,17 +16529,15 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function show(p isolated Point) returns Count
-		self.seen = self.seen + 1
+	export function show(mutates self, consumes p Point) returns Count
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.x
 	end 'show'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
-	let b = Box.create(1)
+	var b = Box.create(1)
 	b.n = 2
 	let w = b
 	print("{w.n}\n")
@@ -17559,9 +16558,7 @@ end 'main'
 
 <!-- test: services.error.a-var-sent-after-it-has-been-viewed-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `let w = b` moves `b` into `w`, as `let w = b` does, so `b` cannot be sent afterwards, even though `w` is not read again.
 
@@ -17583,15 +16580,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b = Box.create(1) as isolated Box
@@ -17613,9 +16608,7 @@ error E3102: <fragment>:35:27: use of moved value 'b': its ownership moved to an
 <!-- test: services.error.a-var-sent-after-it-has-been-viewed-and-read-afterwards-is-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `let w = b` moves `b` into `w`, which is read after the send, so the send of `b` is refused rather than leaving `w` reading a record the service now owns and writes.
 
@@ -17637,8 +16630,7 @@ type Store
 		return Self{kept: Box.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.kept = merge p
 		self.kept.n = 9
@@ -17647,7 +16639,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b = Box.create(1) as isolated Box
@@ -17666,7 +16657,6 @@ error E3102: <fragment>:35:27: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: services.a-text-field-read-through-a-view-is-sent-as-a-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `String` crosses to the service as a value, so a field read through a `let` may be sent after the record has been viewed.
 
 ```maxon
@@ -17677,7 +16667,7 @@ type Person
 	export var age as Count
 
 	static function create(name String) returns Self
-		return Self{name: name, age: 0}
+		return Self{name: name.clone(), age: 0}
 	end 'create'
 end 'Person'
 
@@ -17688,16 +16678,15 @@ type Greeter
 		return Self{seen: 0}
 	end 'create'
 
-	export function greet(name String) returns String
-		self.seen = self.seen + 1
+	export function greet(mutates self, name String) returns String
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return "hello {name}"
 	end 'greet'
 end 'Greeter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Greeter.create()
-	let b = Person.create("ada")
+	var b = Person.create("ada")
 	b.age = 3
 	let v = b
 	let r = try await h.greet(v.name) otherwise ""
@@ -17715,9 +16704,7 @@ hello ada 3
 <!-- test: services.error.a-var-sent-after-a-field-of-it-has-been-viewed-is-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `w` views a field of `b`, so its reference co-owns part of `b`'s graph for the rest of the function, and `b` cannot be moved to the service.
 
@@ -17747,8 +16734,7 @@ type Store
 		return Self{kept: Box.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.kept = merge p
 		return 0
@@ -17756,7 +16742,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b = Box.create(1) as isolated Box
@@ -17776,9 +16761,7 @@ error E3202: <fragment>:41:10: 'b.child' is mutable and cannot leave the stateme
 
 <!-- test: services.error.a-var-a-ternary-view-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `w` names `b` or `c` depending on the comparison, so its reference may co-own `c`'s record, and `c` cannot be moved to the service.
 
@@ -17800,15 +16783,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b = Box.create(1) as isolated Box
@@ -17834,9 +16815,7 @@ error E3202: <fragment>:38:10: 'b if b.n > c.n else c' is mutable and cannot lea
 
 <!-- test: services.error.a-var-an-otherwise-view-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `w` names `spare` when the array has no element 0, so its reference may co-own `spare`'s record.
 
@@ -17860,15 +16839,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var boxes = Boxes.create(0) as isolated Boxes
@@ -17894,9 +16871,7 @@ error E3200: <fragment>:40:10: a join of an isolated value with data that is not
 
 <!-- test: services.error.a-var-a-view-of-a-calls-result-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `pick` hands back its argument, so the record `w` views is `b`'s.
 
@@ -17918,8 +16893,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
@@ -17930,7 +16904,6 @@ function pick(x Box) returns Box
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b = Box.create(1) as isolated Box
@@ -17950,9 +16923,7 @@ error E3201: <fragment>:37:10: 'pick' hands back mutable data of the isolated re
 
 <!-- test: services.error.a-var-a-view-of-a-methods-result-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same through a method: `c.pick(b)` hands back `b`, not something of `c`'s.
 
@@ -17986,15 +16957,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let c = Picker.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -18015,9 +16984,7 @@ error E3201: <fragment>:46:12: 'pick' hands back mutable data of the isolated re
 
 <!-- test: services.error.a-var-a-match-view-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 One arm of the `match` gives `b`, so the record `w` views may be `b`'s.
 
@@ -18044,15 +17011,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let side = Side.left
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -18082,9 +17047,7 @@ error E3102: <fragment>:49:27: use of moved value 'b': its ownership moved to an
 
 <!-- test: services.error.an-array-an-element-view-reaches-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `e` binds an element of the isolated `boxes` outside a `modify` block, which is an isolated read without a block, so it is refused before the array is sent to the service.
 
@@ -18108,15 +17071,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keepAll(p isolated Boxes) returns Count
+	export function keepAll(consumes p Boxes) returns Count
 		self.seen = self.seen + 1
 		return p.count() as Count
 	end 'keepAll'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var boxes = Boxes.create(0) as isolated Boxes
@@ -18136,9 +17097,7 @@ error E3198: <fragment>:34:10: 'try boxes.get(0) otherwise return 1' is isolated
 
 <!-- test: services.an-array-an-if-view-dead-before-the-send-is-sent -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The `if let` binder views an element of `boxes` only inside the `if`, and it is not read after the `if`, so the send after it is accepted.
 
 ```maxon
@@ -18161,15 +17120,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keepAll(p isolated Boxes) returns Count
+	export function keepAll(consumes p Boxes) returns Count
 		self.seen = self.seen + 1
 		return p.count() as Count
 	end 'keepAll'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let boxes = Boxes.create(0) as isolated Boxes
@@ -18195,9 +17152,7 @@ end 'main'
 
 <!-- test: services.error.a-var-viewed-earlier-in-a-loop-body-sent-later-in-it-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Inside one trip of the loop, `let w = b` moves `b` before the send, so the send is refused on every trip.
 
@@ -18219,15 +17174,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	for _ in 1 to 2 'each'
 		// TODO: region capability 'isolated' is not supported in minimaxon
@@ -18251,9 +17204,7 @@ error E3102: <fragment>:37:28: use of moved value 'b': its ownership moved to an
 <!-- test: services.error.a-var-viewed-then-handed-to-spawn-as-state-is-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The state `spawn` starts the service with is moved into it, so a `var` that `let w = b` has already moved cannot be that state.
 
@@ -18271,8 +17222,7 @@ end 'Box'
 type Worker
 	var held as Box
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(held isolated Box) returns Self
+	static function create(consumes held Box) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{held: merge held}
 	end 'create'
@@ -18291,7 +17241,6 @@ function main() returns ExitCode
 		b.n = 2
 	end 'fill'
 	let w = b
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Worker.create(b)
 	let r = try await h.bump() otherwise 0
 	print("{w.n} {r}\n")
@@ -18303,8 +17252,6 @@ error E3102: <fragment>:33:30: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-record-is-shared-with-the-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Box` has only `let` fields, so nothing can write its record: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the record, and `w` reads it after the send.
 
 ```maxon
@@ -18325,15 +17272,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(p immutable Box) returns Count
+	export function keep(p frozen with Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var b = Box.create(1)
 	b = Box.create(2)
@@ -18352,9 +17297,7 @@ end 'main'
 
 <!-- test: services.error.a-ternary-arm-sent-inside-a-view-initializer-moves -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The send inside `w`'s initializer moves whichever arm the ternary picks, exactly as it would inside a `let` initializer, so writing `a` afterwards is a use of a moved value.
 
@@ -18376,8 +17319,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
@@ -18388,7 +17330,6 @@ function boxed(n Count) returns Box
 end 'boxed'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var a = Box.create(1) as isolated Box
@@ -18414,8 +17355,6 @@ error E3102: <fragment>:45:2: use of moved value 'a': its ownership moved to ano
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-generic-instance-is-shared-with-the-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Cell with Count` has only a `let` field, so nothing can write its record: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the record, and `w` reads it after the send.
 
 ```maxon
@@ -18438,15 +17377,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(p immutable CountCell) returns Count
+	export function keep(p frozen with CountCell) returns Count
 		self.seen = self.seen + 1
 		return p.v
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var b = CountCell.create(1)
 	b = CountCell.create(3)
@@ -18464,8 +17401,6 @@ end 'main'
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-union-is-shared-with-the-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every payload of `Note` is a `let`, so nothing can write its value: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the payload, and `w` reads it after the send.
 
 ```maxon
@@ -18483,8 +17418,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(n immutable Note) returns Count
+	export function keep(n frozen with Note) returns Count
 		self.seen = self.seen + 1
 		return match n 'note'
 			text(body) gives body.byteLength() as Count
@@ -18494,7 +17428,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var n = Note.text("a")
 	n = Note.text("bb")
@@ -18516,9 +17449,7 @@ end 'main'
 ```
 
 <!-- test: services.error.a-viewed-var-sent-and-read-afterwards-reports-the-send -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `w` views the array that holds `b`'s record, so the send is refused; the read of `b` after it is not reported as a use of a moved value, because a refused send moves nothing.
 
@@ -18542,15 +17473,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
+	export function keep(consumes p Box) returns Count
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var boxes = Boxes.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -18567,8 +17496,6 @@ error E3196: <fragment>:30:13: cannot store an isolated 'Box' into 'an element o
 ```
 
 <!-- test: services.error.an-immutable-record-no-view-reaches-is-moved-by-the-send -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `b`'s record is solely owned, so the send moves it even though its type has only `let` fields; the `let` of `other` reaches a different record and changes nothing, so reading `b` afterwards is a use of a moved value.
 
@@ -18590,15 +17517,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
-		self.seen = self.seen + 1
+	export function keep(mutates self, consumes p Box) returns Count
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let other = Box.create(7)
 	let z = other
@@ -18615,9 +17540,6 @@ error E3102: <fragment>:32:14: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: services.an-otherwise-merge-of-two-fresh-records-is-sent -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Both edges of the `try … otherwise` merge are records the calls just made, so `x` is solely owned and the send moves it, as it would a ternary of two fresh calls.
 
 ```maxon
@@ -18642,28 +17564,24 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Box) returns Count
-		self.seen = self.seen + 1
+	export function keep(mutates self, consumes p Box) returns Count
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.n
 	end 'keep'
 end 'Store'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function made(fail bool) returns isolated Box throws MakeError
+function made(fail bool) returns Box throws MakeError
 	if fail 'refuse'
 		throw MakeError.refused
 	end 'refuse'
 	return Box.create(1)
 end 'made'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function spare() returns isolated Box
+function spare() returns Box
 	return Box.create(2)
 end 'spare'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let x = try made(true) otherwise spare()
 	let r = try await h.keep(x) otherwise 0
@@ -18680,14 +17598,12 @@ end 'main'
 
 
 <!-- test: error.a-spawn-of-a-hidden-generic-factory-is-not-exported -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Box.create` is unexported in `box/`, so `main.maxon`, outside it, cannot spawn through it, as it could not call it.
 ```maxon
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn Box.create(9 as Whole)
+	let h = spawn box.Box.create(9 as Whole)
 	return try await h.peek() otherwise 0 as ExitCode
 end 'main'
 
@@ -18712,9 +17628,7 @@ error E3008: <fragment>:4:10: function 'Box.create' is not exported
 
 <!-- test: a-message-parameter-spelled-through-its-directory-keeps-its-brand -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- process: own -->
 A message parameter spelled `lib.Names`, an alias of `Array with String` declared in `lib/`, carries the same brand as the value the sender builds from `lib.Names`, so the request's payload accepts it and the reply comes back.
 ```maxon
@@ -18729,8 +17643,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(names isolated lib.Names) returns Count
+	export function keep(consumes names lib.Names) returns Count
 		let added = names.count()
 		self.seen = self.seen + added
 		return self.seen
@@ -18738,7 +17651,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let tags = lib.Names.create(0) as isolated lib.Names
@@ -18755,8 +17667,6 @@ end 'main'
 ```
 
 <!-- test: a-message-parameter-spelled-through-its-directory-as-a-struct-an-enum-and-an-interface -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- process: own -->
 Message parameters spelled `lib.Item`, `lib.Mode` and `lib.Named`, a struct, an enum and an interface declared in `lib/`, resolve through their declaring directory, so each message is sent, handled and answered: 3 + 10 + 5.
 ```maxon
@@ -18798,8 +17708,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function weigh(item isolated lib.Item) returns Count
+	export function weigh(consumes item lib.Item) returns Count
 		let weight = item.weight
 		self.seen = self.seen + weight
 		return self.seen
@@ -18809,14 +17718,12 @@ type Store
 		return 10 if mode == lib.Mode.loud else 1
 	end 'volume'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function tag(plate isolated lib.Named) returns Count
+	export function tag(consumes plate lib.Named) returns Count
 		return plate.label()
 	end 'tag'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let weighed = try await h.weigh(lib.Item.create(3)) otherwise panic("the store is open")
 	let loudness = try await h.volume(lib.Mode.loud) otherwise panic("the store is open")
@@ -18829,7 +17736,6 @@ end 'main'
 ```
 
 <!-- test: a-library-spawn-outside-a-default-starts-no-service-while-no-reached-body-spawns-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 A library function whose body writes `spawn Probe.create()` makes `Probe` a service only in a program that
 reaches that body. `main` never calls `startProbe`, so the program carries no scheduler and its raw
@@ -18852,7 +17758,6 @@ public type Probe
 end 'Probe'
 
 public function startProbe() returns ProbeCount
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let probe = spawn Probe.create()
 	return try await probe.ping() otherwise 0
 end 'startProbe'
@@ -18870,7 +17775,6 @@ end 'main'
 ```
 
 <!-- test: a-library-spawn-outside-a-default-starts-its-service-in-a-program-that-reaches-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 The same library function, called: the reached body spawns `Probe`, so the program is a service program and
 `startProbe` gets its answer from the running service.
@@ -18892,7 +17796,6 @@ public type Probe
 end 'Probe'
 
 public function startProbe() returns ProbeCount
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let probe = spawn Probe.create()
 	return try await probe.ping() otherwise 0
 end 'startProbe'
@@ -18907,8 +17810,6 @@ end 'main'
 ```
 
 <!-- test: error.a-library-spawn-is-rejected-at-its-crossing-on-wasm -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A library body that spawns reaches the green-thread substrate exactly as a `spawn` in the program does, so on a
@@ -18932,7 +17833,6 @@ public type Probe
 end 'Probe'
 
 public function startProbe() returns ProbeCount
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let probe = spawn Probe.create()
 	return try await probe.ping() otherwise 0
 end 'startProbe'
@@ -18947,8 +17847,6 @@ error E3104: <fragment>:25:10: 'startProbe' lowers to the runtime entry '__cown_
 ```
 
 <!-- test: error.a-library-send-is-rejected-at-its-crossing-on-wasm -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A library body that sends a message to a service it was handed reaches the substrate the same way, so the call
@@ -18976,7 +17874,6 @@ end 'askProbe'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let probe = spawn Probe.create()
 	return askProbe(probe) as ExitCode
 end 'main'
@@ -18994,7 +17891,6 @@ from its own green thread. A connection some other owner still holds is refused 
 enqueued.
 
 <!-- test: services.a-service-owns-a-moved-tcp-client-and-echoes-on-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The accepted connection is moved into `Echo.create`, so the service is its only owner. The service reads what the
 peer sent on its own green thread and writes it back; the peer, still on `main`'s thread, reads the echo.
@@ -19020,7 +17916,6 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let out = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 2
 	let accepted = try listener.accept() otherwise return 3
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create(accepted)
 	let reply = try echo.serve() otherwise return 4
 	_ = try out.send("hello") otherwise 'refused5x26'
@@ -19044,7 +17939,6 @@ hello 5
 ```
 
 <!-- test: services.a-moved-tcp-client-works-on-another-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The same hand-off with four processors, so the service's green thread can run on another OS thread than the one that
 accepted the connection and registered the socket with the network poller. The poller's registration belongs to the
@@ -19075,7 +17969,6 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let out = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 2
 	let accepted = try listener.accept() otherwise return 3
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create(accepted)
 	let reply = try echo.serve() otherwise return 4
 	for word in ["one", "three", "seven"] 'eachWord'
@@ -19105,7 +17998,6 @@ seven
 ```
 
 <!-- test: deepmove.error.a-tcp-client-an-array-holds-is-refused-at-the-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `TcpClient` is a unique OS handle with one owner. `kept.push(accepted)` moves the accepted connection into the array, so handing `accepted` to the service afterwards reads a moved value: no second owner of the connection can exist to meet the service's close on another green thread.
 ```maxon
@@ -19132,7 +18024,6 @@ function main() returns ExitCode
 	let accepted = try listener.accept() otherwise return 3
 	let kept = Clients.create(0)
 	kept.push(accepted)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create(accepted)
 	let reply = try echo.serve() otherwise return 4
 	let served = await reply
@@ -19146,7 +18037,6 @@ error E3102: <fragment>:27:31: use of moved value 'accepted': its ownership move
 ```
 
 <!-- test: deepmove.error.a-socket-adopted-by-two-tcp-clients-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `TcpClient.adopt` keeps the socket it is given, and the socket is a unique OS handle with one owner, so a second client over the same socket reads a moved value. Two clients, and so a socket box with several owners releasing from several green threads, cannot be built.
@@ -19171,7 +18061,6 @@ function main() returns ExitCode
 	let socket = try __ManagedSocket.tcpConnect("127.0.0.1".addressableBytes(), port: listener.port(), milliseconds: 0) otherwise return 2
 	let first = TcpClient.adopt(socket)
 	let second = TcpClient.adopt(socket)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create(first)
 	let reply = try echo.serve() otherwise return 4
 	let served = await reply
@@ -19185,7 +18074,6 @@ error E3102: <fragment>:22:31: use of moved value 'socket': its ownership moved 
 ```
 
 <!-- test: services.a-tcp-client-held-at-an-interface-type-crosses-and-echoes -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A connection moves into a service whose state holds a conformer of it at an interface type, and the service reads and
 writes the connection through the interface.
@@ -19229,7 +18117,6 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let out = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 2
 	let accepted = try listener.accept() otherwise return 3
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let stage = spawn Stage.create(accepted)
 	let reply = try stage.perform() otherwise return 4
 	_ = try out.send("interface") otherwise 'refused5x49'
@@ -19253,7 +18140,6 @@ interface 9
 ```
 
 <!-- test: services.a-service-replies-with-a-connection-it-accepted -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A reply is walked after the handler's locals are released, so a connection the handler accepted and returns has no
 other owner and crosses back to the caller, which reads and writes it on its own thread. The listener moved into the
@@ -19278,7 +18164,6 @@ end 'Acceptor'
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = listener.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let acceptor = spawn Acceptor.create(listener)
 	let pending = try acceptor.next() otherwise return 2
 	let out = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused3x23'
@@ -19300,7 +18185,6 @@ accepted
 ```
 
 <!-- test: services.a-service-replies-with-a-connection-it-dialled -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 `TcpClient.connect` builds the client. A reply of its result is fresh, so the dialled connection has no other
 owner and crosses back to the caller.
@@ -19323,7 +18207,6 @@ end 'Dialer'
 
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let dialer = spawn Dialer.create(listener.port())
 	let pending = try dialer.next() otherwise return 2
 	let peer = try listener.accept() otherwise 'refused3x22'
@@ -19345,8 +18228,6 @@ dialled
 ```
 
 <!-- test: services.a-reply-forwarded-to-a-sibling-crosses -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A static that forwards to a sibling static is fresh when the sibling is: `Box.make(n)` hands back
 the record `Box.makeExtra(n, extra:)` builds, so the handler may return it.
 ```maxon
@@ -19360,7 +18241,7 @@ type Box
 	end 'make'
 
 	static function makeExtra(n Tally, extra Tally) returns Self
-		return Self{n: n + extra}
+		return Self{n: try n + extra otherwise panic("out of range")}
 	end 'makeExtra'
 end 'Box'
 
@@ -19371,15 +18252,13 @@ type Maker
 		return Self{made: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function next() returns isolated Box
-		self.made = self.made + 1
+	export function next(mutates self) returns Box
+		self.made = try self.made + 1 otherwise panic("out of range")
 		return Box.make(self.made)
 	end 'next'
 end 'Maker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let maker = spawn Maker.create()
 	let box = try await maker.next() otherwise return 1
 	print("{box.n}\n")
@@ -19395,8 +18274,6 @@ end 'main'
 
 <!-- test: services.a-send-of-a-record-forwarded-to-a-sibling-moves-in -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A static that forwards to a sibling static is fresh when the sibling is, so the record it hands
 back is the sole owner's to move into a service in a send.
 ```maxon
@@ -19421,8 +18298,7 @@ type Shelf
 		return Self{held: Box.make(0)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(box isolated Box)
+	export function keep(consumes box Box)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.held = merge box
 	end 'keep'
@@ -19433,7 +18309,6 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shelf = spawn Shelf.create()
 	try shelf.keep(Box.make(7)) otherwise return 1
 	let total = try await shelf.total() otherwise return 2
@@ -19449,7 +18324,6 @@ end 'main'
 ```
 
 <!-- test: error.a-factory-that-starts-a-promise-the-state-keeps-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The factory runs on whichever green thread takes the service's first turn, and a later message may run on another, so a
 coroutine the factory leaves in the state would belong to a strand that no later message shares.
@@ -19477,7 +18351,6 @@ type Sleeper
 end 'Sleeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sleeper.create()
 	let r = try s.arm() otherwise panic("an open mailbox with room takes the send")
 	let v = await r
@@ -19491,7 +18364,6 @@ error E3216: <fragment>:24:10: `Sleeper.held` is a `Napped` that can hold a Prom
 ```
 
 <!-- test: error.a-factory-that-fills-a-promise-array-the-state-keeps-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Every coroutine a factory pushes into an array the state keeps is a promise in the state.
 ```maxon
@@ -19523,7 +18395,6 @@ type Sleepers
 end 'Sleepers'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sleepers.create(3)
 	let n = try await s.napping() otherwise panic("the service is running")
 	print("napping={n}\n")
@@ -19536,7 +18407,6 @@ error E3216: <fragment>:30:10: `Sleepers.held` is a `NapArray` that can hold a P
 ```
 
 <!-- test: services.a-factorys-prints-follow-the-spawners-until-the-spawner-waits -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The factory is the service's first act, not the spawner's: on one processor the spawner keeps running past `spawn`,
 and the factory's output appears only once the spawner waits for the service.
@@ -19557,7 +18427,6 @@ type Greeter
 end 'Greeter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let g = spawn Greeter.create()
 	print("spawn returned\n")
 	let n = try await g.total() otherwise return 1
@@ -19576,7 +18445,6 @@ total=1
 ```
 
 <!-- test: services.a-generic-factory-runs-on-the-service-with-its-arguments -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A generic factory keeps a managed argument at its type parameter and borrows a scalar one; both reach the factory on the
 service's thread, and the one it keeps is the service's to release.
 ```maxon
@@ -19596,7 +18464,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create("a label long enough to be a heap string", extra: 7)
 	let n = try await h.extraOf() otherwise return 1
 	print("{n}\n")
@@ -19612,7 +18479,6 @@ end 'main'
 ```
 
 <!-- test: services.a-spawn-starts-the-factory-it-names-on-the-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The `spawn` of `create` and of `createCounted` runs the factory it names on the service's thread.
 ```maxon
 typealias Whole = int(i64.min to i64.max)
@@ -19637,9 +18503,7 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Sink.create("a label long enough to be a heap string")
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Sink.createCounted(5)
 	let first = try await a.total() otherwise return 1
 	let second = try await b.total() otherwise return 2
@@ -19657,7 +18521,6 @@ end 'main'
 ```
 
 <!-- test: services.a-factory-with-defaults-and-labels-runs-on-the-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Labels reorder the factory's arguments and defaults fill the omitted ones before the call crosses to the service's
 thread, so the service starts from exactly the values an ordinary call would have bound.
 ```maxon
@@ -19667,7 +18530,7 @@ type Calc
 	var value as Whole
 
 	static function create(first Whole, scale Whole = 10, offset Whole = 1) returns Self
-		return Self{value: first * scale + offset}
+		return Self{value: try first * scale + offset otherwise panic("out of range")}
 	end 'create'
 
 	export function total() returns Whole
@@ -19676,9 +18539,7 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Calc.create(3, offset: 5, scale: 2)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Calc.create(4)
 	let first = try await a.total() otherwise return 1
 	let second = try await b.total() otherwise return 2
@@ -19696,8 +18557,6 @@ end 'main'
 ```
 
 <!-- test: services.a-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Ten arguments — integers, floats and a value held at an interface type — travel to the service's thread in the order and
 register class the factory declares them in, and the interface value is released with its own witness.
 ```maxon
@@ -19725,8 +18584,7 @@ type Plot
 	var count as Whole
 	var span as Area
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(a Whole, b Area, shape isolated Shape, c Whole, d Area, e Whole, f Area, g Whole, h Area, i Whole) returns Self
+	static function create(a Whole, b Area, consumes shape Shape, c Whole, d Area, e Whole, f Area, g Whole, h Area, i Whole) returns Self
 		return Self{count: a + c + e + g + i, span: b + d + f + h + shape.area()}
 	end 'create'
 
@@ -19736,7 +18594,6 @@ type Plot
 end 'Plot'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let p = spawn Plot.create(1, b: 0.5, shape: Square.create(2.0), c: 2, d: 1.5, e: 3, f: 2.5, g: 4, h: 3.5, i: 5)
 	try p.show() otherwise panic("an open mailbox with room takes the send")
 	p.shutdown()
@@ -19751,7 +18608,6 @@ end 'main'
 ```
 
 <!-- test: services.a-throwing-factory-that-succeeds-starts-the-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A factory that throws is a throwing expression: the spawner parks until the factory has run on the new service's green
 thread and then holds the handle. The factory's output therefore comes before anything the spawner prints after the
 `spawn`.
@@ -19779,7 +18635,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let g = try spawn Gate.create(true) otherwise return 1
 	print("spawn returned\n")
 	let n = try await g.state() otherwise return 1
@@ -19798,7 +18653,6 @@ state=1
 ```
 
 <!-- test: services.a-throwing-factory-that-fails-throws-at-the-spawn -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 A factory that throws starts no service: the spawner receives the factory's error, of the factory's own type, where it
 wrote the `spawn`, and the mailbox the spawn made is gone with the handle that never came.
@@ -19829,7 +18683,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	try spawn Gate.create(2) otherwise (e) 'failed'
 		print("handling\n")
 		match e 'which'
@@ -19852,7 +18705,6 @@ exhausted
 ```
 
 <!-- test: services.a-throwing-factory-with-a-payload-error-reports-the-payload -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A factory that throws a case of an error union carrying a payload, a heap string or an integer, hands that payload to the
 spawner's handler, which matches the case and reads it.
 ```maxon
@@ -19881,7 +18733,6 @@ type Gate
 end 'Gate'
 
 function attempt(code Whole)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	try spawn Gate.create(code) otherwise (e) 'failed'
 		match e 'which'
 			refused(reason) then print("refused: {reason}\n")
@@ -19907,7 +18758,6 @@ exhausted at 42
 ```
 
 <!-- test: services.a-throwing-factory-error-propagates-through-a-throwing-function -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A function declared to throw the factory's error propagates it with `try spawn` like any throwing call, and its caller
 handles it.
 ```maxon
@@ -19933,7 +18783,6 @@ type Gate
 end 'Gate'
 
 function start(ok bool) returns Gate.handle throws StartError
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	return try spawn Gate.create(ok)
 end 'start'
 
@@ -19961,7 +18810,6 @@ refused
 ```
 
 <!-- test: services.a-throwing-factory-in-a-try-block-routes-to-the-block-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Inside a block-form `try`, a bare `spawn` of a throwing factory sends its error to the block's handler, as every other
 throwing call there does.
 ```maxon
@@ -19988,11 +18836,9 @@ end 'Gate'
 
 function main() returns ExitCode
 	try 'starting'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let g = spawn Gate.create(true)
 		print("first started\n")
 		g.shutdown()
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Gate.create(false)
 		h.shutdown()
 		print("unreachable\n")
@@ -20013,7 +18859,6 @@ refused
 ```
 
 <!-- test: services.a-throwing-generic-factory-starts-a-generic-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A generic service's throwing factory hands back the handle of the instantiation its arguments fix, and a failing one
 throws its error at the spawn.
 ```maxon
@@ -20040,12 +18885,10 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = try spawn Box.create("a label long enough to be a heap string", extra: 7) otherwise return 1
 	let n = try await h.extraOf() otherwise return 1
 	print("{n}\n")
 	h.shutdown()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	try spawn Box.create(5, extra: -1) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -20064,7 +18907,6 @@ refused
 ```
 
 <!-- test: services.a-throwing-generic-factory-releases-a-managed-argument-when-the-spawn-fails -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A failing `spawn` of a generic service's throwing factory releases the managed `T` argument it consumed: the
 factory throws before it builds the service, so nothing else owns the heap string.
 ```maxon
@@ -20091,7 +18933,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	try spawn Box.create("another label long enough to be a heap string", extra: -1) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -20109,8 +18950,6 @@ refused
 ```
 
 <!-- test: services.a-throwing-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The spawner's wait costs the start record nothing: ten arguments — integers, floats and a value held at an interface
 type — reach a throwing factory in the order and register class it declares them in, and one that fails releases the
 interface value with its own witness.
@@ -20143,8 +18982,7 @@ type Plot
 	var count as Whole
 	var span as Area
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(a Whole, b Area, shape isolated Shape, c Whole, d Area, e Whole, f Area, g Whole, h Area, i Whole) returns Self throws PlotError
+	static function create(a Whole, b Area, consumes shape Shape, c Whole, d Area, e Whole, f Area, g Whole, h Area, i Whole) returns Self throws PlotError
 		if a < 0 'empty'
 			throw PlotError.empty
 		end 'empty'
@@ -20157,12 +18995,10 @@ type Plot
 end 'Plot'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let p = try spawn Plot.create(1, b: 0.5, shape: Square.create(2.0), c: 2, d: 1.5, e: 3, f: 2.5, g: 4, h: 3.5, i: 5) otherwise return 1
 	let line = try await p.summary() otherwise return 1
 	print("{line}\n")
 	p.shutdown()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	try spawn Plot.create(-1, b: 0.5, shape: Square.create(2.0), c: 2, d: 1.5, e: 3, f: 2.5, g: 4, h: 3.5, i: 5) otherwise (e) 'failed'
 		match e 'which'
 			empty then print("empty\n")
@@ -20180,7 +19016,6 @@ empty
 ```
 
 <!-- test: services.error.a-message-that-spawns-a-throwing-factory-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message handler that spawns a throwing factory waits on its own green thread for the factory to run, and that
 wait is a blocking wait like any awaited reply: the handler would hold its own service while it waits for the
@@ -20216,8 +19051,7 @@ type Manager
 	end 'create'
 
 	export function launch(ok bool) returns Whole
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		let worker = try spawn (capacity: 8) Worker.create(ok) otherwise return 0
+		let worker = try spawn(capacity: 8) Worker.create(ok) otherwise return 0
 		worker.shutdown()
 		self.launched = self.launched + 1
 		return self.launched
@@ -20225,7 +19059,6 @@ type Manager
 end 'Manager'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let manager = spawn Manager.create()
 	let first = try await manager.launch(true) otherwise return 1
 	print("{first}\n")
@@ -20238,7 +19071,6 @@ error E3221: <fragment>:31:18: the message 'launch' may wait (it awaits the star
 ```
 
 <!-- test: services.a-service-spawns-a-service-and-hands-back-its-handle -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message handler may spawn a service whose factory cannot throw: the spawn answers with the handle at once and
 nothing waits. The handler keeps no promise, hands the handle back in its reply, and the caller does the awaiting
 against the new service itself.
@@ -20264,15 +19096,13 @@ type Manager
 		return Self{launched: 0}
 	end 'create'
 
-	export function launch(id Whole) returns Worker.handle
-		self.launched = self.launched + 1
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		return spawn (capacity: 8) Worker.create(id)
+	export function launch(mutates self, id Whole) returns Worker.handle
+		self.launched = try self.launched + 1 otherwise panic("out of range")
+		return spawn(capacity: 8) Worker.create(id)
 	end 'launch'
 end 'Manager'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let manager = spawn Manager.create()
 	let first = try await manager.launch(7) otherwise return 1
 	let second = try await manager.launch(9) otherwise return 1
@@ -20292,9 +19122,7 @@ end 'main'
 
 <!-- test: services.a-failed-factory-releases-its-arguments -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A factory that throws leaves the arguments the spawn handed it where the start record held them, and the service's
 thread releases them: a managed argument the factory only reads and one it keeps both end with the program's last
 reference gone, and the leak gate reads zero.
@@ -20311,8 +19139,7 @@ type Ledger
 	var label as String
 	var total as Whole
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(label String, ids isolated WholeArray) returns Self throws StartError
+	static function create(label String, consumes ids WholeArray) returns Self throws StartError
 		if ids.count() == 0 'empty'
 			throw StartError.refused
 		end 'empty'
@@ -20327,7 +19154,6 @@ end 'Ledger'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let ids = WholeArray.create(0) as isolated WholeArray
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	try spawn Ledger.create("a label long enough to be a heap string", ids: ids) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -20341,7 +19167,6 @@ function main() returns ExitCode
 		more.push(2)
 		more.push(3)
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let kept = try spawn Ledger.create("a label long enough to be a heap string", ids: more) otherwise return 1
 	let n = try await kept.size() otherwise return 1
 	print("{n}\n")
@@ -20358,7 +19183,6 @@ refused
 ```
 
 <!-- test: error.a-throwing-factory-spawned-without-try-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A throwing factory is a throwing call: a `spawn` of one that nothing catches is E3057, as an unhandled call to any
 throwing function is.
@@ -20385,7 +19209,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let g = spawn Gate.create(true)
 	g.shutdown()
 	return 0
@@ -20396,8 +19219,7 @@ error E3057: <fragment>:25:10: throwing function requires try: 'Gate.create'
 ```
 
 <!-- test: error.try-on-a-spawn-of-a-non-throwing-factory-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 A `try` needs a call that can fail: a factory that cannot throw makes `try spawn` the same E3055 `try` on any
 non-throwing call is.
 ```maxon
@@ -20416,7 +19238,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let g = try spawn Gate.create() otherwise return 1
 	g.shutdown()
 	return 0
@@ -20427,7 +19248,6 @@ error E3055: <fragment>:17:10: try requires a throwing function: 'Gate.create' d
 ```
 
 <!-- test: services.a-generic-body-spawns-a-generic-service-over-a-concrete-type-from-every-instantiation -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Spawn sites that share one service and differ in what their spawner knows each start it from the layout of the instance
 the arguments fix: two instantiations of a generic body and a concrete function all start `Worker with String`, and
 every start sees its own arguments.
@@ -20463,7 +19283,6 @@ type Pool uses T
 	end 'add'
 
 	function launch() returns Whole
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let w = spawn Worker.create("a label long enough to be a heap string", extra: self.jobs.count() as Whole)
 		let n = try await w.total() otherwise panic("the worker is running")
 		w.shutdown()
@@ -20476,7 +19295,6 @@ typealias NumberPool = Pool with Whole
 typealias WordPool = Pool with String
 
 function plain() returns Whole
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Worker.create("another label long enough to be a heap string", extra: 100)
 	let n = try await w.total() otherwise panic("the worker is running")
 	w.shutdown()
@@ -20501,7 +19319,6 @@ end 'main'
 ```
 
 <!-- test: spawn-of-a-type-two-directories-export-starts-each-directorys-own-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `a/` and `b/` each export a `type Calc` and each spawns the bare `Calc` of its own directory. The whole-program
 spawn probe reads raw tokens, so it records the written name and must resolve it against the spawning file's
 directory: each `Calc` is a service, and each handle's `bump` runs in its own directory's service.
@@ -20514,14 +19331,13 @@ export type Calc
 		return Self{count: 1}
 	end 'create'
 
-	export function bump(by ExitCode) returns ExitCode
-		self.count = self.count + by
+	export function bump(mutates self, by ExitCode) returns ExitCode
+		self.count = try self.count + by otherwise panic("out of range")
 		return self.count
 	end 'bump'
 end 'Calc'
 
 export function runA() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	return try await h.bump(2) otherwise 99
 end 'runA'
@@ -20534,23 +19350,22 @@ export type Calc
 		return Self{count: 10}
 	end 'create'
 
-	export function bump(by ExitCode) returns ExitCode
-		self.count = self.count + by
+	export function bump(mutates self, by ExitCode) returns ExitCode
+		self.count = try self.count + by otherwise panic("out of range")
 		return self.count
 	end 'bump'
 end 'Calc'
 
 export function runB() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	return try await h.bump(30) otherwise 99
 end 'runB'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let direct = a.Calc.create()
-	let other = b.Calc.create()
-	return runA() + runB() + direct.bump(1) + other.bump(2)
+	var direct = a.Calc.create()
+	var other = b.Calc.create()
+	return try a.runA() + b.runB() + direct.bump(1) + other.bump(2) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

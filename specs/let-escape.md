@@ -928,7 +928,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-static-lets-record-a-call-hands-back-is-stored-as-a-clone -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 `pick` returns a `static let`, which is `immutable`, so its result is declared `immutable`. Storing `pick().clone()` stores an independent record, so the write through the field leaves the `let` as it was.
 
 ```maxon
@@ -951,8 +950,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pick() returns immutable Box
+function pick() returns frozen with Box
 	return Box.shared
 end 'pick'
 
@@ -3027,7 +3025,6 @@ a7
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-a-call-hands-back-cannot-be-stored-where-it-is-written -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` returns a `static let`, which is `immutable`, so its result is declared `immutable`; storing the call's result into a `var` field is refused and asks for a `clone()`.
 
@@ -3051,8 +3048,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pick() returns immutable Box
+function pick() returns frozen with Box
 	return Box.shared
 end 'pick'
 

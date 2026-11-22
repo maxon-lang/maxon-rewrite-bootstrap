@@ -459,7 +459,6 @@ error E3207: <fragment>:50:20: 'bumpFirst' writes 'boxes' (line 38: a result rea
 ```
 
 <!-- test: error.a-plain-closure-hands-an-element-of-a-captured-iterator-to-an-immutable-parameter -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `peekFirst` is handed a mutable array, and the closure passes the element its iterator reads to an `immutable` parameter, which would share mutable data as frozen data; the element is refused where the closure uses it, and the call that hands `peekFirst` the mutable array is refused because `peekFirst` needs it frozen.
 
@@ -476,8 +475,7 @@ end 'Box'
 
 typealias BoxArray = Array with Box
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function look(box immutable Box) returns Count
+function look(box frozen with Box) returns Count
 	return box.count
 end 'look'
 

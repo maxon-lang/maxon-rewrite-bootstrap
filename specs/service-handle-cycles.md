@@ -37,7 +37,6 @@ holding the next one's handle, is not a cycle.
 ## Tests
 
 <!-- test: a-service-holding-a-handle-to-its-own-type-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Echo` keeps a handle to itself in a field.
 ```maxon
@@ -55,7 +54,6 @@ type Echo
 end 'Echo'
 
 function launch(peer Echo.handle) returns Echo.handle
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	return spawn Echo.create(peer)
 end 'launch'
 
@@ -70,7 +68,6 @@ error E4014: <fragment>:2:6: type 'Echo' reaches a service handle that reaches i
 ```
 
 <!-- test: a-service-holding-its-own-handle-in-an-array-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A handle kept in a container is still held.
 ```maxon
@@ -92,7 +89,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create()
 	echo.shutdown()
 	return 0
@@ -103,7 +99,6 @@ error E4014: <fragment>:5:6: type 'Echo' reaches a service handle that reaches i
 ```
 
 <!-- test: two-services-holding-each-others-handles-are-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Ping` holds `Pong`'s handle and `Pong` holds `Ping`'s.
 ```maxon
@@ -136,9 +131,7 @@ type Pong
 end 'Pong'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let ping = spawn Ping.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let pong = spawn Pong.create()
 	ping.shutdown()
 	pong.shutdown()
@@ -150,7 +143,6 @@ error E4014: <fragment>:5:6: type 'Ping' reaches a service handle that reaches i
 ```
 
 <!-- test: a-service-holding-an-interface-handle-it-conforms-to-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Hub` conforms to `Listener` and keeps `Listener` handles, which may address `Hub` itself.
 ```maxon
@@ -180,7 +172,6 @@ type Hub implements Listener
 end 'Hub'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let hub = spawn Hub.create()
 	hub.shutdown()
 	return 0
@@ -191,7 +182,6 @@ error E4014: <fragment>:9:6: type 'Hub' reaches a service handle that reaches it
 ```
 
 <!-- test: a-generic-that-expands-with-every-instantiation-is-refused-in-a-services-state-without-walking-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Rec` holds a `Rec` over `Rec with T`, so every instantiation names a larger one. A service whose state holds `Rec with Tally`
 makes the compiler read that state's graph for a promise; a walk over an instantiated type reads a field whose declaration
@@ -225,7 +215,6 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sv = spawn Sv.create()
 	sv.shutdown()
 	return 0
@@ -236,7 +225,6 @@ error E3184: <fragment>:8:11: field 'x' of generic type 'Rec' is declared 'Rec.W
 ```
 
 <!-- test: a-service-keeping-a-closure-that-captures-its-own-handle-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A function value holds what its closure captured, and the type of a function says nothing of that. A service state that holds a function value therefore reaches the handle of every service some closure in the program captures: here `attach` stores a closure that captures `Echo`'s own handle.
 ```maxon
@@ -271,7 +259,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create()
 	echo.shutdown()
 	return 0
@@ -282,7 +269,6 @@ error E4014: <fragment>:14:6: type 'Echo' reaches a service handle that reaches 
 ```
 
 <!-- test: two-services-keeping-closures-that-capture-each-others-handles-are-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Ping` keeps a closure over `Pong`'s handle and `Pong` keeps one over `Ping`'s. Each service's function-typed field reaches both captured handles, so the cycle is found whichever service is read first.
 ```maxon
@@ -337,9 +323,7 @@ type Pong
 end 'Pong'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let ping = spawn Ping.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let pong = spawn Pong.create()
 	ping.shutdown()
 	pong.shutdown()
@@ -351,7 +335,6 @@ error E4014: <fragment>:19:6: type 'Ping' reaches a service handle that reaches 
 ```
 
 <!-- test: a-service-holding-an-interface-implemented-by-a-generic-over-its-own-handle-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Echo` holds a `Sink`, and `Box with Echo.handle` implements `Sink`: the interface field may hold a `Box` whose type argument is `Echo`'s handle, so the walk substitutes the argument of the generic conformer.
 ```maxon
@@ -365,12 +348,12 @@ type Box uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = self.seen + by
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'take'
 end 'Box'
 
@@ -383,14 +366,13 @@ type Echo
 		return Self{sink: EchoBox.create(me)}
 	end 'create'
 
-	export function ping()
+	export function ping(mutates self)
 		self.sink.take(1)
 	end 'ping'
 end 'Echo'
 
 function launch(peer Echo.handle) returns Echo.handle
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	return spawn Echo.create(peer)
+	return spawn Echo.create(peer.clone())
 end 'launch'
 
 function main() returns ExitCode
@@ -402,7 +384,6 @@ error E4014: <fragment>:23:6: type 'Echo' reaches a service handle that reaches 
 ```
 
 <!-- test: a-function-typed-field-is-accepted-when-no-closure-captures-a-handle-that-reaches-its-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `Echo` keeps a function value, and a closure elsewhere captures a handle to `Logger`, a service whose state holds no function value: the function field reaches `Logger` and `Logger` reaches nothing back.
@@ -445,10 +426,8 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let logger = spawn Logger.create()
 	let relay = function(by Tally) gives forward(logger, by: by)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create()
 	let got = try await echo.ping(3) otherwise 0
 	let relayed = relay(2)
@@ -465,7 +444,6 @@ end 'main'
 ```
 
 <!-- test: a-chain-of-distinct-services-holding-each-others-handles-is-accepted -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `Front` holds `Middle`'s handle and `Middle` holds `Back`'s: the handle graph has no cycle, so every service is freed and the run exits cleanly.
@@ -509,11 +487,8 @@ type Front
 end 'Front'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let back = spawn Back.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let middle = spawn Middle.create(back.clone())
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let front = spawn Front.create(middle.clone())
 	try front.poke(3, sendTimeout: ForeverMs) otherwise return 1
 	front.shutdown()
@@ -531,7 +506,6 @@ chain built
 ```
 
 <!-- test: passing-the-handle-with-each-message-is-accepted -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `Asker` and `Oracle` need each other's handle for one exchange, so each message carries the handle it needs and neither service's state keeps one.
@@ -572,9 +546,7 @@ type Asker
 end 'Asker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let oracle = spawn Oracle.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let asker = spawn Asker.create()
 	try asker.start(oracle, me: asker.clone()) otherwise return 1
 	var got = 0 as Tally
@@ -594,7 +566,6 @@ answer 42
 ```
 
 <!-- test: a-service-keeping-a-conformer-built-at-a-type-parameter-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Wrap with T` hands out a `Gen with T` as a `Sink`, so used as `Wrap with Echo.handle` it builds a `Gen with Echo.handle` that no source text spells. `Echo` keeps a `Sink` in its state and `put` stores one of those, so the state reaches its own handle through an instance the program never writes: a conformer built at a type parameter stands for a holder of any service handle.
 ```maxon
@@ -647,7 +618,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create()
 	try echo.put(echo.clone(), sendTimeout: ForeverMs) otherwise return 1
 	echo.shutdown()
@@ -659,7 +629,6 @@ error E4014: <fragment>:36:6: type 'Echo' reaches a service handle that reaches 
 ```
 
 <!-- test: a-conformer-built-at-a-type-parameter-is-accepted-when-no-service-holds-its-interface -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 The same `Wrap with T` and `Gen with T`, built at `Tally`, with a service that keeps a `Gen with Tally` by its own type: no service state holds a `Sink`, so no handle reaches a state through the conformer and the run is clean.
@@ -715,7 +684,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create()
 	try echo.put(1, sendTimeout: ForeverMs) otherwise return 1
 	echo.shutdown()

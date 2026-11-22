@@ -61,8 +61,6 @@ end 'main'
 ```
 
 <!-- test: a-immutable-element-read-through-a-method-is-kept-by-a-let-field -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 `nameOf` returns an element of a `immutable` array, which nothing can write. A `let` field keeps the read-only
 element itself, and the record that holds it is read-only too.
 
@@ -86,13 +84,11 @@ type Table
 		return Self{names: names}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function register(name immutable ByteArray)
+	function register(name frozen with ByteArray)
 		self.names.push(name)
 	end 'register'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function nameOf(index ElementIndex) returns immutable ByteArray
+	function nameOf(index ElementIndex) returns frozen with ByteArray
 		return try self.names.get(index) otherwise panic("nameOf: no such name")
 	end 'nameOf'
 end 'Table'
@@ -109,8 +105,6 @@ end 'main'
 ```
 
 <!-- test: a-immutable-element-read-through-a-method-is-kept-by-a-let-field-as-a-clone -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The same program keeping a clone of the element: the `let` field holds data of its own.
 
 ```maxon
@@ -133,13 +127,11 @@ type Table
 		return Self{names: names}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function register(name immutable ByteArray)
+	function register(name frozen with ByteArray)
 		self.names.push(name)
 	end 'register'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function nameOf(index ElementIndex) returns immutable ByteArray
+	function nameOf(index ElementIndex) returns frozen with ByteArray
 		return try self.names.get(index) otherwise panic("nameOf: no such name")
 	end 'nameOf'
 end 'Table'
@@ -156,8 +148,6 @@ end 'main'
 ```
 
 <!-- test: a-immutable-element-read-through-a-method-is-pushed-into-a-immutable-container -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The same result is stored into another `immutable` container.
 
 ```maxon
@@ -172,13 +162,11 @@ type Table
 		return Self{names: names}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function register(name immutable ByteArray)
+	function register(name frozen with ByteArray)
 		self.names.push(name)
 	end 'register'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function nameOf(index ElementIndex) returns immutable ByteArray
+	function nameOf(index ElementIndex) returns frozen with ByteArray
 		return try self.names.get(index) otherwise panic("nameOf: no such name")
 	end 'nameOf'
 end 'Table'
@@ -236,9 +224,7 @@ error E3196: <fragment>:27:14: cannot store a mutable 'ByteArray' into 'an eleme
 ```
 
 <!-- test: a-module-let-returned-by-a-function-is-kept-by-a-let-field -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 `banner` returns a module-level `let`, which is `immutable`, so its result and the label's `let` field are declared `immutable`.
 
 ```maxon
@@ -248,14 +234,12 @@ type Label
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	export let text as immutable ByteArray
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(text immutable ByteArray) returns Self
+	static function create(text frozen with ByteArray) returns Self
 		return Self{text: text}
 	end 'create'
 end 'Label'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function banner() returns immutable ByteArray
+function banner() returns frozen with ByteArray
 	return Banner
 end 'banner'
 
@@ -405,8 +389,6 @@ end 'main'
 ```
 
 <!-- test: a-lookup-or-the-argument-is-read-only-when-the-argument-is -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 `spell` returns a read-only lookup on one path and its own parameter on the other. Its result is read-only when
 the argument is, here an element of a `immutable` array, so the `let` field of the label keeps it and the label is
 read-only too.
@@ -437,9 +419,7 @@ type Names
 		return Self{renames: RenameMap.create()}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function spell(name immutable ByteArray) returns immutable ByteArray
+	function spell(name frozen with ByteArray) returns frozen with ByteArray
 		return try self.renames.get(name) otherwise name
 	end 'spell'
 end 'Names'
@@ -457,8 +437,6 @@ end 'main'
 ```
 
 <!-- test: error.a-lookup-or-the-argument-is-refused-when-the-argument-may-be-written -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same `spell` handed a mutable `var` that is read again is refused: `spell` takes an `immutable` name, and
 `scratch` is still writable.
@@ -487,9 +465,7 @@ type Names
 		return Self{renames: RenameMap.create()}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function spell(name immutable ByteArray) returns immutable ByteArray
+	function spell(name frozen with ByteArray) returns frozen with ByteArray
 		return try self.renames.get(name) otherwise name
 	end 'spell'
 end 'Names'

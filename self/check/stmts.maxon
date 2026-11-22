@@ -155,7 +155,10 @@ function checkStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		return
 	end 'expr'
 	if k == ast.NodeKind.discardStmt 'discard'
+		let outer = c.discardedSend
+		c.discardedSend = discardedCall(ms.tree(), value: ast.discardStmtValue(ms.tree(), id: s))
 		_ = checkExpr(c, p: p, ms: ms, e: ast.discardStmtValue(ms.tree(), id: s), errs: errs)
+		c.discardedSend = outer
 		return
 	end 'discard'
 	if k == ast.NodeKind.ifStmt 'if'
@@ -215,11 +218,13 @@ function checkExprStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		e = ast.tryExprE(ms.tree(), id: e)
 	end 'try'
 	let k = ms.tree().kindOf(e)
-	if not catches and k != ast.NodeKind.callExpr and k != ast.NodeKind.panicExpr and k != ast.NodeKind.awaitExpr 'notCall'
+	if not catches and k != ast.NodeKind.callExpr and k != ast.NodeKind.panicExpr and k != ast.NodeKind.awaitExpr and k != ast.NodeKind.spawnExpr 'notCall'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='", errs: errs)
 		return
 	end 'notCall'
-	_ = checkExpr(c, p: p, ms: ms, e: whole, errs: errs)
+	if checkExpr(c, p: p, ms: ms, e: whole, errs: errs) != ast.noType 'typed'
+		requireReplyHandled(c, p: p, ms: ms, call: e, errs: errs)
+	end 'typed'
 end 'checkExprStmt'
 
 function checkIf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
@@ -763,6 +768,7 @@ function scalarTag(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Stri
 		builtinCown gives ""
 		builtinCursor gives ""
 		builtinPromise gives ""
+		builtinService gives ""
 		typeParam gives ""
 		interfaceTy gives ""
 	end 'k'

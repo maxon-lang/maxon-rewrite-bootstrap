@@ -1,0 +1,21 @@
+export typealias Amount = int(0 to 1000000)
+
+type Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function bump(mutates self)
+		self.n = try self.n + 1 otherwise 0
+	end 'bump'
+end 'Counter'
+
+function main() returns ExitCode
+	let h = spawn Counter.create()
+	h.bump()
+	return 0
+end 'main'
+
+// expect-error: E3057 at 17:8

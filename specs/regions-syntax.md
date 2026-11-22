@@ -23,15 +23,13 @@ or function-type parameter of a value type is the one exception: it makes the pa
 ## Tests
 
 <!-- test: capability-word-on-a-value-type-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `immutable` qualifies a region, and a `Tally` is a number that belongs to none, so the word is refused.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function echo(n immutable Tally) returns Tally
+function echo(n frozen with Tally) returns Tally
 	return n
 end 'echo'
 
@@ -45,7 +43,6 @@ error E2010: <fragment>:4:17: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: capability-word-on-a-payload-free-union-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A union none of whose cases carries a payload is a plain tag value that belongs to no region, so `isolated` is refused as on an enum.
 
@@ -55,8 +52,7 @@ union Mode
 	busy
 end 'Mode'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function echo(m isolated Mode) returns Mode
+function echo(consumes m Mode) returns Mode
 	return m
 end 'echo'
 
@@ -69,8 +65,6 @@ error E2010: <fragment>:7:17: Expected 'a type' but got 'isolated'
 ```
 
 <!-- test: capability-word-on-a-payload-union-parameter-and-result-runs -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 A union with a payload holds a record, so it is a region and takes `isolated` on a parameter and on a result.
 
 ```maxon
@@ -89,13 +83,11 @@ union Slot
 	vacant
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function fill(n Count) returns isolated Slot
+function fill(n Count) returns Slot
 	return Slot.filled(Box.create(n))
 end 'fill'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function read(slot isolated Slot) returns Count
+function read(consumes slot Slot) returns Count
 	return match slot 'which'
 		filled(box) gives box.n
 		vacant gives 0
@@ -294,15 +286,13 @@ error E2010: <fragment>:3:30: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: capability-word-on-a-value-type-result-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A result of a value type has no region either.
 
 ```maxon
 typealias Tally = int(0 to 9)
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function one() returns immutable Tally
+function one() returns frozen with Tally
 	return 1
 end 'one'
 
@@ -488,7 +478,6 @@ error E2010: <fragment>:18:2: Expected newline but got 'eat'
 ```
 
 <!-- test: as-isolated-inside-a-call-argument-of-an-initializer-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `as isolated` ends a `let` or `var` initializer; inside the call argument of one, with a `let` around it, it is refused as it is in a call statement.
@@ -504,8 +493,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function take(p isolated Payload) returns Tally
+function take(consumes p Payload) returns Tally
 	return p.n
 end 'take'
 

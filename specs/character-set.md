@@ -484,7 +484,6 @@ error E2015: <fragment>:2:6: Unsupported: a declaration of the type name 'Charac
 ### A `CharacterSet` an aggregate OWNS is dropped by that aggregate's cascade
 
 <!-- test: characterset-at-a-struct-field -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ### A `CharacterSet` at a struct field
 
@@ -505,8 +504,7 @@ type Trimmer
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	var chars as immutable CharacterSet
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function init(cs immutable CharacterSet) returns Self
+	static function init(cs frozen with CharacterSet) returns Self
 		return Self{chars: cs}
 	end 'init'
 end 'Trimmer'

@@ -569,7 +569,6 @@ error E3104: <fragment>:18:23: this construct lowers to the runtime entry '__sch
 ```
 
 <!-- test: builtins-cpu-parallel.quiesce-waits-for-the-green-threads-a-program-left-running -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Scheduler.quiesce()` parks `main` until every other green thread has finished and answers how many have
 not. The service prints from its own green thread after `main` asked for its shutdown, so its line precedes the
 one that follows the wait, and the wait answers 0. wasm32-wasi has no green threads.
@@ -591,7 +590,6 @@ type Greeter
 end 'Greeter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let greeter = spawn Greeter.create()
 	try greeter.greet(2) otherwise panic("an open mailbox with room takes the send")
 	greeter.shutdown()
@@ -654,7 +652,6 @@ fatal error: a machine pin was released by a green thread that holds none
 ```
 
 <!-- test: builtins-cpu-parallel.a-pinned-service-outlives-main-and-resumes-on-its-machine -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 A service pins itself to the machine that runs it and parks on timers until `main` publishes a release. That
 machine is the main one, so it waits for its pinned thread while another machine runs `main` to its end, and the
@@ -695,7 +692,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let holder = spawn Holder.create(released.clone())
 	try holder.hold() otherwise panic("an open mailbox with room takes the send")
 	Scheduler.yield()

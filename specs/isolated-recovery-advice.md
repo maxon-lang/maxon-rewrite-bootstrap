@@ -14,7 +14,6 @@ A value wanted isolated that is not gets advice for its position: a plain local 
 
 <!-- test: error.a-call-result-returned-as-isolated-names-the-clean-ways -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `source.view()` hands back the source's own cell, so a `returns isolated` return cannot be fixed by declaring anything: the advice names the values that are isolated.
 
@@ -50,8 +49,7 @@ type Slot
 	end 'create'
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function viaCall(source Source) returns isolated Cell
+function viaCall(source Source) returns Cell
 	return source.view()
 end 'viaCall'
 
@@ -68,7 +66,6 @@ error E3200: <fragment>:32:9: 'source.view()' is not isolated: only a clean call
 
 <!-- test: error.a-plain-local-returned-as-isolated-is-asked-to-declare-itself -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `held` is a local that a declaration can make isolated, so the advice names the declaration.
 
@@ -104,8 +101,7 @@ type Slot
 	end 'create'
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function viaLocal(source Source) returns isolated Cell
+function viaLocal(source Source) returns Cell
 	let held = source.view()
 	held.n = 3
 	return held
@@ -177,7 +173,6 @@ error E3200: <fragment>:32:13: 'source.view() as isolated Cell' is not isolated:
 
 <!-- test: error.a-swap-of-a-call-result-names-the-clean-ways -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The replacement of a `swap` is wanted isolated: a call result that views another record is not.
 
@@ -213,8 +208,7 @@ type Slot
 	end 'create'
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function viaSwapOfACall(slot Slot, source Source) returns isolated Cell
+function viaSwapOfACall(slot Slot, source Source) returns Cell
 	return exchange(slot.held, value: source.view())
 end 'viaSwapOfACall'
 
@@ -232,7 +226,6 @@ error E3200: <fragment>:32:29: 'source.view()' is not isolated: only a clean cal
 
 <!-- test: error.a-swap-of-a-plain-local-is-asked-to-declare-it -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `spare` is a local the swap wants isolated, so the advice names the declaration.
 
@@ -268,8 +261,7 @@ type Slot
 	end 'create'
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function viaSwapOfALocal(slot Slot, source Source) returns isolated Cell
+function viaSwapOfALocal(slot Slot, source Source) returns Cell
 	let spare = source.view()
 	spare.n = 9
 	return exchange(slot.held, value: spare)

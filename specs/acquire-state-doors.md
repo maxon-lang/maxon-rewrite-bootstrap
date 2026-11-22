@@ -15,7 +15,6 @@ A call that opens an isolated value or an acquired state and answers mutable dat
 <!-- test: a-value-read-from-an-opening-calls-result-outlives-its-statement -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `t.peekR()` opens `t` and answers its own record, and `.b` reads a number out of it: the statement hands back a value, so it may be kept.
 
 ```maxon
@@ -68,7 +67,6 @@ function work(t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create()
 	print("{work(a)}\n")
 	return 0
@@ -84,7 +82,6 @@ end 'main'
 <!-- test: a-writer-takes-the-view-a-call-opens-an-isolated-field-for -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `t.i.me()` opens the isolated field and answers a view of it; the writer takes the view inside the statement and nothing keeps it.
 
 ```maxon
@@ -137,7 +134,6 @@ function work(t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create()
 	print("{work(a)}\n")
 	return 0
@@ -153,7 +149,6 @@ end 'main'
 <!-- test: error.an-opening-calls-result-bound-to-a-let-is-refused-at-the-binding -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `t.peekR()` answers the state's own record, so a `let` that keeps it would name data a later write through `t` invalidates.
 
@@ -206,7 +201,6 @@ function work(t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create()
 	print("{work(a)}\n")
 	return 0
@@ -219,7 +213,6 @@ error E3202: <fragment>:39:14: 't.peekR()' is mutable and cannot leave the state
 <!-- test: error.an-opening-calls-result-returned-from-an-acquire-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A result that views the state's record cannot leave the acquire block by `return`.
 
@@ -271,7 +264,6 @@ function work(t Ledger.handle) returns Cell
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create()
 	print("{work(a).b}\n")
 	return 0
@@ -412,9 +404,7 @@ end 'main'
 
 <!-- test: error.a-state-bound-to-a-local-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `let again = s` would give the state a second name.
 
@@ -467,8 +457,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var kept as isolated Ledger
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(kept isolated Ledger) returns Self
+	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
 	end 'create'
 
@@ -478,7 +467,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -500,10 +488,7 @@ error E3202: <fragment>:64:15: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-passed-to-an-isolated-parameter-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An isolated parameter takes its argument by move, and the service keeps its state.
 
@@ -556,8 +541,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var kept as isolated Ledger
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(kept isolated Ledger) returns Self
+	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
 	end 'create'
 
@@ -567,15 +551,12 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
 end 'main'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function pass(l isolated Ledger) returns isolated Ledger
+function pass(consumes l Ledger) returns Ledger
 	return l
 end 'pass'
 
@@ -595,9 +576,7 @@ error E3202: <fragment>:68:20: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-sent-through-async-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `async` coroutine would wait while the block holds the service.
 
@@ -650,8 +629,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var kept as isolated Ledger
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(kept isolated Ledger) returns Self
+	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
 	end 'create'
 
@@ -661,7 +639,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -683,9 +660,7 @@ error E3205: <fragment>:64:11: cannot wait inside 'held'; an acquire block holds
 
 <!-- test: error.a-state-handed-to-a-spawn-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A spawn factory takes an isolated parameter by move.
 
@@ -738,8 +713,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var kept as isolated Ledger
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(kept isolated Ledger) returns Self
+	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
 	end 'create'
 
@@ -749,7 +723,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -758,7 +731,6 @@ end 'main'
 function work(s Ledger.handle) returns Tally
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'held'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let k = spawn Keeper.create(s)
 		return 1
 	end 'held' otherwise 'stopped'
@@ -772,9 +744,7 @@ error E3202: <fragment>:64:31: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-returned-from-its-acquire-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `return s` would move the state out of the service.
 
@@ -827,8 +797,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var kept as isolated Ledger
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(kept isolated Ledger) returns Self
+	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
 	end 'create'
 
@@ -838,7 +807,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -863,9 +831,7 @@ error E3202: <fragment>:64:10: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-pushed-into-a-container-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `push` stores its argument in the array.
 
@@ -918,8 +884,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var kept as isolated Ledger
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(kept isolated Ledger) returns Self
+	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
 	end 'create'
 
@@ -929,7 +894,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -954,9 +918,7 @@ error E3202: <fragment>:68:12: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-in-a-tuple-literal-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A tuple literal stores the state as an item.
 
@@ -1009,8 +971,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var kept as isolated Ledger
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(kept isolated Ledger) returns Self
+	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
 	end 'create'
 
@@ -1020,7 +981,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -1042,9 +1002,7 @@ error E3202: <fragment>:64:15: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-written-into-a-record-field-outside-the-block-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The record outside the block is read-only while the block is open, so the store is refused before the state is judged.
 
@@ -1097,8 +1055,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var kept as isolated Ledger
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(kept isolated Ledger) returns Self
+	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
 	end 'create'
 
@@ -1108,7 +1065,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -1131,7 +1087,6 @@ error E3197: <fragment>:66:3: cannot write 'held' through 'kept', which is read-
 
 <!-- test: acquire-of-one-service-twice-is-one-acquire -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `acquire s, s` names one service twice; the two names are one state, so it is as accepted as `acquire s`.
 
 ```maxon
@@ -1150,7 +1105,6 @@ type Ledger
 end 'Ledger'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0

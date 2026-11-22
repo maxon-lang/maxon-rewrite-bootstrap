@@ -34,7 +34,6 @@ wasm32-wasi has no green threads, so a program naming it is refused at the call 
 ## Tests
 
 <!-- test: builtins-gt-quiesce.waits-for-a-service-that-was-shut-down -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 The service prints from its own green thread after `main` has asked for the shutdown, and the print precedes the
 line that follows the wait.
@@ -56,7 +55,6 @@ type Greeter
 end 'Greeter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let greeter = spawn Greeter.create()
 	try greeter.greet(2) otherwise panic("an open mailbox with room takes the send")
 	greeter.shutdown()
@@ -90,7 +88,6 @@ outstanding 0
 ```
 
 <!-- test: builtins-gt-quiesce.a-service-with-nothing-queued-strands-no-thread -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 A service with nothing queued owns no green thread: its runner ended after the one message it was sent and nothing is
 parked waiting for another. The wait answers `0` at once, with the service still alive, and a second wait after the
@@ -112,7 +109,6 @@ type Greeter
 end 'Greeter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let greeter = spawn Greeter.create()
 	try greeter.greet(1) otherwise panic("an open mailbox with room takes the send")
 	let stranded = __Builtins.gtQuiesce()
@@ -159,7 +155,6 @@ fatal error: runtime abort 123 (schedulerQuiesceWaiterTaken)
 ```
 
 <!-- test: builtins-gt-quiesce.races-coroutine-completion-across-many-rounds -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 4 -->
 ⭐⭐ **A WAIT THAT REGISTERS WHILE THE LAST GREEN THREADS' COROUTINES ARE STILL COMPLETING.** Each round spawns
@@ -233,7 +228,6 @@ function main() returns ExitCode
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
 		for _ in 0 upto workersPerRound 'spawnEach'
-			// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 			let worker = spawn Worker.create()
 			replies.push(try worker.work(r) otherwise panic("an open mailbox with room takes the send"))
 			try worker.linger(r) otherwise panic("an open mailbox with room takes the send")
@@ -256,7 +250,6 @@ outstanding=0 sum=30000
 ```
 
 <!-- test: builtins-gt-quiesce.races-coroutine-completion-at-one-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
 **THE ONE-PROCESSOR TWIN OF `races-coroutine-completion-across-many-rounds`.** With one processor nothing
@@ -315,7 +308,6 @@ function main() returns ExitCode
 	for r in 0 upto rounds 'eachRound'
 		let replies = ReplyPromiseArray.create(0)
 		for _ in 0 upto workersPerRound 'spawnEach'
-			// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 			let worker = spawn Worker.create()
 			replies.push(try worker.work(r) otherwise panic("an open mailbox with room takes the send"))
 			try worker.linger(r) otherwise panic("an open mailbox with room takes the send")
@@ -418,7 +410,6 @@ after the wait
 ```
 
 <!-- test: builtins-gt-quiesce.answers-while-a-pinned-thread-waits-for-its-machine -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `main` pins itself to its machine, so while it is parked in the wait that machine blocks for `main`'s next turn and
 joins no idle list. The wait still answers when every other machine is idle, as a machine waiting for its pinned
 thread counts as idle: the service's runner ended after the one message it was sent, so no green thread is left,
@@ -444,7 +435,6 @@ function main() returns ExitCode
 		print("refused\n")
 		return 1
 	end 'refused'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let greeter = spawn Greeter.create()
 	try greeter.greet(1) otherwise panic("an open mailbox with room takes the send")
 	let stranded = Scheduler.quiesce()

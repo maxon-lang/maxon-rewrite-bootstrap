@@ -1,0 +1,32 @@
+export typealias Amount = int(0 to 1000000)
+
+export type Page
+	export var title as String
+
+	export static function make(title String) returns Self
+		return Self{title: title.clone()}
+	end 'make'
+end 'Page'
+
+type Shelf
+	var count as Amount
+
+	static function create() returns Self
+		return Self{count: 0}
+	end 'create'
+
+	export function put(mutates self, page Page)
+		if page.title != "" 'titled'
+			self.count = try self.count + 1 otherwise 0
+		end 'titled'
+	end 'put'
+end 'Shelf'
+
+function main() returns ExitCode
+	let h = spawn Shelf.create()
+	let page = freeze(Page.make("a"))
+	try h.put(page) otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3217 at 28:12

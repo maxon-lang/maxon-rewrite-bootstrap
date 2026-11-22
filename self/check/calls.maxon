@@ -32,6 +32,9 @@ function callErrorType(p ast.Project, ms ast.ModuleState, info ast.CallInfo) ret
 	if info.kind == ast.CallKind.callBound 'bound'
 		return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.method).errTy
 	end 'bound'
+	if info.kind == ast.CallKind.callSend 'send'
+		return p.builtins.sendErrorTy
+	end 'send'
 	return ast.noType
 end 'callErrorType'
 
@@ -89,6 +92,7 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		builtinCown gives false
 		builtinCursor gives false
 		builtinPromise gives false
+		builtinService gives false
 		typeParam gives false
 		interfaceTy gives false
 		funcTy gives false
@@ -493,6 +497,9 @@ function callOnValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		return copyCall(c, p: p, ms: ms, call: call, t: receiver, errs: errs)
 	end 'clone'
 	let content = ast.contentType(ms.types, reads: p.types, t: receiver)
+	if ast.isServiceType(ms.types, reads: p.types, t: content) 'service'
+		return callSend(c, p: p, ms: ms, call: call, handle: content, name: name, errs: errs)
+	end 'service'
 	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), t: content, use: "calling '{name}'", errs: errs) 'cown'
 		return ast.noType
 	end 'cown'

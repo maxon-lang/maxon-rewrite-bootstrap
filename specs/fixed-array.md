@@ -1729,7 +1729,6 @@ error E3106: <fragment>:5:10: 'FixedArray.create' cannot publish slots of 'Strin
 ```
 
 <!-- test: error.a-service-handle-element-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `<Service>.handle` is a pointer to a cown box, so `Slots.create()` would publish null handles that a send dereferences. It is refused as a `String` is, and the array starts from `create(value: h)` instead.
 ```maxon
@@ -1748,7 +1747,6 @@ end 'Worker'
 typealias Slots = FixedArray with 2 Worker.handle
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let slots = Slots.create()
 	let reply = try await worker.ping() otherwise 9
@@ -1760,7 +1758,6 @@ error E3106: <fragment>:18:14: 'FixedArray.create' cannot publish slots of 'Work
 ```
 
 <!-- test: a-service-handle-fixed-array-starts-from-a-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every slot starts as the one handle, so a send through any slot reaches the service.
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1778,7 +1775,6 @@ end 'Worker'
 typealias Slots = FixedArray with 2 Worker.handle
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let slots = Slots.create(value: worker)
 	let picked = slots.get(1)
@@ -3770,10 +3766,7 @@ copy true false
 ```
 
 <!-- test: fixed-array.a-record-holding-fixed-arrays-crosses-to-a-service-and-back -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service boundary walks a `FixedArray` as it walks an `Array`: a record holding one in a field and one in a union
 payload crosses at the `spawn` and as a call argument, and a record the handler builds comes back as the reply.
 ```maxon
@@ -3806,14 +3799,11 @@ type Svc
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var held as isolated Cell
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(held isolated Cell) returns Self
+	static function create(consumes held Cell) returns Self
 		return Self{held: held}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function report(other isolated Cell) returns isolated Cell
+	export function report(consumes other Cell) returns Cell
 		print("held {self.held.describe()}\n")
 		print("argument {other.describe()}\n")
 		return Cell.create(Content.empty, mask: flagsOf(false, second: true))
@@ -3828,7 +3818,6 @@ function flagsOf(first bool, second bool) returns Flags
 end 'flagsOf'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(Cell.create(Content.marked(flagsOf(true, second: false)), mask: Flags.create()))
 	let reply = try await h.report(Cell.create(Content.marked(flagsOf(true, second: false)), mask: flagsOf(false, second: true))) otherwise return 1
 	print("reply {reply.describe()}\n")

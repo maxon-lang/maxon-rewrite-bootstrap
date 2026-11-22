@@ -274,6 +274,7 @@ export function moduleVerify(mutates state ModuleState, p ast.Project, mutates e
 	let boxes = state.checker.pendingBoxes.clone()
 	verifyBoxes(state.checker, p: p, ms: state.unit, boxes: boxes, errs: errs)
 	verifyAsyncs(state.checker, p: p, ms: state.unit, errs: errs)
+	verifyHolders(state.checker, p: p, ms: state.unit, errs: errs)
 	let functions = state.functions.clone()
 	if not failedSince(errs, mark: mark) 'ranges'
 		checkRanges(state.checker, p: p, ms: state.unit, functions: functions, errs: errs)

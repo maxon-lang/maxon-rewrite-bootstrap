@@ -1,0 +1,76 @@
+// native-only
+// A service is a type started with spawn: its factory runs as its first message, each call through the handle is a
+// message it handles one at a time in the order they were sent, and a message whose handler returns replies with a
+// promise. A message moves its arguments in. Shutting the service down fails every later send with serviceStopped.
+// The interpreter runs no service.
+//> total=7
+//> kept=3 last=second
+//> labels=zeroth,first,second
+//> stopped
+export typealias Count7 = int(0 to 1000000)
+
+type Calc
+	var count as Count7
+	var kept as Count7
+	var last as String
+	var labels as Array with String
+
+	static function create(start Count7) returns Self
+		return Self{count: start, kept: 0, last: "", labels: Array.create(0)}
+	end 'create'
+
+	export function bump(mutates self, by Count7)
+		self.count = try self.count + by otherwise 0
+	end 'bump'
+
+	export function keep(mutates self, consumes line String)
+		self.kept = try self.kept + 1 otherwise 0
+		self.labels.push(line.clone())
+		self.last = line
+	end 'keep'
+
+	export function total() returns Count7
+		return self.count
+	end 'total'
+
+	export function summary() returns String
+		return "kept={self.kept} last={self.last}"
+	end 'summary'
+
+	export function joined() returns String
+		var out = ""
+		for i in 0 upto self.labels.count() 'each'
+			if i > 0 'comma'
+				out = "{out},"
+			end 'comma'
+			out = "{out}{self.labels[i]}"
+		end 'each'
+		return out
+	end 'joined'
+end 'Calc'
+
+function main() returns ExitCode
+	let h = spawn Calc.create(1)
+	try h.bump(2) otherwise ignore
+	try h.bump(4) otherwise ignore
+	let n = try await h.total() otherwise 0
+	print("total={n}\n")
+	try h.keep("zeroth") otherwise ignore
+	let line = "first"
+	try h.keep(line) otherwise ignore
+	try h.keep("second") otherwise ignore
+	let pending = try h.summary() otherwise panic("the mailbox has room")
+	print("{await pending}\n")
+	let labels = try await h.joined() otherwise "none"
+	print("labels={labels}\n")
+	h.shutdown()
+	let after = try await h.total() otherwise (e) 'refused'
+		match e 'why'
+			mailboxFull then print("full\n")
+			serviceStopped then print("stopped\n")
+		end 'why'
+		return 0
+	end 'refused'
+	print("unexpected {after}\n")
+	return 1
+end 'main'

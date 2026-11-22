@@ -742,7 +742,6 @@ end 'main'
 ```
 
 <!-- test: a-function-value-that-awaits-a-service-does-not-convert-to-a-plain-function-type -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `viaService` calls `ask`, which awaits a reply, so it may wait; a function type never waits or yields.
 
@@ -756,9 +755,9 @@ type Doubler
 		return Self{calls: 0}
 	end 'create'
 
-	export function twice(n Tally) returns Tally
-		self.calls = self.calls + 1
-		return n * 2
+	export function twice(mutates self, n Tally) returns Tally
+		self.calls = try self.calls + 1 otherwise panic("out of range")
+		return try n * 2 otherwise panic("out of range")
 	end 'twice'
 end 'Doubler'
 
@@ -777,9 +776,8 @@ function apply(step Step, doubler Doubler.handle) returns Tally
 end 'apply'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let doubler = spawn Doubler.create()
-	return apply(viaService, doubler: doubler) as ExitCode
+	return try apply(viaService, doubler: doubler) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -908,7 +906,6 @@ end 'main'
 <!-- test: a-merged-isolated-parameter-fills-a-let-field -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `let` field takes `merge` of an isolated parameter as it takes the parameter itself: the merge moves the region in, so
 no other name may still write it.
@@ -922,8 +919,7 @@ type Row
 	export let cells as IntArray
 	export let width as Integer
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(width Integer, cells isolated IntArray) returns Row
+	static function create(width Integer, consumes cells IntArray) returns Row
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Row{width: width, cells: merge cells}
 	end 'create'

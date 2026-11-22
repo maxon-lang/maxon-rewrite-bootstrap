@@ -568,6 +568,7 @@ expr
     | structLitExpr
     | collectionLitExpr
     | selfExpr
+    | {atSpawn}? spawnExpr
     | nameExpr
     | panicExpr
     | matchExpr
@@ -697,6 +698,12 @@ collectionLitExpr
 /** an argument */
 arg
     : (label=(Name | Keyword) ':')? value=expr
+    ;
+
+// A spawn starts a service of the type whose static factory the call names, and gives its handle. `spawn` is a word only
+// where a spawn starts (the parser's atSpawn), so it stays a name everywhere else.
+spawnExpr
+    : spawn=Name (^'(' capacity=arg ')')? call=expr
     ;
 
 panicExpr

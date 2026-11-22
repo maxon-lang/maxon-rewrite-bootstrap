@@ -110,7 +110,6 @@ nothing, while a bracket count of 0 says there was nothing it could have taken.
 ## Tests
 
 <!-- test: more-blocking-file-reads-than-processors-still-finish -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 **EIGHT CONCURRENT FILE ROUND-TRIPS ON TWO PROCESSORS.** Every send is posted before any reply is awaited,
 so all eight reads are outstanding at once and there are four times as many of them as there are Ms to
@@ -175,11 +174,9 @@ function main() returns ExitCode
 	let readers = ReaderHandleArray.create(0)
 	var i = 0 as Integer
 	while i < readerCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		readers.push(spawn Reader.create(i))
 		i = i + 1
 	end 'spawnEach'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let last = spawn Sentinel.create()
 	// Post every read before awaiting any of them — this is what makes eight reads CONCURRENT rather
 	// than eight reads one after another, and it is the whole difference between this program and one
@@ -212,7 +209,6 @@ aggregate=80 last=1
 ```
 
 <!-- test: a-blocking-subprocess-wait-does-not-stall-a-sibling -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- procs: 2 -->
 **THE SAME SHAPE ON THE WAIT THAT COSTS THE MOST.** `Subprocess.run` is the surface the timing paragraph at
@@ -277,11 +273,9 @@ function main() returns ExitCode
 	let runners = RunnerHandleArray.create(0)
 	var i = 0 as Integer
 	while i < runnerCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		runners.push(spawn Runner.create(i))
 		i = i + 1
 	end 'spawnEach'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let last = spawn Sentinel.create()
 	let replies = ReplyPromiseArray.create(0)
 	var k = 0 as Integer
@@ -311,7 +305,6 @@ aggregate=8 last=1
 ```
 
 <!-- test: a-blocking-kernel-call-does-not-starve-an-unrelated-green-thread -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⭐⭐ **THIS IS THE CASE THE FILE'S OPENING CLAIM WAS ALWAYS ABOUT, AND IT ASSERTS AN ORDER RATHER THAN A
@@ -391,9 +384,7 @@ type Sentinel
 end 'Sentinel'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sentinel = spawn Sentinel.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let n = try await reader.read(sentinel) otherwise 0
 	if n == 0 'unread'
@@ -413,7 +404,6 @@ done read=5
 ```
 
 <!-- test: a-spare-processor-already-carries-the-sibling -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⚠ **THIS CASE IS GREEN WITH OR WITHOUT THE HANDOFF, AND IT IS HERE TO SAY WHY THE ONE ABOVE NEEDS
@@ -474,9 +464,7 @@ type Sentinel
 end 'Sentinel'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sentinel = spawn Sentinel.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let n = try await reader.read(sentinel) otherwise 0
 	if n == 0 'unread'
@@ -496,7 +484,6 @@ done read=5
 ```
 
 <!-- test: sysmon-retakes-a-processor-from-a-blocking-call -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⭐ **THIS CASE PINS THE MECHANISM, BECAUSE THE CASE ABOVE CAN BE GREENED BY THE WRONG CURE.** Routing
@@ -564,9 +551,7 @@ type Sentinel
 end 'Sentinel'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sentinel = spawn Sentinel.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let n = try await reader.read(sentinel) otherwise 0
 	if n == 0 'unread'
@@ -657,7 +642,6 @@ slept=true exited=true
 ```
 
 <!-- test: a-child-wait-parks-instead-of-holding-a-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 A streaming child's `wait` parks its green thread until the child exits. The child ends on its own about two
@@ -721,9 +705,7 @@ type Sentinel
 end 'Sentinel'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sentinel = spawn Sentinel.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let waiter = spawn Waiter.create()
 	let finished = try await waiter.outlast(sentinel) otherwise 0
 	if finished == 0 'noChild'
@@ -743,7 +725,6 @@ done exited=true
 ```
 
 <!-- test: a-handed-off-processor-leaves-the-wake-gate-working -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⭐⭐ **A HANDOFF STARTS ITS MACHINE WITHOUT A SPINNING CREDIT, BECAUSE IT RESERVED NONE — Go's
@@ -844,11 +825,8 @@ end 'Probe'
 function main() returns ExitCode
 	let started = FlagCell.create(false)
 	let released = FlagCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let spinner = spawn Spinner.create(started.clone(), released: released.clone())
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sentinel = spawn Sentinel.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let spun = try spinner.spin() otherwise panic("an open mailbox with room takes the send")
 	var claimed = false
@@ -867,7 +845,6 @@ function main() returns ExitCode
 	while not settled 'settle'
 		settled = (Scheduler.counters().idleProcessors as Integer) == everyButMain
 	end 'settle'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let probe = spawn Probe.create()
 	let reply = try probe.answer() otherwise panic("an open mailbox with room takes the send")
 	var answered = false
@@ -891,7 +868,6 @@ retaken=yes ran=7
 ```
 
 <!-- test: a-blocking-kernel-call-on-main-hands-its-processor-off -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
 **THE SAME READ, MADE BY `main` ITSELF.** `main` is a green thread like any other, so a kernel call it blocks
@@ -923,7 +899,6 @@ type Sentinel
 end 'Sentinel'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sentinel = spawn Sentinel.create()
 	print("M: reading\n")
 	let tailReply = try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
@@ -945,7 +920,6 @@ done sibling=1 read=5
 ```
 
 <!-- test: a-busy-processor-serves-a-machine-regaining-one -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
 `reader` blocks in a `stdin` read, the monitor takes its processor, and the read returns while `main` holds the one
@@ -1004,12 +978,9 @@ end 'scatterGather'
 
 function main() returns ExitCode
 	let stage = StageCell.create(0 as Integer)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let first = spawn Worker.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let second = spawn Worker.create()
 	var total = 0 as Integer
 	while stage.current() < reading 'untilReading'

@@ -3448,7 +3448,6 @@ error E3219: k/<fragment>:21:6: unused type: 'Handler' is not exported and nothi
 
 
 <!-- test: error.crossfile-a-service-throws-a-contested-name -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐ **A SERVICE MESSAGE IS A SIGNATURE, AND IT ANSWERS AT THE SAME DOOR.** `divide` is on `Calc`'s message
 surface, so whoever spawns a `Calc` has to be able to name what the message takes, returns and throws —
@@ -3490,7 +3489,6 @@ end 'Calc'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let v = try await h.divide(10, by: 2) otherwise return 70
 	return v as ExitCode
@@ -3504,7 +3502,6 @@ error E3167: b/<fragment>:19:18: exported function 'b.Calc.divide' names unexpor
 ```
 
 <!-- test: a-service-throws-an-enum-qualified-past-another-directorys-alias -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An exported `typealias Fault` in `calc/` and an `enum Fault` in `faults/` coexist, because each is named by
 its directory. `calc/`'s service message writes `throws faults.Fault`, which is the enum, so the reply
 carries the enum's case back to the awaiting caller, and `main` names the alias as `calc.Fault`.
@@ -3531,19 +3528,18 @@ export type Calc
 		if by == 0 'zero'
 			throw faults.Fault.broke
 		end 'zero'
-		return n + by + self.count
+		return try n + by + self.count otherwise panic("out of range")
 	end 'divide'
 end 'Calc'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn Calc.create()
+	let h = spawn calc.Calc.create()
 	let v = try await h.divide(10, by: 2) otherwise return 70
 	print("{v}\n")
-	let fallback = (v - 9) as calc.Fault
+	let fallback = try (v - 9) as calc.Fault otherwise panic("out of range")
 	let w = try await h.divide(1, by: 0) otherwise return fallback as ExitCode
-	return w as ExitCode
+	return try w as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -3554,8 +3550,6 @@ end 'main'
 ```
 
 <!-- test: error.a-service-throws-the-alias-its-own-directory-declares -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 The same pair, with the message's clause naming `calc.Fault` — the ranged alias. That names no enum or union,
 so the clause is refused, whatever `faults/` declares under the same name.
 ```maxon
@@ -3584,7 +3578,6 @@ end 'Calc'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let v = try await h.divide(10, by: 2) otherwise return 70
 	return v as ExitCode
@@ -3595,8 +3588,6 @@ error E3113: calc/<fragment>:20:18: 'throws calc.Fault' names no declared enum o
 ```
 
 <!-- test: error.a-service-throws-a-bare-name-means-the-readers-own-directorys-declaration -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 The same pair, with the clause written bare in a file of `calc/`: the bare name means `calc/`'s own `Fault`,
 the ranged alias, so the clause names no enum or union however `faults/` is declared.
 ```maxon
@@ -3625,7 +3616,6 @@ end 'Calc'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let v = try await h.divide(10, by: 2) otherwise return 70
 	return v as ExitCode
@@ -4195,7 +4185,6 @@ true
 ```
 
 <!-- test: an-authors-error-leaves-a-service-send-error-conforming -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An author `Error` beside the library's. A service message's send error still conforms to the library's
 `Error`, so a function may declare `throws Calc.divide.sendError` and propagate it.
 ```maxon
@@ -4234,7 +4223,6 @@ function divided(h Calc.handle) returns Integer throws Calc.divide.sendError
 end 'divided'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let q = try divided(h) otherwise panic("cannot fail")
 	print("{q}\n")

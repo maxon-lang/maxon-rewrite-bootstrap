@@ -154,7 +154,6 @@ end 'main'
 ```
 
 <!-- test: model-finding-ad-state-window-reply-union-state -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `state-window-reply-union-state` of redteamAD/t10.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -205,7 +204,6 @@ function useS(s Sn)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0)
 	try s.bgo(Rl.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -538,9 +536,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ad-oneopen-state-field-path -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `oneopen-state-field-path` of redteamAD/t7.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -576,8 +572,7 @@ type S
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(k Num, b isolated Bx) returns Self
+	static function create(k Num, consumes b Bx) returns Self
 		return Self{k: k, b: b}
 	end 'create'
 
@@ -599,7 +594,6 @@ function useS(s Sn)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0, b: Bx.create(0))
 	try s.go(Rl.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -800,7 +794,6 @@ end 'main'
 
 <!-- test: model-finding-ae-mixed-union-iso-nonlinear-arm-move -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `mixed-union-iso-nonlinear-arm-move` of redteamAE/p12.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -832,8 +825,7 @@ type Bk
 	end 'create'
 end 'Bk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeI(b isolated Bk)
+function takeI(consumes b Bk)
 	_ = b.code
 end 'takeI'
 
@@ -999,7 +991,6 @@ end 'main'
 
 <!-- test: model-finding-ae-rep-h2a-iso-payload-moved -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `rep-H2a-iso-payload-moved` of redteamAE/p20.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -1023,13 +1014,11 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function giveH(r isolated Rl) returns Sh
+function giveH(consumes r Rl) returns Sh
 	return Sh.held(r)
 end 'giveH'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -1143,7 +1132,6 @@ error E3102: <fragment>:41:8: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-finding-ae-arm-payload-pair-iso -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `arm-payload-pair-iso` of redteamAE/p25.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -1171,8 +1159,7 @@ type Rl
 	end 'peek'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function use2(a isolated Rl, b isolated Rl)
+function use2(consumes a Rl, consumes b Rl)
 	a.fin(1)
 	b.fin(2)
 end 'use2'
@@ -1352,7 +1339,6 @@ error E3102: <fragment>:28:8: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-finding-ae-iso-payload-return -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `iso-payload-return` of redteamAE/p5.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -1376,8 +1362,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function unwrap(u Sh) returns isolated Rl
+function unwrap(u Sh) returns Rl
 	match u 'x1'
 		none then return Rl.create(0)
 		held(r) then return r
@@ -1396,7 +1381,6 @@ end 'main'
 
 <!-- test: model-finding-ae-iso-payload-return-nofin -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `iso-payload-return-nofin` of redteamAE/p5.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1421,8 +1405,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function unwrap(u Sh) returns isolated Rl
+function unwrap(u Sh) returns Rl
 	match u 'x1'
 		none then return Rl.create(0)
 		held(r) then return r
@@ -1521,7 +1504,6 @@ error E3224: <fragment>:3:11: 'Sh' is a linear value and cannot be a type argume
 
 <!-- test: model-finding-ae-varpayload-iso-param-twice -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `varpayload-iso-param-twice` of redteamAE/p7.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1546,13 +1528,11 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function giveH(r isolated Rl) returns Sh
+function giveH(consumes r Rl) returns Sh
 	return Sh.held(r)
 end 'giveH'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -1661,7 +1641,6 @@ error E3102: <fragment>:32:8: use of moved value 'v': its ownership moved to ano
 
 <!-- test: model-finding-ae-varpayload-iso-recv -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `varpayload-iso-recv` of redteamAE/p7.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -1685,8 +1664,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function giveH(r isolated Rl) returns Sh
+function giveH(consumes r Rl) returns Sh
 	return Sh.held(r)
 end 'giveH'
 
@@ -1705,7 +1683,6 @@ end 'main'
 
 <!-- test: model-finding-ae-varpayload-iso-return -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `varpayload-iso-return` of redteamAE/p7.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -1729,8 +1706,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function unwrap(h Sh) returns isolated Rl
+function unwrap(h Sh) returns Rl
 	match h 'x1'
 		none then return Rl.create(0)
 		held(q) then return q
@@ -1749,7 +1725,6 @@ end 'main'
 
 <!-- test: model-finding-ae-varpayload-iso-param-fn -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `varpayload-iso-param-fn` of redteamAE/p8.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -1773,13 +1748,11 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function giveH(r isolated Rl) returns Sh
+function giveH(consumes r Rl) returns Sh
 	return Sh.held(r)
 end 'giveH'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -2148,7 +2121,6 @@ error E3214: <fragment>:19:10: 'Rl' is unique and cannot be cloned
 ```
 
 <!-- test: model-hand-ab-t-send-arg-then-throw -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `t-send-arg-then-throw` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -2187,7 +2159,6 @@ type Auth
 end 'Auth'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Auth.create(0)
 	try a.check(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -3152,7 +3123,6 @@ end 'main'
 
 <!-- test: model-hand-ab-y-try-handler-var -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `y-try-handler-var` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -3191,8 +3161,7 @@ type Auth
 end 'Auth'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Auth.create(0)
+	let a = spawn(capacity: 1) Auth.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	try a.check(r) otherwise (sendFailure) 'h1'
@@ -3210,7 +3179,6 @@ end 'main'
 
 <!-- test: model-hand-ab-y-try-handback-original-after -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `y-try-handback-original-after` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3250,8 +3218,7 @@ type Auth
 end 'Auth'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Auth.create(0)
+	let a = spawn(capacity: 1) Auth.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	try a.check(r) otherwise (sendFailure) 'h1'
@@ -3270,7 +3237,6 @@ error E3102: <fragment>:46:2: use of moved value 'r': its ownership moved to ano
 
 <!-- test: model-hand-ab-y-try-handback-other-linear -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `y-try-handback-other-linear` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -3309,8 +3275,7 @@ type Auth
 end 'Auth'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Auth.create(0)
+	let a = spawn(capacity: 1) Auth.create(0)
 	let o = Resp.create(5)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
@@ -3330,7 +3295,6 @@ end 'main'
 
 <!-- test: model-hand-ab-y-try-handback-in-loop -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `y-try-handback-in-loop` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -3373,8 +3337,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Auth.create(0)
+	let a = spawn(capacity: 1) Auth.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		// TODO: region capability 'isolated' is not supported in minimaxon
@@ -3396,7 +3359,6 @@ end 'main'
 
 <!-- test: model-hand-ab-y-try-handback-loop-carried -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `y-try-handback-loop-carried` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3440,8 +3402,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Auth.create(0)
+	let a = spawn(capacity: 1) Auth.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	var i = 3 as Num
@@ -3576,7 +3537,6 @@ error E3223: <fragment>:32:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-k-ret-immutable -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-RESULT`; the compiler refuses it with E3209. Model program `k-ret-immutable` of redteamAB.hand_ab10, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3599,8 +3559,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function f() returns immutable Resp
+function f() returns frozen with Resp
 	return Resp.create(0)
 end 'f'
 
@@ -4634,7 +4593,6 @@ error E3224: <fragment>:41:4: the case 'notSent' carries the linear value 'r', a
 
 <!-- test: model-hand-ab-s-handback-twice-one-full -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-handback-twice-one-full` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4717,8 +4675,7 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Sv.create(0)
+	let a = spawn(capacity: 1) Sv.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -4743,7 +4700,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-handback-fresh-nested -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-handback-fresh-nested` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4830,8 +4786,7 @@ function mkR() returns Resp
 end 'mkR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Sv.create(0)
+	let a = spawn(capacity: 1) Sv.create(0)
 	try a.one(mkR()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(b) then b.fin(1)
@@ -4846,7 +4801,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-handback-in-message-body -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-handback-in-message-body` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4929,8 +4883,7 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 2) Sv.create(0)
+	let a = spawn(capacity: 2) Sv.create(0)
 	try a.viaSelf(a.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -4945,7 +4898,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-handback-send-to-stopped -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-handback-send-to-stopped` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -5028,8 +4980,7 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Sv.create(0)
+	let a = spawn(capacity: 1) Sv.create(0)
 	try a.touch() otherwise ignore
 	try a.touch() otherwise ignore
 	try a.touch() otherwise ignore
@@ -5047,7 +4998,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-state-method-eat -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-state-method-eat` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -5130,7 +5080,6 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Sv.create(0)
 	try a.useState() otherwise ignore
 	return 0
@@ -5141,7 +5090,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-state-method-mk -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-state-method-mk` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -5224,7 +5172,6 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Sv.create(0)
 	try a.useState2() otherwise ignore
 	return 0
@@ -6524,7 +6471,6 @@ error E3223: <fragment>:27:27: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ab-m-spawn-fails-linear-live -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-spawn-fails-linear-live` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -6556,7 +6502,6 @@ end 'Sfn'
 
 function g(c Num)
 	let r = Resp.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn Sfn.create(c)
 	r.fin(1)
 end 'g'
@@ -6571,7 +6516,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-m-send-fails-linear-live -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-send-fails-linear-live` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -6600,15 +6544,14 @@ type Sfn
 		return Self{n: n}
 	end 'create'
 
-	export function m()
+	export function m(mutates self)
 		self.n = 1
 	end 'm'
 end 'Sfn'
 
 function g()
 	let r = Resp.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let s = spawn (capacity: 1) Sfn.create(0)
+	let s = spawn(capacity: 1) Sfn.create(0)
 	try s.m() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -7164,7 +7107,6 @@ error E3223: <fragment>:20:10: this drops 't', a linear value that was never con
 ```
 
 <!-- test: model-hand-ac-fin-self-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fin-self-send` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7185,7 +7127,6 @@ type Fz
 			end 'x2'
 		end 'h1'
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7203,8 +7144,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -7215,7 +7155,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-self-send-drop-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `fin-self-send-drop-handler` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7237,7 +7177,6 @@ type Fz
 			end 'x2'
 		end 'h1'
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7255,8 +7194,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -7421,7 +7359,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-two-linear-two-names -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-two-linear-two-names` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7458,8 +7395,7 @@ type H2
 end 'H2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let s = spawn (capacity: 1) H2.create(0)
+	let s = spawn(capacity: 1) H2.create(0)
 	try s.two(Resp.create(0), b: Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(q, _) then q.fin(1)
@@ -7474,7 +7410,6 @@ error E3224: <fragment>:38:4: the case 'mailboxFull' carries the linear value 'b
 ```
 
 <!-- test: model-hand-ac-hb-nonlinear-first-one-name -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-nonlinear-first-one-name` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7510,8 +7445,7 @@ type H2
 end 'H2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let s = spawn (capacity: 1) H2.create(0)
+	let s = spawn(capacity: 1) H2.create(0)
 	try s.m(1, a: Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(_, q) then q.fin(1)
@@ -7526,7 +7460,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-refill-var-in-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `hb-refill-var-in-handler` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7562,8 +7495,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	var r = Resp.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -7580,7 +7512,6 @@ error E3196: <fragment>:38:28: cannot store an isolated 'Resp' into 'r', which h
 ```
 
 <!-- test: model-hand-ac-hb-refill-var-in-handler-no-use -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `hb-refill-var-in-handler-no-use` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7616,8 +7547,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	var r = Resp.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -7633,7 +7563,6 @@ error E3196: <fragment>:38:28: cannot store an isolated 'Resp' into 'r', which h
 ```
 
 <!-- test: model-hand-ac-hb-loop-refill -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `hb-loop-refill` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7673,8 +7602,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	var r = Resp.create(0)
 	var i = 2 as Num
 	while i != 0 'w1'
@@ -7694,7 +7622,6 @@ error E3196: <fragment>:44:29: cannot store an isolated 'Resp' into 'r', which h
 ```
 
 <!-- test: model-hand-ac-hb-send-in-loop-fresh -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-send-in-loop-fresh` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7733,8 +7660,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		try a.take(Resp.create(0)) otherwise (sendFailure) 'h2'
@@ -7753,7 +7679,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-handler-breaks -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-handler-breaks` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7793,8 +7719,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		try a.take(Resp.create(0)) otherwise (sendFailure) 'h2'
@@ -7813,7 +7738,7 @@ error E3224: <fragment>:43:5: the case 'mailboxFull' carries the linear value 't
 ```
 
 <!-- test: model-hand-ac-hb-handler-returns -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-handler-returns` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7858,8 +7783,7 @@ function f(a Hq.handle)
 end 'f'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	f(a)
 	return 0
 end 'main'
@@ -7869,7 +7793,6 @@ error E3224: <fragment>:36:4: the case 'mailboxFull' carries the linear value 't
 ```
 
 <!-- test: model-hand-ac-hb-union-arg -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-union-arg` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7923,8 +7846,7 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	try a.takeS(giveS(Resp.create(0))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(q) then useS(q)
@@ -7939,7 +7861,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-union-arg-handler-drops -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-union-arg-handler-drops` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7987,8 +7909,7 @@ function giveS(r Resp) returns Sent
 end 'giveS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	try a.takeS(giveS(Resp.create(0))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -8003,7 +7924,6 @@ error E3224: <fragment>:49:4: the case 'mailboxFull' carries the linear value 's
 ```
 
 <!-- test: model-hand-ac-hb-send-twice-same-var -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-send-twice-same-var` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8039,8 +7959,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	let r = Resp.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -8062,7 +7981,6 @@ error E3102: <fragment>:42:13: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-hb-send-var-then-peek -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-send-var-then-peek` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8098,8 +8016,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	let r = Resp.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -8116,7 +8033,6 @@ error E3102: <fragment>:42:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-hb-send-in-behaviour -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-send-in-behaviour` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -8168,9 +8084,7 @@ type Kq
 end 'Kq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let a = spawn(capacity: 1) Hq.create(0)
 	let k = spawn Kq.create(0)
 	try k.go(a.clone()) otherwise ignore
 	return 0
@@ -8181,7 +8095,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-send-param-in-behaviour -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-send-param-in-behaviour` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -8233,9 +8146,7 @@ type Kq
 end 'Kq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let a = spawn(capacity: 1) Hq.create(0)
 	let k = spawn Kq.create(0)
 	try k.go(a.clone(), r: Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -8251,7 +8162,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-forward-param-no-handler-consume -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-forward-param-no-handler-consume` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8304,9 +8214,7 @@ type Kq
 end 'Kq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	let a = spawn(capacity: 1) Hq.create(0)
 	let k = spawn Kq.create(0)
 	try k.go(a.clone(), r: Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -8445,7 +8353,7 @@ error E3223: <fragment>:26:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-ub-send-operand-temp -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-send-operand-temp` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
@@ -8486,7 +8394,6 @@ function mkR() returns Resp
 end 'mkR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let p = spawn Pk.create(0)
 	try p.m(mkR().peek()) otherwise ignore
 	return 0
@@ -8497,7 +8404,7 @@ error E3223: <fragment>:39:8: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-ub-await-operand-temp -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-await-operand-temp` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
@@ -8538,7 +8445,6 @@ function mkR() returns Resp
 end 'mkR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let p = spawn Pk.create(0)
 	_ = try await p.m(mkR().peek()) otherwise panic("send failed")
 	return 0
@@ -8549,7 +8455,7 @@ error E3223: <fragment>:39:22: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ac-ub-spawn-operand-temp -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-spawn-operand-temp` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
@@ -8586,7 +8492,6 @@ function mkR() returns Resp
 end 'mkR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn Pk.create(mkR().peek())
 	return 0
 end 'main'
@@ -8936,7 +8841,7 @@ error E3224: <fragment>:30:3: the case 'both' carries the linear value 'a', and 
 ```
 
 <!-- test: model-hand-ac-wc-underscore-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `wc-underscore-handler` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8972,8 +8877,7 @@ type Hq5
 end 'Hq5'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq5.create(0)
+	let a = spawn(capacity: 1) Hq5.create(0)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -9582,7 +9486,7 @@ error E3223: <fragment>:35:11: this drops 't', a linear value that was never con
 ```
 
 <!-- test: model-hand-ac-wc-send-linear-without-handback -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3223. Model program `wc-send-linear-without-handback` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
@@ -9619,8 +9523,7 @@ type Hq5
 end 'Hq5'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq5.create(0)
+	let a = spawn(capacity: 1) Hq5.create(0)
 	try a.take(Resp.create(0)) otherwise ignore
 	return 0
 end 'main'
@@ -9630,7 +9533,7 @@ error E3223: <fragment>:35:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-wc-spawn-linear-arg -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `wc-spawn-linear-arg` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
@@ -9667,7 +9570,6 @@ function mkR() returns Resp
 end 'mkR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn Hq6.create(mkR().peek())
 	return 0
 end 'main'
@@ -9774,7 +9676,6 @@ error E3214: <fragment>:39:10: 'Sent' is unique (its field 'r' holds a unique 'R
 ```
 
 <!-- test: model-hand-ac-ua-spawn-and-exit-with-pending-handback -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ua-spawn-and-exit-with-pending-handback` of redteamAC.hand_ac18, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -9809,8 +9710,7 @@ type Hq9
 end 'Hq9'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq9.create(0)
+	let a = spawn(capacity: 1) Hq9.create(0)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(q) then q.fin(1)
@@ -9905,7 +9805,6 @@ error E3102: <fragment>:28:7: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-li-useri-then-fin -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-useRI-then-fin` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
@@ -9929,8 +9828,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useRI2(r isolated Resp)
+function useRI2(consumes r Resp)
 	r.fin(1)
 end 'useRI2'
 
@@ -9947,7 +9845,6 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-li-useri-twice -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-useRI-twice` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
@@ -9971,8 +9868,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useRI2(r isolated Resp)
+function useRI2(consumes r Resp)
 	r.fin(1)
 end 'useRI2'
 
@@ -10027,9 +9923,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-li-pass-then-fin -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-pass-then-fin` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10052,9 +9946,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function passRI(r isolated Resp) returns isolated Resp
+function passRI(consumes r Resp) returns Resp
 	return r
 end 'passRI'
 
@@ -10072,9 +9964,7 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-li-pass-bound-twice -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-pass-bound-twice` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10097,9 +9987,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function passRI(r isolated Resp) returns isolated Resp
+function passRI(consumes r Resp) returns Resp
 	return r
 end 'passRI'
 
@@ -10118,7 +10006,6 @@ error E3102: <fragment>:28:17: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-li-peek-fin-then-fin -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-peek-fin-then-fin` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
@@ -10142,8 +10029,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function peekRI(r isolated Resp) returns Num
+function peekRI(consumes r Resp) returns Num
 	let z = r.peek()
 	r.fin(1)
 	return z
@@ -10251,7 +10137,6 @@ error E3102: <fragment>:30:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-li-method-consume -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-method-consume` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
@@ -10275,8 +10160,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useBoth(r isolated Resp, q isolated Resp)
+function useBoth(consumes r Resp, consumes q Resp)
 	r.fin(1)
 	q.fin(2)
 end 'useBoth'
@@ -10293,7 +10177,7 @@ error E3102: <fragment>:28:16: 'r' is passed at two arguments of this call, and 
 ```
 
 <!-- test: model-hand-ac-li-param-forward -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-param-forward` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10320,8 +10204,7 @@ function useR(r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function fw(r isolated Resp)
+function fw(consumes r Resp)
 	useR(r)
 	r.fin(1)
 end 'fw'
@@ -10336,7 +10219,6 @@ error E3102: <fragment>:27:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-li-param-forward-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `li-param-forward-once` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -10358,12 +10240,11 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function fw(r isolated Resp)
+function fw(consumes r Resp)
 	useR(r)
 end 'fw'
 
@@ -10377,7 +10258,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-li-union-lend -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-union-lend` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
@@ -10410,8 +10290,7 @@ function giveS(r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useSI(s isolated Sent)
+function useSI(consumes s Sent)
 	match s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
@@ -10432,7 +10311,6 @@ error E3102: <fragment>:40:8: use of moved value 's': its ownership moved to ano
 
 <!-- test: model-hand-ac-hb-iso-var -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-iso-var` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -10467,8 +10345,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
@@ -10486,7 +10363,6 @@ end 'main'
 
 <!-- test: model-hand-ac-hb-iso-var-twice -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-var-twice` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10522,8 +10398,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
@@ -10547,7 +10422,6 @@ error E3102: <fragment>:42:13: use of moved value 'r': its ownership moved to an
 
 <!-- test: model-hand-ac-hb-iso-var-use-after -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-var-use-after` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10583,8 +10457,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
@@ -10603,7 +10476,6 @@ error E3102: <fragment>:42:10: use of moved value 'r': its ownership moved to an
 
 <!-- test: model-hand-ac-hb-iso-refill -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-refill` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10639,8 +10511,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var r = Resp.create(0) as isolated Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
@@ -10659,7 +10530,6 @@ error E3102: <fragment>:42:2: use of moved value 'r': its ownership moved to ano
 
 <!-- test: model-hand-ac-hb-iso-refill-no-use -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `hb-iso-refill-no-use` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
@@ -10696,8 +10566,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var r = Resp.create(0) as isolated Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
@@ -10715,7 +10584,6 @@ error E3223: <fragment>:36:2: this drops a linear value that was never consumed:
 
 <!-- test: model-hand-ac-hb-iso-loop-refill -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-loop-refill` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10755,8 +10623,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var r = Resp.create(0) as isolated Resp
 	var i = 2 as Num
@@ -10778,7 +10645,6 @@ error E3102: <fragment>:42:14: use of moved value 'r': it was moved in an earlie
 
 <!-- test: model-hand-ac-hb-iso-loop-refill-final -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-loop-refill-final` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10818,8 +10684,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var r = Resp.create(0) as isolated Resp
 	var i = 2 as Num
@@ -10842,7 +10707,6 @@ error E3102: <fragment>:42:14: use of moved value 'r': it was moved in an earlie
 
 <!-- test: model-hand-ac-hb-iso-handler-consume-then-sender-consume -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-handler-consume-then-sender-consume` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10878,8 +10742,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
@@ -10898,7 +10761,6 @@ error E3102: <fragment>:42:2: use of moved value 'r': its ownership moved to ano
 
 <!-- test: model-hand-ac-hb-iso-handler-names-shadow -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-iso-handler-names-shadow` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -10933,8 +10795,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
@@ -10952,7 +10813,6 @@ end 'main'
 
 <!-- test: model-hand-ac-hb-iso-handler-shadow-then-use -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-handler-shadow-then-use` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10988,8 +10848,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
@@ -11051,7 +10910,7 @@ error E3102: <fragment>:29:8: use of moved value 'r': it was moved in an earlier
 ```
 
 <!-- test: model-hand-ac-min-h1-call-result -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-call-result` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11078,8 +10937,7 @@ function useR(r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mkI() returns isolated Resp
+function mkI() returns Resp
 	return Resp.create(0)
 end 'mkI'
 
@@ -11095,7 +10953,6 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-min-h1-behaviour -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-behaviour` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11136,7 +10993,6 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kq.create(0)
 	try k.go(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -11152,7 +11008,7 @@ error E3102: <fragment>:30:3: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-min-h1-finalizer -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-finalizer` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11182,8 +11038,7 @@ type Fz
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function f(destructs self, r isolated Resp)
+	function f(destructs self, consumes r Resp)
 		useR(r)
 		r.fin(1)
 	end 'f'
@@ -11291,7 +11146,6 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-min-h1-control-iso-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-control-iso-param` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
@@ -11315,8 +11169,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useRI(r isolated Resp)
+function useRI(consumes r Resp)
 	r.fin(1)
 end 'useRI'
 
@@ -11333,7 +11186,7 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-call-result-iso -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-call-result-iso` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11360,8 +11213,7 @@ function useR(r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mkI2() returns isolated Resp
+function mkI2() returns Resp
 	return Resp.create(0)
 end 'mkI2'
 
@@ -11925,7 +11777,7 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-param-forward-twice -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-param-forward-twice` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11952,8 +11804,7 @@ function useR(r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function fw(r isolated Resp)
+function fw(consumes r Resp)
 	useR(r)
 	useR(r)
 end 'fw'
@@ -11968,7 +11819,6 @@ error E3102: <fragment>:27:7: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-behaviour-param-twice -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-behaviour-param-twice` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12009,7 +11859,6 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kq.create(0)
 	try k.go(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -12079,7 +11928,6 @@ error E3102: <fragment>:39:8: use of moved value 'r': it was moved in an earlier
 ```
 
 <!-- test: model-hand-ac-sm-behaviour-self-method -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-behaviour-self-method` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12133,7 +11981,6 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kb.create(0)
 	try k.go(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -12150,7 +11997,6 @@ error E3102: <fragment>:43:11: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-sm-behaviour-self-method-once -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-behaviour-self-method-once` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12204,7 +12050,6 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kb.create(0)
 	try k.go1(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -12221,7 +12066,6 @@ error E3102: <fragment>:43:11: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-sm-behaviour-use-then-peek -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-behaviour-use-then-peek` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12275,7 +12119,6 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kb.create(0)
 	try k.go2(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -12292,7 +12135,7 @@ error E3102: <fragment>:43:11: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-sm-main-var-iso-fn-result -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-main-var-iso-fn-result` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12319,8 +12162,7 @@ function useR(r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mkI3() returns isolated Resp
+function mkI3() returns Resp
 	return Resp.create(0)
 end 'mkI3'
 
@@ -12659,7 +12501,6 @@ error E3223: <fragment>:32:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-sh-handler-name-shadow -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh-handler-name-shadow` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -12694,8 +12535,7 @@ type Hq2
 end 'Hq2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq2.create(0)
+	let a = spawn(capacity: 1) Hq2.create(0)
 	let r = Resp.create(0)
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -12712,7 +12552,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-sh-handler-name-shadow-live-outer-dropped -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `sh-handler-name-shadow-live-outer-dropped` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
@@ -12749,8 +12588,7 @@ type Hq2
 end 'Hq2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq2.create(0)
+	let a = spawn(capacity: 1) Hq2.create(0)
 	let r = Resp.create(0)
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -13445,7 +13283,6 @@ error E3102: <fragment>:24:2: use of moved value 'r': its ownership moved to ano
 
 <!-- test: model-hand-ac-ul-iso-return-then-use -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-return-then-use` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13468,8 +13305,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function f() returns isolated Resp
+function f() returns Resp
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	r.fin(1)
@@ -13487,7 +13323,6 @@ error E3102: <fragment>:24:9: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ul-iso-iso-param-conversion -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-iso-param-conversion` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
@@ -13515,8 +13350,7 @@ function useR(r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useRI2(r isolated Resp)
+function useRI2(consumes r Resp)
 	r.fin(1)
 end 'useRI2'
 
@@ -13533,7 +13367,6 @@ error E3102: <fragment>:32:7: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ul-iso-plain-then-iso-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-plain-then-iso-param` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
@@ -13561,8 +13394,7 @@ function useR(r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useRI2(r isolated Resp)
+function useRI2(consumes r Resp)
 	r.fin(1)
 end 'useRI2'
 
@@ -13621,7 +13453,6 @@ error E3102: <fragment>:28:10: use of moved value 'r': its ownership moved to an
 
 <!-- test: model-hand-ac-ul-iso-handback-after-lend -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-handback-after-lend` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13661,8 +13492,7 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq3.create(0)
+	let a = spawn(capacity: 1) Hq3.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	useR(r)
@@ -13681,7 +13511,6 @@ error E3102: <fragment>:41:13: use of moved value 'r': its ownership moved to an
 
 <!-- test: model-hand-ac-ul-iso-then-return -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-then-return` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13708,8 +13537,7 @@ function useR(r Resp)
 	r.fin(1)
 end 'useR'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function f() returns isolated Resp
+function f() returns Resp
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
 	useR(r)
@@ -14409,7 +14237,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hq-fin-only -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hq-fin-only` of redteamAC.hand_ac9, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -14444,8 +14271,7 @@ type Hq4
 end 'Hq4'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq4.create(0)
+	let a = spawn(capacity: 1) Hq4.create(0)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(q) then q.fin(1)
@@ -14472,7 +14298,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hq-use-only -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hq-use-only` of redteamAC.hand_ac9, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -14511,8 +14336,7 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq4.create(0)
+	let a = spawn(capacity: 1) Hq4.create(0)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(q) then useR(q)
@@ -14539,7 +14363,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hq-union-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hq-union-sent` of redteamAC.hand_ac9, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -14590,8 +14413,7 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hu.create(0)
+	let a = spawn(capacity: 1) Hu.create(0)
 	try a.takeS(giveS(Resp.create(0))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(q) then useS(q)
@@ -16907,7 +16729,6 @@ error E3102: <fragment>:17:10: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: model-hand-ad-n-handler-shadows-outer -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `n-handler-shadows-outer` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
@@ -16971,8 +16792,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(r) then r.fin(1)
@@ -16993,7 +16813,6 @@ error E3223: <fragment>:74:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-n-handler-shadows-outer-fin -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-handler-shadows-outer-fin` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -17055,8 +16874,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(r) then r.fin(1)
@@ -17072,7 +16890,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-handler-name-is-sent-var -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-handler-name-is-sent-var` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -17134,8 +16951,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(r) then r.fin(1)
@@ -17150,7 +16966,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-handler-name-is-sent-var-use-after -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-handler-name-is-sent-var-use-after` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17213,8 +17028,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(r) then r.fin(1)
@@ -17230,7 +17044,6 @@ error E3102: <fragment>:68:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-n-handler-name-int-mixed -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-handler-name-int-mixed` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -17292,8 +17105,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	try a.mix(1, r: r, y: 2) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(_, q, _) then q.fin(1)
@@ -17651,7 +17463,7 @@ error E3224: <fragment>:34:3: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ad-j-handler-return -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `j-handler-return` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17722,8 +17534,7 @@ function f(a Hq.handle)
 end 'f'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	f(a)
 	f(a)
 	f(a)
@@ -17735,7 +17546,6 @@ error E3224: <fragment>:62:4: the case 'mailboxFull' carries the linear value 'r
 ```
 
 <!-- test: model-hand-ad-j-handler-in-loop-refill -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j-handler-in-loop-refill` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -17800,8 +17610,7 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	var r = Resp.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
@@ -17823,7 +17632,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-j-handler-in-loop-no-refill -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `j-handler-in-loop-no-refill` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17889,8 +17697,7 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	let r = Resp.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
@@ -17910,7 +17717,6 @@ error E3102: <fragment>:68:14: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ad-j-handler-in-loop-refill-both -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j-handler-in-loop-refill-both` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -17975,8 +17781,7 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Hq.create(0)
+	let a = spawn(capacity: 1) Hq.create(0)
 	var r = Resp.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
@@ -18291,7 +18096,6 @@ error E3102: <fragment>:46:2: use of moved value 'r': its ownership moved to ano
 
 <!-- test: model-hand-ad-k-forward-keeper-in-spawn -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-forward-keeper-in-spawn` of redteamAD.hand_ad7, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -18326,7 +18130,6 @@ end 'Kf'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let r = Resp.create(0) as isolated Resp
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn Kf.create(r)
 	r.fin(1)
 	return 0
@@ -18965,7 +18768,6 @@ end 'main'
 
 <!-- test: model-hand-af-sh1-binder-iso-param -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh1-binder-iso-param` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19007,8 +18809,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -19029,7 +18830,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-sh4-inner-let-iso-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh4-inner-let-iso-param` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19069,8 +18869,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -19092,7 +18891,6 @@ end 'main'
 
 <!-- test: model-hand-af-sh5-inner-let-send -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh5-inner-let-send` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -19148,7 +18946,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn S.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let q = Rl.create(9) as isolated Rl
@@ -19171,7 +18968,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-sh6-inner-let-in-loop -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh6-inner-let-in-loop` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19211,8 +19007,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -19236,7 +19031,6 @@ end 'main'
 
 <!-- test: model-hand-af-sh8-binder-iso-bx -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh8-binder-iso-bx` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19286,8 +19080,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -19309,7 +19102,6 @@ end 'main'
 
 <!-- test: model-hand-af-sh12-param-shadow -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh12-param-shadow` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -19358,13 +19150,11 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(y isolated Bx, m Mq)
+function f(consumes y Bx, m Mq)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then takeB(y)
@@ -19383,7 +19173,6 @@ end 'main'
 
 <!-- test: model-hand-af-sh14-loop-reuse -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh14-loop-reuse` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19437,8 +19226,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -20370,7 +20158,6 @@ end 'main'
 
 <!-- test: model-hand-af-s6-binder-two-arms-same-name -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s6-binder-two-arms-same-name` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -20419,8 +20206,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -20496,7 +20282,6 @@ end 'main'
 
 <!-- test: model-hand-af-s8-binder-shadows-param -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `s8-binder-shadows-param` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -20538,8 +20323,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(q isolated Rl, u Sh)
+function f(consumes q Rl, u Sh)
 	match u 'x1'
 		none then break
 		held(q) then q.fin(1)
@@ -20557,7 +20341,6 @@ error E3223: <fragment>:39:10: this drops 'q', a linear value that was never con
 
 <!-- test: model-hand-af-s9-binder-shadows-iso-param-kept -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s9-binder-shadows-iso-param-kept` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -20598,8 +20381,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(q isolated Rl, u Sh)
+function f(consumes q Rl, u Sh)
 	match u 'x1'
 		none then break
 		held(q) then q.fin(1)
@@ -20618,7 +20400,6 @@ end 'main'
 
 <!-- test: model-hand-af-s14-binder-shadows-then-moved-away -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s14-binder-shadows-then-moved-away` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -20660,8 +20441,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -21068,7 +20848,6 @@ error E3197: <fragment>:51:14: cannot write 'n' through 'y', which is immutable
 
 <!-- test: model-hand-af-w4-method-on-outer-record -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w4-method-on-outer-record` of redteamAF.hand_af8, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -21116,8 +20895,7 @@ type Own
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function eatI(r isolated Rl)
+	function eatI(consumes r Rl)
 		r.fin(1)
 	end 'eatI'
 
@@ -21144,7 +20922,6 @@ end 'main'
 
 <!-- test: model-hand-af-w5-union-to-record-method -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w5-union-to-record-method` of redteamAF.hand_af8, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -21192,8 +20969,7 @@ type Own
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function eatI(r isolated Rl)
+	function eatI(consumes r Rl)
 		r.fin(1)
 	end 'eatI'
 
@@ -21217,7 +20993,6 @@ end 'main'
 
 <!-- test: model-hand-af-w10-two-cases-two-sinks -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `w10-two-cases-two-sinks` of redteamAF.hand_af8, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -21267,13 +21042,11 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -21292,8 +21065,6 @@ error E3200: <fragment>:58:19: 'x' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-af-w11-mixed-nonlinear-moved-to-send -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w11-mixed-nonlinear-moved-to-send` of redteamAF.hand_af8, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -21349,14 +21120,12 @@ type Bk
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeB(b isolated Bx)
+	export function takeB(consumes b Bx)
 		b.n = 1
 	end 'takeB'
 end 'Bk'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bk.create(0)
 	let m = Mx.m1(Bx.create(1))
 	match m 'x1'
@@ -21494,7 +21263,6 @@ end 'main'
 
 <!-- test: model-hand-af-w14-match-then-rebuild-same-var -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w14-match-then-rebuild-same-var` of redteamAF.hand_af8, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -21536,8 +21304,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function giveH(r isolated Rl) returns Sh
+function giveH(consumes r Rl) returns Sh
 	return Sh.held(r)
 end 'giveH'
 
@@ -21560,7 +21327,6 @@ error E3102: <fragment>:49:8: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-hand-af-m1-param-union-match-fin -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3223. Model program `m1-param-union-match-fin` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
@@ -21619,7 +21385,6 @@ type Kx
 end 'Kx'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Kx.create(0)
 	try a.eat(Sh.held(Rl.create(1))) otherwise ignore
 	return 0
@@ -21631,7 +21396,6 @@ error E3223: <fragment>:56:2: this drops a linear value that was never consumed:
 
 <!-- test: model-hand-af-m5-param-union-two-matches-in-two-behaviours -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3223. Model program `m5-param-union-two-matches-in-two-behaviours` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
@@ -21697,7 +21461,6 @@ type Kx
 end 'Kx'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Kx.create(0)
 	try a.a(Sh.held(Rl.create(1))) otherwise ignore
 	return 0
@@ -21767,7 +21530,6 @@ end 'main'
 
 <!-- test: model-hand-af-m8-param-union-in-function-in-behaviour -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m8-param-union-in-function-in-behaviour` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -21828,7 +21590,6 @@ function eat(u Sh)
 end 'eat'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Kx.create(0)
 	try a.go() otherwise ignore
 	return 0
@@ -21840,7 +21601,6 @@ end 'main'
 
 <!-- test: model-hand-af-m9-behaviour-local-union -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m9-behaviour-local-union` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -21898,7 +21658,6 @@ type Kx
 end 'Kx'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Kx.create(0)
 	try a.go() otherwise ignore
 	return 0
@@ -21910,8 +21669,6 @@ end 'main'
 
 <!-- test: model-hand-af-m10-behaviour-param-union-iso-fn -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3223. Model program `m10-behaviour-param-union-iso-fn` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
@@ -21969,13 +21726,11 @@ type Kx
 	end 'eat'
 end 'Kx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Kx.create(0)
 	try a.eat(Sh.held(Rl.create(1))) otherwise ignore
 	return 0
@@ -21987,9 +21742,7 @@ error E3223: <fragment>:60:2: this drops a linear value that was never consumed:
 
 <!-- test: model-hand-af-m12-behaviour-param-mixed-store-assign -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3223. Model program `m12-behaviour-param-mixed-store-assign` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
@@ -22045,8 +21798,7 @@ type Kx
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, b isolated Bx) returns Self
+	static function create(n Num, consumes b Bx) returns Self
 		return Self{n: n, b: b}
 	end 'create'
 
@@ -22059,7 +21811,6 @@ type Kx
 end 'Kx'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Kx.create(0, b: Bx.create(0))
 	try a.eat(Mx.m1(Bx.create(1))) otherwise ignore
 	return 0
@@ -22071,8 +21822,6 @@ error E3223: <fragment>:65:2: this drops a linear value that was never consumed:
 
 <!-- test: model-hand-af-m13-behaviour-param-plain-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3223. Model program `m13-behaviour-param-plain-store` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
@@ -22126,8 +21875,7 @@ type Kx
 	var n as Num
 	var b as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, b isolated Bx) returns Self
+	static function create(n Num, consumes b Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, b: merge b}
 	end 'create'
@@ -22141,7 +21889,6 @@ type Kx
 end 'Kx'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Kx.create(0, b: Bx.create(0))
 	try a.eat(Mp.m1(Bx.create(1))) otherwise ignore
 	return 0
@@ -22152,7 +21899,6 @@ error E3223: <fragment>:65:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ag-t8-wo-payload -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `t8-wo-payload` of redteamAG.hand_ag1, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -22206,8 +21952,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -22229,9 +21974,7 @@ end 'main'
 
 <!-- test: model-hand-ag-bm-nowin-keep-p -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `bm-nowin-keep-p` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -22285,8 +22028,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -22307,8 +22049,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Wo, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Wo, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -22333,7 +22074,6 @@ function eatMr(pV Mr)
 end 'eatMr'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -22351,9 +22091,7 @@ error E3201: <fragment>:82:32: 'y.p' is mutable outside 'self.item'; a store int
 
 <!-- test: model-hand-ag-bm-nowin-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `bm-nowin-plain` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -22407,8 +22145,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -22429,8 +22166,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Wo, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Wo, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -22455,7 +22191,6 @@ function eatMr(pV Mr)
 end 'eatMr'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -22472,9 +22207,7 @@ error E3201: <fragment>:76:20: 'b' is mutable outside 'self.item'; a store into 
 
 <!-- test: model-hand-ag-bm-nowin-hq -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `bm-nowin-hq` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -22528,8 +22261,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -22550,8 +22282,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Wo, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Wo, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -22576,7 +22307,6 @@ function eatMr(pV Mr)
 end 'eatMr'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -22592,7 +22322,6 @@ error E3201: <fragment>:76:20: 'b' is mutable outside 'self.item'; a store into 
 ```
 
 <!-- test: model-hand-ag-f1-control-no-window -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f1-control-no-window` of redteamAG.hand_ag16, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -22638,8 +22367,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -22665,7 +22393,6 @@ end 'main'
 
 <!-- test: model-hand-ag-s1-beh-if-else-match-both -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s1-beh-if-else-match-both` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -22740,7 +22467,6 @@ function eatSh(p Sh)
 end 'eatSh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn K.create(0)
 	try k.eat(Sh.held(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -22757,7 +22483,6 @@ end 'main'
 
 <!-- test: model-hand-ag-s2-beh-if-match-else-call -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s2-beh-if-match-else-call` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -22829,7 +22554,6 @@ function eatSh(p Sh)
 end 'eatSh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn K.create(0)
 	try k.eat(Sh.held(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -23055,7 +22779,6 @@ end 'main'
 
 <!-- test: model-hand-ag-s9-w3-iso-param-two-fns -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s9-w3-iso-param-two-fns` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -23107,8 +22830,7 @@ function eatSh(p Sh)
 	end 'x1'
 end 'eatSh'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(u isolated Sh)
+function f(consumes u Sh)
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			none then break
@@ -23129,7 +22851,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-s10-w3-local-from-plain-local -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s10-w3-local-from-plain-local` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -23183,8 +22904,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -23205,7 +22925,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-s11-w3-local-inline-new -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s11-w3-local-inline-new` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -23259,8 +22978,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -23281,7 +22999,6 @@ end 'main'
 
 <!-- test: model-hand-ag-s13-w1-match-then-send-state-method -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s13-w1-match-then-send-state-method` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -23349,7 +23066,6 @@ function eatSh(p Sh)
 end 'eatSh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn K.create(0)
 	try k.eat(Sh.held(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -23366,7 +23082,6 @@ end 'main'
 
 <!-- test: model-hand-ag-s14-w2-refill-from-arm-fn -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s14-w2-refill-from-arm-fn` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -23414,8 +23129,7 @@ function eatSh(p Sh)
 	end 'x1'
 end 'eatSh'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function again(q isolated Rl) returns Sh
+function again(consumes q Rl) returns Sh
 	return Sh.held(q)
 end 'again'
 
@@ -23435,8 +23149,6 @@ end 'main'
 
 <!-- test: model-hand-ag-h8-handback-vacant-literal -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h8-handback-vacant-literal` of redteamAG.hand_ag18, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -23550,8 +23262,7 @@ type Cap1
 	end 'poke'
 end 'Cap1'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -23563,8 +23274,7 @@ function eatSh(pV Sh)
 end 'eatSh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let k = spawn (capacity: 1) Cap1.create(0)
+	let k = spawn(capacity: 1) Cap1.create(0)
 	try k.poke() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -23588,8 +23298,6 @@ end 'main'
 
 <!-- test: model-hand-ag-h9-handback-overwrite-vacant -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `h9-handback-overwrite-vacant` of redteamAG.hand_ag18, in capmodel `reggio/REPORTRTAG.txt`.
@@ -23705,8 +23413,7 @@ type Cap1
 	end 'poke'
 end 'Cap1'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -23718,8 +23425,7 @@ function eatSh(pV Sh)
 end 'eatSh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let k = spawn (capacity: 1) Cap1.create(0)
+	let k = spawn(capacity: 1) Cap1.create(0)
 	try k.poke() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -23868,9 +23574,7 @@ error E3102: <fragment>:52:8: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-hand-ag-beh-mp-state-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `beh-mp-state-plain` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -23934,8 +23638,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Bx, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Bx, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -23960,7 +23663,6 @@ function eatMp(pV Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -23977,9 +23679,7 @@ end 'main'
 
 <!-- test: model-hand-ag-beh-mp-state-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `beh-mp-state-write` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24043,8 +23743,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Bx, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Bx, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -24069,7 +23768,6 @@ function eatMp(pV Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -24086,9 +23784,7 @@ end 'main'
 
 <!-- test: model-hand-ag-beh-mp-state-method -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `beh-mp-state-method` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24152,8 +23848,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Bx, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Bx, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -24178,7 +23873,6 @@ function eatMp(pV Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -24195,9 +23889,7 @@ end 'main'
 
 <!-- test: model-hand-ag-beh-mp-state-item -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `beh-mp-state-item` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -24262,8 +23954,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Bx, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Bx, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -24288,7 +23979,6 @@ function eatMp(pV Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -24305,9 +23995,7 @@ error E3200: <fragment>:73:27: 'y' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-ag-beh-mp-state-none -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `beh-mp-state-none` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24371,8 +24059,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Bx, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Bx, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -24397,7 +24084,6 @@ function eatMp(pV Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -24414,9 +24100,7 @@ end 'main'
 
 <!-- test: model-hand-ag-beh-mr-state-hq -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `beh-mr-state-hq` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24480,8 +24164,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Bx, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Bx, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -24502,7 +24185,6 @@ function eatMr(pV Mr)
 end 'eatMr'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -24519,9 +24201,7 @@ end 'main'
 
 <!-- test: model-hand-ag-beh-mr-state-hq-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `beh-mr-state-hq-part` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24585,8 +24265,7 @@ type Bm
 	var plain as Bx
 	var hq as Hq
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, item isolated Bx, plain isolated Bx, hq isolated Hq) returns Self
+	static function create(n Num, consumes item Bx, consumes plain Bx, consumes hq Hq) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, item: item, plain: merge plain, hq: merge hq}
 	end 'create'
@@ -24607,7 +24286,6 @@ function eatMr(pV Mr)
 end 'eatMr'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -24896,7 +24574,6 @@ error E3223: <fragment>:60:2: this drops a linear value that was never consumed:
 
 <!-- test: model-hand-ag-v9-isolated-plain-case -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `v9-isolated-plain-case` of redteamAG.hand_ag4, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24946,8 +24623,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -26166,7 +25842,6 @@ end 'main'
 
 <!-- test: model-hand-ag-l5-wrap-no-window -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `l5-wrap-no-window` of redteamAG.hand_ag8, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -26223,8 +25898,7 @@ function useS(s Sn)
 	end 'x1'
 end 'useS'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -26244,7 +25918,6 @@ end 'main'
 
 <!-- test: model-hand-ah-i1-handback-in-loop -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i1-handback-in-loop` of redteamAH.hand_ah2, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -26312,7 +25985,6 @@ function eatSh(p Sh)
 end 'eatSh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Kb.create(0)
 	var i = 1 as Num
 	var j = 1 as Num
@@ -26335,7 +26007,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-m-call-keep -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-call-keep` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26389,14 +26060,12 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(w Wo, u isolated Mp)
+function f(w Wo, consumes u Mp)
 	match u 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then w.keep = y
@@ -26415,7 +26084,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-w-call-arg-match -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `w-call-arg-match` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
@@ -26470,8 +26138,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -26630,7 +26297,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-call-keeping-fresh-wo -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-call-keeping-fresh-wo` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26684,8 +26350,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -26845,7 +26510,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-field-write-before -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-field-write-before` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26899,8 +26563,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -26922,7 +26585,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-field-replace-before -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i3-field-replace-before` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
@@ -26977,8 +26639,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -27000,7 +26661,6 @@ error E3200: <fragment>:59:10: 'Mq.m1(w) as isolated Mq' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-i4-take-in-both-arms -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i4-take-in-both-arms` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -27031,7 +26691,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -27048,16 +26708,14 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(u isolated Mp)
+function f(consumes u Mp)
 	match u 'x1'
 		m0(x) then x.fin(1)
-		m1(y) then takeBx(y)
+		m1(y) then takeBx(y.clone())
 	end 'x1'
 end 'f'
 
@@ -27140,7 +26798,6 @@ error E3200: <fragment>:52:10: 'Ma.m1(a) as isolated Ma' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-b-record-field-store -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-record-field-store` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
@@ -27195,8 +26852,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -27516,9 +27172,7 @@ error E3200: <fragment>:59:10: 'Mr.m1(b) as isolated Mr' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-hb-handle-read-after-try -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-handle-read-after-try` of redteamAH.hand_ah9, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -27571,8 +27225,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -27584,13 +27237,11 @@ type Sk
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Bx)
+	export function take(consumes b Bx)
 		_ = b.n
 	end 'take'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeW(w isolated Wo)
+	export function takeW(consumes w Wo)
 		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
@@ -27627,9 +27278,7 @@ function eatMp(p Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let bm = spawn Bm.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sk.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let u = Mp.m1(Bx.create(1)) as isolated Mp
@@ -27648,9 +27297,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-hb-handle-not-read -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-handle-not-read` of redteamAH.hand_ah9, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -27703,8 +27350,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -27716,13 +27362,11 @@ type Sk
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Bx)
+	export function take(consumes b Bx)
 		_ = b.n
 	end 'take'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeW(w isolated Wo)
+	export function takeW(consumes w Wo)
 		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
@@ -27759,9 +27403,7 @@ function eatMp(p Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let bm = spawn Bm.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sk.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let u = Mp.m1(Bx.create(1)) as isolated Mp
@@ -27850,7 +27492,7 @@ error E3200: <fragment>:48:10: 'm as isolated Mp' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-ai-a6-take-mp-iso-param-aliased -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a6-take-mp-iso-param-aliased` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27899,8 +27541,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -27967,7 +27608,7 @@ error E3200: <fragment>:27:10: 'r as isolated RpL' is not isolated: only a clean
 ```
 
 <!-- test: model-hand-ai-a11-take-rp-iso-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a11-take-rp-iso-param` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27995,8 +27636,7 @@ type RpL
 	end 'fin'
 end 'RpL'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeRpI(r isolated RpL)
+function takeRpI(consumes r RpL)
 	r.fin(1)
 end 'takeRpI'
 
@@ -28013,7 +27653,6 @@ error E3200: <fragment>:33:10: 'r' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ai-a18-consuming-self-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a18-consuming-self-send` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -28043,7 +27682,6 @@ type Rs
 			end 'x2'
 		end 'h1'
 	end 'go'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Rs'
@@ -28061,7 +27699,6 @@ type Sm2
 end 'Sm2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm2.create(0)
 	let bV = Bx.create(1)
 	let r = Rs.create(bV)
@@ -28116,8 +27753,6 @@ error E3200: <fragment>:20:11: 'self as isolated Rs' is not isolated: only a cle
 ```
 
 <!-- test: model-hand-ai-h1-send-from-owned-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-send-from-owned-param` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -28173,8 +27808,7 @@ type Sm
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(m isolated Mp)
+	export function takeI(consumes m Mp)
 		match m 'x1'
 			m0(x) then x.fin(1)
 			m1(y) then y.n = 2
@@ -28199,7 +27833,6 @@ function sendIso(m Mp, k Sm.handle)
 end 'sendIso'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm.create(0)
 	let b = Bx.create(1)
 	let m = Mp.m1(b)
@@ -28213,7 +27846,7 @@ error E3200: <fragment>:70:14: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ai-h1-relay-to-isolated-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-relay-to-isolated-param` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -28262,8 +27895,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -28288,7 +27920,6 @@ error E3200: <fragment>:55:10: 'm' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-ai-h1-record-isolated-result -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-record-isolated-result` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -28315,16 +27946,14 @@ type RpL
 		_ = c
 	end 'fin'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function iso(consumes self) returns isolated RpL
+	function iso(consumes self) returns RpL
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let u = self as isolated RpL
 		return u
 	end 'iso'
 end 'RpL'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function isoR(r RpL) returns isolated RpL
+function isoR(r RpL) returns RpL
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let u = r as isolated RpL
 	return u
@@ -28346,7 +27975,6 @@ error E3200: <fragment>:32:10: 'r as isolated RpL' is not isolated: only a clean
 
 <!-- test: model-hand-ai-h1-consuming-self-result -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-consuming-self-result` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -28373,8 +28001,7 @@ type RpL
 		_ = c
 	end 'fin'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function iso(consumes self) returns isolated RpL
+	function iso(consumes self) returns RpL
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let u = self as isolated RpL
 		return u
@@ -28395,10 +28022,7 @@ error E3200: <fragment>:26:11: 'self as isolated RpL' is not isolated: only a cl
 ```
 
 <!-- test: model-hand-ai-h1-union-isolated-result -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-union-isolated-result` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -28454,8 +28078,7 @@ type Sm
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(m isolated Mp)
+	export function takeI(consumes m Mp)
 		match m 'x1'
 			m0(x) then x.fin(1)
 			m1(y) then y.n = 2
@@ -28470,15 +28093,13 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function isoGo(m Mp) returns isolated Mp
+function isoGo(m Mp) returns Mp
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let u = m as isolated Mp
 	return u
 end 'isoGo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm.create(0)
 	let b = Bx.create(1)
 	let m = Mp.m1(b)
@@ -28498,8 +28119,6 @@ error E3200: <fragment>:70:10: 'm as isolated Mp' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-ai-h1-control-fresh -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-control-fresh` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -28555,8 +28174,7 @@ type Sm
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(m isolated Mp)
+	export function takeI(consumes m Mp)
 		match m 'x1'
 			m0(x) then x.fin(1)
 			m1(y) then y.n = 2
@@ -28581,7 +28199,6 @@ function sendIso(m Mp, k Sm.handle)
 end 'sendIso'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm.create(0)
 	let m = Mp.m1(Bx.create(1))
 	sendIso(m, k: k)
@@ -28593,7 +28210,7 @@ error E3200: <fragment>:70:14: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-rn-let -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `rn-let` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28649,8 +28266,7 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	eatMp(m)
 end 'takeMpI'
 
@@ -28672,7 +28288,7 @@ error E3200: <fragment>:60:10: 'u' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-rn-assign -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `rn-assign` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28728,8 +28344,7 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	eatMp(m)
 end 'takeMpI'
 
@@ -28906,7 +28521,7 @@ error E3200: <fragment>:56:10: 'u' is not an isolated value; `merge` moves an is
 ```
 
 <!-- test: model-hand-aj-rn-cond -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3200. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `rn-cond` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28966,8 +28581,7 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	eatMp(m)
 end 'takeMpI'
 
@@ -28989,8 +28603,7 @@ error E3200: <fragment>:63:10: '(m if lg(1) != 0 else m2)' is not isolated: only
 ```
 
 <!-- test: model-hand-aj-ret-direct -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `ret-direct` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29046,13 +28659,11 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	eatMp(m)
 end 'takeMpI'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function g(m Mp) returns isolated Mp
+function g(m Mp) returns Mp
 	return m
 end 'g'
 
@@ -29074,8 +28685,7 @@ error E3200: <fragment>:59:9: 'm' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-aj-ret-rename -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `ret-rename` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29131,13 +28741,11 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	eatMp(m)
 end 'takeMpI'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function g(m Mp) returns isolated Mp
+function g(m Mp) returns Mp
 	let u = m
 	return u
 end 'g'
@@ -29160,7 +28768,7 @@ error E3200: <fragment>:60:9: 'u' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-aj-recv-direct -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `recv-direct` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29187,8 +28795,7 @@ type RpM
 		_ = c
 	end 'fin'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function iso(consumes self) returns isolated RpM
+	function iso(consumes self) returns RpM
 		return self
 	end 'iso'
 end 'RpM'
@@ -29207,8 +28814,7 @@ error E3200: <fragment>:26:10: 'self' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: model-hand-aj-spawn-iso -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `spawn-iso` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29260,8 +28866,7 @@ end 'Bx'
 type Sq
 	var n as Num
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(m isolated Mp) returns Self
+	static function create(consumes m Mp) returns Self
 		eatMp(m)
 		return Self{n: 1}
 	end 'create'
@@ -29279,7 +28884,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function f(m Mp)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn Sq.create(m)
 end 'f'
 
@@ -29296,7 +28900,7 @@ error E3200: <fragment>:68:26: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-spawn-plain -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `spawn-plain` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29366,7 +28970,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function f(m Mp)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn Sq2.create(m)
 end 'f'
 
@@ -29383,8 +28986,7 @@ error E3200: <fragment>:68:27: 'm' crosses to the service the `spawn` starts onl
 ```
 
 <!-- test: model-hand-aj-spawn-rename -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `spawn-rename` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29436,8 +29038,7 @@ end 'Bx'
 type Sq
 	var n as Num
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(m isolated Mp) returns Self
+	static function create(consumes m Mp) returns Self
 		eatMp(m)
 		return Self{n: 1}
 	end 'create'
@@ -29456,7 +29057,6 @@ end 'eatMp'
 
 function f(m Mp)
 	let u = m
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn Sq.create(u)
 end 'f'
 
@@ -29473,8 +29073,6 @@ error E3200: <fragment>:69:26: 'u' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-send-rename -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `send-rename` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29530,8 +29128,7 @@ type Sm
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(m isolated Mp)
+	export function takeI(consumes m Mp)
 		eatMp(m)
 	end 'takeI'
 
@@ -29548,7 +29145,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function f(m Mp)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm.create(0)
 	let u = m
 	try k.takeI(u) otherwise (sendFailure) 'h1'
@@ -29572,8 +29168,6 @@ error E3200: <fragment>:73:14: 'u' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-send-plain-rename -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `send-plain-rename` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29629,8 +29223,7 @@ type Sm
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(m isolated Mp)
+	export function takeI(consumes m Mp)
 		eatMp(m)
 	end 'takeI'
 
@@ -29647,7 +29240,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function f(m Mp)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm.create(0)
 	let u = m
 	try k.take(u) otherwise (sendFailure) 'h1'
@@ -29671,8 +29263,6 @@ error E3200: <fragment>:73:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-aj-handback-iso -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `handback-iso` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
 ```maxon
@@ -29727,8 +29317,7 @@ type Sm
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(m isolated Mp)
+	export function takeI(consumes m Mp)
 		eatMp(m)
 	end 'takeI'
 
@@ -29744,13 +29333,11 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	eatMp(m)
 end 'takeMpI'
 
 function f(m Mp)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm.create(0)
 	try k.take(Mp.m0(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -29861,7 +29448,6 @@ error E3200: <fragment>:64:10: 'm as isolated La2' is not isolated: only a clean
 ```
 
 <!-- test: model-hand-aj-iso-field-own -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `iso-field-own` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29881,8 +29467,7 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
@@ -29892,8 +29477,7 @@ type RiL
 	var w as isolated Wo
 	var code as Num
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(w isolated Wo, code Num) returns Self
+	static function create(consumes w Wo, code Num) returns Self
 		return Self{w: w, code: code}
 	end 'create'
 
@@ -29919,9 +29503,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-aj-svc-leaf -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `svc-leaf` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
 ```maxon
@@ -29981,8 +29563,7 @@ type Sm
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(m isolated Mp)
+	export function takeI(consumes m Mp)
 		eatMp(m)
 	end 'takeI'
 
@@ -30012,7 +29593,6 @@ function f(m Ls)
 end 'f'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let m = Ls.s1(spawn Sm.create(0))
 	f(m)
 	return 0
@@ -30236,8 +29816,6 @@ error E3224: <fragment>:56:2: this linear value is only lent to this code (a par
 
 <!-- test: model-hand-an-h1-shadow -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h1-shadow` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
 ```maxon
@@ -30268,8 +29846,7 @@ type Sr
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -30278,14 +29855,12 @@ type Sr
 		r.fin(1)
 	end 'take'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(r isolated RpL)
+	export function takeI(consumes r RpL)
 		r.fin(1)
 	end 'takeI'
 end 'Sr'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sr.create(0, keep: Bx.create(0))
 	let q = Bx.create(3)
 	try k.take(RpL.create(Bx.create(1), code: 1)) otherwise (sendFailure) 'h1'
@@ -30303,7 +29878,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-g1-lin-with-closed-record-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `g1-lin-with-closed-record-field` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
 ```maxon
@@ -30323,7 +29897,6 @@ type Rf
 	static function create(t Tk) returns Self
 		return Self{t: t}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -30348,7 +29921,6 @@ function main() returns ExitCode
 	let r = Rf.create(Tk.create(1))
 	_ = r.peek()
 	_ = r.peek()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn SRf.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -30364,7 +29936,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-g1-lin-with-plain-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `g1-lin-with-plain-field` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -30385,7 +29956,6 @@ type Rg
 	static function create(b Bx) returns Self
 		return Self{b: b}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -30410,7 +29980,6 @@ function main() returns ExitCode
 	let bV = Bx.create(1)
 	let r = Rg.create(bV)
 	_ = r.peek()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn SRg.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -30427,7 +29996,6 @@ error E3200: <fragment>:45:13: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-ap-g1-lin-closed-then-alias -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `g1-lin-closed-then-alias` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -30448,7 +30016,6 @@ type Rf
 	static function create(t Tk) returns Self
 		return Self{t: t}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -30476,7 +30043,6 @@ end 'SRf'
 function main() returns ExitCode
 	let r = Rf.create(Tk.create(1))
 	let a = r.tk()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn SRf.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -30897,7 +30463,6 @@ error E3223: <fragment>:47:2: this drops 'r', a linear value that was never cons
 
 <!-- test: model-hand-fa14-v-fill-nonvacant -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3196. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `v-fill-nonvacant` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -30946,8 +30511,7 @@ function eatSh(p Sh)
 	end 'x1'
 end 'eatSh'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(z isolated Sh)
+function f(consumes z Sh)
 	var v = Sh.held(Rl.create(2))
 	v = z
 	eatSh(v)
@@ -30964,7 +30528,6 @@ error E3196: <fragment>:48:6: cannot store an isolated 'Sh' into 'v', which hold
 
 <!-- test: model-hand-fa14-v-fill-vacant-one-path -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3196. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `v-fill-vacant-one-path` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31017,8 +30580,7 @@ function eatSh(p Sh)
 	end 'x1'
 end 'eatSh'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(z isolated Sh)
+function f(consumes z Sh)
 	var v = Sh.none
 	if lg(1) != 0 'i1'
 		v = Sh.held(Rl.create(2))
@@ -31038,7 +30600,6 @@ error E3196: <fragment>:55:6: cannot store an isolated 'Sh' into 'v', which hold
 
 <!-- test: model-hand-fa14-v-fill-then-assign-again -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `v-fill-then-assign-again` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31087,8 +30648,7 @@ function eatSh(p Sh)
 	end 'x1'
 end 'eatSh'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(z isolated Sh)
+function f(consumes z Sh)
 	var v = Sh.none
 	v = z
 	v = Sh.none
@@ -31105,7 +30665,6 @@ error E3223: <fragment>:49:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-fa14-l-fn-param-send-twice -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l-fn-param-send-twice` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31180,8 +30739,7 @@ function sendIt(r Rl, a Zr.handle)
 end 'sendIt'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Zr.create(0)
+	let a = spawn(capacity: 1) Zr.create(0)
 	sendIt(Rl.create(0), a: a)
 	return 0
 end 'main'
@@ -31191,7 +30749,6 @@ error E3102: <fragment>:64:13: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa14-l-borrowed-self-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `l-borrowed-self-send` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31213,7 +30770,6 @@ type Fz
 			end 'x2'
 		end 'h1'
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -31231,8 +30787,7 @@ type Zr2
 end 'Zr2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Zr2.create(0)
+	let a = spawn(capacity: 1) Zr2.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	t.g()
@@ -31244,7 +30799,6 @@ error E3214: <fragment>:12:14: cannot hand 'self' to argument `t` of the message
 ```
 
 <!-- test: model-hand-fa14-l-self-then-self -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l-self-then-self` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31267,7 +30821,6 @@ type Fz
 		end 'h1'
 		self.g()
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -31285,8 +30838,7 @@ type Zr2
 end 'Zr2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Zr2.create(0)
+	let a = spawn(capacity: 1) Zr2.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -31297,7 +30849,7 @@ error E3102: <fragment>:18:3: use of moved value 'self': its ownership moved to 
 ```
 
 <!-- test: model-hand-fa14-l-self-no-handback -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3223. Model program `l-self-no-handback` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
@@ -31315,7 +30867,6 @@ type Fz
 	function f(consumes self, a Zr2.handle)
 		try a.take(self) otherwise ignore
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -31333,8 +30884,7 @@ type Zr2
 end 'Zr2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Zr2.create(0)
+	let a = spawn(capacity: 1) Zr2.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -31395,7 +30945,6 @@ error E3223: <fragment>:34:10: this drops 'r', a linear value that was never con
 ```
 
 <!-- test: model-hand-fa14-own-consuming-self-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `own-consuming-self-send` of redteamFA14.hand_fa14c, in capmodel `reggio/REPORTFA14.txt`.
 
 ```maxon
@@ -31421,7 +30970,6 @@ type Fz
 			end 'x2'
 		end 'h1'
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 
@@ -31447,8 +30995,7 @@ type Zr2
 end 'Zr2'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Zr2.create(0)
+	let a = spawn(capacity: 1) Zr2.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -31459,7 +31006,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa14-own-consuming-self-send-in-loop -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `own-consuming-self-send-in-loop` of redteamFA14.hand_fa14c, in capmodel `reggio/REPORTFA14.txt`.
 
 ```maxon
@@ -31485,7 +31031,6 @@ type Fz
 			end 'x2'
 		end 'h1'
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 
@@ -31515,8 +31060,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 2) Zr2.create(0)
+	let a = spawn(capacity: 2) Zr2.create(0)
 	var i = 2 as Num
 	var t = Fz.create(0)
 	while i != 0 'w1'
@@ -31721,7 +31265,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa14-own-fn-param-sent-in-loop -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `own-fn-param-sent-in-loop` of redteamFA14.hand_fa14c, in capmodel `reggio/REPORTFA14.txt`.
 
 ```maxon
@@ -31782,8 +31325,7 @@ function sendIt(r Rl, a Zr.handle)
 end 'sendIt'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 2) Zr.create(0)
+	let a = spawn(capacity: 2) Zr.create(0)
 	var i = 2 as Num
 	while i != 0 'w1'
 		sendIt(Rl.create(i), a: a)
@@ -31797,7 +31339,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa14-a-vf-fill-then-copy -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-vf-fill-then-copy` of redteamFA14.hand_fa14d, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31840,8 +31382,7 @@ function later2(s Sn)
 	end 'x1'
 end 'later2'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(z isolated Sn)
+function f(consumes z Sn)
 	var v = Sn.ok
 	v = z
 	later2(v)
@@ -31858,7 +31399,6 @@ error E3102: <fragment>:45:9: use of moved value 'v': its ownership moved to ano
 ```
 
 <!-- test: model-hand-fa14-a-lp-sent-then-peeked -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-lp-sent-then-peeked` of redteamFA14.hand_fa14d, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31917,8 +31457,7 @@ function g(r Rl, a Zr.handle)
 end 'g'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Zr.create(0)
+	let a = spawn(capacity: 1) Zr.create(0)
 	g(Rl.create(0), a: a)
 	return 0
 end 'main'
@@ -31928,7 +31467,6 @@ error E3102: <fragment>:53:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa14-a-lp-union-param-sent-twice -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-lp-union-param-sent-twice` of redteamFA14.hand_fa14d, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -32006,8 +31544,7 @@ function g(s Sn, k Zs.handle)
 end 'g'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let k = spawn (capacity: 2) Zs.create(0)
+	let k = spawn(capacity: 2) Zs.create(0)
 	g(Sn.notSent(Rl.create(1)), k: k)
 	return 0
 end 'main'
@@ -32017,7 +31554,6 @@ error E3102: <fragment>:67:14: use of moved value 's': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa14-a-lp-param-then-isolated-decl-then-use -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-lp-param-then-isolated-decl-then-use` of redteamFA14.hand_fa14d, in capmodel `reggio/REPORTFA14.txt`.
@@ -32054,8 +31590,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -32076,7 +31611,6 @@ error E3102: <fragment>:40:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa14-a-lp-param-assigned-then-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `a-lp-param-assigned-then-sent` of redteamFA14.hand_fa14d, in capmodel `reggio/REPORTFA14.txt`.
@@ -32137,8 +31671,7 @@ function g(r Rl, a Zr.handle)
 end 'g'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let a = spawn (capacity: 1) Zr.create(0)
+	let a = spawn(capacity: 1) Zr.create(0)
 	g(Rl.create(0), a: a)
 	return 0
 end 'main'
@@ -32149,8 +31682,6 @@ error E3223: <fragment>:48:2: this drops a linear value that was never consumed:
 
 <!-- test: model-hand-fa16-msg-send-built-from-local -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `msg-send-built-from-local` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32203,8 +31734,7 @@ type Sm2
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -32225,7 +31755,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	let b = Bx.create(1)
 	try k.take(Mp.m1(b)) otherwise (sendFailure) 'h1'
@@ -32244,8 +31773,6 @@ error E3200: <fragment>:73:13: 'Mp.m1(b)' crosses to the service it is sent to o
 
 <!-- test: model-hand-fa16-msg-send-local-union -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `msg-send-local-union` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32298,8 +31825,7 @@ type Sm2
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -32320,7 +31846,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	let b = Bx.create(1)
 	let m = Mp.m1(b)
@@ -32339,8 +31864,6 @@ error E3200: <fragment>:74:13: 'm' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa16-msg-send-isolated-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `msg-send-isolated-param` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32396,8 +31919,7 @@ type Sm
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(m isolated Mp)
+	export function takeI(consumes m Mp)
 		match m 'x1'
 			m0(x) then x.fin(1)
 			m1(y) then y.n = 2
@@ -32413,7 +31935,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm.create(0)
 	let b = Bx.create(1)
 	try k.takeI(Mp.m1(b)) otherwise (sendFailure) 'h1'
@@ -32432,8 +31953,6 @@ error E3200: <fragment>:72:14: 'Mp.m1(b)' is not isolated: only a clean call, a 
 
 <!-- test: model-hand-fa16-msg-send-fresh -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `msg-send-fresh` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
 ```maxon
@@ -32485,8 +32004,7 @@ type Sm2
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -32507,7 +32025,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -32523,8 +32040,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa16-msg-param-handed-on -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `msg-param-handed-on` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32592,8 +32107,7 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -32601,7 +32115,6 @@ function takeMpI(m isolated Mp)
 end 'takeMpI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -32618,8 +32131,6 @@ error E3200: <fragment>:55:11: 'm' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa16-handback-fresh-isolated -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `handback-fresh-isolated` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
 ```maxon
@@ -32671,8 +32182,7 @@ type Sm2
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -32685,8 +32195,7 @@ type Sm2
 	end 'take'
 end 'Sm2'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -32694,7 +32203,6 @@ function takeMpI(m isolated Mp)
 end 'takeMpI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	let m = Mp.m1(Bx.create(1))
 	try k.take(m) otherwise (sendFailure) 'h1'
@@ -32712,8 +32220,6 @@ end 'main'
 
 <!-- test: model-hand-fa16-handback-relayed-owned-param -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `handback-relayed-owned-param` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32766,8 +32272,7 @@ type Sm2
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -32780,8 +32285,7 @@ type Sm2
 	end 'take'
 end 'Sm2'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -32798,7 +32302,6 @@ function fwd(k Sm2.handle, m Mp)
 end 'fwd'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	let b = Bx.create(1)
 	fwd(k, m: Mp.m1(b))
@@ -32811,7 +32314,7 @@ error E3200: <fragment>:71:13: 'm' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa16-relay-fresh -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `relay-fresh` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32860,8 +32363,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -32883,7 +32385,6 @@ error E3200: <fragment>:55:10: 'm' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa16-record-isolated-result -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `record-isolated-result` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32911,8 +32412,7 @@ type RpL
 	end 'fin'
 end 'RpL'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function isoR(r RpL) returns isolated RpL
+function isoR(r RpL) returns RpL
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let u = r as isolated RpL
 	return u
@@ -32932,7 +32432,6 @@ error E3200: <fragment>:27:10: 'r as isolated RpL' is not isolated: only a clean
 
 <!-- test: model-hand-fa16-consuming-self-result -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `consuming-self-result` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32958,8 +32457,7 @@ type RpS
 		_ = c
 	end 'fin'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function iso(consumes self) returns isolated RpS
+	function iso(consumes self) returns RpS
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let u = self as isolated RpS
 		return u
@@ -33198,7 +32696,6 @@ end 'main'
 
 <!-- test: model-hand-fa16-closed-relay -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `closed-relay` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
 ```maxon
@@ -33247,8 +32744,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -33259,8 +32755,7 @@ function eatMx2(m Mx)
 	end 'x1'
 end 'eatMx2'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMxI(m isolated Mx)
+function takeMxI(consumes m Mx)
 	eatMx2(m)
 end 'takeMxI'
 
@@ -33278,9 +32773,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa16-closed-record-self -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `closed-record-self` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
 ```maxon
@@ -33299,8 +32792,7 @@ type RpC
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(code Num, item isolated Bx) returns Self
+	static function create(code Num, consumes item Bx) returns Self
 		return Self{code: code, item: item}
 	end 'create'
 
@@ -33308,8 +32800,7 @@ type RpC
 		_ = c
 	end 'fin'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function iso(consumes self) returns isolated RpC
+	function iso(consumes self) returns RpC
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let u = self as isolated RpC
 		return u
@@ -33431,7 +32922,7 @@ error E3224: <fragment>:35:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-fa17-m-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3214, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m-send` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -33488,7 +32979,6 @@ function f(mutates r Rl, s S.handle)
 end 'f'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0)
 	var r = Rl.create(1)
 	f(r, s: s)
@@ -33770,8 +33260,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p3-msg-to-iso-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-to-iso-param` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -33839,8 +33327,7 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -33848,7 +33335,6 @@ function takeMpI(m isolated Mp)
 end 'takeMpI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -33865,8 +33351,6 @@ error E3200: <fragment>:55:11: 'm' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa23-p3-msg-send-on -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-send-on` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -33919,8 +33403,7 @@ type Sm2
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -33960,9 +33443,7 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sm2.create(0, keep: Bx.create(0))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let kV = spawn Sm3.create(0, k: s.clone())
 	try kV.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -33979,7 +33460,6 @@ error E3200: <fragment>:73:14: 'm' crosses to the service it is sent to only as 
 
 <!-- test: model-hand-fa23-p3-msg-iso-local -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-iso-local` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -34050,7 +33530,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34066,8 +33545,6 @@ error E3200: <fragment>:55:11: 'm as isolated Mp' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-fa23-p3-msg-rename -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-rename` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -34136,8 +33613,7 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -34145,7 +33621,6 @@ function takeMpI(m isolated Mp)
 end 'takeMpI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34162,7 +33637,6 @@ error E3200: <fragment>:56:11: 'q' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa23-p3-msg-merge -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-merge` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -34233,7 +33707,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34249,8 +33722,6 @@ error E3200: <fragment>:55:11: 'm' is not an isolated value; `merge` moves an is
 ```
 
 <!-- test: model-hand-fa23-p3-msg-payload-iso -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-payload-iso` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -34314,8 +33785,7 @@ type Sm3
 	end 'take'
 end 'Sm3'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -34327,7 +33797,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34343,8 +33812,6 @@ error E3200: <fragment>:57:21: 'y' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa23-p3-msg-record -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-record` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -34384,13 +33851,11 @@ type Sr2
 	end 'take'
 end 'Sr2'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeRI(r isolated RpL)
+function takeRI(consumes r RpL)
 	r.fin(1)
 end 'takeRI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sr2.create(0)
 	try k.take(RpL.create(Bx.create(1), code: 1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34406,8 +33871,7 @@ error E3200: <fragment>:34:10: 'r' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa23-p3-factory -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-factory` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -34469,8 +33933,7 @@ type Sf3
 	end 'p'
 end 'Sf3'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -34478,7 +33941,6 @@ function takeMpI(m isolated Mp)
 end 'takeMpI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn Sf3.create(Mp.m1(Bx.create(1)))
 	return 0
 end 'main'
@@ -34488,7 +33950,6 @@ error E3200: <fragment>:51:11: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa23-p3-ok-local-use -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p3-ok-local-use` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -34556,7 +34017,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34573,8 +34033,6 @@ end 'main'
 
 <!-- test: model-hand-fa23-p3-ok-stored-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p3-ok-stored-plain` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -34626,8 +34084,7 @@ type Sm2
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -34648,7 +34105,6 @@ function eatMp(m Mp)
 end 'eatMp'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34664,8 +34120,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p3-ok-marked -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p3-ok-marked` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -34720,8 +34174,7 @@ type Sm3
 		return Self{n: n}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(m isolated Mp)
+	export function take(consumes m Mp)
 		takeMpI(m)
 	end 'take'
 end 'Sm3'
@@ -34733,8 +34186,7 @@ function eatMp(m Mp)
 	end 'x1'
 end 'eatMp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -34742,7 +34194,6 @@ function takeMpI(m isolated Mp)
 end 'takeMpI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34759,9 +34210,7 @@ end 'main'
 
 <!-- test: model-hand-fa23-p3-ok-closed -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p3-ok-closed` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -34824,8 +34273,7 @@ type Sm3
 	end 'take'
 end 'Sm3'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -34837,7 +34285,6 @@ function eatMx(p Mx)
 end 'eatMx'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm3.create(0)
 	try k.take(Mx.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34854,8 +34301,6 @@ end 'main'
 
 <!-- test: model-hand-fa23-p4-hb-to-iso -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p4-hb-to-iso` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -34907,8 +34352,7 @@ type Sm2
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -34921,8 +34365,7 @@ type Sm2
 	end 'take'
 end 'Sm2'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeMpI(m isolated Mp)
+function takeMpI(consumes m Mp)
 	match m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then y.n = 2
@@ -34930,7 +34373,6 @@ function takeMpI(m isolated Mp)
 end 'takeMpI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -34947,8 +34389,6 @@ end 'main'
 
 <!-- test: model-hand-fa23-p4-hb-rec-to-iso -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p4-hb-rec-to-iso` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -34979,8 +34419,7 @@ type Sr
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -34989,19 +34428,16 @@ type Sr
 		r.fin(1)
 	end 'take'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(r isolated RpL)
+	export function takeI(consumes r RpL)
 		r.fin(1)
 	end 'takeI'
 end 'Sr'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeRI(r isolated RpL)
+function takeRI(consumes r RpL)
 	r.fin(1)
 end 'takeRI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sr.create(0, keep: Bx.create(0))
 	try k.take(RpL.create(Bx.create(1), code: 1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -35018,8 +34454,6 @@ end 'main'
 
 <!-- test: model-hand-fa23-p4-hb-fin -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p4-hb-fin` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -35050,8 +34484,7 @@ type Sr
 	var n as Num
 	var keep as Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(n Num, keep isolated Bx) returns Self
+	static function create(n Num, consumes keep Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{n: n, keep: merge keep}
 	end 'create'
@@ -35060,14 +34493,12 @@ type Sr
 		r.fin(1)
 	end 'take'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeI(r isolated RpL)
+	export function takeI(consumes r RpL)
 		r.fin(1)
 	end 'takeI'
 end 'Sr'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Sr.create(0, keep: Bx.create(0))
 	try k.take(RpL.create(Bx.create(1), code: 1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -35083,8 +34514,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p4-hb-closed -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p4-hb-closed` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -35135,13 +34564,11 @@ type Kx
 	end 'plainOk'
 end 'Kx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kx.create(0)
 	try k.take(Rl.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -35157,7 +34584,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-r0-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-r0-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -35210,7 +34636,6 @@ end 'S'
 
 function main() returns ExitCode
 	let r = Rl.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0)
 	try s.go(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -35226,7 +34651,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-r0-isoparam -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-r0-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -35252,7 +34676,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -35261,8 +34685,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -35277,7 +34700,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-r0-isodecl -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-r0-isodecl` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -35313,8 +34735,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useI(r isolated Rl)
+function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
@@ -35439,7 +34860,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-r1-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-r1-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -35493,7 +34913,6 @@ end 'S'
 function main() returns ExitCode
 	let r = Rl.create(1)
 	_ = r.peek()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0)
 	try s.go(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -35509,7 +34928,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-r2-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-r2-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -35564,7 +34982,6 @@ function main() returns ExitCode
 	let r = Rl.create(1)
 	_ = r.peek()
 	_ = r.peek()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0)
 	try s.go(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -35580,7 +34997,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-rl-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-rl-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -35642,7 +35058,6 @@ function main() returns ExitCode
 		_ = r.peek()
 		k = lg(0)
 	end 'w1'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0)
 	try s.go(r) otherwise (sendFailure) 'h2'
 		match sendFailure 'x3'
@@ -35658,7 +35073,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-c-plain-part-linear -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-linear` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -35705,7 +35119,6 @@ function main() returns ExitCode
 	let r = Rq.create(Bx.create(1))
 	_ = r.peek()
 	_ = r.peek()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sx.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -35721,7 +35134,7 @@ error E3200: <fragment>:46:13: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa25-c-plain-part-linear-isoparam -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-linear-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -35752,8 +35165,7 @@ type Rq
 	end 'peek'
 end 'Rq'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useRq(r isolated Rq)
+function useRq(consumes r Rq)
 	r.fin(1)
 end 'useRq'
 
@@ -36081,7 +35493,6 @@ error E3223: <fragment>:41:36: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-fa25-c-kept-part-linear-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-kept-part-linear-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -36128,7 +35539,6 @@ function main() returns ExitCode
 	let r = Rq.create(Bx.create(1))
 	let kV = r.b
 	_ = r.peek()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn SqL.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
@@ -36145,7 +35555,7 @@ error E3200: <fragment>:46:13: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa25-c-kept-part-linear-isoparam -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-kept-part-linear-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -36176,8 +35586,7 @@ type Rq
 	end 'peek'
 end 'Rq'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function useRq(r isolated Rq)
+function useRq(consumes r Rq)
 	r.fin(1)
 end 'useRq'
 
@@ -36247,7 +35656,6 @@ error E3223: <fragment>:40:24: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-temp-beside-nested-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `a-cond-linear-temp-beside-nested-sent` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
@@ -36306,7 +35714,6 @@ end 'lg'
 
 function main() returns ExitCode
 	let r = Rl.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0)
 	try s.go((Rl.create(3) if lg(1) != 0 else (r if lg(1) != 0 else r))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'

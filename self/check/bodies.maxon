@@ -154,6 +154,10 @@ end 'recordUse'
 
 // recordFieldUses records the calls that the default of a field made, for a record literal that leaves the field to it.
 function recordFieldUses(mutates c Checker, defaultExpr ast.NodeID)
+	if not c.hasUses and c.constName != "" 'constant'
+		// A constant is built where it is read, so the default runs there, as the rest of the constant's literal does.
+		return
+	end 'constant'
 	if not c.hasUses 'outside'
 		panic("a call is checked outside a function or a field default")
 	end 'outside'

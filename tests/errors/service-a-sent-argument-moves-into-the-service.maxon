@@ -1,0 +1,23 @@
+export typealias Amount = int(0 to 1000000)
+
+type Store
+	var last as String
+
+	static function create() returns Self
+		return Self{last: ""}
+	end 'create'
+
+	export function keep(mutates self, consumes line String)
+		self.last = line
+	end 'keep'
+end 'Store'
+
+function main() returns ExitCode
+	let h = spawn Store.create()
+	let line = "one {1}"
+	try h.keep(line) otherwise ignore
+	print("{line}\n")
+	return 0
+end 'main'
+
+// expect-error: E3102 at 19:10

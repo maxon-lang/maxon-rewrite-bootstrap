@@ -18,7 +18,6 @@ caller's own parameter makes the result read-only unless that parameter is mutab
 ## Tests
 
 <!-- test: a-mixed-return-given-frozen-data-is-read-only-where-immutable-is-required -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` returns its parameter on one path and a fresh box on the other, so given frozen data its result may be fresh and writable: it is read-only, and `take` needs it immutable.
 
@@ -40,8 +39,7 @@ function pick(p Box, fresh bool) returns Box
 	return p
 end 'pick'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function take(item immutable Box) returns Tally
+function take(item frozen with Box) returns Tally
 	return item.n
 end 'take'
 
@@ -163,7 +161,6 @@ end 'main'
 ```
 
 <!-- test: a-result-sourced-from-the-callers-own-undecided-parameter-is-read-only -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `viaParam`'s parameter is only read, so it stays undecided, and a result sourced from it is read-only: `take` needs it immutable.
 
@@ -185,8 +182,7 @@ function pick(p Box, fresh bool) returns Box
 	return p
 end 'pick'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function take(item immutable Box) returns Tally
+function take(item frozen with Box) returns Tally
 	return item.n
 end 'take'
 

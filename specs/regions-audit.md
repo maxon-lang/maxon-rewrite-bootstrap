@@ -20,7 +20,6 @@ mutable-only.
 
 <!-- test: freezing-an-enclosing-windows-root-inside-a-nested-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `lines` is open in `'outer'`, so inside `'inner'` it is outside the open block and read-only, and `freeze` needs a writable holder.
@@ -28,8 +27,7 @@ mutable-only.
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(lines isolated LineArray)
+function f(consumes lines LineArray)
 	// TODO: modify blocks are not supported in minimaxon
 	modify lines 'outer'
 		// TODO: region capability 'isolated' is not supported in minimaxon
@@ -51,7 +49,6 @@ error E3200: <fragment>:8:15: 'lines' is used as mutable; freeze a copy: `freeze
 
 <!-- test: writing-an-enclosing-windows-root-inside-a-nested-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `lines` is open in `'outer'`, so a push through it inside `'inner'` writes data outside the open block.
@@ -59,8 +56,7 @@ error E3200: <fragment>:8:15: 'lines' is used as mutable; freeze a copy: `freeze
 ```maxon
 typealias LineArray = Array with String
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(lines isolated LineArray)
+function f(consumes lines LineArray)
 	// TODO: modify blocks are not supported in minimaxon
 	modify lines 'outer'
 		// TODO: region capability 'isolated' is not supported in minimaxon
@@ -129,7 +125,6 @@ error E3207: <fragment>:35:7: 'poke' writes 'h' (line 30: `p.n = 1`); 's' is imm
 <!-- test: a-direct-send-that-waits-without-end-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `h.fill(sendTimeout: ForeverMs)` waits for room in a full mailbox, so it may wait while `batch` is open.
 
@@ -151,8 +146,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
 	// TODO: modify blocks are not supported in minimaxon
@@ -168,7 +162,6 @@ error E3205: <fragment>:22:7: cannot wait inside 'edit'; another coroutine could
 ```
 
 <!-- test: a-mutable-argument-to-an-immutable-type-parameter-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `look` declares `immutable T`, so a record another name may still write cannot be handed to it.
 
@@ -183,8 +176,7 @@ type Row
 	end 'create'
 end 'Row'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function look(_ immutable T) uses T returns Tally
+function look(_ frozen with T) uses T returns Tally
 	return 1
 end 'look'
 
@@ -199,9 +191,7 @@ error E3207: <fragment>:18:15: 'look' takes `immutable` '_'; 'row' is mutable. F
 ```
 
 <!-- test: a-spawn-argument-that-is-mutable-to-an-immutable-factory-parameter-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Sorter.create` declares its parameter `immutable`, so `spawn` refuses a mutable record, as a call does.
 
@@ -220,8 +210,7 @@ type Sorter
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	var settings as immutable Settings
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(settings immutable Settings) returns Self
+	static function create(settings frozen with Settings) returns Self
 		return Self{settings: settings}
 	end 'create'
 
@@ -232,7 +221,6 @@ end 'Sorter'
 
 function main() returns ExitCode
 	var s = Settings.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sorter.create(s)
 	h.shutdown()
 	return 0
@@ -278,7 +266,6 @@ error E3207: <fragment>:19:18: 'wrap' writes 'r' (line 14: `return function() gi
 <!-- test: a-direct-send-with-a-finite-timeout-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Any nonzero `sendTimeout:` waits on another party for room in the mailbox, so a direct send with a finite one is refused inside the window too.
 
@@ -300,8 +287,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var batch = LineArray.create(0) as isolated LineArray
 	// TODO: modify blocks are not supported in minimaxon
@@ -526,6 +512,7 @@ error E3207: <fragment>:23:22: 'collect' writes 'getPart' (line 16: `parts.push(
 ```
 
 <!-- test: a-by-reference-argument-is-not-a-clean-input-to-freeze -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `pin` takes `part` by reference, so `Wrapper.around(part)` is not built from clean inputs and cannot be frozen.
 
@@ -544,7 +531,7 @@ type Wrapper
 	export var part as Part
 
 	static function around(part Part) returns Self
-		return Self{part: part.clone()}
+		return Self{part: part}
 	end 'around'
 end 'Wrapper'
 

@@ -435,7 +435,6 @@ mm_free ArrayRecord #2
 ```
 
 <!-- test: a-cloned-service-handle-box-carries-its-tag -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ⭐⭐ **THE ONE `__mm_alloc` A Std-TIER BODY ASKS FOR WITH NO TYPE TO NAME, AND THE TAG IS WHAT SAYS THE
 TRACED CALL WAS SPELLED WHOLE.** `handle.clone()` mints a SECOND handle box through
@@ -452,7 +451,6 @@ call is short an argument.**
 <!-- MmTrace -->
 ```maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Counter.create()
 	let b = a.clone()
 	try b.tick() otherwise panic("send tick")
@@ -466,8 +464,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	export function tick()
-		self.n = self.n + 1
+	export function tick(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'tick'
 end 'Counter'
 

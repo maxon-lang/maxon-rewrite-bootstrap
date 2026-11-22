@@ -1184,8 +1184,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function stash(b isolated Box)
+function stash(consumes b Box)
 	var kept = Boxes.create(0)
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	kept.push(merge b)
@@ -1231,8 +1230,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function stash(b isolated Box)
+function stash(consumes b Box)
 	var kept = Boxes.create(0)
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	kept.push(merge b)
@@ -1281,8 +1279,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function stash(b isolated Box)
+function stash(consumes b Box)
 	var kept = Boxes.create(0)
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	kept.push(merge b)

@@ -45,7 +45,6 @@ the case.
 ## Tests
 
 <!-- test: a-handler-may-write-its-own-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE OVER-REFUSAL GUARD THAT MATTERS MOST — the cure the two refusals above prescribe must itself
 compile.** `self.count = self.count + by` is a store to a word owned by ONE green thread: the service's
 own. There is no second writer at any processor count, which is the language guarantee the whole
@@ -63,8 +62,8 @@ type Counter
 		return Self{count: 0}
 	end 'create'
 
-	export function add(by Integer)
-		self.count = self.count + by
+	export function add(mutates self, by Integer)
+		self.count = try self.count + by otherwise panic("out of range")
 	end 'add'
 
 	export function total() returns Integer
@@ -73,13 +72,12 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
 	try h.add(3) otherwise panic("add 3")
 	try h.add(4) otherwise panic("add 4")
 	let n = try await h.total() otherwise 0
 	print("count={n}\n")
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -92,7 +90,6 @@ count=7
 ```
 
 <!-- test: a-handler-may-sort-its-own-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE STANDARD LIBRARY'S LARGEST ALGORITHM RUNS ON A MESSAGE.** `Array.sort` reaches no module storage, so
 sorting a field of `self` is the cure this rule prescribes rather than something it refuses. All four entries
 run — both `Comparable` forms, which pass a comparator closure through the extension's witness slot, and
@@ -125,7 +122,6 @@ type Sorter
 end 'Sorter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sorter.create()
 	var n = 40 as Integer
 	while n > 0 'fill'
@@ -149,7 +145,6 @@ span=41
 ```
 
 <!-- test: a-handler-may-read-an-immutable-global -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE RULE IS ABOUT THE WRITE, AND A `let` HAS NONE.** A module-level `let` is written once before any
 green thread exists and never again, so every M that reads it reads the same word and no interleaving can
 produce a different answer. A rule that refused module-level state as such — rather than the store to it —
@@ -165,16 +160,15 @@ type Scaler
 	end 'create'
 
 	export function scale(by Integer) returns Integer
-		return by * stride
+		return try by * stride otherwise panic("out of range")
 	end 'scale'
 end 'Scaler'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Scaler.create()
 	let n = try await h.scale(6) otherwise 0
 	print("scaled={n}\n")
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -187,7 +181,6 @@ scaled=42
 ```
 
 <!-- test: every-handler-may-co-own-a-module-let -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **A MODULE `let` ARRAY IS READ BY EVERY THREAD, AND NO HANDLER STEPS A COUNT ON IT.** A handler that puts it
 somewhere that outlives a statement keeps a reference to image data and gives it back. Eight handlers doing that at
 once on different OS threads read one array, so the program ends with every round counted and nothing leaked.
@@ -204,24 +197,23 @@ type Churner
 	export function churn(rounds Integer) returns Integer
 		var held = 0 as Count
 		for _ in 0 upto rounds 'eachRound'
-			let kept = HeldNamesArray.create(0)
+			var kept = HeldNamesArray.create(0)
 			kept.push(roster)
-			held = held + kept.count()
+			held = try held + kept.count() otherwise panic("out of range")
 		end 'eachRound'
-		return held as Integer
+		return try held as Integer otherwise panic("out of range")
 	end 'churn'
 end 'Churner'
 
 function main() returns ExitCode
-	let replies = ChurnReplyArray.create(0)
+	var replies = ChurnReplyArray.create(0)
 	for _ in 0 upto ChurnerCount 'eachChurner'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Churner.create()
 		replies.push(try h.churn(RoundsPerChurner) otherwise panic("churn"))
 	end 'eachChurner'
 	var held = 0 as Integer
 	for r in replies 'eachReply'
-		held = held + (await r)
+		held = try held + (await r) otherwise panic("out of range")
 	end 'eachReply'
 	print("held={held} names={roster.count()}\n")
 	return 0
@@ -247,7 +239,6 @@ held=1600000 names=4
 ```
 
 <!-- test: lets-reaching-one-array-are-read-through-one-table -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **ONE ARRAY BEHIND SEVERAL `let`s.** `table` holds `names` twice and `names`'s own slot holds it too, so the
 array is reached through three `let`s, and the handler reads it through each of them.
 ```maxon
@@ -262,15 +253,14 @@ type Reader
 		return Self{asked: 0}
 	end 'create'
 
-	export function read() returns Integer
-		self.asked = self.asked + 1
+	export function read(mutates self) returns Integer
+		self.asked = try self.asked + 1 otherwise panic("out of range")
 		let last = try table.get(1) otherwise names
-		return (last.count() + names.count() + table.count()) as Integer
+		return try (last.count() + names.count() + table.count()) as Integer otherwise panic("out of range")
 	end 'read'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Reader.create()
 	let n = try await h.read() otherwise 0
 	print("n={n}\n")
@@ -291,7 +281,7 @@ n=8
 ```
 
 <!-- test: error.a-global-initializer-may-not-start-a-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 **A GLOBAL INITIALIZER MAY NOT START A SERVICE.** `Box.start` spawns `Reader`, and a spawn is a call: no initializer
 makes one, so a service starts in `main`, or in a function `main` calls.
@@ -315,7 +305,6 @@ type Box
 	export var h as Reader.handle
 
 	static function start() returns Self
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let h = spawn Reader.create()
 		_ = try h.read() otherwise panic("read")
 		return Self{h: h}
@@ -339,7 +328,6 @@ error E3220: <fragment>:27:11: the initializer of 'box' calls 'Box.start': a mod
 ```
 
 <!-- test: a-service-program-may-use-the-stdlibs-trace-capture -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE LIBRARY CODE A MESSAGE RUNS KEEPS ITS STATE IN A SERVICE AND A `SharedValue`.** `TraceCapture` holds
 its state in a service of its own and a `SharedValue`, and this program — which spawns `Counter` and starts
 and stops a capture from `main` — compiles and runs.
@@ -382,7 +370,6 @@ end 'Counter'
 
 function main() returns ExitCode
 	TraceCapture.startCapture()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
 	let n = try await h.add(5) otherwise 0
 	let keys = TraceCapture.stopCapture()
@@ -400,7 +387,6 @@ n=10 keys=0
 ```
 
 <!-- test: a-handler-reads-a-module-let-during-the-exit-drain -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE EXIT DRAIN RUNS HANDLERS, SO EVERY MODULE `let` A HANDLER READS MUST OUTLIVE IT.** `main` sends three
 messages and returns without awaiting any; the drain that runs them comes after `main`, and each handler reads
 module `let`s. The globals are released only once the drain has finished.
@@ -416,15 +402,14 @@ type Printer
 		return Self{printed: 0}
 	end 'create'
 
-	export function show(n Integer)
+	export function show(mutates self, n Integer)
 		let label = try labels.get(0) otherwise "none"
-		self.printed = self.printed + 1
-		print("{n}: {label} ({weight + n})\n")
+		self.printed = try self.printed + 1 otherwise panic("out of range")
+		print("{n}: {label} ({try weight + n otherwise panic("out of range")})\n")
 	end 'show'
 end 'Printer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let printer = spawn Printer.create()
 	try printer.show(1) otherwise panic("show 1")
 	try printer.show(2) otherwise panic("show 2")
@@ -446,7 +431,6 @@ typealias NameArray = Array with String
 ```
 
 <!-- test: a-handler-reads-a-static-let-during-the-exit-drain -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same for a type's `static let`: it is a global too, and the drain's handlers read it after `main` has
 returned.
 ```maxon
@@ -463,14 +447,13 @@ type Printer
 		return Self{printed: 0}
 	end 'create'
 
-	export function show(n Integer)
-		self.printed = self.printed + 1
-		print("{n}: {Label.standard.text} ({Label.standard.weight + n})\n")
+	export function show(mutates self, n Integer)
+		self.printed = try self.printed + 1 otherwise panic("out of range")
+		print("{n}: {Label.standard.text} ({try Label.standard.weight + n otherwise panic("out of range")})\n")
 	end 'show'
 end 'Printer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let printer = spawn Printer.create()
 	try printer.show(1) otherwise panic("show 1")
 	try printer.show(2) otherwise panic("show 2")
@@ -490,7 +473,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-static-let-in-a-program-that-spawns-a-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The `let` twin of the case above: a `static let` is written once before any green thread exists, so a
 message may read it.
 ```maxon
@@ -502,17 +484,16 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	export function add(times Integer) returns Integer
-		self.n = self.n + times * Counter.step
+	export function add(mutates self, times Integer) returns Integer
+		self.n = try self.n + times * Counter.step otherwise panic("out of range")
 		return self.n
 	end 'add'
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
 	let n = try await h.add(7) otherwise 0
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

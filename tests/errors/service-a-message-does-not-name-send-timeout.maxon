@@ -1,0 +1,20 @@
+export typealias Amount = int(0 to 1000000)
+
+type Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function bump(mutates self, sendTimeout Amount)
+		self.n = sendTimeout
+	end 'bump'
+end 'Counter'
+
+function main() returns ExitCode
+	let h = spawn Counter.create()
+	return 0
+end 'main'
+
+// expect-error: E3192 at 16:10

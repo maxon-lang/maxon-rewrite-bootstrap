@@ -1,0 +1,96 @@
+// native-only
+// A service handles one message at a time, even when the monitor preempts a long one: each message holds the service's
+// cown until it ends. Senders on other green threads queue behind each other. A frozen value is shared with a message, and
+// a handle crosses as an argument.
+//> relayed=3
+//> total=24
+//> titles=6
+export typealias Amount = int(0 to 1000000)
+
+export type Page
+	export var title as String
+
+	export static function make(title String) returns Self
+		return Self{title: title.clone()}
+	end 'make'
+end 'Page'
+
+type Tally
+	var n as Amount
+	var titles as Amount
+
+	static function create() returns Self
+		return Self{n: 0, titles: 0}
+	end 'create'
+
+	// slowAdd reads the count, spins past the monitor's 10 ms slice and writes it back: two of it at once would lose one.
+	export function slowAdd(mutates self)
+		let before = self.n
+		let until = try Clock.nowNanos() + 12000000 otherwise 0
+		var spins = 0 as Amount
+		while Clock.nowNanos() < until 'spin'
+			spins = (spins + 1) mod 1000
+		end 'spin'
+		self.n = try before + 1 otherwise 0
+	end 'slowAdd'
+
+	export function read(mutates self, page frozen with Page)
+		if page.title != "" 'titled'
+			self.titles = try self.titles + 1 otherwise 0
+		end 'titled'
+	end 'read'
+
+	export function total() returns Amount
+		return self.n
+	end 'total'
+
+	export function titleCount() returns Amount
+		return self.titles
+	end 'titleCount'
+end 'Tally'
+
+type Relay
+	var sent as Amount
+
+	static function create() returns Self
+		return Self{sent: 0}
+	end 'create'
+
+	export function pass(mutates self, to Tally.handle)
+		try to.slowAdd() otherwise ignore
+		self.sent = try self.sent + 1 otherwise 0
+	end 'pass'
+
+	export function count() returns Amount
+		return self.sent
+	end 'count'
+end 'Relay'
+
+function sendAdds(t Tally.handle, n Amount)
+	for i in 0 upto n 'each'
+		try t.slowAdd() otherwise ignore
+		Scheduler.yield()
+	end 'each'
+end 'sendAdds'
+
+function main() returns ExitCode
+	let t = spawn Tally.create()
+	let a = async sendAdds(t, n: 7)
+	let b = async sendAdds(t, n: 7)
+	sendAdds(t, n: 7)
+	await a
+	await b
+	let page = freeze(Page.make("one"))
+	for i in 0 upto 6 'pages'
+		try t.read(share(page)) otherwise ignore
+	end 'pages'
+	let relay = spawn Relay.create()
+	for i in 0 upto 3 'relays'
+		try relay.pass(t.clone()) otherwise ignore
+	end 'relays'
+	print("relayed={try await relay.count() otherwise 0}\n")
+	sleep(100)
+	print("total={try await t.total() otherwise 0}\n")
+	print("titles={try await t.titleCount() otherwise 0}\n")
+	return 0
+end 'main'

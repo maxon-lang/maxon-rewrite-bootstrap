@@ -3388,7 +3388,6 @@ error E3005: <fragment>:8:2: cannot assign a value of type '(Ys, Item)' to varia
 ```
 
 <!-- test: a-borrowed-trivial-tuple-starts-a-service-as-a-copy -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A tuple none of whose elements owns heap has value semantics, so a borrowed one handed to a service's
 factory is copied in rather than refused: the service's copy and the caller's are two values. Returns 43.
 ```maxon
@@ -3400,17 +3399,16 @@ type Keeper
 	var pair as Pair
 
 	static function create(pair Pair) returns Self
-		return Self{pair: pair}
+		return Self{pair: pair.clone()}
 	end 'create'
 
 	export function total() returns Num
-		return self.pair.0 + self.pair.1
+		return try self.pair.0 + self.pair.1 otherwise panic("out of range")
 	end 'total'
 end 'Keeper'
 
 function launch(p Pair) returns Num
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let k = spawn Keeper.create(p)
+	let k = spawn Keeper.create(p.clone())
 	let t = try await k.total() otherwise panic("the keeper is running")
 	k.shutdown()
 	return t
@@ -3418,7 +3416,7 @@ end 'launch'
 
 function main() returns ExitCode
 	let p = (3 as Num, 40 as Num)
-	return launch(p) + p.0 - 3
+	return try launch(p) + p.0 - 3 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3426,7 +3424,6 @@ end 'main'
 ```
 
 <!-- test: a-trivial-tuple-read-out-of-a-field-is-sent-as-a-copy -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A trivial tuple read out of a field is sent to a service as a copy: the message carries its own value and the
 field keeps the caller's. Returns 43.
 ```maxon
@@ -3438,7 +3435,7 @@ type Spot
 	export var pair as Pair
 
 	static function create(pair Pair) returns Self
-		return Self{pair: pair}
+		return Self{pair: pair.clone()}
 	end 'create'
 end 'Spot'
 
@@ -3449,8 +3446,8 @@ type Tally
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(pair Pair)
-		self.sum = pair.0 + pair.1
+	export function take(mutates self, pair Pair)
+		self.sum = try pair.0 + pair.1 otherwise panic("out of range")
 	end 'take'
 
 	export function total() returns Num
@@ -3460,12 +3457,11 @@ end 'Tally'
 
 function main() returns ExitCode
 	let spot = Spot.create((3 as Num, 40 as Num))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Tally.create()
 	try t.take(spot.pair) otherwise panic("an open mailbox with room takes the send")
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
-	return sum + spot.pair.0 - 3
+	return try sum + spot.pair.0 - 3 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3473,7 +3469,6 @@ end 'main'
 ```
 
 <!-- test: a-tuple-alias-message-parameter-names-its-own-modules-alias-beside-a-sibling-of-the-same-name -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Two sibling directories each declare their own `Num` and `Pair`. `Tally.take`'s message carries the second
 directory's `Pair`, so the tuple sent is the one the message holds. Returns 46.
 ```maxon
@@ -3502,8 +3497,8 @@ type Tally
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(pair Pair)
-		self.sum = pair.0 + pair.1
+	export function take(mutates self, pair Pair)
+		self.sum = try pair.0 + pair.1 otherwise panic("out of range")
 	end 'take'
 
 	export function total() returns Num
@@ -3512,7 +3507,6 @@ type Tally
 end 'Tally'
 
 export function second() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Tally.create()
 	try t.take((3 as Num, 40 as Num)) otherwise panic("an open mailbox with room takes the send")
 	let sum = try await t.total() otherwise panic("the tally is running")
@@ -3522,7 +3516,7 @@ end 'second'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return first() + second()
+	return try first.first() + second.second() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3552,9 +3546,7 @@ end 'main'
 ```
 
 <!-- test: a-message-parameter-of-a-generic-alias-names-its-own-modules-alias-beside-a-sibling-of-the-same-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Two sibling directories each declare their own `Num` and `Nums`. `Tally.take`'s message carries the second
 directory's `Nums`, so the array sent is the one the message holds. Returns 46.
 ```maxon
@@ -3583,8 +3575,7 @@ type Tally
 		return Self{sum: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(items isolated Nums)
+	export function take(consumes items Nums)
 		self.sum = try items.get(0) otherwise 0
 	end 'take'
 
@@ -3594,7 +3585,6 @@ type Tally
 end 'Tally'
 
 export function second() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Tally.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let items = Nums.create(0) as isolated Nums
@@ -3615,7 +3605,6 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-trivial-tuple-starts-a-generic-service-as-a-copy -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Box with Pair` keeps its factory's `item` in its state; a borrowed trivial tuple handed to that factory is
 copied in, so the service owns its state alone. Returns 43.
 ```maxon
@@ -3637,7 +3626,6 @@ type Box uses T
 end 'Box'
 
 function launch(p Pair) returns Num
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(p, tag: 43)
 	let t = try await h.tagOf() otherwise panic("the box is running")
 	h.shutdown()
@@ -3653,7 +3641,6 @@ end 'main'
 ```
 
 <!-- test: a-trivial-tuple-a-call-handed-back-is-sent-as-a-copy -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `echo` hands back a tuple the compiler cannot prove this frame owns alone; a trivial tuple has no identity,
 so it is sent as a copy and `b` keeps its value. Returns 43.
 ```maxon
@@ -3662,7 +3649,7 @@ typealias Num = int(0 to 1000)
 typealias Pair = (Num, Num)
 
 function echo(p Pair) returns Pair
-	return p
+	return p.clone()
 end 'echo'
 
 type Tally
@@ -3672,8 +3659,8 @@ type Tally
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(pair Pair)
-		self.sum = pair.0 + pair.1
+	export function take(mutates self, pair Pair)
+		self.sum = try pair.0 + pair.1 otherwise panic("out of range")
 	end 'take'
 
 	export function total() returns Num
@@ -3684,12 +3671,11 @@ end 'Tally'
 function main() returns ExitCode
 	var b = echo((3 as Num, 1 as Num))
 	b.1 = 40
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Tally.create()
 	try t.take(b) otherwise panic("an open mailbox with room takes the send")
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
-	return sum + b.0 - 3
+	return try sum + b.0 - 3 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3697,7 +3683,6 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-trivial-tuple-starts-a-generic-service-from-a-generic-body-as-a-copy -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `launch` is generic, so inside it `x` is a `T`; called with a trivial tuple, the service's factory is still
 handed a copy. Returns 43.
 ```maxon
@@ -3717,7 +3702,6 @@ type Box uses T
 end 'Box'
 
 function launch(x T) uses T returns Num
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(x, tag: 43)
 	let t = try await h.tagOf() otherwise panic("the box is running")
 	h.shutdown()
@@ -5464,7 +5448,7 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-a-generic-service-handle-element -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'WideBoxHandle' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5488,7 +5472,6 @@ typealias Plain = (WideBoxHandle, Wide)
 typealias Frozen = (immutable WideBoxHandle, Wide)
 
 function plainOf(n Wide) returns Plain
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	return (spawn Box.create(n), n)
 end 'plainOf'
 

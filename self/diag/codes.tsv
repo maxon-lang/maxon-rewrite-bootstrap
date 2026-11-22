@@ -87,6 +87,9 @@ ErrStaticRequirementNotDispatchable	E3116	semanticStaticRequirementNotDispatchab
 ErrIfTryDiscardsResult	E3124	ifTryDiscardsResult	An 'if try' with no binding tests a call that returns a value, which it discards.
 ErrCastTargetIsAContainer	E3131	castTargetIsAContainer	A cast to an instance of a generic that the value's type does not retag to: the elements have a layout of their own.
 ErrBoundBindingDisagrees	E3133	semanticWhereConstraintBindingDisagreement	A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
+ErrSpawnTarget	E3134	semanticServiceNotASpawnTarget	A spawn names no static factory of a type that returns the type.
+ErrNotAMessage	E3136	semanticServiceNotAMessage	A call through a service handle names no export instance method of the service's type.
+ErrReplyNotCarriable	E3140	semanticServiceReplyNotCarriable	A message replies with what cannot cross back to the sender.
 ErrPromiseBorrowed	E3141	semanticPromiseCannotBeBorrowed	A promise is lent where it would have to be taken: an async call or an await that only borrows it.
 ErrPromiseConsumed	E3142	semanticPromiseAlreadyConsumed	A promise is used after an await consumed it.
 ErrIllegalBitWidth	E3148	semanticIllegalBitWidth	A bits(n) typealias has a width the language does not have.
@@ -98,14 +101,19 @@ ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program 
 ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
 ErrRawSurfaceOutsideLibrary	E3185	rawSurfaceOutsideLibraryTier	A source file outside the library tiers names a part of the raw surface: a __Builtins call, a .managed read, a __ManagedMemory type or a method of one.
 ErrExclusivity	E3186	argumentOverlapsWrittenParameter	An argument handed to a written parameter overlaps another operand of the call.
+ErrReplyDropped	E3190	semanticServiceReplyDropped	A message that replies is sent as a statement, so its reply is neither awaited, kept nor dropped on purpose.
+ErrSendTimeoutReserved	E3192	semanticServiceSendTimeoutReserved	A message declares a parameter named sendTimeout, which every send keeps.
 ErrInstanceMethodWithoutReceiver	E3193	semanticInstanceMethodCalledWithoutReceiver	An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.
 ErrFixedArrayCreateForm	E3194	fixedArrayCreateLengthForm	A fixed array's create takes a length its type does not need, or lacks one it does.
 ErrFrozenChange	E3197	semanticWriteThroughReadOnly	A write or a consuming call goes through the contents of a frozen value.
 ErrCapabilityConversion	E3210	semanticCapabilityConversionRefused	A function value writes what it captured, which its function type does not allow.
 ErrTiedPromise	E3212	semanticTiedPromiseRefused	The promise of an async call that was lent the caller's data is used for more than an await in its scope, or an exit leaves it unawaited.
 ErrPromiseDropped	E3213	semanticPromiseDropped	A promise is dropped without being awaited.
+ErrServiceStatePromise	E3216	semanticServiceStateHoldsAPromise	The state of a service holds a promise.
+ErrNotSendable	E3217	semanticMessageNeedsACapability	A message, a reply or a factory takes or gives what cannot cross into a service.
 ErrUnsignedNegation	E3218	semanticUnsignedNegation	An unsigned value is negated.
 ErrModuleLetCallsFunction	E3220	semanticModuleLetCallsAFunction	The initializer of a constant calls a function.
+ErrHolderMayWait	E3221	semanticHolderMayWait	A message or a factory may wait on another party while it holds its service.
 ErrEntryTakesParameters	E3225	entryFunctionTakesParameters	'main' declares parameters.
 ErrMoveOutOfBorrow	E3900	-	A borrowed value is moved somewhere that would own it.
 ErrMoveOutOfField	E3901	-	A part of a value is moved out of a value that stays in use.

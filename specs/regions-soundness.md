@@ -116,7 +116,6 @@ error E3207: <fragment>:31:11: 'viaParam' writes 'q'; 'frozen' is immutable
 ```
 
 <!-- test: a-mixed-result-given-a-frozen-argument-is-not-immutable-for-an-immutable-field -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `choose` hands back `p` or a box it also pushed into `spare`, so given a frozen `p` its result is read-only, not immutable, and cannot enter an `immutable` field.
@@ -148,13 +147,11 @@ type Pinned
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	var box as immutable Box
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function build(first immutable Box) returns Self
+	static function build(first frozen with Box) returns Self
 		return Self{box: first}
 	end 'build'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function adopt(frozen immutable Box, spare BoxArray)
+	function adopt(frozen frozen with Box, spare BoxArray)
 		self.box = choose(frozen, spare: spare, useP: false)
 	end 'adopt'
 
@@ -179,7 +176,6 @@ error E3196: <fragment>:32:14: cannot store a mutable 'Box' into 'box', which ho
 ```
 
 <!-- test: a-mixed-join-stored-into-an-immutable-field-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A join of a parameter with fresh data is mutable data, so it cannot enter an `immutable` field, and the caller's mutable box stays unaliased by the field.
@@ -199,8 +195,7 @@ type Shelf
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	var held as immutable Box
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function build(item immutable Box) returns Self
+	static function build(item frozen with Box) returns Self
 		return Self{held: item}
 	end 'build'
 
@@ -228,7 +223,6 @@ error E3196: <fragment>:20:15: cannot store a mutable 'Box' into 'held', which h
 ```
 
 <!-- test: data-of-an-immutable-slot-returned-by-a-plain-result-stays-immutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `part` returns data of an `immutable` slot; the result stays immutable whatever the receiver, so writing through it is refused.
@@ -248,8 +242,7 @@ type Shelf
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	var held as immutable Box
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function build(item immutable Box) returns Self
+	static function build(item frozen with Box) returns Self
 		return Self{held: item}
 	end 'build'
 
@@ -534,7 +527,6 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'wrapper.row', which is r
 ```
 
 <!-- test: an-immutable-parameter-fed-a-call-result-pins-the-parameter-it-may-hand-back -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `take` declares `immutable`, and `pick` may hand back `p`, a parameter `relay` has not decided is frozen, so the result is read-only and `take` refuses it.
 
@@ -553,8 +545,7 @@ function pick(p Box) returns Box
 	return p
 end 'pick'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function take(item immutable Box) returns Tally
+function take(item frozen with Box) returns Tally
 	return item.n
 end 'take'
 
@@ -574,7 +565,6 @@ error E3207: <fragment>:26:16: 'relay' needs 'p' frozen (it calls 'take', which 
 ```
 
 <!-- test: an-immutable-parameter-fed-a-call-result-is-read-only-even-for-a-frozen-argument -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` may hand back `p`, which `relay` has not decided is frozen, so its result is read-only to `take`'s `immutable` parameter whatever `main` passes.
 
@@ -593,8 +583,7 @@ function pick(p Box) returns Box
 	return p
 end 'pick'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function take(item immutable Box) returns Tally
+function take(item frozen with Box) returns Tally
 	return item.n
 end 'take'
 
@@ -691,7 +680,6 @@ error E3196: <fragment>:14:15: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-function-value-result-stored-into-an-immutable-field-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `getPart()` may hand back a record a mutable closure holds, so it cannot enter `Pinned`'s `immutable` field, and the closure over mutable `held` is refused.
@@ -713,8 +701,7 @@ type Pinned
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	var part as immutable Part
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(part immutable Part) returns Self
+	static function create(part frozen with Part) returns Self
 		return Self{part: part}
 	end 'create'
 
@@ -1154,7 +1141,6 @@ error E3207: <fragment>:23:7: 'keep' writes 'box' (line 18: a result read from i
 ```
 
 <!-- test: an-immutable-only-parameter-as-the-sole-source-gives-a-read-only-result -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `same(p)` returns only `p`, and `relay` needs `p` frozen for `take`, but the result of a call is read-only while its source is the caller's own undecided parameter, so `take`'s `immutable` parameter refuses it inside `relay`.
 
@@ -1173,8 +1159,7 @@ function same(box Box) returns Box
 	return box
 end 'same'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function take(item immutable Box) returns Tally
+function take(item frozen with Box) returns Tally
 	return item.n
 end 'take'
 
@@ -1677,7 +1662,6 @@ error E3199: <fragment>:38:11: 'right' cannot be opened: the value that holds it
 ```
 
 <!-- test: a-parameter-that-must-be-frozen-and-a-fresh-argument-give-a-read-only-result -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 `relay` must have `p` frozen because `reads` takes it `immutable`, so `pick(p, b: Box.create(0))` joins read-only data with a fresh value and answers read-only data, which is read and not refused.
 
 ```maxon
@@ -1695,8 +1679,7 @@ function pick(a Box, b Box) returns Box
 	return a if a.n > b.n else b
 end 'pick'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function reads(item immutable Box) returns Tally
+function reads(item frozen with Box) returns Tally
 	return item.n
 end 'reads'
 
@@ -1762,7 +1745,6 @@ end 'main'
 ```
 
 <!-- test: a-capture-less-closure-is-a-clean-input-to-an-isolated-result -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 `function() gives 1` captures nothing, so it is a clean input and a record built around it may be returned as `isolated`.
 
 ```maxon
@@ -1774,8 +1756,7 @@ type Holder
 	export var n as Tally
 	export var callback as Callback
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	static function create() returns isolated Holder
+	static function create() returns Holder
 		return Self{n: 7, callback: function() gives 1}
 	end 'create'
 end 'Holder'
@@ -1795,7 +1776,6 @@ end 'main'
 
 <!-- test: a-result-joining-a-merged-isolated-parameter-with-a-frozen-one-is-read-only -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `pick` may hand back the merged region of `a` or the frozen `b`, so its result is read-only and reading it is accepted.
 
@@ -1810,8 +1790,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pick(a isolated Box, b Box, flag bool) returns Box
+function pick(consumes a Box, b Box, flag bool) returns Box
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	return merge a if flag else b
 end 'pick'
@@ -1834,7 +1813,6 @@ end 'main'
 
 <!-- test: a-result-joining-a-merged-isolated-parameter-with-a-frozen-one-refuses-a-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same result is not written through: the frozen `b` may be what came back.
@@ -1850,8 +1828,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pick(a isolated Box, b Box, flag bool) returns Box
+function pick(consumes a Box, b Box, flag bool) returns Box
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	return merge a if flag else b
 end 'pick'
@@ -1927,9 +1904,7 @@ error E3196: <fragment>:27:33: cannot store a mutable 'Cols' into 'Tracer.cols',
 
 <!-- test: a-fresh-runtime-buffer-recovers-as-isolated -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 `__ManagedMemory.create` hands back a buffer nothing else reaches, so `ByteArray.init` over it is built from clean inputs and is returned as `isolated`: it fills an `isolated` field and is passed to an `isolated` parameter.
 
@@ -1942,19 +1917,16 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function reserved(n Count) returns isolated ByteArray
+function reserved(n Count) returns ByteArray
 	return ByteArray.init(try __ManagedMemory.create(n, 1) otherwise panic("reserved: create"))
 end 'reserved'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -1980,7 +1952,6 @@ end 'main'
 
 <!-- test: a-runtime-buffer-bound-as-isolated-moves-into-a-fresh-array -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 A fresh buffer bound `as isolated` is written through one-call opens and then moved into `ByteArray.init`, so the array is returned as `isolated` without a copy.
 
@@ -1989,8 +1960,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function stamped(n Count) returns isolated ByteArray
+function stamped(n Count) returns ByteArray
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let raw = (try __ManagedMemory.create(n, 1) otherwise panic("stamped: create")) as isolated __ManagedMemory
 	try raw.setLength(n) otherwise panic("stamped: setLength")
@@ -2013,8 +1983,6 @@ end 'main'
 ```
 
 <!-- test: error.a-managed-slice-is-not-fresh -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `slice` may view the buffer it is given rather than copy it, so an array over a slice is not a fresh region even when the sliced buffer is an `isolated` parameter, and it is refused as an `isolated` result.
@@ -2024,9 +1992,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function sliced(raw isolated __ManagedMemory, n Count) returns isolated ByteArray
+function sliced(consumes raw __ManagedMemory, n Count) returns ByteArray
 	return ByteArray.init(try raw.slice(0, n) otherwise panic("sliced: slice"))
 end 'sliced'
 
@@ -2040,7 +2006,6 @@ error E3200: <fragment>:6:9: 'ByteArray.init(try raw.slice(0, n) otherwise panic
 ```
 
 <!-- test: error.a-named-mutable-runtime-buffer-is-not-isolated -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A fresh buffer bound by a plain `let` is ordinary mutable data of the function's region, so `ByteArray.init` over it is refused as an `isolated` result; binding it `as isolated __ManagedMemory` keeps it fresh.
@@ -2050,8 +2015,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function reserved(n Count) returns isolated ByteArray
+function reserved(n Count) returns ByteArray
 	let managed = try __ManagedMemory.create(n, 1) otherwise panic("reserved: create")
 	return ByteArray.init(managed)
 end 'reserved'
@@ -2068,7 +2032,6 @@ error E3200: <fragment>:7:9: 'ByteArray.init(managed)' is not isolated: only a c
 
 <!-- test: error.array-init-over-an-isolated-local-moves-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `ByteArray.init(src)` builds the array over `src`'s storage, so `src` is moved into the clean call and the array it answers fills the `isolated` field. A later use of `src` is refused exactly as after `Shelf.holding(src)`: otherwise `src.push` would write into the shelf's isolated region from outside it.
@@ -2082,8 +2045,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2138,7 +2100,6 @@ end 'main'
 
 <!-- test: array-init-over-an-isolated-local-then-pushed-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same array handed to an `isolated` field is pushed from inside `modify`, the one place the shelf's region may be written, and the bytes that were in `src` are still there.
 
@@ -2151,8 +2112,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2184,7 +2144,6 @@ end 'main'
 
 <!-- test: error.array-init-over-an-isolated-parameter-moves-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A parameter declared `isolated` is moved by `ByteArray.init` exactly as an `isolated` local is, so the function's own later `push` through the parameter is refused: otherwise it would write into the shelf's region from outside it.
@@ -2198,14 +2157,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function shelve(src isolated ByteArray) returns Count
+function shelve(consumes src ByteArray) returns Count
 	let shelf = Shelf.holding(ByteArray.init(src))
 	src.push(2)
 	var total = 0 as Count
@@ -2226,9 +2183,7 @@ error E3102: <fragment>:15:2: use of moved value 'src': its ownership moved to a
 ```
 
 <!-- test: error.array-init-over-an-isolated-local-sent-to-a-service-moves-it -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same array sent as an `isolated` message argument crosses to the service's thread, so `src` is moved by the send and a later push from the sender is refused rather than racing the handler.
 
@@ -2244,15 +2199,13 @@ type Keeper
 		return Self{held: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(bytes isolated ByteArray) returns Count
+	export function keep(consumes bytes ByteArray) returns Count
 		self.held = self.held + bytes.count()
 		return self.held
 	end 'keep'
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let src = ByteArray.create(0) as isolated ByteArray
@@ -2269,7 +2222,6 @@ error E3102: <fragment>:23:2: use of moved value 'src': its ownership moved to a
 
 <!-- test: error.array-init-over-an-isolated-runtime-buffer-moves-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -2284,8 +2236,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2311,7 +2262,6 @@ error E3102: <fragment>:18:6: use of moved value 'raw': its ownership moved to a
 ```
 
 <!-- test: error.array-init-cannot-read-an-isolated-field-outside-a-block -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An argument to `ByteArray.init` is a read like any other, so an `isolated` field handed to it outside a `modify` or `swap` is refused as the bare read `shelf.bytes` is, inside a method as well as from the field's owner.
@@ -2325,8 +2275,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 
@@ -2350,7 +2299,6 @@ error E3198: <fragment>:19:31: 'shelf.bytes' is isolated and cannot be read outs
 
 <!-- test: error.array-init-over-a-string-view-is-not-fresh -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -2361,8 +2309,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2384,14 +2331,12 @@ error E3200: <fragment>:13:28: 'ByteArray.init(text.addressableBytes())' is not 
 ```
 
 <!-- test: error.a-string-view-is-not-fresh -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The buffer `addressableBytes` answers is the string's own, so it is not a clean call's fresh result even though its receiver is a value, and it is refused where an `isolated` value is wanted.
 
 ```maxon
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(raw isolated __ManagedMemory) returns Count
+function weigh(consumes raw __ManagedMemory) returns Count
 	return raw.length()
 end 'weigh'
 
@@ -2410,7 +2355,6 @@ error E3200: <fragment>:9:22: 'text.addressableBytes()' is not isolated: only a 
 <!-- test: error.array-init-cannot-read-an-isolated-payload-through-a-field -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A match over `holder.slot` does not move the union out of the field, so its `bytes` binding is a read of the field's `isolated` payload and `ByteArray.init(bytes)` is refused as the bare read is: otherwise the shelf and the holder would own one region, and the push through the second match would grow the shelf's array.
@@ -2438,8 +2382,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2471,7 +2414,6 @@ error E3198: <fragment>:31:57: 'bytes' is isolated and cannot be read outside a 
 <!-- test: error.an-isolated-payload-read-through-a-field-is-not-a-second-owner -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same binding passed straight to an `isolated` parameter is the same read of the field's payload, and is refused for the same reason.
@@ -2499,8 +2441,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2534,8 +2475,6 @@ error E3198: <fragment>:31:42: 'bytes' is isolated and cannot be read outside a 
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A union whose case carries an `isolated` payload comes back from an awaited service message into a local, and the match arm that binds the payload merges it into the caller's result. The local holds the union the call produced, so the payload it binds is the call's own isolated value and `merge` moves it.
 
 ```maxon
@@ -2552,8 +2491,7 @@ type Collector
 		return Self{}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function drain() returns isolated Drain
+	export function drain() returns Drain
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let collected = StringArray.create(0) as isolated StringArray
 		// TODO: modify blocks are not supported in minimaxon
@@ -2577,7 +2515,6 @@ function gather(collector Collector.handle) returns StringArray
 end 'gather'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let collector = spawn Collector.create()
 	let collected = gather(collector)
 	print("{collected.count()}\n")
@@ -2597,7 +2534,6 @@ end 'main'
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The same union bound from a plain call, with no await between the call and the match, merges its payload the same way.
 
 ```maxon
@@ -2607,8 +2543,7 @@ union Drain
 	unreadable(reason String)
 end 'Drain'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function drain() returns isolated Drain
+function drain() returns Drain
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let collected = StringArray.create(0) as isolated StringArray
 	// TODO: modify blocks are not supported in minimaxon
@@ -2646,9 +2581,7 @@ end 'main'
 <!-- test: error.a-local-union-matched-twice-cannot-give-its-isolated-payload-two-owners -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Matching the isolated payload out of a local union moves the payload and partially moves the local, so a second `match` over the same local would bind a second owner of one payload and is refused.
 
@@ -2663,14 +2596,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var lines as isolated StringArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(lines isolated StringArray) returns Self
+	static function holding(consumes lines StringArray) returns Self
 		return Self{lines: lines}
 	end 'holding'
 end 'Shelf'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function drain() returns isolated Drain
+function drain() returns Drain
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let collected = StringArray.create(0) as isolated StringArray
 	// TODO: modify blocks are not supported in minimaxon
@@ -2708,10 +2639,7 @@ error E3102: <fragment>:35:8: use of moved value 'drained': its ownership moved 
 <!-- test: error.an-awaited-local-union-matched-twice-cannot-give-its-isolated-payload-two-owners -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same union bound from an awaited service message is refused the same way: the second `match` over the local would give the payload a second owner.
 
@@ -2726,8 +2654,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var lines as isolated StringArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(lines isolated StringArray) returns Self
+	static function holding(consumes lines StringArray) returns Self
 		return Self{lines: lines}
 	end 'holding'
 end 'Shelf'
@@ -2739,8 +2666,7 @@ type Collector
 		return Self{}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function drain() returns isolated Drain
+	export function drain() returns Drain
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let collected = StringArray.create(0) as isolated StringArray
 		// TODO: modify blocks are not supported in minimaxon
@@ -2773,7 +2699,6 @@ function gather(collector Collector.handle) returns Count
 end 'gather'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let collector = spawn Collector.create()
 	let total = gather(collector)
 	print("{total}\n")
@@ -2788,7 +2713,6 @@ error E3102: <fragment>:45:8: use of moved value 'drained': its ownership moved 
 <!-- test: error.a-local-alias-of-a-field-union-cannot-give-its-isolated-payload-a-second-owner -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `let` bound from `holder.slot` holds the same union the field does, so the payload its match binds is still a part of the holder's field and handing it to an `isolated` parameter is refused as the read through the field is: otherwise the shelf and the holder would own one region, and the push through the shelf would grow the array the holder still reaches.
@@ -2816,8 +2740,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2850,7 +2773,6 @@ error E3198: <fragment>:32:42: 'bytes' is isolated and cannot be read outside a 
 <!-- test: error.a-parenthesized-field-union-cannot-give-its-isolated-payload-a-second-owner -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Parentheses around `holder.slot` read the same field, so the payload the match binds is the field's and is refused where an `isolated` value is wanted exactly as it is without them.
@@ -2878,8 +2800,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2911,7 +2832,6 @@ error E3198: <fragment>:31:42: 'bytes' is isolated and cannot be read outside a 
 <!-- test: error.a-field-union-returned-by-a-helper-cannot-give-its-isolated-payload-a-second-owner -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that returns `holder.slot` hands back the union the field still holds, not a fresh one, so the payload a match over its result binds is the field's and is refused where an `isolated` value is wanted.
@@ -2939,8 +2859,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -2976,7 +2895,6 @@ error E3198: <fragment>:35:42: 'bytes' is isolated and cannot be read outside a 
 <!-- test: error.a-nested-field-union-bound-to-a-local-cannot-give-its-isolated-payload-a-second-owner -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A union bound out of a field's union payload is still part of that field, so a `let` holding it does not own the `isolated` payload its match binds, and handing that payload to an `isolated` parameter is refused: otherwise the shelf and the nest would own one region.
@@ -3009,8 +2927,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -3050,9 +2967,7 @@ error E3198: <fragment>:41:42: 'bytes' is isolated and cannot be read outside a 
 <!-- test: error.a-local-union-matched-in-a-loop-cannot-give-its-isolated-payload-two-owners -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` over a local union inside a loop runs once per iteration, so the payload the first iteration moved out would be bound again by the second, and the second trip is refused as a second `match` after the first is.
 
@@ -3071,14 +2986,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function make() returns isolated Slot
+function make() returns Slot
 	return Slot.full(ByteArray.create(0))
 end 'make'
 
@@ -3109,7 +3022,6 @@ error E3102: <fragment>:28:9: use of moved value 'made': it was moved in an earl
 <!-- test: error.an-isolated-payload-given-out-of-a-match-over-a-field-is-not-a-second-owner -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `gives` arm that hands back the payload a `match` over `holder.slot` binds yields the field's own region, so the value the match expression produces is a read of an isolated part the holder still reaches and is refused where an `isolated` value is wanted, as the payload is when passed directly: otherwise the shelf and the holder would own one region.
@@ -3137,8 +3049,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -3170,9 +3081,7 @@ error E3198: <fragment>:30:21: 'bytes' is isolated and cannot be read outside a 
 <!-- test: error.an-isolated-payload-given-out-of-a-match-over-a-parameter-field-is-not-returned-isolated -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that returns `isolated` the payload a `match` over its parameter's field gives does not hand back a fresh region: the caller's holder still reaches it, so the read is refused as it is outside a block.
 
@@ -3199,14 +3108,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function grab(holder Holder) returns isolated ByteArray
+function grab(holder Holder) returns ByteArray
 	return match holder.slot 'take'
 		full(bytes) gives bytes
 		empty gives ByteArray.create(0)
@@ -3228,7 +3135,6 @@ error E3198: <fragment>:28:21: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.array-init-over-a-named-buffer-leaves-no-live-alias -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `ByteArray.init(buf)` builds the array over `buf`'s storage, so a buffer bound by a plain `let` is still named after the array exists: two names reach one region. The array is therefore not fresh, and handing it to an `isolated` parameter is refused rather than letting the `setByte` through `buf` write into a region the callee owns.
@@ -3238,8 +3144,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -3258,9 +3163,7 @@ error E3200: <fragment>:13:22: 'a' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: error.a-send-error-union-matched-twice-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A refused send hands its `isolated` argument back as the payload of the send error, and the first `match e` moves that payload into `adopt`. The union still names it, so a second `match e` that reads the payload would give one region two owners and is refused as a use of a moved value.
 
@@ -3282,21 +3185,18 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Payload)
+	export function keep(consumes p Payload)
 		self.seen = self.seen + 1
 		print("kept {p.n}\n")
 	end 'keep'
 end 'Store'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function adopt(p isolated Payload) returns Integer
+function adopt(consumes p Payload) returns Integer
 	return p.n
 end 'adopt'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let accepted = Payload.create(1) as isolated Payload
 	try h.keep(accepted) otherwise panic("a capacity of one takes the first send")
@@ -3323,9 +3223,7 @@ error E3102: <fragment>:45:9: use of moved value 'e': its ownership moved to ano
 
 <!-- test: a-send-error-union-hands-its-isolated-payload-back-once -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 With one processor the service does not run between the two sends, so a mailbox of capacity one refuses the second and the send error hands its `isolated` payload back. One `match e` moves that payload into an `isolated` field, which then holds the very record the sender built.
@@ -3345,8 +3243,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var held as isolated Payload
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(held isolated Payload) returns Self
+	static function holding(consumes held Payload) returns Self
 		return Self{held: held}
 	end 'holding'
 end 'Shelf'
@@ -3358,16 +3255,14 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Payload)
+	export function keep(consumes p Payload)
 		self.seen = self.seen + 1
 		print("kept {p.n}\n")
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let empty = Payload.create(0) as isolated Payload
 	var shelf = Shelf.holding(empty)
@@ -3398,9 +3293,7 @@ kept 1
 ```
 
 <!-- test: error.a-local-alias-of-a-send-error-union-cannot-give-its-isolated-payload-a-second-owner -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `let` bound from the send error `e` takes the union and the `isolated` payload it owns, as a `let` bound from any owned local union does. A later `match e` that moves the payload into `adopt` would leave `other` naming the same payload for a second `adopt`, so the read of `e` is refused as a use of a moved value.
 
@@ -3422,21 +3315,18 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(p isolated Payload)
+	export function keep(consumes p Payload)
 		self.seen = self.seen + 1
 		print("kept {p.n}\n")
 	end 'keep'
 end 'Store'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function adopt(p isolated Payload) returns Integer
+function adopt(consumes p Payload) returns Integer
 	return p.n
 end 'adopt'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let accepted = Payload.create(1) as isolated Payload
 	try h.keep(accepted) otherwise panic("a capacity of one takes the first send")
@@ -3465,7 +3355,6 @@ error E3102: <fragment>:41:9: use of moved value 'e': its ownership moved to ano
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-a-constructor-field -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` part of a holder that a join hands to a field declared `isolated` is a read of a region the holder still reaches, however the read arrives: through a conditional expression, through a `match` expression's `gives` arms, as the payload bound directly, or as the holder's own `isolated` field. Each reaches the constructor as the bare read does, so each is refused: otherwise the new shelf and the holder would own one region.
@@ -3493,8 +3382,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 
@@ -3558,7 +3446,6 @@ error E3198: <fragment>:53:22: 'shelf.bytes' is isolated and cannot be read outs
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so the same three joins hand it to an `isolated` field without a refusal, and the shelf owns it.
 
 ```maxon
@@ -3572,8 +3459,7 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function make() returns isolated Slot
+function make() returns Slot
 	return Slot.full(ByteArray.create(4))
 end 'make'
 
@@ -3631,7 +3517,6 @@ end 'main'
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-field-store -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A store into an `isolated` field takes an `isolated` value, so an `isolated` part of a holder that reaches it through a `match` expression's `gives` arms or the holder's own `isolated` field is refused as the bare read is, outside a `modify` block.
@@ -3659,8 +3544,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -3706,7 +3590,6 @@ error E3198: <fragment>:40:16: 'donor.bytes' is isolated and cannot be read outs
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-field-store-inside-modify -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Opening the destination with `modify` does not make the source a value: the `isolated` part the store reads still belongs to the holder, so the same five reads are refused where the destination is a field of a `modify` root.
@@ -3734,14 +3617,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function insideGives(holder Holder, boxed isolated Shelf)
+function insideGives(holder Holder, consumes boxed Shelf)
 	let got = match holder.slot 'take'
 		full(bytes) gives bytes
 		empty gives ByteArray.create(0)
@@ -3752,16 +3633,14 @@ function insideGives(holder Holder, boxed isolated Shelf)
 	end 'open'
 end 'insideGives'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function insideFieldTernary(donor Shelf, boxed isolated Shelf, flag bool)
+function insideFieldTernary(donor Shelf, consumes boxed Shelf, flag bool)
 	// TODO: modify blocks are not supported in minimaxon
 	modify boxed 'open'
 		boxed.bytes = donor.bytes if flag else ByteArray.create(0)
 	end 'open'
 end 'insideFieldTernary'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function insideFieldDirect(donor Shelf, boxed isolated Shelf)
+function insideFieldDirect(donor Shelf, consumes boxed Shelf)
 	// TODO: modify blocks are not supported in minimaxon
 	modify boxed 'open'
 		boxed.bytes = donor.bytes
@@ -3786,9 +3665,7 @@ error E3198: <fragment>:45:17: 'donor.bytes' is isolated and cannot be read outs
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-an-isolated-field-store -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is a fresh region, so the three joins store it into an `isolated` field outside a block and inside a `modify` root alike.
 
 ```maxon
@@ -3802,8 +3679,7 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function make() returns isolated Slot
+function make() returns Slot
 	return Slot.full(ByteArray.create(4))
 end 'make'
 
@@ -3811,8 +3687,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -3885,7 +3760,6 @@ end 'main'
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-argument -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An argument to an `isolated` parameter moves its value into the callee, so an `isolated` part of a holder that a join hands to one is refused as the bare read is: otherwise the callee and the holder would own one region.
@@ -3913,14 +3787,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -3972,8 +3844,6 @@ error E3198: <fragment>:58:15: 'shelf.bytes' is isolated and cannot be read outs
 
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-an-isolated-argument -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is a fresh region, so the three joins hand it to an `isolated` parameter without a refusal.
 
 ```maxon
@@ -3987,13 +3857,11 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function make() returns isolated Slot
+function make() returns Slot
 	return Slot.full(ByteArray.create(4))
 end 'make'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -4037,7 +3905,6 @@ end 'main'
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-merge -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `merge` moves an `isolated` region into the current one, so an `isolated` part of a holder that a join hands to it is refused as the bare read is: otherwise the result and the holder would share one region as ordinary mutable data.
@@ -4065,8 +3932,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -4123,7 +3989,6 @@ error E3198: <fragment>:54:9: 'shelf.bytes' is isolated and cannot be read outsi
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-merge -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is a fresh region, so `merge` of it through the three joins is ordinary mutable data the caller owns.
 
 ```maxon
@@ -4137,8 +4002,7 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function make() returns isolated Slot
+function make() returns Slot
 	return Slot.full(ByteArray.create(4))
 end 'make'
 
@@ -4183,9 +4047,7 @@ end 'main'
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-return -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that returns `isolated` hands its caller a region of its own, so an `isolated` part of a holder that a join returns is refused as the bare read is: otherwise the caller and the holder would own one region.
 
@@ -4212,27 +4074,23 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnTernary(holder Holder, flag bool) returns isolated ByteArray
+function returnTernary(holder Holder, flag bool) returns ByteArray
 	match holder.slot 'take'
 		full(bytes) then return bytes if flag else ByteArray.create(0)
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnTernary'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnGives(holder Holder) returns isolated ByteArray
+function returnGives(holder Holder) returns ByteArray
 	let got = match holder.slot 'take'
 		full(bytes) gives bytes
 		empty gives ByteArray.create(0)
@@ -4240,21 +4098,18 @@ function returnGives(holder Holder) returns isolated ByteArray
 	return got
 end 'returnGives'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnDirect(holder Holder) returns isolated ByteArray
+function returnDirect(holder Holder) returns ByteArray
 	match holder.slot 'take'
 		full(bytes) then return bytes
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnDirect'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnFieldTernary(shelf Shelf, flag bool) returns isolated ByteArray
+function returnFieldTernary(shelf Shelf, flag bool) returns ByteArray
 	return shelf.bytes if flag else ByteArray.create(0)
 end 'returnFieldTernary'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnFieldDirect(shelf Shelf) returns isolated ByteArray
+function returnFieldDirect(shelf Shelf) returns ByteArray
 	return shelf.bytes
 end 'returnFieldDirect'
 
@@ -4276,8 +4131,6 @@ error E3198: <fragment>:58:9: 'shelf.bytes' is isolated and cannot be read outsi
 
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-an-isolated-return -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is a fresh region, so a function that returns `isolated` hands it back through the three joins.
 
 ```maxon
@@ -4291,18 +4144,15 @@ union Slot
 	empty
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function make() returns isolated Slot
+function make() returns Slot
 	return Slot.full(ByteArray.create(4))
 end 'make'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnTernary(flag bool) returns isolated ByteArray
+function returnTernary(flag bool) returns ByteArray
 	let made = make()
 	match made 'take'
 		full(bytes) then return bytes if flag else ByteArray.create(2)
@@ -4310,8 +4160,7 @@ function returnTernary(flag bool) returns isolated ByteArray
 	end 'take'
 end 'returnTernary'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnGives() returns isolated ByteArray
+function returnGives() returns ByteArray
 	let made = make()
 	let got = match made 'take'
 		full(bytes) gives bytes
@@ -4320,8 +4169,7 @@ function returnGives() returns isolated ByteArray
 	return got
 end 'returnGives'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnDirect() returns isolated ByteArray
+function returnDirect() returns ByteArray
 	let made = make()
 	match made 'take'
 		full(bytes) then return bytes
@@ -4343,7 +4191,6 @@ end 'main'
 
 <!-- test: error.an-isolated-part-read-cannot-reach-an-async-isolated-argument -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call to an `isolated` parameter moves its argument into the coroutine as a plain call does, so an `isolated` part of a holder, bare or through a join, is refused there as it is at a plain call: otherwise the coroutine and the holder would own one region.
@@ -4371,14 +4218,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -4421,7 +4266,6 @@ error E3198: <fragment>:49:27: 'shelf.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-async-call-cannot-move-a-callers-mutable-data-into-an-isolated-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` parameter takes only a fresh region, and an `async` call is no exception: the caller's mutable data handed to one would be kept by the callee while the caller still reaches it, so it is refused as at a plain call.
@@ -4435,14 +4279,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function adopt(bytes isolated ByteArray) returns Shelf
+function adopt(consumes bytes ByteArray) returns Shelf
 	return Shelf.holding(bytes)
 end 'adopt'
 
@@ -4471,7 +4313,6 @@ error E3200: <fragment>:24:27: 'p' is not isolated: only a clean call, a `swap` 
 
 <!-- test: error.an-isolated-part-read-captured-by-a-closure-is-not-a-clean-input -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures an `isolated` part of a holder hands that region back from every call, so it is no clean input: the result of a call over it cannot go where an isolated value is wanted, bare or through a join.
 
@@ -4496,8 +4337,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -4531,7 +4371,6 @@ error E3198: <fragment>:37:56: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-with-a-parameter-arm-cannot-reach-an-isolated-field-store -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A join that has an `isolated` parameter as one arm, or a call result whose capability is settled by its arguments, is still a join: an `isolated` part of a holder on its other arm is refused at a store into an `isolated` field, whichever arm it is on.
@@ -4545,8 +4384,7 @@ type Box
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var part as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(part isolated ByteArray) returns Self
+	static function holding(consumes part ByteArray) returns Self
 		return Self{part: part}
 	end 'holding'
 end 'Box'
@@ -4555,13 +4393,11 @@ function echo(bytes ByteArray) returns ByteArray
 	return bytes
 end 'echo'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function storeParameterSecond(a Box, b Box, n isolated ByteArray, c bool)
+function storeParameterSecond(a Box, b Box, consumes n ByteArray, c bool)
 	b.part = a.part if c else n
 end 'storeParameterSecond'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function storeParameterFirst(a Box, b Box, n isolated ByteArray, c bool)
+function storeParameterFirst(a Box, b Box, consumes n ByteArray, c bool)
 	b.part = n if c else a.part
 end 'storeParameterFirst'
 
@@ -4592,7 +4428,6 @@ error E3198: <fragment>:30:47: 'a.part' is isolated and cannot be read outside a
 
 <!-- test: a-fresh-isolated-value-through-a-join-with-a-parameter-arm-reaches-an-isolated-field-store -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 With a fresh `isolated` value on the other arm, the same joins reach an `isolated` field: a parameter arm and a settled call result add no holder to the region the field receives.
 
@@ -4605,8 +4440,7 @@ type Box
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var part as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(part isolated ByteArray) returns Self
+	static function holding(consumes part ByteArray) returns Self
 		return Self{part: part}
 	end 'holding'
 end 'Box'
@@ -4615,13 +4449,11 @@ function echo(bytes ByteArray) returns ByteArray
 	return bytes
 end 'echo'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function storeParameterSecond(b Box, n isolated ByteArray, c bool)
+function storeParameterSecond(b Box, consumes n ByteArray, c bool)
 	b.part = ByteArray.create(3) if c else n
 end 'storeParameterSecond'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function storeParameterFirst(b Box, n isolated ByteArray, c bool)
+function storeParameterFirst(b Box, consumes n ByteArray, c bool)
 	b.part = n if c else ByteArray.create(3)
 end 'storeParameterFirst'
 
@@ -4673,7 +4505,6 @@ end 'main'
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-union-constructors-isolated-payload -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A union case whose payload is `isolated` takes an `isolated` value, so an `isolated` part of a holder handed to its constructor, bare, as a field or through a join, is refused as the bare read is: otherwise the new union and the holder would own one region.
@@ -4701,8 +4532,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -4740,7 +4570,6 @@ error E3198: <fragment>:38:19: 'shelf.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-through-an-otherwise-arm-cannot-reach-an-isolated-slot -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The fallback of `try … otherwise` is a second arm of the value, so an `isolated` part of a holder given as the fallback is refused at an `isolated` field store and an `isolated` parameter as the bare read is.
@@ -4758,8 +4587,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -4771,8 +4599,7 @@ function makeOrFail(flag bool) returns ByteArray throws MakeError
 	return ByteArray.create(1)
 end 'makeOrFail'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -4799,9 +4626,7 @@ error E3198: <fragment>:34:46: 'donor.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-isolated-part-read-in-the-middle-arm-of-a-match-expression-cannot-reach-an-isolated-slot -->
 <!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` expression joins all its arms, so an `isolated` part of a holder on its middle arm alone, between two fresh arms, is refused at an `isolated` field store, an `isolated` parameter and an `isolated` return.
 
@@ -4820,14 +4645,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -4848,8 +4671,7 @@ function argMiddle(donor Shelf, mode Mode) returns Count
 	end 'pick')
 end 'argMiddle'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function returnMiddle(donor Shelf, mode Mode) returns isolated ByteArray
+function returnMiddle(donor Shelf, mode Mode) returns ByteArray
 	return match mode 'pick'
 		first gives ByteArray.create(0)
 		second gives donor.bytes
@@ -4873,7 +4695,6 @@ error E3198: <fragment>:42:16: 'donor.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-isolated-part-read-captured-by-a-nested-closure-is-not-a-clean-input -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that builds another closure over an `isolated` part of a holder captures that part too, so the result of a call over the outer closure is no clean input to an `isolated` parameter.
 
@@ -4898,8 +4719,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -4926,7 +4746,6 @@ error E3198: <fragment>:30:79: 'bytes' is isolated and cannot be read outside a 
 
 <!-- test: error.an-awaited-result-over-an-isolated-part-read-is-not-a-clean-input -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A coroutine is never given an `isolated` part of a holder through a plain parameter, directly or captured by a closure: the spawn is refused (E3207) before its awaited result could reach an `isolated` parameter.
 
@@ -4951,8 +4770,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -4990,7 +4808,6 @@ error E3207: <fragment>:41:50: 'echo' is spawned with `async`, and 'bytes' is is
 ```
 
 <!-- test: error.an-isolated-local-moved-by-an-async-call-in-a-loop-is-used-after-move -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call moves its `isolated` argument into the coroutine, so the same `isolated` local handed to it again on a later lap, or read after the call, is a use of a moved value.
@@ -5000,8 +4817,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -5036,9 +4852,7 @@ error E3102: <fragment>:25:17: use of moved value 'mine': its ownership moved to
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-service-message-argument -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A service message's `isolated` argument crosses to the service's thread, so an `isolated` part of a holder sent as one, bare, parenthesized or through a join, is refused as the bare read is.
 
@@ -5065,8 +4879,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -5078,8 +4891,7 @@ type Keeper
 		return Self{held: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(bytes isolated ByteArray) returns Count
+	export function keep(consumes bytes ByteArray) returns Count
 		self.held = self.held + bytes.count()
 		return self.held
 	end 'keep'
@@ -5101,7 +4913,6 @@ function sendTernary(keeper Keeper.handle, donor Shelf, flag bool) returns Count
 end 'sendTernary'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create()
 	let holder = Holder.create()
 	let donor = Shelf.holding(ByteArray.create(0))
@@ -5116,7 +4927,6 @@ error E3198: <fragment>:51:31: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-replace-an-isolated-field-by-swap -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The replacement `swap` stores into an `isolated` field takes an `isolated` value, so an `isolated` part of a holder given as the replacement, bare, as a field or through a join, is refused as the bare read is.
@@ -5130,14 +4940,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -5163,9 +4971,7 @@ error E3198: <fragment>:22:38: 'donor.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-isolated-part-read-cannot-be-frozen -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `freeze` makes its operand's region immutable for good, so an `isolated` part of a holder, bare, as a field or through a join, cannot be frozen while the holder still writes it.
 
@@ -5192,27 +4998,23 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function freezePayload(holder Holder) returns immutable ByteArray
+function freezePayload(holder Holder) returns frozen with ByteArray
 	match holder.slot 'take'
 		full(bytes) then return freeze(bytes)
 		empty then return freeze(ByteArray.create(0))
 	end 'take'
 end 'freezePayload'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function freezeField(donor Shelf) returns immutable ByteArray
+function freezeField(donor Shelf) returns frozen with ByteArray
 	return freeze(donor.bytes)
 end 'freezeField'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function freezeTernary(donor Shelf, flag bool) returns immutable ByteArray
+function freezeTernary(donor Shelf, flag bool) returns frozen with ByteArray
 	return freeze(donor.bytes if flag else ByteArray.create(0))
 end 'freezeTernary'
 
@@ -5230,7 +5032,6 @@ error E3198: <fragment>:38:17: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-enter-a-tuple -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple element is a second path to what it holds, so an `isolated` part of a holder placed in a tuple literal, kept whole or destructured, does not become a clean input to an `isolated` parameter.
@@ -5244,14 +5045,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -5278,7 +5077,6 @@ error E3198: <fragment>:23:18: 'donor.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-isolated-part-read-cannot-be-cast-as-isolated -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `as isolated` claims a fresh region, so an `isolated` part of a holder, bare or through a join, cast to one is refused as the bare read is.
@@ -5306,14 +5104,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -5343,7 +5139,6 @@ error E3198: <fragment>:38:16: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-assigned-to-an-isolated-var-in-a-loop-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` local reassigned on a loop's back edge carries every value assigned to it into the next lap, so an `isolated` part of a holder assigned to it, bare or through a join, is refused where it is assigned.
@@ -5357,14 +5152,12 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -5407,7 +5200,6 @@ error E3198: <fragment>:38:9: 'donor.bytes' is isolated and cannot be read outsi
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-plain-parameter-that-keeps-it -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A plain parameter whose callee keeps it in a record or hands it back gives the caller a writable path into the region the holder still owns, so an `isolated` part of a holder passed to one is refused as the bare read is.
@@ -5435,8 +5227,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -5486,7 +5277,6 @@ error E3201: <fragment>:50:9: 'echo' hands back mutable data of the isolated reg
 
 <!-- test: error.an-isolated-part-read-through-a-generic-identity-cannot-reach-an-isolated-slot -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A generic function that hands back its argument hands back the region it was given, so an `isolated` part of a holder passed through one is still that part: it is refused at an `isolated` parameter and at an `isolated` field store.
@@ -5520,8 +5310,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blob as isolated Blob
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blob isolated Blob) returns Self
+	static function holding(consumes blob Blob) returns Self
 		return Self{blob: blob}
 	end 'holding'
 end 'Shelf'
@@ -5530,8 +5319,7 @@ function ident(x T) uses T returns T
 	return x
 end 'ident'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(blob isolated Blob) returns Tally
+function weigh(consumes blob Blob) returns Tally
 	return blob.n
 end 'weigh'
 
@@ -5561,7 +5349,6 @@ error E3201: <fragment>:49:15: 'ident' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-function-value-or-interface-result-is-not-a-clean-input -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function value can hand back what it captured and a `mutable self` requirement can hand back its receiver's data, so a call through a function-typed parameter or an interface value is no clean call: its result is refused at an `isolated` field store.
@@ -5599,8 +5386,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blob as isolated Blob
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blob isolated Blob) returns Self
+	static function holding(consumes blob Blob) returns Self
 		return Self{blob: blob}
 	end 'holding'
 end 'Shelf'
@@ -5630,7 +5416,6 @@ error E3200: <fragment>:43:15: 'source.make()' is not isolated: only a clean cal
 
 <!-- test: error.an-isolated-part-read-reaches-a-callee-declared-later-as-one-declared-earlier -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Whether a callee is declared before or after its caller does not change what its `isolated` parameter takes: an `isolated` part of a holder given to one declared later, by a plain or an `async` call, directly or through a helper that hands its argument back, is refused exactly as for one declared earlier.
@@ -5658,8 +5443,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -5668,8 +5452,7 @@ function echoEarly(bytes ByteArray) returns ByteArray
 	return bytes
 end 'echoEarly'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weighEarly(bytes isolated ByteArray) returns Count
+function weighEarly(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weighEarly'
 
@@ -5721,8 +5504,7 @@ function echoLate(bytes ByteArray) returns ByteArray
 	return bytes
 end 'echoLate'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weighLate(bytes isolated ByteArray) returns Count
+function weighLate(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weighLate'
 ```
@@ -5736,7 +5518,6 @@ error E3201: <fragment>:65:49: 'echoLate' hands back mutable data of the isolate
 ```
 
 <!-- test: error.a-field-read-through-an-isolated-field-is-a-read-of-the-part -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A field of the record an `isolated` field holds lives in that field's region, so reading one through the holder outside a `modify` block, to bind it, store it in a plain field or return it, lets it outlive the statement that opens the part, and each is refused.
@@ -5758,8 +5539,7 @@ type Crate
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blob as isolated Blob
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blob isolated Blob) returns Self
+	static function holding(consumes blob Blob) returns Self
 		return Self{blob: blob}
 	end 'holding'
 end 'Crate'
@@ -5801,7 +5581,6 @@ error E3202: <fragment>:40:9: 'crate.blob.data' is mutable and cannot leave the 
 ```
 
 <!-- test: error.an-element-got-from-an-isolated-array-field-cannot-be-returned-as-plain-data -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element of an array an `isolated` field holds lives in that field's region, so returning one that `get` read through the field outside a `modify` block as plain data is a read of the `isolated` part.
@@ -5825,8 +5604,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -5846,7 +5624,6 @@ error E3198: <fragment>:23:9: 'try bin.blobs.get(0) otherwise Blob.create()' is 
 ```
 
 <!-- test: error.an-isolated-part-read-handed-back-by-a-closure-is-a-read-of-the-part -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that hands back an `isolated` field of a holder makes the part readable wherever the closure is called, so the closure's body reading the field outside a `modify` block is refused as a direct read is.
@@ -5862,8 +5639,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -5896,7 +5672,6 @@ error E3198: <fragment>:24:35: 'donor.bytes' is isolated and cannot be read outs
 <!-- test: error.a-nested-isolated-field-read-inside-an-outer-window-is-a-part-read -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Opening an `isolated` local with `modify` opens its own region, not the `isolated` regions its records hold: a nested `isolated` field read inside the window and handed to an `isolated` parameter, to `merge` or to a binding is still a part read.
@@ -5910,8 +5685,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var bytes as isolated ByteArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(bytes isolated ByteArray) returns Self
+	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
@@ -5924,8 +5698,7 @@ type Rack
 	end 'create'
 end 'Rack'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -5976,9 +5749,7 @@ error E3198: <fragment>:52:13: 'rack.shelf.bytes' is isolated and cannot be read
 ```
 
 <!-- test: error.a-call-result-of-a-parameters-data-is-judged-alike-whichever-order-the-callee-is-declared -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A call result whose callee hands back its parameter's plain field is that parameter's data, so it is refused at an `isolated` field store, an `isolated` parameter and an `isolated` return, whether the callee is declared before its caller or after.
 
@@ -6001,8 +5772,7 @@ function takeEarly(b Box) returns ByteArray
 	return b.plain
 end 'takeEarly'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -6022,13 +5792,11 @@ function argLate(src Box) returns Count
 	return weigh(takeLate(src))
 end 'argLate'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function giveEarly(src Box) returns isolated ByteArray
+function giveEarly(src Box) returns ByteArray
 	return takeEarly(src)
 end 'giveEarly'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function giveLate(src Box) returns isolated ByteArray
+function giveLate(src Box) returns ByteArray
 	return takeLate(src)
 end 'giveLate'
 
@@ -6055,7 +5823,6 @@ error E3200: <fragment>:43:9: 'takeLate(src)' is not isolated: only a clean call
 ```
 
 <!-- test: error.an-element-of-an-isolated-array-field-cannot-leave-a-for-loop-into-outside-data -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` array field outside a `modify` block reads the field's region, so an element it hands to data outside the region, a plain array or a parameter's plain field, is a second path into that region and is refused.
@@ -6079,8 +5846,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -6124,7 +5890,6 @@ error E3198: <fragment>:37:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: a-for-loop-over-an-isolated-array-field-hands-out-copies-and-values -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy or a value: a `.clone()` of each element pushed into a plain array or stored into a plain field, and a count summed into a local.
 
@@ -6147,8 +5912,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -6260,7 +6024,6 @@ error E3198: <fragment>:33:44: 'bytes' is isolated and cannot be read outside a 
 
 <!-- test: a-closure-over-a-fresh-isolated-payload-hands-it-out-as-plain-data -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so the same closures over it hand it out as plain data without a refusal.
 
 ```maxon
@@ -6285,8 +6048,7 @@ type Pair
 	end 'create'
 end 'Pair'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function makeSlot() returns isolated Slot
+function makeSlot() returns Slot
 	return Slot.full(ByteArray.create(2))
 end 'makeSlot'
 
@@ -6441,7 +6203,6 @@ end 'main'
 <!-- test: a-payload-part-read-inside-an-open-window-is-used-in-place -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A payload of a union held by an `isolated` field, matched inside the `modify` block that opens the field, is read and written in place without leaving the block.
 
@@ -6460,8 +6221,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var slot as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(slot isolated Slot) returns Self
+	static function holding(consumes slot Slot) returns Self
 		return Self{slot: slot}
 	end 'holding'
 end 'Holder'
@@ -6505,7 +6265,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-reached-by-an-iterator-over-an-isolated-array-field-cannot-leave-into-outside-data -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An iterator made over an `isolated` array field outside a `modify` block reads the field's region, so an element it hands out, by `current` or by a `withIterator` loop, pushed into an array outside the region is a second path into it.
@@ -6529,8 +6288,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -6981,7 +6739,6 @@ end 'main'
 
 <!-- test: error.an-isolated-payload-read-through-two-nested-helpers-is-a-read-of-the-part -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A helper that may hand back its argument hands back the part it was given however many times it is applied, so an `isolated` payload passed through two nested ones is refused at a plain return and an `isolated` parameter.
 
@@ -7016,8 +6773,7 @@ function echo(bytes ByteArray) returns ByteArray
 	return bytes
 end 'echo'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -7049,7 +6805,6 @@ error E3201: <fragment>:43:38: 'echo' hands back mutable data of the isolated re
 
 <!-- test: a-clone-of-an-isolated-part-read-is-a-clean-value -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `.clone()` of an `isolated` field or payload read outside a `modify` block, or of a value `get` reads from an `isolated` map field, hands back a region of its own, so the copy reaches an `isolated` parameter, an `isolated` field, a plain field and a plain return.
 
@@ -7079,8 +6834,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -7126,9 +6880,7 @@ end 'main'
 <!-- test: a-returns-isolated-call-over-an-isolated-part-read-is-a-clean-value -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 A function declared `returns isolated` hands back a region of its own whatever it reads, so its result over an `isolated` field or payload reaches an `isolated` parameter, an `isolated` field, a plain field once merged, and a plain return once merged.
 
 ```maxon
@@ -7153,13 +6905,11 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function copyOf(bytes ByteArray) returns isolated ByteArray
+function copyOf(bytes ByteArray) returns ByteArray
 	return bytes.clone()
 end 'copyOf'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(bytes isolated ByteArray) returns Count
+function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
@@ -7371,7 +7121,6 @@ error E3198: <fragment>:23:22: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-unclean-argument-is-quoted-whole-across-nested-parens-strings-and-named-arguments -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A refused argument is quoted from its first token to the comma or parenthesis that ends it at its own depth, so nested calls, string literals holding commas and parentheses, a closure with two parameters and named arguments neither cut it short nor run it on.
@@ -7403,8 +7152,7 @@ function sumWith(add Adder) returns Count
 	return add(1, 2)
 end 'sumWith'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weighTagged(tag String, bytes isolated ByteArray, extra Count) returns Count
+function weighTagged(tag String, consumes bytes ByteArray, extra Count) returns Count
 	if tag == "" 'none'
 		return extra
 	end 'none'
@@ -7432,7 +7180,6 @@ error E3198: <fragment>:40:33: 'shelf.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-isolated-part-read-through-a-generic-helpers-second-parameter-is-a-read-of-the-part -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A generic helper that may hand back either argument hands back the part given at its second parameter, so an `isolated` payload or field given there is refused at an `isolated` parameter and an `isolated` field store.
@@ -7466,8 +7213,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blob as isolated Blob
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blob isolated Blob) returns Self
+	static function holding(consumes blob Blob) returns Self
 		return Self{blob: blob}
 	end 'holding'
 end 'Shelf'
@@ -7476,8 +7222,7 @@ function either(a T, b T, first bool) uses T returns T
 	return a if first else b
 end 'either'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(blob isolated Blob) returns Tally
+function weigh(consumes blob Blob) returns Tally
 	return blob.n
 end 'weigh'
 
@@ -7560,7 +7305,6 @@ error E3201: <fragment>:32:31: 'echoOrFail' hands back mutable data of the isola
 
 
 <!-- test: error.a-field-of-an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-leave -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` array field outside a `modify` block is in the field's region, and so is a field of that element, so pushing the field into an outside array, storing it into a plain field or returning it from inside the loop is a second path into the region and is refused, as the element itself is.
@@ -7586,8 +7330,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -7639,7 +7382,6 @@ error E3198: <fragment>:44:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: a-for-loop-over-an-isolated-array-field-hands-out-copies-of-element-fields -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy of the element's field or its count.
 
@@ -7664,8 +7406,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -7718,7 +7459,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-returned-from-inside-a-for-loop-over-an-isolated-array-field-is-a-read-of-the-part -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Returning an element from inside a `for` loop over an `isolated` array field outside a `modify` block hands the field's region out as plain data.
@@ -7742,8 +7482,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -7769,7 +7508,6 @@ error E3198: <fragment>:23:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: error.an-isolated-field-read-in-parentheses-cannot-be-iterated-into-outside-data -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` array field written in parentheses reads the field as the bare spelling does, so an element it pushes into an outside array is refused.
@@ -7793,8 +7531,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -7821,7 +7558,6 @@ error E3198: <fragment>:23:14: '(bin.blobs)' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-element-of-an-isolated-array-field-captured-by-a-closure-in-a-for-loop-cannot-leave -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure built inside a `for` loop over an `isolated` array field captures the element the loop hands out, so the closure stored into a plain field, or what a call over it hands back pushed into an outside array, is a second path into the region.
@@ -7847,8 +7583,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -8027,7 +7762,6 @@ error E3207: <fragment>:44:26: 'echo' is spawned with `async`, and 'holder' is i
 
 <!-- test: a-coroutine-over-a-fresh-isolated-payload-hands-it-out-as-plain-data -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so what a coroutine hands back from a closure over it is returned as plain data without a refusal.
 
 ```maxon
@@ -8043,8 +7777,7 @@ end 'Slot'
 
 typealias Maker = function() returns ByteArray
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function makeSlot() returns isolated Slot
+function makeSlot() returns Slot
 	return Slot.full(ByteArray.create(2))
 end 'makeSlot'
 
@@ -8185,7 +7918,6 @@ error E3201: <fragment>:24:66: 'echo' hands back mutable data of the isolated re
 ```
 
 <!-- test: error.an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-be-kept-by-a-call -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` array field outside a `modify` block is data of the field's region, so it is no more an ordinary argument than the field itself: given to a parameter that keeps it, to a constructor that stores it in the record it builds, or to an `async` call, it is refused.
@@ -8211,8 +7943,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -8271,7 +8002,6 @@ error E3207: <fragment>:53:28: 'weigh' is spawned with `async`, and 'blob' is is
 ```
 
 <!-- test: a-copy-of-an-element-a-for-loop-hands-out-over-an-isolated-array-field-is-an-ordinary-argument -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same calls compile when what they are given is a copy of the element, and a count of the element read in place leaves the loop as a value.
 
@@ -8296,8 +8026,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -8814,7 +8543,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-of-an-elements-own-array-field-cannot-leave-a-nested-for-loop -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A nested `for` loop over the array field of an element an outer loop hands out over an `isolated` array field iterates data of that field's region, so its element returned as plain data is refused.
@@ -8842,8 +8570,7 @@ type Bin
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var blobs as isolated BlobArray
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(blobs isolated BlobArray) returns Self
+	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
@@ -8871,7 +8598,6 @@ error E3198: <fragment>:26:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: the-key-of-a-pair-a-for-loop-hands-out-over-an-isolated-map-field-leaves-freely -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `for` loop destructuring the pairs of an `isolated` map field outside a `modify` block hands out keys that are values, so a key returned or stored in a plain variable leaves freely while the value is read in place.
 
@@ -8886,8 +8612,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var index as isolated Index
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(index isolated Index) returns Self
+	static function holding(consumes index Index) returns Self
 		return Self{index: index}
 	end 'holding'
 end 'Holder'
@@ -9856,7 +9581,6 @@ true false
 <!-- test: error.a-match-over-a-union-parameter-with-an-isolated-payload-leaves-the-modify-root-read-only -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `u` is lent to the function, so the `match` over it opens the payload's region for the whole statement and the arm cannot write the root of the enclosing `modify bx`.
@@ -9877,8 +9601,7 @@ union Ub
 	u1(b isolated Bx)
 end 'Ub'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function viaParam(bx isolated Bx, u Ub)
+function viaParam(consumes bx Bx, u Ub)
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		match u 'm'
@@ -9950,7 +9673,6 @@ error E3197: <fragment>:32:15: cannot write 'n' through 'bx', which is read-only
 
 <!-- test: error.a-match-arm-over-a-union-with-an-isolated-payload-cannot-wait-once-it-has-read-the-payload -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Reading `b.n` opens the payload's region for the statement, and `waits(s)` in the same statement may park the coroutine while it is open.
 ```maxon
@@ -10002,7 +9724,6 @@ function fieldReadFirst(h Hd, s S.handle) returns Code
 end 'fieldReadFirst'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create()
 	let h = Hd.create()
 	print("{fieldReadFirst(h, s: s)}\n")

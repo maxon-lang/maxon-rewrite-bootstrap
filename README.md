@@ -3489,6 +3489,53 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
 - Not yet: `p.cancel()`, `p.isComplete()`, `awaitAny`, promises in containers and fields (a promise is not `Copyable`
   nor `Droppable`, which arrays need), `sendTimeout:`, the deadlock exit 92, and I/O on the poller.
 
+### Services
+
+maxon's surface, on cowns, behaviours and green threads (`self/check/services.maxon`, `self/ir/services.maxon`,
+`runtime/service.maxon`):
+
+- `spawn T.f(args)` starts a service of the type `T`, declared with `type` and no type parameters, whose static factory
+  `f` returns `T`, and gives its handle, a `T.handle` (`E3134` for any other target). `spawn(capacity: n)` sets how many
+  messages its mailbox holds (a `MailboxCapacity`, 1024 by default). A factory that cannot throw runs as the service's
+  first message; one that throws runs where the spawn is, and the spawn fails with its error (`try spawn ...`).
+- A call through the handle of an export instance method of `T` is a **message** (`E3136` for any other method): the
+  service runs it on its own green thread, one at a time, in the order the sends were made, so a handler that sleeps or
+  is preempted still holds the service. Every send can fail, with `SendError`: `mailboxFull` when the mailbox holds its
+  capacity of messages the service has not started, `serviceStopped` after `h.shutdown()`, which closes the mailbox and
+  lets the queued messages run. A send without `try` where nothing catches is `E3057`.
+- A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
+  sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
+  `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
+  never tied: nothing is lent to a service.
+- **What crosses** is one predicate, `check.unsendable`, for every parameter of a message and of the factory, every reply
+  and every error a message throws, at the spawn: a scalar, a `String`, an enum, a value that owns its parts and holds only
+  what crosses, a `frozen with T` of such a value, a cown and a handle cross; a borrow, a promise, a function value, a
+  value at a type parameter or an interface type, and anything that holds one do not (`E3217`, `E3140` for a reply). A
+  parameter is `let` or `consumes`, never `mutates` or `sets` (`E3217`); either way its argument moves into the service,
+  so the sender's variable is spent (`E3102`), and the contents of a frozen value, which are lent, are not sent (`E3217`).
+  The state holds no promise (`E3216`) and reaches no handle to its own service, through fields, containers, cowns and
+  other services' states (`E4014`); no parameter is named `sendTimeout` (`E3192`).
+- A message is as visible as its service and no more (`E3167`), as maxon holds it: an unexported type that its module
+  spawns may name unexported types in its messages. A spawn in another module does not narrow them.
+- An idle service holds its state, its cown and its gate (48 bytes), and no green thread or stack: each message is a
+  behaviour that takes a green thread's record and a stack from its processor's pools when it runs and gives them back
+  when it ends, so a handler that sleeps or awaits holds one of each for that long. maxon runs a service's messages on one
+  runner, up to 64 a turn; here each is its own behaviour on the one cown.
+- **Holders never wait** (`E3221`): a message or a factory of a type the module spawns that keeps a reply, or starts a
+  service whose factory throws, directly or through a function of its module, is refused, so services never wait on each
+  other in a cycle. A function of another module, a function value and an interface call are not seen.
+- **In the IR** a spawn is `rt.service.new` (a cown whose value is the state, with the mailbox's gate after the cown's
+  words) and, for a factory that cannot throw, a `when` on it whose body calls the factory and stores the state. A send
+  reads the handle, lowers the arguments as a `consumes` call's, takes a place in the mailbox (`rt.service.reserve`, which
+  fails as a call fails, dropping the arguments in flight), makes the reply's cell where the sender keeps one
+  (`rt.reply.new`) and queues a `when` on the service's cown whose body (`<f>$when<n>`, made in `ir/services.maxon`) gives
+  the place back (`rt.service.taken`), calls the handler with the state and the arguments, drops what a `let` parameter
+  only borrowed, and gives the cell what the handler returned and threw (`rt.reply.give`), or drops it. The cell is a
+  green thread's record that never runs, so `rt.async.await` awaits it as a coroutine.
+- The interpreter runs no service: a spawn or a send ends an interpreted run with `services are not supported by the
+  interpreter`, so a test that starts one is `// native-only`.
+- Not yet: see "Where it differs from Maxon".
+
 ### Identity
 
 `a is b` is true when two names stand for one object, and `a is not b` when they do not (maxon's reference identity; the
@@ -3783,7 +3830,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   value are the values with a count of owners, always stepped by one locked add, whatever the program. Behaviours run
   as green threads on Go's scheduler, as maxon's do (`runtime/sched.maxon`, `green.maxon`, `monitor.maxon`; see "The
   scheduler"), with `MAXON_MAX_PROCS` and its acquire of several cowns in address order, which minimaxon does with no
-  lock per cown; there is no `async`, `await` or service yet, so no strand. Stacks never move, since a borrow is an
+  lock per cown. Stacks never move, since a borrow is an
   address in a frame: a green thread's stack is a fixed reserve with a guard page, where maxon's grow by moving up to 1
   GiB. Preemption is asynchronous only, with no check in the compiled code, where maxon's prologues test a guard word.
   The interpreter schedules behaviours too, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
@@ -3849,8 +3896,19 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - A type argument takes no capability word: `cmd/convert` leaves out maxon's `immutable` (or `isolated`) before one, as in
   `Array with immutable Key`, since an element here has the one owner its container gives it, so nothing else changes a key
   that a map holds.
-- No alias subtyping (an alias implementing another), characters, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
-  parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
+- Services (see "Services") cross by ownership, not by capability word: a message's, a reply's and a factory's values
+  move in, or are a `frozen with T` that both sides share, and nothing borrowed crosses. `cmd/convert` turns maxon's
+  parameter `x isolated T` into `consumes x T` and `x immutable T` into `x frozen with T`, and `returns isolated T` and
+  `returns immutable T` into `returns T` and `returns frozen with T`; a `let` parameter of a message is given its own
+  value, which the behaviour drops once the handler returns. What crosses is one rule (`check.unsendable`), so `E3200`,
+  `E3207` and `E3214` do not exist and a value that cannot cross is `E3217` at the spawn, or `E3140` for a reply. A
+  factory that throws runs on the spawner's green thread, where maxon's runs on the service's while the spawner waits.
+  A send's error is the built-in `SendError` (`mailboxFull`, `serviceStopped`) and gives the arguments no way back,
+  where maxon's `<Service>.<message>.sendError` carries them. Not yet: `sendTimeout:`, interface handles (`I.handle`),
+  `T.request`, `acquire`, `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters
+  or a float, one `try await h.m()` over a message that throws, and services in the interpreter.
+- No alias subtyping (an alias implementing another), characters, region capabilities (`isolated` and `immutable` of a
+  local, a payload or a receiver, and `modify`), static fields, default parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
   all but the map, the list and the pool. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,

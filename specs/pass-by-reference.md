@@ -1678,7 +1678,6 @@ error E3005: <fragment>:13:25: argument type mismatch for 'n': expected 'Wide', 
 
 
 <!-- test: pass-by-reference.a-service-message-copies-a-narrow-var-so-the-handler-cannot-widen-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message carries its arguments by value in the request, so a handler that widens its copy of the parameter leaves the sender's narrower variable alone.
 ```maxon
 typealias Wide = int(0 to 100)
@@ -1692,7 +1691,7 @@ type Meter
 		return Self{level: 1}
 	end 'create'
 
-	export function set(n Wide)
+	export function set(mutates self, n Wide)
 		var copy = n
 		copy = 50
 		self.level = copy
@@ -1704,7 +1703,6 @@ type Meter
 end 'Meter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Meter.create()
 	let x = 3 as Narrow
 	try h.set(x) otherwise panic("an open mailbox with room takes the send")

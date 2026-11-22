@@ -221,7 +221,6 @@ end 'main'
 ```
 
 <!-- test: withIterator.awaits-every-service-reply-of-an-array -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same loop over replies to a service's throwing message, whose promise type names the handler's own error
 type, `MathError`.
 ```maxon
@@ -242,8 +241,8 @@ type Calc
 		return Self{calls: 0}
 	end 'create'
 
-	export function divide(n Tally, by Tally) returns Tally throws MathError
-		self.calls = self.calls + 1
+	export function divide(mutates self, n Tally, by Tally) returns Tally throws MathError
+		self.calls = try self.calls + 1 otherwise panic("out of range")
 		if by == 0 'zero'
 			throw MathError.divideByZero
 		end 'zero'
@@ -252,9 +251,8 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let calc = spawn Calc.create()
-	let replies = ReplyPromiseArray.create(0)
+	var replies = ReplyPromiseArray.create(0)
 	replies.push(try calc.divide(10, by: 2) otherwise panic("an open mailbox with room takes the send"))
 	replies.push(try calc.divide(10, by: 0) otherwise panic("an open mailbox with room takes the send"))
 	for (position, reply) in replies.enumerated() 'each'

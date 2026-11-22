@@ -4,13 +4,15 @@
 // overlap. The facts are the module's own; a function of another module is an unknown, which counts as one that may
 // wait, so a correct program is never refused for what the check cannot see.
 
-// WaitFact is what the check of a function found: whether it waits itself, and the functions of the module it calls.
+// WaitFact is what the check of a function found: whether it waits itself, whether it waits on another party (a reply
+// it keeps, or the start of a service whose factory throws), and the functions of the module it calls.
 export type WaitFact
 	export var waits as bool
 	export var calls as ast.FuncIDList
+	export var partyWaits as bool
 
 	export static function make(waits bool, consumes calls ast.FuncIDList) returns WaitFact
-		return WaitFact{waits: waits, calls: calls}
+		return WaitFact{waits: waits, calls: calls, partyWaits: false}
 	end 'make'
 end 'WaitFact'
 
@@ -32,6 +34,7 @@ export typealias PendingAsyncList = Array with PendingAsync
 // startWaits begins the facts of a function whose body is checked.
 function startWaits(mutates c Checker)
 	c.waitNow = false
+	c.partyWaitNow = false
 	c.waitCalls = ast.FuncIDList.create(0)
 end 'startWaits'
 
@@ -40,7 +43,9 @@ function finishWaits(mutates c Checker)
 	if c.rootFn == ast.noFunc 'none'
 		return
 	end 'none'
-	c.waits.insert(c.rootFn as Count, value: WaitFact.make(c.waitNow, calls: exchange(c.waitCalls, value: ast.FuncIDList.create(0))))
+	var fact = WaitFact.make(c.waitNow, calls: exchange(c.waitCalls, value: ast.FuncIDList.create(0)))
+	fact.partyWaits = c.partyWaitNow
+	c.waits.insert(c.rootFn as Count, value: fact)
 end 'finishWaits'
 
 // noteCallWaits notes what a call says of whether the function being checked may wait.

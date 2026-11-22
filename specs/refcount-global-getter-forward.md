@@ -42,7 +42,6 @@ leak: the program returns the borrowed array's element count.
 ## Tests
 
 <!-- test: forward-global-getter-borrow -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 Forwarding a module-global getter's borrow must not retain the outliving image.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -53,13 +52,11 @@ let cachedBase = ["first base item", "second base item", "third base item"]
 
 let cachedMerged = ["merged item"]
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function loadBase() returns immutable Names
+function loadBase() returns frozen with Names
 	return cachedBase
 end 'loadBase'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function buildFor(wantMerged bool) returns immutable Names
+function buildFor(wantMerged bool) returns frozen with Names
 	let base = loadBase()
 	if not wantMerged 'native'
 		return base

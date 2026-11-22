@@ -17,7 +17,6 @@ slot.
 ## Tests
 
 <!-- test: eight-services-churning-constant-capacity-arrays-keep-their-sums -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 Eight services each build and drop two constant-capacity arrays per round for eight million rounds, on four
 processors, so the monitor stops each runner many times and a stopped runner resumes on another machine as often
@@ -89,7 +88,6 @@ function main() returns ExitCode
 	let handles = ChurnHandleArray.create(0)
 	var index = 0 as ElementIndex
 	while index < ServiceCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		handles.push(spawn Churn.create())
 		index = index + 1
 	end 'spawnEach'

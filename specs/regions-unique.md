@@ -1780,7 +1780,6 @@ error E3102: <fragment>:19:10: use of moved value 'first': its ownership moved t
 
 <!-- test: a-let-rebind-of-a-reply-moves-it -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` is unique, so `let moved = pending` moves it out of `pending` and the later `pending.answer(4)` is a use of a moved value.
 ```maxon
@@ -1804,7 +1803,6 @@ type Desk
 end 'Desk'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create()
 	let asked = try desk.ask() otherwise panic("sent")
 	let answer = try await asked otherwise panic("answered")
@@ -2520,8 +2518,6 @@ error E3214: <fragment>:19:13: 'Slot' is unique (its field 't' holds a unique 'T
 
 <!-- test: a-unique-read-from-a-field-is-not-handed-to-a-service -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send hands its argument to the service's green thread, so a unique value only read out of a record's field, which the record keeps, cannot be sent.
 ```maxon
@@ -2546,8 +2542,7 @@ end 'Holder'
 type Shelf
 	var token as Token
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(token isolated Token) returns Self
+	static function create(consumes token Token) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{token: merge token}
 	end 'create'
@@ -2558,7 +2553,6 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shelf = spawn Shelf.create(Token.create(0))
 	let holder = Holder.create(Token.create(1))
 	try shelf.put(holder.token) otherwise ignore
@@ -2571,8 +2565,6 @@ error E3214: <fragment>:35:16: cannot hand 'holder.token' to argument `held` of 
 
 <!-- test: a-unique-payload-lent-by-a-match-is-not-handed-to-a-service -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The arm's binding views the unique union it matched, so sending the payload would give the service a second owner while the union still holds it.
 ```maxon
@@ -2594,8 +2586,7 @@ end 'Slot'
 type Shelf
 	var token as Token
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(token isolated Token) returns Self
+	static function create(consumes token Token) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{token: merge token}
 	end 'create'
@@ -2606,7 +2597,6 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shelf = spawn Shelf.create(Token.create(0))
 	let slot = Slot.have(Token.create(1))
 	match slot 'x'
@@ -2621,7 +2611,7 @@ error E3214: <fragment>:35:30: cannot hand 't' to argument `held` of the message
 ```
 
 <!-- test: a-unique-element-of-an-array-field-is-not-handed-to-a-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Sending the array a record's field holds is a read of storage too: the record keeps the array and every unique in it.
 ```maxon
@@ -2658,7 +2648,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	let holder = Holder.create(TokenArray.create(0))
 	holder.tokens.push(Token.create(1))
@@ -2672,8 +2661,6 @@ error E3214: <fragment>:38:16: cannot hand 'holder.tokens' to argument `tokens` 
 
 <!-- test: an-owned-unique-is-handed-to-a-service -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A local the sender owns is moved into the message, and the service's own slot takes it.
 ```maxon
 typealias Tally = int(0 to 1024)
@@ -2689,8 +2676,7 @@ end 'Token'
 type Shelf
 	var token as Token
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(token isolated Token) returns Self
+	static function create(consumes token Token) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{token: merge token}
 	end 'create'
@@ -2701,7 +2687,6 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shelf = spawn Shelf.create(Token.create(0))
 	let fresh = Token.create(1)
 	try shelf.put(fresh) otherwise ignore
@@ -3862,7 +3847,6 @@ tk3 tk4
 ```
 
 <!-- test: a-fresh-result-holding-a-unique-crosses-whole -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `fresh` builds the `Conn` it returns, so its result is the whole of its region and crosses to the service.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3887,8 +3871,8 @@ type Conn
 	var tk as Tk
 	var data as Data
 
-	static function create(tk Tk, data Data) returns Self
-		return Self{tk: tk, data: data}
+	static function create(consumes tk Tk, data Data) returns Self
+		return Self{tk: tk, data: data.clone()}
 	end 'create'
 end 'Conn'
 
@@ -3899,21 +3883,20 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	export function take(c Conn) returns Integer
-		c.data.n = c.data.n + 100
-		self.total = self.total + c.tk.n + c.data.n
+	export function take(mutates c Conn) returns Integer
+		c.data.n = try c.data.n + 100 otherwise panic("out of range")
+		self.total = try self.total + c.tk.n + c.data.n otherwise panic("out of range")
 		return self.total
 	end 'take'
 end 'Sink'
 
 function fresh(n Integer) returns Conn
-	let c = Conn.create(Tk.create(n), data: Data.create(n))
-	c.data.n = c.data.n + 1
+	var c = Conn.create(Tk.create(n), data: Data.create(n))
+	c.data.n = try c.data.n + 1 otherwise panic("out of range")
 	return c
 end 'fresh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let svc = spawn Sink.create()
 	let got = try await svc.take(fresh(1)) otherwise 0
 	let c = fresh(2)
@@ -3927,7 +3910,7 @@ end 'main'
 ```
 
 <!-- test: a-result-sharing-a-part-with-the-sender-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `sharing` returns a `Conn` holding the caller's `d`, so the local bound from it is not the whole of its region and does not cross.
 ```maxon
@@ -3979,7 +3962,6 @@ function sharing(d Data) returns Conn
 end 'sharing'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let svc = spawn Sink.create()
 	let d = Data.create(5)
 	let c = sharing(d)

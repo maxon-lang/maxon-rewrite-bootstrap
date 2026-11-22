@@ -56,7 +56,7 @@ end 'resolveCall'
 
 // resolveTarget is resolveCall for a call at site whose object is already known.
 export function resolveTarget(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, receiver ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
-	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod 'direct'
+	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod or info.kind == ast.CallKind.callSend 'direct'
 		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).generics.count() == 0 'plain'
 			return table.Option.some(info.fn)
 		end 'plain'
@@ -281,6 +281,7 @@ function runsFunction(kind ast.CallKind) returns bool
 		callPrintError gives false
 		callCopy gives false
 		callValue gives false
+		callSend gives true
 		callUnresolved panic("a call was recorded as a use before the check resolved it")
 	end 'k'
 end 'runsFunction'

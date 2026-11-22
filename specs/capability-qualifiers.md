@@ -154,7 +154,6 @@ error E3210: <fragment>:27:14: function value for 'Make' does not declare `retur
 
 <!-- test: capability-qualifiers.a-function-value-declaring-an-isolated-result-converts-to-an-isolated-alias -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 `fresh` declares `returns isolated`, so it converts to `Make`, and the region it returns is read by a one-call open.
 
 ```maxon
@@ -175,8 +174,7 @@ type Box
 	end 'count'
 end 'Box'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function fresh() returns isolated Box
+function fresh() returns Box
 	return Box.create()
 end 'fresh'
 
@@ -271,8 +269,7 @@ end 'Box'
 type Holder
 	var pair as (immutable Box, Box)
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(first immutable Box, second Box) returns Self
+	static function create(first frozen with Box, second Box) returns Self
 		return Self{pair: (first, second)}
 	end 'create'
 
@@ -282,8 +279,7 @@ type Holder
 	end 'weigh'
 end 'Holder'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function pairOf(first immutable Box, second Box) returns (immutable Box, Box)
+function pairOf(first frozen with Box, second Box) returns (immutable Box, Box)
 	return (first, second)
 end 'pairOf'
 

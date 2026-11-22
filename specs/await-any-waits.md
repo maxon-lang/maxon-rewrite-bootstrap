@@ -16,7 +16,6 @@ A message body may make an `HttpClient` request: the client waits on no other pa
 ## Tests
 
 <!-- test: await-any-waits.error.a-message-that-selects-over-replies-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `select` sends a request to `Peer`, then parks on the array of replies while holding `Probe`'s own service.
 
@@ -55,9 +54,7 @@ type Probe
 end 'Probe'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let probe = spawn Probe.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let peer = spawn Peer.create()
 	_ = probe
 	_ = peer
@@ -114,7 +111,6 @@ error E3205: <fragment>:24:18: cannot wait inside 'edit'; another coroutine coul
 ```
 
 <!-- test: await-any-waits.error.a-one-call-open-around-a-method-that-selects-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `spin` selects over its helper coroutines, which could not run while `slot` is open for the call.
@@ -147,8 +143,7 @@ function delayed() returns Tally
 	return 7
 end 'delayed'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function runSlot(slot isolated Slot) returns Tally
+function runSlot(consumes slot Slot) returns Tally
 	return slot.spin()
 end 'runSlot'
 
@@ -167,7 +162,6 @@ error E3205: <fragment>:31:14: cannot call 'spin' inside 'slot'; it may wait (it
 
 <!-- test: await-any-waits.error.a-select-inside-an-acquire-block-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `acquire` block holds its services, so it may not park on a select.
 
@@ -207,7 +201,6 @@ function work(s Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let ledger = spawn Ledger.create(10)
 	print("{work(ledger)}\n")
 	return 0
@@ -265,7 +258,6 @@ main ready=1 sum=7 coroutine=103
 ```
 
 <!-- test: await-any-waits.a-message-body-may-make-an-http-request -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `fetch` runs in `Fetcher`'s message body and makes an `HttpClient` request over `http` to a peer coroutine of `main`. The client reaches no wait, so the message is accepted.
 
 ```maxon
@@ -298,7 +290,6 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = listener.port()
 	let peer = async answer(listener)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let fetcher = spawn Fetcher.create()
 	let length = try await fetcher.fetch("http://127.0.0.1:{port}/") otherwise 'refused'
 		peer.cancel()

@@ -21,7 +21,6 @@ immutable data is refused at, directly, through a call result, or through a merg
 ## Tests
 
 <!-- test: a-parameter-kept-only-in-a-let-field-of-a-pushed-record-takes-an-immutable-argument -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `Entry` keeps `name` in a `let` field and `weight` in a `var` field. The entry goes into a mutable array, and `source.title`, itself `immutable`, is accepted as the argument for `name`, a parameter declared `immutable`.
 
@@ -35,8 +34,7 @@ type Entry
 	export let name as immutable ByteArray
 	export var weight as Integer
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(name immutable ByteArray) returns Self
+	static function create(name frozen with ByteArray) returns Self
 		return Self{name: name, weight: 0}
 	end 'create'
 end 'Entry'
@@ -57,8 +55,7 @@ type Registry
 		return Self{entries: EntryArray.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(name immutable ByteArray)
+	function add(name frozen with ByteArray)
 		self.entries.push(Entry.create(name))
 	end 'add'
 
@@ -234,7 +231,6 @@ end 'main'
 ```
 
 <!-- test: error.a-union-case-with-a-payload-in-a-module-let-is-refused-at-every-door -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same three doors as the case above with a module-level `let` that holds a case with a payload. `Target` has a plain `ByteArray` payload, but the value is `immutable` image data, so the case is refused where it is built, the `immutable` result that returns it is refused, and the pass to a `var` field that would keep it as a second holder is refused.
 
@@ -265,8 +261,7 @@ type Walker
 	end 'aimed'
 end 'Walker'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function fallback() returns immutable Target
+function fallback() returns frozen with Target
 	return Named
 end 'fallback'
 

@@ -3303,8 +3303,6 @@ celsius -3.25
 ```
 
 <!-- test: a-float-payload-crosses-a-mailbox -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A union with a `float` payload is a message argument like any other; one service prints in FIFO order.
 ```maxon
 union Reading
@@ -3319,9 +3317,8 @@ type Thermometer
 		return Self{shown: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function show(r isolated Reading)
-		self.shown = self.shown + 1
+	export function show(mutates self, consumes r Reading)
+		self.shown = try self.shown + 1 otherwise panic("out of range")
 		match r 'which'
 			celsius(value) then print("{self.shown}: celsius {value}\n")
 			missing then print("{self.shown}: missing\n")
@@ -3330,7 +3327,6 @@ type Thermometer
 end 'Thermometer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Thermometer.create()
 	try t.show(Reading.celsius(21.5)) otherwise panic("send show")
 	try t.show(Reading.missing) otherwise panic("send show")

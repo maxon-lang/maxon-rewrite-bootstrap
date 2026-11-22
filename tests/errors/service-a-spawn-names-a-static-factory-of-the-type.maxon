@@ -1,0 +1,12 @@
+export typealias Amount = int(0 to 1000000)
+
+function helper() returns Amount
+	return 1
+end 'helper'
+
+function main() returns ExitCode
+	let h = spawn helper()
+	return 0
+end 'main'
+
+// expect-error: E3134 at 8:10

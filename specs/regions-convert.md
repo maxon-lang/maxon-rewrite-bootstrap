@@ -176,7 +176,6 @@ error E3210: <fragment>:20:16: function value for 'Step' may yield (it awaits a 
 ```
 
 <!-- test: mutable-function-called-through-frozen -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `mutable function` may write what it captured, so it cannot be called through frozen data.
 
@@ -193,8 +192,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function bump(holder immutable Holder) returns Tally
+function bump(holder frozen with Holder) returns Tally
 	return holder.tallier(1)
 end 'bump'
 
@@ -242,7 +240,6 @@ error E3207: <fragment>:19:6: 'Edit' takes `mutable` parameter; 'pinned' is immu
 ```
 
 <!-- test: isolated-requirement-parameter-refuses-a-mutable-argument -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Sink.take` declares `items` isolated, so `spare`, a mutable array of this region, cannot be passed to it.
 
@@ -250,8 +247,7 @@ error E3207: <fragment>:19:6: 'Edit' takes `mutable` parameter; 'pinned' is immu
 typealias LineArray = Array with String
 
 interface Sink
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(mutates self, items isolated LineArray)
+	function take(mutates self, consumes items LineArray)
 end 'Sink'
 
 type Counter implements Sink
@@ -261,8 +257,7 @@ type Counter implements Sink
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(items isolated LineArray)
+	function take(consumes items LineArray)
 		self.total = self.total + items.count()
 	end 'take'
 
@@ -289,7 +284,6 @@ error E3200: <fragment>:27:7: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: isolated-function-type-parameter-refuses-a-mutable-argument -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Take` declares its parameter isolated, so `spare`, a mutable array of this region, cannot be passed through it.
 
@@ -298,8 +292,7 @@ typealias LineArray = Array with String
 
 typealias Take = function(LineArray)
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function count(items isolated LineArray)
+function count(consumes items LineArray)
 	print("{items.count()}\n")
 end 'count'
 
@@ -387,7 +380,6 @@ end 'main'
 ```
 
 <!-- test: plain-closure-capturing-a-variable-the-back-edge-assigns-frozen-data-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 Each trip builds `bump` over `e`, and `e = pinned` hands the next trip frozen data, so the plain closure would write the frozen box.
 
@@ -407,8 +399,7 @@ function touch(mutates box Box) returns Tally
 	return box.n
 end 'touch'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally) returns Tally
+function edit(pinned frozen with Box, rounds Tally) returns Tally
 	var e = Box.create(0)
 	var i = 0 as Tally
 	var sum = 0 as Tally
@@ -469,7 +460,6 @@ error E3197: <fragment>:24:38: cannot write 'e' through the closure that capture
 ```
 
 <!-- test: mutable-function-closure-capturing-a-variable-the-back-edge-assigns-frozen-data-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure is a `mutable function`, but `e = pinned` hands the next trip frozen data, so at the loop header `e` joins immutable and mutable data and the closure's write through it is refused.
 
@@ -491,8 +481,7 @@ function touch(mutates box Box) returns Tally
 	return box.n
 end 'touch'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function edit(pinned immutable Box, rounds Tally) returns Tally
+function edit(pinned frozen with Box, rounds Tally) returns Tally
 	var e = Box.create(0)
 	var i = 0 as Tally
 	var sum = 0 as Tally
@@ -516,7 +505,6 @@ error E3197: <fragment>:24:38: cannot write 'e' through the closure that capture
 ```
 
 <!-- test: conformer-leaving-an-isolated-requirement-parameter-unmarked-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A call through `Sink.take` hands the caller's region over, so a conformer that does not declare its parameter `isolated` would never release it.
 
@@ -532,8 +520,7 @@ type Box
 end 'Box'
 
 interface Sink
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(mutates self, box isolated Box)
+	function take(mutates self, consumes box Box)
 end 'Sink'
 
 type Counter implements Sink

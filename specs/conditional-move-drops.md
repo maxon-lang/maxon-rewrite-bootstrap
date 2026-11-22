@@ -969,7 +969,6 @@ done
 ```
 
 <!-- test: a-cell-resident-var-moved-on-one-branch-is-released-once-on-every-path -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `word` lives in a cell because `fill` reassigns its parameter. It is moved by a send on one branch, shared with an `async` coroutine on another, and not handed anywhere on the third; every path releases the cell and its contents exactly once.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -981,8 +980,8 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
@@ -1013,7 +1012,6 @@ function run(h Echo.handle, send bool, spawn bool) returns Integer
 end 'run'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	print("{run(h, send: true, spawn: false)}\n")
 	print("{run(h, send: false, spawn: true)}\n")
@@ -1033,7 +1031,6 @@ filled 2 padded out long enough to heap allocate?
 ```
 
 <!-- test: a-cell-resident-var-reassigned-and-moved-each-trip-with-a-continue -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The loop form for a cell: reassigned every trip, moved by a send on one back edge, live on the `continue` edge.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1045,8 +1042,8 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
@@ -1056,7 +1053,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var word = "hello padded out long enough to heap allocate {0}"
 	var i = 0 as Integer
@@ -1070,7 +1066,7 @@ function main() returns ExitCode
 		end 'skip'
 		let loud = try await h.shout(word) otherwise "stopped"
 		print("{loud}\n")
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 	end 'l'
 	print("{total}\n")
 	return 0
@@ -1128,7 +1124,6 @@ filled 3 padded out long enough to heap allocate!
 ```
 
 <!-- test: a-cell-resident-var-moved-in-a-loop-and-read-next-trip-is-use-after-move -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `fill(word, …)` at the top of the next trip reads the contents the previous trip's send moved.
 ```maxon
@@ -1141,8 +1136,8 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
@@ -1152,7 +1147,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var word = "hello padded out long enough to heap allocate {0}"
 	var i = 0 as Integer
@@ -1162,7 +1156,7 @@ function main() returns ExitCode
 		fill(word, n: i)
 		let loud = try await h.shout(word) otherwise "stopped"
 		print("{loud}\n")
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 	end 'l'
 	print("{total}\n")
 	return 0
@@ -1213,7 +1207,6 @@ filled 4 padded out long enough to heap allocate!
 ```
 
 <!-- test: a-cell-resident-var-restored-on-some-trips-only-is-use-after-move -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The cell is re-stored on even trips only, so on an odd trip the send reads the contents the previous trip's send moved.
 ```maxon
@@ -1226,8 +1219,8 @@ type Echo
 		return Self{count: 0}
 	end 'create'
 
-	export function shout(text String) returns String
-		self.count = self.count + 1
+	export function shout(mutates self, text String) returns String
+		self.count = try self.count + 1 otherwise panic("out of range")
 		return "{text}!"
 	end 'shout'
 end 'Echo'
@@ -1237,7 +1230,6 @@ function fill(mutates dest String, n Integer)
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	var word = "hello padded out long enough to heap allocate {0}"
 	fill(word, n: 0)
@@ -1250,7 +1242,7 @@ function main() returns ExitCode
 		end 'restore'
 		let loud = try await h.shout(word) otherwise "stopped"
 		print("{loud}\n")
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 	end 'l'
 	print("{total}\n")
 	return 0

@@ -266,6 +266,9 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	if k == NodeKind.asyncExpr 'async'
 		return exprEnd(t, e: asyncExprCall(t, id: e))
 	end 'async'
+	if k == NodeKind.spawnExpr 'spawn'
+		return exprEnd(t, e: spawnExprCall(t, id: e))
+	end 'spawn'
 	if k == NodeKind.awaitExpr 'await'
 		return exprEnd(t, e: awaitExprE(t, id: e))
 	end 'await'

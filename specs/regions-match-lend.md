@@ -22,7 +22,6 @@ over as an owned value, which goes anywhere an `isolated` value goes.
 
 <!-- test: error.a-plain-union-lends-its-isolated-payload-where-an-isolated-value-is-wanted -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `u` is a plain union built from an `isolated` value, and the arm hands the payload to an `isolated` parameter.
@@ -44,8 +43,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	print("took {b.n}\n")
 end 'takeB'
 
@@ -66,7 +64,6 @@ error E3198: <fragment>:27:20: 'o' is isolated and cannot be read outside a bloc
 
 <!-- test: error.two-names-for-a-plain-union-cannot-give-its-isolated-payload-two-owners -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `v` is a second name for the union `u` holds, so each `match` would hand the one payload to its own owner.
@@ -88,8 +85,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	print("took {b.n}\n")
 end 'takeB'
 
@@ -115,7 +111,6 @@ error E3198: <fragment>:28:21: 'oa' is isolated and cannot be read outside a blo
 
 <!-- test: error.an-alias-of-a-plain-union-read-after-a-hand-over-is-refused-at-the-hand-over -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The second `match` only reads the payload, and the first still hands it over, which is where the refusal is.
@@ -137,8 +132,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	print("took {b.n}\n")
 end 'takeB'
 
@@ -164,7 +158,6 @@ error E3198: <fragment>:28:21: 'oa' is isolated and cannot be read outside a blo
 
 <!-- test: error.a-call-that-keeps-a-plain-union-leaves-its-isolated-payload-lent -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `keepU` stores the union in a holder, which then names the payload the `match` over `u` would hand away.
@@ -194,8 +187,7 @@ type Hs
 	end 'create'
 end 'Hs'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	print("took {b.n}\n")
 end 'takeB'
 
@@ -226,7 +218,6 @@ error E3198: <fragment>:42:21: 'oa' is isolated and cannot be read outside a blo
 
 <!-- test: error.a-call-that-returns-a-plain-union-leaves-its-isolated-payload-lent -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `idU` answers the union it was given, so `v` and `u` name one union.
@@ -248,8 +239,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	print("took {b.n}\n")
 end 'takeB'
 
@@ -335,7 +325,6 @@ show 3
 
 <!-- test: a-linear-union-hands-its-isolated-payload-over-as-an-owned-value -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 `Mx` holds a linear case, so the `match` consumes it and the `isolated` payload of its other case goes to an `isolated` parameter.
 
 ```maxon
@@ -367,8 +356,7 @@ type Bk
 	end 'create'
 end 'Bk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeI(b isolated Bk)
+function takeI(consumes b Bk)
 	print("took {b.code}\n")
 end 'takeI'
 
@@ -390,7 +378,6 @@ took 1
 
 <!-- test: error.a-payload-of-an-isolated-union-goes-to-one-isolated-parameter-once -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `u` is held in an `isolated` local, so the `match` hands `o` over as an owned value, and the first argument moves it.
@@ -412,8 +399,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeTwo(a isolated Bx, b isolated Bx)
+function takeTwo(consumes a Bx, consumes b Bx)
 	print("two {a.n} {b.n}\n")
 end 'takeTwo'
 
@@ -435,7 +421,6 @@ error E3102: <fragment>:27:25: use of moved value 'o': its ownership moved to an
 
 <!-- test: error.a-box-union-lends-its-isolated-payload-where-an-isolated-value-is-wanted -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A case with a second payload makes the union a heap box rather than one word, and the payload is lent all the same.
@@ -457,8 +442,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	print("took {b.n}\n")
 end 'takeB'
 
@@ -479,7 +463,6 @@ error E3198: <fragment>:27:23: 'o' is isolated and cannot be read outside a bloc
 
 <!-- test: error.a-payload-of-a-box-union-held-in-an-isolated-variable-goes-to-one-isolated-parameter-once -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal for a union that is a heap box.
@@ -501,8 +484,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeTwo(a isolated Bx, b isolated Bx)
+function takeTwo(consumes a Bx, consumes b Bx)
 	print("two {a.n} {b.n}\n")
 end 'takeTwo'
 
@@ -1067,9 +1049,7 @@ error E3207: <fragment>:35:21: 'bump' needs a writable parameter 'h' at line 27;
 <!-- test: a-discard-bound-from-an-isolated-local-after-a-linear-union-match-releases-it -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 Inside a block, a bare `match` of an outer `isolated` linear union consumes it and its arm sinks the payload. The
 later `let _ = h` moves `h` into the discard, which releases it.
 
@@ -1102,13 +1082,11 @@ type Lw7
 	end 'fin'
 end 'Lw7'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mk() returns isolated Lw7
+function mk() returns Lw7
 	return Lw7.create(Bx7.create(4))
 end 'mk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function sink(o isolated Lw7)
+function sink(consumes o Lw7)
 	o.fin()
 end 'sink'
 
@@ -1322,9 +1300,7 @@ error E3197: <fragment>:31:13: cannot write 'n' through 'o', which is read-only 
 
 <!-- test: a-consumed-isolated-union-hands-its-lone-payload-to-a-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `h` is an `isolated` `let` the `match` consumes, so its lone plain payload `d` is the whole of its region: the arm sends it, the service keeps and writes it, and no name in the sender reaches it again.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1350,8 +1326,7 @@ type Keeper
 		return Self{kept: Data.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(d isolated Data) returns Integer
+	export function take(consumes d Data) returns Integer
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.kept = merge d
 		self.kept.n = self.kept.n + 100
@@ -1375,7 +1350,6 @@ function hand(svc Keeper.handle, n Integer) returns Integer
 end 'hand'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let svc = spawn Keeper.create()
 	for i in 1 to 200 'each'
 		let got = hand(svc, n: i)
@@ -1760,7 +1734,6 @@ end 'main'
 
 <!-- test: a-match-inside-its-own-modify-leaves-the-isolated-variable-readable -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Inside its own `modify` the variable is open region data and the `match` lends; after the block the bare `match` consumes it and hands the payload over owned.
 ```maxon
@@ -1779,8 +1752,7 @@ union Slot
 	held(b Box)
 end 'Slot'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function take(b isolated Box) returns Count
+function take(consumes b Box) returns Count
 	return b.n
 end 'take'
 
@@ -1809,7 +1781,6 @@ end 'main'
 ```
 
 <!-- test: a-consumed-isolated-unions-lone-unique-payload-goes-to-an-isolated-parameter -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The bare `match` consumes the `isolated` variable, so its lone unique payload is owned and goes to an `isolated` parameter.
 ```maxon
@@ -1828,8 +1799,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function take(t isolated Token) returns Count
+function take(consumes t Token) returns Count
 	return t.n
 end 'take'
 
@@ -1851,7 +1821,6 @@ end 'main'
 ```
 
 <!-- test: a-consumed-isolated-var-refilled-on-every-path-is-matched-again -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The first `match` consumes `s`; both branches refill it before the second `match` consumes it again (ruling 33's W2).
 ```maxon
@@ -1870,8 +1839,7 @@ union Slot
 	held(b Box)
 end 'Slot'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function take(b isolated Box) returns Count
+function take(consumes b Box) returns Count
 	return b.n
 end 'take'
 
@@ -1999,9 +1967,7 @@ error E3102: <fragment>:31:17: cannot lend 's' to parameter 's' of 'bump', which
 ```
 
 <!-- test: a-consumed-isolated-union-from-a-co-owned-holder-releases-its-payloads-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 Each bare `match` consumes an `isolated` union this frame may not own alone: a call's result, a word union from a call, and an `isolated` parameter. The payload is retained out of the box and the box is released at the arm's head, so the `_` payload goes with the box.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -2024,18 +1990,15 @@ union Slot
 	held(b Box)
 end 'Slot'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function makePack(n Count) returns isolated Pack
+function makePack(n Count) returns Pack
 	return Pack.full(Box.create(n), label: "pack {n}")
 end 'makePack'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function makeSlot(n Count) returns isolated Slot
+function makeSlot(n Count) returns Slot
 	return Slot.held(Box.create(n))
 end 'makeSlot'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function openPack(p isolated Pack) returns Count
+function openPack(consumes p Pack) returns Count
 	return match p 'm'
 		empty gives 0
 		full(b, _) gives b.n
@@ -2068,8 +2031,6 @@ pack 1 1
 ```
 
 <!-- test: a-consumed-isolated-message-parameter-releases-its-payloads-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The message's bare `match` consumes its `isolated` parameter and hands the managed payload over; the `_` payload goes with the box.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -2094,9 +2055,8 @@ type Opener
 		return Self{opened: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function open(p isolated Pack) returns Count
-		self.opened = self.opened + 1
+	export function open(mutates self, consumes p Pack) returns Count
+		self.opened = try self.opened + 1 otherwise panic("out of range")
 		return match p 'm'
 			empty gives 0
 			full(b, _) gives b.n
@@ -2105,11 +2065,10 @@ type Opener
 end 'Opener'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let o = spawn Opener.create()
 	var total = 0 as Count
 	for i in 1 to 3 'each'
-		total = total + (try await o.open(Pack.full(Box.create(i), label: "pack")) otherwise 0)
+		total = try total + (try await o.open(Pack.full(Box.create(i), label: "pack")) otherwise 0) otherwise panic("out of range")
 	end 'each'
 	print("{total}\n")
 	return 0
@@ -2329,7 +2288,7 @@ error E3102: <fragment>:29:8: use of moved value 's': its ownership moved to the
 ```
 
 <!-- test: error.a-held-matched-variable-is-not-sent-from-a-binding-arm -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `u` is held by its `match` in every arm, so it is not a send's argument there (ruling 49).
 ```maxon
@@ -2367,7 +2326,6 @@ end 'Taker'
 
 function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match u 'm'
@@ -2383,7 +2341,7 @@ error E3214: <fragment>:42:39: cannot hand 'u' to the service it is sent to: 'u'
 ```
 
 <!-- test: error.a-held-matched-variable-is-not-sent-from-an-arm-that-binds-nothing -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An arm that binds nothing may move `u` in this thread (ruling 45), but `u` is still held by its `match`, so it is not a send's argument (ruling 49).
 ```maxon
@@ -2421,7 +2379,6 @@ end 'Taker'
 
 function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match u 'm'
@@ -2437,7 +2394,7 @@ error E3214: <fragment>:41:37: cannot hand 'u' to the service it is sent to: 'u'
 ```
 
 <!-- test: error.a-held-matched-variable-is-not-a-spawn-argument -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `u` is held by its `match` in every arm, so it is not a `spawn` factory's argument there (ruling 49).
 ```maxon
@@ -2473,11 +2430,9 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var k = spawn Keeper.create(Slot.empty)
 	match u 'm'
 		empty then break
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		held(t) then k = spawn Keeper.create(u)
 	end 'm'
 	print("{try await k.peek() otherwise 0}\n")
@@ -2489,7 +2444,7 @@ error E3214: <fragment>:38:40: cannot hand 'u' to the service the `spawn` starts
 ```
 
 <!-- test: error.a-call-result-that-may-be-the-held-matched-variable-is-not-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `idSlot(u)` may hand back `u`, which its `match` still holds, so the result is not the whole of its region at the send (ruling 49).
 ```maxon
@@ -2531,7 +2486,6 @@ end 'idSlot'
 
 function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match u 'm'
@@ -2547,7 +2501,7 @@ error E3200: <fragment>:45:37: 'idSlot(u)' crosses to the service it is sent to 
 ```
 
 <!-- test: error.a-call-result-that-may-be-the-held-matched-variable-is-not-sent-from-a-binding-arm -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The binding arm sends `idSlot(u)`, which may hand back `u` while its `match` holds it, so the result is not the whole of its region at the send (ruling 49, the model's AI a7).
 ```maxon
@@ -2589,7 +2543,6 @@ end 'idSlot'
 
 function main() returns ExitCode
 	var u = Slot.held(Token.create(1))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match u 'm'
@@ -2606,7 +2559,6 @@ error E3200: <fragment>:46:39: 'idSlot(u)' crosses to the service it is sent to 
 ```
 
 <!-- test: error.an-element-read-subject-holds-its-container -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `match try a.get(0) otherwise panic("one")` reads an element of `a`, so the `match` holds `a` itself, and a binding arm does not send it (rulings 49 and 50).
 ```maxon
@@ -2643,7 +2595,6 @@ end 'Taker'
 function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
@@ -2659,7 +2610,6 @@ error E3214: <fragment>:40:43: cannot hand 'a' to the service it is sent to: 'a'
 ```
 
 <!-- test: error.a-pop-from-an-element-read-subject-is-not-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `a.pop()` in an arm that binds nothing is legal (ruling 45.1), but its result is taken out of `a`, which the `match` holds, so it is not the whole of its region at the send (ruling 50 point 2).
 ```maxon
@@ -2700,7 +2650,6 @@ end 'Taker'
 function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
@@ -2716,9 +2665,7 @@ error E3200: <fragment>:45:36: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-swap-out-of-a-matched-self-field-is-not-sent -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `match h.u` holds `h`, the root of the path, so what `swap h.u with Slot.empty` takes out of the matched field is held and is not sent (ruling 50 points 1 and 2).
 ```maxon
@@ -2741,8 +2688,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(u isolated Slot) returns Self
+	static function create(consumes u Slot) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holder'
@@ -2766,7 +2712,6 @@ end 'Taker'
 
 function main() returns ExitCode
 	let h = Holder.create(Slot.held(Token.create(1)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match h.u 'm'
@@ -2782,7 +2727,6 @@ error E3200: <fragment>:50:36: 'swap h.u with Slot.empty' crosses to the service
 ```
 
 <!-- test: error.a-held-pop-result-is-not-a-spawn-argument -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 What `a.pop()` takes out of `a` is held by the `match` over `a.get(0)`, so it is not a `spawn` factory's argument (ruling 50 point 2).
 ```maxon
@@ -2821,11 +2765,9 @@ end 'Keeper'
 function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var k = spawn Keeper.create(Slot.empty)
 	match try a.get(0) otherwise panic("one") 'm'
 		empty then break
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		held then k = spawn Keeper.create(try a.pop() otherwise panic("one"))
 	end 'm'
 	print("{try await k.peek() otherwise 0}\n")
@@ -2837,7 +2779,6 @@ error E3200: <fragment>:41:37: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-pop-result-is-not-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 What `a.pop()` takes out of `a` is held by the `match` over `a.get(0)`, so a service method does not return it to its sender from the arm (ruling 50 point 2).
 ```maxon
@@ -2878,7 +2819,6 @@ type Vault
 end 'Vault'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Vault.create()
 	let r = try await v.give() otherwise Slot.empty
 	let n = match r 'r'
@@ -2894,7 +2834,6 @@ error E3200: <fragment>:33:21: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-pop-result-is-not-in-an-isolated-position -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 What `a.pop()` takes out of `a` is held by the `match` over `a.get(0)`, so it is not an `isolated` parameter's argument (ruling 50 point 2).
 ```maxon
@@ -2915,8 +2854,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function isoSlot(x isolated Slot) returns Count
+function isoSlot(consumes x Slot) returns Count
 	return match x 'c'
 		empty gives 0
 		held(t) gives t.n
@@ -2941,9 +2879,7 @@ error E3200: <fragment>:33:27: 'try a.pop() otherwise panic("one")' crosses to a
 
 <!-- test: error.a-held-swap-result-is-not-an-isolated-factory-argument -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so it is not an `isolated` factory parameter's argument (ruling 50 point 2).
 ```maxon
@@ -2967,8 +2903,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(u isolated Slot) returns Self
+	static function create(consumes u Slot) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holder'
@@ -2977,8 +2912,7 @@ type Keeper
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(x isolated Slot) returns Self
+	static function create(consumes x Slot) returns Self
 		return Self{u: x}
 	end 'create'
 
@@ -2992,11 +2926,9 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let h = Holder.create(Slot.held(Box.create(1)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var k = spawn Keeper.create(Slot.empty)
 	match h.u 'm'
 		empty then break
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		held then k = spawn Keeper.create(exchange(h.u, value: Slot.empty))
 	end 'm'
 	print("{try await k.peek() otherwise 0}\n")
@@ -3009,10 +2941,7 @@ error E3200: <fragment>:46:37: 'swap h.u with Slot.empty' crosses to an `isolate
 
 <!-- test: error.a-held-swap-result-is-not-an-isolated-reply -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so a method that `returns isolated` does not return it from the arm (ruling 50 point 2).
 ```maxon
@@ -3036,8 +2965,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(u isolated Slot) returns Self
+	static function create(consumes u Slot) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holder'
@@ -3049,8 +2977,7 @@ type Vault
 		return Self{served: 0}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function give() returns isolated Slot
+	export function give() returns Slot
 		let h = Holder.create(Slot.held(Box.create(1)))
 		self.served = self.served + 1
 		match h.u 'm'
@@ -3062,7 +2989,6 @@ type Vault
 end 'Vault'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Vault.create()
 	let r = try await v.give() otherwise panic("gone")
 	let n = match r 'r'
@@ -3079,7 +3005,6 @@ error E3200: <fragment>:38:21: 'swap h.u with Slot.empty' crosses to an `isolate
 
 <!-- test: error.a-held-swap-result-is-not-in-an-isolated-position -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so it is not an `isolated` parameter's argument (ruling 50 point 2).
@@ -3104,14 +3029,12 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(u isolated Slot) returns Self
+	static function create(consumes u Slot) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holder'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function isoSlot(x isolated Slot) returns Count
+function isoSlot(consumes x Slot) returns Count
 	return match x 'c'
 		empty gives 0
 		held(b) gives b.n
@@ -3134,7 +3057,7 @@ error E3200: <fragment>:38:27: 'swap h.u with Slot.empty' crosses to an `isolate
 ```
 
 <!-- test: error.a-held-call-result-is-not-a-spawn-argument -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `idSlot(u)` may hand back `u`, which its `match` still holds, so the result is not a `spawn` factory's argument (ruling 50 point 1).
 ```maxon
@@ -3174,10 +3097,8 @@ end 'idSlot'
 
 function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var k = spawn Keeper.create(Slot.empty)
 	match u 'm'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		empty then k = spawn Keeper.create(idSlot(u))
 		held then break
 	end 'm'
@@ -3190,7 +3111,7 @@ error E3200: <fragment>:41:38: 'idSlot(u)' crosses to the service the `spawn` st
 ```
 
 <!-- test: error.a-held-call-result-is-not-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `idSlot(u)` may hand back `u`, which its `match` still holds, so a service method does not return it to its sender from the arm (ruling 50 point 1).
 ```maxon
@@ -3232,7 +3153,6 @@ function idSlot(x Slot) returns Slot
 end 'idSlot'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Vault.create()
 	let r = try await v.give() otherwise Slot.empty
 	let n = match r 'r'
@@ -3248,7 +3168,7 @@ error E3200: <fragment>:29:22: 'idSlot(u)' crosses to the sender awaiting the re
 ```
 
 <!-- test: error.a-held-call-result-is-not-in-an-isolated-position -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `idSlot(u)` may hand back `u`, which its `match` still holds, so the result is not an `isolated` parameter's argument (ruling 50 point 1).
 ```maxon
@@ -3267,8 +3187,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function isoSlot(x isolated Slot) returns Count
+function isoSlot(consumes x Slot) returns Count
 	return match x 'c'
 		empty gives 0
 		held(t) gives t.n
@@ -3295,7 +3214,6 @@ error E3200: <fragment>:33:28: 'idSlot(u)' crosses to an `isolated` position onl
 ```
 
 <!-- test: error.a-renamed-held-result-is-not-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `r` is assigned what `a.pop()` took out of `a`, which the `match` holds, so `r` is held too and is not sent (ruling 50 point 1: a binding a held value is moved into).
 ```maxon
@@ -3336,7 +3254,6 @@ end 'Taker'
 function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var r = Slot.empty
 	var got = 0 as Count
@@ -3353,7 +3270,6 @@ error E3200: <fragment>:46:36: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: error.a-holder-that-stored-a-held-value-is-not-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `box` is a holder that `a.pop()`'s held result was stored into a field of, so `box` is held too and is not sent (ruling 50 point 1: a holder a held value is stored into).
 ```maxon
@@ -3403,7 +3319,6 @@ function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
 	let box = Bag.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
@@ -3419,7 +3334,6 @@ error E3200: <fragment>:54:39: 'box' crosses to the service it is sent to only a
 ```
 
 <!-- test: error.a-root-whose-field-alias-stored-a-held-value-is-not-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `inner` is a destructured alias of the tuple field `crate.pr`, and what `a.pop()` took out of `a` was stored into it, so `crate`, the root the alias names, is held too and is not sent (ruling H-10: a holder chain through a destructured alias).
 ```maxon
@@ -3481,7 +3395,6 @@ function main() returns ExitCode
 	a.push(Slot.held(Token.create(2)))
 	let crate = Crate.create()
 	let (inner, _) = crate.pr
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
@@ -3497,7 +3410,7 @@ error E3200: <fragment>:66:41: 'crate' crosses to the service it is sent to only
 ```
 
 <!-- test: error.a-root-whose-field-alias-is-matched-is-not-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `inner` is a destructured alias of the tuple field `crate.pr` and the `match` holds it across its arms, so `crate`, the root the alias names, is held and is not sent from an arm (ruling H-10: the subject's alias chain).
 ```maxon
@@ -3556,7 +3469,6 @@ function main() returns ExitCode
 	let crate = Crate.create()
 	crate.pr.0.item = Slot.held(Token.create(2))
 	let (inner, _) = crate.pr
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match inner.item 'm'
@@ -3572,7 +3484,6 @@ error E3214: <fragment>:63:41: cannot hand 'crate' to the service it is sent to:
 ```
 
 <!-- test: error.a-root-two-holders-up-whose-field-alias-stored-a-held-value-is-not-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `inner` aliases a tuple field of `shelf.cr`, a holder two hops below `shelf`, and what `a.pop()` took out of `a` was stored into it, so `shelf` is held too and is not sent (ruling H-10: the chain is followed to the root).
 ```maxon
@@ -3642,7 +3553,6 @@ function main() returns ExitCode
 	a.push(Slot.held(Token.create(2)))
 	let shelf = Shelf.create()
 	let (inner, _) = shelf.cr.pr
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
@@ -3658,7 +3568,6 @@ error E3200: <fragment>:74:41: 'shelf' crosses to the service it is sent to only
 ```
 
 <!-- test: a-root-whose-field-alias-stored-an-unheld-value-is-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `inner` is a destructured alias of the tuple field `crate.pr`, but what is stored into it is a fresh `Slot.empty`, which no `match` holds, so `crate` stays free and is sent (ruling H-10, accepted control).
 ```maxon
 typealias Count = int(0 to 1000)
@@ -3719,7 +3628,6 @@ function main() returns ExitCode
 	a.push(Slot.empty)
 	let crate = Crate.create()
 	let (inner, _) = crate.pr
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
@@ -3739,7 +3647,7 @@ end 'main'
 
 
 <!-- test: error.a-root-whose-plain-field-alias-stored-a-held-value-is-not-an-isolated-argument -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `inner` is a plain alias of the field `crate.bag`, whose `Bag` holds no unique value, and what `a.pop()` took out of `a` was stored through it, so `crate`, the root the alias names, is held and is not an `isolated` parameter's argument (ruling H-11). The case pins the order of two refusals: without the holder chain the same program is refused as "'crate' is not isolated".
 ```maxon
@@ -3777,8 +3685,7 @@ type Crate
 	end 'create'
 end 'Crate'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function take(c isolated Crate) returns Count
+function take(consumes c Crate) returns Count
 	return c.n
 end 'take'
 
@@ -3801,7 +3708,6 @@ error E3200: <fragment>:49:24: 'crate' crosses to an `isolated` position only as
 ```
 
 <!-- test: error.a-root-whose-plain-field-alias-is-matched-is-not-an-isolated-argument -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `inner` is a plain alias of the field `crate.bag`, whose `Bag` holds no unique value, and the `match` holds `inner.item` across its arms, so `crate`, the root the alias names, is matched by the arm too and is not an `isolated` parameter's argument from it (ruling H-11). The case pins the order of two refusals: without the holder chain the same program is refused as "'crate' is not isolated".
 ```maxon
@@ -3837,8 +3743,7 @@ type Crate
 	end 'create'
 end 'Crate'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function take(c isolated Crate) returns Count
+function take(consumes c Crate) returns Count
 	return c.n
 end 'take'
 
@@ -3860,7 +3765,6 @@ error E3214: <fragment>:45:24: cannot hand 'crate' to an `isolated` position: 'c
 
 <!-- test: a-swap-and-a-pop-in-an-arm-that-binds-nothing-are-accepted -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 In an arm that binds no payload, whether it names a payload case (`held then`) or not (`empty then`), `pop` and `swap` on the matched subject stay legal, and what they take out goes on after the `match` (ruling 45.1; ruling 50 point 2).
 ```maxon
@@ -3899,8 +3803,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Pod
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(u isolated Pod) returns Self
+	static function create(consumes u Pod) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holder'
@@ -3912,8 +3815,7 @@ function weigh(x Slot) returns Count
 	end 'c'
 end 'weigh'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function pour(x isolated Pod) returns Count
+function pour(consumes x Pod) returns Count
 	return match x 'c'
 		empty gives 0
 		held(b) gives b.n
@@ -3950,7 +3852,6 @@ end 'main'
 ```
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-var -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `var` is held like a `let`: what `a.pop()` takes out of the `var` `a` is held by the `match` over `a.get(0)`, so it is not sent, and `a` is reassigned only after the `match` (ruling 50 point 2).
 ```maxon
@@ -3991,7 +3892,6 @@ end 'Taker'
 function main() returns ExitCode
 	var a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
@@ -4008,7 +3908,6 @@ error E3200: <fragment>:45:36: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-mutable-parameter -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `mutable` parameter is held like a local: what `a.pop()` takes out of the `mutable` parameter `a` is held by the `match` over `a.get(0)`, so it is not sent (ruling 50 point 2).
 ```maxon
@@ -4058,7 +3957,6 @@ end 'relay'
 function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	print("{relay(a, s: s)}\n")
 	return 0
@@ -4069,9 +3967,7 @@ error E3200: <fragment>:42:36: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-self-field -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `match self.u` in a method holds `self`, the root of the path, so what `swap self.u with Slot.empty` takes out of the matched field is not sent (ruling 48 point 1; ruling 50 point 2).
 ```maxon
@@ -4111,8 +4007,7 @@ type Shelf
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(x isolated Slot) returns Self
+	static function create(consumes x Slot) returns Self
 		return Self{u: x}
 	end 'create'
 
@@ -4128,7 +4023,6 @@ end 'Shelf'
 
 function main() returns ExitCode
 	let shelf = Shelf.create(Slot.held(Token.create(1)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	print("{shelf.relay(s)}\n")
 	return 0
@@ -4141,7 +4035,6 @@ error E3200: <fragment>:47:37: 'swap self.u with Slot.empty' crosses to the serv
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-local-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A local declared inside a `modify` is held like any other: what `a.pop()` takes out of it is held by the `match` over `a.get(0)`, so it is not a `spawn` factory's argument (ruling 50 point 2).
 ```maxon
@@ -4195,11 +4088,9 @@ function main() returns ExitCode
 		a.push(Slot.held(Token.create(2)))
 		match try a.get(0) otherwise panic("one") 'm'
 			empty then break
-			// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 			held then _ = spawn Keeper.create(try a.pop() otherwise panic("one"))
 		end 'm'
 	end 'open'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Keeper.create(Slot.empty)
 	print("{try await k.size() otherwise 0}\n")
 	return 0
@@ -4211,7 +4102,6 @@ error E3200: <fragment>:53:42: 'try a.pop() otherwise panic("one")' crosses to t
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-an-acquired-state-inside-acquire -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Inside `acquire`, the name `s` is the acquired state and resolves to the binding it shadows, so what `s.a.pop()` takes out of the state is held by the `match` over `s.a.get(0)` and is not a `spawn` factory's argument (#235; ruling 50 point 2).
 ```maxon
@@ -4259,19 +4149,16 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Vault.create(Slot.held(Token.create(2)))
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match try s.a.get(0) otherwise panic("one") 'm'
 			empty then break
-			// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 			held then _ = spawn Keeper.create(try s.a.pop() otherwise panic("one"))
 		end 'm'
 	end 'a1' otherwise 'gone'
 		_ = 0 as Count
 	end 'gone'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Keeper.create(Slot.empty)
 	print("{try await k.size() otherwise 0}\n")
 	return 0
@@ -4284,7 +4171,6 @@ error E3200: <fragment>:52:42: 'try s.a.pop() otherwise panic("one")' crosses to
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-an-isolated-local-inside-its-own-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Inside its own `modify` an `isolated` local is open region data and the `match` lends from it, so what `a.pop()` takes out of it is held by the `match` over `a.get(0)` and is not a `spawn` factory's argument (#235; ruling 50 point 2).
 ```maxon
@@ -4329,11 +4215,9 @@ function main() returns ExitCode
 		a.push(Slot.held(Token.create(2)))
 		match try a.get(0) otherwise panic("one") 'm'
 			empty then break
-			// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 			held then _ = spawn Keeper.create(try a.pop() otherwise panic("one"))
 		end 'm'
 	end 'open'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Keeper.create(Slot.empty)
 	print("{try await k.size() otherwise 0}\n")
 	return 0
@@ -4344,9 +4228,7 @@ error E3200: <fragment>:44:42: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-swap-result-is-not-a-spawn-argument -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A crossing door is chosen by the parameter's declaration, so a held `swap` result handed to an unmarked `spawn` factory parameter meets the `spawn` door, which refuses it because it may still name the holder the `match` holds (ruling 50 point 2). The case pins the order of two refusals: without the hold the same `swap` result is refused at the unmarked factory parameter as "'create' hands back mutable data of the isolated region it opens", as `error.an-unheld-swap-result-is-opened-by-an-unmarked-spawn-parameter` shows.
 ```maxon
@@ -4369,8 +4251,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(u isolated Slot) returns Self
+	static function create(consumes u Slot) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holder'
@@ -4392,11 +4273,9 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let h = Holder.create(Slot.held(Token.create(1)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var k = spawn Keeper.create(Slot.empty)
 	match h.u 'm'
 		empty then break
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		held then k = spawn Keeper.create(exchange(h.u, value: Slot.empty))
 	end 'm'
 	print("{try await k.peek() otherwise 0}\n")
@@ -4408,9 +4287,7 @@ error E3200: <fragment>:46:37: 'swap h.u with Slot.empty' crosses to the service
 ```
 
 <!-- test: error.an-unheld-swap-result-is-opened-by-an-unmarked-spawn-parameter -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A swap result is isolated, so an unmarked `spawn` factory parameter opens it rather than crossing it, and this pin goes red if a swap result ever slips through the unmarked spawn door.
 ```maxon
@@ -4433,8 +4310,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(u isolated Slot) returns Self
+	static function create(consumes u Slot) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holder'
@@ -4456,9 +4332,7 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let h = Holder.create(Slot.held(Token.create(1)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var k = spawn Keeper.create(Slot.empty)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	k = spawn Keeper.create(exchange(h.u, value: Slot.empty))
 	print("{try await k.peek() otherwise 0}\n")
 	return 0
@@ -4469,9 +4343,7 @@ error E3201: <fragment>:44:19: 'create' hands back mutable data of the isolated 
 ```
 
 <!-- test: error.a-held-swap-result-is-not-a-reply -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so a service method does not return it to its sender from the arm through an unmarked return (ruling 50 point 2; #282). The case pins the order of two refusals: without the hold the same `return` is refused as "'swap h.u with Slot.empty' is isolated, the result is not `isolated`".
 ```maxon
@@ -4494,8 +4366,7 @@ type Holder
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var u as isolated Slot
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(u isolated Slot) returns Self
+	static function create(consumes u Slot) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holder'
@@ -4519,7 +4390,6 @@ type Vault
 end 'Vault'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Vault.create()
 	let r = try await v.give() otherwise Slot.empty
 	let n = match r 'r'
@@ -4659,7 +4529,6 @@ end 'main'
 ```
 
 <!-- test: a-value-type-field-of-the-matched-record-is-sent-from-a-binding-arm -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A value-type field (`generation`) of the held root `self` is a copy, so a binding arm of `match self.slot` may send it to a service.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -4684,8 +4553,8 @@ type Taker
 		return Self{taken: 0}
 	end 'create'
 
-	export function note(g Count) returns Count
-		self.taken = self.taken + g
+	export function note(mutates self, g Count) returns Count
+		self.taken = try self.taken + g otherwise panic("out of range")
 		return self.taken
 	end 'note'
 end 'Taker'
@@ -4694,7 +4563,7 @@ type Shelf
 	var slot as Slot
 	var generation as Count
 
-	static function create(x Slot) returns Self
+	static function create(consumes x Slot) returns Self
 		return Self{slot: x, generation: 4}
 	end 'create'
 
@@ -4702,7 +4571,7 @@ type Shelf
 		var got = 0 as Count
 		match self.slot 'm'
 			empty then break
-			held(t) then got = (try await s.note(self.generation) otherwise 0) + t.n
+			held(t) then got = try (try await s.note(self.generation) otherwise 0) + t.n otherwise panic("out of range")
 		end 'm'
 		return got
 	end 'relay'
@@ -4710,7 +4579,6 @@ end 'Shelf'
 
 function main() returns ExitCode
 	let shelf = Shelf.create(Slot.held(Token.create(1)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	print("{shelf.relay(s)}\n")
 	return 0
@@ -4769,7 +4637,6 @@ end 'main'
 ```
 
 <!-- test: a-value-type-argument-of-a-call-subject-is-sent-from-a-binding-arm -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `k` is an `int` argument of the call subject, so it is no root of the `match` and the `held(x)` arm sends it to a service (ruling 50 point 1).
 ```maxon
 typealias Count = int(0 to 1000)
@@ -4794,25 +4661,24 @@ type Taker
 		return Self{taken: 0}
 	end 'create'
 
-	export function note(g Count) returns Count
-		self.taken = self.taken + g
+	export function note(mutates self, g Count) returns Count
+		self.taken = try self.taken + g otherwise panic("out of range")
 		return self.taken
 	end 'note'
 end 'Taker'
 
 function next(b Box, step Count) returns Slot
-	return Slot.held(Box.create(b.n + step))
+	return Slot.held(Box.create(try b.n + step otherwise panic("out of range")))
 end 'next'
 
 function main() returns ExitCode
 	let v = Box.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	let k = 4 as Count
 	var got = 0 as Count
 	match next(v, step: k) 'm'
 		empty then break
-		held(x) then got = (try await s.note(k) otherwise 0) + x.n
+		held(x) then got = try (try await s.note(k) otherwise 0) + x.n otherwise panic("out of range")
 	end 'm'
 	print("{got}\n")
 	return 0
@@ -4865,7 +4731,6 @@ end 'main'
 ```
 
 <!-- test: error.a-copy-of-a-matched-root-is-not-sent-after-the-statement -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `w = a` copies the root `a` of the holding `match` in one statement, and the copy is sent in the next, so it is held too (ruling 1: a value's hold is decided when it is minted).
 ```maxon
@@ -4902,7 +4767,6 @@ end 'Taker'
 function main() returns ExitCode
 	let a = Slots.create(0)
 	a.push(Slot.held(Token.create(2)))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var w = Slots.create(0)
 	var got = 0 as Count
@@ -4919,7 +4783,7 @@ error E3200: <fragment>:41:40: 'w' crosses to the service it is sent to only as 
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-sent -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and is not sent to a service (ruling 50 points 3 and 1).
 ```maxon
@@ -4961,7 +4825,6 @@ end 'idSlot'
 
 function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	var f = function() gives Slot.empty
 	var got = 0 as Count
@@ -4978,7 +4841,7 @@ error E3200: <fragment>:47:36: 'f()' crosses to the service it is sent to only a
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-a-spawn-argument -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and is not a `spawn` factory's argument (ruling 50 points 3 and 1).
 ```maxon
@@ -5015,13 +4878,11 @@ end 'idSlot'
 
 function main() returns ExitCode
 	let u = Slot.held(Token.create(1))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	var k = spawn Keeper.create(Slot.empty)
 	var f = function() gives Slot.empty
 	let got = 0 as Count
 	match u 'm'
 		empty then f = function() gives idSlot(u) and fallthrough
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		held then k = spawn Keeper.create(f())
 	end 'm'
 	print("{got}{try await k.peek() otherwise 0}\n")
@@ -5033,7 +4894,7 @@ error E3200: <fragment>:41:37: 'f()' crosses to the service the `spawn` starts o
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and a service method does not return it to its sender (ruling 50 points 3 and 1).
 ```maxon
@@ -5083,7 +4944,6 @@ function idSlot(x Slot) returns Slot
 end 'idSlot'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Vault.create()
 	let got = try await v.give() otherwise Slot.empty
 	let n = match got 'g'

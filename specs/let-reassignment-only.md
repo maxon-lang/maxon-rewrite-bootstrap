@@ -672,8 +672,6 @@ error E2013: <fragment>:14:2: 'v' is a let and cannot be reassigned
 ```
 
 <!-- test: a-frozen-let-is-sent-to-a-service-twice -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Sharing a frozen value rests on `freeze`, not on the `let` that names it.
 
 ```maxon
@@ -694,15 +692,13 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function take(cfg immutable Cfg) returns Count
-		self.total = self.total + cfg.n
+	export function take(mutates self, cfg frozen with Cfg) returns Count
+		self.total = try self.total + cfg.n otherwise panic("out of range")
 		return self.total
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	let cfg = freeze(Cfg.create(3))
 	let first = try await sink.take(cfg) otherwise 0
@@ -755,8 +751,6 @@ end 'main'
 ```
 
 <!-- test: error.an-all-let-record-holding-an-array-is-not-immutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Every field of `Bag` is a `let`, but `items` is an array: the record is not frozen data, so it is not sent as `immutable` without `freeze`.
 
@@ -778,14 +772,12 @@ type Sink
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function take(bag immutable Bag) returns Count
+	export function take(bag frozen with Bag) returns Count
 		return 0
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	let bag = Bag.create()
 	let n = try await sink.take(bag) otherwise 1
@@ -798,8 +790,6 @@ error E3207: <fragment>:26:30: 'take' takes `immutable` 'bag'; 'bag' is mutable.
 ```
 
 <!-- test: an-all-let-record-of-values-is-still-immutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -817,14 +807,12 @@ type Sink
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function take(point immutable Point) returns Count
+	export function take(point frozen with Point) returns Count
 		return point.x + point.y
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	let point = Point.create(1, y: 2)
 	let n = try await sink.take(point) otherwise 0

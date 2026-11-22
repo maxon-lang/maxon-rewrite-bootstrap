@@ -585,7 +585,6 @@ error E3196: <fragment>:28:32: cannot store an immutable 'Job' into 'Holder.wrap
 ```
 
 <!-- test: a-fresh-value-passed-to-an-immutable-parameter-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A fresh call result is mutable data: an `immutable` parameter takes only a frozen value, so it is written `freeze Box.create(1)`.
 
@@ -600,8 +599,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function take(item immutable Box) returns Tally
+function take(item frozen with Box) returns Tally
 	return item.n
 end 'take'
 
@@ -647,7 +645,6 @@ error E3207: <fragment>:17:23: 'peek' is declared `immutable self`; a fresh valu
 ```
 
 <!-- test: a-frozen-expression-is-an-immutable-receiver-and-argument-and-runs -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: receiver capability 'immutable self' is not supported in minimaxon -->
 `freeze` written before a fresh expression, in parentheses where it is a receiver, satisfies an `immutable` position.
 
@@ -667,8 +664,7 @@ type Box
 	end 'peek'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function take(item immutable Box) returns Tally
+function take(item frozen with Box) returns Tally
 	return item.n
 end 'take'
 
@@ -1222,7 +1218,7 @@ error E3005: <fragment>:19:8: argument type mismatch for 'value': expected '(Box
 ```
 
 <!-- test: a-tuple-with-another-item-capability-is-another-type -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 <!-- positions: moved -->
 `(immutable Box, Box)` and `(Box, Box)` are two types, so the parameter refuses the first.
 
@@ -1241,8 +1237,7 @@ function weigh(pair(Box, Box)) returns Tally
 	return pair.0.n + pair.1.n
 end 'weigh'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function pairOf(first immutable Box, second Box) returns (immutable Box, Box)
+function pairOf(first frozen with Box, second Box) returns (immutable Box, Box)
 	return (first, second)
 end 'pairOf'
 
@@ -1278,8 +1273,7 @@ function weigh(pair(immutable Box, Box)) returns Tally
 	return pair.0.n + pair.1.n
 end 'weigh'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function pairOf(first immutable Box, second Box) returns (immutable Box, Box)
+function pairOf(first frozen with Box, second Box) returns (immutable Box, Box)
 	return (first, second)
 end 'pairOf'
 
@@ -1777,7 +1771,6 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'first', which is immutab
 ```
 
 <!-- test: an-element-handed-back-by-a-call-over-an-immutable-array-is-blamed-as-immutable -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` returns an `immutable` element of a frozen array, so writing through the binding `held` is blamed on the `immutable` element.
 
@@ -1794,8 +1787,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pick(items FrozenBoxes) returns immutable Box
+function pick(items FrozenBoxes) returns frozen with Box
 	return try items.get(0) otherwise panic("empty")
 end 'pick'
 
@@ -2207,7 +2199,6 @@ end 'main'
 ```
 
 <!-- test: a-fresh-value-returned-through-a-local-from-an-immutable-result-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A fresh value is mutable, so a `returns immutable` function freezes it before returning it, through a local too.
 
@@ -2222,8 +2213,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function viaLocal() returns immutable Box
+function viaLocal() returns frozen with Box
 	let fresh = Box.create(1)
 	return fresh
 end 'viaLocal'
@@ -2310,8 +2300,6 @@ error E3196: <fragment>:22:15: cannot store a mutable 'Box' into 'held', which h
 ```
 
 <!-- test: a-fresh-value-sent-to-an-immutable-message-parameter-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message takes a frozen argument in an `immutable` parameter, so the fresh `Leaf` is frozen first.
 
@@ -2331,14 +2319,12 @@ type Reader
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function weigh(leaf immutable Leaf) returns Tally
+	export function weigh(leaf frozen with Leaf) returns Tally
 		return leaf.weight
 	end 'weigh'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let first = try reader.weigh(Leaf.create(3)) otherwise panic("main: a fresh reader accepts its only request")
 	let a = await first
@@ -2352,8 +2338,6 @@ error E3207: <fragment>:24:31: 'weigh' takes `immutable` 'leaf'; a fresh value i
 ```
 
 <!-- test: a-fresh-value-replied-from-an-immutable-message-result-refused -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A reply declared `returns immutable` is frozen where it is returned.
 
@@ -2373,14 +2357,12 @@ type Reader
 		return Self{}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function make() returns immutable Leaf
+	export function make() returns frozen with Leaf
 		return Leaf.create(9)
 	end 'make'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	reader.shutdown()
 	return 0
@@ -2508,7 +2490,6 @@ error E3208: <fragment>:5:34: 'create' returns 'certificate' or 'extensions'; th
 ```
 
 <!-- test: a-generic-function-declared-to-return-immutable-hands-back-frozen-data -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `frozenRow` is generic and declares `returns immutable`, so a call to it gives frozen data that `bump`, which writes its parameter, refuses.
 
@@ -2523,8 +2504,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function frozenRow(_ T) uses T returns immutable Box
+function frozenRow(_ T) uses T returns frozen with Box
 	let fresh = freeze(Box.create(1))
 	return fresh
 end 'frozenRow'
@@ -2544,9 +2524,7 @@ error E3207: <fragment>:23:15: 'bump' writes 'box' (line 18: `box.n = box.n + 1`
 ```
 
 <!-- test: a-generic-function-declared-to-return-isolated-hands-back-an-isolated-value -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 `make` is generic and declares `returns isolated`, so the local that holds its result is an isolated value that `Vault.wrap` takes into its `isolated` parameter.
 
 ```maxon
@@ -2564,14 +2542,12 @@ type Vault
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var held as isolated Box
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function wrap(box isolated Box) returns Self
+	static function wrap(consumes box Box) returns Self
 		return Self{held: box}
 	end 'wrap'
 end 'Vault'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function make(_ T) uses T returns isolated Box
+function make(_ T) uses T returns Box
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let fresh = Box.create(1) as isolated Box
 	return fresh
@@ -2593,7 +2569,6 @@ end 'main'
 
 <!-- test: a-merged-isolated-parameter-bound-to-a-local-is-released-once-by-a-factory -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 `create` merges its `isolated T` parameter into a local `m` and stores `m`, so the record lives in the box once and is released once when `b` ends: `seen` is 1 and no allocation is left over.
 
 ```maxon
@@ -2611,8 +2586,7 @@ type Box uses T
 	export var slot as T
 	export var seen as Count
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(first isolated T) returns Self
+	static function create(consumes first T) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let m = merge first
 		return Self{seen: 1, slot: m}
@@ -2630,7 +2604,6 @@ end 'main'
 
 <!-- test: a-merged-isolated-parameter-bound-to-a-local-is-released-once-by-a-replacing-method -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 `replace` merges its `isolated T` parameter into a local and assigns it over the slot, so the old record is released by the assignment and the new one by the end of `b`: `seen` is 2 and no allocation is left over.
 
 ```maxon
@@ -2648,14 +2621,12 @@ type Box uses T
 	export var slot as T
 	export var seen as Count
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(first isolated T) returns Self
+	static function create(consumes first T) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{seen: 1, slot: merge first}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function replace(next isolated T)
+	export function replace(consumes next T)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let m = merge next
 		self.slot = m
@@ -2675,7 +2646,6 @@ end 'main'
 
 <!-- test: a-merged-isolated-parameter-bound-to-a-local-is-released-once-by-an-appending-method -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 `add` merges its `isolated T` parameter into a local and appends it to the list, so each record lives in the list once and is released once when `b` ends: `seen` is 2 and no allocation is left over.
 
 ```maxon
@@ -2698,8 +2668,7 @@ type Box uses T
 		return Self{items: Items.create(), seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function add(item isolated T)
+	export function add(consumes item T)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let m = merge item
 		self.items.append(m)

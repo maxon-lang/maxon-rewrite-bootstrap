@@ -280,7 +280,8 @@ func emitMaxonRawSurface(sb *strings.Builder, t table) {
 		fmt.Fprintf(sb, "// %s is the door of the raw surface that %s, or none for a type that is no part of it.\n", door.name, door.doc)
 		fmt.Fprintf(sb, "export function %s(b Builtins, origin TypeID) returns table.Option with RawSurface\n", door.name)
 		for _, bt := range builtinTypes {
-			if bt.Raw != nil {
+			// A type whose values are a program's but whose name is the library's has a door for its name alone.
+			if bt.Raw != nil && door.of(*bt.Raw).What != "" {
 				fmt.Fprintf(sb, "\tif origin == %s 'raw%s'\n\t\treturn %s\n\tend 'raw%s'\n", maxonOwner(bt.Key), bt.Key, some(door.of(*bt.Raw)), bt.Key)
 			}
 		}

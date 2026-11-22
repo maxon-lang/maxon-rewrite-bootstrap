@@ -19,8 +19,6 @@ is counted, so it is dropped once.
 ## Tests
 
 <!-- test: an-awaited-async-result-keeps-the-immutable-return -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `fetch` returns `immutable Box`, so the awaited result is frozen and a write through it is refused.
 
@@ -35,9 +33,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function fetch(frozen immutable Box) returns immutable Box
+function fetch(frozen frozen with Box) returns frozen with Box
 	return frozen
 end 'fetch'
 
@@ -54,8 +50,6 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'b', which is immutable
 ```
 
 <!-- test: an-awaited-async-result-of-an-immutable-return-is-read -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 Reading the frozen result is fine.
 
 ```maxon
@@ -69,9 +63,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function fetch(frozen immutable Box) returns immutable Box
+function fetch(frozen frozen with Box) returns frozen with Box
 	return frozen
 end 'fetch'
 
@@ -194,9 +186,7 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-send-error-is-rethrown-without-a-double-drop -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `again` only borrows the send error it throws back; the catcher and the original owner each drop their own reference once.
 
 ```maxon
@@ -217,8 +207,7 @@ type Store
 		return Self{kept: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(box isolated Box)
+	export function keep(consumes box Box)
 		let n = box.n
 		self.kept = self.kept + n
 	end 'keep'
@@ -229,8 +218,7 @@ function again(e Store.keep.sendError) throws Store.keep.sendError
 end 'again'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	let h = spawn (capacity: 1) Store.create()
+	let h = spawn(capacity: 1) Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let first = Box.create(1) as isolated Box
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -247,7 +235,6 @@ end 'main'
 ```
 
 <!-- test: a-set-element-and-a-map-key-are-immutable-slots -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 A frozen name is stored as a `Set` element and as a `Map` key with no `immutable` spelled on the alias.
 
@@ -260,8 +247,7 @@ type Tok
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	export let value as immutable ByteArray
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(value immutable ByteArray) returns Self
+	static function create(value frozen with ByteArray) returns Self
 		return Self{value: value}
 	end 'create'
 end 'Tok'
@@ -332,7 +318,6 @@ end 'main'
 ```
 
 <!-- test: a-field-frozen-by-its-own-slot-reaches-a-frozen-parameter-while-its-holder-is-written -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `name` is an `immutable` field, so handing `h.corpus.name` to `takes` needs nothing of `h`, which `bump` writes.
 
@@ -343,14 +328,12 @@ type RecordName
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	export let name as immutable ByteArray
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function of(name immutable ByteArray) returns RecordName
+	static function of(name frozen with ByteArray) returns RecordName
 		return Self{name: name}
 	end 'of'
 end 'RecordName'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function takes(name immutable ByteArray) returns Count64
+function takes(name frozen with ByteArray) returns Count64
 	return name.count() as Count64
 end 'takes'
 

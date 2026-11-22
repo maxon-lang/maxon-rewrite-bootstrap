@@ -321,6 +321,9 @@ end 'bindMemberRefs'
 function bindMemberRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ref ast.MemberRef, mutates errs diag.ErrorList)
 	let off = ms.tree().startOf(ref.node)
 	let ownerName = ast.declName(p, ref: ref.owner)
+	if isHandleRef(p, ref: ref) 'handle'
+		return
+	end 'handle'
 	if ast.declKindOf(p, ref: ref.owner) == ast.DeclKind.interfaceDecl 'interface'
 		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType("{ownerName}.{ref.member}"), errs: errs)
 		return
@@ -330,6 +333,26 @@ function bindMemberRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		none then checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: '{ownerName}.{ref.member}' names a typealias through '{ownerName}', which is not a type, an enum or a union; name it through the type that declares it", errs: errs)
 	end 'owner'
 end 'bindMemberRef'
+
+// isHandleRef is whether Owner.member names the handle of a service of the type Owner, `Calc.handle`, which is no
+// typealias: the type reference is the handle's type (handleTypeOf).
+function isHandleRef(p ast.Project, ref ast.MemberRef) returns bool
+	return ref.member == ast.serviceHandleMember and ast.declKindOf(p, ref: ref.owner) == ast.DeclKind.typeDecl
+end 'isHandleRef'
+
+// handleTypeOf is the handle type that the type reference tr names, `Owner.handle`, when it is one.
+function handleTypeOf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, mutates errs diag.ErrorList) returns table.Option with ast.TypeID
+	for i in 0 upto ast.resolutionOf(p, ms: ms).memberRefs.count() 'each'
+		if ast.resolutionOf(p, ms: ms).memberRefs[i].node == tr and isHandleRef(p, ref: ast.resolutionOf(p, ms: ms).memberRefs[i]) 'hit'
+			let owner = ast.resolutionOf(p, ms: ms).memberRefs[i].owner.clone()
+			match consumes typeOfDecl(p, ms: ms, ref: owner) 'state'
+				some(state) then return table.Option.some(serviceHandleType(c, p: p, ms: ms, off: ms.tree().startOf(tr), state: state, errs: errs))
+				none then return table.Option.none
+			end 'state'
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'handleTypeOf'
 
 // memberOwnerType is the type that Owner names in Owner.member, or none where it names something that declares no typealiases.
 function memberOwnerType(p ast.Project, ms ast.ModuleState, owner ast.DeclRef) returns table.Option with ast.TypeID

@@ -4667,7 +4667,6 @@ error E3106: <fragment>:10:13: 'create(n)' cannot publish zeroed slots of 'Held'
 ```
 
 <!-- test: error.create-with-capacity-zeroed-cannot-hold-a-service-handle -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `<Service>.handle` is a pointer to a cown box, so a zeroed slot is a null handle that a send would dereference. The default (zeroed) form is refused for it exactly as it is for a record.
 ```maxon
@@ -4686,7 +4685,6 @@ end 'Worker'
 typealias Handles = Array with Worker.handle
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let handles = Handles.create(2)
 	let reply = try await worker.ping() otherwise 9
@@ -4698,7 +4696,6 @@ error E3106: <fragment>:18:16: 'create(n)' cannot publish zeroed slots of 'Worke
 ```
 
 <!-- test: error.create-with-capacity-explicitly-zeroed-cannot-hold-a-service-handle -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -4716,7 +4713,6 @@ end 'Worker'
 typealias Handles = Array with Worker.handle
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let handles = Handles.create(2, zeroed: true)
 	let reply = try await worker.ping() otherwise 9
@@ -4728,7 +4724,6 @@ error E3106: <fragment>:18:16: 'create(n)' cannot publish zeroed slots of 'Worke
 ```
 
 <!-- test: create-with-capacity-not-zeroed-holds-a-service-handle -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Only the not-zeroed form builds an array of handles, and `push` supplies each one. A handle read back from the array reaches its service.
 ```maxon
 typealias Digit = int(0 to 9)
@@ -4747,9 +4742,7 @@ typealias Handles = Array with Worker.handle
 
 function main() returns ExitCode
 	let handles = Handles.create(2, zeroed: false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let first = spawn Worker.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let second = spawn Worker.create()
 	handles.push(first)
 	handles.push(second)

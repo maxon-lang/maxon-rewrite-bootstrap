@@ -266,7 +266,6 @@ done
 ```
 
 <!-- test: a-service-reply-discarded-with-an-underscore-is-accepted -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Sending a message and discarding its reply with `_ =` is an explicit fire-and-forget.
 
 ```maxon
@@ -283,7 +282,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	_ = try h.say("a") otherwise panic("a running service with room takes the send")
 	print("sent\n")
@@ -298,8 +296,6 @@ sent
 ```
 
 <!-- test: a-service-reply-held-in-a-local-and-never-consumed-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 Binding the reply makes it a promise in a local, so the end of `main` drops it.
 
@@ -317,7 +313,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	let reply = try h.say("a") otherwise panic("a running service with room takes the send")
 	_ = reply.isComplete()

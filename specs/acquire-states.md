@@ -24,7 +24,6 @@ opened with `modify` or captured by a closure. A `for` head over a state keeps t
 <!-- test: a-record-field-of-a-closed-state-cannot-outlive-its-statement -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `s.cell` read into a `let` is a view of the state's data that a later write through `s` would invalidate, so it is refused; the value needed is read instead.
 
@@ -86,7 +85,6 @@ function work(s Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -99,7 +97,6 @@ error E3202: <fragment>:47:14: 's.cell' is mutable and cannot leave the statemen
 <!-- test: a-method-result-that-views-a-closed-state-cannot-outlive-its-statement -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `s.peek()` hands back the state's own `cell`, so binding the result is refused the way binding `s.cell` is.
 
@@ -161,7 +158,6 @@ function work(s Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -174,7 +170,6 @@ error E3202: <fragment>:47:14: 's.peek()' is mutable and cannot leave the statem
 <!-- test: a-value-read-from-a-closed-state-outlives-its-statement -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A value read out of the state (`s.cell.n`) may be kept: a number holds nothing of the state.
 
 ```maxon
@@ -235,7 +230,6 @@ function work(s Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -251,7 +245,6 @@ end 'main'
 <!-- test: a-clone-of-a-closed-state-field-outlives-its-statement -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `s.cell.clone()` is a fresh record of its own, so the binding may outlive the statement.
 
 ```maxon
@@ -312,7 +305,6 @@ function work(s Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -328,7 +320,6 @@ end 'main'
 <!-- test: a-field-read-from-a-second-state-cannot-be-bound -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The second state may be the first one under another name, so a view of its data is refused the same way.
 
@@ -390,9 +381,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -406,7 +395,6 @@ error E3202: <fragment>:47:14: 't.cell' is mutable and cannot leave the statemen
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Inside `modify s`, `t.cell` is read for one statement, and its result may not outlive that statement.
 
@@ -472,9 +460,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -488,7 +474,6 @@ error E3202: <fragment>:48:15: 't.cell' is mutable and cannot leave the statemen
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `t.peek()` inside `modify s` hands back mutable data of `t`; the result may not be bound.
 
@@ -554,9 +539,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -570,7 +553,6 @@ error E3202: <fragment>:48:15: 't.peek()' is mutable and cannot leave the statem
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `t` is read-only while `modify s` is open: a store into one of its fields is refused.
 
@@ -635,9 +617,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -651,7 +631,6 @@ error E3197: <fragment>:48:4: cannot write 'total' through 't', which is read-on
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A write through `t.cell` is a write to `t`, which is read-only while `modify s` is open.
 
@@ -716,9 +695,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -732,7 +709,6 @@ error E3197: <fragment>:48:4: cannot write 'n' through 't.cell', which is read-o
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `t.raise()` writes its receiver, and `t` is read-only while `modify s` is open.
 
@@ -797,9 +773,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -813,7 +787,6 @@ error E3207: <fragment>:48:4: 'raise' needs a writable receiver at line 37; 't' 
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `poke(t.cell)` writes its argument, and `t.cell` is read-only while `modify s` is open.
 
@@ -882,9 +855,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -898,7 +869,6 @@ error E3207: <fragment>:52:9: 'poke' needs a writable parameter 'cell' at line 4
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `modify t` inside `modify s` would make two states writable at once.
 
@@ -965,9 +935,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -981,7 +949,6 @@ error E3199: <fragment>:48:11: 't' cannot be opened: the value that holds it is 
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `modify t.spare` inside `modify s` opens a region of `t` while `s` is open.
 
@@ -1048,9 +1015,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1064,7 +1029,6 @@ error E3199: <fragment>:48:11: 't.spare' cannot be opened: the value that holds 
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `t.spare.bump()` writes through `t.spare`, which is read-only while `modify s` is open.
 
@@ -1129,9 +1093,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1145,7 +1107,6 @@ error E3207: <fragment>:48:11: 'bump' needs a writable receiver at line 13; the 
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `s.total = t.total` reads `t` and writes `s` in one statement; the read opens `t`, so `s` is read-only in it.
 
@@ -1209,9 +1170,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1225,7 +1184,6 @@ error E3197: <fragment>:48:4: cannot write 'total' through 's', which is read-on
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A closure that names `t` would keep a view of its state, so capturing the state is refused.
 
@@ -1290,9 +1248,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1305,7 +1261,6 @@ error E3202: <fragment>:48:32: 't' is the state of an acquired service and canno
 <!-- test: a-closed-state-cannot-be-captured -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A closure that names `s` would keep a view of its state, so capturing the state is refused.
 
@@ -1367,7 +1322,6 @@ function work(s Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -1380,7 +1334,6 @@ error E3202: <fragment>:47:31: 's' is the state of an acquired service and canno
 <!-- test: a-for-head-over-another-state-holds-a-window-for-its-whole-body -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The `for` head reads `t.cells`, which keeps `t` open for the whole loop, so the body may not write `s`.
 
@@ -1443,9 +1396,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1458,7 +1409,6 @@ error E3197: <fragment>:48:4: cannot write 'total' through 's', which is read-on
 <!-- test: one-statement-reading-two-acquired-states-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `add(s.total, t.total)` reads two states in one statement, and the two names may be one service.
 
@@ -1522,9 +1472,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1537,7 +1485,6 @@ error E3201: <fragment>:51:31: one statement reaches through two acquired states
 <!-- test: one-statement-reading-two-acquired-states-is-refused-in-either-order -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `add(t.total, s.total)` is refused the way `add(s.total, t.total)` is.
 
@@ -1601,9 +1548,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1616,7 +1561,6 @@ error E3201: <fragment>:51:31: one statement reaches through two acquired states
 <!-- test: one-statement-handing-a-writer-and-a-view-of-two-states-to-a-call-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `copyOver(s.cell, source: t.cell)` writes `s.cell` while it reads `t.cell`.
 
@@ -1681,9 +1625,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1696,7 +1638,6 @@ error E3201: <fragment>:52:35: one statement reaches through two acquired states
 <!-- test: one-statement-handing-a-view-first-and-a-writer-second-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `copyOver(t.cell, source: s.cell)` writes `t.cell`; the operand order does not change the verdict.
 
@@ -1761,9 +1702,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1776,7 +1715,6 @@ error E3201: <fragment>:52:35: one statement reaches through two acquired states
 <!-- test: one-statement-reading-two-states-through-a-receiver-and-an-argument-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `t.cell.give(s.cell)` takes its receiver from one state and writes an argument from another.
 
@@ -1836,9 +1774,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1851,7 +1787,6 @@ error E3201: <fragment>:47:22: one statement reaches through two acquired states
 <!-- test: one-statement-reading-two-states-through-methods-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A call on each state's own method in one statement reaches two states.
 
@@ -1915,9 +1850,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -1930,7 +1863,6 @@ error E3201: <fragment>:51:32: one statement reaches through two acquired states
 <!-- test: one-statement-reading-two-states-through-a-function-that-may-return-its-argument-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `pick` may hand back `t.cell` itself, so `copyOver(s.cell, source: pick(t.cell, fresh: false))` still reads two states.
 
@@ -2002,9 +1934,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2017,7 +1947,6 @@ error E3201: <fragment>:60:40: one statement reaches through two acquired states
 <!-- test: one-statement-reading-three-acquired-states-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A statement that reaches a third state is refused at the second.
 
@@ -2081,11 +2010,8 @@ function work(s Ledger.handle, t Ledger.handle, u Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Ledger.create(30)
 	print("{work(a, t: b, u: c)}\n")
 	return 0
@@ -2098,7 +2024,6 @@ error E3201: <fragment>:51:35: one statement reaches through two acquired states
 <!-- test: one-condition-reading-two-acquired-states-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `if` condition is one statement for the purpose.
 
@@ -2165,9 +2090,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2180,7 +2103,6 @@ error E3201: <fragment>:51:27: one statement reaches through two acquired states
 <!-- test: one-interpolated-string-reading-two-acquired-states-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The holes of an interpolated string belong to its statement.
 
@@ -2241,9 +2163,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2257,7 +2177,6 @@ error E3201: <fragment>:47:26: one statement reaches through two acquired states
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `modify s.spare` opens `s`, so a value of `t` cannot be stored into `s.spare` in the statement that reads it.
 
@@ -2321,9 +2240,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2337,7 +2254,6 @@ error E3197: <fragment>:48:4: cannot write 'n' through 's.spare', which is read-
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Inside `modify s.spare`, a view of `t.cell` may not be bound.
 
@@ -2402,9 +2318,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2418,7 +2332,6 @@ error E3202: <fragment>:48:15: 't.cell' is mutable and cannot leave the statemen
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `modify t.spare` inside `modify s.spare` would make two states writable at once.
 
@@ -2485,9 +2398,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2500,7 +2411,6 @@ error E3199: <fragment>:48:11: 't.spare' cannot be opened: the value that holds 
 <!-- test: a-value-of-one-state-is-bound-before-the-other-is-written -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Read the value in its own statement, then write the other state.
 
 ```maxon
@@ -2561,9 +2471,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2579,7 +2487,6 @@ end 'main'
 <!-- test: a-clone-of-one-state-is-handed-to-a-write-of-the-other -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `t.cell.clone()` is fresh data, so the call that writes `s.cell` takes no view of `t`.
 
 ```maxon
@@ -2644,9 +2551,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2662,7 +2567,6 @@ end 'main'
 <!-- test: two-states-are-read-in-two-statements -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Each state is read in its own statement and the values are combined afterwards.
 
 ```maxon
@@ -2727,9 +2631,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2745,7 +2647,6 @@ end 'main'
 <!-- test: one-state-is-read-twice-in-one-statement -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 One state named twice in a statement is one state.
 
 ```maxon
@@ -2808,7 +2709,6 @@ function work(s Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -2825,7 +2725,6 @@ end 'main'
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Inside `modify s`, `t` is read in statements of its own and the values are stored into `s`.
 
 ```maxon
@@ -2890,9 +2789,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2909,7 +2806,6 @@ end 'main'
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A statement inside `modify s` that only reads values of `t` may name `t` twice.
 
 ```maxon
@@ -2978,9 +2874,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -2997,7 +2891,6 @@ end 'main'
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The state the window opens may be viewed and written inside it.
 
 ```maxon
@@ -3062,7 +2955,6 @@ function work(s Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
 	print("{work(a)}\n")
 	return 0
@@ -3078,7 +2970,6 @@ end 'main'
 <!-- test: conditions-of-an-else-if-chain-may-read-different-states -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Each condition of the chain is its own statement.
 
 ```maxon
@@ -3143,9 +3034,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	return 0
@@ -3162,7 +3051,6 @@ end 'main'
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `return` from inside `modify` leaves the `acquire` block too, so the next `acquire` of the same service is granted.
 
 ```maxon
@@ -3225,9 +3113,7 @@ function work(s Ledger.handle, t Ledger.handle) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create(10)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Ledger.create(20)
 	print("{work(a, t: b)}\n")
 	print("{work(a, t: b)}\n")

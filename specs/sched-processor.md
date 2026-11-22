@@ -309,7 +309,6 @@ withinIdleBound=true
 ```
 
 <!-- test: sched-processor.idle-processor-count-returns-after-a-burst -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE COUNT FOLLOWS THE PROCESSORS BACK TO THE IDLE LIST.** Four services each do a share of work on
 whatever machines the scheduler starts for them, and every reply is awaited. Once the last worker has found
@@ -358,7 +357,6 @@ function main() returns ExitCode
 	let hs = ShareHandleArray.create(0)
 	var i = 0 as Integer
 	while i < shares 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		hs.push(spawn Share.create(i + 1))
 		i = i + 1
 	end 'spawnEach'

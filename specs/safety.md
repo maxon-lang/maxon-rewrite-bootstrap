@@ -2082,7 +2082,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-a-service-handler-entry -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused at the entry of a service handler whose parameter is `NonZero`
 The handler divides by its `NonZero` parameter with a bare `idiv`, so the proof has to hold when the message arrives; the entry guard on the service's own thread holds it. The zero is a difference of two `NonZero`s, which wears the alias without proving it.
 ```maxon
@@ -2109,7 +2109,6 @@ end 'ident'
 
 function main() returns ExitCode
 	let one = ident(1) as NonZero
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Divider.create()
 	print("before\n")
 	let q = try await h.divideBy(one - one) otherwise 0

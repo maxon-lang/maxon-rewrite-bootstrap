@@ -1061,7 +1061,6 @@ error E3126: <fragment>:27:6: 'OddBag' binds 'Bag's associated type 'Iter' to 'I
 ```
 
 <!-- test: held.a-generic-conformer-binding-an-instance-over-its-own-parameter-is-frozen -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `UpBag with Tally` binds `Cursor` to `UpCursor with Slot`, an instance over its own parameter, so the nested table its `Bag` table carries is the instance's own, and a freeze in a program that spawns a service walks the cursor through it.
 
 ```maxon
@@ -1130,7 +1129,6 @@ function pick(source CursorBag) returns Cursor
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let held = freeze(Holder.create(pick(TallyBag.create(1))))
@@ -1146,7 +1144,6 @@ end 'main'
 ```
 
 <!-- test: error.held-binding-whose-conformer-holds-a-function-value-is-frozen -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -1237,7 +1234,6 @@ function pick(source CursorBag) returns Cursor
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let held = freeze(Holder.create(pick(StepBag.create())))
@@ -1321,7 +1317,6 @@ error E2015: <fragment>:12:51: Unsupported: sharing is judged at every conformer
 ```
 
 <!-- test: held-bindings-naming-ever-deeper-instances-over-an-unread-parameter-run -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Nest` binds the associated type of `A` and of `B` to an instance that nests its own parameter one level deeper, and nothing reads that parameter, so every conformer a share walk judges is the same.
 
 ```maxon
@@ -1389,7 +1384,6 @@ function viaB(source HeldB) returns Tally
 end 'viaB'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let frozen = freeze(Holder.create(TextNest.create(1)))
@@ -1406,7 +1400,6 @@ end 'main'
 ```
 
 <!-- test: held-binding-chains-follow-only-the-conformers-converted-to-an-interface -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Bar` binds `J`'s associated type to `Foo` over its own parameter, and `Foo` binds `I`'s to `Bar` over a `Box` of its own; only `Foo` is converted to `I`, and `I` holds its associated type at an interface with none of its own, so the chain ends at `Bar`.
 
 ```maxon
@@ -1522,7 +1515,6 @@ function viaJ(source HeldJ) returns Tally
 end 'viaJ'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let frozen = freeze(Holder.create(TextFoo.create("held", n: 1)))
@@ -1539,7 +1531,6 @@ end 'main'
 ```
 
 <!-- test: held-binding-cycle-over-an-unread-parameter-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `P`, `Q` and `R` bind each other's associated types in a cycle that nests `Cell` around the parameter once, and no `T` is stored anywhere, so the cycle builds no deeper conformer.
 
 ```maxon
@@ -1626,7 +1617,6 @@ function viaA(source HeldA) returns Tally
 end 'viaA'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let frozen = freeze(Holder.create(TextP.create(1)))
@@ -1643,7 +1633,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-parameter-only-a-nested-instance-reads-keep-their-own-tables -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Outer` binds `Bag`'s associated type to `Inner with (Wrap with (X, Y))`. `Wrap` stores only its `X`, so a share walk cannot tell `Wrap with (Tally, bool)` from `Wrap with (Tally, Tally)`; but `Wrap.width` reads `sizeof(Y)`, and `Inner.current` reaches it through its `where W is Probe` witness. The two bindings' `Cursor` tables must stay apart, each handing `current` its own descriptor: 1 and 8.
 
 ```maxon
@@ -1732,7 +1721,6 @@ function pick(source CursorBag) returns Cursor
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let small = freeze(Holder.create(pick(SmallOuter.create(1))))
@@ -1749,7 +1737,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-held-position-no-share-walk-reaches-keep-their-own-tables -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` holds its `P` only as the element of an `Array`, a position no share walk of `Item` names. `Item with (Tally, String)` and `Item with (Tally, Tally)` still release different arrays, so each binding's `Cursor` table keeps its own.
 
 ```maxon
@@ -1824,7 +1811,6 @@ function pick(source CursorBag) returns Cursor
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let tally = freeze(Holder.create(pick(TallyOuter.create(1))))
@@ -1841,7 +1827,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-constrained-position-keep-their-own-tables -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` constrains `P` with `where P is Weigh` and reads `sizeof(P)` in `current`, which the `Cursor` table's adapter reaches through its descriptor and `P`'s witness; the two bindings' tables stay apart: 8 and 16.
 
 ```maxon
@@ -1940,7 +1925,6 @@ function pick(source CursorBag) returns Cursor
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let light = freeze(Holder.create(pick(LightOuter.create(1))))
@@ -1957,7 +1941,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-constrained-position-nothing-reads-run -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` constrains `P` and nothing reads it, so the two bindings stay correct whichever tables they get: both answer 1.
 
 ```maxon
@@ -2056,7 +2039,6 @@ function pick(source CursorBag) returns Cursor
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let light = freeze(Holder.create(pick(LightOuter.create(1))))

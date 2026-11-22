@@ -275,6 +275,14 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 	if k == ast.NodeKind.awaitExpr 'await'
 		return rangeAwait(r, p: p, ms: ms, e: e)
 	end 'await'
+	if k == ast.NodeKind.spawnExpr 'spawn'
+		let capacity = ast.spawnExprCapacity(ms.tree(), id: e)
+		if capacity != 0 'capacity'
+			_ = rangeEval(r, p: p, ms: ms, e: ast.argValue(ms.tree(), id: capacity))
+		end 'capacity'
+		_ = rangeEval(r, p: p, ms: ms, e: ast.spawnExprCall(ms.tree(), id: e))
+		return noSpan()
+	end 'spawn'
 	if k == ast.NodeKind.castExpr 'cast'
 		return rangeCastExpr(r, p: p, ms: ms, e: e)
 	end 'cast'

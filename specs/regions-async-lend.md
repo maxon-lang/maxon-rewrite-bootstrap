@@ -830,7 +830,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-isolated-value-moves-into-an-async-isolated-parameter-and-is-released-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 An `isolated` parameter of an `async` callee takes the unique region by move, so the coroutine holds the one reference and the run ends with nothing left allocated.
@@ -850,8 +849,7 @@ type Token is noncopyable
 	end 'peek'
 end 'Token'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function inspect(token isolated Token) returns Tally
+function inspect(consumes token Token) returns Tally
 	sleep(1)
 	return token.peek() + 1
 end 'inspect'
@@ -873,7 +871,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-isolated-value-moved-into-an-async-call-pushed-into-an-array-is-released-once -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The promise of the same call is pushed into an array and awaited in a loop.
@@ -897,8 +894,7 @@ type Token is noncopyable
 	end 'peek'
 end 'Token'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function inspect(token isolated Token) returns Tally
+function inspect(consumes token Token) returns Tally
 	sleep(1)
 	return token.peek() + 1
 end 'inspect'

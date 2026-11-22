@@ -562,6 +562,8 @@ function storeCallInfo(mutates w table.CacheWriter, v CallInfo)
 	storeArrayOfNodeID(w, v: v.dropOrdered)
 	w.word8(v.intrinsic.ordinal as table.Word64)
 	w.word8(v.result.ordinal as table.Word64)
+	w.word64(v.body as table.Word64)
+	w.flag(v.replyKept)
 end 'storeCallInfo'
 
 extension CallInfo
@@ -581,7 +583,9 @@ extension CallInfo
 		let theDropOrdered = loadArrayOfNodeID(r)
 		let theIntrinsic = Intrinsic.allCases[r.word8() as Count]
 		let theResult = ResultConv.allCases[r.word8() as Count]
-		return CallInfo{kind: theKind, fn: theFn, typeArgs: theTypeArgs, paramSpecs: theParamSpecs, selfConv: theSelfConv, receiverTy: theReceiverTy, ordered: theOrdered, method: theMethod, unionTy: theUnionTy, unionCase: theUnionCase, hasDrop: theHasDrop, dropFn: theDropFn, dropOrdered: theDropOrdered, intrinsic: theIntrinsic, result: theResult}
+		let theBody = try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range")
+		let theReplyKept = r.flag()
+		return CallInfo{kind: theKind, fn: theFn, typeArgs: theTypeArgs, paramSpecs: theParamSpecs, selfConv: theSelfConv, receiverTy: theReceiverTy, ordered: theOrdered, method: theMethod, unionTy: theUnionTy, unionCase: theUnionCase, hasDrop: theHasDrop, dropFn: theDropFn, dropOrdered: theDropOrdered, intrinsic: theIntrinsic, result: theResult, body: theBody, replyKept: theReplyKept}
 	end 'cacheLoad'
 end 'CallInfo'
 

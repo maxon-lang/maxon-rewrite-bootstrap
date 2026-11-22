@@ -571,7 +571,6 @@ error E3168: <fragment>:15:11: 'throws Failure' is declared but nothing in the b
 ```
 
 <!-- test: error.throws-service-message-can-never-throw -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A service message is checked like any other function. A `throws` clause gives the message a reply slot, but a
 body that cannot throw still makes the clause false.
@@ -589,13 +588,12 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function wipe() throws Failure
+	export function wipe(mutates self) throws Failure
 		self.n = 0
 	end 'wipe'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	_ = try h.wipe() otherwise panic("send wipe")
 	return 0

@@ -22,7 +22,6 @@ factory that `spawn` names. A message parameter that is a promise, a function va
 ## Tests
 
 <!-- test: error.an-unmarked-record-parameter-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `plot` takes a `Point` with no capability word.
 
@@ -45,13 +44,12 @@ type Plotter
 		return Self{total: 0}
 	end 'create'
 
-	export function plot(point Point)
-		self.total = self.total + point.x + point.y
+	export function plot(mutates self, point Point)
+		self.total = try self.total + point.x + point.y otherwise panic("out of range")
 	end 'plot'
 end 'Plotter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create()
 	plotter.shutdown()
 	return 0
@@ -62,8 +60,6 @@ error E3217: <fragment>:26:16: parameter `point` of the message `Plotter.plot` i
 ```
 
 <!-- test: error.an-unmarked-record-reply-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 `origin` returns a `Point` with no capability word.
 
 ```maxon
@@ -91,7 +87,6 @@ type Plotter
 end 'Plotter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create()
 	plotter.shutdown()
 	return 0
@@ -102,7 +97,6 @@ error E3217: <fragment>:26:16: the message `Plotter.origin` returns a `Point` wi
 ```
 
 <!-- test: error.an-unmarked-union-reply-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A union that carries a `ByteArray` is data of the region like a record.
 
@@ -121,14 +115,13 @@ type Finder
 		return Self{calls: 0}
 	end 'create'
 
-	export function find(key Integer) returns Outcome
-		self.calls = self.calls + key
+	export function find(mutates self, key Integer) returns Outcome
+		self.calls = try self.calls + key otherwise panic("out of range")
 		return Outcome.missing
 	end 'find'
 end 'Finder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let finder = spawn Finder.create()
 	finder.shutdown()
 	return 0
@@ -139,7 +132,6 @@ error E3217: <fragment>:23:15: the message `Finder.find` returns a `Outcome` wit
 ```
 
 <!-- test: error.an-unmarked-union-parameter-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same union as a parameter.
 
@@ -158,17 +150,16 @@ type Finder
 		return Self{calls: 0}
 	end 'create'
 
-	export function record(outcome Outcome)
+	export function record(mutates self, outcome Outcome)
 		let weight = match outcome 'weight'
-			found(name) gives name.count() as Integer
+			found(name) gives try name.count() as Integer otherwise panic("out of range")
 			missing gives 0 as Integer
 		end 'weight'
-		self.calls = self.calls + weight
+		self.calls = try self.calls + weight otherwise panic("out of range")
 	end 'record'
 end 'Finder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let finder = spawn Finder.create()
 	finder.shutdown()
 	return 0
@@ -179,7 +170,6 @@ error E3217: <fragment>:27:15: parameter `outcome` of the message `Finder.record
 ```
 
 <!-- test: error.an-unmarked-array-of-records-parameter-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An array is data of the region whatever its element.
 
@@ -203,13 +193,12 @@ type Plotter
 		return Self{total: 0}
 	end 'create'
 
-	export function plotAll(points PointArray)
-		self.total = self.total + (points.count() as Integer)
+	export function plotAll(mutates self, points PointArray)
+		self.total = try self.total + (points.count() as Integer) otherwise panic("out of range")
 	end 'plotAll'
 end 'Plotter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create()
 	plotter.shutdown()
 	return 0
@@ -220,7 +209,6 @@ error E3217: <fragment>:26:16: parameter `points` of the message `Plotter.plotAl
 ```
 
 <!-- test: error.an-unmarked-array-of-numbers-parameter-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An array of numbers is still an array: the elements are values, the array is not.
 
@@ -236,13 +224,12 @@ type Summer
 		return Self{total: 0}
 	end 'create'
 
-	export function add(numbers IntegerArray)
-		self.total = self.total + (numbers.count() as Integer)
+	export function add(mutates self, numbers IntegerArray)
+		self.total = try self.total + (numbers.count() as Integer) otherwise panic("out of range")
 	end 'add'
 end 'Summer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let summer = spawn Summer.create()
 	summer.shutdown()
 	return 0
@@ -253,8 +240,6 @@ error E3217: <fragment>:18:15: parameter `numbers` of the message `Summer.add` i
 ```
 
 <!-- test: error.an-unmarked-interface-value-parameter-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A value held at an interface type is a record behind a witness.
 
 ```maxon
@@ -289,7 +274,6 @@ type Painter
 end 'Painter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let painter = spawn Painter.create()
 	painter.shutdown()
 	return 0
@@ -300,8 +284,6 @@ error E3217: <fragment>:33:16: parameter `shape` of the message `Painter.paint` 
 ```
 
 <!-- test: error.an-unmarked-factory-parameter-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 `create` takes a `Point` with no capability word, and the `spawn` names `create`.
 
 ```maxon
@@ -328,7 +310,6 @@ type Plotter
 end 'Plotter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create(Point.create(1))
 	plotter.shutdown()
 	return 0
@@ -339,7 +320,6 @@ error E3217: <fragment>:25:16: parameter `origin` of the factory `Plotter.create
 ```
 
 <!-- test: only-the-factory-the-spawn-names-is-judged -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `fromPoint` takes an unmarked record but nothing spawns through it, so the roster of `Plotter` is as acceptable as its `create` is.
 
 ```maxon
@@ -371,11 +351,10 @@ end 'Plotter'
 
 function main() returns ExitCode
 	let local = Plotter.fromPoint(Point.create(4))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create(local.read())
 	let answer = try await plotter.read() otherwise panic("main: a fresh plotter answers its first message")
 	plotter.shutdown()
-	return answer as ExitCode
+	return try answer as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -428,12 +407,7 @@ error E3217: <fragment>:29:19: parameter `point` of the message `Polite.greet` i
 ```
 
 <!-- test: marked-parameters-replies-and-factories-run -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `isolated` gives the argument away and `immutable` shares it; the same two words on a reply and on the factory's parameter.
 
 ```maxon
@@ -451,37 +425,31 @@ end 'Point'
 type Plotter
 	var total as Integer
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(origin immutable Point) returns Self
+	static function create(origin frozen with Point) returns Self
 		return Self{total: origin.x}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function plot(point isolated Point) returns Integer
+	export function plot(consumes point Point) returns Integer
 		let added = point.x + point.y
 		self.total = self.total + added
 		return self.total
 	end 'plot'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function shifted(delta immutable Point) returns Integer
+	export function shifted(delta frozen with Point) returns Integer
 		return self.total + delta.x + delta.y
 	end 'shifted'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function next() returns isolated Point
+	export function next() returns Point
 		return Point.create(self.total, y: 1)
 	end 'next'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function pinned() returns immutable Point
+	export function pinned() returns frozen with Point
 		return freeze(Point.create(self.total, y: 2))
 	end 'pinned'
 end 'Plotter'
 
 function main() returns ExitCode
 	let origin = freeze(Point.create(10, y: 0))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create(origin)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shape = Point.create(3, y: 4) as isolated Point
@@ -503,12 +471,7 @@ end 'main'
 ```
 
 <!-- test: marked-union-parameters-replies-and-factories-run -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A union that carries a `ByteArray` takes the same two words on a message parameter, a reply and the factory's parameter.
 
 ```maxon
@@ -522,8 +485,7 @@ end 'Outcome'
 type Finder
 	var weight as Integer
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(first isolated Outcome) returns Self
+	static function create(consumes first Outcome) returns Self
 		return Self{weight: Self.weighed(first)}
 	end 'create'
 
@@ -534,24 +496,20 @@ type Finder
 		end 'weight'
 	end 'weighed'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function record(outcome isolated Outcome) returns Integer
+	export function record(consumes outcome Outcome) returns Integer
 		self.weight = self.weight + Self.weighed(outcome)
 		return self.weight
 	end 'record'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function compare(outcome immutable Outcome) returns Integer
+	export function compare(outcome frozen with Outcome) returns Integer
 		return self.weight + Self.weighed(outcome)
 	end 'compare'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function latest() returns isolated Outcome
+	export function latest() returns Outcome
 		return Outcome.found("latest".toByteArray())
 	end 'latest'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	export function pinned() returns immutable Outcome
+	export function pinned() returns frozen with Outcome
 		return freeze(Outcome.found("pinned".toByteArray()))
 	end 'pinned'
 end 'Finder'
@@ -559,7 +517,6 @@ end 'Finder'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let first = Outcome.found("ab".toByteArray()) as isolated Outcome
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let finder = spawn Finder.create(first)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let second = Outcome.found("cde".toByteArray()) as isolated Outcome
@@ -589,8 +546,6 @@ end 'main'
 ```
 
 <!-- test: error.a-payload-free-union-takes-no-word -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A union whose cases carry nothing is a number to the checker, so it has no region for `isolated` to qualify.
 
@@ -609,14 +564,12 @@ type Relay
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function tell(signal isolated Signal)
-		self.seen = self.seen + 1
+	export function tell(mutates self, consumes signal Signal)
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 	end 'tell'
 end 'Relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let relay = spawn Relay.create()
 	relay.shutdown()
 	return 0
@@ -628,7 +581,6 @@ error E2010: <fragment>:16:30: Expected 'a type' but got 'isolated'
 
 <!-- test: values-and-handles-need-no-word -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Numbers, `bool`, `String`, `Character`, an enum, a service handle and a `SharedValue` cell cross on parameter, reply and factory with no capability word.
 
 ```maxon
@@ -696,9 +648,7 @@ type Relay
 end 'Relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create(1, label: "ab", mode: Mode.fast)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let relay = spawn Relay.create()
 	let cell = Counter.create(0 as Integer)
 	let text = try await echo.name("hello") otherwise panic("main: echo answers name")
@@ -725,7 +675,6 @@ hello 42 true false q 1 4 8
 ```
 
 <!-- test: a-unique-record-needs-no-word -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `unique` record moves on a send, so its parameter carries no capability word.
 
 ```maxon
@@ -735,7 +684,7 @@ type Token is noncopyable
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Token'
 
@@ -746,8 +695,8 @@ type Vault
 		return Self{held: 0}
 	end 'create'
 
-	export function deposit(token Token)
-		self.held = self.held + (token.label.byteLength() as Integer)
+	export function deposit(mutates self, token Token)
+		self.held = try self.held + (token.label.byteLength() as Integer) otherwise panic("out of range")
 	end 'deposit'
 
 	export function read() returns Integer
@@ -756,7 +705,6 @@ type Vault
 end 'Vault'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let vault = spawn Vault.create()
 	let token = Token.create("secret")
 	try vault.deposit(token) otherwise panic("main: a fresh vault takes its first message")
@@ -774,7 +722,6 @@ end 'main'
 ```
 
 <!-- test: an-os-handle-needs-no-word-on-a-factory-or-a-reply -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A `TcpListener` and a `TcpClient` each own an OS socket, so each is `unique`: the listener crosses into the factory and the accepted connection crosses back as a reply, with no capability word on either.
 ```maxon
@@ -797,7 +744,6 @@ end 'Acceptor'
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = listener.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let acceptor = spawn Acceptor.create(listener)
 	let pending = try acceptor.next() otherwise return 2
 	let out = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused3x23'
@@ -819,7 +765,6 @@ handle
 ```
 
 <!-- test: a-record-holding-an-os-handle-needs-no-word -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A record with a field that is an OS handle is `unique` by that field, so it moves on a send and its parameter carries no capability word.
 ```maxon
@@ -850,7 +795,6 @@ end 'Gatehouse'
 function main() returns ExitCode
 	let door = Door.create(try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1)
 	let port = door.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gatehouse = spawn Gatehouse.create()
 	let seen = try await gatehouse.portOf(door) otherwise return 2
 	gatehouse.shutdown()
@@ -866,8 +810,6 @@ true
 ```
 
 <!-- test: error.a-record-holding-no-handle-keeps-its-word-beside-a-handle -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A `TcpListener` parameter is accepted unmarked, and the plain `Point` beside it is still refused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -893,7 +835,6 @@ type Watcher
 end 'Watcher'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let watcher = spawn Watcher.create()
 	watcher.shutdown()
 	return 0
@@ -904,7 +845,6 @@ error E3217: <fragment>:25:16: parameter `point` of the message `Watcher.watch` 
 ```
 
 <!-- test: error.a-promise-parameter-keeps-e3217-after-an-unmarked-record -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The `Promise` parameter is refused first, by the rule that has always refused it, though the unmarked `Point` is declared before it.
 
@@ -938,7 +878,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let calc = spawn Calc.create()
 	calc.shutdown()
 	return 0
@@ -949,7 +888,6 @@ error E3217: <fragment>:30:13: parameter `p` of the message `Calc.hold` is a Pro
 ```
 
 <!-- test: error.a-reply-the-cell-cannot-carry-keeps-e3140-after-an-unmarked-record -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `wipe` throws a payload-carrying union, refused first by the rule that has always refused it, though `plot` declares an unmarked `Point` before it.
 
@@ -975,8 +913,8 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function plot(point Point)
-		self.n = self.n + point.x
+	export function plot(mutates self, point Point)
+		self.n = try self.n + point.x otherwise panic("out of range")
 	end 'plot'
 
 	export function wipe() returns Integer throws Trouble
@@ -985,7 +923,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let store = spawn Store.create()
 	store.shutdown()
 	return 0
@@ -996,7 +933,6 @@ error E3140: <fragment>:33:14: the message `Store.wipe` declares a reply that th
 ```
 
 <!-- test: error.a-state-field-holding-a-promise-keeps-e3216-beside-an-unmarked-record -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The state's promise is refused before the message's unmarked `Point` is looked at.
 
@@ -1028,7 +964,6 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let svc = spawn Svc.create()
 	svc.shutdown()
 	return 0
@@ -1039,8 +974,6 @@ error E3216: <fragment>:27:12: `Svc.pending` is a `IntPromiseArray` that can hol
 ```
 
 <!-- test: error.a-type-parameter-keeps-e3217-beside-an-unmarked-record -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 `put` takes a bare `T` and `plot` an unmarked `Point`; the opaque parameter is refused first.
 
 ```maxon
@@ -1072,7 +1005,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let box = spawn Box.create(1)
 	box.shutdown()
 	return 0
@@ -1084,8 +1016,6 @@ error E3217: <fragment>:30:12: parameter `x` of the message `Box.put` is an opaq
 
 <!-- test: an-isolated-interface-value-is-merged-into-an-interface-field -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `merge` of an isolated interface-typed parameter carries its witness into the field it fills, in a factory and in a
 message.
 
@@ -1123,14 +1053,12 @@ end 'Triangle'
 type Keeper
 	var last as Shape
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(first isolated Shape) returns Self
+	static function create(consumes first Shape) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{last: merge first}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(shape isolated Shape)
+	export function keep(consumes shape Shape)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.last = merge shape
 	end 'keep'
@@ -1141,7 +1069,6 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create(Square.create(1))
 	let first = try await keeper.sides() otherwise panic("main: a fresh keeper answers")
 	try keeper.keep(Triangle.create(2)) otherwise panic("main: a running keeper takes a shape")
@@ -1156,9 +1083,7 @@ end 'main'
 
 <!-- test: an-isolated-parameter-is-sent-on-as-an-isolated-argument -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A function that receives an `isolated` value hands it to a message's `isolated` parameter, which moves it: the value
 is the function's to give away, and no other name reaches it afterwards.
 
@@ -1182,8 +1107,7 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function add(chunk isolated Chunk)
+	export function add(consumes chunk Chunk)
 		let added = chunk.cells.count() as Integer
 		self.total = self.total + added
 	end 'add'
@@ -1193,13 +1117,11 @@ type Sink
 	end 'read'
 end 'Sink'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function forward(sink Sink.handle, chunk isolated Chunk)
+function forward(sink Sink.handle, consumes chunk Chunk)
 	try sink.add(chunk) otherwise panic("forward: a running sink takes a chunk")
 end 'forward'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let chunk = Chunk.create() as isolated Chunk
@@ -1220,8 +1142,7 @@ end 'main'
 ```
 
 <!-- test: error.an-inline-range-message-parameter-is-refused-at-its-declaration -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '(' -->
 A message parameter spells its number type with a typealias. The refused declaration is reported once, at the parameter, and a send of that message adds nothing.
 
 ```maxon
@@ -1240,7 +1161,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let store = spawn Store.create()
 	try store.drain(3) otherwise panic("main: a fresh store takes drain")
 	store.shutdown()
@@ -1252,9 +1172,7 @@ error E3005: <fragment>:11:30: Cannot use bare 'int' as a type. Define a typeali
 ```
 
 <!-- test: an-isolated-parameters-number-is-read-in-the-statement-that-writes-self -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A number read out of an `isolated` parameter leaves the open freely, so one statement reads it and writes the service's own field.
 
 ```maxon
@@ -1276,15 +1194,13 @@ type Plotter
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function plot(point isolated Point) returns Integer
+	export function plot(consumes point Point) returns Integer
 		self.total = self.total + point.x + point.y
 		return self.total
 	end 'plot'
 end 'Plotter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shape = Point.create(3, y: 4) as isolated Point
@@ -1302,9 +1218,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-read-from-an-isolated-parameter-keeps-self-read-only-in-its-statement -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A record read out of an `isolated` parameter is data its region still holds, so the statement that reads through it may not write the service's own field.
 
@@ -1334,15 +1248,13 @@ type Plotter
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function plot(point isolated Point) returns Integer
+	export function plot(consumes point Point) returns Integer
 		self.total = self.total + point.inner.n
 		return self.total
 	end 'plot'
 end 'Plotter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shape = Point.create(3) as isolated Point

@@ -1,0 +1,182 @@
+// Services. A service is a cown whose value is its state (rt.service.new), and each message is a behaviour on it, so a send
+// is a `when` on the one cown whose body calls the handler with the state: the cown's queue is the mailbox, and a
+// behaviour holds its cown until it ends, so two messages of one service never run at once. Before it queues the
+// behaviour, a send takes a place in the mailbox (rt.service.reserve), which fails with SendError where a call fails,
+// dropping the arguments that were to move in; the behaviour gives the place back as it starts (rt.service.taken). A reply
+// is a cell the behaviour finishes with what the handler returned and failed with (rt.reply.give), awaited as a coroutine
+// is. A spawn whose factory cannot throw runs it as the service's first behaviour, which stores the state; one whose
+// factory throws calls it where the spawn is, and the service starts with what it made.
+
+// visitSpawnExpr starts a service and gives its handle.
+function visitSpawnExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	let call = ast.spawnExprCall(p.modules[l.mi].tree, id: e)
+	let site = siteOf(l, p: p, node: e)
+	let c = callSite(l, p: p, node: call)
+	let mark = l.pending.count()
+	var capacity = noReg
+	let capArg = ast.spawnExprCapacity(p.modules[l.mi].tree, id: e)
+	if capArg != 0 'capacity'
+		capacity = lowerConverted(l, p: p, ms: ms, e: ast.argValue(p.modules[l.mi].tree, id: capArg), target: p.builtins.mailboxCapacityTy)
+	end 'capacity' else 'default'
+		capacity = konst(l, value: ast.defaultMailboxCapacity as Word)
+	end 'default'
+	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
+	if c.info.body == ast.noFunc 'here'
+		let state = lowerExpr(l, p: p, ms: ms, e: call)
+		let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf2(state, b: capacity))
+		popPending(l, n: mark)
+		return handle
+	end 'here'
+	let base = l.args.count()
+	pushOrderedArgs(l, p: p, ms: ms, c: c)
+	let captures = argsSince(l, base: base)
+	popArgs(l, n: base)
+	let empty = konst(l, value: 0 as Word)
+	let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf2(empty, b: capacity))
+	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: true, cell: false)
+	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: captures)
+	popPending(l, n: mark)
+	return handle
+end 'visitSpawnExpr'
+
+// lowerSend sends a message: the handle is read, the arguments move into the behaviour, and the send fails, dropping them,
+// when the mailbox has no place. It gives the reply's promise where the sender keeps it.
+function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let mark = l.pending.count()
+	let handle = lowerRead(l, p: p, ms: ms, e: c.receiver)
+	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	let base = l.args.count()
+	pushOrderedArgs(l, p: p, ms: ms, c: c)
+	var captures = argsSince(l, base: base)
+	popArgs(l, n: base)
+	let status = entry(l, p: p, site: site, symbol: Rt.rtServiceReserve, kind: IrKind.kindScalar, args: argsOf1(handle))
+	let ok = l.b.newBlock()
+	let zero = konst(l, value: 0 as Word)
+	let failed = compare(l, op: CmpOp.cmpNe, a: status, b: zero, unsigned: false)
+	// The arguments are still in flight, so the failure drops them.
+	let stub = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: status, errDrop: ast.noType)
+	l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stub, ifFalse: ok))
+	l.cur = ok
+	var reply = noReg
+	if c.info.replyKept 'kept'
+		reply = entry(l, p: p, site: site, symbol: Rt.rtReplyNew, kind: IrKind.kindManaged, args: RegList.create(0))
+		captures.push(reply)
+	end 'kept'
+	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: false, cell: c.info.replyKept)
+	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: captures)
+	popPending(l, n: mark)
+	if reply == noReg 'none'
+		return konst(l, value: 0 as Word)
+	end 'none'
+	return reply
+end 'lowerSend'
+
+// lowerServiceBody lowers the behaviour that runs a factory or a handler on the service, as a body of the function around
+// it: it is given the address of the state, then each argument, which it owns, then the reply's cell where the sender keeps
+// one. It calls the function with the arguments, by value, and drops each that a let parameter only borrowed. A factory's
+// value becomes the state; a handler's goes into the cell, or is dropped with what it failed with.
+function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handleTy ast.TypeID, factory bool, cell bool) returns Count
+	let target = callee(l, p: p, ms: ms, node: c.node, info: c.info, receiver: c.receiver)
+	let name = behaviourBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count())
+	let fn = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).clone()
+	let params = fn.params.count()
+	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
+	begin(inner, p: p, ms: ms, fn: c.info.body, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
+	inner.b.f.paramCount = try 1 + params + (1 if cell else 0) otherwise panic("lower: too many parameters in a message")
+	let state = paramReg(inner, index: 0 as Count, kind: IrKind.kindScalar)
+	var args = RegList.create(0)
+	if not factory 'message'
+		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceTaken, args: argsOf1(state))
+		let recv = newReg(inner, kind: IrKind.kindManaged)
+		emit(inner, i: newLoadAt(recv, addr: state))
+		args.push(recv)
+	end 'message'
+	var owned = RegList.create(0)
+	for i in 0 upto params 'params'
+		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
+		let v = paramReg(inner, index: try i + 1 otherwise panic("lower: too many parameters in a message"), kind: kindOf(l, p: p, ms: ms, t: ty))
+		args.push(v)
+		owned.push(v)
+	end 'params'
+	let resultTy = applyType(l, p: p, ms: ms, t: fn.retTy)
+	var dst = noReg
+	if resultTy != p.builtins.voidTy 'value'
+		dst = newReg(inner, kind: kindOf(l, p: p, ms: ms, t: resultTy))
+	end 'value'
+	var err = noReg
+	if fn.errTy != ast.noType 'throws'
+		var errKind = IrKind.kindScalar
+		if ast.isUnionError(ms.types, reads: p.types, t: fn.errTy) 'union'
+			errKind = IrKind.kindManaged
+		end 'union'
+		err = newReg(inner, kind: errKind)
+		emitThrowingCall(inner, p: p, ms: ms, dst: dst, target: target, args: args, err: err)
+	end 'throws' else 'plain'
+		emitCall(inner, p: p, ms: ms, dst: dst, target: target, args: args)
+	end 'plain'
+	for i in 0 upto params 'borrowed'
+		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
+		if fn.params[i].conv == ast.Convention.convLet and kindOf(l, p: p, ms: ms, t: ty) == IrKind.kindManaged 'lent'
+			emitDropReg(inner, src: owned[i], ty: dropType(l, p: p, ms: ms, t: ty))
+		end 'lent'
+	end 'borrowed'
+	if factory 'store'
+		emit(inner, i: newStoreAt(state, src: dst))
+	end 'store' else if cell 'reply'
+		let cellReg = paramReg(inner, index: try 1 + params otherwise panic("lower: too many parameters in a message"), kind: IrKind.kindScalar)
+		let value = dst if dst != noReg else konst(inner, value: 0 as Word)
+		let error = err if err != noReg else konst(inner, value: 0 as Word)
+		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtReplyGive, args: argsOf3(cellReg, b: value, c: error))
+	end 'reply' else 'dropped'
+		dropReply(inner, p: p, ms: ms, l: l, dst: dst, resultTy: resultTy, err: err, errTy: fn.errTy)
+	end 'dropped'
+	let zero = konst(inner, value: 0 as Word)
+	inner.b.terminate(inner.cur, t: newRet(zero))
+	var body = inner.b.finish()
+	l.instances = exchange(inner.instances, value: InstanceSet.new())
+	var cowns = ast.TypeIDList.create(0)
+	cowns.push(handleTy)
+	body.cownTypes = cowns
+	l.b.f.usesArrays = l.b.f.usesArrays or body.usesArrays
+	l.b.f.usesBytes = l.b.f.usesBytes or body.usesBytes
+	l.b.f.usesOs = l.b.f.usesOs or body.usesOs
+	return l.b.body(body)
+end 'lowerServiceBody'
+
+// dropReply drops the reply of a handler that no one keeps: its error where it failed, and else its value.
+function dropReply(mutates inner Lowerer, p ast.Project, mutates ms ast.ModuleState, mutates l Lowerer, dst Reg, resultTy ast.TypeID, err Reg, errTy ast.TypeID)
+	let managed = dst != noReg and kindOf(l, p: p, ms: ms, t: resultTy) == IrKind.kindManaged
+	if err == noReg 'plain'
+		if managed 'value'
+			emitDropReg(inner, src: dst, ty: dropType(l, p: p, ms: ms, t: resultTy))
+		end 'value'
+		return
+	end 'plain'
+	let errDrop = errorDropType(l, p: p, ms: ms, t: errTy)
+	if not managed and errDrop == ast.noType 'scalars'
+		return
+	end 'scalars'
+	let failedBlock = inner.b.newBlock()
+	let returned = inner.b.newBlock()
+	let join = inner.b.newBlock()
+	let zero = konst(inner, value: 0 as Word)
+	let failed = compare(inner, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
+	inner.b.terminate(inner.cur, t: newBranch(failed, ifTrue: failedBlock, ifFalse: returned))
+	inner.cur = failedBlock
+	if errDrop != ast.noType 'unionError'
+		emitDropReg(inner, src: err, ty: errDrop)
+	end 'unionError'
+	inner.b.terminate(inner.cur, t: newJump(join))
+	inner.cur = returned
+	if managed 'value'
+		emitDropReg(inner, src: dst, ty: dropType(l, p: p, ms: ms, t: resultTy))
+	end 'value'
+	inner.b.terminate(inner.cur, t: newJump(join))
+	inner.cur = join
+end 'dropReply'
+
+function lowerServiceShutdown(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceShutdown, args: argsOf1(recv))
+	return konst(l, value: 0 as Word)
+end 'lowerServiceShutdown'

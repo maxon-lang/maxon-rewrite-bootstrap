@@ -31,6 +31,7 @@ var primTypes = []primType{
 	{"CodeUnit16", "b.codeUnit16Ty"},
 	{"ExitCode", "b.exitCodeTy"},
 	{"Milliseconds", "b.millisecondsTy"},
+	{"MailboxCapacity", "b.mailboxCapacityTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
 	{"Float", "b.anonFloatTy"},
@@ -62,6 +63,8 @@ var stdAliases = []stdAlias{
 	// and HashDigest a seeded 64-bit digest (maxon's stdlib/Hasher.maxon), which the hash intrinsics give and take.
 	{Name: "OrderedWord", Field: "orderedWordTy", Bits: 64},
 	{Name: "HashDigest", Field: "hashDigestTy", Bits: 64},
+	// MailboxCapacity is maxon's: how many messages a service's mailbox holds at most, `spawn(capacity: n)`.
+	{Name: "MailboxCapacity", Field: "mailboxCapacityTy", Lo: "I128.fromCount(1 as Count)", Hi: "I128.fromCount(2147483648 as Count)"},
 }
 
 // extraField is a field of self's Builtins record that no row of the table gives it: a type that initBuiltins registers
@@ -132,6 +135,11 @@ var builtinTypes = []builtinType{
 	// Promise is maxon's: what an async call gives, the coroutine it started, which an await consumes. `Promise with T` is of
 	// a function that throws nothing, and `Promise with (T, E)` of one that throws E, whose E is then void.
 	{Key: "Promise", Name: "Promise", Params: []string{"T", "E"}, Managed: true},
+	// Service is the handle of a service of the type T, which a program writes `T.handle`: a counted reference to the
+	// service's cown, whose value is the service's state.
+	{Key: "Service", Name: "__ServiceHandle", Params: []string{"T"}, Managed: true, Shared: true, Raw: &rawType{
+		Named: rawSurface{What: "the handle type of a service is nameable by its built-in name", Instead: "write 'T.handle'"},
+	}},
 }
 
 // typeAlias is a built-in typealias of an instance: the name and the type it is, one type and not two.
@@ -297,6 +305,12 @@ var enumTypes = []enumType{
 	{Key: "FilePermission", Name: "FilePermission", Cases: []enumCase{
 		{"normal", "FilePermissionNormal"},
 		{"executable", "FilePermissionExecutable"},
+	}},
+	// SendError is what a send to a service fails with: maxon's cases of `<Service>.<message>.sendError`, in its order, whose
+	// index plus 1 is the word rt.service.reserve gives for each.
+	{Key: "SendError", Name: "SendError", Cases: []enumCase{
+		{"mailboxFull", "SendMailboxFull"},
+		{"serviceStopped", "SendServiceStopped"},
 	}},
 	{Key: "FileDeleteError", Name: "FileDeleteError", Cases: []enumCase{
 		{"notFound", "ErrorDeleteNotFound"},
@@ -681,6 +695,9 @@ var tableFunctions = []function{
 	// sleep is maxon's: the running green thread parks for at least the milliseconds, and its strand's other coroutines run
 	// meanwhile.
 	{Name: "sleep", Params: []string{"milliseconds Milliseconds"}, Intrinsic: "Sleep"},
+	// shutdown is maxon's: the service's mailbox closes, so every later send fails with serviceStopped, and the messages
+	// queued already run. It always succeeds.
+	{Owner: "Service", Name: "shutdown", Intrinsic: "ServiceShutdown"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
 	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
@@ -833,6 +850,12 @@ var entries = []entry{
 	{"HashBytes", "rt.hash.bytes", "Source", roleCall, "(ByteArray, at, count, seed) -> the fold of the count bytes from at under the seed; a span past the end panics"},
 	{"BytesReadWord", "rt.bytes.readWord", "Source", roleCall, "(ByteArray, at, width, bigEndian, error) -> the width bytes from at as a word, the first the most significant where bigEndian; past the end sets the error to indexOutOfBounds"},
 	{"BytesAppendWord", "rt.bytes.appendWord", "Source", roleCall, "(ByteArray, word, width, bigEndian): appends the word's low width bytes, the most significant first where bigEndian"},
+	{"ServiceNew", "rt.service.new", "Source", roleCall, "(state, capacity) -> handle: a service, a cown that holds its state and its mailbox's gate, whose state the factory's behaviour stores when it is 0"},
+	{"ServiceReserve", "rt.service.reserve", "Source", roleCall, "(handle) -> 0, or the SendError case plus 1: takes a place in the service's mailbox for a message, unless the mailbox holds its capacity or the service is shut down"},
+	{"ServiceTaken", "rt.service.taken", "Source", roleCall, "(state address): what the behaviour of a message calls as it starts, which gives its place in the mailbox back"},
+	{"ServiceShutdown", "rt.service.shutdown", "Source", roleCall, "(handle): closes the service's mailbox, so every later send fails with serviceStopped; the messages queued still run"},
+	{"ReplyNew", "rt.reply.new", "Source", roleCall, "() -> promise: the cell a message's reply comes back in, which an await of a promise waits for as it waits for a coroutine"},
+	{"ReplyGive", "rt.reply.give", "Source", roleCall, "(promise, value, error): what the behaviour of a message calls with what its handler returned and failed with, which readies the green thread that awaits the reply"},
 
 	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
@@ -979,6 +1002,12 @@ var runtimeFunctions = []runtimeFunction{
 	{"HashBytes", "hashBytes(array Count, at Count, count Count, seed Count) Count"},
 	{"BytesReadWord", "bytesReadWord(array Count, at Count, width Count, bigEndian Bool, errorAddress Count) Count"},
 	{"BytesAppendWord", "bytesAppendWord(array Count, word Count, width Count, bigEndian Bool)"},
+	{"ServiceNew", "serviceNew(state Count, capacity Count) Count"},
+	{"ServiceReserve", "serviceReserve(handle Count) Count"},
+	{"ServiceTaken", "serviceTaken(state Count)"},
+	{"ServiceShutdown", "serviceShutdown(handle Count)"},
+	{"ReplyNew", "replyNew() Count"},
+	{"ReplyGive", "replyGive(promise Count, value Count, error Count)"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},
 	{"FrozenGet", "frozenGet(frozen Count) Count"},
 	{"Share", "share(box Count) Count"},

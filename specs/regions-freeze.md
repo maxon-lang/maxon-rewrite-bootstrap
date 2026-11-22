@@ -230,7 +230,6 @@ end 'main'
 ```
 
 <!-- test: freeze-of-an-interface-value-whose-conformers-all-walk-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Plain` and every `Gen` the program builds are converted to `Sink`, and each has a share walk, so a frozen `Holder` of either is marked shared and read back; the spawn makes the share walk run at the `freeze`.
 
 ```maxon
@@ -294,7 +293,6 @@ type Door
 end 'Door'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let plain = freeze(Holder.create(Plain.create(3)))
@@ -311,7 +309,6 @@ end 'main'
 ```
 
 <!-- test: a-frozen-interface-holder-is-read-by-coroutines-without-a-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 4 -->
 <!-- process: own -->
 A frozen `Holder` and one held by a `SharedValue` each hold a `Labeled` whose conformer has a `String` and an array field, and an `async` coroutine reads each a thousand times, yielding between reads. Nothing is spawned, so no value reaches another strand: the coroutines run on the spawner's, and the program counts its shared reads plainly. That is a fact about the whole program, so the case runs as a program of its own: batched beside a case that spawns, it would no longer be one that spawns nothing.
@@ -355,8 +352,7 @@ end 'Holder'
 
 typealias HolderCell = SharedValue with Holder
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function readFrozen(frozen immutable Holder) returns Tally
+function readFrozen(frozen frozen with Holder) returns Tally
 	var total = 0 as Tally
 	for _ in 0 upto 1000 'eachRound'
 		total = total + (1 if frozen.show().count() > 0 else 0)
@@ -393,8 +389,6 @@ frozen-tag-with-a-heap-string:2 cell-tag-with-a-heap-string:2 1000 1000
 ```
 
 <!-- test: a-frozen-interface-holder-is-read-by-two-services -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The same frozen `Holder` is handed `immutable` to two services, which read it three hundred times each at once, so every read of the `Labeled` and its `String` and array steps counts both strands hold; a spawned service is what makes the witness tables carry the walk that marks the graph shared.
 
@@ -440,8 +434,7 @@ type Reader
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function passes(frozen immutable Holder, rounds Tally) returns Tally
+	export function passes(frozen frozen with Holder, rounds Tally) returns Tally
 		var total = 0 as Tally
 		for _ in 1 to rounds 'eachRound'
 			total = total + (1 if frozen.show().count() > 0 else 0)
@@ -452,9 +445,7 @@ end 'Reader'
 
 function main() returns ExitCode
 	let frozen = freeze(Holder.create(Tag.create("frozen-tag-with-a-heap-string")))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let one = spawn Reader.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let two = spawn Reader.create()
 	let first = try one.passes(frozen, rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
 	let second = try two.passes(frozen, rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
@@ -474,7 +465,6 @@ frozen-tag-with-a-heap-string:2 300 300
 ```
 
 <!-- test: error.freeze-of-an-interface-whose-converted-conformer-holds-an-os-handle -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` and `TcpListener.bind` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -535,7 +525,6 @@ function open(listener TcpListener) returns Shape
 end 'open'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
@@ -550,7 +539,6 @@ note: <fragment>:51:9: `Port` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-reaching-an-interface-through-a-conformers-own-interface-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` and `TcpListener.bind` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -631,7 +619,6 @@ function wrapped() returns Outer
 end 'wrapped'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
@@ -647,7 +634,6 @@ note: <fragment>:67:9: `Port` is converted to `Inner` here
 ```
 
 <!-- test: error.freeze-of-an-interface-whose-generic-conformer-is-built-at-a-function-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -705,7 +691,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let held = freeze(Holder.create(StepWrap.sink(function(n Tally) gives n + 1, seen: 5)))
@@ -774,7 +759,6 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-conformer-is-refused-once-a-service-is-spawned -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -828,7 +812,6 @@ type Idle
 end 'Idle'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let idle = spawn Idle.create()
 	let pong = try await idle.ping() otherwise 0
 	let offset = 3 as Tally
@@ -1092,7 +1075,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-in-a-generic-type-body-whose-instance-reaches-an-unwalkable-conformer -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -1161,7 +1143,6 @@ end 'Froze'
 typealias HolderFroze = Froze with Holder
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	print("{HolderFroze.run(Holder.create(Stepper.create(function(n Tally) gives n + 1)))}\n")
@@ -1174,7 +1155,6 @@ note: <fragment>:64:40: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-in-a-generic-type-body-whose-instance-holds-a-function-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -1189,7 +1169,7 @@ typealias Step = function(Tally) returns Tally
 type Stepper
 	export let step as Step
 
-	static function create(step Step) returns Self
+	static function create(consumes step Step) returns Self
 		return Self{step: step}
 	end 'create'
 end 'Stepper'
@@ -1201,23 +1181,23 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
 type Cell uses T
 	export let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
 type Froze uses T
 	typealias TCell = Cell with T
 
-	static function run(x T) returns Tally
+	static function run(x T) returns Tally where T implements Copyable
 		let f = freeze(TCell.create(x).clone())
 		_ = f
 		return 1
@@ -1227,10 +1207,9 @@ end 'Froze'
 typealias StepperFroze = Froze with Stepper
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
-	print("{StepperFroze.run(Stepper.create(function(n Tally) gives n + 1))}\n")
+	print("{StepperFroze.run(Stepper.create(function(n Tally) gives try n + 1 otherwise panic("out of range")))}\n")
 	return 0
 end 'main'
 ```
@@ -1239,8 +1218,6 @@ error E3171: <fragment>:37:11: `Cell with Stepper` cannot be frozen: it is a `Ce
 ```
 
 <!-- test: freeze-in-a-generic-type-body-at-two-instances-whose-graphs-walk-runs -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 One compiled-once body freezes a `Cell with Holder` and a `Cell with Tally` in a program that spawns a service; each instance's clone and share walk are its own.
 
 ```maxon
@@ -1291,8 +1268,7 @@ end 'Cell'
 type Froze uses T
 	typealias TCell = Cell with T
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function run(x T) returns immutable TCell
+	static function run(x T) returns frozen with TCell where T implements Copyable
 		return freeze(TCell.create(x).clone())
 	end 'run'
 end 'Froze'
@@ -1302,7 +1278,6 @@ typealias HolderFroze = Froze with Holder
 typealias TallyFroze = Froze with Tally
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let got = HolderFroze.run(Holder.create(Plain.create()))
@@ -1381,7 +1356,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-through-a-generic-type-that-calls-another-generic-type-reaches-a-function-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -1457,7 +1431,6 @@ end 'Outer'
 typealias StepOuter = Outer with Stepper
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let f = freeze(StepOuter.go(Stepper.create(function(n Tally) gives n + 1)))
@@ -1471,7 +1444,6 @@ note: <fragment>:54:24: `Gen with Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-through-a-generic-type-that-names-another-by-its-bare-name-reaches-a-function-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -1545,7 +1517,6 @@ end 'Outer'
 typealias StepOuter = Outer with Stepper
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	h.shutdown()
 	let f = freeze(StepOuter.go(Stepper.create(function(n Tally) gives n + 1)))
@@ -1559,8 +1530,6 @@ note: <fragment>:54:24: `Gen with Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-door-in-a-generic-type-reached-through-another-generic-types-body -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -1629,8 +1598,7 @@ end 'Cell'
 type Froze uses T
 	typealias TCell = Cell with T
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function run(x T) returns immutable TCell
+	static function run(x T) returns frozen with TCell
 		return freeze(TCell.create(x).clone())
 	end 'run'
 end 'Froze'
@@ -1639,8 +1607,7 @@ type Outer uses T
 	typealias TFroze = Froze with T
 	typealias TCell = Cell with T
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function go(x T) returns immutable TCell
+	static function go(x T) returns frozen with TCell
 		return TFroze.run(x)
 	end 'go'
 end 'Outer'
@@ -1648,7 +1615,6 @@ end 'Outer'
 typealias HolderOuter = Outer with Holder
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Door.create()
 	d.shutdown()
 	let got = HolderOuter.go(Holder.create(Stepper.create(function(n Tally) gives n + 1)))
@@ -1662,7 +1628,6 @@ note: <fragment>:81:41: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: freeze-of-a-generic-conformer-with-swapped-arguments-over-a-finite-cycle-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Gen`'s own body widens `Gen with (B, A)` to `Sink`, so the instances a `Sink` may hold cycle between `Gen with (Tally, bool)` and `Gen with (bool, Tally)`; the cycle is finite, so the `freeze` compiles and runs.
 
 ```maxon
@@ -1714,7 +1679,6 @@ end 'Holder'
 typealias Pairing = Gen with (Tally, bool)
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let held = freeze(Holder.create(Pairing.flipped(3, second: true, seen: 7)))
@@ -1730,8 +1694,6 @@ end 'main'
 ```
 
 <!-- test: freeze-of-a-deeper-instance-whose-fields-do-not-depend-on-the-parameter-runs -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Box` freezes a `Box with (Cell with T)`, an instance one level deeper than its receiver, but no field of `Box` holds `T`, so every depth is judged alike; the chain is not refused and the program runs.
 
 ```maxon
@@ -1746,7 +1708,7 @@ end 'Shape'
 type Stepper implements Shape
 	export let step as Step
 
-	static function create(step Step) returns Self
+	static function create(consumes step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
@@ -1772,16 +1734,16 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
 type Cell uses T
 	export let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1794,16 +1756,14 @@ type Box uses T
 		return Self{seen: seen, name: "box"}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function deeper() returns immutable Deeper
-		return freeze(Deeper.create(self.seen + 1))
+	function deeper() returns frozen with Deeper
+		return freeze(Deeper.create(try self.seen + 1 otherwise panic("out of range")))
 	end 'deeper'
 end 'Box'
 
 typealias TallyBox = Box with Tally
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Door.create()
 	d.shutdown()
 	let f = TallyBox.create(1).deeper()
@@ -1819,7 +1779,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-door-of-ever-deeper-instances-whose-fields-hold-the-growing-parameter -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Box` freezes a `Box with (Cell with T)` whose field holds the growing argument, so the instances a share door must judge are an unbounded chain.
 
@@ -1829,8 +1788,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses T
 	export let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1840,13 +1799,12 @@ type Box uses T
 	export let held as T
 	export let seen as Tally
 
-	static function create(held T, seen Tally) returns Self
-		return Self{held: held, seen: seen}
+	static function create(held T, seen Tally) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: seen}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function deeper() returns immutable Deeper
-		return freeze(Deeper.create(TCell.create(self.held), seen: self.seen + 1).clone())
+	function deeper() returns frozen with Deeper where T implements Copyable
+		return freeze(Deeper.create(TCell.create(self.held), seen: try self.seen + 1 otherwise panic("out of range")).clone())
 	end 'deeper'
 end 'Box'
 
@@ -1906,7 +1864,6 @@ end 'main'
 ```
 
 <!-- test: freeze-of-a-generic-bodys-own-instance-widening-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Gen.sink` widens its own instance to `Sink`, and the program freezes a `Holder` holding a `Gen with Tally`, whose graph every thread can walk.
 
 ```maxon
@@ -1956,7 +1913,6 @@ end 'Holder'
 typealias TallyGen = Gen with Tally
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let held = freeze(Holder.create(TallyGen.sink(4, seen: 5)))
@@ -1972,7 +1928,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-of-a-generic-bodys-own-instance-holding-a-function-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2038,7 +1993,6 @@ typealias StepGen = Gen with Stepper
 typealias TallyGen = Gen with Tally
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let held = freeze(Holder.create(StepGen.sink(Stepper.create(function(n Tally) gives n + 1), seen: 5)))
@@ -2052,7 +2006,6 @@ note: <fragment>:42:10: `StepGen` is converted to `Sink` here
 ```
 
 <!-- test: error.freeze-names-the-path-through-a-nested-conformer-to-the-function-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2071,7 +2024,7 @@ end 'Shape'
 type Stepper implements Shape
 	export let step as Step
 
-	static function create(step Step) returns Self
+	static function create(consumes step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
@@ -2097,8 +2050,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
@@ -2106,7 +2059,7 @@ type W implements Shape
 	let s as Stepper
 
 	static function create(s Stepper) returns Self
-		return Self{s: s}
+		return Self{s: s.clone()}
 	end 'create'
 
 	function area() returns Tally
@@ -2117,16 +2070,15 @@ end 'W'
 type Holder
 	export let shape as Shape
 
-	static function create(shape Shape) returns Self
+	static function create(consumes shape Shape) returns Self
 		return Self{shape: shape}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Door.create()
 	d.shutdown()
-	let f = freeze(Holder.create(W.create(Stepper.create(function(n Tally) gives n + 1))))
+	let f = freeze(Holder.create(W.create(Stepper.create(function(n Tally) gives try n + 1 otherwise panic("out of range")))))
 	print("{f.shape.area()} {Plain.create().area()}\n")
 	return 0
 end 'main'
@@ -2230,7 +2182,6 @@ a root string that lives on the heap 1
 
 
 <!-- test: error.freeze-names-an-arrays-element-slot-through-the-array-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2299,7 +2250,6 @@ function stepper() returns Stepper
 end 'stepper'
 
 function spawnDoor()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	try h.look(Holder.create(Wrap.create(Plain.create())).shape.area() + stepper().step(1)) otherwise panic("look")
 	h.shutdown()
@@ -2340,7 +2290,6 @@ note: <fragment>:84:9: `ArrShape` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-names-a-maps-values-through-the-map-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2409,7 +2358,6 @@ function stepper() returns Stepper
 end 'stepper'
 
 function spawnDoor()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	try h.look(Holder.create(Wrap.create(Plain.create())).shape.area() + stepper().step(1)) otherwise panic("look")
 	h.shutdown()
@@ -2446,7 +2394,6 @@ note: <fragment>:82:9: `MapShape` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-names-a-lists-elements-through-the-list-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2515,7 +2462,6 @@ function stepper() returns Stepper
 end 'stepper'
 
 function spawnDoor()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	try h.look(Holder.create(Wrap.create(Plain.create())).shape.area() + stepper().step(1)) otherwise panic("look")
 	h.shutdown()
@@ -2552,7 +2498,6 @@ note: <fragment>:82:9: `ListShape` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-names-a-tuple-element-as-an-author-writes-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2621,7 +2566,6 @@ function stepper() returns Stepper
 end 'stepper'
 
 function spawnDoor()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	try h.look(Holder.create(Wrap.create(Plain.create())).shape.area() + stepper().step(1)) otherwise panic("look")
 	h.shutdown()
@@ -2658,7 +2602,6 @@ note: <fragment>:82:9: `PairShape` is converted to `Shape` here
 ```
 
 <!-- test: a-generic-permuting-its-parameters-at-an-entry-naming-one-of-them-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Swap` hands its arguments to itself in the other order, so it denotes only two instances at any entry; sharing is judged in finite time and the `freeze` runs.
 
 ```maxon
@@ -2723,7 +2666,6 @@ function stepper() returns Stepper
 end 'stepper'
 
 function spawnDoor()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	try h.look(Plain.create().n + stepper().step(1)) otherwise panic("look")
 	h.shutdown()
@@ -2766,7 +2708,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-duplicating-a-parameter-at-an-entry-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Dup` passes its second argument in both positions; the instances it denotes stay finite, so the `freeze` runs.
 
 ```maxon
@@ -2831,7 +2772,6 @@ function stepper() returns Stepper
 end 'stepper'
 
 function spawnDoor()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	try h.look(Holder.create(Wrap.create(Plain.create())).shape.area() + stepper().step(1)) otherwise panic("look")
 	h.shutdown()
@@ -2874,7 +2814,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-fixing-one-parameter-and-wrapping-the-other-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Fix` keeps its first argument and wraps its second in a `Cell` once; the wrapped argument feeds no parameter the first one depends on, so the instances it denotes are finite and the `freeze` runs.
 
 ```maxon
@@ -2939,7 +2878,6 @@ function stepper() returns Stepper
 end 'stepper'
 
 function spawnDoor()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	try h.look(Holder.create(Wrap.create(Plain.create())).shape.area() + stepper().step(1)) otherwise panic("look")
 	h.shutdown()
@@ -2983,7 +2921,6 @@ end 'main'
 ```
 
 <!-- test: a-string-conformer-widened-to-a-share-reached-interface-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `String` stands at `Shape` through an extension, and the interface is share-reached; the widening is judged like any conformer's and the program runs.
 
 ```maxon
@@ -3006,21 +2943,20 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
 type Holder
 	export let shape as Shape
 
-	static function create(shape Shape) returns Self
+	static function create(consumes shape Shape) returns Self
 		return Self{shape: shape}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	let held = freeze(Holder.create("a string long enough to be heap allocated, not inline"))
@@ -3036,7 +2972,6 @@ end 'main'
 ```
 
 <!-- test: descriptor-chain-over-a-parameter-nothing-reads-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Tagged` recurses through `Deeper`, which nests `Cell` around its second parameter, and widens `Wrap with T` to `Shape` through its descriptor; nothing reads that second parameter, so the descriptors the recursion needs are one chain and not an unbounded one.
 
 ```maxon
@@ -3113,7 +3048,6 @@ type Door
 end 'Door'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
 	let f = freeze(Holder.create(Plain.create()))
 	let n = f.shape.area() + Entry.go(Plain.create(), depth: 3).shape.area()
@@ -3131,7 +3065,6 @@ end 'main'
 ```
 
 <!-- test: freeze-door-in-a-generic-body-naming-an-instance-over-an-unread-parameter-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Froze` names `Froze with (Phantom with T)`, which nests its own parameter under a type that holds nothing, so the owner instances a freeze door is judged at end after one level.
 
 ```maxon
@@ -3148,8 +3081,8 @@ end 'Plain'
 type Cell uses T
 	export let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -3165,10 +3098,10 @@ type Froze uses T
 	typealias TCell = Cell with T
 	typealias Wider = Froze with (Phantom with T)
 
-	static function run(x T) returns Tally
+	static function run(x T) returns Tally where T implements Copyable
 		let f = freeze(TCell.create(x).clone())
 		_ = f
-		return 1 + Wider.touch()
+		return try 1 + Wider.touch() otherwise panic("out of range")
 	end 'run'
 
 	static function touch() returns Tally
@@ -3185,13 +3118,12 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let door = spawn Door.create()
 	door.shutdown()
 	print("{PlainFroze.run(Plain.create())}\n")
@@ -3206,7 +3138,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-through-interfaces-names-tuple-and-instance-conformers -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -3233,7 +3164,7 @@ end 'I3'
 type Stepper
 	export let step as Step
 
-	static function create(step Step) returns Self
+	static function create(consumes step Step) returns Self
 		return Self{step: step}
 	end 'create'
 end 'Stepper'
@@ -3241,8 +3172,8 @@ end 'Stepper'
 type Box uses T
 	export let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -3293,7 +3224,7 @@ end 'DeepBag'
 type H1
 	export let s as I1
 
-	static function create(s I1) returns Self
+	static function create(consumes s I1) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H1'
@@ -3301,7 +3232,7 @@ end 'H1'
 type H2
 	export let s as I2
 
-	static function create(s I2) returns Self
+	static function create(consumes s I2) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H2'
@@ -3309,7 +3240,7 @@ end 'H2'
 type H3
 	export let s as I3
 
-	static function create(s I3) returns Self
+	static function create(consumes s I3) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H3'
@@ -3321,13 +3252,12 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Door.create()
 	d.shutdown()
 	let f1 = freeze(H1.create(TupBag.create()))
@@ -3347,7 +3277,6 @@ note: <fragment>:115:28: `DeepBag` is converted to `I3` here
 ```
 
 <!-- test: error.a-conversion-note-points-at-the-arm-that-returned-the-conformer -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -3420,7 +3349,6 @@ function pick(plain Plain, stepper Stepper, which Which) returns Shape
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Door.create()
 	d.shutdown()
 	let f = freeze(Holder.create(pick(Plain.create(), stepper: Stepper.create(function(n Tally) gives n), which: Which.second)))

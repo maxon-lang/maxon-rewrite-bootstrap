@@ -28,7 +28,6 @@ green thread's WAIT does not pin it: a coroutine started before a `sleep` runs d
 
 ## Tests
 <!-- test: sched-park.nested-awaits-through-three-coroutines-complete -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THREE COROUTINES, EACH AWAITING THE NEXT, AND `main` AWAITING THE FIRST.** `askW` awaits the coroutine `askY`,
 which awaits the coroutine `askZ`, which awaits `Z.get`'s reply; `main` sends `Z.get` directly too, so the
@@ -64,12 +63,11 @@ function askW(zh Z.handle) returns Integer
 end 'askW'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let z = spawn Z.create()
 	let chain = async askW(z.clone())
 	let direct = try await z.get() otherwise 0
 	let viaChain = await chain
-	return (direct + viaChain) as ExitCode
+	return try (direct + viaChain) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -77,7 +75,6 @@ end 'main'
 ```
 
 <!-- test: sched-park.nested-awaits-through-three-coroutines-complete-on-four-processors -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The same chain at four processors.
 ```maxon
@@ -110,12 +107,11 @@ function askW(zh Z.handle) returns Integer
 end 'askW'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let z = spawn Z.create()
 	let chain = async askW(z.clone())
 	let direct = try await z.get() otherwise 0
 	let viaChain = await chain
-	return (direct + viaChain) as ExitCode
+	return try (direct + viaChain) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -123,7 +119,6 @@ end 'main'
 ```
 
 <!-- test: sched-park.a-coroutine-await-that-needs-main-completes -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A COROUTINE'S AWAIT THAT ONLY `main` CAN ANSWER.** `waitFor` is a coroutine of `main` that awaits
 `Waiter.waitForFile`, which polls for a file `main` writes after its own `sleep(5)`. `main` must wake from that
@@ -152,7 +147,6 @@ end 'waitFor'
 
 function main() returns ExitCode
 	try File.delete(FilePath from "sched-park-flag-one.txt") otherwise ignore
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Waiter.create()
 	let r = async waitFor(w.clone())
 	sleep(5)
@@ -173,7 +167,6 @@ v=1
 ```
 
 <!-- test: sched-park.a-coroutine-await-that-needs-main-completes-on-four-processors -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The same shape at four processors.
 ```maxon
@@ -200,7 +193,6 @@ end 'waitFor'
 
 function main() returns ExitCode
 	try File.delete(FilePath from "sched-park-flag-four.txt") otherwise ignore
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Waiter.create()
 	let r = async waitFor(w.clone())
 	sleep(5)
@@ -221,7 +213,6 @@ v=1
 ```
 
 <!-- test: sched-park.main-wakes-on-time-behind-a-long-coroutine-await -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **`main`'s TEN-MILLISECOND SLEEP ENDS WHILE ITS OWN COROUTINE IS STILL AWAITING A REPLY** that only `main`
 can end. The service polls a flag `main` publishes after its sleep, so a wake that waited for the coroutine would
@@ -253,7 +244,6 @@ end 'askSlow'
 
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Slow.create(released.clone())
 	let r = async askSlow(s.clone())
 	sleep(10)
@@ -273,7 +263,6 @@ v=7
 ```
 
 <!-- test: sched-park.a-service-coroutine-runs-while-its-handler-sleeps -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A HANDLER'S COROUTINE OVERLAPS THE HANDLER'S OWN WAIT.** `work` starts `flip`, then sleeps until the
 non-blocking peek reads that `flip` has finished, so the reply is 42 × 10 + 1. The sleep has no bound of its own:
@@ -308,7 +297,6 @@ type Handler
 end 'Handler'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Handler.create()
 	let r = try await h.work() otherwise 0
 	print("r={r}\n")
@@ -323,7 +311,6 @@ r=421
 ```
 
 <!-- test: sched-park.a-renounced-sleeper-due-at-shutdown-does-not-abort-the-exit -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **A RENOUNCED COROUTINE THAT PARKS AFTER ITS DROP IS ABANDONED AT EXIT, NOT RUN AND NOT AN ABORT.** `child`
 has started when `p.cancel()` renounces it, so it runs its body out — and parks on `sleep(0)` after `main` has
@@ -352,7 +339,6 @@ type S
 end 'S'
 
 function startAndStopAService()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create()
 	let t = s.clone()
 	_ = t
@@ -376,7 +362,6 @@ end 'main'
 ```
 
 <!-- test: sched-park.a-timer-lap-that-hands-the-processor-to-a-pinned-thread-wakes-a-machine-for-the-rest -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 <!-- preempt: off -->
 **A LAP THAT FIRES TWO TIMERS AND HANDS ITS PROCESSOR TO A PINNED THREAD STILL PAYS THE WAKE THE SECOND TIMER OWES.**
@@ -463,9 +448,7 @@ function handOffRound() returns bool
 	let signalled = HandOffFlag.create(false)
 	let armed = HandOffFlag.create(false)
 	let dueAt = Clock.nowMs() + handOffLeadMs
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let waiter = spawn HandOffThread.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let signaller = spawn HandOffThread.create()
 	let waiting = try waiter.waitForTheSignal(dueAt + 1, signalled: signalled.clone(), armed: armed.clone()) otherwise panic("an open mailbox with room takes the send")
 	var looks = 0 as HandOffTurns

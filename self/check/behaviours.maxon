@@ -459,15 +459,16 @@ function checkCownCycle(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	let own = ast.selfType(ms.types, reads: p.types, declTy: t)
 	var path = ast.StringList.create(0)
 	var visited = BoolIntMap.new()
-	if not reachesThroughCown(p, ms: ms, from: own, target: own, via: false, path: path, visited: visited) 'acyclic'
+	if not reachesThroughCown(p, ms: ms, from: own, target: own, via: false, services: false, path: path, visited: visited) 'acyclic'
 		return
 	end 'acyclic'
 	failAt(c, p: p, ms: ms, node: site, code: diag.errCownCycle, msg: "type '{nameOfType(p, ms: ms, t: t)}' can reach itself through a cown (via {ast.joinNames(path, sep: " -> ")}), so cowns could refer to each other and counting would never free them; store a handle, or a key into a map, instead of the reference", errs: errs)
 end 'checkCownCycle'
 
-// reachesThroughCown is whether a value of type from holds one of type target, with a cown on the way. via is whether the
-// way so far already went through one.
-function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.TypeID, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
+// reachesThroughCown is whether a value of type from holds one of type target, with a cown on the way, or, where services
+// says, a service's handle, which holds its service's state as a cown holds its value. via is whether the way so far
+// already went through one.
+function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.TypeID, target ast.TypeID, via bool, services bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
 	let kind = ast.typeKind(ms.types, reads: p.types, t: from)
 	let orig = ast.originOf(ms.types, reads: p.types, t: from)
 	let holder = nameOfType(p, ms: ms, t: from)
@@ -475,7 +476,7 @@ function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.
 		for fi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).fields.count() 'fields'
 			let label = "{holder}.{ast.typeEntry(ms.types, reads: p.types, t: orig).fields[fi].name}"
 			let held = ast.fieldType(ms.types, reads: p.types, owner: from, index: fi)
-			if followHolding(p, ms: ms, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
+			if followHolding(p, ms: ms, label: label, held: held, isCown: false, target: target, via: via, services: services, path: path, visited: visited) 'found'
 				return true
 			end 'found'
 		end 'fields'
@@ -486,7 +487,7 @@ function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.
 			let label = "{holder}.{ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].name}"
 			for pi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload.count() 'payload'
 				let held = ast.payloadType(ms.types, reads: p.types, owner: from, caseIndex: ci, index: pi)
-				if followHolding(p, ms: ms, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
+				if followHolding(p, ms: ms, label: label, held: held, isCown: false, target: target, via: via, services: services, path: path, visited: visited) 'found'
 					return true
 				end 'found'
 			end 'payload'
@@ -496,7 +497,7 @@ function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.
 	if kind.isBuiltin() and kind != ast.TypeKind.builtinHandle 'builtin'
 		for ai in 0 upto ast.typeEntry(ms.types, reads: p.types, t: from).typeArgs.count() 'args'
 			let held = ast.typeEntry(ms.types, reads: p.types, t: from).typeArgs[ai]
-			if followHolding(p, ms: ms, label: holder, held: held, isCown: kind == ast.TypeKind.builtinCown, target: target, via: via, path: path, visited: visited) 'found'
+			if followHolding(p, ms: ms, label: holder, held: held, isCown: kind == ast.TypeKind.builtinCown or (services and kind == ast.TypeKind.builtinService), target: target, via: via, services: services, path: path, visited: visited) 'found'
 				return true
 			end 'found'
 		end 'args'
@@ -506,7 +507,7 @@ end 'reachesThroughCown'
 
 // followHolding follows one edge of the search: a field, a payload, an element, or what a frozen value or a cown holds. A
 // handle holds nothing.
-function followHolding(p ast.Project, mutates ms ast.ModuleState, label String, held ast.TypeID, isCown bool, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
+function followHolding(p ast.Project, mutates ms ast.ModuleState, label String, held ast.TypeID, isCown bool, target ast.TypeID, via bool, services bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
 	path.push(label.clone())
 	let next = via or isCown
 	if held == target and next 'found'
@@ -516,7 +517,7 @@ function followHolding(p ast.Project, mutates ms ast.ModuleState, label String, 
 		let key = try (held as Count) * 2 + (1 if next else 0) otherwise panic("too many types")
 		if not visited.has(key) 'unseen'
 			visited.insert(key, value: true)
-			if reachesThroughCown(p, ms: ms, from: held, target: target, via: next, path: path, visited: visited) 'inside'
+			if reachesThroughCown(p, ms: ms, from: held, target: target, via: next, services: services, path: path, visited: visited) 'inside'
 				return true
 			end 'inside'
 		end 'unseen'

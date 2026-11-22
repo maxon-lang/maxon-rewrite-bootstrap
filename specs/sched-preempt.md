@@ -37,7 +37,6 @@ about preemption has changed.
 ## Tests
 
 <!-- test: sched-preempt.a-cpu-bound-service-yields-to-a-bystander -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A SERVICE THAT NEVER WAITS DOES NOT HOLD THE ONLY PROCESSOR FOR EVER.** Every iteration of the spinner passes a
 function prologue, so a preemption request reaches it within one sysmon period. The spinner stops only when
@@ -90,9 +89,7 @@ end 'Bystander'
 
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Spinner.create(released.clone())
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Bystander.create()
 	let spun = try s.spin() otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
@@ -111,7 +108,6 @@ ping=1 spun=true preempted=true
 ```
 
 <!-- test: sched-preempt.preemption-inside-deep-recursion-is-sound -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A PREEMPTION CAN LAND ANYWHERE IN A 20,000-FRAME RECURSION**, including at a prologue whose stack must also
 grow. Every pass recomputes a value that flows through every frame and compares it with the first pass, so
@@ -168,9 +164,7 @@ end 'Bystander'
 
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let r = spawn Recurser.create(released.clone())
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Bystander.create()
 	let churned = try r.churn(churnRounds) otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
@@ -189,7 +183,6 @@ ping=1 wrong=0
 ```
 
 <!-- test: sched-preempt.as-many-spinners-as-processors-cannot-starve-another -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **EVERY PROCESSOR BUSY WITH A SPINNER, AND `main` AND ONE MORE SERVICE STILL GET A TURN.** No processor is ever
 idle, so only a preemption hands one over. Every spinner stops only when `main` publishes the release, which it
@@ -251,11 +244,9 @@ function main() returns ExitCode
 	let spinners = SpinnerHandleArray.create(0)
 	var i = 0 as Count
 	while i < Scheduler.processorCount() 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		spinners.push(spawn Spinner.create(released.clone()))
 		i = i + 1
 	end 'spawnEach'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Bystander.create()
 	let spun = ReplyPromiseArray.create(0)
 	var k = 0 as Count
@@ -397,7 +388,6 @@ owner=2 sibling=2 busy=true preempted=true
 ```
 
 <!-- test: sched-preempt.every-argument-register-survives-a-preemption -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A PREEMPTION AT A PROLOGUE FINDS EVERY ARGUMENT STILL IN ITS REGISTER.** `mix` takes
 eight integer and eight float arguments — more than either ISA passes in registers — and rotates them
@@ -462,9 +452,7 @@ type Mixer
 end 'Mixer'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let m1 = spawn Mixer.create(0, scale: 1.0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let m2 = spawn Mixer.create(1000, scale: 9.75)
 	let churned1 = try m1.churn(200) otherwise panic("an open mailbox with room takes the send")
 	let churned2 = try m2.churn(200) otherwise panic("an open mailbox with room takes the send")
@@ -483,7 +471,6 @@ wrong=0 preempted=true
 ```
 
 <!-- test: sched-preempt.a-call-free-loop-is-preempted-anyway -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A LOOP THAT CALLS NOTHING STILL GIVES UP ITS PROCESSOR.** A request written into the stack guard is read
 only by a function that reserves a frame, so this spinner never reads one; the thread has to be stopped where
@@ -537,9 +524,7 @@ end 'Bystander'
 
 function main() returns ExitCode
 	let released = ReleaseCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Spinner.create(released.clone())
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Bystander.create()
 	let spun = try s.spin() otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
@@ -558,7 +543,6 @@ ping=1 spun=true preempted=true
 ```
 
 <!-- test: sched-preempt.every-processor-in-a-call-free-loop-still-yields -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **ONE CALL-FREE SPINNER PER PROCESSOR, AND A FIFTH SERVICE STILL GETS A TURN.** No processor is ever idle and
 no spinner ever reaches a prologue, so only stopping a thread where it runs hands one over. Every spinner stops
@@ -619,11 +603,9 @@ function main() returns ExitCode
 	let spinners = SpinnerHandleArray.create(0)
 	var i = 0 as Count
 	while i < Scheduler.processorCount() 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		spinners.push(spawn Spinner.create(released.clone()))
 		i = i + 1
 	end 'spawnEach'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Bystander.create()
 	let spun = ReplyPromiseArray.create(0)
 	var k = 0 as Count
@@ -655,7 +637,6 @@ spinners=true ping=1
 ```
 
 <!-- test: sched-preempt.every-register-survives-a-stop-anywhere -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A THREAD STOPPED MID-LOOP RESUMES WITH EVERY REGISTER IT HAD.** Eight integers and eight floats are live
 across a loop with no call in it, so a stop lands among them rather than at a boundary where fewer are live.
@@ -758,7 +739,6 @@ type Churner
 end 'Churner'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Churner.create()
 	let churned = try c.churn() otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
@@ -775,7 +755,6 @@ wrong=0 preempted=true
 ```
 
 <!-- test: sched-preempt.the-switch-keeps-the-processor-with-main -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 **WITH `MAXON_PREEMPT=off` THE MONITOR TAKES NO PROCESSOR FROM THE THREAD HOLDING IT.** Neither the 10 ms
@@ -812,7 +791,6 @@ type Echo
 end 'Echo'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let e = spawn Echo.create()
 	let reply = try e.ping() otherwise panic("an open mailbox with room takes the send")
 	let start = Clock.nowMs()
@@ -833,7 +811,6 @@ ping=0 held=true preempted=0 retaken=0
 ```
 
 <!-- test: sched-preempt.a-main-preempted-between-two-spawns-runs-the-earlier-one-first -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A `main` PREEMPTED BETWEEN TWO `spawn`s SEES THE EARLIER SERVICE ANSWER FIRST.** This is
 `sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor` with the preemption made deterministic:
@@ -895,9 +872,7 @@ end 'Marker'
 // the second and third spawn; a throw drops the handles it spawned.
 function attempt() returns (Integer, Integer) throws Attempt
 	let c0 = Scheduler.counters().preempts
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Marker.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Marker.create(2)
 	if Scheduler.counters().preempts != c0 'early'
 		throw Attempt.preemptedBeforeTheWindow
@@ -915,7 +890,6 @@ function attempt() returns (Integer, Integer) throws Attempt
 	if Scheduler.counters().preempts == c0 'silent'
 		throw Attempt.neverAsked
 	end 'silent'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Marker.create(3)
 	let replies = ReplyPromiseArray.create(0)
 	replies.push(try a.rank() otherwise panic("an open mailbox with room takes the send"))
@@ -963,7 +937,6 @@ first=1 sum=6
 ```
 
 <!-- test: sched-preempt.a-loop-that-only-spawns-is-preempted-at-a-spawn -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A `main` THAT ONLY SPAWNS AND SENDS IS ASKED TO YIELD AT A `spawn`.** A spawn is a preemption point, as
 Go's `newproc` is: it is not `nosplit`, so a pending request lands at the next `go` statement. The loop below
@@ -998,7 +971,6 @@ function main() returns ExitCode
 	let replies = ReplyPromiseArray.create(0)
 	replies.reserve(spawnCount)
 	for index in 0 upto spawnCount 'spawnDoublers'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let doubler = spawn Doubler.create(index as Integer)
 		replies.push(try doubler.doubled() otherwise panic("a fresh doubler takes its only message"))
 	end 'spawnDoublers'
@@ -1019,7 +991,6 @@ preempted=true ran=true sum=9999900000
 ```
 
 <!-- test: sched-preempt.a-switch-value-that-is-neither-off-nor-on-is-refused-at-start -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 **A VALUE THAT IS NEITHER `off` NOR `on` ABORTS THE PROGRAM AT START WITH `RuntimeAbort.schedulerPreemptSwitchUnreadable`, EXIT 116.**
 `MAXON_MAX_PROCS` has a numeric floor to fall under and falls through to the machine's count; this switch
@@ -1046,7 +1017,6 @@ type Echo
 end 'Echo'
 
 function child() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let e = spawn Echo.create()
 	let p = try await e.ping() otherwise 0
 	if p != 1 'unanswered'

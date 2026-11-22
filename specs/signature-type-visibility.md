@@ -1200,7 +1200,6 @@ the word `export` — so a message is held to its service type's written tier. E
 the rule above: its own modifier is the bar.
 
 <!-- test: a-service-message-may-name-a-file-private-type -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE MESSAGE'S `export` MEANS "MESSAGE", NOT "WIDER THAN THE TYPE".** `Worker` is unmarked and so
 is `Report`, and the only spelling that can reach `run` is a handle produced by a `spawn` written in this
 same directory — nothing outside it can name the type, hold the handle or see the reply. Judging `run` by its
@@ -1231,7 +1230,6 @@ type Worker
 end 'Worker'
 
 export function tally() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Worker.create(7)
 	let r = try await h.run() otherwise Report.create(0)
 	return r.n as ExitCode
@@ -1239,7 +1237,7 @@ end 'tally'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return tally()
+	return api.tally()
 end 'main'
 ```
 ```exitcode
@@ -1247,8 +1245,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-services-message-names-a-file-private-type -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 ⭐⭐ **THE EXEMPTION STOPS AT THE SERVICE TYPE'S TIER, AND ONE WORD IS THE WHOLE DIFFERENCE.** This program
 is the case above with `export` written on `type Worker`; every other byte is the same. Now any file may
 name `Worker`, spawn one and hold the handle `run` sits on — so `run`'s reply has to be nameable at that
@@ -1282,7 +1278,6 @@ export type Worker
 end 'Worker'
 
 export function tally() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Worker.create(7)
 	let r = try await h.run() otherwise Report.create(0)
 	return r.n as ExitCode
@@ -2565,7 +2560,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-alias-over-a-file-private-services-handle-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A service's handle is the service's own tier, so an alias naming `Worker.handle` names `Worker`.
 ```maxon
@@ -2583,14 +2577,13 @@ end 'Worker'
 export typealias WorkerArray = Array with Worker.handle
 
 export function start() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Worker.create()
 	return try await h.run() otherwise 0
 end 'start'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return start()
+	return api.start()
 end 'main'
 ```
 ```maxoncstderr
@@ -2598,7 +2591,6 @@ error E3167: api/<fragment>:13:18: exported typealias 'api.WorkerArray' names un
 ```
 
 <!-- test: an-exported-alias-over-an-exported-services-handle-credits-the-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The control, and the reason the demand is filed against `Worker` and not against its `handle`: nothing outside
 `api/lib.maxon` names `Worker`, and the audit would call it unused if the alias's demand did not reach it.
 ```maxon
@@ -2616,15 +2608,14 @@ end 'Worker'
 export typealias WorkerArray = Array with Worker.handle
 
 export function start() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Worker.create()
 	return try await h.run() otherwise 0
 end 'start'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let workers = WorkerArray.create(0)
-	return start() + (workers.count() as ExitCode)
+	let workers = api.WorkerArray.create(0)
+	return try api.start() + (workers.count() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

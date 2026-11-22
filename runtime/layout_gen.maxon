@@ -51,6 +51,15 @@ let cownValueOffset = 24 as Count
 // cownBytes is the size of a cown.
 let cownBytes = 32 as Count
 
+// serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus serviceClosed once it is shut down.
+let serviceGateOffset = 32 as Count
+
+// serviceCapacityOffset is where a service holds how many messages its mailbox holds at most.
+let serviceCapacityOffset = 40 as Count
+
+// serviceBytes is the size of a service.
+let serviceBytes = 48 as Count
+
 // behaviourPendingOffset is where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0.
 let behaviourPendingOffset = 0 as Count
 

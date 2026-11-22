@@ -295,7 +295,6 @@ served=3 body=mixed/mixed
 assertion: the first handler throws, and only a loop that survived it can answer the second.
 
 <!-- test: http-server.a-throwing-handler-answers-500-and-serves-on -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -321,8 +320,7 @@ type PickyHandler implements HttpHandler
 	end 'faulted'
 end 'PickyHandler'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function serveUntilClosed(server HttpServer, handler immutable PickyHandler) returns Served
+function serveUntilClosed(server HttpServer, handler frozen with PickyHandler) returns Served
 	_ = server.serve(handler)
 	return 3
 end 'serveUntilClosed'
@@ -359,7 +357,6 @@ first=500 second=200 body=second
 ```
 
 <!-- test: http-server.a-handler-that-throws-after-responding-is-reported-and-not-answered-twice -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 let LatePath = "/late"
@@ -383,8 +380,7 @@ type LateThrowingHandler implements HttpHandler
 	end 'faulted'
 end 'LateThrowingHandler'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function serveUntilClosed(server HttpServer, handler immutable LateThrowingHandler) returns HttpServeEnd
+function serveUntilClosed(server HttpServer, handler frozen with LateThrowingHandler) returns HttpServeEnd
 	return server.serve(handler)
 end 'serveUntilClosed'
 
@@ -457,7 +453,6 @@ status=200 body=first second=alreadyResponded
 ```
 
 <!-- test: http-server.an-accept-deadline-ends-serve -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 type EchoPathHandler implements HttpHandler
@@ -476,8 +471,7 @@ type EchoPathHandler implements HttpHandler
 	end 'faulted'
 end 'EchoPathHandler'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function serveUntilClosed(server HttpServer, handler immutable EchoPathHandler) returns HttpServeEnd
+function serveUntilClosed(server HttpServer, handler frozen with EchoPathHandler) returns HttpServeEnd
 	return server.serve(handler)
 end 'serveUntilClosed'
 
@@ -1070,7 +1064,6 @@ status=431 accept=headersTooLarge
 ### Cancelling the serving promise ends serve
 
 <!-- test: http-server.cancel-ends-serve-and-close-releases-the-port -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 `serve` is ended by cancelling the promise that serves, and `close()` then releases the port: the first request is answered,
 and a request made after the cancel and the close finds nothing listening.
@@ -1094,8 +1087,7 @@ type PlainHandler implements HttpHandler
 	end 'faulted'
 end 'PlainHandler'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function serveUntilClosed(server HttpServer, handler immutable PlainHandler) returns Served
+function serveUntilClosed(server HttpServer, handler frozen with PlainHandler) returns Served
 	_ = server.serve(handler)
 	return 3
 end 'serveUntilClosed'
@@ -1500,7 +1492,6 @@ served=3 Content-Length: 5 body=[]
 ### A handler that returns without responding answers 500 and is reported
 
 <!-- test: http-server.a-handler-that-returns-without-responding-answers-500 -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 let SilentPath = "/silent"
@@ -1524,8 +1515,7 @@ type ForgetfulHandler implements HttpHandler
 	end 'faulted'
 end 'ForgetfulHandler'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function serveUntilClosed(server HttpServer, handler immutable ForgetfulHandler) returns HttpServeEnd
+function serveUntilClosed(server HttpServer, handler frozen with ForgetfulHandler) returns HttpServeEnd
 	return server.serve(handler)
 end 'serveUntilClosed'
 
@@ -1563,7 +1553,6 @@ first=500 second=200 body=remembered
 ### A throw whose 500 cannot be sent is reported as unanswered
 
 <!-- test: http-server.a-throw-whose-500-cannot-be-sent-is-reported-as-unanswered -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
@@ -1631,8 +1620,7 @@ function sendThenReset(port NetworkPort) returns bool
 	return res.succeeded()
 end 'sendThenReset'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function serveUntilClosed(server HttpServer, handler immutable ResetHandler) returns HttpServeEnd
+function serveUntilClosed(server HttpServer, handler frozen with ResetHandler) returns HttpServeEnd
 	return server.serve(handler)
 end 'serveUntilClosed'
 
@@ -1670,7 +1658,6 @@ reset=true
 ### `serve` answers a protocol fault and serves on
 
 <!-- test: http-server.serve-answers-a-protocol-fault-and-serves-on -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1691,8 +1678,7 @@ type PlainHandler implements HttpHandler
 	end 'faulted'
 end 'PlainHandler'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function serveUntilClosed(server HttpServer, handler immutable PlainHandler) returns HttpServeEnd
+function serveUntilClosed(server HttpServer, handler frozen with PlainHandler) returns HttpServeEnd
 	return server.serve(handler)
 end 'serveUntilClosed'
 
@@ -1964,7 +1950,6 @@ request and begun the answer, so closing the listener after it cannot beat the a
 connection it took has finished, which is when the write deadline has ended the send.
 
 <!-- test: http-server.a-peer-that-never-reads-is-abandoned-at-the-write-deadline -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
 let WriteDeadlineMs = 500
@@ -1997,8 +1982,7 @@ function bigAnswer() returns String
 	return body.build()
 end 'bigAnswer'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function serveOne(server HttpServer, handler immutable BigAnswerHandler) returns HttpServeEnd
+function serveOne(server HttpServer, handler frozen with BigAnswerHandler) returns HttpServeEnd
 	return server.serve(handler)
 end 'serveOne'
 
@@ -2399,7 +2383,6 @@ a request beside a silent client: 200 [answered]
 ```
 
 <!-- test: http-server.a-handler-that-computes-does-not-delay-another-connection -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 `serve` gives each accepted connection a green thread of its own, so a handler that computes for a long stretch without
 waiting holds only its own connection. The `/spin` handler tells a `Gate` service it has begun and then loops, reading a
@@ -2471,7 +2454,6 @@ end 'main'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	let released = ReleaseCell.create(false)
 	let peer = async serving(server, gate: gate.clone(), released: released.clone())
@@ -2502,7 +2484,6 @@ quick answered beside the loop: true, spin answered once released: true
 ```
 
 <!-- test: http-server.connections-share-state-through-a-service-the-handler-holds -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The handler is one read-only value every connection reads at once, so what the connections share is a service it holds
 a handle to. Each connection's thread sends the service a message, and the service counts them one at a time: three
@@ -2553,7 +2534,6 @@ end 'main'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let tally = spawn Tally.create()
 	let peer = async serving(server, tally: tally.clone())
 	for _ in 0 upto 3 'eachRequest'

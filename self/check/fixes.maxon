@@ -62,7 +62,7 @@ end 'panicClause'
 // isCompound is whether the expression e needs parentheses where a cast is written after it.
 function isCompound(t ast.Tree, e ast.NodeID) returns bool
 	let k = t.kindOf(e)
-	return k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.castExpr or k == ast.NodeKind.asyncExpr or k == ast.NodeKind.awaitExpr
+	return k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.castExpr or k == ast.NodeKind.asyncExpr or k == ast.NodeKind.awaitExpr or k == ast.NodeKind.spawnExpr
 end 'isCompound'
 
 // tryFix covers the failure of e with a try around the whole arithmetic expression it is part of, which panics: what

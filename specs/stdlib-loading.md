@@ -736,7 +736,6 @@ error E3104: <fragment>:3:15: 'Clock.threadCpuTicks' lowers to the runtime entry
 ```
 
 <!-- test: stdlib-loading.user-code-is-refused-on-wasm-even-where-unreached -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 The other half, in an ordinary program: `launcher` is never called, yet the `spawn` and the message send it
@@ -757,7 +756,6 @@ type Plot
 end 'Plot'
 
 public function launcher()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Plot.create()
 	try h.at(1) otherwise return
 end 'launcher'

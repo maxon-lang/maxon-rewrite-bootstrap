@@ -606,7 +606,6 @@ end 'main'
 ```
 
 <!-- test: multi-line-call-service-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 // --- file: sub/calc.maxon
 export type Calc
@@ -617,17 +616,16 @@ export type Calc
 	end 'create'
 
 	export function add(n Integer, extra Integer) returns Integer
-		return self.count + n * 10 + extra
+		return try self.count + n * 10 + extra otherwise panic("out of range")
 	end 'add'
 end 'Calc'
 
 export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn sub.Calc.create()
 	let total = try await h.add(1, extra: 2) otherwise 0
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

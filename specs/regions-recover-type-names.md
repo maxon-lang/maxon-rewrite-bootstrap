@@ -17,7 +17,6 @@ position among the program's names changes from case to case while the verdict s
 ## Tests
 
 <!-- test: the-payload-type-preceded-by-0-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 0 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -48,8 +47,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -71,7 +69,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-1-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 1 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -112,8 +109,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -136,7 +132,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-2-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 2 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -180,8 +175,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -204,7 +198,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-3-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 3 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -251,8 +244,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -275,7 +267,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-4-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 4 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -325,8 +316,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -349,7 +339,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-5-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 5 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -402,8 +391,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -426,7 +414,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-6-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 6 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -482,8 +469,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -506,7 +492,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-7-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 7 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -565,8 +550,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -589,7 +573,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-8-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 8 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -651,8 +634,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -675,7 +657,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-9-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 9 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -740,8 +721,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -764,7 +744,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-10-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 10 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -832,8 +811,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -856,7 +834,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-11-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 11 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -927,8 +904,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -951,7 +927,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-12-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 12 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1025,8 +1000,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1049,7 +1023,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-13-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 13 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1126,8 +1099,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1150,7 +1122,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-14-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 14 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1230,8 +1201,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1254,7 +1224,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-15-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 15 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1337,8 +1306,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1361,7 +1329,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-16-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 16 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1447,8 +1414,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1471,7 +1437,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-17-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 17 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1560,8 +1525,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1584,7 +1548,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-18-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 18 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1676,8 +1639,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1700,7 +1662,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-19-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 19 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1795,8 +1756,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1819,7 +1779,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-20-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 20 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -1917,8 +1876,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -1941,7 +1899,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-21-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 21 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -2042,8 +1999,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -2066,7 +2022,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-22-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 22 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -2170,8 +2125,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -2194,7 +2148,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-23-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 23 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -2301,8 +2254,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -2325,7 +2277,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-24-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 24 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -2435,8 +2386,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -2459,7 +2409,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-25-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 25 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -2572,8 +2521,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -2596,7 +2544,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-26-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 26 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -2712,8 +2659,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -2736,7 +2682,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-27-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 27 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -2855,8 +2800,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -2879,7 +2823,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-28-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 28 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -3001,8 +2944,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -3025,7 +2967,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-29-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 29 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -3150,8 +3091,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -3174,7 +3114,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-30-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 30 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -3302,8 +3241,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -3326,7 +3264,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-31-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 31 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -3457,8 +3394,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -3481,7 +3417,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-32-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 32 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -3615,8 +3550,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -3639,7 +3573,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-33-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 33 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -3776,8 +3709,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -3800,7 +3732,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-34-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 34 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -3940,8 +3871,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -3964,7 +3894,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-35-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 35 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -4107,8 +4036,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -4131,7 +4059,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-36-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 36 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -4277,8 +4204,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -4301,7 +4227,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-37-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 37 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -4450,8 +4375,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -4474,7 +4398,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-38-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 38 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -4626,8 +4549,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -4650,7 +4572,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-39-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 39 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -4805,8 +4726,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -4829,7 +4749,6 @@ consumed 7
 ```
 
 <!-- test: the-payload-type-preceded-by-40-declarations-is-judged-by-its-own-name -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The owned payload of type `Box`, declared after 40 other type names, goes to an `isolated` parameter.
 ```maxon
@@ -4987,8 +4906,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 

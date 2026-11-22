@@ -793,7 +793,6 @@ end 'main'
 ```
 
 <!-- test: model-finding-ad-swap-field-self -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ISOREAD`; the compiler refuses it with E3198. Model program `swap-field-self` of redteamAD/t3.txt, in capmodel `reggio/REPORTRTAD.txt`.
@@ -813,8 +812,7 @@ type Hd
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Box
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Box) returns Self
+	static function create(consumes b Box) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hd'
@@ -831,7 +829,6 @@ error E3198: <fragment>:22:24: 'h.b' is isolated and cannot be read outside a bl
 ```
 
 <!-- test: model-finding-ae-frozen-field-iso-recv-call-writes-outer -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `frozen-field-iso-recv-call-writes-outer` of redteamAE/p19.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -862,8 +859,7 @@ type Hd
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(item isolated Bx) returns Self
+	static function create(consumes item Bx) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Hd'
@@ -882,7 +878,6 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-mutable-field-iso-recv-call-writes-outer-ctl -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `mutable-field-iso-recv-call-writes-outer-ctl` of redteamAE/p19.txt, in capmodel `reggio/REPORTRTAE.txt`.
@@ -914,8 +909,7 @@ type Hd
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(item isolated Bx) returns Self
+	static function create(consumes item Bx) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Hd'
@@ -1741,7 +1735,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-k-param-keeper-twice -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-param-keeper-twice` of redteamAD.hand_ad3, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -1759,8 +1752,7 @@ function keepLocal(t Tok)
 	_ = t
 end 'keepLocal'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function two(t isolated Tok)
+function two(consumes t Tok)
 	keepLocal(t)
 	keepLocal(t)
 end 'two'
@@ -1775,7 +1767,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-sh7-inner-let-iso-bx -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh7-inner-let-iso-bx` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -1794,8 +1785,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -1947,7 +1937,6 @@ error E3197: <fragment>:18:4: cannot write 'n' through 't2', which is read-only 
 ```
 
 <!-- test: model-hand-ah-i3-fresh-into-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-fresh-into-param` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -1961,8 +1950,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
@@ -1977,7 +1965,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-fresh-twice-in-one-call -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i3-fresh-twice-in-one-call` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -1992,8 +1980,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function two(a isolated Bx, b Bx)
+function two(consumes a Bx, b Bx)
 	_ = a
 	_ = b.n
 end 'two'
@@ -2009,7 +1996,6 @@ error E3200: <fragment>:19:6: 'w' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-ah-i3-fresh-in-loop-new-each -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-fresh-in-loop-new-each` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -2027,8 +2013,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
@@ -2049,7 +2034,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-fresh-then-reassigned-after-recovery -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-fresh-then-reassigned-after-recovery` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -2063,8 +2047,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
@@ -2081,7 +2064,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-fresh-clone-before -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i3-fresh-clone-before` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2096,8 +2079,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
@@ -2114,7 +2096,7 @@ error E3200: <fragment>:20:9: 'w' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-ah-b-array-push-then-take -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-array-push-then-take` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2131,8 +2113,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeArr(a isolated BxArray)
+function takeArr(consumes a BxArray)
 	_ = a
 	_ = 1 as Num
 end 'takeArr'
@@ -2149,7 +2130,7 @@ error E3200: <fragment>:21:10: 'a' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ah-b-array-loop-push -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-array-loop-push` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2170,8 +2151,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeArr(a isolated BxArray)
+function takeArr(consumes a BxArray)
 	_ = a
 	_ = 1 as Num
 end 'takeArr'
@@ -2194,7 +2174,7 @@ error E3200: <fragment>:31:10: 'a' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ah-b-array-for-write -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-array-for-write` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2211,8 +2191,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeArr(a isolated BxArray)
+function takeArr(consumes a BxArray)
 	_ = a
 	_ = 1 as Num
 end 'takeArr'
@@ -2232,7 +2211,7 @@ error E3200: <fragment>:24:10: 'a' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ah-b-record-push-into-field-array -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-record-push-into-field-array` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2258,8 +2237,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBag(b isolated Bag)
+function takeBag(consumes b Bag)
 	_ = b.n
 end 'takeBag'
 
@@ -2275,7 +2253,6 @@ error E3200: <fragment>:29:10: 'b' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ah-b-fresh-var-loop-reset -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b-fresh-var-loop-reset` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -2293,8 +2270,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
@@ -2317,7 +2293,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-b-two-recoveries-one-statement -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b-two-recoveries-one-statement` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -2331,8 +2306,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
@@ -2349,7 +2323,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-b-fresh-in-both-branches -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b-fresh-in-both-branches` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -2367,8 +2340,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
@@ -2387,7 +2359,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-b-fresh-recover-in-one-branch -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b-fresh-recover-in-one-branch` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -2405,8 +2376,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
@@ -2423,7 +2393,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-h2-no-try -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h2-no-try` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -2442,8 +2411,7 @@ function lg10(x Num) returns Num
 	return x
 end 'lg10'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB10(b isolated Bx10)
+function takeB10(consumes b Bx10)
 	_ = b.n
 end 'takeB10'
 
@@ -3370,7 +3338,6 @@ error E3200: <fragment>:22:10: 'u' is not an isolated value; `merge` moves an is
 ```
 
 <!-- test: model-hand-aj-iso-renamed -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `iso-renamed` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
@@ -3394,8 +3361,7 @@ type Kp
 	end 'create'
 end 'Kp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeT(t isolated Tk)
+function takeT(consumes t Tk)
 	_ = t.n
 end 'takeT'
 
@@ -3911,7 +3877,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ao-f2-onecall-open-cond-path -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-onecall-open-cond-path` of redteamAO/hand_ao1.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -3930,8 +3895,7 @@ type Hi is noncopyable
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hi'
@@ -4116,7 +4080,6 @@ error E3102: <fragment>:28:13: 'h' is passed at two arguments of this call, and 
 ```
 
 <!-- test: model-hand-ao-o3-onecall-open-cond-iso-plus-holder -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `o3-onecall-open-cond-iso-plus-holder` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4136,8 +4099,7 @@ type Hi is noncopyable
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hi'
@@ -4159,7 +4121,6 @@ error E3201: <fragment>:28:34: 'h' is mutable outside 'b'; a call into an isolat
 ```
 
 <!-- test: model-hand-ao-o3c-onecall-open-iso-plus-holder-control -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `o3c-onecall-open-iso-plus-holder-control` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4179,8 +4140,7 @@ type Hi is noncopyable
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hi'
@@ -4202,7 +4162,6 @@ error E3201: <fragment>:28:15: 'h' is mutable outside 'b'; a call into an isolat
 ```
 
 <!-- test: model-hand-ao-o3p-onecall-open-cond-iso-plain-holder -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `o3p-onecall-open-cond-iso-plain-holder` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4222,8 +4181,7 @@ type Hq
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hq'
@@ -4245,7 +4203,6 @@ error E3201: <fragment>:28:34: 'h' is mutable outside 'b'; a call into an isolat
 ```
 
 <!-- test: model-hand-ao-o3pc-onecall-open-iso-plain-holder-control -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `o3pc-onecall-open-iso-plain-holder-control` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4265,8 +4222,7 @@ type Hq
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hq'
@@ -4288,7 +4244,6 @@ error E3201: <fragment>:28:15: 'h' is mutable outside 'b'; a call into an isolat
 ```
 
 <!-- test: model-hand-ao-o3pa-onecall-open-cond-iso-plain-alias -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `o3pa-onecall-open-cond-iso-plain-alias` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4308,8 +4263,7 @@ type Hq
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hq'
@@ -4332,7 +4286,6 @@ error E3201: <fragment>:29:34: 'a' is mutable outside 'b'; a call into an isolat
 ```
 
 <!-- test: model-hand-ao-o3pac-onecall-open-iso-plain-alias-control -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `o3pac-onecall-open-iso-plain-alias-control` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4352,8 +4305,7 @@ type Hq
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hq'
@@ -4496,7 +4448,6 @@ error E3102: <fragment>:28:33: 'h' is passed at two arguments of this call, and 
 ```
 
 <!-- test: model-hand-ao-o6i-two-iso-opens-cond -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `o6i-two-iso-opens-cond` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4516,8 +4467,7 @@ type Hq
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hq'
@@ -4680,7 +4630,6 @@ error E3207: <fragment>:32:11: 'two' needs a writable parameter 'b' at line 23; 
 ```
 
 <!-- test: model-hand-ao-s2-stmt-open-cond-iso-field-push-holder -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3207. Model program `s2-stmt-open-cond-iso-field-push-holder` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4703,8 +4652,7 @@ type Hi is noncopyable
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hi'
@@ -4726,7 +4674,6 @@ error E3207: <fragment>:30:38: 'bump' needs a writable parameter 'h' at line 23;
 ```
 
 <!-- test: model-hand-ao-s2c-stmt-open-iso-field-push-holder-control -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `s2c-stmt-open-iso-field-push-holder-control` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
@@ -4749,8 +4696,7 @@ type Hi is noncopyable
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var b as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(b isolated Bx) returns Self
+	static function create(consumes b Bx) returns Self
 		return Self{b: b}
 	end 'create'
 end 'Hi'
@@ -4876,7 +4822,6 @@ error E3200: <fragment>:17:11: 'a' is not an isolated value; `merge` moves an is
 ```
 
 <!-- test: model-hand-fa14-v-fill-plain-var -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `v-fill-plain-var` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -4891,13 +4836,11 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeBx(b isolated Bx)
+function takeBx(consumes b Bx)
 	_ = b.n
 end 'takeBx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function f(z isolated Bx)
+function f(consumes z Bx)
 	var v = Bx.create(1)
 	v = z
 	takeBx(v)
@@ -4913,7 +4856,6 @@ error E3196: <fragment>:18:6: cannot store an isolated 'Bx' into 'v', which hold
 ```
 
 <!-- test: model-hand-fa14-m-fn-param -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `m-fn-param` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -4932,17 +4874,16 @@ type Zp
 	var b as Bx
 
 	static function create(b Bx) returns Self
-		return Self{b: b}
+		return Self{b: b.clone()}
 	end 'create'
 end 'Zp'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function zkeep(h Zp, bV isolated Bx)
+function zkeep(mutates h Zp, consumes bV Bx)
 	h.b = bV
 end 'zkeep'
 
 function main() returns ExitCode
-	let h = Zp.create(Bx.create(0))
+	var h = Zp.create(Bx.create(0))
 	zkeep(h, bV: Bx.create(1))
 	return 0
 end 'main'
@@ -4988,7 +4929,6 @@ error E3196: <fragment>:23:8: cannot store an isolated 'Bx' into 'b', which hold
 ```
 
 <!-- test: model-hand-fa15-h2-no-try -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h2-no-try` of redteamFA15.hand_fa15d, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -5007,8 +4947,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeB(b isolated Bx)
+function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
@@ -5751,7 +5690,6 @@ error E3102: <fragment>:38:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-i-fn-store -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `i-fn-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
@@ -5772,14 +5710,12 @@ type Wo
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx, item isolated Bx) returns Self
+	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function st(b isolated Bx, w Wo)
+function st(consumes b Bx, w Wo)
 	w.keep = b
 end 'st'
 
@@ -5793,7 +5729,6 @@ error E3196: <fragment>:22:11: cannot store an isolated 'Bx' into 'keep', which 
 ```
 
 <!-- test: model-hand-fa17-i-method-store -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `i-method-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5812,17 +5747,16 @@ type Mqq
 	var keep as Bx
 
 	static function create(keep Bx) returns Self
-		return Self{keep: keep}
+		return Self{keep: keep.clone()}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function st(b isolated Bx)
+	function st(mutates self, consumes b Bx)
 		self.keep = b
 	end 'st'
 end 'Mqq'
 
 function main() returns ExitCode
-	let m = Mqq.create(Bx.create(0))
+	var m = Mqq.create(Bx.create(0))
 	m.st(Bx.create(1))
 	return 0
 end 'main'
@@ -6435,7 +6369,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-c-plain-part-record -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-record` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -6472,8 +6406,7 @@ function peekHq(x Hq)
 	_ = 1 as Num
 end 'peekHq'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function isoHq(x isolated Hq)
+function isoHq(consumes x Hq)
 	_ = x
 	_ = 1 as Num
 end 'isoHq'

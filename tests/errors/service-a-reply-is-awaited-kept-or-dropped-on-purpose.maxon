@@ -1,0 +1,21 @@
+export typealias Amount = int(0 to 1000000)
+
+type Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function total() returns Amount
+		return self.n
+	end 'total'
+end 'Counter'
+
+function main() returns ExitCode
+	let h = spawn Counter.create()
+	try h.total() otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3190 at 17:8

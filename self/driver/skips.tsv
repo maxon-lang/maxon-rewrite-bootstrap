@@ -40,9 +40,11 @@ code	E3224	a linear value that is refused: minimaxon's linear values are noncopy
 code	E3183	a closure that is stored into what it captures: minimaxon's closure holds the borrow, so it may not escape it
 code	E3207	an immutable value that is written: minimaxon meets it as a move out of a borrow or a write to a let
 code	E3214	a unique value that is kept or bound: minimaxon meets it as a move out of a borrow or a write to a let
+code	E3200	a value that crosses into a service and is not the whole of its region: minimaxon moves what crosses, so the sender's name is spent or the value is borrowed
 skip	ErrUseAfterMove,E3223,E3224,ErrFrozenChange	ErrMoveOutOfBorrow,ErrNotDroppable,ErrAssignToImmutable	language difference: ownership is refused by another rule
 skip	E3183,E3207	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 skip	E3207,E3214	ErrMoveOutOfBorrow,ErrAssignToImmutable	language difference: ownership is refused by another rule
+skip	E3200	ErrMoveOutOfBorrow,ErrUseAfterMove,ErrAssignToImmutable	language difference: ownership is refused by another rule
 skip	ErrUnexpectedToken	ErrExpectedToken	differing error code: syntax error
 skip	ErrExpressionError	ErrTypeMismatch	differing error code: operand types
 expect	ErrModuleLetCallsFunction	language difference: a constant may call a literal factory, and E3220 names what it may call

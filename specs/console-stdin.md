@@ -286,7 +286,6 @@ hello|ended
 ```
 
 <!-- test: rejected-on-wasm.a-stream-reader-over-a-library-source-built-in-user-code -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A library source whose `readSome` reads stdin, wrapped in a `StreamReader` by the user's own call, reaches `__con_read_stdin` through the reader's witness. On wasm32-wasi that is refused with `E3104` at the user's call, as when a library factory builds the reader, never a panic from inside the wasm backend.
@@ -297,8 +296,7 @@ public type ZSrc implements ByteSource
 		return Self{}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	public function readSome(most ReadCapacity) returns isolated ByteArray throws StreamError
+	public function readSome(most ReadCapacity) returns ByteArray throws StreamError
 		return ByteArray.init(__Builtins.readStdin(most))
 	end 'readSome'
 end 'ZSrc'
@@ -356,7 +354,6 @@ error E3104: <fragment>:26:10: 'zLoud' lowers to the runtime entry '__con_read_s
 ```
 
 <!-- test: rejected-on-wasm.a-reader-named-only-as-an-element-type-reaches-its-source -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 The user's program names `StreamReader with ZSrc` only as the element type of the array a library function answers, and reads a line from each element. The reader's `readLine` reaches `ZSrc.readSome` and through it `__con_read_stdin`, so the program is refused with `E3104` on wasm32-wasi.
@@ -367,8 +364,7 @@ public type ZSrc implements ByteSource
 		return Self{}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	public function readSome(most ReadCapacity) returns isolated ByteArray throws StreamError
+	public function readSome(most ReadCapacity) returns ByteArray throws StreamError
 		return ByteArray.init(__Builtins.readStdin(most))
 	end 'readSome'
 end 'ZSrc'
@@ -398,15 +394,13 @@ error E3104: <fragment>:22:16: 'zReaders' lowers to the runtime entry '__con_rea
 ```
 
 <!-- test: rejected-on-wasm.a-reader-type-named-only-inside-another-type-reaches-its-source -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 `StreamReader with ZSrc` appears only as the element type inside `ZReaderArray`, the type the library functions take and answer, and no body anywhere calls `StreamReader.over`. Building and counting that array instantiates the reader type, whose `readLine` reaches `ZSrc.readSome` and through it `__con_read_stdin`, so both of the user's calls are refused with `E3104` on wasm32-wasi.
 ```maxon
 // --- stdlib-overlay: Console.maxon
 public type ZSrc implements ByteSource
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	public function readSome(most ReadCapacity) returns isolated ByteArray throws StreamError
+	public function readSome(most ReadCapacity) returns ByteArray throws StreamError
 		return ByteArray.init(__Builtins.readStdin(most))
 	end 'readSome'
 end 'ZSrc'
@@ -494,7 +488,6 @@ error E3104: <fragment>:7:10: 'main' lowers to the runtime entry '__mf_read_appe
 ```
 
 <!-- test: rejected-on-wasm.a-library-reader-answered-in-a-tuple-reaches-its-source -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A library function answers a `StreamReader` over a library source whose `readSome` reads stdin as element 0 of a tuple, and the user reads a line from that element. The user's program names the reader only through the tuple, so the reach walk must follow the tuple element's type to `ZSrc.readSome` and `__con_read_stdin`: the program is refused with `E3104` on wasm32-wasi at the user's call of `zPair`, never a panic from inside the wasm backend.
@@ -505,8 +498,7 @@ public type ZSrc implements ByteSource
 		return Self{}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	public function readSome(most ReadCapacity) returns isolated ByteArray throws StreamError
+	public function readSome(most ReadCapacity) returns ByteArray throws StreamError
 		return ByteArray.init(__Builtins.readStdin(most))
 	end 'readSome'
 end 'ZSrc'

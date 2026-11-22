@@ -946,6 +946,36 @@ function asyncUnsupported(mutates vm Vm) returns Halt
 	return panicLine(vm, prefix: "", message: "async calls are not supported by the interpreter")
 end 'asyncUnsupported'
 
+// serviceUnsupported ends a run that starts a service or sends to one: a message's behaviour may suspend, which the
+// interpreter's behaviours cannot, and a reply is awaited as a coroutine is.
+function serviceUnsupported(mutates vm Vm) returns Halt
+	return panicLine(vm, prefix: "", message: "services are not supported by the interpreter")
+end 'serviceUnsupported'
+
+function entryServiceNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw serviceUnsupported(vm)
+end 'entryServiceNew'
+
+function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw serviceUnsupported(vm)
+end 'entryServiceReserve'
+
+function entryServiceTaken(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw serviceUnsupported(vm)
+end 'entryServiceTaken'
+
+function entryServiceShutdown(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw serviceUnsupported(vm)
+end 'entryServiceShutdown'
+
+function entryReplyNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw serviceUnsupported(vm)
+end 'entryReplyNew'
+
+function entryReplyGive(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw serviceUnsupported(vm)
+end 'entryReplyGive'
+
 // A sleep or a yield changes nothing the interpreter can see: it keeps no clock that a sleep would wait on, and the
 // scheduler interleaves the threads at random whatever they do, which every order a sleep or a yield allows is among.
 function entrySleep(mutates vm Vm, f ir.IrFunction, x ir.Instr)

@@ -150,7 +150,6 @@ error E4015: <fragment>:5:10: declaration of 'mrt_start' collides with a symbol 
 ```
 
 <!-- test: a-service-program-refuses-the-entry-stub-name-taken-as-a-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi lays no chunk under this name and answers E3104 for the `spawn` before any name is laid.
@@ -186,10 +185,9 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -197,7 +195,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_start' collides with a symbol
 ```
 
 <!-- test: a-service-program-refuses-the-entry-stub-name-called-directly -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi lays no chunk under this name and answers E3104 for the `spawn` before any name is laid.
@@ -221,11 +218,10 @@ function mrt_start(n Tally) returns Tally
 	if n == 0 'done'
 		return 0
 	end 'done'
-	return 1 + mrt_start(n - 1)
+	return try 1 + mrt_start(n - 1) otherwise panic("out of range")
 end 'mrt_start'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let walked = mrt_start(5)
 	let t = try await h.total() otherwise 0
@@ -237,7 +233,6 @@ error E4015: <fragment>:16:10: declaration of 'mrt_start' collides with a symbol
 ```
 
 <!-- test: a-service-program-refuses-the-preempt-handler-name-off-windows -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 x64-windows lays no chunk of this name, and wasm32-wasi answers E3104 for the `spawn`.
@@ -273,7 +268,6 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
@@ -284,7 +278,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_preempt_handler' collides wit
 ```
 
 <!-- test: a-service-program-runs-a-function-named-like-the-other-lanes-preempt-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 x64-windows lays no chunk named `mrt_preempt_handler`, so the function is the program's own and its address is priced like any other function value; the other lanes refuse the name (see the neighbouring case) and wasm32-wasi answers E3104 for the `spawn`.
 
@@ -319,10 +312,9 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -330,7 +322,6 @@ end 'main'
 ```
 
 <!-- test: a-service-program-refuses-the-fault-handler-name-off-windows -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 x64-windows lays no chunk of this name, and wasm32-wasi answers E3104 for the `spawn`.
@@ -366,7 +357,6 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
@@ -377,7 +367,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_fault_handler' collides with 
 ```
 
 <!-- test: a-service-program-runs-a-function-named-like-the-other-lanes-fault-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 x64-windows lays no chunk named `mrt_fault_handler`, so the function is the program's own; the other lanes refuse the name and wasm32-wasi answers E3104 for the `spawn`.
 
@@ -412,10 +401,9 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -423,7 +411,6 @@ end 'main'
 ```
 
 <!-- test: a-service-program-refuses-the-fault-thunk-name-on-windows -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 Only x64-windows lays a chunk named `mrt_fault_thunk`; wasm32-wasi answers E3104 for the `spawn`.
@@ -459,10 +446,9 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -470,7 +456,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_fault_thunk' collides with a 
 ```
 
 <!-- test: a-service-program-runs-a-function-named-like-windows-fault-thunk -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-windows -->
 Only x64-windows lays a chunk named `mrt_fault_thunk`, so on every other native lane the function is the program's own; wasm32-wasi answers E3104 for the `spawn`.
 
@@ -505,10 +490,9 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -516,7 +500,6 @@ end 'main'
 ```
 
 <!-- test: a-service-program-refuses-the-sigreturn-name-on-x64-linux -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, arm64-macos, arm64-linux, wasm32-wasi -->
 Only x64-linux lays a chunk named `mrt_rt_sigreturn`; wasm32-wasi answers E3104 for the `spawn`.
@@ -552,7 +535,6 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
@@ -563,7 +545,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_rt_sigreturn' collides with a
 ```
 
 <!-- test: a-service-program-runs-a-function-named-like-x64-linux-sigreturn -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux -->
 Only x64-linux lays a chunk named `mrt_rt_sigreturn`, so on every other native lane the function is the program's own; wasm32-wasi answers E3104 for the `spawn`.
 
@@ -598,10 +579,9 @@ end 'Hooks'
 
 function main() returns ExitCode
 	let hooks = Hooks.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -2505,7 +2505,6 @@ err=oops out=fine errEndLen=0 outEndLen=0 code=0
 ```
 
 <!-- test: a-subprocess-read-recovers-as-isolated -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `subprocessReadAvailable` answers a buffer it allocated for this read alone, so `ByteArray.init` over it is a fresh
@@ -2525,8 +2524,7 @@ function appendToken(out ByteArray, token String)
 	out.push(0)
 end 'appendToken'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function readOut(h FullRangeInt) returns isolated ByteArray
+function readOut(h FullRangeInt) returns ByteArray
 	return ByteArray.init(__Builtins.subprocessReadAvailable(h, StdioStream.stdout.rawValue, 100))
 end 'readOut'
 
@@ -3025,7 +3023,6 @@ exit=0 out=ok
 ```
 
 <!-- test: subprocess-builtins.posix-a-released-handle-cannot-release-the-spawn-that-reuses-its-slot -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A released handle stays dead while a new spawn is still being set up in the slot it named. The first spawn
@@ -3089,7 +3086,6 @@ function main() returns ExitCode
 	__Builtins.subprocessResultRelease(made)
 	__Builtins.subprocessReleaseHandle(first)
 	let fifo = "{dir}/f"
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn FifoReader.create()
 	try reader.catFrom("{dir}/f") otherwise return 9
 	sleep(setupHoldMs)
@@ -3110,7 +3106,6 @@ second: kind=0 code=0 out=through the fifo
 ```
 
 <!-- test: subprocess-builtins.posix-a-file-open-in-the-parent-is-not-inherited-by-the-child -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
 A descriptor the parent holds open when it spawns is not the child's. Here the parent writes 1 MiB into the FIFO
@@ -3178,7 +3173,6 @@ function main() returns ExitCode
 	for _ in 0 upto payloadBytes 'fill'
 		payload.append("x")
 	end 'fill'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn FifoReader.create()
 	try reader.countFrom("{dir}/f") otherwise return 9
 	try File.writeText(try FilePath.from(fifo) otherwise return 2, content: payload.build()) otherwise return 3

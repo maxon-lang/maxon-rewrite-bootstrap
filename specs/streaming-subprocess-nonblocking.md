@@ -156,8 +156,6 @@ runningSeen=5 exitedSeen=-1
 
 <!-- test: streaming-subprocess-nonblocking.a-read-in-a-service-leaves-the-owner-running -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 A stdout reader handed to a service of its own parks there while the child has written nothing, and the owner
 runs on: it waits for the first of the service's next line and a 50 ms timer, the timer arrives first, and only
@@ -182,8 +180,7 @@ end 'shown'
 type LineService
 	var reader as ChildOutputReader
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(reader isolated ChildOutputReader) returns Self
+	static function create(consumes reader ChildOutputReader) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{reader: merge reader}
 	end 'create'
@@ -225,7 +222,6 @@ end 'gatedChildArguments'
 function main() returns ExitCode
 	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: gatedChildArguments()) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 4
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let service = spawn LineService.create(reader)
 	let arrivals = Arrivals.create(0)
 	arrivals.push(async nextLine(service))
@@ -248,8 +244,6 @@ first=timer line=latehello code=0
 
 <!-- test: streaming-subprocess-nonblocking.a-parked-read-keeps-a-partial-line -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐ **A READ WAITING FOR THE REST OF A LINE MUST NOT LOSE WHAT IS ALREADY BUFFERED.** The child writes `abc`
 with NO newline (`set /p=abc<nul`), then announces on stderr that it has, and `echo def` supplies the
@@ -277,8 +271,7 @@ end 'shown'
 type LineService
 	var reader as ChildOutputReader
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(reader isolated ChildOutputReader) returns Self
+	static function create(consumes reader ChildOutputReader) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{reader: merge reader}
 	end 'create'
@@ -326,7 +319,6 @@ function main() returns ExitCode
 	let announcements = try child.takeStderr() otherwise return 4
 	_ = try announcements.readLine() otherwise return 5
 	let reader = try child.takeStdout() otherwise return 6
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let service = spawn LineService.create(reader)
 	let arrivals = Arrivals.create(0)
 	arrivals.push(async nextLine(service))

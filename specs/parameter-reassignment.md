@@ -405,7 +405,6 @@ error E2013: <fragment>:3:2: 'item' is a generic parameter and cannot be reassig
 ```
 
 <!-- test: error.a-message-parameter-may-not-be-marked-mutable -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message hands its arguments to another green thread, which owns them and writes nothing back, so no message parameter is by reference.
 ```maxon
@@ -424,7 +423,6 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
 	try h.add(1) otherwise ignore
 	h.shutdown()
@@ -436,7 +434,6 @@ error E2010: <fragment>:11:29: Expected 'a type' but got 'mutable'
 ```
 
 <!-- test: error.a-factory-parameter-may-not-be-marked-mutable -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `spawn` hands the factory's arguments to the service, which owns them and writes nothing back, so no factory parameter is by reference.
 ```maxon
@@ -456,7 +453,6 @@ end 'Counter'
 
 function main() returns ExitCode
 	var seed = 4 as Count
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create(seed)
 	h.shutdown()
 	return 0

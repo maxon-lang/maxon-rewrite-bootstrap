@@ -404,6 +404,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSleep 'intrSleep'
 		return lowerSleep(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSleep'
+	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
+		return lowerServiceShutdown(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceShutdown'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return lowerFilePathFrom(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFilePathFrom'
@@ -985,6 +988,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSleep 'intrSleep'
 		return false
 	end 'intrSleep'
+	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
+		return false
+	end 'intrServiceShutdown'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return false
 	end 'intrFilePathFrom'

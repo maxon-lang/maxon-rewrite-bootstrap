@@ -364,8 +364,6 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 ```
 
 <!-- test: promise-typing.error.inner-is-library-tier -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A program has no promise → `int` conversion, and a service REPLY is a promise like any other: its handle
 word `.inner` is library-tier surface, so a read of it from a program is refused at the member and the
 remedy names the safe peek. `services.md:a-reply-inner-compiles-in-the-library-tier` is the same program
@@ -386,7 +384,6 @@ type Calc
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let p = try h.total() otherwise panic("send total")
 	let named = p.inner > 0
@@ -399,7 +396,6 @@ error E3185: <fragment>:19:16: '.inner' read from outside the library tiers: a p
 ```
 
 <!-- test: promise-typing.a-promise-array-element-may-be-spelled-inline -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⛔⛔ **`Array with Promise with T` AND THE TWO-STEP ALIAS ARE ONE TYPE.**
 `typealias Ps = Promise with Integer` followed by `Array with Ps` and the element written
 inline must mean the same thing; an inline element sized through the primitive helper raises
@@ -441,17 +437,16 @@ type Calc
 	end 'create'
 
 	export function double(by Integer) returns Integer
-		return by * 2
+		return try by * 2 otherwise panic("out of range")
 	end 'double'
 end 'Calc'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	let ps = IntPromiseArray.create(0)
+	var ps = IntPromiseArray.create(0)
 	ps.push(try h.double(21) otherwise panic("send double"))
 	let p = try ps.pop() otherwise panic("the push above filled it")
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

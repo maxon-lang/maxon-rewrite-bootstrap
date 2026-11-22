@@ -311,7 +311,6 @@ body that declares it, so `Pair{…}` is admitted there for the same reason `Sel
 method, and the same literal at file scope is refused.
 
 <!-- test: lazy-static.struct-literal-initializer -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ### A static field initialized with a struct literal
 
 ```maxon
@@ -322,8 +321,7 @@ type Pair
 	export var b as Count
 	static let origin = Pair{a: 1, b: 2}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Pair
+	static function get() returns frozen with Pair
 		return Pair.origin
 	end 'get'
 end 'Pair'
@@ -342,7 +340,6 @@ end 'main'
 ```
 
 <!-- test: lazy-static.struct-literal-managed-field -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ### A struct literal whose field is a String
 
 The box becomes the field's sole owner, so the literal's immortal record is CLONED in and released with
@@ -353,8 +350,7 @@ type Holder
 	export var name as String
 	static let greeting = Holder{name: "hi"}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Holder
+	static function get() returns frozen with Holder
 		return Holder.greeting
 	end 'get'
 end 'Holder'
@@ -373,7 +369,6 @@ hi
 ```
 
 <!-- test: lazy-static.struct-literal-field-from-constant -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ### A struct literal whose field is a top-level constant
 
 ```maxon
@@ -386,8 +381,7 @@ type Pair
 	export var b as Count
 	static let origin = Pair{a: SEED, b: 2}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Pair
+	static function get() returns frozen with Pair
 		return Pair.origin
 	end 'get'
 end 'Pair'
@@ -406,7 +400,6 @@ end 'main'
 ```
 
 <!-- test: lazy-static.struct-literal-array-field -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ### A struct literal whose field is an array literal
 
 ```maxon
@@ -418,8 +411,7 @@ type Holder
 	export var xs as CountArray
 	static let seeded = Holder{xs: [1, 2, 3]}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Holder
+	static function get() returns frozen with Holder
 		return Holder.seeded
 	end 'get'
 end 'Holder'
@@ -474,7 +466,6 @@ error E3220: <fragment>:15:20: the initializer of 'Outer.base' calls 'Inner.crea
 ```
 
 <!-- test: lazy-static.struct-literal-field-default -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ### A struct literal that omits a field with a declared default
 
 ```maxon
@@ -485,8 +476,7 @@ type Pair
 	export var b = 7 as Count
 	static let origin = Pair{a: 1}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Pair
+	static function get() returns frozen with Pair
 		return Pair.origin
 	end 'get'
 end 'Pair'
@@ -505,7 +495,6 @@ end 'main'
 ```
 
 <!-- test: lazy-static.struct-literal-in-two-types -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ### Two types, each with its own struct-literal static
 
 ```maxon
@@ -515,8 +504,7 @@ type A
 	export var n as Count
 	static let one = A{n: 1}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable A
+	static function get() returns frozen with A
 		return A.one
 	end 'get'
 end 'A'
@@ -525,8 +513,7 @@ type B
 	export var n as Count
 	static let two = B{n: 2}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable B
+	static function get() returns frozen with B
 		return B.two
 	end 'get'
 end 'B'

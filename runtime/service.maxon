@@ -1,0 +1,87 @@
+// Services: what `spawn`, a send, a reply and `shutdown` lower to. A service is a cown whose value is its state, with its
+// mailbox's gate after the cown's words (serviceGateOffset), and each message is a behaviour on that one cown, so the
+// cown's queue is the mailbox and two messages of one service never run at once, preempted or not: a behaviour holds its
+// cown until its thunk releases it. The gate counts the messages a send has queued and the service has not started, as
+// maxon's does, so a mailbox holds at most its capacity of them, and holds serviceClosed once the service is shut down.
+// A reply is a cell shaped like a green thread that is awaited (greenAwaited), which never runs: the message's behaviour
+// gives it its value and error as a coroutine's finish would, so an await of it is an await of a coroutine.
+
+// serviceClosed is the gate's bit that a shutdown sets, above every count of messages a capacity allows.
+let serviceClosed = 0x4000000000000000 as Count
+
+// The words rt.service.reserve gives: a place taken, or the case of SendError plus 1 (sendMailboxFull and
+// sendServiceStopped of the built-ins).
+let sendAccepted = 0 as Count
+
+let sendFull = 1 as Count
+
+let sendStopped = 2 as Count
+
+// serviceNew is a service of one owner with no message queued, holding state: the state the factory gave when it ran on
+// the spawner, or 0 until the behaviour that runs the factory on the service stores it.
+function serviceNew(state Count, capacity Count) returns Count
+	let service = alloc(serviceBytes)
+	__Raw.storeWord(service, offset: cownCountOffset, value: firstOwner)
+	__Raw.storeWord(service, offset: cownTailOffset, value: notQueued)
+	__Raw.storeWord(service, offset: cownEndingOffset, value: 0)
+	__Raw.storeWord(service, offset: cownValueOffset, value: state)
+	__Raw.storeWord(service, offset: serviceGateOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceCapacityOffset, value: capacity)
+	return service
+end 'serviceNew'
+
+// serviceReserve takes a place in the mailbox for a message, by a compare-exchange of the gate, unless the service is shut
+// down or the mailbox holds its capacity.
+function serviceReserve(handle Count) returns Count
+	let capacity = __Raw.loadWord(handle, offset: serviceCapacityOffset)
+	while true 'gate'
+		let gate = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: 0)
+		if gate >= serviceClosed 'closed'
+			return sendStopped
+		end 'closed'
+		if gate >= capacity 'full'
+			return sendFull
+		end 'full'
+		if __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: 1)) == gate 'taken'
+			return sendAccepted
+		end 'taken'
+	end 'gate'
+	return sendAccepted
+end 'serviceReserve'
+
+// serviceTaken gives a message's place in the mailbox back as its behaviour starts. state is the address of the cown's
+// value, which the behaviour is given.
+function serviceTaken(state Count)
+	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
+	_ = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: stepDown)
+end 'serviceTaken'
+
+// serviceShutdown closes the mailbox once: the bit stays set, and the messages queued before it still run.
+function serviceShutdown(handle Count)
+	while true 'gate'
+		let gate = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: 0)
+		if gate >= serviceClosed 'closed'
+			return
+		end 'closed'
+		if __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: serviceClosed)) == gate 'done'
+			return
+		end 'done'
+	end 'gate'
+end 'serviceShutdown'
+
+// replyNew is the cell of a reply: a green thread's record that is awaited and never runs, so it holds no stack and does
+// not count among the live green threads; the behaviour of the message is the one that counts.
+function replyNew() returns Count
+	return newGreen(__Raw.threadContext(), code: 0, kind: greenAwaited)
+end 'replyNew'
+
+// replyGive finishes a reply as greenMain and finished finish a coroutine: the value and the error first, then the
+// exchange of the waiter, so the awaiter either is readied here or finds the cell finished.
+function replyGive(promise Count, value Count, error Count)
+	__Raw.storeWord(promise, offset: greenResultOffset, value: value)
+	__Raw.storeWord(promise, offset: greenErrorOffset, value: error)
+	let waiter = __Raw.atomicExchange(promise, offset: greenWaiterOffset, value: greenFinished)
+	if waiter != noGreen 'waiter'
+		ready(__Raw.threadContext(), g: waiter)
+	end 'waiter'
+end 'replyGive'

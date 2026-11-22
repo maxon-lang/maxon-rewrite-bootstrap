@@ -132,9 +132,7 @@ error E3212: <fragment>:29:21: the promise of this `async` call is tied to the m
 ```
 
 <!-- test: a-mutable-isolated-parameter-moved-out-of-the-callee-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is by reference, so the callee may not move it out: the caller's variable would name a region another owner holds.
 
@@ -149,9 +147,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function takeOut(mutates box isolated Box) returns isolated Box
+function takeOut(mutates box Box) returns Box
 	return box
 end 'takeOut'
 
@@ -472,7 +468,6 @@ error E3207: <fragment>:16:3: 'clear' needs a writable receiver at line 306; 'pe
 ```
 
 <!-- test: a-mutable-isolated-parameter-aliased-by-a-let-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is by reference, so binding it to a second name aliases a region the caller still owns.
@@ -488,8 +483,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function alias(mutates box isolated Box) returns Tally
+function alias(mutates box Box) returns Tally
 	let other = box
 	return other.n
 end 'alias'
@@ -506,7 +500,6 @@ error E3202: <fragment>:13:14: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-pushed-into-an-array-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Pushing the `mutable isolated` parameter into an array moves it out of the caller's variable.
@@ -524,8 +517,7 @@ end 'Box'
 
 typealias BoxArray = Array with Box
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function stash(mutates box isolated Box, all BoxArray)
+function stash(mutates box Box, all BoxArray)
 	all.push(box)
 end 'stash'
 
@@ -542,7 +534,6 @@ error E3202: <fragment>:15:11: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-passed-to-a-keeping-parameter-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `adopt` takes its `isolated` parameter by move, so handing it the caller's by-reference region would give two owners.
@@ -558,13 +549,11 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function adopt(box isolated Box) returns Tally
+function adopt(consumes box Box) returns Tally
 	return box.n
 end 'adopt'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function relay(mutates box isolated Box) returns Tally
+function relay(mutates box Box) returns Tally
 	return adopt(box)
 end 'relay'
 
@@ -580,7 +569,6 @@ error E3202: <fragment>:17:15: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-stored-in-a-field-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Storing the `mutable isolated` parameter in a field leaves the caller's variable naming a region the field now owns.
@@ -604,8 +592,7 @@ type Shelf
 		return Self{held: Box.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function keep(mutates box isolated Box)
+	function keep(mutates box Box)
 		self.held = box
 	end 'keep'
 end 'Shelf'
@@ -655,7 +642,6 @@ error E3197: <fragment>:19:11: cannot write through a read-only value while 'dra
 ```
 
 <!-- test: a-mutable-isolated-parameter-relayed-to-a-mutable-isolated-parameter-is-accepted -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Passing the by-reference region on to another `mutable isolated` parameter lends it again; nothing is moved out, aliased or kept.
 
@@ -670,13 +656,11 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function peek(mutates box isolated Box) returns Tally
+function peek(mutates box Box) returns Tally
 	return box.n
 end 'peek'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function relay(mutates box isolated Box) returns Tally
+function relay(mutates box Box) returns Tally
 	return peek(box)
 end 'relay'
 
@@ -695,7 +679,6 @@ end 'main'
 ```
 
 <!-- test: a-mutable-isolated-method-parameter-relayed-to-the-same-method-is-accepted -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A method's `mutable isolated` parameter lends the caller's region again to the next call, including its own recursion; nothing is moved out, aliased or kept.
 
@@ -711,8 +694,7 @@ type Ledger
 		return Self{floor: floor}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function record(mutates rows isolated TallyArray, depth Tally)
+	function record(mutates rows TallyArray, depth Tally)
 		rows.push(self.floor + depth)
 		if depth > 0 'deeper'
 			self.record(rows, depth: depth - 1)
@@ -738,7 +720,6 @@ end 'main'
 ```
 
 <!-- test: a-mutable-isolated-method-parameter-passed-to-an-isolated-method-parameter-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A method parameter that is not by reference takes the region, so the caller's variable would then name a region another owner holds.
@@ -761,13 +742,11 @@ type Desk
 		return Self{floor: floor}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function adopt(box isolated Box) returns Tally
+	function adopt(consumes box Box) returns Tally
 		return box.n + self.floor
 	end 'adopt'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function relay(mutates box isolated Box) returns Tally
+	function relay(mutates box Box) returns Tally
 		return self.adopt(box)
 	end 'relay'
 end 'Desk'
@@ -1509,8 +1488,6 @@ error E3212: <fragment>:20:2: the promise of this `async` call is tied to the mu
 ```
 
 <!-- test: an-isolated-two-field-reader-handed-to-a-coroutine-stays-untied -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `Reader.create` declares `returns isolated` and `drain` takes it as an `isolated` parameter, which moves it, so the coroutine holds nothing the caller can write whatever the record's layout, and the promise may be stored.
 
@@ -1523,18 +1500,16 @@ type Reader
 	export let handle as Tally
 	export let tag as Tally
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	static function create(handle Tally, tag Tally) returns isolated Reader
+	static function create(handle Tally, tag Tally) returns Reader
 		return Self{handle: handle, tag: tag}
 	end 'create'
 end 'Reader'
 
 typealias PromiseArray = Array with TallyPromise
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function drain(reader isolated Reader) returns Tally
+function drain(consumes reader Reader) returns Tally
 	sleep(1)
-	return reader.handle + reader.tag
+	return try reader.handle + reader.tag otherwise panic("out of range")
 end 'drain'
 
 function dispatch(mutates drains PromiseArray)
@@ -1544,7 +1519,7 @@ function dispatch(mutates drains PromiseArray)
 end 'dispatch'
 
 function main() returns ExitCode
-	let drains = PromiseArray.create(0)
+	var drains = PromiseArray.create(0)
 	dispatch(drains)
 	for drained in drains 'each'
 		print("{await drained}\n")

@@ -1539,7 +1539,6 @@ error E3005: <fragment>:4:16: Value 2048 is outside the range of 'HeapBucketInde
 ```
 
 <!-- test: slab-census.a-census-read-while-classes-churn-returns-and-one-after-the-join-is-exact -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE CENSUS UNDER CONCURRENT REFILLS, AND THE EQUALITY ONCE THEY HAVE STOPPED.** Every census read takes the
 allocator's structures while the allocator is also refilling, relisting and returning spans for them.
@@ -1677,8 +1676,7 @@ function main() returns ExitCode
 		let fill = try fills.get(i) otherwise panic("churn: fills.get OOB at {i}")
 		let pad = try pads.get(i) otherwise panic("churn: pads.get OOB at {i}")
 		let population = try populations.get(i) otherwise panic("churn: populations.get OOB at {i}")
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		handles.push(spawn (capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	var roundBytes = 0 as Tally
 	var reads = 0 as Tally

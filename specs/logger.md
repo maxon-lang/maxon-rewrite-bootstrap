@@ -69,12 +69,10 @@ ok
 ```
 
 <!-- test: a-disabled-level-writes-nothing -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	Log.debug("hidden")
 	Log.trace("hidden")
@@ -90,14 +88,12 @@ level=INFO msg=shown
 ```
 
 <!-- test: a-custom-level -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An unnamed level prints relative to the named level at or below it, as slog does; a named level prints its
 name. Filtering is by rank: at WARN, rank 2 is dropped and rank 6 is written.
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.trace))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	let audit = LogLevel.named("AUDIT", rank: 2)
 	Log.log(LogLevel.create(2), message: "two")
@@ -123,14 +119,13 @@ level=WARN+2 msg=six
 ```
 
 <!-- test: typed-attrs-in-text -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'int' -->
 A text value is quoted when it holds a space, an `=`, a `"` or a control byte, with `Json.quote`'s escapes; a
 float prints its shortest round-trip form; a group's attrs print with dotted keys.
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	Log.info("request", attrs: [LogAttr.string("path", value: "/a b"), LogAttr.int("status", value: 200), LogAttr.int("delta", value: -3), LogAttr.float("ratio", value: 0.5), LogAttr.bool("ok", value: true), LogAttr.group("req", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("bytes", value: 12)]), LogAttr.string("eq", value: "a=b"), LogAttr.string("said", value: "say \"hi\""), LogAttr.string("tabbed", value: "a\tb"), LogAttr.string("plain", value: "word")])
 	return 0
@@ -144,13 +139,12 @@ level=INFO msg=request path="/a b" status=200 delta=-3 ratio=0.5 ok=true req.met
 ```
 
 <!-- test: typed-attrs-in-json -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'int' -->
 The same record through `JsonLogHandler`: one object per line, a group nested as an object.
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn JsonLogHandler.create(options), levels: levels))
 	Log.info("request", attrs: [LogAttr.string("path", value: "/a b"), LogAttr.int("status", value: 200), LogAttr.int("delta", value: -3), LogAttr.float("ratio", value: 0.5), LogAttr.bool("ok", value: true), LogAttr.group("req", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("bytes", value: 12)]), LogAttr.string("eq", value: "a=b"), LogAttr.string("said", value: "say \"hi\""), LogAttr.string("tabbed", value: "a\tb"), LogAttr.string("plain", value: "word")])
 	return 0
@@ -164,14 +158,13 @@ end 'main'
 ```
 
 <!-- test: with-attrs-and-with-group -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 `withAttrs` binds attrs before the record's own; after `withGroup("req")` every following attr, bound or
 passed, is qualified by `req`.
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	let base = Log.default().withAttrs([LogAttr.string("service", value: "api")]).withGroup("req")
 	base.info("served", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("status", value: 200)])
@@ -188,13 +181,12 @@ level=INFO msg=again service=api req.id=7
 ```
 
 <!-- test: with-attrs-and-with-group-in-json -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 The same loggers through `JsonLogHandler`: the group nests the attrs that follow it.
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn JsonLogHandler.create(options), levels: levels))
 	let base = Log.default().withAttrs([LogAttr.string("service", value: "api")]).withGroup("req")
 	base.info("served", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("status", value: 200)])
@@ -211,14 +203,13 @@ end 'main'
 ```
 
 <!-- test: add-source-names-the-callers-line -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 With `addSource`, the record names the file and line of the call that logged it, in text and in JSON.
 ```maxon
 // --- file: main.maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: true)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	Log.info("first")
 	Log.warn("second")
@@ -226,7 +217,6 @@ function main() returns ExitCode
 	Log.error("fourth")
 	_ = Scheduler.quiesce()
 	let jsonOptions = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: true)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn JsonLogHandler.create(jsonOptions), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
 	Log.info("fifth")
 	return 0
@@ -244,13 +234,12 @@ level=ERROR source=main.maxon:9 msg=fourth
 ```
 
 <!-- test: a-group-level-override -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 A group's own level overrides the minimum for loggers in that group and for no other.
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	Log.setGroupLevel("a", level: LogLevel.debug)
 	let a = Log.default().withGroup("a")
@@ -271,7 +260,6 @@ level=INFO msg=infoFromB
 ```
 
 <!-- test: set-level-takes-effect-on-the-next-call -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The level is live: the next call on any thread obeys a change, whether `main` made it or a handler did.
 ```maxon
 type Tuner
@@ -291,14 +279,12 @@ end 'Tuner'
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	Log.debug("before")
 	Log.setLevel(LogLevel.debug)
 	Log.debug("after")
 	Log.setLevel(LogLevel.info)
 	Log.debug("restored")
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let tuner = spawn Tuner.create()
 	let tuned = try await tuner.lower() otherwise 0
 	Log.debug("fromHandler")
@@ -344,7 +330,6 @@ a=WARN b=WARN min=WARN
 ```
 
 <!-- test: concurrent-set-levels-lose-nothing -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 Eight handlers each set a different group's level at once; every setter re-reads and retries until its
 change lands, so no override is lost.
@@ -368,7 +353,6 @@ typealias ApplyReplyArray = Array with Promise with Integer
 function main() returns ExitCode
 	let replies = ApplyReplyArray.create(0)
 	for i in 0 upto 8 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let setter = spawn Setter.create("g{i}", quiet: i mod 2 == 1)
 		replies.push(try setter.apply() otherwise panic("send apply"))
 	end 'spawnEach'
@@ -399,17 +383,15 @@ g7=WARN
 ```
 
 <!-- test: levels-belong-to-the-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 Each sink carries its own `LogLevelVar`, so `setLevel` through a logger on one sink changes nothing a logger
 on the other writes. `Scheduler.quiesce()` waits for `la`'s line, which orders the two handlers' output.
 ```maxon
 function main() returns ExitCode
 	let optionsA = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(optionsA), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
 	let la = Log.default().withAttrs([LogAttr.string("via", value: "a")])
 	let optionsB = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(optionsB), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
 	let lb = Log.default().withAttrs([LogAttr.string("via", value: "b")])
 	lb.setLevel(LogLevel.debug)
@@ -432,12 +414,11 @@ level=DEBUG msg=shown via=b
 ```
 
 <!-- test: a-logger-built-before-set-level-obeys-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	let l = Log.default()
 	l.debug("before")
@@ -454,16 +435,14 @@ level=DEBUG msg=after
 ```
 
 <!-- test: a-new-default-brings-its-own-levels -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 The new sink writes to stderr at DEBUG; a logger built on the old one keeps writing to stdout at INFO.
 ```maxon
 function main() returns ExitCode
 	let toStdout = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(toStdout), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
 	let old = Log.default().withAttrs([LogAttr.string("via", value: "old")])
 	let toStderr = LogHandlerOptions.create(LogStream.standardError, addTime: false, addSource: false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(toStderr), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.debug))))
 	Log.debug("fresh")
 	old.debug("stale")
@@ -482,7 +461,6 @@ level=DEBUG msg=fresh
 ```
 
 <!-- test: handlers-log-without-a-handle -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handler logs through `Log` with no handle passed to it. Worker `a` is awaited before `b` starts, so `a`'s
 record is queued first.
 ```maxon
@@ -502,12 +480,9 @@ end 'Worker'
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Worker.create("a")
 	let doneA = try await a.work() otherwise 0
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Worker.create("b")
 	let doneB = try await b.work() otherwise 0
 	return (doneA + doneB) as ExitCode
@@ -524,8 +499,6 @@ level=INFO msg=working worker=b
 ```
 
 <!-- test: registering-a-sink-reroutes-every-thread -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A user handler implements `LogHandler`; once its sink is the default, records from `main` and from a worker's
 handler both reach it.
 ```maxon
@@ -536,8 +509,7 @@ type Collect implements LogHandler
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function handle(record immutable LogRecord) returns bool
+	export function handle(record frozen with LogRecord) returns bool
 		self.count = self.count + 1
 		print("collected {self.count}: {record.level.name()} {record.message}\n")
 		return true
@@ -559,10 +531,8 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn Collect.create(), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
 	Log.info("fromMain")
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let runs = try await worker.work() otherwise 0
 	return runs as ExitCode
@@ -679,7 +649,6 @@ ok
 <!-- test: an-extension-adds-a-custom-level-helper -->
 <!-- skip: extensions of 'Log' are not supported in minimaxon -->
 <!-- skip: extensions of 'Logger' are not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: the caller-location default '__file__' is not supported in minimaxon -->
 <!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 A program adds its own level helper to `Log` and `Logger` by extension, forwarding its caller's location, so
@@ -711,7 +680,6 @@ end 'Logger'
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: true)
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	Log.audit("static")
 	let logger = Log.default().withAttrs([LogAttr.string("via", value: "logger")])

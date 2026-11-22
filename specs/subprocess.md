@@ -3154,7 +3154,6 @@ child read 262144 bytes
 ```
 
 <!-- test: subprocess-a-child-inherits-no-other-spawns-pipe-ends -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 A child inherits only the three standard handles its own spawn gives it, never the pipe ends another spawn is
 setting up at the same moment. A service starts thirty detached `ping` children back to back, each living about
@@ -3224,7 +3223,6 @@ type Spawner
 end 'Spawner'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let spawner = spawn Spawner.create()
 	try spawner.burst() otherwise panic("an open mailbox with room takes the send")
 	let argv = StringArray.create(0)
@@ -3319,14 +3317,12 @@ alpha beta
 ```
 
 <!-- test: subprocess-a-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A coroutine drains a taken reader, moved into it through an `isolated` parameter, to the end of the stream; the child is waited for and released once the drain has been awaited, on the error path and the plain path alike. The lines are written and the child's stdin closed before the coroutine starts, so every read the coroutine makes has its answer on the way.
 ```maxon
 typealias Lines = int(0 to 1000)
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function drainOf(reader isolated ChildOutputReader) returns Lines throws StreamError
+function drainOf(consumes reader ChildOutputReader) returns Lines throws StreamError
 	var count = 0 as Lines
 	while true 'lineLoop'
 		match try reader.readLine() 'read'
@@ -3339,14 +3335,14 @@ end 'drainOf'
 
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("findstr")
-	argv.push("x*")
+		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("findstr")
+		argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
-	let argv = StringArray.create(0)
+		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 4
@@ -3373,7 +3369,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-taken-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken reader moved into a coroutine through an `isolated` parameter leaves the caller nothing the coroutine holds, so the promise of the coroutine that drains it may be stored and awaited later.
 ```maxon
@@ -3383,8 +3378,7 @@ typealias LinePromise = Promise with (Lines, StreamError)
 
 typealias LinePromises = Array with LinePromise
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function drainOf(reader isolated ChildOutputReader) returns Lines throws StreamError
+function drainOf(consumes reader ChildOutputReader) returns Lines throws StreamError
 	var count = 0 as Lines
 	while true 'lineLoop'
 		match try reader.readLine() 'read'
@@ -3397,14 +3391,14 @@ end 'drainOf'
 
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("findstr")
-	argv.push("x*")
+		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("findstr")
+		argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
-	let argv = StringArray.create(0)
+		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 4
@@ -3761,14 +3755,12 @@ out-2
 ```
 
 <!-- test: subprocess-a-stderr-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A coroutine drains a taken stderr reader, moved into it through an `isolated` parameter, to the end of the stream; the child is waited for and released once the drain has been awaited, on the error path and the plain path alike.
 ```maxon
 typealias Lines = int(0 to 1000)
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function drainOf(reader isolated ChildOutputReader) returns Lines throws StreamError
+function drainOf(consumes reader ChildOutputReader) returns Lines throws StreamError
 	var count = 0 as Lines
 	while true 'lineLoop'
 		match try reader.readLine() 'read'
@@ -3810,7 +3802,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-taken-stderr-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken stderr reader moved into a coroutine through an `isolated` parameter leaves the caller nothing the coroutine holds, so the promise of the coroutine that drains it may be stored and awaited later.
 ```maxon
@@ -3820,8 +3811,7 @@ typealias LinePromise = Promise with (Lines, StreamError)
 
 typealias LinePromises = Array with LinePromise
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function drainOf(reader isolated ChildOutputReader) returns Lines throws StreamError
+function drainOf(consumes reader ChildOutputReader) returns Lines throws StreamError
 	var count = 0 as Lines
 	while true 'lineLoop'
 		match try reader.readLine() 'read'
@@ -3865,9 +3855,7 @@ end 'main'
 ```
 
 <!-- test: a-reader-moved-into-a-coroutine-comes-back-with-its-line-and-its-promise-is-storable -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken reader moves into its read coroutine through an `isolated` parameter and comes back in an `isolated` field of the coroutine's `returns isolated` result with the line it read, so the promise is untied and storable, and the reader handed back reads the next line where the coroutine left off.
 ```maxon
@@ -3880,9 +3868,7 @@ type Carried
 	export let reader as isolated ChildOutputReader
 	export let text as String
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	static function create(reader isolated ChildOutputReader, text String) returns isolated Carried
+	static function create(consumes reader ChildOutputReader, text String) returns Carried
 		return Self{reader: reader, text: text}
 	end 'create'
 end 'Carried'
@@ -3894,9 +3880,7 @@ function shown(read LineOrEnd) returns String
 	end 'read'
 end 'shown'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function readOne(reader isolated ChildOutputReader) returns isolated Carried throws StreamError
+function readOne(consumes reader ChildOutputReader) returns Carried throws StreamError
 	let heard = shown(try reader.readLine())
 	return Carried.create(reader, text: heard)
 end 'readOne'

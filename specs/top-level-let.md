@@ -580,7 +580,6 @@ end 'main'
 ```
 
 <!-- test: a-static-struct-literal-tuple-field -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 A struct literal's field declared at a tuple type takes a tuple literal in a static initializer.
 ```maxon
 typealias Word = bits(64)
@@ -591,8 +590,7 @@ type Holder
 	export var step as Step
 	static let origin = Holder{step: (7, 9)}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Holder
+	static function get() returns frozen with Holder
 		return Holder.origin
 	end 'get'
 end 'Holder'
@@ -3618,7 +3616,6 @@ error E3064: <fragment>:10:2: result of pure function 'same' must be used
 ```
 
 <!-- test: error.a-generic-services-function-valued-reply-is-reported-once-at-the-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -3639,7 +3636,6 @@ type Maker uses T
 end 'Maker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create(1 as Tally)
 	let op = try await h.make() otherwise panic("the maker is running")
 	return op(1) as ExitCode
@@ -3650,8 +3646,6 @@ error E3217: <fragment>:19:10: the message `Maker.make` returns a function value
 ```
 
 <!-- test: error.a-spawn-refusal-beside-another-methods-abandoned-body-is-still-reported -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3676,7 +3670,6 @@ type Maker uses T
 end 'Maker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create(MachinePin.acquire())
 	let items = try await h.make() otherwise panic("the maker is running")
 	print("{items.count()}\n")
@@ -3689,8 +3682,6 @@ error E3217: <fragment>:25:10: the message `Maker.make` returns a `Maker.Items` 
 ```
 
 <!-- test: error.a-spawn-refusal-beside-an-unrelated-error-builds-no-loop-for-the-refused-instance -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3715,7 +3706,6 @@ function unrelated() returns Integer
 end 'unrelated'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create(MachinePin.acquire())
 	let items = try await h.make() otherwise panic("the maker is running")
 	print("{items.count()}\n")

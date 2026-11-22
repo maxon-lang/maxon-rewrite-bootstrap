@@ -579,7 +579,6 @@ mm_free ArrayRecord #8
 ```
 
 <!-- test: builtins-mm-counters.raw-columns-count-the-scheduler-scaffolding -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -642,7 +641,6 @@ let cownRecordBytes = 88
 function main() returns ExitCode
 	let before = __Builtins.mmRawAllocTotal()
 	let bytesBefore = __Builtins.mmRawAllocBytes()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Counter.create()
 	let afterSpawn = __Builtins.mmRawAllocTotal()
 	let bytesAfterSpawn = __Builtins.mmRawAllocBytes()
@@ -676,7 +674,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.raw-live-falls-below-raw-total -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -726,7 +723,6 @@ end 'Counter'
 let yieldBudget = 10000
 
 function serveOnce() returns Integer
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Counter.create()
 	return try await c.next(1) otherwise 0
 end 'serveOnce'
@@ -760,7 +756,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.a-message-moves-no-tracked-allocation -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -800,7 +795,6 @@ let queuedMessages = 8
 let sumOfQueued = 28
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Adder.create()
 	let warm = try await c.read() otherwise -1
 	let oneBefore = __Builtins.mmAllocTotal()
@@ -873,7 +867,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.a-thread-is-billed-only-its-own-allocations -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 ⭐⭐⭐ **THE CASE THE POOL NEEDS, AND THE ONE THE SIX ABOVE STRUCTURALLY CANNOT BE.** Every column above is
 summed over every row, so each answers for the whole PROCESS — exact while ONE thread allocates and
@@ -927,7 +920,6 @@ function processWide() returns Count
 end 'processWide'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Churn.create()
 	_ = try await h.ready() otherwise panic("an open mailbox with room takes the send")
 	let serialThreadBefore = __Builtins.threadAllocTotal()
@@ -1013,7 +1005,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.process-totals-agree-with-the-calling-thread-while-it-is-the-only-one -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 **THE PROCESS-WIDE TOTALS AND THE PER-THREAD COLUMNS ARE ONE QUANTITY**, so a reading of one sits beside
 a reading of the other in one table. While `main` is the only thread allocating, all three
@@ -1052,7 +1043,6 @@ function fillAndDrop()
 end 'fillAndDrop'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Idle.create()
 	var score = try await h.ping(0) otherwise 0
 	let threadAllocsBefore = __Builtins.threadAllocTotal()
@@ -1085,7 +1075,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.process-totals-only-rise-while-another-thread-allocates -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 ⭐⭐⭐ **THE PROPERTY A BRACKET RESTS ON: NO READING STANDS BELOW AN EARLIER ONE, WHATEVER ELSE IS RUNNING.**
 `main` reads all three totals over and over while a service allocates and frees a hundred thousand arrays
@@ -1121,7 +1110,6 @@ type Churn
 end 'Churn'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Churn.create()
 	let freesBefore = __Builtins.processFreeTotal()
 	let reply = try h.churn(100000) otherwise panic("an open mailbox with room takes the send")

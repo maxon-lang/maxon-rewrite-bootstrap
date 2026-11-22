@@ -1,0 +1,128 @@
+// native-only
+// A mailbox holds at most its capacity of messages that the service has not started, so a send to a full one fails with
+// mailboxFull and drops what it would have moved in. A factory that throws makes the spawn throw. A reply can be dropped on
+// purpose, a handler's error comes back through the reply, and one service sends to another through a handle it was given.
+//> full at 3
+//> no service: negative
+//> slow=2
+//> risky failed
+//> risky=5
+//> logged=2
+export typealias Amount = int(0 to 1000000)
+
+export enum StartError implements Error
+	negative
+end 'StartError'
+
+export enum RiskError implements Error
+	tooBig
+end 'RiskError'
+
+type Slow
+	var seen as Amount
+
+	static function create() returns Self
+		sleep(200)
+		return Self{seen: 0}
+	end 'create'
+
+	static function checked(start Amount, negative bool) returns Self throws StartError
+		if negative 'refuse'
+			throw StartError.negative
+		end 'refuse'
+		return Self{seen: start}
+	end 'checked'
+
+	export function note(mutates self, text String)
+		if text != "" 'some'
+			self.seen = try self.seen + 1 otherwise 0
+		end 'some'
+	end 'note'
+
+	export function count() returns Amount
+		return self.seen
+	end 'count'
+
+	export function risky(n Amount) returns Amount throws RiskError
+		if n > 10 'big'
+			throw RiskError.tooBig
+		end 'big'
+		return n
+	end 'risky'
+end 'Slow'
+
+type Log
+	var lines as Amount
+
+	static function create() returns Self
+		return Self{lines: 0}
+	end 'create'
+
+	export function add(mutates self, text String)
+		if text != "" 'some'
+			self.lines = try self.lines + 1 otherwise 0
+		end 'some'
+	end 'add'
+
+	export function count() returns Amount
+		return self.lines
+	end 'count'
+end 'Log'
+
+type Worker
+	var done as Amount
+
+	static function create() returns Self
+		return Self{done: 0}
+	end 'create'
+
+	export function work(mutates self, log Log.handle)
+		self.done = try self.done + 1 otherwise 0
+		try log.add("worked {self.done}") otherwise ignore
+	end 'work'
+end 'Worker'
+
+function startsChecked(negative bool) returns bool
+	let s = try spawn Slow.checked(1, negative: negative) otherwise (e) 'start'
+		match e 'why'
+			negative then print("no service: negative\n")
+		end 'why'
+		return false
+	end 'start'
+	s.shutdown()
+	return true
+end 'startsChecked'
+
+function main() returns ExitCode
+	let slow = spawn(capacity: 2) Slow.create()
+	for i in 0 upto 3 'fill'
+		try slow.note("message {i}") otherwise (e) 'refused'
+			match e 'why'
+				mailboxFull then print("full at {i + 1}\n")
+				serviceStopped then print("stopped\n")
+			end 'why'
+		end 'refused'
+	end 'fill'
+	// Once the factory has run, the service takes the two messages it queued, and the mailbox has room again.
+	sleep(400)
+	if startsChecked(true) 'started'
+		print("unexpected service\n")
+	end 'started'
+	_ = try slow.count() otherwise panic("the mailbox has room")
+	print("slow={try await slow.count() otherwise 0}\n")
+	let bad = try slow.risky(50) otherwise panic("the mailbox has room")
+	let r = try await bad otherwise 0
+	if r == 0 'failed'
+		print("risky failed\n")
+	end 'failed'
+	let good = try slow.risky(5) otherwise panic("the mailbox has room")
+	print("risky={try await good otherwise 0}\n")
+	let log = spawn Log.create()
+	let worker = spawn Worker.create()
+	try worker.work(log.clone()) otherwise ignore
+	try worker.work(log.clone()) otherwise ignore
+	worker.shutdown()
+	sleep(50)
+	print("logged={try await log.count() otherwise 0}\n")
+	return 0
+end 'main'

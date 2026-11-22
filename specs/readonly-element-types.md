@@ -698,7 +698,6 @@ error E3207: <fragment>:36:19: 'register' writes 'name' (it calls 'add', which w
 ```
 
 <!-- test: a-set-element-read-by-for-is-kept-without-a-copy -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The elements of a `Set` are read-only once stored, so the element a `for` reads out of a set goes to a
 function that keeps it in a `let` field with no copy.
@@ -712,14 +711,12 @@ type Credit
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	export let name as immutable ByteArray
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(name immutable ByteArray) returns Self
+	static function create(name frozen with ByteArray) returns Self
 		return Self{name: name}
 	end 'create'
 end 'Credit'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function note(credits CreditArray, name immutable ByteArray)
+function note(credits CreditArray, name frozen with ByteArray)
 	credits.push(Credit.create(name))
 end 'note'
 

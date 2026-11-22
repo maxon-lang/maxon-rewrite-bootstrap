@@ -214,7 +214,6 @@ fin 2
 ```
 
 <!-- test: operands-bound-before-the-try-let-a-send-hand-the-value-back -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The throwing operand is bound before the `Resp` exists and before the `try`, so no linear value is live at a throw point.
 ```maxon
 typealias Code = int(0 to 999)
@@ -271,7 +270,6 @@ function send(s Sink.handle) throws Oops
 end 'send'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	try send(s) otherwise ignore
 	return 0
@@ -285,7 +283,6 @@ fin 1
 ```
 
 <!-- test: a-failed-send-hands-a-linear-argument-back-to-the-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The send queues `r`, which the service consumes. A failed send would carry it back in `mailboxFull` or `serviceStopped`, and each arm of the handler consumes it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -320,7 +317,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
 	try s.take(r) otherwise (e) 'refused'
@@ -493,7 +489,6 @@ fin 1
 ```
 
 <!-- test: a-send-without-a-timeout-is-no-wait-for-a-live-linear-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A send without `sendTimeout:` fails `mailboxFull` instead of waiting, so `r` stays live across it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -521,13 +516,12 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	export function bump()
-		self.n = self.n + 1
+	export function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
 	try s.bump() otherwise ignore
@@ -1567,7 +1561,6 @@ error E3005: <fragment>:22:2: type mismatch: 'leak' declares no return type, so 
 ```
 
 <!-- test: a-message-reply-cannot-be-a-linear-value -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1602,7 +1595,6 @@ type Factory
 end 'Factory'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let f = spawn Factory.create()
 	let asked = try f.make() otherwise panic("sent")
 	let r = try await asked otherwise panic("answered")
@@ -1708,7 +1700,6 @@ error E3223: <fragment>:29:10: the linear value 'r' is live across this wait: a 
 ```
 
 <!-- test: a-send-with-a-timeout-is-a-wait-a-live-linear-value-may-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -1744,7 +1735,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
 	try s.bump(sendTimeout: 5) otherwise ignore
@@ -1885,7 +1875,6 @@ error E3223: <fragment>:22:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: a-send-with-a-throwing-operand-while-a-linear-value-is-live-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -1942,7 +1931,6 @@ function send(s Sink.handle, r Resp) throws Oops
 end 'send'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	try send(s, r: Resp.create(1)) otherwise ignore
 	return 0
@@ -1953,7 +1941,7 @@ error E3223: <fragment>:47:23: this drops 'r', a linear value that was never con
 ```
 
 <!-- test: otherwise-ignore-on-a-failed-send-drops-the-linear-argument -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -1990,7 +1978,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
 	try s.take(r) otherwise ignore
@@ -2174,7 +2161,6 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 
 <!-- test: a-reply-handed-to-a-function-that-answers-it-is-moved-not-lent -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2219,7 +2205,6 @@ type Dr
 end 'Dr'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Dr.create()
 	let asked = try d.ask() otherwise panic("sent")
 	let answer = try await asked otherwise panic("answered")
@@ -2357,7 +2342,6 @@ error E3223: <fragment>:25:2: this drops 'cell', a linear value that was never c
 
 <!-- test: a-linear-value-live-across-an-acquire-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -2404,7 +2388,6 @@ function work(s Ledger.handle, r Resp) returns Code
 end 'work'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Ledger.create()
 	print("{work(a, r: Resp.create(1))} {try await a.size() otherwise 0}\n")
 	return 0
@@ -2417,7 +2400,6 @@ error E3223: <fragment>:34:2: the linear value 'r' is live across this wait: a w
 <!-- test: an-isolated-linear-value-moves-into-an-isolated-parameter-inside-a-modify-block -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 An `isolated` parameter takes an outer isolated linear value inside an open window: that move is one of the destinations a window allows.
 ```maxon
@@ -2451,8 +2433,7 @@ type Bag
 	end 'bump'
 end 'Bag'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeIso(r isolated Resp)
+function takeIso(consumes r Resp)
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	let plain = merge r
 	plain.fin()
@@ -2592,9 +2573,7 @@ error E3201: <fragment>:42:8: an isolated value from outside 'w' cannot be moved
 
 <!-- test: an-outer-isolated-linear-value-cannot-enter-a-modify-block-through-the-isolated-result-of-a-call -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `idI` takes `v` into an `isolated` parameter and hands it back as an `isolated` result, which is still `v`'s own region. Moving that result into the keeping parameter of `giveS` puts the outer value into the open region as surely as moving `v` does.
 ```maxon
@@ -2624,9 +2603,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function idI(r isolated Resp) returns isolated Resp
+function idI(consumes r Resp) returns Resp
 	return r
 end 'idI'
 
@@ -2657,9 +2634,7 @@ error E3201: <fragment>:47:14: an isolated value from outside 'w' cannot be move
 
 <!-- test: an-outer-isolated-linear-value-cannot-enter-a-modify-block-through-a-chain-of-isolated-results -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Each `idI` call hands the region on, so the value two calls down is still the outer one.
 ```maxon
@@ -2689,9 +2664,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function idI(r isolated Resp) returns isolated Resp
+function idI(consumes r Resp) returns Resp
 	return r
 end 'idI'
 
@@ -2723,9 +2696,7 @@ error E3201: <fragment>:48:14: an isolated value from outside 'w' cannot be move
 
 <!-- test: a-fresh-isolated-value-passed-through-an-isolated-result-moves-freely-inside-a-modify-block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 A value made inside the block has no outer region to leave, so the same two calls are accepted for it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -2754,9 +2725,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function idI(r isolated Resp) returns isolated Resp
+function idI(consumes r Resp) returns Resp
 	return r
 end 'idI'
 
@@ -2791,9 +2760,7 @@ fin 2
 <!-- test: an-outer-isolated-linear-value-handed-back-by-a-failed-send-cannot-enter-a-modify-block-through-a-keeping-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A failed send hands the sent value back in `mailboxFull` or `serviceStopped`. `v` was outside `w` when it was sent, so what comes back is still the outer region and may not enter the open one.
 ```maxon
@@ -2830,8 +2797,7 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(r isolated Resp)
+	export function take(consumes r Resp)
 		self.n = self.n + 1
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let plain = merge r
@@ -2848,7 +2814,6 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let v = Resp.create(1) as isolated Resp
@@ -2873,9 +2838,7 @@ error E3201: <fragment>:59:39: an isolated value from outside 'w' cannot be move
 <!-- test: an-outer-isolated-linear-value-handed-back-by-a-failed-send-in-a-try-block-cannot-enter-a-modify-block-through-a-keeping-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A bare send inside a block-form `try` routes its failure to the block's handler, and the box the handler binds carries the same hand-back as an explicit `try` does: `v` was outside `w` when it was sent, so what comes back may not enter the open region.
 ```maxon
@@ -2912,8 +2875,7 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(r isolated Resp)
+	export function take(consumes r Resp)
 		self.n = self.n + 1
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let plain = merge r
@@ -2930,7 +2892,6 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let v = Resp.create(1) as isolated Resp
@@ -2958,9 +2919,7 @@ error E3201: <fragment>:62:39: an isolated value from outside 'w' cannot be move
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send that hands its argument back shares its handler with a second throwing call only if no outer value moves between the two edges, and an isolated value sent from outside `w` does move, so the union of the send error and another error never reaches a handler inside the open region.
 ```maxon
@@ -3001,8 +2960,7 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(r isolated Resp)
+	export function take(consumes r Resp)
 		self.n = self.n + 1
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let plain = merge r
@@ -3026,7 +2984,6 @@ function mayFail(code Code) returns Code throws FileError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let v = Resp.create(1) as isolated Resp
@@ -3057,9 +3014,7 @@ error E2015: <fragment>:69:3: Unsupported: a block-form `try` whose body MOVES a
 <!-- test: an-await-of-a-send-that-hands-an-outer-isolated-value-back-cannot-run-inside-a-modify-block -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `try await` sends and then waits for the reply, and the wait is refused inside an open `modify`, so the reply leg's hand-back never reaches a handler inside the window.
 ```maxon
@@ -3096,8 +3051,7 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(r isolated Resp) returns Code
+	export function take(consumes r Resp) returns Code
 		self.n = self.n + 1
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let plain = merge r
@@ -3115,7 +3069,6 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let v = Resp.create(1) as isolated Resp
@@ -3685,7 +3638,6 @@ error E3009: <fragment>:26:11: Cannot cast from Resp to interface
 ```
 
 <!-- test: a-conformer-that-waits-is-refused-so-a-call-through-an-interface-is-no-wait -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A requirement never waits, so a conformer whose method awaits a reply is refused where it is declared, and a call through an interface is never a wait a live linear value must not cross.
 ```maxon
@@ -3727,7 +3679,7 @@ type Waiting implements Asker
 	var d as Doubler.handle
 
 	static function create(d Doubler.handle) returns Self
-		return Self{d: d}
+		return Self{d: d.clone()}
 	end 'create'
 
 	function ask(x Code) returns Code
@@ -3735,14 +3687,13 @@ type Waiting implements Asker
 	end 'ask'
 end 'Waiting'
 
-function viaInterface(a Asker, r Resp) returns Code
+function viaInterface(a Asker, consumes r Resp) returns Code
 	let n = a.ask(1)
 	r.fin()
 	return n
 end 'viaInterface'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Doubler.create()
 	print("{viaInterface(Waiting.create(d), r: Resp.create(1))}\n")
 	return 0
@@ -3753,7 +3704,6 @@ error E3210: <fragment>:44:11: 'Waiting.ask' may wait (it awaits a reply from 'D
 ```
 
 <!-- test: a-timed-send-takes-no-linear-argument -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3789,7 +3739,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
 	try s.take(r, sendTimeout: 5) otherwise (e) 'refused'
@@ -3806,7 +3755,7 @@ error E3224: <fragment>:38:8: a linear value is never sent with a `sendTimeout:`
 ```
 
 <!-- test: a-spawn-of-a-factory-that-throws-takes-no-linear-argument -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A factory that throws may not start the service, and then it would drop the linear value.
 ```maxon
@@ -3850,7 +3799,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = try spawn Sink.create(Resp.create(1)) otherwise return 1
 	try s.bump() otherwise ignore
 	return 0
@@ -4542,7 +4490,6 @@ error E3223: <fragment>:20:11: this drops 'self', a linear value that was never 
 ```
 
 <!-- test: a-linear-message-queued-when-the-service-shuts-down-is-consumed-by-the-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 One processor and no yield in `main` keep the service from running while two sends queue behind its start. `shutdown()` closes the mailbox once it has drained, so both queued messages still reach `take`, which consumes each, and a send after the shutdown hands its value back in `serviceStopped`. The refused send is consumed first because the service has not run yet.
 ```maxon
@@ -4588,7 +4535,6 @@ function sendOne(s Sink.handle, code Code)
 end 'sendOne'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	sendOne(s, code: 1)
 	sendOne(s, code: 2)
@@ -6970,7 +6916,6 @@ fin 4
 
 <!-- test: a-behaviour-matches-its-own-linear-union-parameter-in-both-branches -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The message parameter `m` is owned by the behaviour, which consumes it on whichever branch runs.
 ```maxon
 typealias Code = int(0 to 999)
@@ -7021,7 +6966,6 @@ type Desk
 end 'Desk'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create()
 	try desk.serve(Maybe.some(Resp.create(5)), direct: true) otherwise (failure) 'refused'
 		match failure 'why'
@@ -7469,7 +7413,6 @@ error E3199: <fragment>:51:3: 'bx' cannot be opened: the value that holds it is 
 ```
 
 <!-- test: a-spawn-of-a-factory-that-cannot-throw-takes-a-linear-argument -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `create` cannot throw, so the service always starts and its factory consumes `r`; `Rl` is closed, so `r` crosses whole.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7489,7 +7432,7 @@ end 'Rl'
 type Starter
 	var k as Num
 
-	static function create(r Rl) returns Self
+	static function create(consumes r Rl) returns Self
 		let c = r.code
 		r.fin()
 		return Self{k: c}
@@ -7502,7 +7445,6 @@ end 'Starter'
 
 function main() returns ExitCode
 	let r = Rl.create(3)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Starter.create(r)
 	try s.poke() otherwise ignore
 	return 0
@@ -7517,7 +7459,7 @@ poke 3
 ```
 
 <!-- test: a-linear-factory-argument-of-a-type-that-is-not-closed-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Mp` holds the plain payload `y`, which `b` still names after the spawn.
 ```maxon
@@ -7571,7 +7513,6 @@ end 'Starter'
 function main() returns ExitCode
 	let b = Bx.create(1)
 	let m = Mp.m1(b)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Starter.create(m)
 	try s.poke() otherwise ignore
 	b.n = 2
@@ -7583,7 +7524,6 @@ error E3200: <fragment>:50:31: 'm' crosses to the service the `spawn` starts onl
 ```
 
 <!-- test: a-local-refilled-on-every-lap-is-recovered-at-the-start-of-each-lap -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 Every value `w` holds at the loop's header is a fresh one nothing has read: the one before the loop and the one each lap assigns.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7596,8 +7536,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeIso(b isolated Bx)
+function takeIso(consumes b Bx)
 	_ = b
 end 'takeIso'
 
@@ -7618,7 +7557,7 @@ end 'main'
 ```
 
 <!-- test: a-local-refilled-with-an-alias-is-not-recovered-in-the-loop -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 After `takeIso` recovers `w`, the variable takes only isolated values, and `keep` is a record another name holds.
 ```maxon
@@ -7632,8 +7571,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeIso(b isolated Bx)
+function takeIso(consumes b Bx)
 	_ = b
 end 'takeIso'
 
@@ -7655,7 +7593,7 @@ error E3200: <fragment>:22:7: 'keep' is not isolated: only a clean call, a `swap
 ```
 
 <!-- test: a-unique-local-sent-on-every-lap-is-refused-when-a-lap-reads-the-value-it-refills -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `t` crosses whole only because the value it holds at the header is fresh, and the value each lap assigns is read by `h.k = t.b` before the next lap sends it, so `h` would still name a part of what the service holds.
 ```maxon
@@ -7698,7 +7636,6 @@ type TpTaker
 end 'TpTaker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
 	let h = Holder.create()
 	var t = Tp.create(1)
@@ -7718,7 +7655,7 @@ error E3200: <fragment>:47:15: 't' is recovered into an isolated position inside
 ```
 
 <!-- test: a-unique-local-sent-in-an-inner-loop-is-refused-when-an-outer-lap-reads-the-value-it-refills -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The inner loop's header holds the value the outer loop's header holds, so relying on it in the inner loop relies on the outer header too: `h.k = t.b` reads what the last inner lap assigned, and the next outer lap sends it.
 ```maxon
@@ -7761,7 +7698,6 @@ type TpTaker
 end 'TpTaker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
 	let h = Holder.create()
 	var t = Tp.create(1)
@@ -7785,7 +7721,6 @@ error E3200: <fragment>:50:16: 't' is recovered into an isolated position inside
 ```
 
 <!-- test: a-unique-local-sent-in-an-inner-loop-is-accepted-when-every-outer-lap-refills-it-after-reading -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Each outer lap reads what the last inner lap assigned and then assigns `t` a fresh value, so the value `h.k` names a part of is never sent.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7821,15 +7756,14 @@ type TpTaker
 		return Self{seen: seen}
 	end 'create'
 
-	export function take(t Tp)
+	export function take(mutates self, t Tp)
 		self.seen = t.b.n
 	end 'take'
 end 'TpTaker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
-	let h = Holder.create()
+	var h = Holder.create()
 	var t = Tp.create(1)
 	var i = 0 as Num
 	while i < 3 'outer'
@@ -7841,7 +7775,7 @@ function main() returns ExitCode
 		end 'inner'
 		h.k = t.b
 		t = Tp.create(3)
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'outer'
 	h.k.n = 4
 	print("{h.k.n}\n")
@@ -7856,7 +7790,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-local-sent-on-every-lap-of-a-for-loop-is-refused-when-a-lap-reads-the-value-it-refills -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `for` loop's header joins `t` the way a `while` loop's does.
 ```maxon
@@ -7899,7 +7833,6 @@ type TpTaker
 end 'TpTaker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
 	let h = Holder.create()
 	var t = Tp.create(1)
@@ -7917,7 +7850,6 @@ error E3200: <fragment>:46:15: 't' is recovered into an isolated position inside
 ```
 
 <!-- test: a-unique-local-sent-on-every-lap-and-refilled-with-a-fresh-value-crosses -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every value `t` holds at the header is fresh and unread when the lap sends it.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7945,13 +7877,12 @@ type TpTaker
 		return Self{seen: seen}
 	end 'create'
 
-	export function take(t Tp)
+	export function take(mutates self, t Tp)
 		self.seen = t.b.n
 	end 'take'
 end 'TpTaker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
 	var t = Tp.create(1)
 	var i = 0 as Num
@@ -7969,7 +7900,6 @@ end 'main'
 
 <!-- test: a-vacant-linear-union-is-copied-into-a-callee-that-sends-it -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `s` holds the payload-free case on every path, so it owes nothing: each call takes a copy, and `relay` sends its parameter, whose type is closed.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -8023,7 +7953,6 @@ function drain(s Sn)
 end 'drain'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Hq.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let s = Sn.ok as isolated Sn
@@ -8038,7 +7967,6 @@ end 'main'
 ```
 
 <!-- test: a-vacant-linear-union-local-is-passed-twice-to-a-callee-that-sends-it -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same with an unmarked `let`.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -8092,7 +8020,6 @@ function drain(s Sn)
 end 'drain'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Hq.create(0)
 	let s = Sn.ok
 	relay(a, s: s)
@@ -8106,8 +8033,6 @@ end 'main'
 ```
 
 <!-- test: a-failed-sends-hand-back-goes-to-an-isolated-parameter-whatever-its-closure -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Reply` holds a plain `Box`, so its type is not closed, yet the binding a failed send hands back is an `isolated` one (ruling 45) and goes to an `isolated` parameter.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -8127,7 +8052,6 @@ type Reply
 	static function create(box Box, code Count) returns Self
 		return Self{box: box, code: code}
 	end 'create'
-
 	function finish(destructs self)
 	end 'finish'
 end 'Reply'
@@ -8144,13 +8068,11 @@ type Taker
 	end 'take'
 end 'Taker'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function settle(r isolated Reply)
+function settle(consumes r Reply)
 	r.finish()
 end 'settle'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Taker.create(0)
 	try t.take(Reply.create(Box.create(1), code: 1)) otherwise (sendFailure) 'failed'
 		match sendFailure 'why'

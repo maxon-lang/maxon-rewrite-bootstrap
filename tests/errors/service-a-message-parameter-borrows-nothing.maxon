@@ -1,0 +1,20 @@
+export typealias Amount = int(0 to 1000000)
+
+type Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function fill(mutates into Array with Amount)
+		into.push(self.n)
+	end 'fill'
+end 'Counter'
+
+function main() returns ExitCode
+	let h = spawn Counter.create()
+	return 0
+end 'main'
+
+// expect-error: E3217 at 16:10

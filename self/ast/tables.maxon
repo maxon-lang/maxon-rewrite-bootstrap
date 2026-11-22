@@ -29,6 +29,9 @@ export enum CallKind
 	callCopy
 	callBound
 	callValue
+	// callSend is a message to a service through its handle: fn is the handler, the export method of the service's type,
+	// and body the behaviour that runs it on the service's state.
+	callSend
 end 'CallKind'
 
 export enum MemberKind
@@ -153,9 +156,14 @@ export type CallInfo
 	export var intrinsic as Intrinsic
 	// result is the callee's: whether the call gives a value or a place it borrows from the arguments.
 	export var result as ResultConv
+	// body is, for a send or a spawn whose factory runs on the service, the function of the behaviour that runs it there.
+	export var body as FuncID
+	// replyKept is, for a send whose handler replies, whether the sender keeps the reply as a promise; a send discarded
+	// with `_ =` drops it on the service.
+	export var replyKept as bool
 
 	export static function make(kind CallKind, fn FuncID, receiverTy TypeID) returns CallInfo
-		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.create(0), paramSpecs: ParamSpecList.create(0), selfConv: Convention.convLet, receiverTy: receiverTy, ordered: NodeIDList.create(0), method: noFunc, unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropOrdered: NodeIDList.create(0), intrinsic: Intrinsic.intrNone, result: ResultConv.resultOwned}
+		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.create(0), paramSpecs: ParamSpecList.create(0), selfConv: Convention.convLet, receiverTy: receiverTy, ordered: NodeIDList.create(0), method: noFunc, unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropOrdered: NodeIDList.create(0), intrinsic: Intrinsic.intrNone, result: ResultConv.resultOwned, body: noFunc, replyKept: false}
 	end 'make'
 end 'CallInfo'
 

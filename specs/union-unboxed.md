@@ -418,8 +418,6 @@ end 'main'
 ```
 
 <!-- test: a-service-replies-with-a-payload-free-word-and-a-constructed-one -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service method that returns a payload-free case on one path and a constructed case on another replies with a value it solely owns on both.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -428,8 +426,8 @@ type Counts
 	export var lines = 0 as Tally
 
 	static function of(content ByteArray) returns Self
-		let counts = Self{}
-		counts.lines = content.count() as Tally
+		var counts = Self{}
+		counts.lines = try content.count() as Tally otherwise panic("out of range")
 		return counts
 	end 'of'
 end 'Counts'
@@ -444,8 +442,7 @@ type Counter
 		return Self{}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	export function count(empty bool) returns isolated FileCount
+	export function count(empty bool) returns FileCount
 		if empty 'nothingToCount'
 			return FileCount.unreadable
 		end 'nothingToCount'
@@ -454,7 +451,6 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
 	let gone = try await h.count(true) otherwise FileCount.unreadable
 	let there = try await h.count(false) otherwise FileCount.unreadable
@@ -478,8 +474,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-with-a-struct-payload-is-shared-with-a-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every payload of `Shape` is a `let` and `Point` is value-like (every field is a `let` of a value type), so `Shape` counts as a value: it needs no `freeze` (a `freeze` of it is E3200), and the send hands the word to the service by move, as it hands over a `String`, so `s` is read before the send and not after. The struct payload's header is met by one share walk, and the service reads the payload.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -506,8 +500,7 @@ type Store
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(s immutable Shape) returns Coord
+	export function keep(s frozen with Shape) returns Coord
 		self.seen = self.seen + 1
 		return match s 'shape'
 			dot(at) gives at.x + at.y + at.label.byteLength() as Coord
@@ -524,7 +517,6 @@ function weigh(s Shape) returns Coord
 end 'weigh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let s = Shape.dot(Point.create(10, y: 20, label: "cde{2}"))
 	let mine = weigh(s)
@@ -541,8 +533,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-with-a-mutable-struct-payload-is-shared-with-a-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Shape`'s payloads are `let`, but the struct they hold has a `var` field, so the payload walk meets its record as owned state while the word is shared with the service and viewed by `w`.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -552,7 +542,7 @@ type Cell
 	export let label as String
 
 	static function create(n Coord, label String) returns Self
-		return Self{n: n, label: label}
+		return Self{n: n, label: label.clone()}
 	end 'create'
 end 'Cell'
 
@@ -568,24 +558,22 @@ type Store
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(s immutable Shape) returns Coord
-		self.seen = self.seen + 1
+	export function keep(mutates self, s frozen with Shape) returns Coord
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match s 'shape'
-			cell(c) gives c.n + c.label.byteLength() as Coord
+			cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
 			nothing gives 0
 		end 'shape'
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let s = freeze(Shape.cell(Cell.create(7, label: "cde{2}")))
 	let w = s
 	let r = try await h.keep(s) otherwise 0
 	let mine = match w 'shape'
-		cell(c) gives c.n + c.label.byteLength() as Coord
+		cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
 		nothing gives 0
 	end 'shape'
 	print("{r} {mine}\n")
@@ -600,8 +588,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-is-shared-while-several-words-hold-a-mutable-struct-payload -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Three words hold one `Shape` payload while a fourth reference travels with the send. The share walk meets the payload record once, as a view of an immutable union, and the owners outside the graph are tolerated exactly as they were when the payload sat behind a box.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -611,7 +597,7 @@ type Cell
 	export let label as String
 
 	static function create(n Coord, label String) returns Self
-		return Self{n: n, label: label}
+		return Self{n: n, label: label.clone()}
 	end 'create'
 end 'Cell'
 
@@ -627,11 +613,10 @@ type Store
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(s immutable Shape) returns Coord
-		self.seen = self.seen + 1
+	export function keep(mutates self, s frozen with Shape) returns Coord
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match s 'shape'
-			cell(c) gives c.n + c.label.byteLength() as Coord
+			cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
 			nothing gives 0
 		end 'shape'
 	end 'keep'
@@ -639,13 +624,12 @@ end 'Store'
 
 function weigh(s Shape) returns Coord
 	return match s 'shape'
-		cell(c) gives c.n + c.label.byteLength() as Coord
+		cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
 		nothing gives 0
 	end 'shape'
 end 'weigh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let s = freeze(Shape.cell(Cell.create(5, label: "ab{1}")))
 	let a = s
@@ -663,8 +647,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-is-shared-while-several-words-hold-a-string-payload -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -680,8 +662,7 @@ type Store
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(n immutable Note) returns Count
+	export function keep(n frozen with Note) returns Count
 		self.seen = self.seen + 1
 		return match n 'note'
 			text(body) gives body.byteLength() as Count
@@ -698,7 +679,6 @@ function weigh(n Note) returns Count
 end 'weigh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let n = Note.text("abc{1}")
 	let a = n
@@ -719,8 +699,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-with-an-array-payload-is-shared-with-a-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The payloads are a `ByteArray` and an `Array` of `String`, each sent to a service.
 ```maxon
 typealias Count = int(0 to 10000)
@@ -740,12 +718,11 @@ type Store
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(b immutable Blob) returns Count
-		self.seen = self.seen + 1
+	export function keep(mutates self, b frozen with Blob) returns Count
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match b 'blob'
-			bytes(data) gives data.count() as Count
-			words(list) gives list.count() as Count
+			bytes(data) gives try data.count() as Count otherwise panic("out of range")
+			words(list) gives try list.count() as Count otherwise panic("out of range")
 			nothing gives 0
 		end 'blob'
 	end 'keep'
@@ -753,27 +730,26 @@ end 'Store'
 
 function weigh(b Blob) returns Count
 	return match b 'blob'
-		bytes(data) gives data.count() as Count
-		words(list) gives list.count() as Count
+		bytes(data) gives try data.count() as Count otherwise panic("out of range")
+		words(list) gives try list.count() as Count otherwise panic("out of range")
 		nothing gives 0
 	end 'blob'
 end 'weigh'
 
 function nineBytes() returns ByteArray
-	let data = ByteArray.create(0)
+	var data = ByteArray.create(0)
 	data.resize(9)
 	return data
 end 'nineBytes'
 
 function twoWords() returns WordArray
-	let list = WordArray.create(0)
+	var list = WordArray.create(0)
 	list.push("one{1}")
 	list.push("two{2}")
 	return list
 end 'twoWords'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var blob = freeze(Blob.nothing)
 	blob = freeze(Blob.bytes(nineBytes()))
@@ -1661,8 +1637,6 @@ mm_free ArrayRecord #1
 ```
 
 <!-- test: a-wide-union-with-payload-free-cases-is-shared-with-a-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- MmTrace -->
 Words of every storage travel to a service: a payload-free case stored past the tag bits owns nothing and is shared as it is, and a payload case is shared and then read by both sides.
 ```maxon
@@ -1696,8 +1670,7 @@ type Store
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(w immutable Wide) returns Weight
+	export function keep(w frozen with Wide) returns Weight
 		self.seen = self.seen + 1
 		return match w 'wide'
 			spot(at) gives at.x + at.label.byteLength() as Weight
@@ -1714,7 +1687,6 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let spotted = Wide.spot(Point.create(5, label: "ab{1}"))
 	let texted = Wide.text("xyz{2}")

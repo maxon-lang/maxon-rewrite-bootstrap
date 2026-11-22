@@ -2659,10 +2659,9 @@ error E3005: <fragment>:26:24: Value -1 is outside the range of 'Count' (int(0 t
 ```
 
 <!-- test: a-large-count-reaches-a-service-handler -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function top(one Count) returns Count
-	return one shl 63
+	return try one shl 63 otherwise panic("out of range")
 end 'top'
 
 type Sink
@@ -2672,7 +2671,7 @@ type Sink
 		return Self{}
 	end 'create'
 
-	export function put(c Count)
+	export function put(mutates self, c Count)
 		self.seen = c
 	end 'put'
 
@@ -2682,7 +2681,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	try h.put(top(1)) otherwise panic("an open mailbox with room takes the send")
 	let got = try await h.get() otherwise 0
@@ -2698,7 +2696,6 @@ end 'main'
 ```
 
 <!-- test: a-negative-value-sent-to-a-service-handler-is-refused-at-the-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 On wasm32-wasi this case's expected diagnostic is displaced by E3104 ('spawn' lowers to the runtime entry '__cown_spawn', which has no wasm32-wasi implementation), so the lane is excluded.
@@ -2713,13 +2710,12 @@ type Sink
 		return Self{}
 	end 'create'
 
-	export function put(c Count)
+	export function put(mutates self, c Count)
 		self.seen = c
 	end 'put'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	for i in 0 upto 2 'each'
 		try h.put(i - 1) otherwise panic("an open mailbox with room takes the send")
@@ -2826,7 +2822,6 @@ Stack trace:
 ```
 
 <!-- test: a-negative-difference-sent-to-a-service-handler-panics-at-the-send -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The run-time twin of the refusal above: the difference is unknown to the compiler, so the handler's `Count` parameter catches the borrow when the send is made.
 ```maxon
 type Sink
@@ -2836,13 +2831,12 @@ type Sink
 		return Self{}
 	end 'create'
 
-	export function put(c Count)
+	export function put(mutates self, c Count)
 		self.seen = c
 	end 'put'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	try h.put(CommandLine.args().count() - 2) otherwise panic("an open mailbox with room takes the send")
 	return 0

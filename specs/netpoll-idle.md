@@ -113,7 +113,6 @@ napped parked=true
 ```
 
 <!-- test: netpoll-idle.a-break-reaches-the-poller-while-a-former-poller-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 **A BREAK ENDS THE POLLER'S WAIT WHILE ANOTHER MACHINE THAT ONCE POLLED IS BUSY.** `main`'s machine waits in the
 poller first, then stays busy while a service's 50 ms sleep breaks the other machine's wait on a deadline that
@@ -150,7 +149,6 @@ end 'Napper'
 
 function main() returns ExitCode
 	let napped = NapCell.create(false)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shorter = spawn Napper.create(napped.clone())
 	let longer = async forever()
 	Scheduler.yield()

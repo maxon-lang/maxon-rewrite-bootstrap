@@ -506,8 +506,6 @@ end 'main'
 ```
 
 <!-- test: view-binding.error.a-let-sent-to-a-service-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `let` names data its own green thread may write, so it is mutable data of its region: it cannot be frozen for a
 message that takes `immutable` data, and it cannot be given away to one that takes `isolated` data.
@@ -536,15 +534,13 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(p immutable Box) returns Integer
+	export function keep(p frozen with Box) returns Integer
 		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	var holder = Holder.create(Box.create(7))
 	holder.box.n = 8

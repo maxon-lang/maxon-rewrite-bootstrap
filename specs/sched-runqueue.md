@@ -273,7 +273,6 @@ s=3 a1=1 a2=2 a3=3
 ```
 
 <!-- test: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 **THE MOST RECENTLY READIED GREEN THREAD RUNS NEXT, AHEAD OF THE RING** — Go's `runnext`
@@ -309,11 +308,8 @@ type Marker
 end 'Marker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Marker.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Marker.create(2)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Marker.create(3)
 	let replies = ReplyPromiseArray.create(0)
 	replies.push(try a.rank() otherwise panic("an open mailbox with room takes the send"))
@@ -336,7 +332,6 @@ first=2 sum=6
 ```
 
 <!-- test: sched-runqueue.a-runnext-ping-pong-pair-cannot-starve-a-bystander -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ⭐ **TWO THREADS THAT READY EACH OTHER CANNOT KEEP ONE PROCESSOR FOR EVER.** Each bounce readies its peer into
 the slot, so scheduling alone never reaches the ring, where the bystander waits. The spawn order is what
@@ -366,8 +361,8 @@ type Ping
 		return Self{seen: 0, stopped: false}
 	end 'create'
 
-	export function hit(pong Pong.handle, me Ping.handle, n Integer)
-		self.seen = self.seen + 1
+	export function hit(mutates self, pong Pong.handle, me Ping.handle, n Integer)
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		if n > 0 and not self.stopped 'bounce'
 			try pong.hit(me.clone(), pong: pong.clone(), n: n - 1) otherwise panic("a bounce finds room in the peer's mailbox")
 		end 'bounce' else 'last'
@@ -375,7 +370,7 @@ type Ping
 		end 'last'
 	end 'hit'
 
-	export function stop()
+	export function stop(mutates self)
 		self.stopped = true
 	end 'stop'
 end 'Ping'
@@ -387,8 +382,8 @@ type Pong
 		return Self{seen: 0}
 	end 'create'
 
-	export function hit(ping Ping.handle, pong Pong.handle, n Integer)
-		self.seen = self.seen + 1
+	export function hit(mutates self, ping Ping.handle, pong Pong.handle, n Integer)
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		if n > 0 'bounce'
 			try ping.hit(pong.clone(), me: ping.clone(), n: n - 1) otherwise panic("a bounce finds room in the peer's mailbox")
 		end 'bounce'
@@ -402,19 +397,16 @@ type Bystander
 		return Self{poked: 0}
 	end 'create'
 
-	export function poke(ping Ping.handle)
-		self.poked = self.poked + 1
+	export function poke(mutates self, ping Ping.handle)
+		self.poked = try self.poked + 1 otherwise panic("out of range")
 		print("bystander-ran\n")
 		try ping.stop() otherwise panic("an open mailbox with room takes the stop")
 	end 'poke'
 end 'Bystander'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let ping = spawn Ping.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let idle = spawn Bystander.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let pong = spawn Pong.create()
 	try ping.hit(pong.clone(), me: ping.clone(), n: totalBounces) otherwise panic("an open mailbox with room takes the send")
 	try idle.poke(ping.clone()) otherwise panic("an open mailbox with room takes the send")
@@ -807,7 +799,6 @@ r=5 steals=0
 ```
 
 <!-- test: sched-runqueue.a-timer-readies-a-coroutine-while-its-sibling-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **A STRAND WITH COROUTINES IS READIED FROM OUTSIDE WHILE ONE OF ITS MEMBERS RUNS.** `Hub` is a service,
 so a green thread, and each `round` runs three coroutines on its strand. `napper` parks on a 1 ms timer.
@@ -844,7 +835,7 @@ end 'napper'
 function spinner(steps Integer) returns Integer
 	var acc = 0 as Integer
 	for i in 0 upto steps 'spin'
-		acc = acc + i
+		acc = try acc + i otherwise panic("out of range")
 		if i mod yieldEvery == 0 'turn'
 			Scheduler.yield()
 		end 'turn'
@@ -863,11 +854,11 @@ type Hub
 		let a = async napper(r)
 		let b = async spinner(spinSteps)
 		let c = async napper(1)
-		return (await a) + (await b) + (await c)
+		return try (await a) + (await b) + (await c) otherwise panic("out of range")
 	end 'round'
 
-	export function poke()
-		self.pokes = self.pokes + 1
+	export function poke(mutates self)
+		self.pokes = try self.pokes + 1 otherwise panic("out of range")
 	end 'poke'
 
 	export function pokeCount() returns Integer
@@ -876,13 +867,12 @@ type Hub
 end 'Hub'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let hub = spawn Hub.create()
 	var total = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
 		let reply = try hub.round(r) otherwise panic("an open mailbox with room takes the send")
 		try hub.poke() otherwise panic("an open mailbox with room takes the send")
-		total = total + (await reply)
+		total = try total + (await reply) otherwise panic("out of range")
 	end 'eachRound'
 	let pokes = try await hub.pokeCount() otherwise 0
 	print("total={total} pokes={pokes}\n")
@@ -897,7 +887,6 @@ total=79960820 pokes=40
 ```
 
 <!-- test: sched-runqueue.a-timer-readies-a-coroutine-while-its-sibling-runs-at-one-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE ONE-PROCESSOR TWIN OF `a-timer-readies-a-coroutine-while-its-sibling-runs`.** With one processor
 `main` and `Hub` take turns on it, and the spinner's yields are where the strand most often finds the timer
@@ -920,7 +909,7 @@ end 'napper'
 function spinner(steps Integer) returns Integer
 	var acc = 0 as Integer
 	for i in 0 upto steps 'spin'
-		acc = acc + i
+		acc = try acc + i otherwise panic("out of range")
 		if i mod yieldEvery == 0 'turn'
 			Scheduler.yield()
 		end 'turn'
@@ -939,11 +928,11 @@ type Hub
 		let a = async napper(r)
 		let b = async spinner(spinSteps)
 		let c = async napper(1)
-		return (await a) + (await b) + (await c)
+		return try (await a) + (await b) + (await c) otherwise panic("out of range")
 	end 'round'
 
-	export function poke()
-		self.pokes = self.pokes + 1
+	export function poke(mutates self)
+		self.pokes = try self.pokes + 1 otherwise panic("out of range")
 	end 'poke'
 
 	export function pokeCount() returns Integer
@@ -952,13 +941,12 @@ type Hub
 end 'Hub'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let hub = spawn Hub.create()
 	var total = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
 		let reply = try hub.round(r) otherwise panic("an open mailbox with room takes the send")
 		try hub.poke() otherwise panic("an open mailbox with room takes the send")
-		total = total + (await reply)
+		total = try total + (await reply) otherwise panic("out of range")
 	end 'eachRound'
 	let pokes = try await hub.pokeCount() otherwise 0
 	print("total={total} pokes={pokes}\n")
@@ -973,7 +961,6 @@ total=79960820 pokes=40
 ```
 
 <!-- test: sched-runqueue.ring-overflow-runs-every-spawned-service -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 **THE OVERFLOW, AND THE PROOF THAT NOTHING IS LOST IN IT.** Three hundred `spawn`s run back to back with
@@ -1014,8 +1001,8 @@ type Sink
 		return Self{n: 0}
 	end 'create'
 
-	export function bump()
-		self.n = self.n + 1
+	export function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 
 	export function total() returns Integer
@@ -1024,10 +1011,9 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	let sinks = SinkHandleArray.create(0)
+	var sinks = SinkHandleArray.create(0)
 	var i = 0 as Integer
 	while i < 300 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		sinks.push(spawn Sink.create())
 		i = i + 1
 	end 'spawnEach'
@@ -1046,7 +1032,7 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < 300 'collect'
 		let sink = try sinks.get(n as ElementIndex) otherwise panic("sinks.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		ran = ran + (try await sink.total() otherwise 0)
+		ran = try ran + (try await sink.total() otherwise 0) otherwise panic("out of range")
 		n = n + 1
 	end 'collect'
 	print("ran={ran}")
@@ -1064,7 +1050,6 @@ ran=300
 ```
 
 <!-- test: sched-runqueue.the-ring-index-wraps-past-its-capacity -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE WRAP.** `runqhead`/`runqtail` are monotonic counters, not indices. One service takes six thousand
 messages one at a time, each drained before the next is sent, so the service is woken and re-published
@@ -1108,8 +1093,8 @@ type Step
 		return Self{n: 0}
 	end 'create'
 
-	export function tick()
-		self.n = self.n + 1
+	export function tick(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'tick'
 
 	export function total() returns Integer
@@ -1118,7 +1103,6 @@ type Step
 end 'Step'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Step.create()
 	var sum = 0 as Integer
 	var i = 0 as Integer
@@ -1143,7 +1127,6 @@ sum=6000
 ```
 
 <!-- test: sched-runqueue.the-global-queue-is-consulted-within-sixty-one-slices -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 **THE FAIRNESS CHECK, AND THE ONE SHAPE THAT CAN SEE IT.** A ring overflow moves the OLDEST half of the
@@ -1243,11 +1226,9 @@ function main() returns ExitCode
 	let leaves = LeafHandleArray.create(0)
 	var i = 0 as Integer
 	while i < leafCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		leaves.push(spawn Leaf.create(i + 1))
 		i = i + 1
 	end 'spawnEach'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let tally = spawn Tally.create()
 	// Each leaf has replied and run on to its park on an empty mailbox, so the burst below is what publishes them.
 	var h = 0 as Integer
@@ -1284,7 +1265,6 @@ runCount=300 pushed=true within=true
 0
 ```
 <!-- test: sched-runqueue.a-yield-goes-behind-the-global-queue -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 **THE BACK OF THE QUEUE, AND THE ONLY SHAPE AT ONE PROCESSOR THAT CAN SEE IT.** A drained yielder goes to
@@ -1340,8 +1320,8 @@ type Tally
 		return Self{n: 0, sPos: 0, yPos: 0}
 	end 'create'
 
-	export function note(id Integer)
-		self.n = self.n + 1
+	export function note(mutates self, id Integer)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		if id == spawneeId 'theSpawnee'
 			self.sPos = self.n
 		end 'theSpawnee' else 'theYielder'
@@ -1382,7 +1362,6 @@ type Spawner
 	end 'create'
 
 	export function go(sink Tally.handle)
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let child = spawn Spawnee.create()
 		// A parameter cannot be moved by a send, so the child gets its own reference.
 		try child.go(sink.clone()) otherwise panic("an open mailbox with room takes the send")
@@ -1403,11 +1382,8 @@ type Yielder
 end 'Yielder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let y = spawn Yielder.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Spawner.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let tally = spawn Tally.create()
 	try y.go(tally.clone()) otherwise panic("an open mailbox with room takes the send")
 	try s.go(tally.clone()) otherwise panic("an open mailbox with room takes the send")
@@ -1432,7 +1408,6 @@ sPos=1 yPos=2
 ```
 
 <!-- test: sched-runqueue.nothing-is-stolen-on-one-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE STEAL COUNTER, AND THE ONE ANSWER A SPEC CAN PIN — the SERVICE twin of
 `no-coroutine-is-ever-stolen` above, and the reason the two are different cases.** That one reads 0
@@ -1485,7 +1460,6 @@ function main() returns ExitCode
 	let workers = WorkHandleArray.create(0)
 	var i = 0 as Integer
 	while i < 12 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		workers.push(spawn Work.create())
 		i = i + 1
 	end 'spawnEach'

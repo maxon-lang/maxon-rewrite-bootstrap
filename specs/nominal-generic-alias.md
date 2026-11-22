@@ -1679,8 +1679,6 @@ typealias Xs = Array with String
 ```
 
 <!-- test: error.a-service-message-argument-of-another-brand-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The message parameter is a `Ys`; the argument is an `Xs`.
 ```maxon
@@ -1697,15 +1695,13 @@ type Sink
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(ys isolated Ys)
-		self.seen = self.seen + 1
+	export function take(mutates self, consumes ys Ys)
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		print("{ys.count()}\n")
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	try h.take(Xs.create(0)) otherwise panic("send take")
 	return 0

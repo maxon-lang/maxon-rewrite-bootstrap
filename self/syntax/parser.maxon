@@ -97,6 +97,11 @@ end 'Fault'
 // testWord is the word that starts a test, where a quoted name follows it; it is a name everywhere else.
 let testWord = "test"
 
+// spawnWord starts a spawn, and capacityWord labels the size of its mailbox; both are names everywhere else.
+export let spawnWord = "spawn"
+
+export let capacityWord = "capacity"
+
 // testFileExtension ends the name of a file of tests, the only file that may hold a test.
 let testFileExtension = ".maxtest"
 
@@ -333,6 +338,21 @@ type Parser
 	function notFallthrough() returns bool
 		return not self.peekIs(TokenKind.kw_fallthrough)
 	end 'notFallthrough'
+
+	// atSpawn is whether a spawn starts here: `spawn` before the type its factory is named through, or before the
+	// parenthesis of `spawn(capacity: n)`. A name never follows another name in an expression, and a call of a function
+	// named spawn labels no argument `capacity`.
+	function atSpawn() returns bool
+		if not self.at(TokenKind.name) or self.text(toks[pos]) != spawnWord 'notSpawn'
+			return false
+		end 'notSpawn'
+		if self.peekIs(TokenKind.name) 'typeName'
+			return true
+		end 'typeName'
+		let open = after(pos)
+		let label = after(open)
+		return label < toks.count() and toks[open].kind == TokenKind.lParen and toks[label].kind == TokenKind.name and self.text(toks[label]) == capacityWord and after(label) < toks.count() and toks[after(label)].kind == TokenKind.colon
+	end 'atSpawn'
 
 	// atTestDecl is whether the declaration that starts here is a test: `test` and a quoted name.
 	function atTestDecl() returns bool

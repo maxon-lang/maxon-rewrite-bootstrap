@@ -718,7 +718,6 @@ end 'main'
 ```
 
 <!-- test: error.return-a-let-declared-global -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The negative control, and the one thing the widened door must still refuse — **at the BINDING**.
 RETURNING a `let`-declared global's record is legal when the result is declared `returns immutable` (from an
@@ -731,8 +730,7 @@ typealias Names = Array with String
 
 let A = ["ab", "cde"]
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function expose() returns immutable Names
+function expose() returns frozen with Names
 	return A
 end 'expose'
 
@@ -747,15 +745,13 @@ error E3207: <fragment>:12:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: a-let-declared-global-returned-by-a-call-is-read -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The accepted twin: the returned record is bound to a `let`, read, and never written.
 ```maxon
 typealias Names = Array with String
 
 let A = ["ab", "cde"]
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function expose() returns immutable Names
+function expose() returns frozen with Names
 	return A
 end 'expose'
 

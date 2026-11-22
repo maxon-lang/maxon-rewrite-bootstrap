@@ -125,7 +125,6 @@ there with E3104 too, as a query about a scheduler that lane does not have.
 ## Tests
 
 <!-- test: the-default-is-every-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE FLIP ITSELF, AND ITS SUBJECT IS THE ABSENCE OF A MARKER.** Every other case in this file names a
 count; this one names none, so it reads whatever `emitResolveMaxProcs` resolves with `MAXON_MAX_PROCS`
 absent — and asserts that this is the machine's own processor count. It is the one case that goes red if
@@ -183,7 +182,6 @@ function main() returns ExitCode
 	let hs = AdderHandleArray.create(0)
 	var i = 0 as Integer
 	while i < serviceCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		hs.push(spawn Adder.create())
 		i = i + 1
 	end 'spawnEach'
@@ -220,7 +218,6 @@ aggregate=479997
 ```
 
 <!-- test: the-procs-marker-pins-one-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE MARKER'S OWN GATE.** The same program pinned to one processor, which the scheduler takes exactly on
 any machine. The aggregate is unchanged, because it is unchangeable.
@@ -247,10 +244,10 @@ type Adder
 		return Self{acc: 0}
 	end 'create'
 
-	export function grind(seed Integer, work Integer)
+	export function grind(mutates self, seed Integer, work Integer)
 		var j = 0 as Integer
 		while j < work 'spin'
-			self.acc = self.acc + ((seed + j) mod mixModulus)
+			self.acc = try self.acc + ((seed + j) mod mixModulus) otherwise panic("out of range")
 			j = j + 1
 		end 'spin'
 	end 'grind'
@@ -261,10 +258,9 @@ type Adder
 end 'Adder'
 
 function main() returns ExitCode
-	let hs = AdderHandleArray.create(0)
+	var hs = AdderHandleArray.create(0)
 	var i = 0 as Integer
 	while i < serviceCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		hs.push(spawn Adder.create())
 		i = i + 1
 	end 'spawnEach'
@@ -278,7 +274,7 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < serviceCount 'collect'
 		let h = try hs.get(n as ElementIndex) otherwise panic("hs.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		aggregate = aggregate + (try await h.total() otherwise 0)
+		aggregate = try aggregate + (try await h.total() otherwise 0) otherwise panic("out of range")
 		n = n + 1
 	end 'collect'
 	print("procs={Scheduler.processorCount()}\n")
@@ -295,7 +291,6 @@ aggregate=479997
 ```
 
 <!-- test: the-answer-does-not-depend-on-the-processor-count -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **THE INVARIANCE, WHICH IS THE ONE PROPERTY NO PROCESSOR COUNT MAY MOVE.** Four processors, and the
 program must answer the number its two siblings answer at one and at the machine's count. Nothing else in
@@ -326,10 +321,10 @@ type Adder
 		return Self{acc: 0}
 	end 'create'
 
-	export function grind(seed Integer, work Integer)
+	export function grind(mutates self, seed Integer, work Integer)
 		var j = 0 as Integer
 		while j < work 'spin'
-			self.acc = self.acc + ((seed + j) mod mixModulus)
+			self.acc = try self.acc + ((seed + j) mod mixModulus) otherwise panic("out of range")
 			j = j + 1
 		end 'spin'
 	end 'grind'
@@ -340,10 +335,9 @@ type Adder
 end 'Adder'
 
 function main() returns ExitCode
-	let hs = AdderHandleArray.create(0)
+	var hs = AdderHandleArray.create(0)
 	var i = 0 as Integer
 	while i < serviceCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		hs.push(spawn Adder.create())
 		i = i + 1
 	end 'spawnEach'
@@ -357,7 +351,7 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < serviceCount 'collect'
 		let h = try hs.get(n as ElementIndex) otherwise panic("hs.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		aggregate = aggregate + (try await h.total() otherwise 0)
+		aggregate = try aggregate + (try await h.total() otherwise 0) otherwise panic("out of range")
 		n = n + 1
 	end 'collect'
 	print("aggregate={aggregate}\n")
@@ -372,7 +366,6 @@ aggregate=479997
 ```
 
 <!-- test: the-procs-marker-raises-the-processor-count -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **THE MARKER'S OWN GATE IN THE OTHER DIRECTION.** It names a count above one and asserts the scheduler
 RESOLVED it. An unread marker leaves the case at the machine's count, which prints some count other than
@@ -399,10 +392,10 @@ type Adder
 		return Self{acc: 0}
 	end 'create'
 
-	export function grind(seed Integer, work Integer)
+	export function grind(mutates self, seed Integer, work Integer)
 		var j = 0 as Integer
 		while j < work 'spin'
-			self.acc = self.acc + ((seed + j) mod mixModulus)
+			self.acc = try self.acc + ((seed + j) mod mixModulus) otherwise panic("out of range")
 			j = j + 1
 		end 'spin'
 	end 'grind'
@@ -413,10 +406,9 @@ type Adder
 end 'Adder'
 
 function main() returns ExitCode
-	let hs = AdderHandleArray.create(0)
+	var hs = AdderHandleArray.create(0)
 	var i = 0 as Integer
 	while i < serviceCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		hs.push(spawn Adder.create())
 		i = i + 1
 	end 'spawnEach'
@@ -430,7 +422,7 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < serviceCount 'collect'
 		let h = try hs.get(n as ElementIndex) otherwise panic("hs.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		aggregate = aggregate + (try await h.total() otherwise 0)
+		aggregate = try aggregate + (try await h.total() otherwise 0) otherwise panic("out of range")
 		n = n + 1
 	end 'collect'
 	print("procs={Scheduler.processorCount()}\n")

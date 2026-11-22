@@ -1173,7 +1173,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A program that declares its own `StringBuilder` spawns the library's `StringBuilder` as a service by writing
 `stdlib.StringBuilder`, the spelling a direct call and an `async` spawn accept.
 ```maxon
@@ -1182,7 +1181,6 @@ type StringBuilder
 end 'StringBuilder'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	_ = spawn stdlib.StringBuilder.create()
 	return 0
 end 'main'

@@ -1,0 +1,22 @@
+export typealias Amount = int(0 to 1000000)
+
+export typealias Step = function(Amount) returns Amount
+
+type Runner
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function run(mutates self, step Step)
+		self.n = step(self.n)
+	end 'run'
+end 'Runner'
+
+function main() returns ExitCode
+	let h = spawn Runner.create()
+	return 0
+end 'main'
+
+// expect-error: E3217 at 18:10

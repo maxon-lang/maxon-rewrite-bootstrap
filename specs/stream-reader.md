@@ -566,8 +566,6 @@ drained late
 
 <!-- test: a-reader-in-a-service-answers-while-the-owner-waits-on-a-timer -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 Each of a child's output streams is read by a service of its own, so a read that parks holds only its
 service. The owner keeps an `async` call awaiting each service's next line beside a 200 ms timer in one array
@@ -594,8 +592,7 @@ end 'shown'
 type LineService
 	var reader as ChildOutputReader
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(reader isolated ChildOutputReader) returns Self
+	static function create(consumes reader ChildOutputReader) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{reader: merge reader}
 	end 'create'
@@ -643,9 +640,7 @@ function main() returns ExitCode
 	child.closeStdin()
 	let outReader = try child.takeStdout() otherwise return 4
 	let errReader = try child.takeStderr() otherwise return 5
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let out = spawn LineService.create(outReader)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let err = spawn LineService.create(errReader)
 	let arrivals = Arrivals.create(0)
 	arrivals.push(async nextLine("out", service: out.clone()))
@@ -962,7 +957,6 @@ lines=1000 last=line 999
 
 <!-- test: a-reader-named-only-as-an-element-type-reads-through-its-source -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The user's program names `StreamReader with ZBytes` only as an array's element type: the readers come from a library factory and the source's `readSome` is reached only through `readLine` on each element. Each reader answers its one line, then `ended`.
 ```maxon
 // --- stdlib-overlay: Stream.maxon
@@ -973,8 +967,7 @@ public type ZBytes implements ByteSource
 		return Self{left: 1}
 	end 'create'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	public function readSome(most ReadCapacity) returns isolated ByteArray throws StreamError
+	public function readSome(most ReadCapacity) returns ByteArray throws StreamError
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let out = ByteArray.create(0) as isolated ByteArray
 		if self.left == 0 'drained'

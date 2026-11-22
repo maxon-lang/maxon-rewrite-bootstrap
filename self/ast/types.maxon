@@ -45,6 +45,7 @@ export enum TypeKind
 	builtinCown
 	builtinCursor
 	builtinPromise
+	builtinService
 	typeParam
 	interfaceTy
 	funcTy
@@ -60,6 +61,7 @@ export enum TypeKind
 			builtinCown gives true
 			builtinCursor gives true
 			builtinPromise gives true
+			builtinService gives true
 			invalid gives false
 			primBool gives false
 			primString gives false
@@ -1560,6 +1562,7 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		builtinCown gives sizeofWord
 		builtinCursor gives sizeofWord
 		builtinPromise gives sizeofWord
+		builtinService gives sizeofWord
 		funcTy gives sizeofWord
 	end 'k'
 end 'byteSize'
@@ -1943,7 +1946,7 @@ export function isSharedType(tt TypeSlot, reads TypeTable, t TypeID) returns boo
 		return false
 	end 'no'
 	let k = typeKind(tt, reads: reads, t: t)
-	return k == TypeKind.builtinFrozen or k == TypeKind.builtinCown
+	return k == TypeKind.builtinFrozen or k == TypeKind.builtinCown or k == TypeKind.builtinService
 end 'isSharedType'
 
 // isFunctionType is whether the type is a function type, whose values are closures that may hold borrows.
@@ -1986,6 +1989,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		builtinCown gives true
 		builtinCursor gives true
 		builtinPromise gives true
+		builtinService gives true
 		typeParam gives true
 		funcTy gives true
 		invalid gives false
@@ -2058,6 +2062,9 @@ export function typeName(tt TypeSlot, reads TypeTable, t TypeID) returns String
 	if k == TypeKind.funcTy 'function'
 		return funcTypeSpelling(tt, reads: reads, t: t)
 	end 'function'
+	if k == TypeKind.builtinService and typeEntry(tt, reads: reads, t: t).typeArgs.count() == 1 'service'
+		return "{typeName(tt, reads: reads, t: typeEntry(tt, reads: reads, t: t).typeArgs[0])}.{serviceHandleMember}"
+	end 'service'
 	if k == TypeKind.intRange 'rng'
 		if typeEntry(tt, reads: reads, t: t).name != "" 'named'
 			return typeEntry(tt, reads: reads, t: t).name.clone()
@@ -2463,7 +2470,7 @@ end 'ownsValue'
 
 // callReceiver is the object a call of a method names before its dot, or 0 for a call that has none.
 export function callReceiver(tree Tree, e NodeID, kind CallKind) returns NodeID
-	if kind == CallKind.callMethod or kind == CallKind.callBound or kind == CallKind.callCopy 'member'
+	if kind == CallKind.callMethod or kind == CallKind.callBound or kind == CallKind.callCopy or kind == CallKind.callSend 'member'
 		let callee = callExprCallee(tree, id: e)
 		if tree.kindOf(callee) == NodeKind.memberExpr 'named'
 			return memberExprObj(tree, id: callee)
@@ -2527,3 +2534,19 @@ export function promiseError(tt TypeSlot, reads TypeTable, t TypeID) returns Typ
 	end 'none'
 	return e
 end 'promiseError'
+
+// serviceHandleMember is the member that names the type of a service's handle after the service's type: `Calc.handle`.
+export let serviceHandleMember = "handle"
+
+// defaultMailboxCapacity is maxon's DefaultMailboxCapacity: how many messages a mailbox holds when the spawn names none.
+export let defaultMailboxCapacity = 1024 as Count
+
+// isServiceType is whether a type is the handle of a service, which `spawn` gives and a send goes through.
+export function isServiceType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return t != noType and typeKind(tt, reads: reads, t: t) == TypeKind.builtinService
+end 'isServiceType'
+
+// serviceState is the type of the state of the service a handle reaches: the type the service was spawned from.
+export function serviceState(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
+	return typeEntry(tt, reads: reads, t: t).typeArgs[0]
+end 'serviceState'

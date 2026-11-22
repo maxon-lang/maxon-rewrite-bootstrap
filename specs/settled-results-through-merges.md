@@ -29,7 +29,6 @@ or return a `.clone()` of the frozen path when the caller must write.
 ## Tests
 
 <!-- test: a-result-handed-to-a-keeping-callee-is-writable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `declare` clones what it files and returns what it built; `Candidate.create` keeps `binding` in a field, so the
 caller must be able to write `binding`.
@@ -46,8 +45,7 @@ type Info
 	export let name as immutable ByteArray
 	export var kind as Slot
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(name immutable ByteArray, kind Slot) returns Info
+	static function create(name frozen with ByteArray, kind Slot) returns Info
 		return Self{name: name, kind: kind}
 	end 'create'
 end 'Info'
@@ -59,8 +57,7 @@ type Scope
 		return Self{infos: InfoArray.create(0, zeroed: false)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function declare(name immutable ByteArray, kind Slot) returns Info
+	function declare(name frozen with ByteArray, kind Slot) returns Info
 		let made = Info.create(name, kind: kind)
 		self.infos.push(made.clone())
 		return made
@@ -84,8 +81,7 @@ type Walker
 		return Self{scope: Scope.create(), candidates: CandidateArray.create(0, zeroed: false)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function declareParam(name immutable ByteArray, kind Slot, line Slot)
+	function declareParam(name frozen with ByteArray, kind Slot, line Slot)
 		let binding = self.scope.declare(name, kind: kind)
 		self.candidates.push(Candidate.create(binding, line: line))
 	end 'declareParam'
@@ -106,7 +102,6 @@ end 'main'
 ```
 
 <!-- test: a-result-the-callee-also-stored-is-writable-to-its-keeper -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The callee files `made` itself and returns it too; the caller still keeps the result in a field.
 
@@ -122,8 +117,7 @@ type Info
 	export let name as immutable ByteArray
 	export var kind as Slot
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(name immutable ByteArray, kind Slot) returns Info
+	static function create(name frozen with ByteArray, kind Slot) returns Info
 		return Self{name: name, kind: kind}
 	end 'create'
 end 'Info'
@@ -135,8 +129,7 @@ type Scope
 		return Self{infos: InfoArray.create(0, zeroed: false)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function declare(name immutable ByteArray, kind Slot) returns Info
+	function declare(name frozen with ByteArray, kind Slot) returns Info
 		let made = Info.create(name, kind: kind)
 		self.infos.push(made)
 		return made
@@ -160,8 +153,7 @@ type Walker
 		return Self{scope: Scope.create(), candidates: CandidateArray.create(0, zeroed: false)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function declareParam(name immutable ByteArray, kind Slot, line Slot)
+	function declareParam(name frozen with ByteArray, kind Slot, line Slot)
 		let binding = self.scope.declare(name, kind: kind)
 		self.candidates.push(Candidate.create(binding, line: line))
 	end 'declareParam'
@@ -182,7 +174,6 @@ end 'main'
 ```
 
 <!-- test: a-binding-rebound-beside-a-parameter-is-writable-through-a-callee -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `current` is the parameter `head` on the way in and a fresh block on each pass; `append` writes it either way.
 
@@ -197,8 +188,7 @@ type Block
 	export let label as immutable ByteArray
 	export var hits as Count
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(id Count, label immutable ByteArray) returns Block
+	static function create(id Count, label frozen with ByteArray) returns Block
 		return Self{id: id, label: label, hits: 0}
 	end 'create'
 
@@ -214,8 +204,7 @@ type Module
 		return Self{blocks: BlockArray.create(0, zeroed: false)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(label immutable ByteArray) returns Block
+	function add(label frozen with ByteArray) returns Block
 		let made = Block.create(self.blocks.count() as Count, label: label)
 		self.blocks.push(made)
 		return made
@@ -263,7 +252,6 @@ end 'main'
 ```
 
 <!-- test: a-field-is-written-through-a-binding-rebound-beside-a-parameter -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The same rebinding, written through directly rather than handed to a callee.
 
@@ -278,8 +266,7 @@ type Block
 	export let label as immutable ByteArray
 	export var hits as Count
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(id Count, label immutable ByteArray) returns Block
+	static function create(id Count, label frozen with ByteArray) returns Block
 		return Self{id: id, label: label, hits: 0}
 	end 'create'
 end 'Block'
@@ -291,8 +278,7 @@ type Module
 		return Self{blocks: BlockArray.create(0, zeroed: false)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(label immutable ByteArray) returns Block
+	function add(label frozen with ByteArray) returns Block
 		let made = Block.create(self.blocks.count() as Count, label: label)
 		self.blocks.push(made)
 		return made
@@ -336,9 +322,7 @@ end 'main'
 ```
 
 <!-- test: a-ternary-beside-an-immutable-field-read-does-not-freeze-its-holder -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 `joined.alias` is read out of an `immutable` slot, so choosing it beside another frozen value asks nothing of
 `joined` itself, and a `var` holding a fresh `Join` can be handed to `step` on every pass.
 
@@ -347,20 +331,16 @@ type Join
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	export let alias as immutable ByteArray
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(alias immutable ByteArray) returns Self
+	static function create(alias frozen with ByteArray) returns Self
 		return Self{alias: alias}
 	end 'create'
 end 'Join'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function longer(left immutable ByteArray, right immutable ByteArray) returns immutable ByteArray
+function longer(left frozen with ByteArray, right frozen with ByteArray) returns frozen with ByteArray
 	return left if left.count() > right.count() else right
 end 'longer'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function step(joined Join, baseline immutable ByteArray, give immutable ByteArray) returns Join
+function step(joined Join, baseline frozen with ByteArray, give frozen with ByteArray) returns Join
 	return Join.create(longer(baseline if joined.alias.isEmpty() else joined.alias, right: give))
 end 'step'
 
@@ -381,10 +361,8 @@ end 'main'
 ```
 
 <!-- test: a-ternary-of-a-parameter-and-a-constant-fits-an-immutable-result -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ```maxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pick(name ByteArray) returns immutable ByteArray
+function pick(name ByteArray) returns frozen with ByteArray
 	return name if name.count() > 3 else b"default"
 end 'pick'
 
@@ -402,10 +380,8 @@ end 'main'
 ```
 
 <!-- test: a-match-giving-a-parameter-and-a-constant-fits-an-immutable-result -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ```maxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pick(name ByteArray) returns immutable ByteArray
+function pick(name ByteArray) returns frozen with ByteArray
 	return match name.count() > 3 'sel'
 		true gives name
 		default gives b"default"
@@ -426,13 +402,11 @@ end 'main'
 ```
 
 <!-- test: error.an-immutable-result-choosing-a-parameter-or-a-constant-refuses-mutable-data -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` may hand back `name` itself, and its result is `immutable`, so the caller's `live` has to be frozen: otherwise the result would change when `live` does.
 
 ```maxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pick(name ByteArray, long bool) returns immutable ByteArray
+function pick(name ByteArray, long bool) returns frozen with ByteArray
 	return name if long else b"default"
 end 'pick'
 
@@ -449,13 +423,11 @@ error E3207: <fragment>:8:20: 'pick' needs 'name' frozen (line 3: `return name i
 ```
 
 <!-- test: error.an-immutable-result-rebinding-a-parameter-in-a-loop-refuses-mutable-data -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same holds when the choice is a variable rebound in a loop.
 
 ```maxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pick(name ByteArray, rounds Count) returns immutable ByteArray
+function pick(name ByteArray, rounds Count) returns frozen with ByteArray
 	var chosen = name
 	for _ in 0 upto rounds 'rebind'
 		chosen = b"default"
@@ -476,15 +448,12 @@ error E3207: <fragment>:14:20: 'pick' needs 'name' frozen (line 9: `return chose
 ```
 
 <!-- test: an-immutable-result-choosing-a-parameter-accepts-frozen-data-through-a-branch-and-a-loop -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 ```maxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pickBranch(name ByteArray, long bool) returns immutable ByteArray
+function pickBranch(name ByteArray, long bool) returns frozen with ByteArray
 	return name if long else b"default"
 end 'pickBranch'
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pickLoop(name ByteArray, rounds Count) returns immutable ByteArray
+function pickLoop(name ByteArray, rounds Count) returns frozen with ByteArray
 	var chosen = name
 	for _ in 0 upto rounds 'rebind'
 		chosen = b"default"
@@ -1237,7 +1206,6 @@ error E3197: <fragment>:13:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-is-not-isolated -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A fresh clean call may become `isolated`; the result of `get` may be image data, so it may not.
@@ -1253,8 +1221,7 @@ type Box
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var part as isolated Digits
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(part isolated Digits) returns Self
+	static function holding(consumes part Digits) returns Self
 		return Self{part: part}
 	end 'holding'
 end 'Box'
@@ -1310,7 +1277,6 @@ end 'main'
 
 <!-- test: a-clean-call-building-its-own-array-stays-writable-and-isolated -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `build` takes only values and hands back an array it built, so the caller writes it and may move it into an `isolated` field.
 
@@ -1323,8 +1289,7 @@ type Box
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	export var part as isolated Digits
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function holding(part isolated Digits) returns Self
+	static function holding(consumes part Digits) returns Self
 		return Self{part: part}
 	end 'holding'
 end 'Box'

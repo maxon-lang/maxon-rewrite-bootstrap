@@ -1,0 +1,491 @@
+// Services, maxon's: `spawn T.f(args)` starts a service of the type T, whose state the static factory f makes, and gives
+// its handle, a `T.handle`; a call of an export instance method of T through the handle is a message, which the service
+// handles one at a time on its own green thread. What crosses into a service is decided in one place, unsendable: a
+// value moves in, or is frozen and shared, and nothing borrowed crosses, so no part of a value is reachable from two
+// threads and no count but the atomic ones of frozen values, cowns and handles is stepped by two. A send fails at once
+// with SendError when the mailbox is full or the service is shut down; a message whose handler returns or throws
+// replies, and the reply is a promise the sender awaits, as an async call's is. A handler never waits on another party
+// (E3221), so services never wait on each other in a cycle.
+
+// sendTimeoutName is the parameter name maxon keeps for the timeout of a send, which a message may not declare.
+let sendTimeoutName = "sendTimeout"
+
+// spawnName and capacityName are the words of `spawn(capacity: n)`, as a message about its capacity names them.
+let spawnName = "spawn"
+
+let capacityName = "capacity"
+
+// checkSpawn types a spawn: its target is a static factory of a type that returns the type, which becomes the service's
+// state. A factory that cannot throw runs as the service's first behaviour, so its arguments move in as a message's do; one
+// that throws runs where the spawn is, which fails with the factory's error, as maxon's spawner waits for it.
+function checkSpawn(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let call = ast.spawnExprCall(ms.tree(), id: e)
+	let capacity = ast.spawnExprCapacity(ms.tree(), id: e)
+	if capacity != 0 and not checkCapacity(c, p: p, ms: ms, spawn: e, capacity: capacity, errs: errs) 'badCapacity'
+		return ast.noType
+	end 'badCapacity'
+	if ms.tree().kindOf(call) != ast.NodeKind.callExpr or ms.tree().kindOf(ast.callExprCallee(ms.tree(), id: call)) != ast.NodeKind.memberExpr 'notFactory'
+		refuseSpawnTarget(c, p: p, ms: ms, e: e, errs: errs)
+		return ast.noType
+	end 'notFactory'
+	let result = typeCall(c, p: p, ms: ms, call: call, errs: errs)
+	if result == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	recordType(c, e: call, t: result)
+	var info = match consumes c.typing.calls.get(call as Count) 'info'
+		some(i) gives i
+		none panic("check: a spawn was typed without a record of what it calls")
+	end 'info'
+	if info.kind != ast.CallKind.callStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).ownerTy != result 'notOwn'
+		refuseSpawnTarget(c, p: p, ms: ms, e: e, errs: errs)
+		return ast.noType
+	end 'notOwn'
+	if not requireService(c, p: p, ms: ms, e: e, state: result, factory: info.fn, errs: errs) 'refused'
+		return ast.noType
+	end 'refused'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).errTy != ast.noType 'throws'
+		recordCallFailure(c, p: p, ms: ms, call: call)
+		noteCallWaits(c, p: p, ms: ms, call: call)
+		c.partyWaitNow = true
+	end 'throws' else 'onService'
+		movesEveryArgument(info)
+		info.body = serviceBody(c, p: p, ms: ms, node: e)
+		c.typing.calls.insert(call as Count, value: info)
+	end 'onService'
+	if ast.typeEntry(ms.types, reads: p.types, t: result).decl.module == c.modID and not holdsType(c.spawned, t: result) 'own'
+		c.spawned.push(result)
+	end 'own'
+	return serviceHandleType(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), state: result, errs: errs)
+end 'checkSpawn'
+
+// serviceHandleType is `state.handle`, the type of a handle to a service of the state.
+export function serviceHandleType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, off diag.U32, state ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var args = ast.TypeIDList.create(0)
+	args.push(state)
+	return instantiateGeneric(c, p: p, ms: ms, off: off, orig: p.builtins.serviceOrigin, args: args, errs: errs)
+end 'serviceHandleType'
+
+// checkCapacity types the capacity of `spawn(capacity: n)`, a MailboxCapacity.
+function checkCapacity(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, spawn ast.NodeID, capacity ast.NodeID, mutates errs diag.ErrorList) returns bool
+	let value = ast.argValue(ms.tree(), id: capacity)
+	if checkExpecting(c, p: p, ms: ms, e: value, want: p.builtins.mailboxCapacityTy, errs: errs) == ast.noType 'failed'
+		return false
+	end 'failed'
+	let spec = ast.ParamSpec.make(capacityName, ty: p.builtins.mailboxCapacityTy, conv: ast.Convention.convLet)
+	return coerceArg(c, p: p, ms: ms, call: spawn, value: value, callee: spawnName, spec: spec, payload: false, errs: errs)
+end 'checkCapacity'
+
+function refuseSpawnTarget(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList)
+	failAt(c, p: p, ms: ms, node: e, code: diag.errSpawnTarget, msg: "`spawn` starts a service of a type through a static factory of the type that returns it, as 'spawn Calc.create()'; '{exprText(ms.tree(), e: ast.spawnExprCall(ms.tree(), id: e))}' is not one", errs: errs)
+end 'refuseSpawnTarget'
+
+// movesEveryArgument makes each parameter of a call that runs on a service take its argument, which moves in: the
+// behaviour that calls the function owns it, and drops what a let parameter only borrowed once the function returns.
+function movesEveryArgument(mutates info ast.CallInfo)
+	var moved = ast.ParamSpecList.create(0)
+	for i in 0 upto info.paramSpecs.count() 'specs'
+		var spec = info.paramSpecs[i].clone()
+		spec.conv = ast.Convention.convConsumes
+		moved.push(spec)
+	end 'specs'
+	info.paramSpecs = moved
+	info.selfConv = ast.Convention.convLet
+end 'movesEveryArgument'
+
+// serviceBody is the function of the behaviour that runs a factory or a message on the service, numbered with the bodies of
+// the behaviours of the function being checked.
+function serviceBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID) returns ast.FuncID
+	var entry = ast.FuncEntry.make(ast.behaviourName(funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: c.fn), index: c.whens), visibility: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).visibility.clone(), module: c.modID, nodeID: node)
+	entry.retTy = p.builtins.voidTy
+	let fid = ast.allocFunc(ms.funcs, module: c.modID, f: entry)
+	c.whens = try c.whens + 1 otherwise panic("too many behaviours in one function")
+	return fid
+end 'serviceBody'
+
+function holdsType(ts ast.TypeIDList, t ast.TypeID) returns bool
+	for i in 0 upto ts.count() 'each'
+		if ts[i] == t 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'holdsType'
+
+// callSend types a call through a handle: `shutdown`, a method of every handle, or a message, an export instance method of
+// the service's type. A message's arguments move into the service, its send fails with SendError, and a handler that
+// returns or throws replies: the send gives the reply's promise, unless a discard drops it.
+function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, handle ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let mark = errs.count()
+	let own = methodOf(c, p: p, ms: ms, t: handle, name: name, node: call, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguous'
+		return ast.noType
+	end 'ambiguous'
+	if own != ast.noFunc 'handleMethod'
+		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callMethod, target: own, hasGiven: true, given: ast.typeEntry(ms.types, reads: p.types, t: handle).typeArgs.clone(), errs: errs)
+	end 'handleMethod'
+	let state = ast.serviceState(ms.types, reads: p.types, t: handle)
+	let method = methodOf(c, p: p, ms: ms, t: state, name: name, node: call, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguousMessage'
+		return ast.noType
+	end 'ambiguousMessage'
+	if not isMessage(p, ms: ms, method: method) 'notMessage'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errNotAMessage, msg: "'{name}' is not a message of '{nameOfType(p, ms: ms, t: handle)}': a handle reaches the export instance methods of '{nameOfType(p, ms: ms, t: state)}', each a message; export it, or call it inside a message", errs: errs)
+		return ast.noType
+	end 'notMessage'
+	if not requireWords(c, p: p, ms: ms, node: call, what: "the message '{name}'", fn: method, errs: errs) 'floats'
+		return ast.noType
+	end 'floats'
+	let result = callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callSend, target: method, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	if result == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	var info = match consumes c.typing.calls.get(call as Count) 'info'
+		some(i) gives i
+		none panic("check: a send was typed without a record of what it calls")
+	end 'info'
+	if not requireNoFrozenContents(c, p: p, ms: ms, call: call, info: info, errs: errs) 'lent'
+		return ast.noType
+	end 'lent'
+	movesEveryArgument(info)
+	info.receiverTy = handle
+	info.body = serviceBody(c, p: p, ms: ms, node: call)
+	let thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).errTy
+	let replies = result != p.builtins.voidTy or thrown != ast.noType
+	info.replyKept = replies and c.discardedSend != call
+	let kept = info.replyKept
+	c.typing.calls.insert(call as Count, value: info)
+	if not kept 'noReply'
+		return p.builtins.voidTy
+	end 'noReply'
+	c.partyWaitNow = true
+	var args = ast.TypeIDList.create(0)
+	args.push(result)
+	args.push(thrown if thrown != ast.noType else p.builtins.voidTy)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), orig: p.builtins.promiseOrigin, args: args, errs: errs)
+end 'callSend'
+
+// isMessage is whether a method is a message: an export or public instance method.
+function isMessage(p ast.Project, ms ast.ModuleState, method ast.FuncID) returns bool
+	if method == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).isStatic 'none'
+		return false
+	end 'none'
+	return ast.visibilityOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).visibility) != ast.Visibility.unexported
+end 'isMessage'
+
+// requireNoFrozenContents refuses an argument that lends the contents of a frozen value to a parameter of the type it
+// holds: a send moves its arguments, and the contents are the frozen value's, never the sender's to give.
+function requireNoFrozenContents(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, info ast.CallInfo, mutates errs diag.ErrorList) returns bool
+	for i in 0 upto info.ordered.count() 'args'
+		let arg = info.ordered[i]
+		if arg != 0 and lendsContents(p, ms: ms, t: ast.nodeType(c.typing, node: arg), want: info.paramSpecs[i].ty) 'lends'
+			failAt(c, p: p, ms: ms, node: arg, code: diag.errNotSendable, msg: "the parameter '{info.paramSpecs[i].name}' of a message takes a '{nameOfType(p, ms: ms, t: info.paramSpecs[i].ty)}', which moves into the service, and the contents of a frozen value are lent, never given: send a copy, 'thaw(...)', or declare the parameter 'frozen with {nameOfType(p, ms: ms, t: info.paramSpecs[i].ty)}' to share it", errs: errs)
+			return false
+		end 'lends'
+	end 'args'
+	return true
+end 'requireNoFrozenContents'
+
+// requireWords refuses a factory or a message that takes or gives a float: a behaviour is handed its arguments as words,
+// and a reply's cell holds one, which carry no float yet.
+function requireWords(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, what String, fn ast.FuncID, mutates errs diag.ErrorList) returns bool
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).clone()
+	var floats = ast.isFloatType(ms.types, reads: p.types, t: f.retTy)
+	for i in 0 upto f.paramTypes.count() 'params'
+		floats = floats or ast.isFloatType(ms.types, reads: p.types, t: f.paramTypes[i])
+	end 'params'
+	if floats 'float'
+		failAt(c, p: p, ms: ms, node: node, code: diag.errUnsupportedFeature, msg: "{what} takes or gives a float, and a service is handed its arguments and gives its reply as words, which carry no float yet: pass the float in a record", errs: errs)
+		return false
+	end 'float'
+	return true
+end 'requireWords'
+
+// requireService checks, once for each type a module spawns, what maxon checks at the spawn that makes the type a service:
+// its state holds no promise (E3216) and reaches no handle to its own service (E4014), and each of its messages and the
+// factory carry only what can cross (E3217, E3140, E3192). It is false when it refused something.
+function requireService(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, state ast.TypeID, factory ast.FuncID, mutates errs diag.ErrorList) returns bool
+	let stateName = nameOfType(p, ms: ms, t: state)
+	if ast.typeKind(ms.types, reads: p.types, t: state) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: state).typeArgs.count() > 0 'notRecord'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "'{stateName}' is not a type declared with 'type' and no type parameters, and only such a type can be a service yet", errs: errs)
+		return false
+	end 'notRecord'
+	let mark = errs.count()
+	if not requireWords(c, p: p, ms: ms, node: e, what: "the factory '{ast.funcEntry(ms.funcs, funcReads: p.funcs, f: factory).name}'", fn: factory, errs: errs) 'factoryFloats'
+		return false
+	end 'factoryFloats'
+	requireCrossingParams(c, p: p, ms: ms, e: e, what: "the factory '{ast.funcEntry(ms.funcs, funcReads: p.funcs, f: factory).name}'", fn: factory, errs: errs)
+	if holdsType(c.servicesChecked, t: state) 'checked'
+		return not failedSince(errs, mark: mark)
+	end 'checked'
+	c.servicesChecked.push(state)
+	var visiting = ast.TypeIDList.create(0)
+	if holdsPromise(p, ms: ms, t: state, visiting: visiting) 'promise'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStatePromise, msg: "the state of the service '{stateName}' holds a promise, and each message may run on another green thread while a coroutine belongs to the strand that started it: await the coroutine in the message that starts it, and keep its result", errs: errs)
+	end 'promise'
+	var path = ast.StringList.create(0)
+	var visited = BoolIntMap.new()
+	if reachesThroughCown(p, ms: ms, from: state, target: state, via: false, services: true, path: path, visited: visited) 'cycle'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeCycle, msg: "the state of the service '{stateName}' reaches a handle to its own service (via {ast.joinNames(path, sep: " -> ")}), which would keep the service alive for ever: pass the handle with each message that needs it instead", errs: errs)
+	end 'cycle'
+	let orig = ast.originOf(ms.types, reads: p.types, t: state)
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).methods.count() 'methods'
+		let method = ast.typeEntry(ms.types, reads: p.types, t: orig).methods[i].func
+		if isMessage(p, ms: ms, method: method) 'message'
+			requireMessage(c, p: p, ms: ms, e: e, method: method, errs: errs)
+		end 'message'
+	end 'methods'
+	return not failedSince(errs, mark: mark)
+end 'requireService'
+
+// requireMessage checks a message: it takes its state as let or mutates, takes only what can cross, names no parameter
+// sendTimeout, which maxon keeps for the send, and replies with what can cross.
+function requireMessage(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, method ast.FuncID, mutates errs diag.ErrorList)
+	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).name.clone()
+	let what = "the message '{name}'"
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).generics.count() > 0 'generic'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "{what} has type parameters of its own, and a message is not generic yet", errs: errs)
+		return
+	end 'generic'
+	let selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).selfConv
+	if selfConv != ast.Convention.convLet and selfConv != ast.Convention.convMutates 'consumesSelf'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errNotSendable, msg: "{what} takes its receiver as {selfConv.keyword()}, and a message is given the service's state, which it may read or change but never take: declare it 'mutates self', or leave the receiver as it is", errs: errs)
+	end 'consumesSelf'
+	if not requireWords(c, p: p, ms: ms, node: e, what: what, fn: method, errs: errs) 'floats'
+		return
+	end 'floats'
+	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).params.count() 'params'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).params[i].name == sendTimeoutName 'timeout'
+			failAt(c, p: p, ms: ms, node: e, code: diag.errSendTimeoutReserved, msg: "{what} declares a parameter named 'sendTimeout', which every send keeps for how long it waits for room in the mailbox: rename the parameter", errs: errs)
+		end 'timeout'
+	end 'params'
+	requireCrossingParams(c, p: p, ms: ms, e: e, what: what, fn: method, errs: errs)
+	let reply = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).retTy
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).result != ast.ResultConv.resultOwned 'borrowed'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errReplyNotCarriable, msg: "{what} returns a borrowed place, and a reply moves out of the service to the sender: return a value", errs: errs)
+		return
+	end 'borrowed'
+	var visiting = ast.TypeIDList.create(0)
+	let replyWhy = unsendable(p, ms: ms, t: reply, visiting: visiting)
+	if replyWhy != "" 'reply'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errReplyNotCarriable, msg: "{what} replies with a '{nameOfType(p, ms: ms, t: reply)}', which cannot cross back to the sender: {replyWhy}; reply with the value it is derived from", errs: errs)
+	end 'reply'
+	let thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).errTy
+	if thrown != ast.noType 'throws'
+		var seen = ast.TypeIDList.create(0)
+		let thrownWhy = unsendable(p, ms: ms, t: thrown, visiting: seen)
+		if thrownWhy != "" 'error'
+			failAt(c, p: p, ms: ms, node: e, code: diag.errReplyNotCarriable, msg: "{what} throws a '{nameOfType(p, ms: ms, t: thrown)}', which cannot cross back to the sender: {thrownWhy}", errs: errs)
+		end 'error'
+	end 'throws'
+end 'requireMessage'
+
+// requireCrossingParams refuses a parameter of a factory or a message that does not take what crosses into the service:
+// one that borrows to change or initialise (mutates, sets), and one of a type that cannot cross.
+function requireCrossingParams(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, what String, fn ast.FuncID, mutates errs diag.ErrorList)
+	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).params.count() 'params'
+		let param = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).params[i].clone()
+		if param.conv != ast.Convention.convLet and param.conv != ast.Convention.convConsumes 'byAddress'
+			failAt(c, p: p, ms: ms, node: e, code: diag.errNotSendable, msg: "the parameter '{param.name}' of {what} is {param.conv.keyword()}, and nothing is lent to a service, which runs after the sender's frame may be gone: take the value, and reply with what changed", errs: errs)
+			continue 'params'
+		end 'byAddress'
+		var visiting = ast.TypeIDList.create(0)
+		let why = unsendable(p, ms: ms, t: param.ty, visiting: visiting)
+		if why != "" 'unsendable'
+			failAt(c, p: p, ms: ms, node: e, code: diag.errNotSendable, msg: "the parameter '{param.name}' of {what} takes a '{nameOfType(p, ms: ms, t: param.ty)}', which cannot cross into a service: {why}; send a value the service owns from then on, or share a 'frozen with T'", errs: errs)
+		end 'unsendable'
+	end 'params'
+end 'requireCrossingParams'
+
+// unsendable is why a value of type t cannot cross into or out of a service, or "" when it can. It is the one place that
+// decides what crosses between threads (README, "Services"): a value crosses by move, so the sender keeps no part of it, or
+// it is frozen and shared, so no thread writes what another reads, and a cown or a handle counts its owners atomically and
+// lets only a behaviour touch its value. So a scalar, a String, a value that owns its parts and holds only parts that cross,
+// a frozen value of one, a cown and a handle cross. A borrow ends before the service runs; a promise belongs to the strand
+// that started its coroutine; a function value may share what its closure captured with the sender; and a value at a type
+// parameter or an interface type is of a type the send does not know.
+export function unsendable(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns String
+	if holdsType(visiting, t: t) 'again'
+		return ""
+	end 'again'
+	if holdsBorrow(p, ms: ms, t: t) 'borrow'
+		return "'{nameOfType(p, ms: ms, t: t)}' holds a borrow, which ends before the service runs"
+	end 'borrow'
+	let name = nameOfType(p, ms: ms, t: t)
+	return match ast.typeKind(ms.types, reads: p.types, t: t) 'k'
+		invalid gives panic("check: a value that crosses into a service has no type")
+		primBool gives ""
+		primString gives ""
+		primVoid gives ""
+		primNever gives ""
+		intRange gives ""
+		constInt gives ""
+		floatRange gives ""
+		constFloat gives ""
+		enumTy gives ""
+		builtinHandle gives ""
+		builtinCown gives ""
+		builtinService gives ""
+		builtinCursor gives "'{name}' borrows the buffer it walks"
+		builtinPromise gives "'{name}' is a promise, whose coroutine belongs to the strand that started it"
+		typeParam gives "'{name}' is a type parameter, whose layout the send does not know"
+		interfaceTy gives "'{name}' holds a value of a type the send does not know, which may hold what cannot cross"
+		funcTy gives "'{name}' is a function value, whose closure may share what it captured with the sender"
+		record gives partsUnsendable(p, ms: ms, t: t, visiting: visiting)
+		unionTy gives partsUnsendable(p, ms: ms, t: t, visiting: visiting)
+		builtinArray gives argsUnsendable(p, ms: ms, t: t, visiting: visiting)
+		builtinMap gives argsUnsendable(p, ms: ms, t: t, visiting: visiting)
+		builtinList gives argsUnsendable(p, ms: ms, t: t, visiting: visiting)
+		builtinPool gives argsUnsendable(p, ms: ms, t: t, visiting: visiting)
+		builtinFrozen gives argsUnsendable(p, ms: ms, t: t, visiting: visiting)
+	end 'k'
+end 'unsendable'
+
+// partsUnsendable is why a record or a union cannot cross: the first of its fields or payloads that cannot.
+function partsUnsendable(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns String
+	visiting.push(t)
+	let orig = ast.originOf(ms.types, reads: p.types, t: t)
+	var why = ""
+	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.record 'record'
+		for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).fields.count() 'fields'
+			let field = ast.fieldType(ms.types, reads: p.types, owner: t, index: i)
+			why = unsendable(p, ms: ms, t: field, visiting: visiting)
+			if why != "" 'found'
+				break 'fields'
+			end 'found'
+		end 'fields'
+	end 'record' else 'union'
+		for ci in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() 'cases'
+			for pi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload.count() 'payload'
+				let part = ast.payloadType(ms.types, reads: p.types, owner: t, caseIndex: ci, index: pi)
+				why = unsendable(p, ms: ms, t: part, visiting: visiting)
+				if why != "" 'found'
+					break 'cases'
+				end 'found'
+			end 'payload'
+		end 'cases'
+	end 'union'
+	_ = try visiting.pop() otherwise panic("check: a type left that was never visited")
+	return why
+end 'partsUnsendable'
+
+// argsUnsendable is why a built-in container or a frozen value cannot cross: the first of what it holds that cannot.
+function argsUnsendable(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns String
+	let args = ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs.clone()
+	for i in 0 upto args.count() 'args'
+		let why = unsendable(p, ms: ms, t: args[i], visiting: visiting)
+		if why != "" 'found'
+			return why
+		end 'found'
+	end 'args'
+	return ""
+end 'argsUnsendable'
+
+// holdsPromise is whether a value of type t is or holds a promise, at any depth but through a cown or a handle, whose
+// value is another service's or another behaviour's.
+function holdsPromise(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
+	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
+	if kind == ast.TypeKind.builtinPromise 'promise'
+		return true
+	end 'promise'
+	if holdsType(visiting, t: t) or kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'elsewhere'
+		return false
+	end 'elsewhere'
+	visiting.push(t)
+	let orig = ast.originOf(ms.types, reads: p.types, t: t)
+	var held = ast.TypeIDList.create(0)
+	if kind == ast.TypeKind.record 'record'
+		for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).fields.count() 'fields'
+			held.push(ast.fieldType(ms.types, reads: p.types, owner: t, index: i))
+		end 'fields'
+	end 'record' else if kind == ast.TypeKind.unionTy 'union'
+		for ci in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() 'cases'
+			for pi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload.count() 'payload'
+				held.push(ast.payloadType(ms.types, reads: p.types, owner: t, caseIndex: ci, index: pi))
+			end 'payload'
+		end 'cases'
+	end 'union' else if kind.isBuiltin() 'builtin'
+		held = ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs.clone()
+	end 'builtin'
+	var found = false
+	for i in 0 upto held.count() 'each'
+		if holdsPromise(p, ms: ms, t: held[i], visiting: visiting) 'hit'
+			found = true
+			break 'each'
+		end 'hit'
+	end 'each'
+	_ = try visiting.pop() otherwise panic("check: a type left that was never visited")
+	return found
+end 'holdsPromise'
+
+// verifyHolders is E3221 for each message, and each factory, of a type of the module that the module spawns, that may wait
+// on another party: it holds its service while it waits, so two services that wait on each other would wait for ever.
+// The facts are the module's own; a function of another module, a function value and an interface are taken not to.
+function verifyHolders(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)
+	for i in 0 upto c.spawned.count() 'services'
+		let orig = ast.originOf(ms.types, reads: p.types, t: c.spawned[i])
+		for j in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).methods.count() 'methods'
+			let method = ast.typeEntry(ms.types, reads: p.types, t: orig).methods[j].func
+			let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).clone()
+			let factory = entry.isStatic and entry.retTy == c.spawned[i]
+			if not isMessage(p, ms: ms, method: method) and not factory 'other'
+				continue 'methods'
+			end 'other'
+			var visited = BoolIntMap.new()
+			if mayWaitOnParty(c, p: p, ms: ms, f: method, visited: visited) 'waits'
+				let kind = "factory" if factory and not isMessage(p, ms: ms, method: method) else "message"
+				checkFail(c.modID, off: ms.tree().startOf(entry.nodeID), code: diag.errHolderMayWait, msg: "the {kind} '{entry.name}' may wait (it awaits a reply from a service, or the start of one) while holding its own service; send the request with this service's handle and handle the reply in another message", errs: errs)
+			end 'waits'
+		end 'methods'
+	end 'services'
+end 'verifyHolders'
+
+// mayWaitOnParty is whether a function may wait on another party, by its facts and those of the functions of the module it
+// calls.
+function mayWaitOnParty(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns bool
+	if visited.has(f as Count) 'seen'
+		return false
+	end 'seen'
+	visited.insert(f as Count, value: true)
+	let fact = match consumes c.waits.get(f as Count) 'fact'
+		some(known) gives known
+		none gives WaitFact.make(false, calls: ast.FuncIDList.create(0))
+	end 'fact'
+	if fact.partyWaits 'waits'
+		return true
+	end 'waits'
+	for i in 0 upto fact.calls.count() 'calls'
+		if mayWaitOnParty(c, p: p, ms: ms, f: fact.calls[i], visited: visited) 'reaches'
+			return true
+		end 'reaches'
+	end 'calls'
+	return false
+end 'mayWaitOnParty'
+
+// requireReplyHandled refuses a send whose reply is neither awaited, kept nor dropped on purpose: maxon's E3190, for the
+// call that a statement makes.
+function requireReplyHandled(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, mutates errs diag.ErrorList)
+	if ms.tree().kindOf(call) != ast.NodeKind.callExpr 'notCall'
+		return
+	end 'notCall'
+	let info = match consumes c.typing.calls.get(call as Count) 'info'
+		some(i) gives i
+		none gives ast.CallInfo.make(ast.CallKind.callUnresolved, fn: ast.noFunc, receiverTy: ast.noType)
+	end 'info'
+	if info.kind == ast.CallKind.callSend and info.replyKept 'replies'
+		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).name.clone()
+		failAt(c, p: p, ms: ms, node: call, code: diag.errReplyDropped, msg: "the message '{name}' replies, and its reply is neither awaited nor kept: await it with 'try await', keep it with 'let p = try ...', or drop it on purpose with '_ = try ...'", errs: errs)
+	end 'replies'
+end 'requireReplyHandled'
+
+// discardedCall is the call whose value a discard drops, through the try around it, or none.
+function discardedCall(tree ast.Tree, value ast.NodeID) returns ast.NodeID
+	var e = value
+	if tree.kindOf(e) == ast.NodeKind.tryExpr 'try'
+		e = ast.tryExprE(tree, id: e)
+	end 'try'
+	if tree.kindOf(e) == ast.NodeKind.callExpr 'call'
+		return e
+	end 'call'
+	return 0 as ast.NodeID
+end 'discardedCall'

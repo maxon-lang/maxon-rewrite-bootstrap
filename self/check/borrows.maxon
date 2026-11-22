@@ -29,6 +29,7 @@ function holdsBorrowWithin(p ast.Project, mutates ms ast.ModuleState, t ast.Type
 		builtinCown gives argsHoldBorrow(p, ms: ms, t: t, visiting: visiting)
 		builtinHandle gives false
 		builtinPromise gives false
+		builtinService gives false
 		invalid gives false
 		primBool gives false
 		primString gives false

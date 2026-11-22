@@ -1158,10 +1158,20 @@ func transformFunctionHeader(line *sourceLine, fnIdx int, warn func(*sourceLine,
 		switch t.text {
 		case "returns":
 			if i+1 < len(line.code) && isCapabilityWord(line.code[i+1].text) {
-				warn(line, fmt.Sprintf("return type capability '%s' is not supported in minimaxon", line.code[i+1].text))
+				line.code = slices.Concat(line.code[:i+1], capabilityType(line.code[i+1].text), line.code[i+2:])
 			}
 		}
 	}
+}
+
+// capabilityType is what maxon's capability word before a type becomes here, where what crosses between threads is
+// decided by ownership (README, "Where it differs from Maxon"): `isolated T`, a value no one else reaches, is an owned
+// T, and `immutable T`, frozen data that threads share, is a `frozen with T`.
+func capabilityType(word string) []token {
+	if word == "immutable" {
+		return []token{{kind: tokIdent, text: "frozen"}, {kind: tokIdent, text: "with"}}
+	}
+	return nil
 }
 
 func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, string)) []token {
@@ -1219,6 +1229,15 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 		nameIdx := 0
 		if len(g) >= 3 && (g[0].text == "mutates" || g[0].text == "consumes" || g[0].text == "sets") {
 			nameIdx = 1
+		}
+		// `name isolated T` takes a value that moves in, and `name immutable T` shares a frozen one.
+		if typeAt := nameIdx + 1; typeAt+1 < len(g) && g[typeAt].kind == tokIdent && isCapabilityWord(g[typeAt].text) {
+			word := g[typeAt].text
+			g = slices.Concat(g[:typeAt:typeAt], capabilityType(word), g[typeAt+1:])
+			if word == "isolated" && nameIdx == 0 {
+				g = slices.Concat([]token{{kind: tokIdent, text: "consumes"}}, g)
+				nameIdx = 1
+			}
 		}
 		for k := nameIdx + 1; k < len(g); k++ {
 			if g[k].kind == tokIdent && isCapabilityWord(g[k].text) {
@@ -1354,10 +1373,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case tokIdent:
 			switch t.text {
-			case "spawn":
-				if (i == 0 || toks[i-1].text != ".") && i+1 < len(toks) && (toks[i+1].kind == tokIdent || toks[i+1].text == "(") {
-					warn(line, "spawn services are not supported in minimaxon; use cown/when concurrency")
-				}
 			case "int":
 				if i+2 < len(toks) && toks[i+1].text == "." && toks[i+2].text == "fromString" {
 					warn(line, "'int.fromString' is not supported in minimaxon")
@@ -2179,7 +2194,7 @@ func spaceBeforeParenKeyword(word string) bool {
 	case "if", "else", "while", "for", "in", "to", "upto", "return", "try", "otherwise",
 		"with", "and", "or", "xor", "not", "mod", "shl", "shr", "gives", "then",
 		"throw", "throws", "match", "as", "let", "var", "mutates", "consumes", "sets",
-		"returns", "where", "implements", "uses", "from", "spawn", "await", "async", "when":
+		"returns", "where", "implements", "uses", "from", "await", "async", "when":
 		return true
 	}
 	return false

@@ -218,7 +218,6 @@ child exit=0
 ```
 
 <!-- test: scheduler-processor-count.asked-before-the-first-spawn -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A pool is sized BEFORE its services exist, so the count read ahead of the first `spawn` must be the one the
 services then run on.
 ```maxon
@@ -231,15 +230,14 @@ type Worker
 		return Self{done: 0}
 	end 'create'
 
-	export function work(units Tally) returns Tally
-		self.done = self.done + units
+	export function work(mutates self, units Tally) returns Tally
+		self.done = try self.done + units otherwise panic("out of range")
 		return self.done
 	end 'work'
 end 'Worker'
 
 function main() returns ExitCode
 	let before = Scheduler.processorCount()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Worker.create()
 	let units = try await h.work(4) otherwise 0
 	let after = Scheduler.processorCount()

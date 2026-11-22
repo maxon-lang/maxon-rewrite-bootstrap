@@ -203,6 +203,9 @@ function visitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if k == ast.NodeKind.asyncExpr 'asyncExpr'
 		return visitAsyncExpr(l, p: p, ms: ms, e: e)
 	end 'asyncExpr'
+	if k == ast.NodeKind.spawnExpr 'spawnExpr'
+		return visitSpawnExpr(l, p: p, ms: ms, e: e)
+	end 'spawnExpr'
 	if k == ast.NodeKind.awaitExpr 'awaitExpr'
 		return visitAwaitExpr(l, p: p, ms: ms, e: e)
 	end 'awaitExpr'
@@ -638,6 +641,9 @@ function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if kind == ast.CallKind.callFunction or kind == ast.CallKind.callStatic or kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound 'call'
 		return lowerCall(l, p: p, ms: ms, c: c)
 	end 'call'
+	if kind == ast.CallKind.callSend 'send'
+		return lowerSend(l, p: p, ms: ms, c: c)
+	end 'send'
 	if kind == ast.CallKind.callValue 'value'
 		let closure = lowerRead(l, p: p, ms: ms, e: ast.callExprCallee(p.modules[l.mi].tree, id: node))
 		let base = l.args.count()

@@ -14,7 +14,6 @@ A call that passes an `isolated` value in an unmarked position, as receiver or a
 ## Tests
 
 <!-- test: error.a-one-call-open-around-a-method-that-awaits-a-coroutine-is-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `spin` awaits its helper coroutine, which could not run while `slot` is open.
@@ -42,8 +41,7 @@ function delayed() returns Tally
 	return 7
 end 'delayed'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function runSlot(slot isolated Slot) returns Tally
+function runSlot(consumes slot Slot) returns Tally
 	return slot.spin()
 end 'runSlot'
 
@@ -61,7 +59,6 @@ error E3205: <fragment>:27:14: cannot call 'spin' inside 'slot'; it may yield (i
 ```
 
 <!-- test: error.a-one-call-open-reaches-an-await-through-a-helper -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The await is one call down: `spin` calls `relay`, which awaits.
@@ -91,8 +88,7 @@ function delayed() returns Tally
 	return 7
 end 'delayed'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function runSlot(slot isolated Slot) returns Tally
+function runSlot(consumes slot Slot) returns Tally
 	return slot.spin()
 end 'runSlot'
 
@@ -110,7 +106,6 @@ error E3205: <fragment>:29:14: cannot call 'spin' inside 'slot'; it may yield (i
 ```
 
 <!-- test: a-one-call-open-around-a-method-that-only-sleeps-runs -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Sleeping blocks the strand for the call and switches to no sibling, so it is not a yield.
 
@@ -131,8 +126,7 @@ type Slot
 	end 'quiet'
 end 'Slot'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function runSlot(slot isolated Slot) returns Tally
+function runSlot(consumes slot Slot) returns Tally
 	return slot.quiet()
 end 'runSlot'
 

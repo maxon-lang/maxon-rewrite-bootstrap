@@ -98,7 +98,14 @@ function constRefsOfOperands(p ast.Project, ms ast.ModuleState, tree ast.Tree, r
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.unaryExprE(tree, id: e), out: out)
 	end 'unary' else if k == ast.NodeKind.asyncExpr 'async'
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.asyncExprCall(tree, id: e), out: out)
-	end 'async' else if k == ast.NodeKind.awaitExpr 'await'
+	end 'async' else if k == ast.NodeKind.spawnExpr 'spawn'
+		out.runs = true
+		let capacity = ast.spawnExprCapacity(tree, id: e)
+		if capacity != 0 'capacity'
+			constRefs(p, ms: ms, tree: tree, res: res, e: ast.argValue(tree, id: capacity), out: out)
+		end 'capacity'
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.spawnExprCall(tree, id: e), out: out)
+	end 'spawn' else if k == ast.NodeKind.awaitExpr 'await'
 		out.runs = true
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.awaitExprE(tree, id: e), out: out)
 	end 'await' else if k == ast.NodeKind.tryExpr 'try'

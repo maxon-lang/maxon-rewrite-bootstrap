@@ -353,7 +353,7 @@ function emitDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 		dropFrozen(u, p: p, ms: ms, ty: ty)
 		return
 	end 'frozen'
-	if kind == ast.TypeKind.builtinCown 'cown'
+	if kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'cown'
 		dropCown(u, p: p, ms: ms, ty: ty)
 		return
 	end 'cown'
@@ -402,7 +402,7 @@ function emitCopy(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 		copyShared(u, countOffset: frozenCountOffset)
 		return
 	end 'frozen'
-	if kind == ast.TypeKind.builtinCown 'cown'
+	if kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'cown'
 		copyShared(u, countOffset: cownCountOffset)
 		return
 	end 'cown'

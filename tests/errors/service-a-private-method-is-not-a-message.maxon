@@ -1,0 +1,21 @@
+export typealias Amount = int(0 to 1000000)
+
+type Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	function peek() returns Amount
+		return self.n
+	end 'peek'
+end 'Counter'
+
+function main() returns ExitCode
+	let h = spawn Counter.create()
+	let p = try h.peek() otherwise panic("room")
+	return 0
+end 'main'
+
+// expect-error: E3136 at 17:16

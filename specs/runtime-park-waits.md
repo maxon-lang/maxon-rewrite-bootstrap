@@ -14,7 +14,6 @@ category: concurrency
 ## Tests
 
 <!-- test: runtime-park-waits.error.a-message-that-quiesces-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `settle` runs in `Settler`'s own message, so the scheduler could never go idle while it parks.
 
@@ -34,7 +33,6 @@ type Settler
 end 'Settler'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let settler = spawn Settler.create()
 	_ = settler
 	return 0
@@ -45,7 +43,6 @@ error E3221: <fragment>:11:18: the message 'settle' may wait (it calls 'quiesce'
 ```
 
 <!-- test: runtime-park-waits.error.a-message-that-runs-the-cown-torture-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `stress` joins the green threads the torture spawns while holding `Stresser`'s own service.
 
@@ -65,7 +62,6 @@ type Stresser
 end 'Stresser'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let stresser = spawn Stresser.create()
 	_ = stresser
 	return 0
@@ -76,7 +72,6 @@ error E3221: <fragment>:11:18: the message 'stress' may wait (it calls 'violatio
 ```
 
 <!-- test: runtime-park-waits.error.a-spawn-factory-that-quiesces-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A spawn factory holds its own service while it runs, so it may not park either. The case calls the intrinsic itself, so the line the diagnostic cites is the case's own.
@@ -94,7 +89,6 @@ type Booted
 end 'Booted'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let booted = spawn Booted.create()
 	_ = booted
 	return 0
@@ -105,7 +99,6 @@ error E3221: <fragment>:7:18: the spawn factory 'create' may wait (it parks unti
 ```
 
 <!-- test: runtime-park-waits.error.a-message-reaches-the-park-through-a-callee -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `relay` waits through `drain`, a function that calls the park.
@@ -130,7 +123,6 @@ type Relay
 end 'Relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let relay = spawn Relay.create()
 	_ = relay
 	return 0
@@ -215,7 +207,7 @@ violations=0
 ```
 
 <!-- test: runtime-park-waits.error.a-message-returning-an-inline-ranged-int-is-refused-at-its-return-type -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got '(' -->
 <!-- positions: moved -->
 An `int(…)` spelled inline in a message's return type is the same E3005 a plain function gets, not a compiler fault: the message is refused where it is declared, so no request union is built for it.
 
@@ -235,7 +227,6 @@ type Account
 end 'Account'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let account = spawn Account.create(1)
 	_ = account
 	return 0
@@ -246,7 +237,7 @@ error E3005: <fragment>:11:40: Cannot use bare 'int' as a type. Define a typeali
 ```
 
 <!-- test: runtime-park-waits.error.a-message-taking-an-inline-ranged-int-is-refused-at-its-parameter -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '(' -->
 <!-- positions: moved -->
 ```maxon
 typealias Money = int(i64.min to i64.max)
@@ -264,7 +255,6 @@ type Account
 end 'Account'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let account = spawn Account.create(1)
 	_ = account
 	return 0
@@ -275,7 +265,7 @@ error E3005: <fragment>:11:29: Cannot use bare 'int' as a type. Define a typeali
 ```
 
 <!-- test: runtime-park-waits.error.a-message-returning-a-tuple-with-an-inline-ranged-element-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '(' -->
 <!-- positions: moved -->
 ```maxon
 typealias Money = int(i64.min to i64.max)
@@ -293,7 +283,6 @@ type Account
 end 'Account'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let account = spawn Account.create(1)
 	_ = account
 	return 0
@@ -304,7 +293,6 @@ error E3005: <fragment>:11:43: Cannot use bare 'int' as a type. Define a typeali
 ```
 
 <!-- test: runtime-park-waits.error.a-message-returning-an-inline-function-type-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Money = int(i64.min to i64.max)
@@ -322,7 +310,6 @@ type Account
 end 'Account'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let account = spawn Account.create(1)
 	_ = account
 	return 0
@@ -333,7 +320,6 @@ error E2010: <fragment>:11:33: Expected 'a type' but got 'function'
 ```
 
 <!-- test: runtime-park-waits.a-messages-with-aliased-signatures-register-and-answer -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same shapes written through a `typealias` register as messages and answer: a ranged return, a tuple return, and a ranged and a tuple parameter.
 
 ```maxon
@@ -358,14 +344,13 @@ type Account
 		return (self.balance, 2)
 	end 'bounds'
 
-	export function absorb(pair Pair)
+	export function absorb(mutates self, pair Pair)
 		let (amount, _) = pair
-		self.balance = self.balance + amount
+		self.balance = try self.balance + amount otherwise panic("out of range")
 	end 'absorb'
 end 'Account'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let account = spawn Account.create(5)
 	let narrowed = try await account.narrowed(3) otherwise 0
 	try account.absorb((10, 4)) otherwise ignore

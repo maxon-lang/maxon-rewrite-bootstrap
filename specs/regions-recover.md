@@ -22,7 +22,6 @@ write it or store it into the window's data.
 ## Tests
 
 <!-- test: a-fresh-local-moves-into-an-isolated-parameter-on-its-first-read -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 `fresh` is read once, as the argument of an `isolated` parameter.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -35,8 +34,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -54,7 +52,6 @@ consumed 3
 ```
 
 <!-- test: a-fresh-local-is-declared-isolated-from-its-first-read -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `fresh` becomes the `isolated` local `kept`.
 ```maxon
@@ -68,8 +65,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -89,7 +85,6 @@ consumed 4
 ```
 
 <!-- test: a-fresh-local-inside-an-isolated-initializer-moves-with-it -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The union literal that holds `fresh` is the initializer of an `isolated` local, so `fresh` is read once, inside it.
 ```maxon
@@ -108,8 +103,7 @@ union Slot
 	holding(box Box)
 end 'Slot'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function drain(s isolated Slot)
+function drain(consumes s Slot)
 	match s 'which'
 		empty then print("empty\n")
 		holding then print("holding\n")
@@ -159,7 +153,6 @@ frozen 6
 ```
 
 <!-- test: a-local-read-before-the-isolated-position-is-not-fresh -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The `print` already read the local, so it is ordinary mutable data when `consume` wants an `isolated` value.
 ```maxon
@@ -173,8 +166,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -190,7 +182,6 @@ error E3200: <fragment>:19:10: 'fresh' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: a-fresh-local-is-moved-once-it-is-recovered -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `consume(fresh)` moved `fresh`, so the next read is a use after the move.
 ```maxon
@@ -204,8 +195,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -221,7 +211,7 @@ error E3102: <fragment>:19:10: use of moved value 'fresh': its ownership moved t
 ```
 
 <!-- test: a-local-an-enclosing-loop-reads-again-is-not-fresh -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The loop reads `fresh` on every lap, so the one textual read is not the first read of a value nobody else names.
 ```maxon
@@ -235,8 +225,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -255,7 +244,7 @@ error E3200: <fragment>:21:11: 'fresh' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: a-local-with-a-second-name-is-not-fresh -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `alias` is a second read of `fresh`, so the read that wants an `isolated` value is not the first.
 ```maxon
@@ -269,8 +258,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -287,7 +275,6 @@ error E3200: <fragment>:19:10: 'fresh' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: a-local-each-match-arm-leaves-fresh-is-fresh-after-the-match -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 One arm gives `fresh` a new `Box` and the other leaves the one it was declared with; neither reads it, so it is fresh after the `match` and moves into the `isolated` parameter.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -309,8 +296,7 @@ function side() returns Side
 	return Side.left
 end 'side'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -332,7 +318,6 @@ consumed 2
 ```
 
 <!-- test: a-local-a-match-arm-reads-is-not-fresh-after-the-match -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The `right` arm reads `fresh`, so after the `match` it may have been read before the `isolated` parameter reads it.
 ```maxon
@@ -355,8 +340,7 @@ function side() returns Side
 	return Side.left
 end 'side'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -375,7 +359,6 @@ error E3200: <fragment>:33:10: 'fresh' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: a-local-assigned-a-try-of-a-fresh-call-with-a-fresh-fallback-is-fresh -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 `fresh` is moved, then given either `build`'s new `Box` or the fallback's, so it is fresh again and moves into the `isolated` parameter.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -399,8 +382,7 @@ function build(n Count) returns Box throws BuildError
 	return Box.create(n)
 end 'build'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -421,7 +403,6 @@ consumed 3
 ```
 
 <!-- test: the-plain-payload-of-an-owned-union-goes-where-an-isolated-value-does -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `u` is an `isolated` local holding a linear union, and the `match` consumes it. `y` is the lone plain payload of its case, so it is recovered into `consume`'s `isolated` parameter.
 ```maxon
@@ -452,8 +433,7 @@ union Parcel
 	box(b Box)
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function consume(b isolated Box)
+function consume(consumes b Box)
 	print("consumed {b.n}\n")
 end 'consume'
 
@@ -476,9 +456,7 @@ consumed 7
 
 <!-- test: an-owned-payload-stored-into-an-open-window-merges-its-region -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The `match` inside the `modify` window consumes the `isolated` message parameter `p`, and storing the payload `b` into the window's `label` merges the payload's region into the window's.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -530,8 +508,7 @@ type Bay
 		return Self{loads: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function load(p isolated Parcel)
+	export function load(consumes p Parcel)
 		self.loads = 1
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let shelf = Shelf.create(Box.create(0)) as isolated Shelf
@@ -547,7 +524,6 @@ type Bay
 end 'Bay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let bay = spawn Bay.create()
 	try bay.load(Parcel.box(Box.create(8))) otherwise (failure) 'refused'
 		match failure 'why'
@@ -625,9 +601,7 @@ end 'main'
 ```
 
 <!-- test: a-behaviour-stores-the-plain-payload-of-its-message-in-an-isolated-slot -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The behaviour owns its `isolated` message parameter `p`, matches it, and stores the payload in the `isolated` field `item`.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -668,13 +642,11 @@ type Shed
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Box
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(item isolated Box) returns Self
+	static function create(consumes item Box) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function store(p isolated Parcel)
+	export function store(consumes p Parcel)
 		match p 'unpack'
 			pad(x) then x.fin()
 			box(b) then self.item = b
@@ -683,7 +655,6 @@ type Shed
 end 'Shed'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shed = spawn Shed.create(Box.create(0))
 	try shed.store(Parcel.box(Box.create(1))) otherwise (failure) 'refused'
 		match failure 'why'
@@ -699,8 +670,6 @@ end 'main'
 ```
 
 <!-- test: a-handed-back-linear-argument-goes-to-an-isolated-parameter -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The failed send hands `back` over as an owned value, so the handler passes it to a function that takes an `isolated` union.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -722,8 +691,7 @@ union Parcel
 	none
 end 'Parcel'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function settle(p isolated Parcel)
+function settle(consumes p Parcel)
 	match p 'which'
 		pad(x) then x.fin()
 		none then print("none\n")
@@ -747,7 +715,6 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let counter = spawn Counter.create()
 	try counter.take(Parcel.pad(Pad.create(2))) otherwise (failure) 'refused'
 		match failure 'why'
@@ -766,7 +733,6 @@ fin 2
 ```
 
 <!-- test: a-linear-union-with-a-plain-payload-does-not-cross-from-a-literal-over-a-live-local -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Mp.m1(b)` is no fresh value, because `b` is a local the sender writes after the send, and `Mp` is not closed: its payload `y` is a plain `Bx`.
 ```maxon
@@ -820,7 +786,6 @@ type Taker
 end 'Taker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create(0)
 	let b = Bx.create(1)
 	try s.take(Mp.m1(b)) otherwise (failure) 'refused'
@@ -838,7 +803,6 @@ error E3200: <fragment>:52:13: 'Mp.m1(b)' crosses to the service it is sent to o
 ```
 
 <!-- test: a-linear-union-local-with-a-plain-payload-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `m` is an owned linear value, but `Mp` holds the plain part `y`, which `b` still names, so `m` is not the whole of its region.
 ```maxon
@@ -892,7 +856,6 @@ type Taker
 end 'Taker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create(0)
 	let b = Bx.create(1)
 	let m = Mp.m1(b)
@@ -911,7 +874,7 @@ error E3200: <fragment>:53:13: 'm' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-local-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Tp` is `unique` and holds the plain `Bx` field `b`; `h.k` keeps a second name for it, so `t` is not the whole of its region.
 ```maxon
@@ -954,7 +917,6 @@ type TpTaker
 end 'TpTaker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
 	let h = Holder.create()
 	let t = Tp.create(1)
@@ -969,7 +931,7 @@ error E3200: <fragment>:44:13: 't' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-parameter-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A parameter is no fresh value, so `t` crosses only if `Tp` is closed, and it is not.
 ```maxon
@@ -1016,7 +978,6 @@ function relay(s TpTaker.handle, t Tp)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
 	let h = Holder.create()
 	let t = Tp.create(1)
@@ -1031,7 +992,7 @@ error E3200: <fragment>:39:13: 't' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-message-parameter-whose-type-holds-a-plain-part-is-not-sent-on -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The behaviour keeps `t.b` in its own state and then sends `t` on: the message parameter is owned, but `Tp` is not closed.
 ```maxon
@@ -1091,9 +1052,7 @@ end 'Forwarder'
 function main() returns ExitCode
 	let h = Holder.create()
 	h.k.n = 1
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let f = spawn Forwarder.create(s)
 	try f.put(Tp.create(1)) otherwise ignore
 	return 0
@@ -1104,7 +1063,7 @@ error E3200: <fragment>:48:21: 't' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-spawn-factory-argument-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A factory argument crosses to the service's thread under the same rule as a message argument; a fresh `Tp` crosses.
 ```maxon
@@ -1162,11 +1121,9 @@ function main() returns ExitCode
 	let h = Holder.create()
 	let t = Tp.create(1)
 	h.k = t.b
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Keeper.create(t)
 	try s.poke() otherwise ignore
 	h.k.n = 4
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let z = spawn TpTaker.create(0)
 	try z.take(Tp.create(2)) otherwise ignore
 	return 0
@@ -1177,7 +1134,7 @@ error E3200: <fragment>:54:30: 't' crosses to the service the `spawn` starts onl
 ```
 
 <!-- test: a-unique-reply-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The behaviour keeps `t.b` and replies with `t`, which is then not the whole of its region.
 ```maxon
@@ -1236,11 +1193,9 @@ end 'Maker'
 function main() returns ExitCode
 	let h = Holder.create()
 	h.k.n = 1
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Maker.create()
 	let t = try await s.make() otherwise return 1
 	print("{t.b.n}\n")
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let z = spawn TpTaker.create(0)
 	try z.take(Tp.create(2)) otherwise ignore
 	return 0
@@ -1251,7 +1206,6 @@ error E3200: <fragment>:48:10: 't' crosses to the sender awaiting the reply only
 ```
 
 <!-- test: a-unique-type-in-a-cycle-through-a-plain-payload-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `U` and `Link` hold each other, and `Link` holds `U` as a plain payload, so `U` is not closed. A type cycle is also E4014.
 ```maxon
@@ -1288,7 +1242,6 @@ function relay(s UTaker.handle, u U)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn UTaker.create(0)
 	relay(s, u: U.create(1))
 	return 0
@@ -1300,7 +1253,6 @@ error E3200: <fragment>:31:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-type-in-a-cycle-through-a-plain-payload-does-not-cross-when-the-union-is-declared-first -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The cycle above with `Link` declared first: the answer does not depend on the order the types are declared in.
 ```maxon
@@ -1337,7 +1289,6 @@ function relay(s UTaker.handle, u U)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn UTaker.create(0)
 	relay(s, u: U.create(1))
 	return 0
@@ -1350,7 +1301,6 @@ error E3200: <fragment>:31:13: 'u' crosses to the service it is sent to only as 
 
 <!-- test: a-unique-type-in-a-cycle-through-an-isolated-payload-does-not-cross -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Link` holds `U` as an `isolated` payload. Where the walk meets `U` again it counts `U` as holding nothing, so `U.link` is a plain `Link` and `U` is not closed.
 ```maxon
@@ -1388,7 +1338,6 @@ function relay(s UTaker.handle, u U)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn UTaker.create(0)
 	relay(s, u: U.create(1))
 	return 0
@@ -1401,7 +1350,6 @@ error E3200: <fragment>:31:13: 'u' crosses to the service it is sent to only as 
 
 <!-- test: a-unique-type-in-a-cycle-through-an-isolated-payload-does-not-cross-when-the-union-is-declared-first -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The cycle above with `Link` declared first.
 ```maxon
@@ -1439,7 +1387,6 @@ function relay(s UTaker.handle, u U)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn UTaker.create(0)
 	relay(s, u: U.create(1))
 	return 0
@@ -1451,7 +1398,6 @@ error E3200: <fragment>:31:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-type-in-a-cycle-through-a-generic-instance-does-not-cross -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `U` reaches `Link` through the generic instance `LinkArray`, and `Link` holds `U` as a plain payload, so `U` is not closed.
 ```maxon
@@ -1480,17 +1426,16 @@ type UTaker
 		return Self{seen: seen}
 	end 'create'
 
-	export function take(u U)
+	export function take(mutates self, u U)
 		self.seen = u.n
 	end 'take'
 end 'UTaker'
 
-function relay(s UTaker.handle, u U)
+function relay(s UTaker.handle, consumes u U)
 	try s.take(u) otherwise ignore
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn UTaker.create(0)
 	relay(s, u: U.create(1))
 	return 0
@@ -1502,7 +1447,6 @@ error E3200: <fragment>:33:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-type-in-a-cycle-through-a-generic-instance-does-not-cross-when-the-union-is-declared-first -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The cycle above with `Link` declared first.
 ```maxon
@@ -1531,17 +1475,16 @@ type UTaker
 		return Self{seen: seen}
 	end 'create'
 
-	export function take(u U)
+	export function take(mutates self, u U)
 		self.seen = u.n
 	end 'take'
 end 'UTaker'
 
-function relay(s UTaker.handle, u U)
+function relay(s UTaker.handle, consumes u U)
 	try s.take(u) otherwise ignore
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn UTaker.create(0)
 	relay(s, u: U.create(1))
 	return 0
@@ -1553,9 +1496,7 @@ error E3200: <fragment>:33:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: the-payload-of-a-message-parameter-whose-union-is-not-closed-is-not-isolated -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Parcel` holds the plain payload `b`, so the behaviour's unmarked message parameter `p` is owned plain data and its payload goes to no `isolated` slot.
 ```maxon
@@ -1597,8 +1538,7 @@ type Shed
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(item isolated Bx) returns Self
+	static function create(consumes item Bx) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1611,7 +1551,6 @@ type Shed
 end 'Shed'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shed = spawn Shed.create(Bx.create(0))
 	try shed.store(Parcel.box(Bx.create(1))) otherwise (failure) 'refused'
 		match failure 'why'
@@ -1627,7 +1566,6 @@ error E3200: <fragment>:45:28: 'b' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: a-linear-local-of-a-closed-type-crosses-in-a-message -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Rl` holds only a value, so the owned linear local `r` is the whole of its region and crosses.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1657,7 +1595,6 @@ type RlTaker
 end 'RlTaker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn RlTaker.create(0)
 	let r = Rl.create(1)
 	print("peek {r.code}\n")
@@ -1680,7 +1617,6 @@ fin 1
 
 <!-- test: a-linear-union-whose-payloads-are-values-or-isolated-crosses-in-a-message -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every payload of `Mq` is linear and closed or declared `isolated`, so `Mq` is closed.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1734,7 +1670,6 @@ type QTaker
 end 'QTaker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn QTaker.create(0)
 	let m = Mq.q1(Bx.create(1))
 	drainQ(Mq.q0(Rl.create(2)))
@@ -1756,7 +1691,6 @@ fin 2
 
 <!-- test: a-linear-union-declared-isolated-crosses-though-its-type-is-not-closed -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `m` is declared `isolated`, so it is the whole of its region whatever `Mp` holds.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1809,7 +1743,6 @@ type Taker
 end 'Taker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create(0)
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let m = Mp.m1(Bx.create(1)) as isolated Mp
@@ -1831,7 +1764,6 @@ fin 3
 ```
 
 <!-- test: a-fresh-unique-local-crosses-though-its-type-is-not-closed -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `t` holds a fresh value nothing has read, so it is the whole of its region.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1867,15 +1799,14 @@ type TpTaker
 		return Self{seen: seen}
 	end 'create'
 
-	export function take(t Tp)
+	export function take(mutates self, t Tp)
 		self.seen = t.b.n
 	end 'take'
 end 'TpTaker'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.k.n = 1
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn TpTaker.create(0)
 	let t = Tp.create(1)
 	try s.take(t) otherwise ignore
@@ -1888,7 +1819,6 @@ end 'main'
 
 <!-- test: an-owned-linear-parameter-of-a-closed-type-goes-to-an-isolated-parameter -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 A linear parameter is owned by the function, and `Mq` is closed, so `m` goes where an `isolated` value goes.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1919,8 +1849,7 @@ union Mq
 	q1(y isolated Bx)
 end 'Mq'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeIso(m isolated Mq)
+function takeIso(consumes m Mq)
 	match m 'taken'
 		q0(x) then x.fin()
 		q1(y) then print("took {y.n}\n")
@@ -1946,7 +1875,7 @@ took 2
 ```
 
 <!-- test: an-owned-linear-parameter-of-a-type-that-is-not-closed-stays-plain -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Mp` holds the plain payload `y`, which the caller's `b` still names, so `m` is ordinary data of its region.
 ```maxon
@@ -1984,8 +1913,7 @@ function drain(m Mp)
 	end 'drained'
 end 'drain'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeIso(m isolated Mp)
+function takeIso(consumes m Mp)
 	drain(m)
 end 'takeIso'
 
@@ -2005,8 +1933,6 @@ error E3200: <fragment>:39:10: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: a-consuming-receiver-of-a-closed-type-returns-as-isolated -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 `pass` owns its `consuming self`, and `Lc` holds only a value, so `self` fits `returns isolated Lc`.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -2022,14 +1948,12 @@ type Lc
 		print("fin {self.code}\n")
 	end 'fin'
 
-	// TODO: return type capability 'isolated' is not supported in minimaxon
-	function pass(consumes self) returns isolated Lc
+	function pass(consumes self) returns Lc
 		return self
 	end 'pass'
 end 'Lc'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function takeIso(l isolated Lc)
+function takeIso(consumes l Lc)
 	l.fin()
 end 'takeIso'
 
@@ -2049,9 +1973,7 @@ fin 4
 <!-- test: an-outer-isolated-value-moved-into-a-local-inside-a-window-is-not-opened -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `p` is declared inside 'mh', but its region is `g`'s, which is older than the window, so `modify p` opens an outer region.
 ```maxon
@@ -2082,8 +2004,7 @@ type Wo6
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx6
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx6, item isolated Bx6) returns Self
+	static function create(keep Bx6, consumes item Bx6) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 
@@ -2092,19 +2013,15 @@ type Wo6
 	end 'touch'
 end 'Wo6'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mk() returns isolated Wo6
+function mk() returns Wo6
 	return Wo6.create(Bx6.create(0), item: Bx6.create(1))
 end 'mk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function pass(x isolated Wo6) returns isolated Wo6
+function pass(consumes x Wo6) returns Wo6
 	return x
 end 'pass'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function openO(o isolated Wo6)
+function openO(consumes o Wo6)
 	// TODO: modify blocks are not supported in minimaxon
 	modify o 'mo'
 		o.keep.n = 3
@@ -2138,8 +2055,7 @@ function cover()
 	t.touch(1)
 end 'cover'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function take(q isolated Iq6)
+function take(consumes q Iq6)
 	_ = q
 end 'take'
 
@@ -2156,9 +2072,7 @@ error E3199: <fragment>:54:10: 'p' cannot be opened: the value that holds it is 
 <!-- test: the-payload-matched-out-of-an-outer-isolated-union-inside-a-window-is-not-opened -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `o` is bound inside 'mh' by a consuming match of `u`, which is declared outside it, so a one-statement open of `o` opens an outer region.
 ```maxon
@@ -2189,8 +2103,7 @@ type Wo6
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var item as isolated Bx6
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(keep Bx6, item isolated Bx6) returns Self
+	static function create(keep Bx6, consumes item Bx6) returns Self
 		return Self{keep: keep, item: item}
 	end 'create'
 
@@ -2199,19 +2112,15 @@ type Wo6
 	end 'touch'
 end 'Wo6'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mk() returns isolated Wo6
+function mk() returns Wo6
 	return Wo6.create(Bx6.create(0), item: Bx6.create(1))
 end 'mk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function pass(x isolated Wo6) returns isolated Wo6
+function pass(consumes x Wo6) returns Wo6
 	return x
 end 'pass'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function openO(o isolated Wo6)
+function openO(consumes o Wo6)
 	// TODO: modify blocks are not supported in minimaxon
 	modify o 'mo'
 		o.keep.n = 3
@@ -2244,8 +2153,7 @@ function cover()
 	t.touch(1)
 end 'cover'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function take(q isolated Iq6)
+function take(consumes q Iq6)
 	_ = q
 end 'take'
 
@@ -2262,9 +2170,7 @@ error E3199: <fragment>:55:15: 'o' cannot be opened: the value that holds it is 
 <!-- test: an-outer-isolated-linear-value-renamed-inside-a-window-is-not-opened-for-a-statement -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A linear `isolated` value keeps its birth through the rename, like any other `isolated` value.
 ```maxon
@@ -2299,13 +2205,11 @@ type Lw7
 	end 'fin'
 end 'Lw7'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mk() returns isolated Lw7
+function mk() returns Lw7
 	return Lw7.create(Bx7.create(0))
 end 'mk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function sink(o isolated Lw7)
+function sink(consumes o Lw7)
 	o.fin()
 end 'sink'
 
@@ -2344,9 +2248,7 @@ error E3199: <fragment>:46:3: 'p' cannot be opened: the value that holds it is r
 <!-- test: an-outer-isolated-linear-value-renamed-inside-a-window-is-not-modified -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `modify p` inside 'mh' opens the region of `g`, which is older than the window.
 ```maxon
@@ -2381,13 +2283,11 @@ type Lw7
 	end 'fin'
 end 'Lw7'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mk() returns isolated Lw7
+function mk() returns Lw7
 	return Lw7.create(Bx7.create(0))
 end 'mk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function sink(o isolated Lw7)
+function sink(consumes o Lw7)
 	o.fin()
 end 'sink'
 
@@ -2429,9 +2329,7 @@ error E3199: <fragment>:46:10: 'p' cannot be opened: the value that holds it is 
 <!-- test: an-outer-isolated-linear-value-renamed-inside-a-window-is-not-opened-for-a-call -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `touch` lends its receiver, so `p.touch(4)` opens `p` for the call.
 ```maxon
@@ -2466,13 +2364,11 @@ type Lw7
 	end 'fin'
 end 'Lw7'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mk() returns isolated Lw7
+function mk() returns Lw7
 	return Lw7.create(Bx7.create(0))
 end 'mk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function sink(o isolated Lw7)
+function sink(consumes o Lw7)
 	o.fin()
 end 'sink'
 
@@ -2511,9 +2407,7 @@ error E3199: <fragment>:46:3: 'p' cannot be opened: the value that holds it is r
 <!-- test: an-outer-isolated-linear-value-is-not-opened-inside-a-window -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `g` is declared outside 'mh'.
 ```maxon
@@ -2548,13 +2442,11 @@ type Lw7
 	end 'fin'
 end 'Lw7'
 
-// TODO: return type capability 'isolated' is not supported in minimaxon
-function mk() returns isolated Lw7
+function mk() returns Lw7
 	return Lw7.create(Bx7.create(0))
 end 'mk'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function sink(o isolated Lw7)
+function sink(consumes o Lw7)
 	o.fin()
 end 'sink'
 
@@ -2640,9 +2532,7 @@ end 'main'
 ```
 
 <!-- test: a-call-lent-a-unique-local-whose-type-holds-a-plain-part-is-not-a-clean-call -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Tq` is not closed, so the lent `q` is no clean input even though nothing read it before, and the result, which holds `q.b`, cannot become isolated.
 ```maxon
@@ -2677,8 +2567,7 @@ type Taker
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeK(k isolated Ko)
+	export function takeK(consumes k Ko)
 		k.keep.n = 7
 	end 'takeK'
 end 'Taker'
@@ -2690,7 +2579,6 @@ function stash(t Tq) returns Ko
 end 'stash'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	let q = Tq.create(Bx.create(2))
 	// TODO: region capability 'isolated' is not supported in minimaxon
@@ -2706,8 +2594,7 @@ error E3200: <fragment>:47:10: 'stash(q) as isolated Ko' is not isolated: only a
 ```
 
 <!-- test: a-call-lent-a-unique-local-whose-type-holds-a-plain-part-is-not-sent -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same call handed straight to a message's `isolated` parameter is refused for the same reason.
 ```maxon
@@ -2742,8 +2629,7 @@ type Taker
 		return Self{}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function takeK(k isolated Ko)
+	export function takeK(consumes k Ko)
 		k.keep.n = 7
 	end 'takeK'
 end 'Taker'
@@ -2755,7 +2641,6 @@ function stash(t Tq) returns Ko
 end 'stash'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create()
 	let q = Tq.create(Bx.create(2))
 	try s.takeK(stash(q)) otherwise ignore
@@ -2872,8 +2757,6 @@ error E3200: <fragment>:36:10: 'wrap(q) as isolated Wrap' is not isolated: only 
 ```
 
 <!-- test: a-field-write-of-a-value-keeps-a-local-fresh-for-a-send -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Writing a number into `b` takes no reference out of it, so the send still finds `b` fresh.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -2893,17 +2776,15 @@ type Keeper
 		return Self{total: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function take(b isolated Box) returns Count
-		self.total = self.total + b.n
+	export function take(mutates self, consumes b Box) returns Count
+		self.total = try self.total + b.n otherwise panic("out of range")
 		return self.total
 	end 'take'
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Keeper.create()
-	let b = Box.create(1)
+	var b = Box.create(1)
 	b.n = 4
 	let got = try await k.take(b) otherwise 0
 	print("{got}\n")

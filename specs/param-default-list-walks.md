@@ -339,7 +339,6 @@ end 'main'
 
 <!-- test: a-message-with-two-defaulted-discards-fills-each-slot -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 A service message declaring two `_` parameters: the request's payload slots are filled by position, not by the shared name `_`.
 ```maxon
@@ -366,7 +365,6 @@ type Meter
 end 'Meter'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Meter.create()
 	try h.bump(by: 4) otherwise panic("an open mailbox with room takes the send")
 	let total = try await h.total() otherwise panic("the service is running")
@@ -504,8 +502,6 @@ kept
 
 <!-- test: error.a-message-whose-handler-writes-its-parameter-after-a-discard-refuses-a-shared-value -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The message's first parameter is a defaulted `_`, so `p` is the second parameter and the second payload slot. A handler that writes `p` may not be sent a read-only value both threads reach.
 ```maxon
@@ -519,8 +515,7 @@ type Store
 	end 'create'
 
 	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function bump(_ Integer = 1, p isolated Cells) returns Integer
+	export function bump(_ Integer = 1, consumes p Cells) returns Integer
 		p.push(1)
 		self.seen = self.seen + 1
 		return p.count() as Integer
@@ -530,7 +525,6 @@ end 'Store'
 let Shared = [7 as Integer]
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	return (try await h.bump(p: Shared) otherwise 0) as ExitCode
 end 'main'
@@ -543,8 +537,6 @@ error E3200: <fragment>:22:30: 'Shared' is not isolated: only a clean call, a `s
 
 <!-- test: a-message-whose-handler-only-reads-its-parameter-after-a-discard-accepts-a-shared-value -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same message with a handler that only reads `p`.
 ```maxon
 typealias Cells = Array with Integer
@@ -557,8 +549,7 @@ type Store
 	end 'create'
 
 	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function keep(_ Integer = 1, p immutable Cells) returns Integer
+	export function keep(_ Integer = 1, p frozen with Cells) returns Integer
 		self.seen = self.seen + 1
 		return try p.get(0) otherwise 0
 	end 'keep'
@@ -567,7 +558,6 @@ end 'Store'
 let Shared = [7 as Integer]
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	let got = try await h.keep(p: freeze(Shared.clone())) otherwise 0
 	print("{got}\n")
@@ -585,8 +575,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: error.a-message-with-an-interface-parameter-before-a-discard-refuses-a-shared-value -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An interface-typed first parameter takes a witness half in the payload slot after its own, so `p` is the fourth payload slot but the third parameter.
 ```maxon
@@ -615,9 +603,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
-	export function bump(d isolated Describable, _ Integer = 1, p isolated Cells) returns Integer
+	export function bump(consumes d Describable, _ Integer = 1, consumes p Cells) returns Integer
 		p.push(d.describe())
 		self.seen = self.seen + 1
 		return p.count() as Integer
@@ -627,7 +614,6 @@ end 'Store'
 let Shared = [7 as Integer]
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	return (try await h.bump(Tag.create(), p: Shared) otherwise 0) as ExitCode
 end 'main'
@@ -694,7 +680,6 @@ end 'main'
 
 <!-- test: a-conformer-that-discards-a-parameter-another-conformer-stores-leaks-nothing -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 One requirement, two conformers: `Keeper` stores the record it is handed, `Dropper` declares the same parameter `_`. Called through dispatch, the record the caller built is owned by `Keeper` and released by the caller for `Dropper`, so the program ends clean.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -708,8 +693,7 @@ type Record
 end 'Record'
 
 interface Taker
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(mutates self, item isolated Record)
+	function take(mutates self, consumes item Record)
 end 'Taker'
 
 type Keeper implements Taker
@@ -719,8 +703,7 @@ type Keeper implements Taker
 		return Self{held: Record.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(item isolated Record)
+	function take(consumes item Record)
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.held = merge item
 	end 'take'
@@ -733,8 +716,7 @@ type Dropper implements Taker
 		return Self{count: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	function take(_ isolated Record)
+	function take(consumes _ Record)
 		self.count = self.count + 1
 	end 'take'
 end 'Dropper'

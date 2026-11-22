@@ -377,7 +377,6 @@ error E3005: <fragment>:8:27: cannot assign a value of type 'String' to field 'a
 ```
 
 <!-- test: error.static-struct-literal-field-out-of-range -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Percent = int(0 to 100)
@@ -386,8 +385,7 @@ type Pair
 	export var a as Percent
 	static let origin = Pair{a: 500}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Pair
+	static function get() returns frozen with Pair
 		return Pair.origin
 	end 'get'
 end 'Pair'
@@ -449,7 +447,7 @@ declared interface names. Such a record is never laid down as image data, becaus
 address only the lowering can name.
 
 <!-- test: error.static-struct-literal-interface-field -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Square.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -476,8 +474,7 @@ type Holder
 	export let tag as Integer
 	static let one = Holder{s: Square.create(4), tag: 77}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Holder
+	static function get() returns frozen with Holder
 		return Holder.one
 	end 'get'
 end 'Holder'
@@ -494,7 +491,6 @@ error E3209: <fragment>:27:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: static-struct-literal-interface-field-holding-a-string-literal -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 A `String` literal widened into a `Hashable` field at module scope: the record is the literal's clone, and
 its witness table names the standard library's own `String.hash`, which a program reaching no other
 `Hashable` position must still build. The answer is compared with `hashString`, the function that body
@@ -504,8 +500,7 @@ type Holder
 	export let key as Hashable
 	static let one = Holder{key: "ab1cd"}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Holder
+	static function get() returns frozen with Holder
 		return Holder.one
 	end 'get'
 end 'Holder'
@@ -521,7 +516,6 @@ true
 ```
 
 <!-- test: error.static-struct-literal-interface-field-non-conformer -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A value that does not conform is refused as it is in a body, by the whole-program widening check.
 ```maxon
@@ -536,8 +530,7 @@ type Holder
 	export let tag as Integer
 	static let one = Holder{s: 5, tag: 77}
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Holder
+	static function get() returns frozen with Holder
 		return Holder.one
 	end 'get'
 end 'Holder'
@@ -861,7 +854,7 @@ error E3220: <fragment>:16:9: the initializer of 'H' calls 'Holder.create': a mo
 ```
 
 <!-- test: error.top-level-let-field-accessor-read-only -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -883,8 +876,7 @@ end 'Holder'
 
 let H = Holder.create()
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function index() returns immutable ItemIndex
+function index() returns frozen with ItemIndex
 	return H.index
 end 'index'
 
@@ -899,7 +891,7 @@ error E3209: <fragment>:19:2: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.top-level-let-field-accessor-result-write -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -921,8 +913,7 @@ end 'Holder'
 
 let H = Holder.create()
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function index() returns immutable ItemIndex
+function index() returns frozen with ItemIndex
 	return H.index
 end 'index'
 
@@ -1035,7 +1026,7 @@ end 'main'
 ```
 
 <!-- test: error.top-level-let-struct-accessor-read-only -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1049,8 +1040,7 @@ type Box
 		return Box{n: 1}
 	end 'make'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Box
+	static function get() returns frozen with Box
 		return Box.shared
 	end 'get'
 end 'Box'
@@ -1066,7 +1056,7 @@ error E3209: <fragment>:14:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.let-global-accessor-result-field-write -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1080,8 +1070,7 @@ type Box
 		return Box{n: 1}
 	end 'make'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Box
+	static function get() returns frozen with Box
 		return Box.shared
 	end 'get'
 end 'Box'
@@ -1099,7 +1088,7 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'a', which is immutable
 ```
 
 <!-- test: error.let-global-accessor-result-two-hops-of-return -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1113,13 +1102,11 @@ type Box
 		return Box{n: 1}
 	end 'make'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function inner() returns immutable Box
+	static function inner() returns frozen with Box
 		return Box.shared
 	end 'inner'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Box
+	static function get() returns frozen with Box
 		return Box.inner()
 	end 'get'
 end 'Box'
@@ -1320,7 +1307,6 @@ error E3220: <fragment>:21:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.a-let-global-held-by-a-record-a-callee-builds-is-not-written-by-writing-that-record -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Guards.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
@@ -1344,14 +1330,12 @@ type Blocks
 	// TODO: region capability 'immutable' is not supported in minimaxon
 	export var guards as immutable Guards
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	static function create(guards immutable Guards) returns Blocks
+	static function create(guards frozen with Guards) returns Blocks
 		return Blocks{subst: CountArray.create(0), guards: guards}
 	end 'create'
 end 'Blocks'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function mint(guards immutable Guards) returns Blocks
+function mint(guards frozen with Guards) returns Blocks
 	var blocks = Blocks.create(guards)
 	blocks.subst.push(1)
 	return blocks
@@ -1368,7 +1352,7 @@ error E3207: <fragment>:31:15: 'mint' takes `immutable` 'guards' (line 25: `var 
 ```
 
 <!-- test: error.let-global-accessor-result-to-field-writing-callee -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1382,8 +1366,7 @@ type Box
 		return Box{n: 1}
 	end 'make'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function get() returns immutable Box
+	static function get() returns frozen with Box
 		return Box.shared
 	end 'get'
 end 'Box'
@@ -1456,7 +1439,6 @@ error E3207: <fragment>:7:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.let-global-alias-captured-by-a-closure -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **A CLOSURE MUST NOT LAUNDER THE TAINT.** A closure body is its own SSA space, so the per-value marks are
 swapped out at its boundary — correctly, since an id means nothing there — and the read of the module-level `let`
@@ -1471,8 +1453,7 @@ typealias IntThunk = function() returns Integer
 
 let A = ["a", "b"]
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function expose() returns immutable Names
+function expose() returns frozen with Names
 	return A
 end 'expose'
 
@@ -1497,7 +1478,6 @@ error E3207: <fragment>:21:42: 'grow' writes 'xs' (line 12: `xs.push("zz")`); 'e
 ```
 
 <!-- test: error.let-global-alias-across-an-if-merge -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔ **A MERGE THAT REBINDS A NAME MUST CARRY THE MARK, NOT ONLY THE MERGES THAT PRODUCE A VALUE.**
 The ternary and `match … gives` merges carry it
@@ -1510,8 +1490,7 @@ typealias Names = Array with String
 
 let A = ["a", "b"]
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function expose() returns immutable Names
+function expose() returns frozen with Names
 	return A
 end 'expose'
 
@@ -1536,7 +1515,6 @@ error E3207: <fragment>:20:15: 'grow' writes 'xs' (line 11: `xs.push("zz")`); 'b
 ```
 
 <!-- test: error.let-global-alias-carried-by-a-loop -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔ **AND A LOOP IS THE SAME MERGE WITH THE EDGE PUSHED BEFORE THE PHI IS NAMED.** On a back edge the binding's own value IS the pushed value, so
 the header phi — which is what every read of `b` after the loop resolves to — is a THIRD name for the
@@ -1551,8 +1529,7 @@ typealias Names = Array with String
 
 let A = ["a", "b"]
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function expose() returns immutable Names
+function expose() returns frozen with Names
 	return A
 end 'expose'
 
@@ -1651,7 +1628,6 @@ Ada
 ### A `let` initializer may not reach a managed `var`
 
 <!-- test: error.a-let-initializer-may-read-another-let -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1662,8 +1638,7 @@ type Box
 		return Self{n: 7}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function current() returns immutable Self
+	static function current() returns frozen with Self
 		return a
 	end 'current'
 end 'Box'
@@ -1692,7 +1667,6 @@ function that hands it back declares `returns immutable` (E3209); a write throug
 carried through calls, witness dispatches and calls through function values.
 
 <!-- test: error.a-local-var-may-not-write-through-a-lets-record-a-call-hands-back -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1703,8 +1677,7 @@ type Box
 		return Self{n: 7}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function current() returns immutable Self
+	static function current() returns frozen with Self
 		return a
 	end 'current'
 end 'Box'
@@ -1727,7 +1700,6 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'w', which is immutable
 ```
 
 <!-- test: error.a-lets-record-a-call-handed-back-may-not-go-to-a-writing-parameter -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1738,8 +1710,7 @@ type Box
 		return Self{n: 7}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function current() returns immutable Self
+	static function current() returns frozen with Self
 		return a
 	end 'current'
 end 'Box'
@@ -1769,7 +1740,6 @@ error E3207: <fragment>:25:7: 'bump' writes 'b' (line 17: `b.n = 9`); 'Box.curre
 ```
 
 <!-- test: error.a-local-var-may-not-write-through-a-lets-record-an-await-hands-back -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1780,16 +1750,14 @@ type Box
 		return Self{n: 7}
 	end 'create'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	static function current() returns immutable Self
+	static function current() returns frozen with Self
 		return a
 	end 'current'
 end 'Box'
 
 let a = Box.create()
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function fetch() returns immutable Box
+function fetch() returns frozen with Box
 	return Box.current()
 end 'fetch'
 
@@ -2196,7 +2164,6 @@ omitted=0 written=0 given=2
 ```
 
 <!-- test: a-parameter-default-may-call-an-accessor-that-returns-a-global -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The transitive half: the default is a CALL to an accessor that hands back the global's record.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2205,8 +2172,7 @@ typealias Names = Array with Integer
 
 let sharedEmptyNames = Names.create(0)
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function shared() returns immutable Names
+function shared() returns frozen with Names
 	return sharedEmptyNames
 end 'shared'
 
@@ -2255,7 +2221,6 @@ error E3207: <fragment>:13:12: 'grow' writes 'names' (line 8: `names.push(1)`); 
 ```
 
 <!-- test: a-defaulted-accessor-call-may-not-reach-a-mutating-parameter -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE CONTROL FOR THE ACCESSOR — AND ITS FAILURE WOULD BE A WRONG ANSWER, NOT A REFUSAL.** Identical to
 the case above but for the default naming the global through `shared()`: accepted, the `push` would mutate
@@ -2271,8 +2236,7 @@ typealias Names = Array with Integer
 
 let sharedEmptyNames = Names.create(0)
 
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function shared() returns immutable Names
+function shared() returns frozen with Names
 	return sharedEmptyNames
 end 'shared'
 

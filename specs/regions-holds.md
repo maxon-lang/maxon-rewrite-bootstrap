@@ -117,7 +117,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-send-argument-survives-a-later-operand-that-replaces-the-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `sink.take` reads `shelf.label` for its first argument and then runs `replace`, which gives the shelf a new label. The text the message carries is still alive when the service reads it.
 
 ```maxon
@@ -138,20 +137,19 @@ type Sink
 		return Self{seen: 0}
 	end 'create'
 
-	export function take(label String, tag Tally) returns Tally
-		self.seen = self.seen + 1
-		return (label.count() as Tally) + tag
+	export function take(mutates self, label String, tag Tally) returns Tally
+		self.seen = try self.seen + 1 otherwise panic("out of range")
+		return try (label.count() as Tally) + tag otherwise panic("out of range")
 	end 'take'
 end 'Sink'
 
-function replace(shelf Shelf) returns Tally
+function replace(mutates shelf Shelf) returns Tally
 	shelf.label = "x"
 	return 1
 end 'replace'
 
 function main() returns ExitCode
-	let shelf = Shelf.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	var shelf = Shelf.create(1)
 	let sink = spawn Sink.create()
 	let n = try await sink.take(shelf.label, tag: replace(shelf)) otherwise 0
 	print("{n}\n")
@@ -166,7 +164,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-spawn-argument-survives-a-later-operand-that-replaces-the-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `spawn Holder.create` reads `shelf.label` for the factory and then runs `replace`; the text the factory keeps is still alive.
 
 ```maxon
@@ -185,22 +182,21 @@ type Holder
 	var tag as Tally
 
 	static function create(label String, tag Tally) returns Self
-		return Self{label: label, tag: tag}
+		return Self{label: label.clone(), tag: tag}
 	end 'create'
 
 	export function total() returns Tally
-		return (self.label.count() as Tally) + self.tag
+		return try (self.label.count() as Tally) + self.tag otherwise panic("out of range")
 	end 'total'
 end 'Holder'
 
-function replace(shelf Shelf) returns Tally
+function replace(mutates shelf Shelf) returns Tally
 	shelf.label = "x"
 	return 1
 end 'replace'
 
 function main() returns ExitCode
-	let shelf = Shelf.create(1)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
+	var shelf = Shelf.create(1)
 	let holder = spawn Holder.create(shelf.label, tag: replace(shelf))
 	let n = try await holder.total() otherwise 0
 	print("{n}\n")

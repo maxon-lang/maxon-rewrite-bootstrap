@@ -6063,7 +6063,6 @@ end 'main'
 ```
 
 <!-- test: view-of-a-cell-occupant-sent-after-a-store-and-a-hand-over -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `view` of a cell-resident `var` keeps the record it read after the `var` is rebound and the cell is handed by reference, and the service takes that record from the view.
 
 ```maxon
@@ -6076,8 +6075,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(text String) returns Tally
-		self.seen = self.seen + 1
+	export function keep(mutates self, text String) returns Tally
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return text.byteLength() as Tally
 	end 'keep'
 end 'Store'
@@ -6092,7 +6091,6 @@ function fresh(n Tally) returns String
 end 'fresh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create()
 	var a = fresh(1)
 	let v = a
@@ -6111,7 +6109,6 @@ end 'main'
 ```
 
 <!-- test: let-of-a-cell-occupant-sent-after-a-store-and-a-hand-over -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `let` of a cell-resident `var` owns the record it read after the `var` is rebound and the cell is handed by reference, and the service takes that record from the `let`.
 
 ```maxon
@@ -6124,8 +6121,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(text String) returns Tally
-		self.seen = self.seen + 1
+	export function keep(mutates self, text String) returns Tally
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return text.byteLength() as Tally
 	end 'keep'
 end 'Store'
@@ -6140,7 +6137,6 @@ function fresh(n Tally) returns String
 end 'fresh'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create()
 	var a = fresh(1)
 	let w = a
@@ -6672,7 +6668,6 @@ ab
 ```
 
 <!-- test: a-send-after-an-operand-read-of-the-cell-and-a-writing-hand-over-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message operand reads a cell-resident `var`, and a later operand hands the same cell to a callee that overwrites it. The send would take the record the first operand read out of a cell that was stored into in between, so the statement is refused at the hand-over and never reaches the take.
 
@@ -6698,7 +6693,6 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create()
 	var a = "original"
 	let n = try await sink.keep(a, n: put(a)) otherwise 0
@@ -6711,7 +6705,6 @@ error E3186: <fragment>:27:40: argument 'a' is read by another operand of this s
 ```
 
 <!-- test: a-send-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same statement with a callee that only reads the cell lends nothing, so the send takes the record the first operand read and the cell keeps the variable usable afterwards.
 
 ```maxon
@@ -6724,8 +6717,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(text String, n Tally) returns Tally
-		self.seen = self.seen + n
+	export function keep(mutates self, text String, n Tally) returns Tally
+		self.seen = try self.seen + n otherwise panic("out of range")
 		return text.byteLength() as Tally
 	end 'keep'
 end 'Store'
@@ -6735,7 +6728,6 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create()
 	var a = "original"
 	let n = try await sink.keep(a, n: put(a)) otherwise 0
@@ -6751,7 +6743,6 @@ end 'main'
 ```
 
 <!-- test: a-spawn-after-an-operand-read-of-the-cell-and-a-writing-hand-over-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A service factory operand takes a cell-resident `var` the same way a message does, so a later operand that overwrites the cell is refused before the take.
 
@@ -6777,7 +6768,6 @@ end 'put'
 
 function main() returns ExitCode
 	var a = "original"
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create(a, n: put(a))
 	let n = try await sink.total() otherwise 0
 	print("{n} {a}\n")
@@ -6789,7 +6779,6 @@ error E3186: <fragment>:24:42: argument 'a' is read by another operand of this s
 ```
 
 <!-- test: a-spawn-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A factory operand that reads the cell and a later operand whose callee only reads it lend nothing, so the spawn takes the record.
 
 ```maxon
@@ -6799,7 +6788,7 @@ type Store
 	var seen as Tally
 
 	static function create(text String, n Tally) returns Self
-		return Self{seen: (text.byteLength() as Tally) + n}
+		return Self{seen: try (text.byteLength() as Tally) + n otherwise panic("out of range")}
 	end 'create'
 
 	export function total() returns Tally
@@ -6813,7 +6802,6 @@ end 'put'
 
 function main() returns ExitCode
 	var a = "original"
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create(a, n: put(a))
 	let n = try await sink.total() otherwise 0
 	print("{n} {a}\n")
@@ -6980,7 +6968,6 @@ error E3186: <fragment>:14:24: argument 's' is read by another operand of this s
 
 <!-- test: write-based-field-write-through-a-mutable-isolated-parameter-is-accepted -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `mutable isolated` parameter whose callee only writes a field of the record never rebinds the caller's variable, so a sibling argument may read a field of the same variable.
 
@@ -6995,8 +6982,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function bump(mutates box isolated Box, seen Tally) returns Tally
+function bump(mutates box Box, seen Tally) returns Tally
 	// TODO: modify blocks are not supported in minimaxon
 	modify box 'edit'
 		box.n = box.n + seen
@@ -7394,9 +7380,7 @@ error E3186: <fragment>:14:15: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-isolated-occupant-at-a-send-beside-a-by-reference-hand-over-is-sent -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An isolated record sent in the same call as a by-reference hand-over of its own variable is sent: the send moves the box, and the service reads it.
 
 ```maxon
@@ -7417,21 +7401,18 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function keep(box isolated Box, n Tally) returns Tally
+	export function keep(consumes box Box, n Tally) returns Tally
 		let touched = box.n
 		self.seen = self.seen + n + touched
 		return 1
 	end 'keep'
 end 'Store'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function look(mutates box isolated Box) returns Tally
+function look(mutates box Box) returns Tally
 	return box.n
 end 'look'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var a = Box.create(1) as isolated Box

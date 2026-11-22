@@ -3658,17 +3658,16 @@ end 'main'
 ```
 
 <!-- test: a-service-send-argument-read-survives-a-later-argument-reassigning-the-field -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ### … as an argument of a message to a service, beside a later argument that reassigns it
 ```maxon
 type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	function reset() returns String
+	function reset(mutates self) returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
@@ -3688,9 +3687,8 @@ type Joiner
 end 'Joiner'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Joiner.create()
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let text = try await h.take(x.label, second: x.reset()) otherwise "failed"
 	print("{text} [{x.label}]\n")
 	return 0
@@ -4008,9 +4006,7 @@ end 'main'
 ```
 
 <!-- test: a-service-send-interface-let-field-read-through-a-var-field-survives-a-later-argument-rebinding-it -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ### An interface-typed `let` field read through a `var` field as a service message's argument survives a later argument that rebinds the `var` field
 ```maxon
 interface Named
@@ -4060,15 +4056,13 @@ type Joiner
 		return Self{seen: "none"}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function take(first immutable Named, second String) returns String
+	export function take(first frozen with Named, second String) returns String
 		let filler = Tag.create("filler {1} padded out long enough for the heap")
 		return "[{first.name()}] [{second}] [{filler.name()}]"
 	end 'take'
 end 'Joiner'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Joiner.create()
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let text = try await h.take(x.inner.shape, second: x.reset()) otherwise "failed"
@@ -4084,9 +4078,7 @@ end 'main'
 ```
 
 <!-- test: a-bound-read-only-interface-field-is-shared-with-a-service-as-its-struct-twin-is -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ### A `let` interface field bound through a `var` root is shared with a service, as the struct-typed twin below is
 ```maxon
 interface Named
@@ -4136,14 +4128,12 @@ type Joiner
 		return Self{seen: "none"}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function take(first immutable Named, second String) returns String
+	export function take(first frozen with Named, second String) returns String
 		return "[{first.name()}] [{second}]"
 	end 'take'
 end 'Joiner'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Joiner.create()
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let v = x.inner.shape
@@ -4160,9 +4150,7 @@ end 'main'
 ```
 
 <!-- test: a-bound-read-only-struct-field-is-shared-with-a-service -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ### … the struct-typed twin
 ```maxon
 type Tag
@@ -4206,14 +4194,12 @@ type Joiner
 		return Self{seen: "none"}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	export function take(first immutable Tag, second String) returns String
+	export function take(first frozen with Tag, second String) returns String
 		return "[{first.name()}] [{second}]"
 	end 'take'
 end 'Joiner'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Joiner.create()
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let v = x.inner.shape
@@ -4701,8 +4687,6 @@ end 'main'
 ```
 
 <!-- test: a-read-only-list-element-returned-through-a-cursor-into-a-var-then-written-is-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` hands back an element of a list whose elements are read-only, reached through the list's cursor, so
 the binding that takes it may not write it.
@@ -4719,9 +4703,7 @@ end 'Point'
 
 typealias Points = List with Point
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-// TODO: return type capability 'immutable' is not supported in minimaxon
-function pick(ps Points, fallback immutable Point) returns immutable Point
+function pick(ps Points, fallback frozen with Point) returns frozen with Point
 	for p in ps 'each'
 		return p
 	end 'each'

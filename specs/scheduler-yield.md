@@ -246,7 +246,6 @@ end 'main'
 ```
 
 <!-- test: scheduler-yield.spin-wait-hands-its-processor-to-a-machine-regaining-one -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
 **A SPIN-WAIT THAT YIELDS GIVES ITS PROCESSOR TO A MACHINE WAITING TO REGAIN ONE.** At one processor `reader`
@@ -293,7 +292,6 @@ end 'Reader'
 
 function main() returns ExitCode
 	let stage = StageCell.create(0 as Integer)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
 	while stage.current() < reading 'untilReading'
@@ -317,7 +315,6 @@ answered 5
 ```
 
 <!-- test: scheduler-yield.spin-wait-with-a-sibling-hands-its-processor-over -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
 The previous case with a sibling in the spinner's strand: `main` and the coroutine it starts both spin on
@@ -364,7 +361,6 @@ end 'spinner'
 
 function main() returns ExitCode
 	let stage = StageCell.create(0 as Integer)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
 	let sibling = async spinner(stage.clone())
@@ -390,7 +386,6 @@ answered 5 seen 2
 ```
 
 <!-- test: scheduler-yield.a-preempted-spin-hands-its-processor-to-a-machine-regaining-one -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
 The same shape with no yield in the wait at all: `main` busy-waits on the cell, and the monitor's preemption is what
@@ -436,7 +431,6 @@ end 'busyUntil'
 
 function main() returns ExitCode
 	let stage = StageCell.create(0 as Integer)
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
 	_ = busyUntil(stage, target: reading)

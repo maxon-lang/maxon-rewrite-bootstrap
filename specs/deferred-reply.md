@@ -35,7 +35,6 @@ held by its cown and is not walked — the way the service handle cycle check do
 
 <!-- test: a-reply-answered-later-from-a-continuation -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `ask` parks its `Reply` in the service's state and returns; `settle` is the continuation, and answers it with what the
 deposits made. `main` awaits the stored reply, so its `await` completes only when `settle` runs.
 ```maxon
@@ -71,7 +70,6 @@ type Ledger
 end 'Ledger'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let ledger = spawn Ledger.create()
 	let asked = try ledger.ask() otherwise panic("a running service with room takes the send")
 	try ledger.deposit(40) otherwise panic("a running service with room takes the send")
@@ -88,7 +86,6 @@ end 'main'
 
 <!-- test: a-reply-answered-by-another-service -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Desk.ask` hands its `Reply` to `Clerk.look` in a message of its own, and `Clerk` answers it from there. Neither message
 waits: `Desk` returns as soon as it has sent, and the answer reaches `main` from the `Clerk`.
 ```maxon
@@ -125,9 +122,7 @@ type Desk
 end 'Desk'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let clerk = spawn Clerk.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create(clerk.clone())
 	let total = try await desk.ask() otherwise panic("the clerk answered")
 	print("{total}\n")
@@ -140,7 +135,6 @@ end 'main'
 
 <!-- test: a-reply-parameter-answered-on-each-branch-is-answered-once -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Clerk.look` receives the `Reply` as a parameter and answers it in one arm of an `if` or in the other, so each path answers it once.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -177,9 +171,7 @@ type Desk
 end 'Desk'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let clerk = spawn Clerk.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create(clerk.clone())
 	let first = try await desk.ask(true) otherwise panic("the clerk answered")
 	let second = try await desk.ask(false) otherwise panic("the clerk answered")
@@ -193,7 +185,6 @@ end 'main'
 
 <!-- test: a-reply-parameter-answered-in-a-loop-that-returns-is-answered-once -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The loop answers the `Reply` parameter and returns in the same arm, so no path reaches an answer after one was made; the answer after the loop is reached only when the loop ran out.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -232,9 +223,7 @@ type Desk
 end 'Desk'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let clerk = spawn Clerk.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create(clerk.clone())
 	let hit = try await desk.ask(10) otherwise panic("the clerk answered")
 	let ran = try await desk.ask(2) otherwise panic("the clerk answered")
@@ -247,7 +236,6 @@ end 'main'
 ```
 
 <!-- test: error.a-reply-parameter-answered-in-a-loop-is-moved-in-an-earlier-lap -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` parameter answered inside a loop that goes round again is answered once per lap.
 ```maxon
@@ -268,7 +256,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	return 0
 end 'main'
@@ -279,7 +266,6 @@ error E3102: <fragment>:12:21: use of moved value 'parked': it was moved in an e
 
 <!-- test: a-reply-dropped-with-its-holder-fails-the-await-with-service-stopped -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Parker` keeps its `Reply` in its state and `main` shuts the service down without anything answering it. The service's
 state is dropped when it finishes, the `Reply` inside it is dropped unanswered, and the caller's `await` receives
 `ReplyStopped.serviceStopped`.
@@ -306,7 +292,6 @@ type Parker
 end 'Parker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let parker = spawn Parker.create()
 	let parked = try parker.park() otherwise panic("a running service with room takes the send")
 	parker.shutdown()
@@ -324,7 +309,6 @@ end 'main'
 
 <!-- test: a-reply-dropped-at-the-end-of-its-own-message-fails-the-await -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `ask(wake)` answers at once when told to and otherwise lets the `Reply` go out of scope with the message. The first
 `await` yields the answer and the second the stop.
 ```maxon
@@ -346,7 +330,6 @@ type Waker
 end 'Waker'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let waker = spawn Waker.create()
 	let answered = try waker.ask(true) otherwise panic("a running service with room takes the send")
 	let dropped = try waker.ask(false) otherwise panic("a running service with room takes the send")
@@ -365,7 +348,6 @@ end 'main'
 
 <!-- test: a-reply-answered-twice-is-refused -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `answer` consumes the `Reply`, so the second call reads a moved value.
 ```maxon
@@ -386,7 +368,6 @@ type Twice
 end 'Twice'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let twice = spawn Twice.create()
 	return 0
 end 'main'
@@ -396,7 +377,6 @@ error E3102: <fragment>:12:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: error.a-reply-message-parameter-answered-twice-is-refused -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` a message receives is as unique as one it makes, so a second `answer` on the parameter reads a moved value.
 ```maxon
@@ -416,7 +396,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	return 0
 end 'main'
@@ -427,7 +406,6 @@ error E3102: <fragment>:12:3: use of moved value 'parked': its ownership moved t
 
 <!-- test: error.a-reply-function-parameter-answered-twice-is-refused -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` a helper function receives is answered at most once there too.
 ```maxon
@@ -454,7 +432,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -465,7 +442,6 @@ error E3102: <fragment>:7:2: use of moved value 'waiting': its ownership moved t
 
 <!-- test: error.a-reply-parameter-answered-then-passed-on-is-refused -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A function that answers its `Reply` parameter has no `Reply` left to hand to another function.
 ```maxon
@@ -496,7 +472,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -507,7 +482,6 @@ error E3102: <fragment>:11:12: use of moved value 'waiting': its ownership moved
 
 <!-- test: error.a-union-parameter-holding-a-reply-matched-twice-is-refused -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A union parameter that carries a `Reply` is consumed by the `match` that answers its payload, so a second `match` reads a moved value.
 ```maxon
@@ -545,7 +519,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -555,7 +528,6 @@ error E3102: <fragment>:16:8: use of moved value 'slot': its ownership moved to 
 ```
 
 <!-- test: a-reply-cannot-be-awaited -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` is an obligation to answer, not a coroutine handle, so `await` refuses it.
 ```maxon
@@ -574,7 +546,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	return 0
 end 'main'
@@ -585,7 +556,6 @@ error E3005: <fragment>:11:11: 'await' requires a promise value from 'async', go
 
 <!-- test: error.reply-later-inside-a-block-is-refused -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `reply.later()` is a statement of the message's own body: inside an `if` it would defer on some paths and not others.
 ```maxon
@@ -613,7 +583,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -624,7 +593,6 @@ error E3222: <fragment>:15:18: `reply.later()` is a statement of the message's o
 
 <!-- test: error.reply-later-needs-the-stopped-clause -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` dropped unanswered fails the caller's `await` with `ReplyStopped`, so the message declares it.
 ```maxon
@@ -650,7 +618,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -661,7 +628,6 @@ error E3222: <fragment>:14:17: a message that defers its reply declares `throws 
 
 <!-- test: error.a-deferring-message-returns-no-value -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 After `reply.later()` the answer travels through the `Reply`, so `return` carries nothing.
 ```maxon
@@ -687,7 +653,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -698,7 +663,6 @@ error E3222: <fragment>:16:3: after `reply.later()` the message answers through 
 
 <!-- test: error.a-message-with-no-reply-cannot-defer -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message that returns nothing has no reply to take.
 ```maxon
@@ -723,7 +687,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -761,7 +724,6 @@ error E3222: <fragment>:7:18: `reply.later()` appears in 'ask', which is not a m
 
 <!-- test: error.reply-later-is-the-whole-initializer-of-a-let -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The `Reply` has to be bound, so it is plain which name owes the answer.
 ```maxon
@@ -786,7 +748,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -797,7 +758,6 @@ error E3222: <fragment>:14:21: `reply.later()` is the whole initializer of a `le
 
 <!-- test: error.a-message-defers-its-reply-once -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The first `reply.later()` takes the message's reply, so a second has nothing left to take.
 ```maxon
@@ -826,7 +786,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -837,7 +796,6 @@ error E3222: <fragment>:15:16: a message defers its reply once: the second `repl
 
 <!-- test: error.a-deferring-message-throws-nothing-itself -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A throw would complete the reply the `Reply` already owns, so a deferring message throws nothing: its one error is
 `ReplyStopped`, delivered when the `Reply` is dropped.
@@ -867,7 +825,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -878,7 +835,6 @@ error E3222: <fragment>:13:18: the message 'ask' defers its reply and so throws 
 
 <!-- test: error.a-message-cannot-reply-with-a-reply -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` never leaves the service code that holds it. A message's reply is awaited by code that may wait, and a
 caller that awaited a coroutine before answering the `Reply` it was handed would wait on its own answer.
@@ -909,7 +865,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -920,7 +875,6 @@ error E3222: <fragment>:19:18: 'hand' returns a type that can hold a Reply: a Re
 
 <!-- test: error.a-message-cannot-reply-with-a-generic-over-a-reply -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The walk substitutes a generic's type arguments, so `Box with TallyReply` holds a `Reply` exactly as its argument does.
 ```maxon
@@ -960,7 +914,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -971,7 +924,6 @@ error E3222: <fragment>:29:18: 'hand' returns a type that can hold a Reply: a Re
 
 <!-- test: error.a-helper-cannot-return-a-reply -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 No function returns a type that can hold a `Reply`, a helper called from a message body included.
 ```maxon
@@ -1005,7 +957,6 @@ function unpark(source TallyReplyArray) returns TallyReply
 end 'unpark'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1016,7 +967,6 @@ error E3222: <fragment>:24:10: 'unpark' returns a type that can hold a Reply: a 
 
 <!-- test: error.a-reply-cannot-be-handed-to-a-coroutine -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A coroutine is not holding code, so it takes no parameter that can hold a `Reply`.
 ```maxon
@@ -1045,7 +995,6 @@ function answerLater(waiting TallyReply) returns Tally
 end 'answerLater'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1057,7 +1006,6 @@ error E3222: <fragment>:12:22: `async answerLater(…)` takes a parameter that c
 <!-- test: error.a-reply-cannot-leave-an-acquire-block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` taken out of an acquired state is mutable data the statement that opens the state hands back, which the window rule
 (E3202) already refuses to let outlive the statement; the shape stays refused for a `Reply`.
@@ -1084,7 +1032,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	let sink = TallyReplyArray.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
@@ -1103,7 +1050,6 @@ error E3202: <fragment>:25:15: 'try gate.waiting.pop() otherwise return 1' is mu
 
 <!-- test: error.a-deferring-message-cannot-be-called-directly -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A direct call has no reply cell to take, so only a send through the handle runs a deferring message.
 ```maxon
@@ -1133,7 +1079,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1144,7 +1089,6 @@ error E3222: <fragment>:20:12: 'Gate.ask' defers its reply, so it cannot be call
 
 <!-- test: error.a-closure-cannot-capture-a-reply -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A closure travels to whatever code receives it, so it never captures a value that can hold a `Reply`.
 ```maxon
@@ -1172,7 +1116,6 @@ function peek(waiting TallyReply) returns Tally
 end 'peek'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1183,7 +1126,6 @@ error E3222: <fragment>:12:14: this closure captures 'pending', which can hold a
 
 <!-- test: error.a-reply-holder-cannot-be-passed-as-an-interface-value -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An interface value carries its conformer to whatever code receives it, so a value that can hold a `Reply` is not widened to an interface type.
 ```maxon
@@ -1222,7 +1164,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1233,7 +1174,6 @@ error E3222: <fragment>:29:7: Cannot pass a value as 'sink', which is declared a
 
 <!-- test: error.a-reply-holder-cannot-be-returned-as-an-interface-value -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same holds at a `return` into an interface-typed result.
 ```maxon
@@ -1273,7 +1213,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1284,7 +1223,6 @@ error E3222: <fragment>:19:2: Cannot return a value from 'wrap' as the interface
 
 <!-- test: error.a-reply-holder-cannot-be-stored-in-an-interface-field -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same holds at a store into an interface-typed field.
 ```maxon
@@ -1328,7 +1266,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1339,7 +1276,6 @@ error E3222: <fragment>:22:10: Cannot store a value into the field 'Shelf.sink',
 
 <!-- test: error.a-reply-given-to-a-function-that-answers-it-is-moved -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A function that answers a `Reply` consumes it, so the caller that handed it over has no `Reply` left to answer.
 ```maxon
@@ -1366,7 +1302,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1376,7 +1311,6 @@ error E3102: <fragment>:17:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: error.a-reply-message-parameter-given-to-a-function-that-answers-it-is-moved -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` a message receives moves the same way: the function that answers it takes it from the message's body.
 ```maxon
@@ -1400,7 +1334,6 @@ type Sink
 end 'Sink'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	return 0
 end 'main'
@@ -1411,7 +1344,6 @@ error E3102: <fragment>:16:3: use of moved value 'parked': its ownership moved t
 
 <!-- test: error.a-reply-given-to-a-function-that-parks-it-is-moved -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A function that keeps the `Reply` in a container owns it too, so the caller cannot answer it afterwards.
 ```maxon
@@ -1442,7 +1374,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1453,7 +1384,6 @@ error E3102: <fragment>:20:3: use of moved value 'pending': its ownership moved 
 
 <!-- test: error.a-reply-given-to-a-function-in-a-loop-is-moved-in-an-earlier-lap -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A loop that hands the same `Reply` to an answering function again on its next lap reads a moved value.
 ```maxon
@@ -1481,7 +1411,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1492,7 +1421,6 @@ error E3102: <fragment>:18:14: use of moved value 'pending': it was moved in an 
 
 <!-- test: error.a-reply-given-to-a-function-on-one-branch-is-moved-after-the-branch -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` handed over on one branch is moved once the branches join, so answering it afterwards is refused.
 ```maxon
@@ -1521,7 +1449,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1533,7 +1460,6 @@ error E3102: <fragment>:21:3: use of moved value 'pending': its ownership moved 
 <!-- test: error.a-reply-cannot-be-bound-as-isolated -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` is unique and stays in the code that holds it, so it is never an `isolated` value a function could borrow.
 ```maxon
@@ -1561,7 +1487,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'
@@ -1572,7 +1497,6 @@ error E3200: <fragment>:16:14: 'pending as isolated TallyReply' is not isolated:
 
 <!-- test: error.a-reply-sent-to-a-service-is-moved-whether-or-not-the-send-lands -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A send takes the `Reply` with it even when the send is refused, so the sender cannot answer it afterwards.
 ```maxon
@@ -1607,9 +1531,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create(sink)
 	return 0
 end 'main'
@@ -1620,7 +1542,6 @@ error E3102: <fragment>:25:3: use of moved value 'pending': its ownership moved 
 
 <!-- test: error.a-reply-answered-in-a-branch-and-after-it-is-refused-without-the-word-reply -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 No declaration in the program names `Reply`, yet `reply.later()` makes a unique value, so the answer on the branch that ran moves it and the answer after the branch reads a moved value.
 ```maxon
@@ -1643,7 +1564,6 @@ type Twice
 end 'Twice'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let twice = spawn Twice.create()
 	return 0
 end 'main'
@@ -1654,7 +1574,6 @@ error E3102: <fragment>:16:3: use of moved value 'pending': its ownership moved 
 
 <!-- test: error.a-reply-bound-to-a-second-name-is-refused-without-the-word-reply -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `let other = pending` moves the unique `Reply`, so answering `pending` afterwards reads a moved value although no declaration in the program names `Reply`.
 ```maxon
@@ -1676,7 +1595,6 @@ type Twice
 end 'Twice'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let twice = spawn Twice.create()
 	return 0
 end 'main'
@@ -1689,7 +1607,6 @@ error E3102: <fragment>:12:3: use of moved value 'pending': its ownership moved 
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: reply.later() is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `pe` is declared outside `modify bx`, so the `Reply` its `match` binds is read-only there, and building `Pe.waiting(q)` into the open `Hold` would store it.
 ```maxon
@@ -1735,7 +1652,6 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	return 0
 end 'main'

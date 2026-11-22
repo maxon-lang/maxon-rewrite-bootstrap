@@ -93,6 +93,10 @@ function addCallBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, 
 		addPartBorrows(o, p: p, ms: ms, parts: call.ordered, out: out)
 		return
 	end 'payload'
+	if call.kind == ast.CallKind.callSend 'send'
+		// What crosses into a service holds no borrow, and the reply is the service's value.
+		return
+	end 'send'
 	let receiver = ast.callReceiver(ms.tree(), e: e, kind: call.kind)
 	if call.kind == ast.CallKind.callCopy 'copy'
 		addValueBorrows(o, p: p, ms: ms, e: receiver, out: out)

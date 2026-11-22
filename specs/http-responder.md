@@ -26,7 +26,6 @@ for an answer. `respondLater` throws `alreadyResponded` on an exchange already a
 ## Tests
 
 <!-- test: a-handler-asks-an-auth-service-and-answers-through-the-continuation -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The handler defers the answer with `respondLater`, sends the responder to the `Auth` service in a message of its own, and returns. `Auth` answers through the responder, so the answer reaches the client from the service, and `respondWith` is the finalizer that consumes it.
 ```maxon
@@ -95,7 +94,6 @@ end 'serving'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let auth = spawn Auth.create()
 	let peer = async serving(server, auth: auth.clone())
 	let allowed = try HttpClient.get("http://127.0.0.1:{port}/secret") otherwise 'cancelled1'
@@ -130,7 +128,6 @@ allowed=200 welcome denied=401 busy=503
 ```
 
 <!-- test: a-failed-send-hands-the-responder-back-and-the-handler-answers-503 -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The `Auth` service is shut down, so the handler's send fails `serviceStopped` and carries the responder back. The handler's `otherwise` arm answers 503 through it.
 ```maxon
@@ -190,7 +187,6 @@ end 'serving'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let auth = spawn Auth.create()
 	auth.shutdown()
 	let peer = async serving(server, auth: auth.clone())
@@ -217,7 +213,6 @@ busy=503 busy
 ```
 
 <!-- test: the-responder-travels-through-two-services-in-continuation-messages -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `Auth` passes the responder on to `Directory` in another message, and `Directory` answers. No message waits for the answer.
 ```maxon
@@ -298,9 +293,7 @@ end 'serving'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let directory = spawn Directory.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let auth = spawn Auth.create(directory.clone())
 	let peer = async serving(server, auth: auth.clone())
 	let first = try HttpClient.get("http://127.0.0.1:{port}/alice") otherwise 'cancelled1'
@@ -575,7 +568,6 @@ error E3224: <fragment>:3:6: the field 'waiting' holds a linear value, and a lin
 ```
 
 <!-- test: an-invalid-response-hands-the-responder-back-and-the-service-answers-again -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `Auth` answers a `204` that carries a body, which no connection can send. `respondWith` validates the response before it sends, so it throws `invalidResponse` carrying the responder back, and `Auth` answers a valid `500` through it.
 ```maxon
@@ -634,7 +626,6 @@ end 'serving'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let auth = spawn Auth.create()
 	let peer = async serving(server, auth: auth.clone())
 	let answer = try HttpClient.get("http://127.0.0.1:{port}/anything") otherwise 'cancelled'

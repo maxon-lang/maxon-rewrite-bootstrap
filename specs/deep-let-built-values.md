@@ -195,7 +195,6 @@ end 'main'
 ```
 
 <!-- test: a-field-record-swapped-out-is-stored-into-a-let-field -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 `let old = self.log` followed by `self.log = Log.create()` moves the record out of the field: the replacement is a
 fresh value, nothing else holds the old record, so `old` is its only holder and a `let` field may take it.
 
@@ -209,8 +208,7 @@ type Told
 		return Self{names: NameList.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function note(name immutable ByteArray)
+	function note(name frozen with ByteArray)
 		self.names.push(name)
 	end 'note'
 end 'Told'
@@ -238,8 +236,7 @@ type Holder
 		return Self{log: Log.create()}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function note(name immutable ByteArray)
+	function note(name frozen with ByteArray)
 		self.log.told.note(name)
 	end 'note'
 
@@ -262,7 +259,6 @@ end 'main'
 ```
 
 <!-- test: unrelated-work-between-the-swap-load-and-store-is-accepted -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 Statements that neither read nor write the field, the old record, or anything that reaches them may sit between the
 load and the store: the old record is still the only holder when the replacement lands.
 
@@ -278,8 +274,7 @@ type Told
 		return Self{names: NameList.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function note(name immutable ByteArray)
+	function note(name frozen with ByteArray)
 		self.names.push(name)
 	end 'note'
 end 'Told'
@@ -308,15 +303,14 @@ type Holder
 		return Self{log: Log.create(), generation: 0}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function note(name immutable ByteArray)
+	function note(name frozen with ByteArray)
 		self.log.told.note(name)
 	end 'note'
 
 	function closeWhole() returns KeepLog
 		let old = self.log
 		let next = self.generation + 1
-		self.generation = next
+		self.generation = next as Count
 		self.log = Log.create()
 		return KeepLog.create(old)
 	end 'closeWhole'
@@ -334,7 +328,6 @@ end 'main'
 ```
 
 <!-- test: a-record-another-holder-also-names-is-swapped-out-and-kept -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 The `Holder` was built around a `Log` that `main` still names. Swapping the field leaves that second holder with the old record, and the `let` field keeps it: a write through `shared` is read through `kept`.
 
 ```maxon
@@ -347,8 +340,7 @@ type Told
 		return Self{names: NameList.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function note(name immutable ByteArray)
+	function note(name frozen with ByteArray)
 		self.names.push(name)
 	end 'note'
 end 'Told'
@@ -376,8 +368,7 @@ type Holder
 		return Self{log: log}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function note(name immutable ByteArray)
+	function note(name frozen with ByteArray)
 		self.log.told.note(name)
 	end 'note'
 

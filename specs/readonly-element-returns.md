@@ -18,7 +18,6 @@ cannot write through the returned value (E3197). A copy made with `clone()` is a
 ## Tests
 
 <!-- test: error.a-method-returning-an-immutable-element-declares-its-result-immutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `at` returns `try self.items.get(i)`, an element of the `immutable` array `items`. A plain `Counter` result would hand
 the caller a writable name for the record the shelf holds.
@@ -42,8 +41,7 @@ type Shelf
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(item immutable Counter)
+	function add(item frozen with Counter)
 		self.items.push(item)
 	end 'add'
 
@@ -113,7 +111,6 @@ end 'main'
 
 
 <!-- test: error.a-method-returning-an-immutable-element-or-a-fresh-record-hands-back-a-read-only-value -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `at` returns the element on one path and a fresh record on the other. The caller cannot tell which, so the result
 is read-only and a write through the caller's `var` is E3197.
@@ -137,8 +134,7 @@ type Shelf
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(item immutable Counter)
+	function add(item frozen with Counter)
 		self.items.push(item)
 	end 'add'
 
@@ -162,7 +158,7 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is read-on
 
 
 <!-- test: error.a-method-returning-an-immutable-map-value-declares-its-result-immutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 <!-- positions: moved -->
 The value side of `Map with String, immutable Counter` is `immutable` when a method returns it.
 
@@ -185,8 +181,7 @@ type Index
 		return Self{entries: Entries.create()}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(name String, counter immutable Counter)
+	function add(name String, counter frozen with Counter)
 		self.entries.upsert(name, value: counter)
 	end 'add'
 
@@ -209,8 +204,6 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 
 
 <!-- test: a-method-returning-an-immutable-element-is-read-through-a-let -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The accepted twin: the result is declared `immutable` and the caller binds the returned element with `let` and
 reads it.
 
@@ -233,13 +226,11 @@ type Shelf
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(item immutable Counter)
+	function add(item frozen with Counter)
 		self.items.push(item)
 	end 'add'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function at(i ElementIndex) returns immutable Counter throws ArrayError
+	function at(i ElementIndex) returns frozen with Counter throws ArrayError
 		return try self.items.get(i)
 	end 'at'
 end 'Shelf'
@@ -258,8 +249,6 @@ end 'main'
 
 
 <!-- test: error.an-immutable-result-is-not-written-by-its-caller -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The result is declared `immutable`, so a write through the caller's binding is E3197.
 
@@ -282,13 +271,11 @@ type Shelf
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(item immutable Counter)
+	function add(item frozen with Counter)
 		self.items.push(item)
 	end 'add'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function at(i ElementIndex) returns immutable Counter throws ArrayError
+	function at(i ElementIndex) returns frozen with Counter throws ArrayError
 		return try self.items.get(i)
 	end 'at'
 end 'Shelf'
@@ -308,8 +295,6 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is immutab
 
 
 <!-- test: a-method-returning-an-immutable-element-is-copied-with-clone -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The accepted twin: a `clone()` of the returned element is a new record, so the caller's `var` writes the copy and
 the shelf's record keeps its value.
 
@@ -332,13 +317,11 @@ type Shelf
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	// TODO: parameter capability 'immutable' is not supported in minimaxon
-	function add(item immutable Counter)
+	function add(item frozen with Counter)
 		self.items.push(item)
 	end 'add'
 
-	// TODO: return type capability 'immutable' is not supported in minimaxon
-	function at(i ElementIndex) returns immutable Counter throws ArrayError
+	function at(i ElementIndex) returns frozen with Counter throws ArrayError
 		return try self.items.get(i)
 	end 'at'
 end 'Shelf'

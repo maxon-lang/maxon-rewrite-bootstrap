@@ -235,11 +235,19 @@ export type Checker
 	export var waitCalls as ast.FuncIDList
 	export var waits as WaitFacts
 	export var pendingAsyncs as PendingAsyncList
+	// partyWaitNow is whether the function being checked waits on another party: a reply it keeps, or the start of a service
+	// whose factory throws; spawned are the services of the module's types that the module spawns, whose messages E3221
+	// asks it of (services.maxon), servicesChecked the types whose service rules were checked, and discardedSend the send
+	// that the discard being checked drops the reply of.
+	export var partyWaitNow as bool
+	export var spawned as ast.TypeIDList
+	export var servicesChecked as ast.TypeIDList
+	export var discardedSend as ast.NodeID
 
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), pendingAsyncs: PendingAsyncList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), pendingAsyncs: PendingAsyncList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID}
 	end 'make'
 end 'Checker'
 
@@ -770,6 +778,7 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		builtinCown gives true
 		builtinCursor gives true
 		builtinPromise gives true
+		builtinService gives true
 		invalid gives false
 		primBool gives false
 		primString gives false
@@ -1281,6 +1290,12 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 			return ast.noType
 		end 'bareFloat'
 	end 'unqual'
+	if qualCount > 0 and tName == ast.serviceHandleMember 'handle'
+		match consumes handleTypeOf(c, p: p, ms: ms, tr: tr, errs: errs) 'service'
+			some(t) then return t
+			none then _ = 0
+		end 'service'
+	end 'handle'
 	match ast.nodeDecl(p, ms: ms, node: tr as Count) 'declHit'
 		some(ref) then return applyTypeArgs(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, selfTy: selfTy, errs: errs)
 		none then _ = 0

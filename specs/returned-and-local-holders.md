@@ -1408,7 +1408,6 @@ error E3211: <fragment>:34:12: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-mutable-function-held-in-a-frozen-holder-is-refused-when-called -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 M3V: a `mutates captures` function value read out of frozen data cannot be called, whatever the closure does.
 
@@ -1423,8 +1422,7 @@ type Holder
 	end 'over'
 end 'Holder'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function run(holder immutable Holder) returns Count
+function run(holder frozen with Holder) returns Count
 	return holder.probe()
 end 'run'
 

@@ -1781,7 +1781,6 @@ no draw keys the process fold: true
 
 <!-- test: concurrent-pinned-draws-never-repeat-an-index -->
 <!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
 Under a pin the n-th draw of a process is the n-th seed of the pin's sequence, and the n is one counter the whole
@@ -1835,7 +1834,6 @@ end 'Drawer'
 function main() returns ExitCode
 	let handles = DrawerHandleArray.create(0)
 	for _ in 0 upto drawers 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		handles.push(spawn Drawer.create())
 	end 'spawnEach'
 	let replies = DrawsPromiseArray.create(0)

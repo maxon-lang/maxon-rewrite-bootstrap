@@ -1,0 +1,25 @@
+export typealias Amount = int(0 to 1000000)
+
+function nap() returns Amount
+	sleep(1)
+	return 1
+end 'nap'
+
+type Starter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function start() returns Promise with Amount
+		return async nap()
+	end 'start'
+end 'Starter'
+
+function main() returns ExitCode
+	let h = spawn Starter.create()
+	return 0
+end 'main'
+
+// expect-error: E3140 at 21:10

@@ -163,6 +163,30 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryBytesAppendWord(vm, f: f, x: x)
 		return
 	end 'rtBytesAppendWord'
+	if symbol == ir.Rt.rtServiceNew 'rtServiceNew'
+		try entryServiceNew(vm, f: f, x: x)
+		return
+	end 'rtServiceNew'
+	if symbol == ir.Rt.rtServiceReserve 'rtServiceReserve'
+		try entryServiceReserve(vm, f: f, x: x)
+		return
+	end 'rtServiceReserve'
+	if symbol == ir.Rt.rtServiceTaken 'rtServiceTaken'
+		try entryServiceTaken(vm, f: f, x: x)
+		return
+	end 'rtServiceTaken'
+	if symbol == ir.Rt.rtServiceShutdown 'rtServiceShutdown'
+		try entryServiceShutdown(vm, f: f, x: x)
+		return
+	end 'rtServiceShutdown'
+	if symbol == ir.Rt.rtReplyNew 'rtReplyNew'
+		try entryReplyNew(vm, f: f, x: x)
+		return
+	end 'rtReplyNew'
+	if symbol == ir.Rt.rtReplyGive 'rtReplyGive'
+		try entryReplyGive(vm, f: f, x: x)
+		return
+	end 'rtReplyGive'
 	if symbol == ir.Rt.rtArrayNew 'rtArrayNew'
 		try entryArrayNew(vm, f: f, x: x)
 		return

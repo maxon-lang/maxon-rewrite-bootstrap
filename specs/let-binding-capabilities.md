@@ -2301,7 +2301,6 @@ end 'main'
 
 <!-- test: let-binding-capabilities.a-merged-isolated-parameter-kept-by-a-let-field-is-accepted -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `merge attrs` turns the `isolated` parameter back into ordinary data the `let` field owns alone, so the store reads through `merge` to the parameter exactly as `parseMerge` does and takes it like a moved parameter.
 
@@ -2323,8 +2322,7 @@ type Holder
 		return self.attrs.n
 	end 'read'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	static function create(attrs isolated Attrs) returns Self
+	static function create(consumes attrs Attrs) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		return Self{attrs: merge attrs}
 	end 'create'

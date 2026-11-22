@@ -300,9 +300,7 @@ end 'main'
 
 <!-- test: a-large-fixed-array-crosses-to-a-service-and-is-written-there -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A move proves the record sole, so a fixed array of 400 bytes or of 40000 crosses to a service with its elements, the
 service writes it in place, and it is released there once.
 ```maxon
@@ -317,8 +315,7 @@ type Keeper
 		return Self{cells: Cells.create(1)}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function adopt(incoming isolated Cells, last ElementIndex) returns Word
+	export function adopt(consumes incoming Cells, last ElementIndex) returns Word
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		self.cells = merge incoming
 		try self.cells.set(last, value: 7) otherwise panic("set")
@@ -327,7 +324,6 @@ type Keeper
 end 'Keeper'
 
 function check(count ElementIndex) returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let cells = Cells.create(count) as isolated Cells
@@ -934,9 +930,7 @@ end 'main'
 ```
 
 <!-- test: a-co-allocated-array-crosses-to-a-service-and-is-released-there -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A move proves the record sole and detaches it; a co-allocated buffer is already private, so the record crosses with
 its elements and the service releases it once.
 ```maxon
@@ -962,14 +956,12 @@ type Reader
 		return Self{reads: 0}
 	end 'create'
 
-	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	export function read(holder isolated Holder) returns Word
+	export function read(consumes holder Holder) returns Word
 		return holder.planes.get(1) + holder.planes.get(3)
 	end 'read'
 end 'Reader'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let holder = Holder.around() as isolated Holder

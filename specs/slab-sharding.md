@@ -476,7 +476,6 @@ end 'main'
 ```
 
 <!-- test: slab-sharding.a-local-free-is-never-counted-as-a-remote-one -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ⭐ **`HeapStats.slab().remoteFrees` IS THE CROSS-P FREE'S OBSERVER.** A
 box `main` allocates and a `spawn`ed service drops is released by whichever machine ran that receiver —
@@ -534,7 +533,6 @@ function main() returns ExitCode
 	let sinks = SinkHandleArray.create(0)
 	var i = 0 as Integer
 	while i < sinkCount 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		sinks.push(spawn Sink.create())
 		i = i + 1
 	end 'spawnEach'
@@ -568,7 +566,6 @@ delivered=320 remote=0
 ```
 
 <!-- test: slab-sharding.a-sole-processors-frees-onto-an-uncached-span-are-not-remote -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 Twenty thousand strings fill spans the one processor gives back to the shared list, so most of them are freed onto a span no processor caches; those frees are local too.
 ```maxon
@@ -604,7 +601,6 @@ function holdThenDrop(n Counted) returns Integer
 end 'holdThenDrop'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	let first = try await sink.take("warm") otherwise 0
 	print("first={first} remote-start={HeapStats.slab().remoteFrees}\n")
@@ -623,7 +619,6 @@ remote-after-drop=0 before=0
 ```
 
 <!-- test: slab-sharding.services-churning-different-size-classes-keep-their-sums -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **SIX SERVICES, SIX SIZE CLASSES, ONE ALLOCATOR, FOUR PROCESSORS.** Every refill, every return of an exhausted
 span to its class's list and every scavenge shares the allocator's structures, and a change to how they are
@@ -788,8 +783,7 @@ function main() returns ExitCode
 		if not landsIn(fill, length: pad, sizeClass: sizeClass as HeapBucketIndex) 'misplaced'
 			return 4
 		end 'misplaced'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		handles.push(spawn (capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	var roundBytes = 0 as Tally
 	for _ in 0 upto Rounds 'eachRound'
@@ -837,7 +831,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800
 ```
 
 <!-- test: slab-sharding.the-same-churn-keeps-its-sums-while-another-service-scavenges -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE CHURN OF THE CASE ABOVE, WITH THE SCAVENGER RUNNING UNDER IT.** The same six services, the same six
 size classes (8, 19, 33, 44, 54 and 67) and the same checks, plus a seventh service that calls
@@ -970,7 +963,6 @@ type Scavenger
 end 'Scavenger'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let scavenger = spawn Scavenger.create()
 	let fills = StringArray from ["a", "b", "c", "d", "e", "f"]
 	let pads = TallyArray from [3, 185, 1000, 3700, 9900, 30000]
@@ -980,8 +972,7 @@ function main() returns ExitCode
 		let fill = try fills.get(i) otherwise panic("churn: fills.get OOB at {i}")
 		let pad = try pads.get(i) otherwise panic("churn: pads.get OOB at {i}")
 		let population = try populations.get(i) otherwise panic("churn: populations.get OOB at {i}")
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		handles.push(spawn (capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	var roundBytes = 0 as Tally
 	var sweeps = 0 as Tally
@@ -1032,7 +1023,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800 sweeps=360
 ```
 
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE CONTROL FOR SAME-LIST CONTENTION: SIX SERVICES, ONE SIZE CLASS.** The ring and the checks of the first
 case, with every service building 1000-byte pads: all six allocate from class 33 (1152-byte slots, 7 to a
@@ -1174,8 +1164,7 @@ function main() returns ExitCode
 		if not landsIn(fill, length: pad, sizeClass: SharedClass) 'misplaced'
 			return 4
 		end 'misplaced'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		handles.push(spawn (capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	var roundBytes = 0 as Tally
 	for _ in 0 upto Rounds 'eachRound'
@@ -1223,7 +1212,6 @@ total built=261792000 absorbed=130896000 wrong=0 rounds=261792000
 ```
 
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums-while-another-service-scavenges -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE TWO CASES ABOVE, JOINED: SIX SERVICES ON ONE SIZE CLASS, A SEVENTH SCAVENGING UNDER THEM.** The ring, the
 pads and the checks of the one-class case (all six build 1000-byte pads in class 33, each hands every second
@@ -1394,10 +1382,8 @@ function main() returns ExitCode
 		if not landsIn(fill, length: pad, sizeClass: SharedClass) 'misplaced'
 			return 4
 		end 'misplaced'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-		handles.push(spawn (capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let scavenger = spawn Scavenger.create()
 	var roundBytes = 0 as Tally
 	var sweeps = 0 as Tally

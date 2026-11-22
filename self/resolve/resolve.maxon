@@ -49,6 +49,8 @@ typealias SegmentList = Array with Segment
 
 type Resolver
 	export var modID as diag.ModuleID
+	// spawned are the names of the types whose services the module spawns.
+	export var spawned as ast.StringList
 	export var tree as ast.Tree
 	export var res as ast.Resolution
 	export var scopes as ScopeStack
@@ -71,7 +73,8 @@ type Resolver
 	export var labels as OpenLabels
 
 	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
-		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false, labels: OpenLabels.create(0)}
+		let spawned = spawnedTypes(tree)
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false, labels: OpenLabels.create(0), spawned: spawned}
 	end 'make'
 end 'Resolver'
 
@@ -1025,7 +1028,13 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 		resolveExpr(r, p: p, ms: ms, id: ast.unaryExprE(r.tree, id: id), errs: errs)
 	end 'un' else if k == ast.NodeKind.asyncExpr 'async'
 		resolveExpr(r, p: p, ms: ms, id: ast.asyncExprCall(r.tree, id: id), errs: errs)
-	end 'async' else if k == ast.NodeKind.awaitExpr 'await'
+	end 'async' else if k == ast.NodeKind.spawnExpr 'spawn'
+		let capacity = ast.spawnExprCapacity(r.tree, id: id)
+		if capacity != 0 'capacity'
+			resolveExpr(r, p: p, ms: ms, id: ast.argValue(r.tree, id: capacity), errs: errs)
+		end 'capacity'
+		resolveExpr(r, p: p, ms: ms, id: ast.spawnExprCall(r.tree, id: id), errs: errs)
+	end 'spawn' else if k == ast.NodeKind.awaitExpr 'await'
 		resolveExpr(r, p: p, ms: ms, id: ast.awaitExprE(r.tree, id: id), errs: errs)
 	end 'await' else if k == ast.NodeKind.condExpr 'cnd'
 		resolveExpr(r, p: p, ms: ms, id: ast.condExprCond(r.tree, id: id), errs: errs)
@@ -1188,6 +1197,24 @@ end 'Surface'
 function declSurface(r Resolver, d ast.Decl, consumes noun String) returns Surface
 	return Surface.make(d.level(), noun: noun, name: d.name(), at: r.tree.reportStartOf(d.nodeID()))
 end 'declSurface'
+
+// spawnedTypes are the names of the types the module spawns services of, `spawn Name.f(...)`, which makes the type's
+// export instance methods its messages. A spawn in another module is not seen here.
+function spawnedTypes(tree ast.Tree) returns ast.StringList
+	var out = ast.StringList.create(0)
+	for i in 0 upto tree.records.count() 'nodes'
+		if tree.records[i].kind == ast.NodeKind.spawnExpr 'spawn'
+			let call = ast.spawnExprCall(tree, id: try i as ast.NodeID otherwise panic("resolve: more nodes than a NodeID holds"))
+			if tree.kindOf(call) == ast.NodeKind.callExpr and tree.kindOf(ast.callExprCallee(tree, id: call)) == ast.NodeKind.memberExpr 'factory'
+				let head = ast.memberExprObj(tree, id: ast.callExprCallee(tree, id: call))
+				if tree.kindOf(head) == ast.NodeKind.nameExpr 'named'
+					out.push(ast.nameExprName(tree, id: head))
+				end 'named'
+			end 'factory'
+		end 'spawn'
+	end 'nodes'
+	return out
+end 'spawnedTypes'
 
 // methodSurface is a method's: its own visibility decides, not its type's.
 function methodSurface(r Resolver, owner String, m ast.FuncDecl) returns Surface
@@ -1412,8 +1439,13 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 		end 'hd'
 	end 'flds'
 	let emptyFields = BoolStrMap.new()
+	let service = r.spawned.contains(td.name)
 	for i in 0 upto td.methods.count() 'meths'
-		let surface = methodSurface(r, owner: td.name, m: td.methods[i])
+		var surface = methodSurface(r, owner: td.name, m: td.methods[i])
+		if service and not td.methods[i].isStatic 'message'
+			// A message is as visible as its service and no more, as maxon holds it (E3167).
+			surface.tier = narrower(surface.tier, b: s.tier)
+		end 'message'
 		if td.methods[i].isStatic 'st'
 			resolveFuncDecl(r, p: p, ms: ms, f: td.methods[i].clone(), s: surface, fieldNames: emptyFields, hasReceiver: false, errs: errs)
 		end 'st' else 'inst'

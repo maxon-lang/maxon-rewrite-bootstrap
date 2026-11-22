@@ -1,0 +1,21 @@
+export typealias Amount = int(0 to 1000000)
+
+function nap() returns Amount
+	sleep(1)
+	return 1
+end 'nap'
+
+type Keeper
+	var pending as Promise with Amount
+
+	static function create() returns Self
+		return Self{pending: async nap()}
+	end 'create'
+end 'Keeper'
+
+function main() returns ExitCode
+	let h = spawn Keeper.create()
+	return 0
+end 'main'
+
+// expect-error: E3216 at 17:10

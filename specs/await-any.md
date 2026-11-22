@@ -327,7 +327,6 @@ end 'main'
 ```
 
 <!-- test: await-any.over-service-replies -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE COMPOSITION THAT MAKES THE PRIMITIVE WORTH HAVING.** A handler reply is an ordinary `Promise`, so
 ONE waiting primitive covers service replies, file IO and subprocess drains — there is no separate "channel
 select" anywhere in the design. Two services are sent to; the first handler sleeps and the second answers at
@@ -370,9 +369,7 @@ type Quick
 end 'Quick'
 
 function main() returns ExitCode
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let slow = spawn Slow.create()
-	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let quick = spawn Quick.create()
 	let ps = ReplyPromiseArray.create(0)
 	ps.push(try slow.value() otherwise panic("send slow"))
@@ -532,7 +529,6 @@ end 'main'
 ```
 
 <!-- test: await-any.replies-racing-the-registration-across-many-rounds -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **A SELECT WHOSE SLOTS COMPLETE ON OTHER PROCESSORS WHILE IT REGISTERS.** Each round sends one message to
 each of four services and selects over the four replies. At four processors the services answer on their
@@ -578,7 +574,6 @@ end 'Echo'
 function main() returns ExitCode
 	let echoes = EchoHandleArray.create(0)
 	for _ in 0 upto services 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		echoes.push(spawn Echo.create())
 	end 'spawnEach'
 	var sum = 0 as Integer
@@ -608,7 +603,6 @@ picks=300 sum=719400
 ```
 
 <!-- test: await-any.replies-racing-the-registration-at-one-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 **THE ONE-PROCESSOR TWIN OF `replies-racing-the-registration-across-many-rounds`.** With one processor the
@@ -645,7 +639,6 @@ end 'Echo'
 function main() returns ExitCode
 	let echoes = EchoHandleArray.create(0)
 	for _ in 0 upto services 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		echoes.push(spawn Echo.create())
 	end 'spawnEach'
 	var sum = 0 as Integer
@@ -675,7 +668,6 @@ picks=300 sum=719400
 ```
 
 <!-- test: await-any.sixteen-replies-completing-out-of-order-across-many-rounds -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **A SELECT OVER SIXTEEN SLOTS LOCKS ALL SIXTEEN IN ONE ADDRESS ORDER, WHATEVER ORDER THE ARRAY HOLDS
 THEM IN.** Each round sends one message to each of sixteen services and selects over the sixteen replies.
@@ -730,7 +722,6 @@ end 'Echo'
 function main() returns ExitCode
 	let echoes = EchoHandleArray.create(0)
 	for _ in 0 upto services 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		echoes.push(spawn Echo.create())
 	end 'spawnEach'
 	var sum = 0 as Integer
@@ -762,7 +753,6 @@ picks=400 sum=20476800
 ```
 
 <!-- test: await-any.sixteen-replies-completing-out-of-order-at-one-processor -->
-<!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 **THE ONE-PROCESSOR TWIN OF `sixteen-replies-completing-out-of-order-across-many-rounds`.** With one
@@ -806,7 +796,6 @@ end 'Echo'
 function main() returns ExitCode
 	let echoes = EchoHandleArray.create(0)
 	for _ in 0 upto services 'spawnEach'
-		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		echoes.push(spawn Echo.create())
 	end 'spawnEach'
 	var sum = 0 as Integer

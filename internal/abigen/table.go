@@ -107,6 +107,14 @@ var layouts = []layoutConst{
 		"where a cown holds its value, a word: a behaviour that mutates it is given this field's address."},
 	{"cownBytes", 4, false, toRuntime | toSelfBack,
 		"the size of a cown."},
+	// A service is a cown with its mailbox's gate after the cown's words, so a behaviour, a share and a drop of the handle
+	// are a cown's.
+	{"serviceGateOffset", 4, false, toRuntime,
+		"where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus serviceClosed once it is shut down."},
+	{"serviceCapacityOffset", 5, false, toRuntime,
+		"where a service holds how many messages its mailbox holds at most."},
+	{"serviceBytes", 6, false, toRuntime,
+		"the size of a service."},
 
 	// A behaviour's record: its header, its request slots in the order of their cowns' addresses, its cowns in the order
 	// the source names them, and its captures.
