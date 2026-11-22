@@ -1088,7 +1088,7 @@ what a later pass such as reference counting or an optimization changes.
 - **Jump threading** (`self/opt/thread.maxon`, maxon's `threadConstantBranches`) runs next, and again with the fold after leaf
   inlining: an edge that passes a constant to a block that holds nothing but a branch on its own parameter goes to the side
   the constant takes, an edge into a block that holds nothing but a jump goes where it jumps, and a block whose jump goes to a
-  block that holds nothing but a branch on the first block's parameter takes that branch. A `match` that gives a bool which
+  block that holds nothing, takes no parameters and branches takes that branch. A `match` that gives a bool which
   an `if` tests, and an inlined predicate, become one compare and one branch. A `match` on an enum, a union or a bool with no
   `default` arm takes its last arm untested, since the checker holds it to name every value.
 - The fold pass (`opt.Fold`, `self/opt/fold.maxon`) runs next, on every function of a native build: one worklist that

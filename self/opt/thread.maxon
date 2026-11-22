@@ -6,8 +6,9 @@
 // block's own branch: what reads it elsewhere would not see the value on the threaded edge. An edge into a block that holds
 // nothing but constants nothing reads and jumps on goes where it jumps, so that the two sides of a test that end up in one
 // place are seen to, and the fold that follows turns the test into a jump and removes the blocks and constants every edge
-// left. A block whose jump goes to a block that holds nothing but a branch on the first block's parameter takes that
-// branch, as the block an inlined predicate returns to does.
+// left. A block whose jump goes to a block that holds nothing, takes no parameters and branches takes that branch, so that
+// an edge into it that passes a constant for what the branch tests, as one into the block an inlined predicate returns to
+// does, can be threaded.
 
 // maxThreadRounds bounds the rounds over a function, since a cycle of forwarders that pass one another constants would
 // thread forever.
@@ -76,18 +77,23 @@ export type Threader
 		return changed
 	end 'thread'
 
-	// hoist gives block p, which jumps to a block that holds nothing but a branch on one of p's parameters, that branch in
-	// place of its jump, so that p is a forwarder whose edges in can be threaded, as the block an inlined predicate returns
-	// to is. What the branch reads is p's parameter or is defined before the block it was in, so before p too.
+	// hoist gives block p, which jumps to a block u that holds nothing, takes no parameters and branches, that branch in
+	// place of its jump, so that p may become a forwarder whose edges in can be threaded. What the branch reads is defined
+	// in a block other than u that dominates u, so it dominates p too: a path to p and p's jump make a path to u.
 	function hoist(mutates self, mutates f ir.IrFunction, p Count) returns bool
 		if f.blocks[p].term.kind != ir.TermKind.termJump or ir.jumpArgsCount(f.blocks[p].term) != 0 'notJump'
 			return false
 		end 'notJump'
 		let u = ir.blockIndex(ir.jumpTarget(f.blocks[p].term))
-		if u == p or not tests[u] or paramOf[regIndex(ir.branchCond(f.blocks[u].term))] != plusOne(p) 'notTest'
+		if u == p or not tests[u] 'notTest'
 			return false
 		end 'notTest'
 		f.blocks[p].term = f.blocks[u].term.clone()
+		// The facts of p were found for its jump, and an edge threaded through p as a block that passes would take the
+		// branch's first target as its jump's. p is no block to thread through until the next round finds its facts again.
+		forwards[p] = false
+		passes[p] = false
+		tests[p] = false
 		editor.loadEdges(f, b: p)
 		editor.storeEdges(f, b: p)
 		threaded = plusOne(threaded)

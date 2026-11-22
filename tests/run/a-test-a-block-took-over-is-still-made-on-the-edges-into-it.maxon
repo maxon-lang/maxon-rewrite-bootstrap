@@ -1,0 +1,60 @@
+// A test of a flag after a chain of arms tests it on every path into it: the arm that ends in a loop, whose exit reaches
+// the test through a block that has taken the test over, still tests the flag rather than taking its true side.
+type L
+	var scopes as Count
+	var nodes as Array with Count
+	var log as Array with Count
+
+	static function make() returns L
+		return L{scopes: 0, nodes: Array.create(0), log: Array.create(0)}
+	end 'make'
+end 'L'
+
+function push(mutates l L)
+	l.scopes = try l.scopes + 1 otherwise panic("above")
+end 'push'
+
+function pop(mutates l L)
+	l.scopes = try l.scopes - 1 otherwise panic("a count below 0")
+end 'pop'
+
+function work(mutates l L, n Count)
+	for i in 0 upto n 'each'
+		l.log.push(i)
+	end 'each'
+end 'work'
+
+function f(mutates l L, at Count, form Count)
+	let takes = (try l.nodes.get(at) otherwise panic("gone")) != 2
+	if takes 'a'
+		push(l)
+	end 'a' else 'b'
+		work(l, n: 1)
+	end 'b'
+	if form == 0 'x'
+		work(l, n: 2)
+	end 'x' else if form == 1 'y'
+		push(l)
+		work(l, n: 3)
+		pop(l)
+	end 'y' else 'z'
+		work(l, n: 4)
+	end 'z'
+	if takes 'p'
+		pop(l)
+	end 'p'
+end 'f'
+
+function main() returns ExitCode
+	var l = L.make()
+	l.nodes.push(2)
+	l.nodes.push(3)
+	for form in 0 upto 3 'forms'
+		f(l, at: 0, form: form)
+		f(l, at: 1, form: form)
+	end 'forms'
+	print("{l.scopes} {l.log.count()}\n")
+	return 0
+end 'main'
+
+//> 0 21
