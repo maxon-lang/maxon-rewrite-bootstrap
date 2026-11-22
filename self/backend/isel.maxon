@@ -806,8 +806,25 @@ function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if sel.system != ast.TargetSystem.windows 'imports'
 		panic("backend: the runtime calls the DLL function {ir.callImportName(fn, x: ins)} on a target with no DLLs: its source for the target lacks that function")
 	end 'imports'
-	let start = ir.callImportArgsStart(ins)
-	let count = ir.callImportArgsCount(ins)
+	let slot = imm32Of(importIndex(ir.callImportName(fn, x: ins)))
+	emitHostCall(sel, fn: fn, ins: ins, start: ir.callImportArgsStart(ins), count: ir.callImportArgsCount(ins), form: X64Form.callRip, code: noMReg, ref: MRef.importSlot, aux: slot)
+end 'emitCallImport'
+
+// emitCallHost calls the code at an address, the first of the arguments, by the host convention with the rest, as
+// emitCallImport calls an import: a DLL function that the runtime found by its name.
+function emitCallHost(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if sel.system != ast.TargetSystem.windows 'host'
+		panic("backend: the runtime calls a DLL function by its address on a target with no DLLs: its source for the target lacks that function")
+	end 'host'
+	let start = ir.callHostArgsStart(ins)
+	let count = try ir.callHostArgsCount(ins) - 1 otherwise panic("backend: a call of code with no address")
+	let code = argAt(fn, start: start, index: 0)
+	emitHostCall(sel, fn: fn, ins: ins, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: count, form: X64Form.callReg, code: code, ref: MRef.none, aux: 0)
+end 'emitCallHost'
+
+// emitHostCall calls by the host convention, Win64, with the count words of the pool from start: through the import slot
+// or the register that form, code, ref and aux name.
+function emitHostCall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr, start Count, count Count, form X64Form, code MReg, ref MRef, aux Imm32)
 	let inRegisters = argsInRegisters(ConventionKind.host, count: count)
 	let stackWords = try count - inRegisters otherwise panic("backend: more arguments in registers than a call has")
 	let frame = alignUp(try x64WindowsHostShadowBytes + stackWords * wordBytes otherwise panic("backend: more arguments than memory"), alignment: x64StackAlignment)
@@ -823,10 +840,10 @@ function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	for i in 0 upto inRegisters 'registers'
 		sel.copy(physReg(argRegister(ConventionKind.host, index: i)), src: argAt(fn, start: start, index: i))
 	end 'registers'
-	sel.emit(newCall(X64Form.callRip, a: noMReg, ref: MRef.importSlot, aux: imm32Of(importIndex(ir.callImportName(fn, x: ins))), argRegs: wordArgRegs(ConventionKind.host, count: inRegisters)))
+	sel.emit(newCall(form, a: code, ref: ref, aux: aux, argRegs: wordArgRegs(ConventionKind.host, count: inRegisters)))
 	sel.target(X64Form.movRegReg, a: sp, b: saved, c: noMReg, aux: 0, imm: 0)
 	sel.takeFrom(ins.dst, r: resultRegister(ConventionKind.host))
-end 'emitCallImport'
+end 'emitHostCall'
 
 // emitSyscall calls the kernel by Linux's system call convention: the number and the words in its registers, the result
 // in its result register. A system call takes no more words than the convention has registers for.

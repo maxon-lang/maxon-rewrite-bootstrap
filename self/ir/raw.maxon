@@ -225,3 +225,10 @@ function lowerRawCallImport(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	emit(l, i: instr)
 	return d
 end 'lowerRawCallImport'
+
+function lowerRawCallHost(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	let instr = l.b.callHost(d, args: args)
+	emit(l, i: instr)
+	return d
+end 'lowerRawCallHost'

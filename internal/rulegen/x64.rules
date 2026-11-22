@@ -186,6 +186,7 @@
 // Calls, by the target's convention, and what allocates or calls a routine.
 (callImport) => (emitCallImport)
 (callCode) => (emitCallCode)
+(callHost) => (emitCallHost)
 (call) => (emitCall)
 (callRuntime) => (emitCallRuntime)
 (callValue) => (emitCallValue)

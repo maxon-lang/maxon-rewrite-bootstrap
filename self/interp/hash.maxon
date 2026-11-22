@@ -1,0 +1,84 @@
+// The interpreter's hash entries and ordered words, which run the runtime's fold (hashfold_gen.maxon).
+
+// HashInput is a span the fold reads: its bytes.
+type HashInput
+	var bytes as ByteArray
+
+	static function make(consumes bytes ByteArray) returns HashInput
+		return HashInput{bytes: bytes}
+	end 'make'
+end 'HashInput'
+
+function hashLoadWord(input HashInput, at Count) returns HashWord
+	return hashLoadBytes(input, at: at, count: hashWordBytes)
+end 'hashLoadWord'
+
+function hashLoadHalf(input HashInput, at Count) returns HashWord
+	return hashLoadBytes(input, at: at, count: hashHalfWordBytes)
+end 'hashLoadHalf'
+
+function hashLoadByte(input HashInput, at Count) returns HashWord
+	return input.bytes[at] as HashWord
+end 'hashLoadByte'
+
+// hashLoadBytes is the count bytes at a position, the first the least significant, as the machine loads them.
+function hashLoadBytes(input HashInput, at Count, count Count) returns HashWord
+	var word = 0 as HashWord
+	var shift = 0 as HashWord
+	for i in 0 upto count 'bytes'
+		word = word or ((input.bytes[try at + i otherwise panic("interp: a hashed span past memory")] as HashWord) shl shift)
+		shift = shift + hashBitsPerByte
+	end 'bytes'
+	return word
+end 'hashLoadBytes'
+
+function entryHashWord(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let word = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0)) as HashWord
+	let seed = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1)) as HashWord
+	giveNum(vm, x: x, n: ir.wordOfBits(hashWordFold(word, seed: seed) as Count))
+end 'entryHashWord'
+
+function entryHashBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a hash of bytes")
+	let at = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let count = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
+	let seed = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 3)) as HashWord
+	let length = vm.h.buffers[vm.h.oData[b]].count()
+	if at > length or count > length - at 'outside'
+		throw trap(vm, message: "a hashed span reaches past the end of its array")
+	end 'outside'
+	let input = HashInput.make(try vm.h.buffers[vm.h.oData[b]].slice(at, endIndex: at + count) otherwise panic("interp: a hashed span checked inside its array is not"))
+	giveNum(vm, x: x, n: ir.wordOfBits(hashSpan(input, count: count, seed: seed) as Count))
+end 'entryHashBytes'
+
+// entryBytesReadWord is the width bytes from an index as a word, the first the most significant where bigEndian, or
+// indexOutOfBounds when they are not all inside the array.
+function entryBytesReadWord(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a read of an ordered word")
+	let at = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let width = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
+	let bigEndian = argNum(vm, f: f, x: x, i: 3) != 0
+	let length = vm.h.buffers[vm.h.oData[b]].count()
+	if at >= length or length - at < width 'outside'
+		try errorWord(vm, f: f, x: x, word: caseWord(ast.errorIndexOutOfBounds))
+		return
+	end 'outside'
+	try errorWord(vm, f: f, x: x, word: 0)
+	var word = 0 as HashWord
+	for i in 0 upto width 'bytes'
+		word = word or ((vm.h.buffers[vm.h.oData[b]][try at + i otherwise panic("interp: an ordered word past memory")] as HashWord) shl orderedWordShift(i, width: width, bigEndian: bigEndian))
+	end 'bytes'
+	giveNum(vm, x: x, n: ir.wordOfBits(word as Count))
+end 'entryBytesReadWord'
+
+// entryBytesAppendWord appends the width low bytes of a word, the most significant first where bigEndian.
+function entryBytesAppendWord(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "an append of an ordered word")
+	let word = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1)) as HashWord
+	let width = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
+	let bigEndian = argNum(vm, f: f, x: x, i: 3) != 0
+	try restructure(vm, o: b)
+	for i in 0 upto width 'bytes'
+		vm.h.buffers[vm.h.oData[b]].push(orderedWordByte(word, index: i, width: width, bigEndian: bigEndian))
+	end 'bytes'
+end 'entryBytesAppendWord'

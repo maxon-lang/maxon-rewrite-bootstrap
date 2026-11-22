@@ -204,6 +204,12 @@ export type Builder
 		return newCallCode(dst, argsStart: start, argsCount: regOf(args.count()))
 	end 'callCode'
 
+	// callHost calls the code at an address by the host's convention: args are the address and then the words.
+	export function callHost(mutates self, dst Reg, args RegList) returns Instr
+		let start = self.arguments(args)
+		return newCallHost(dst, argsStart: start, argsCount: regOf(args.count()))
+	end 'callHost'
+
 	// arguments adds the registers of a call to the pool and gives where they start.
 	function arguments(mutates self, args RegList) returns Reg
 		let start = regOf(f.args.count())

@@ -34,12 +34,21 @@ function refusesRawCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.N
 	if not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).hasReceiver 'static'
 		return false
 	end 'static'
+	match consumes ast.rawMemberSurface(p.builtins, owner: origin, name: name.clone()) 'member'
+		some(door) then return refuseRawMember(c, p: p, ms: ms, call: call, name: name, door: door, errs: errs)
+		none then _ = 0
+	end 'member'
 	match consumes ast.rawMethodSurface(p.builtins, origin: origin) 'method'
-		some(door) then failAt(c, p: p, ms: ms, node: call, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawMemberOutsideLibrary("{name}()", what: door.what, instead: door.instead), errs: errs)
+		some(door) then return refuseRawMember(c, p: p, ms: ms, call: call, name: name, door: door, errs: errs)
 		none then return false
 	end 'method'
-	return true
+	return false
 end 'refusesRawCall'
+
+function refuseRawMember(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, name String, door ast.RawSurface, mutates errs diag.ErrorList) returns bool
+	failAt(c, p: p, ms: ms, node: call, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawMemberOutsideLibrary("{name}()", what: door.what, instead: door.instead), errs: errs)
+	return true
+end 'refuseRawMember'
 
 function refuseRawCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ownerName String, name String, instead String, mutates errs diag.ErrorList) returns bool
 	failAt(c, p: p, ms: ms, node: call, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawCallOutsideLibrary("{ownerName}.{name}", owner: ownerName, instead: instead), errs: errs)

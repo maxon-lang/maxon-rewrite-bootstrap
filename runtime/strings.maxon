@@ -128,3 +128,17 @@ function copyBytes(source Count, target Count, count Count)
 		at = __Raw.wrappingAdd(at, right: 1)
 	end 'bytes'
 end 'copyBytes'
+
+// cStringOf is a new zero-terminated copy of a string, which the caller frees: a path or an argument as the kernel reads
+// it, or a name as a Windows function of an A name reads it.
+function cStringOf(text String) returns Count
+	return cStringOfBox(__Raw.stringAddress(text))
+end 'cStringOf'
+
+// cStringOfBox is cStringOf of the string a box holds.
+function cStringOfBox(box Count) returns Count
+	let length = boxLength(box)
+	let copy = alloc(__Raw.wrappingAdd(length, right: 1))
+	copyBytes(bytesOf(box), target: copy, count: length)
+	return copy
+end 'cStringOfBox'

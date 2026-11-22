@@ -22,6 +22,14 @@ function registerStdAlias(mutates tt TypeSlot, reads TypeTable, mutates std Pars
 	return tid
 end 'registerStdAlias'
 
+// registerStdBitsAlias is a built-in alias of a bit pattern of a width, the unsigned range of the width with a pattern's
+// rules, as declareBitsAlias gives a program's.
+function registerStdBitsAlias(mutates tt TypeSlot, reads TypeTable, mutates std ParsedModule, mutates typeMap TypeIDMap, consumes name String, width Count) returns TypeID
+	let tid = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: name, lo: I128.zero(), hi: I128.fromCount(u64MaxCount shr (try 64 - width otherwise panic("a bit pattern wider than a word"))))
+	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].bitsWidth = width
+	return tid
+end 'registerStdBitsAlias'
+
 function registerStdFloatAlias(mutates tt TypeSlot, reads TypeTable, mutates std ParsedModule, mutates typeMap TypeIDMap, consumes name String, lo Count, hi Count) returns TypeID
 	let tid = internFloatRange(tt, reads: reads, aliasName: name.clone(), lo: lo, hi: hi)
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")

@@ -51,6 +51,7 @@ export enum Opcode
 	opSpinPause
 	opThreadContext
 	opCallCode
+	opCallHost
 	opCodeAddress
 	opBin
 	opCmp
@@ -694,6 +695,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opCallCode 'opCallCode'
 		return 31
 	end 'opCallCode'
+	if op == Opcode.opCallHost 'opCallHost'
+		return 7
+	end 'opCallHost'
 	if op == Opcode.opCodeAddress 'opCodeAddress'
 		return 0
 	end 'opCodeAddress'
@@ -1082,6 +1086,17 @@ export function newCallCode(dst Reg, argsStart Reg, argsCount Reg) returns Instr
 	r.b = argsCount
 	return r
 end 'newCallCode'
+
+// CallHost calls the code at the address that is the first of Args with the rest of Args, by the host's
+// convention (Win64), as CallImport calls an import: a function of a library the import table does not name, found by
+// its address.
+export function newCallHost(dst Reg, argsStart Reg, argsCount Reg) returns Instr
+	var r = Instr.make(Opcode.opCallHost)
+	r.dst = dst
+	r.a = argsStart
+	r.b = argsCount
+	return r
+end 'newCallHost'
 
 // CodeAddress gives the address of the code of the function Callee, which a CallCode calls: the run of a
 // behaviour's record that a test of the runtime builds by hand.
@@ -1723,6 +1738,16 @@ export function callCodeArgsCount(x Instr) returns Count
 	return try x.b as Count otherwise panic("ir: callCode args is out of range")
 end 'callCodeArgsCount'
 
+// callHostArgsStart is where the args of a CallHost start in their pool.
+export function callHostArgsStart(x Instr) returns Count
+	return try x.a as Count otherwise panic("ir: callHost args is out of range")
+end 'callHostArgsStart'
+
+// callHostArgsCount is how many args a CallHost has.
+export function callHostArgsCount(x Instr) returns Count
+	return try x.b as Count otherwise panic("ir: callHost args is out of range")
+end 'callHostArgsCount'
+
 export function codeAddressCallee(f IrFunction, x Instr) returns ast.FuncID
 	return f.calleeAt(x.c)
 end 'codeAddressCallee'
@@ -2306,6 +2331,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opCallCode 'opCallCode'
 		return table.Option.some(x.dst)
 	end 'opCallCode'
+	if x.op == Opcode.opCallHost 'opCallHost'
+		return table.Option.some(x.dst)
+	end 'opCallHost'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return table.Option.some(x.dst)
 	end 'opCodeAddress'
@@ -2506,6 +2534,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opCallCode 'opCallCode'
 		return table.Option.none
 	end 'opCallCode'
+	if x.op == Opcode.opCallHost 'opCallHost'
+		return table.Option.none
+	end 'opCallHost'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return table.Option.none
 	end 'opCodeAddress'
@@ -2648,6 +2679,7 @@ export function instrCanFail(x Instr) returns bool
 		opSpinPause gives false
 		opThreadContext gives false
 		opCallCode gives false
+		opCallHost gives false
 		opCodeAddress gives false
 		opBin gives binHasFail(x)
 		opCmp gives false
@@ -2781,6 +2813,10 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		f.regsInto(callCodeArgsStart(x), count: callCodeArgsCount(x), out: out)
 		return
 	end 'opCallCode'
+	if x.op == Opcode.opCallHost 'opCallHost'
+		f.regsInto(callHostArgsStart(x), count: callHostArgsCount(x), out: out)
+		return
+	end 'opCallHost'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return
 	end 'opCodeAddress'
@@ -3064,6 +3100,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opCallCode'
+	if x.op == Opcode.opCallHost 'opCallHost'
+		out.push(x.dst)
+		return
+	end 'opCallHost'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		out.push(x.dst)
 		return
@@ -3316,6 +3356,10 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		renameRegs(args, start: callCodeArgsStart(x), count: callCodeArgsCount(x), names: names)
 		return
 	end 'opCallCode'
+	if x.op == Opcode.opCallHost 'opCallHost'
+		renameRegs(args, start: callHostArgsStart(x), count: callHostArgsCount(x), names: names)
+		return
+	end 'opCallHost'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return
 	end 'opCodeAddress'
@@ -3650,6 +3694,11 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.a = shiftedReg(x.a, by: at.args)
 		return
 	end 'opCallCode'
+	if x.op == Opcode.opCallHost 'opCallHost'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opCallHost'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.c = shiftedIndex(x.c, by: at.callees)
@@ -3940,6 +3989,7 @@ export interface InstrVisitor
 	function visitSpinPause(mutates self, f IrFunction, x Instr)
 	function visitThreadContext(mutates self, f IrFunction, x Instr)
 	function visitCallCode(mutates self, f IrFunction, x Instr)
+	function visitCallHost(mutates self, f IrFunction, x Instr)
 	function visitCodeAddress(mutates self, f IrFunction, x Instr)
 	function visitBin(mutates self, f IrFunction, x Instr)
 	function visitCmp(mutates self, f IrFunction, x Instr)
@@ -4077,6 +4127,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitCallCode(f, x: x)
 		return
 	end 'opCallCode'
+	if x.op == Opcode.opCallHost 'opCallHost'
+		visitor.visitCallHost(f, x: x)
+		return
+	end 'opCallHost'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		visitor.visitCodeAddress(f, x: x)
 		return
@@ -4349,6 +4403,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opCallCode 'opCallCode'
 		return "{resultText(x.dst)}callcode({f.regsText(callCodeArgsStart(x), count: callCodeArgsCount(x))})"
 	end 'opCallCode'
+	if x.op == Opcode.opCallHost 'opCallHost'
+		return "{resultText(x.dst)}callhost({f.regsText(callHostArgsStart(x), count: callHostArgsCount(x))})"
+	end 'opCallHost'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return "{resultText(x.dst)}codeaddr {funcSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: codeAddressCallee(f, x: x))}"
 	end 'opCodeAddress'

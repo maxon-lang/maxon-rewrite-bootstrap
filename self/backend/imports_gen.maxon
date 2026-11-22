@@ -144,6 +144,10 @@ export let impGetQueuedCompletionStatusEx = 68 as Count
 
 export let impPostQueuedCompletionStatus = 69 as Count
 
+export let impLoadLibraryA = 70 as Count
+
+export let impGetProcAddress = 71 as Count
+
 export function rtImports() returns NameList
 	var names = NameList.create(0)
 	names.push("GetProcessHeap")
@@ -216,5 +220,7 @@ export function rtImports() returns NameList
 	names.push("CreateIoCompletionPort")
 	names.push("GetQueuedCompletionStatusEx")
 	names.push("PostQueuedCompletionStatus")
+	names.push("LoadLibraryA")
+	names.push("GetProcAddress")
 	return names
 end 'rtImports'

@@ -72,22 +72,77 @@ end 'arrayRemove'
 // arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not
 // changed.
 function arrayLoad(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
-	return arrayRead(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+	return arrayRead(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true, read: SlotRead.slotLent)
 end 'arrayLoad'
+
+// SlotRead is what a read of an element does at a slot that holds none: an empty slot, which only the library tiers make
+// (resize of an array of a type parameter, clearSlot), and which is 0 for a managed element, as maxon's is. A read that
+// lends the element panics there, with maxon's message, rather than lend a box that is not there; a read that gives a
+// copy fails with emptySlot, the case of ArrayError and of __ManagedMemoryError that maxon's get throws.
+export enum SlotRead
+	slotLent
+	slotCopied
+end 'SlotRead'
+
+// emptySlotPrefix and emptySlotSuffix are maxon's message of a lent read of an empty slot, around the slot's index.
+let emptySlotPrefix = "empty slot: element "
+
+let emptySlotSuffix = " of the array was never filled"
+
+// requireFilled goes on only when the element read from a slot is there: a managed element of an empty slot is 0, and a
+// scalar has no empty slot, since 0 is a value of it.
+function requireFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, element Reg, index Reg, read SlotRead)
+	if not ast.isManagedType(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box)) 'scalar'
+		return
+	end 'scalar'
+	let empty = konst(l, value: 0 as Word)
+	let filled = compare(l, op: CmpOp.cmpNe, a: element, b: empty, unsigned: true)
+	match read 'read'
+		slotCopied then failUnless(l, p: p, ms: ms, cond: filled, errorCase: ast.errorEmptySlot)
+		slotLent then panicUnlessFilled(l, p: p, box: box, filled: filled, index: index)
+	end 'read'
+end 'requireFilled'
+
+// panicUnlessFilled goes on when the slot is filled, and panics with maxon's message of the slot otherwise.
+function panicUnlessFilled(mutates l Lowerer, p ast.Project, box ArrayBox, filled Reg, index Reg)
+	let ok = l.b.newBlock()
+	let bad = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(filled, ifTrue: ok, ifFalse: bad))
+	l.cur = bad
+	let prefix = strReg(l, value: emptySlotPrefix)
+	let unsigned = konst(l, value: 1 as Word)
+	let digits = runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(index, b: unsigned))
+	let lead = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(prefix, b: digits))
+	let suffix = strReg(l, value: emptySlotSuffix)
+	let message = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(lead, b: suffix))
+	let location = strReg(l, value: ast.panicLocation(p.modules[ast.modIndex(box.site.module)], offset: box.site.offset))
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanicAt, args: argsOf2(location, b: message), routine: ast.noFunc)
+	seal(l, t: newTrap())
+	l.cur = ok
+end 'panicUnlessFilled'
 
 // arrayRead reads the element at index as arrayLoad does; where the checker or a check before it has proved the index
 // inside the array (not checked), the entry's call is proven, which the expansion of the primitives makes the read alone.
 // It stays a call until then: a function's fallback is its IR from before the expansion (opt.fallbackOf), and a loop that
 // compiled with the call must compile with the fallback.
-function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
+function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool, read SlotRead) returns Reg
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: checked)
 	end 'packed'
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	emit(l, i: newLoadAt(d, addr: addr))
+	requireFilled(l, p: p, ms: ms, box: box, element: d, index: index, read: read)
 	return d
 end 'arrayRead'
+
+// arrayClearSlot drops the element at an index and leaves its slot empty, 0, which fails with indexOutOfBounds past the
+// end.
+function arrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg)
+	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	let empty = konst(l, value: 0 as Word)
+	arrayWrite(l, p: p, ms: ms, box: box, arr: arr, index: index, v: empty, checked: false)
+end 'arrayClearSlot'
 
 // arrayWrite writes v to the element at index as arrayStore does, through a proven address where the index is proved
 // inside the array (not checked). A byte is written by its entry either way.
@@ -280,7 +335,7 @@ end 'arraySlice'
 // arrayCopyAt is a copy of the element at index, which fails with indexOutOfBounds past the end.
 function arrayCopyAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
-	let element = arrayRead(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+	let element = arrayRead(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false, read: SlotRead.slotCopied)
 	return copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 end 'arrayCopyAt'
 

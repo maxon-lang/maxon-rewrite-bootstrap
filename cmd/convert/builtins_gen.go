@@ -14,6 +14,8 @@ var builtinNames = map[string]bool{
 	"Codepoint":                 true,
 	"CodeUnit16":                true,
 	"Milliseconds":              true,
+	"OrderedWord":               true,
+	"HashDigest":                true,
 	"Array":                     true,
 	"FixedArray":                true,
 	"__ManagedMemory":           true,

@@ -34,6 +34,8 @@ var primTypes = []primType{
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
 	{"Float", "b.anonFloatTy"},
+	{"OrderedWord", "b.orderedWordTy"},
+	{"HashDigest", "b.hashDigestTy"},
 }
 
 // stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and
@@ -42,6 +44,8 @@ type stdAlias struct {
 	Name, Field, Lo, Hi string
 	// Float is an alias of a range of floats rather than of integers.
 	Float bool
+	// Bits is the width of an alias of a bit pattern, bits(Bits), whose range is that of the width; 0 for a range.
+	Bits int
 }
 
 var stdAliases = []stdAlias{
@@ -54,6 +58,10 @@ var stdAliases = []stdAlias{
 	{Name: "Codepoint", Field: "codepointTy", Lo: "I128.zero()", Hi: "I128.fromCount(1114111 as Count)"},
 	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
 	{Name: "Milliseconds", Field: "millisecondsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	// OrderedWord is the word maxon's library splits into bytes and assembles from them (maxon's stdlib/Builtins.maxon),
+	// and HashDigest a seeded 64-bit digest (maxon's stdlib/Hasher.maxon), which the hash intrinsics give and take.
+	{Name: "OrderedWord", Field: "orderedWordTy", Bits: 64},
+	{Name: "HashDigest", Field: "hashDigestTy", Bits: 64},
 }
 
 // extraField is a field of self's Builtins record that no row of the table gives it: a type that initBuiltins registers
@@ -396,6 +404,8 @@ type function struct {
 	// Instead is what a program calls in place of a static function of a record whose calls are raw (RawCalls), which
 	// E3185 names.
 	Instead string
+	// Raw makes a method a door of maxon's raw surface, which only the library tiers may call (E3185).
+	Raw *rawSurface
 }
 
 // maxImportArgs is the most words a DLL import of the runtime takes: CreateProcessA's ten.
@@ -445,6 +455,9 @@ func rawFunctions() []function {
 		raw("threadContext", nil, "Count", "RawThreadContext"),
 		// callCode1 calls the code at an address with one word, as a behaviour's thunk is called with its record.
 		raw("callCode1", []string{"code Count", "arg1 Count"}, "Count", "RawCallCode"),
+		// callHost2 calls the code at an address with two words by the host convention, Win64, as an import is called:
+		// a DLL function the import table does not name, which the runtime found by its name.
+		raw("callHost2", []string{"code Count", "arg1 Count", "arg2 Count"}, "Count", "RawCallHost"),
 		raw("threadStartAddress", nil, "Count", "RawThreadStartAddress"),
 		// The addresses of the code of the entry stub that green threads switch and are stopped through, which only a
 		// callCode1 or the registers of a stack the runtime seeds reach, and of the link's table of preemptible code.
@@ -509,6 +522,9 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "slice", Params: []string{"start ElementIndex", "endIndex ElementIndex"}, Result: "Self", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArraySlice"},
 	{Owner: "Array", Name: "growFilled", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayGrowFilled"},
 	{Owner: "Array", Name: "refill", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayRefill"},
+	// clearSlot is maxon's tombstone of a slot table: the element at an index is dropped and its slot left empty, where
+	// remove would close the gap. An empty slot of a managed element is 0, which get reads as emptySlot.
+	{Owner: "Array", Name: "clearSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArrayClearSlot", Raw: &rawSurface{What: "an array's slot is emptied in place", Instead: "use 'remove(at)'"}},
 	// contains, containsSequence and equals are maxon's for an element that is Equatable; the checker holds them to the
 	// elements this compiler compares itself (checkElementsComparable).
 	{Owner: "Array", Name: "contains", Params: []string{"element T"}, Result: "Bool", Intrinsic: "ArrayContains", Checked: true},
@@ -691,6 +707,16 @@ var tableFunctions = []function{
 
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
 	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
+	// The seeded hash of maxon's runtime, its software fold: hashWord and hashBytes fold a word or the bytes of a span of
+	// an array under a seed.
+	{Owner: "Builtins", Name: "hashWord", Static: true, Params: []string{"_ HashDigest", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashWord", Instead: "a Hasher's combine(value)"},
+	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashBytes", Instead: "a Hasher's combineBytes(bytes)"},
+	// The ordered words of maxon's library: a read of the 2, 4 or 8 bytes at an index of an array, the first the most
+	// significant or the least, and an append of a word's low bytes in that order.
+	{Owner: "Builtins", Name: "readBigEndian", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ Count"}, Result: "OrderedWord", Throws: "ArrayError", Intrinsic: "ReadBigEndian", Instead: "readOrderedWord", Checked: true},
+	{Owner: "Builtins", Name: "readLittleEndian", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ Count"}, Result: "OrderedWord", Throws: "ArrayError", Intrinsic: "ReadLittleEndian", Instead: "readOrderedWord", Checked: true},
+	{Owner: "Builtins", Name: "appendBigEndian", Static: true, Params: []string{"mutates _ Array with Byte", "_ OrderedWord", "_ Count"}, Intrinsic: "AppendBigEndian", Instead: "appendOrderedWord", Checked: true},
+	{Owner: "Builtins", Name: "appendLittleEndian", Static: true, Params: []string{"mutates _ Array with Byte", "_ OrderedWord", "_ Count"}, Intrinsic: "AppendLittleEndian", Instead: "appendOrderedWord", Checked: true},
 }
 
 // unit is a code unit of the backend's runtime, or a place an entry lives that has no code of its own.
@@ -803,6 +829,10 @@ var entries = []entry{
 	{"AsyncTake", "rt.async.take", "Source", roleCall, "(promise) -> value: what the function of a coroutine that rt.async.wait waited for returned, which frees the coroutine"},
 	{"Sleep", "rt.sleep", "Source", roleCall, "(milliseconds): parks the running green thread for at least that long"},
 	{"Yield", "rt.yield", "Source", roleCall, "(): lets the members of the strand that wait, else the runnable green threads, run first"},
+	{"HashWord", "rt.hash.word", "Source", roleCall, "(word, seed) -> the fold of the word's 8 bytes under the seed"},
+	{"HashBytes", "rt.hash.bytes", "Source", roleCall, "(ByteArray, at, count, seed) -> the fold of the count bytes from at under the seed; a span past the end panics"},
+	{"BytesReadWord", "rt.bytes.readWord", "Source", roleCall, "(ByteArray, at, width, bigEndian, error) -> the width bytes from at as a word, the first the most significant where bigEndian; past the end sets the error to indexOutOfBounds"},
+	{"BytesAppendWord", "rt.bytes.appendWord", "Source", roleCall, "(ByteArray, word, width, bigEndian): appends the word's low width bytes, the most significant first where bigEndian"},
 
 	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
@@ -945,6 +975,10 @@ var runtimeFunctions = []runtimeFunction{
 	{"AsyncTake", "asyncTake(promise Count) Count"},
 	{"Sleep", "sleepMs(milliseconds Count)"},
 	{"Yield", "schedYield()"},
+	{"HashWord", "hashWord(word Count, seed Count) Count"},
+	{"HashBytes", "hashBytes(array Count, at Count, count Count, seed Count) Count"},
+	{"BytesReadWord", "bytesReadWord(array Count, at Count, width Count, bigEndian Bool, errorAddress Count) Count"},
+	{"BytesAppendWord", "bytesAppendWord(array Count, word Count, width Count, bigEndian Bool)"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},
 	{"FrozenGet", "frozenGet(frozen Count) Count"},
 	{"Share", "share(box Count) Count"},

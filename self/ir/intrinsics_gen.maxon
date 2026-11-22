@@ -59,6 +59,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayRefill 'intrArrayRefill'
 		return lowerArrayRefill(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayRefill'
+	if op == ast.Intrinsic.intrArrayClearSlot 'intrArrayClearSlot'
+		return lowerArrayClearSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayClearSlot'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return lowerArrayContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayContains'
@@ -455,6 +458,24 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return lowerCollectedOutputSucceeded(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrHashWord 'intrHashWord'
+		return lowerHashWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHashWord'
+	if op == ast.Intrinsic.intrHashBytes 'intrHashBytes'
+		return lowerHashBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHashBytes'
+	if op == ast.Intrinsic.intrReadBigEndian 'intrReadBigEndian'
+		return lowerReadBigEndian(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrReadBigEndian'
+	if op == ast.Intrinsic.intrReadLittleEndian 'intrReadLittleEndian'
+		return lowerReadLittleEndian(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrReadLittleEndian'
+	if op == ast.Intrinsic.intrAppendBigEndian 'intrAppendBigEndian'
+		return lowerAppendBigEndian(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAppendBigEndian'
+	if op == ast.Intrinsic.intrAppendLittleEndian 'intrAppendLittleEndian'
+		return lowerAppendLittleEndian(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAppendLittleEndian'
 	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
 		return lowerRawLoad8(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawLoad8'
@@ -521,6 +542,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawCallCode 'intrRawCallCode'
 		return lowerRawCallCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawCallCode'
+	if op == ast.Intrinsic.intrRawCallHost 'intrRawCallHost'
+		return lowerRawCallHost(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawCallHost'
 	if op == ast.Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
 		return lowerRawThreadStartAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawThreadStartAddress'
@@ -616,6 +640,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayRefill 'intrArrayRefill'
 		return false
 	end 'intrArrayRefill'
+	if op == ast.Intrinsic.intrArrayClearSlot 'intrArrayClearSlot'
+		return false
+	end 'intrArrayClearSlot'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return false
 	end 'intrArrayContains'
@@ -1012,6 +1039,24 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return false
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrHashWord 'intrHashWord'
+		return false
+	end 'intrHashWord'
+	if op == ast.Intrinsic.intrHashBytes 'intrHashBytes'
+		return false
+	end 'intrHashBytes'
+	if op == ast.Intrinsic.intrReadBigEndian 'intrReadBigEndian'
+		return false
+	end 'intrReadBigEndian'
+	if op == ast.Intrinsic.intrReadLittleEndian 'intrReadLittleEndian'
+		return false
+	end 'intrReadLittleEndian'
+	if op == ast.Intrinsic.intrAppendBigEndian 'intrAppendBigEndian'
+		return false
+	end 'intrAppendBigEndian'
+	if op == ast.Intrinsic.intrAppendLittleEndian 'intrAppendLittleEndian'
+		return false
+	end 'intrAppendLittleEndian'
 	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
 		return false
 	end 'intrRawLoad8'
@@ -1078,6 +1123,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawCallCode 'intrRawCallCode'
 		return false
 	end 'intrRawCallCode'
+	if op == ast.Intrinsic.intrRawCallHost 'intrRawCallHost'
+		return false
+	end 'intrRawCallHost'
 	if op == ast.Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
 		return false
 	end 'intrRawThreadStartAddress'

@@ -140,6 +140,9 @@ let runtimeDirName = "runtime"
 // compiled with.
 let libraryDirName = "stdlib"
 
+// compilerDirName is the directory of the compiler's own source, which is compiled without the standard library.
+let compilerDirName = "self"
+
 let slashByte = 47 as Byte
 
 let backslashByte = 92 as Byte
@@ -209,12 +212,22 @@ function isLibraryDirectory(path String) returns bool
 	end 'found'
 end 'isLibraryDirectory'
 
+// isCompilerDirectory is whether a project's directory is the compiler's own source, found as the runtime's is. The compiler
+// names nothing of the library, and the compiler that builds it, the seed among them, would otherwise parse every library
+// module with its own grammar, so a library file could use no syntax the seed does not know.
+function isCompilerDirectory(path String) returns bool
+	return match consumes nearestDirectory(compilerDirName) 'found'
+		some(dir) gives sameText(absolutePath(path), b: absolutePath(dir))
+		none gives false
+	end 'found'
+end 'isCompilerDirectory'
+
 // addLibrary adds the modules of the standard library's source to p, after the program's, which name its root's public
 // declarations bare (resolve.bareLookup). The library's root has the path of the stdlib qualifier and each module under it a
 // path below that one, so no program module, which may not be called so (E3182), shares a path with it. A program that is the
-// runtime's source or the library's own gets none, and so does a compiler with no library beside it.
+// runtime's source, the library's own or the compiler's gets none, and so does a compiler with no library beside it.
 function addLibrary(mutates p ast.Project, rootPath String, mutates errs diag.ErrorList)
-	if isRuntimeDirectory(rootPath) or isLibraryDirectory(rootPath) 'itself'
+	if isRuntimeDirectory(rootPath) or isLibraryDirectory(rootPath) or isCompilerDirectory(rootPath) 'itself'
 		return
 	end 'itself'
 	match consumes libraryDirectory() 'found'

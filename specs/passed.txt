@@ -699,6 +699,9 @@ break.md: break.labeled-continue-outer
 break.md: break.labeled-continue-triple-nested
 break.md: break.multiple-conditions
 break.md: break.with-if
+builtins-byte-order.md: builtins-byte-order.arity-is-checked
+builtins-byte-order.md: builtins-byte-order.library-tier-only
+builtins-byte-order.md: builtins-byte-order.source-must-be-a-byte-array
 builtins-clock.md: builtins-clock.nanos-monotonic
 builtins-clock.md: builtins-clock.unknown-internal-callee
 builtins-clock.md: builtins-clock.unknown-internal-callee-async

@@ -1,0 +1,27 @@
+// A loop lends each element of an array, and an empty slot of a managed element holds none, so the loop panics there with
+// maxon's message rather than lend a box that is not there.
+typealias Names = Array with String
+
+type Column uses Element where Element implements Droppable
+	typealias Slots = Array with Element
+
+	static function grown(consumes first Element, n Count) returns Slots
+		var slots = Slots.create(0)
+		slots.push(first)
+		slots.resize(n)
+		return slots
+	end 'grown'
+end 'Column'
+
+typealias NameColumn = Column with String
+
+function main() returns ExitCode
+	let names = NameColumn.grown("ada", n: 3)
+	for name in names 'each'
+		print("{name}\n")
+	end 'each'
+	return 0
+end 'main'
+
+// expect-exit: 1
+//> ada

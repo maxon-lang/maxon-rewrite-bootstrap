@@ -76,6 +76,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opCallCode 'opcodeCallCode'
 		return false
 	end 'opcodeCallCode'
+	if op == ir.Opcode.opCallHost 'opcodeCallHost'
+		return false
+	end 'opcodeCallHost'
 	if op == ir.Opcode.opCodeAddress 'opcodeCodeAddress'
 		return false
 	end 'opcodeCodeAddress'

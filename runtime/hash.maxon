@@ -1,0 +1,60 @@
+// The hash entries, which run the fold of hashfold.maxon, and the ordered words of maxon's library.
+
+// HashInput is a span the fold reads (hashfold.maxon): the address of its first byte.
+typealias HashInput = int(0 to u64.max)
+
+// arrayIndexOutOfBounds is the case of ArrayError that a read of an ordered word past the end fails with.
+let arrayIndexOutOfBounds = 0 as Count
+
+// hashWord is __Builtins.hashWord: the fold of a word under a seed.
+function hashWord(word Count, seed Count) returns Count
+	return hashWordFold(word as HashWord, seed: seed as HashWord) as Count
+end 'hashWord'
+
+// hashBytes is __Builtins.hashBytes: the fold of the count bytes of a byte array from an index under a seed.
+function hashBytes(array Count, at Count, count Count, seed Count) returns Count
+	let length = collectionLength(array)
+	if at > length or count > length - at 'outside'
+		panic("a hashed span reaches past the end of its array")
+	end 'outside'
+	if count == 0 'empty'
+		return hashSpan(0, count: 0, seed: seed as HashWord) as Count
+	end 'empty'
+	return hashSpan(collectionPlace(array, index: at, elementBytes: byteBytes) as HashInput, count: count, seed: seed as HashWord) as Count
+end 'hashBytes'
+
+function hashLoadWord(input HashInput, at Count) returns HashWord
+	return __Raw.loadWord(input as Count, offset: at) as HashWord
+end 'hashLoadWord'
+
+function hashLoadHalf(input HashInput, at Count) returns HashWord
+	return __Raw.loadWord32(input as Count, offset: at) as HashWord
+end 'hashLoadHalf'
+
+function hashLoadByte(input HashInput, at Count) returns HashWord
+	return __Raw.loadByte(input as Count, offset: at) as HashWord
+end 'hashLoadByte'
+
+// bytesReadWord is a read of an ordered word: the width bytes of a byte array from an index, the first the most
+// significant where bigEndian, which fails with indexOutOfBounds when they are not all inside it.
+function bytesReadWord(array Count, at Count, width Count, bigEndian bool, errorAddress Count) returns Count
+	let length = collectionLength(array)
+	if at >= length or length - at < width 'outside'
+		failWith(errorAddress, errorCase: arrayIndexOutOfBounds)
+		return 0
+	end 'outside'
+	succeed(errorAddress)
+	let data = collectionPlace(array, index: at, elementBytes: byteBytes)
+	var word = 0 as HashWord
+	for i in 0 upto width 'bytes'
+		word = word or ((__Raw.loadByte(data, offset: i) as HashWord) shl orderedWordShift(i, width: width, bigEndian: bigEndian))
+	end 'bytes'
+	return word as Count
+end 'bytesReadWord'
+
+// bytesAppendWord appends the width low bytes of a word to a byte array, the most significant first where bigEndian.
+function bytesAppendWord(array Count, word Count, width Count, bigEndian bool)
+	for i in 0 upto width 'bytes'
+		bytesInsert(array, index: collectionLength(array), value: orderedWordByte(word as HashWord, index: i, width: width, bigEndian: bigEndian))
+	end 'bytes'
+end 'bytesAppendWord'

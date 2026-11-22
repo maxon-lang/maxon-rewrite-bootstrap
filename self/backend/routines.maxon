@@ -979,9 +979,14 @@ function copyArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	u.asm.add(rcx, src: rax)
 	u.asm.load(rax, base: rcx, disp: 0)
 	let elem = elementType(ms.types, reads: p.types, array: ty)
+	// An empty slot of a managed element, 0, stays empty in the copy (ir.SlotRead).
+	let empty = u.asm.newLabel()
 	if ast.isManagedType(ms.types, reads: p.types, t: elem) 'managed'
+		u.asm.test(rax, right: rax)
+		u.asm.jcc(X64CondCode.equal, label: empty)
 		routineCall(u, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: elem)
 	end 'managed'
+	u.asm.bind(empty)
 	u.asm.load(rcx, base: rbp, disp: index)
 	u.asm.movImm(rdx, imm: wordBytes)
 	u.asm.imul(rcx, src: rdx)

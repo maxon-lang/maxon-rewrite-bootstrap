@@ -173,6 +173,7 @@ export type ClassChoice
 			opSpinPause or
 			opThreadContext or
 			opCallCode or
+			opCallHost or
 			opCodeAddress or
 			opBin or
 			opCmp or

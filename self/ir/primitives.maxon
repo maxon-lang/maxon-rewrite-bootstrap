@@ -409,10 +409,10 @@ function lowerFixedArrayCount(mutates l Lowerer, p ast.Project, mutates ms ast.M
 end 'lowerFixedArrayCount'
 
 // lowerFixedArrayGetProven is a copy of the element at an index that the checker proved inside the count, which cannot
-// fail.
+// fail: nothing empties a slot of a fixed array, so one that is empty is a broken invariant, which panics.
 function lowerFixedArrayGetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
-	let element = arrayRead(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: false)
+	let element = arrayRead(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: false, read: SlotRead.slotLent)
 	return copyValue(l, p: p, ms: ms, site: a.site, v: element, t: arrayElem(p, ms: ms, box: a))
 end 'lowerFixedArrayGetProven'
 
@@ -557,6 +557,12 @@ function lowerArrayResize(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	arrayGrowZero(l, p: p, ms: ms, box: a, arr: recv, newLength: args[0])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayResize'
+
+function lowerArrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayClearSlot(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
+	return konst(l, value: 0 as Word)
+end 'lowerArrayClearSlot'
 
 function lowerArraySlice(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)

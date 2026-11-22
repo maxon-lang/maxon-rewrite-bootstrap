@@ -1,0 +1,51 @@
+// The seeded hash and the ordered words of maxon's library (__Builtins): each is a call of its runtime entry, whose source
+// is runtime/hash.maxon.
+
+function lowerHashWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashWord, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
+end 'lowerHashWord'
+
+function lowerHashBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashBytes, kind: IrKind.kindScalar, args: argsOf4(args[0], b: args[1], c: args[2], d: args[3]))
+end 'lowerHashBytes'
+
+function lowerReadBigEndian(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return readOrderedWord(l, p: p, ms: ms, c: c, args: args, bigEndian: true)
+end 'lowerReadBigEndian'
+
+function lowerReadLittleEndian(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return readOrderedWord(l, p: p, ms: ms, c: c, args: args, bigEndian: false)
+end 'lowerReadLittleEndian'
+
+function lowerAppendBigEndian(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return appendOrderedWord(l, p: p, c: c, args: args, bigEndian: true)
+end 'lowerAppendBigEndian'
+
+function lowerAppendLittleEndian(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return appendOrderedWord(l, p: p, c: c, args: args, bigEndian: false)
+end 'lowerAppendLittleEndian'
+
+// readOrderedWord reads the width bytes at an index of an array as a word, which fails with indexOutOfBounds when they are
+// not all inside it.
+function readOrderedWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, bigEndian bool) returns Reg
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	let order = orderFlag(l, bigEndian: bigEndian)
+	let site = siteOf(l, p: p, node: c.node)
+	return failing(l, p: p, ms: ms, site: site, dst: dst, symbol: Rt.rtBytesReadWord, args: argsOf4(args[0], b: args[1], c: args[2], d: order))
+end 'readOrderedWord'
+
+// appendOrderedWord appends the width low bytes of a word to an array in an order.
+function appendOrderedWord(mutates l Lowerer, p ast.Project, c CallSite, args RegList, bigEndian bool) returns Reg
+	let order = orderFlag(l, bigEndian: bigEndian)
+	let site = siteOf(l, p: p, node: c.node)
+	entryVoid(l, p: p, site: site, symbol: Rt.rtBytesAppendWord, args: argsOf4(args[0], b: args[1], c: args[2], d: order))
+	return konst(l, value: 0 as Word)
+end 'appendOrderedWord'
+
+// orderFlag is the bool an ordered-word entry takes: whether the first byte is the most significant.
+function orderFlag(mutates l Lowerer, bigEndian bool) returns Reg
+	if bigEndian 'big'
+		return konst(l, value: 1 as Word)
+	end 'big'
+	return konst(l, value: 0 as Word)
+end 'orderFlag'

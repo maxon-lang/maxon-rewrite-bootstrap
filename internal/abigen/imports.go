@@ -86,6 +86,10 @@ var importNames = []string{
 	"CreateIoCompletionPort",
 	"GetQueuedCompletionStatusEx",
 	"PostQueuedCompletionStatus",
+	// The system's entropy is ProcessPrng's, of bcryptprimitives.dll, which the import table does not name, so the runtime
+	// finds it by name and calls it by its address (__Raw.callHost2).
+	"LoadLibraryA",
+	"GetProcAddress",
 }
 
 // importsMaxon is self/backend/imports_gen.maxon: the library, the slot of each import as a constant (imp followed by

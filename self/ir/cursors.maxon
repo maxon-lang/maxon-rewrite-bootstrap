@@ -65,7 +65,7 @@ function lowerCursorCurrent(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	let box = cursorOfCall(l, p: p, ms: ms, c: c)
 	let buffer = cursorSource(l, cursor: recv)
 	let at = cursorPosition(l, cursor: recv)
-	return arrayRead(l, p: p, ms: ms, box: box, arr: buffer, index: at, checked: false)
+	return arrayRead(l, p: p, ms: ms, box: box, arr: buffer, index: at, checked: false, read: SlotRead.slotLent)
 end 'lowerCursorCurrent'
 
 function lowerCursorIndex(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -124,6 +124,6 @@ function lowerCursorPeek(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	let target = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(target, op: BinOp.binAdd, left: at, right: ahead, unsigned: true, fail: noBlock))
 	let buffer = cursorSource(l, cursor: recv)
-	let element = arrayRead(l, p: p, ms: ms, box: box, arr: buffer, index: target, checked: false)
+	let element = arrayRead(l, p: p, ms: ms, box: box, arr: buffer, index: target, checked: false, read: SlotRead.slotCopied)
 	return copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 end 'lowerCursorPeek'

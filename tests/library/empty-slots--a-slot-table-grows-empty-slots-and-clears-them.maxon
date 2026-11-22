@@ -1,0 +1,57 @@
+// A slot table of the library tier, as maxon's Map keeps its columns: resize grows an array of a type parameter over empty
+// slots, get reads one as emptySlot, set fills it, clearSlot drops what a slot holds and empties it again, a copy keeps
+// the empty slots empty, and dropping the table drops only the full ones. Over a scalar a grown slot is the element 0.
+typealias Integer = int(i64.min to i64.max)
+
+type Table uses Element where Element implements Copyable
+	typealias Column = Array with Element
+	var slots as Column
+
+	static function sized(n Count) returns Self
+		var slots = Column.create(0)
+		slots.resize(n)
+		return Self{slots: slots}
+	end 'sized'
+
+	function put(mutates self, at Count, consumes value Element)
+		try slots.set(at, value: value) otherwise panic("put: a slot inside the table")
+	end 'put'
+
+	function clear(mutates self, at Count)
+		try slots.clearSlot(at) otherwise panic("clear: a slot inside the table")
+	end 'clear'
+
+	function describe(at Count) returns String
+		let found = try slots.get(at) otherwise (e) 'missing'
+			return match e 'why'
+				emptySlot gives "empty"
+				indexOutOfBounds gives "outside"
+			end 'why'
+		end 'missing'
+		return "held"
+	end 'describe'
+end 'Table'
+
+typealias Names = Table with String
+
+typealias Numbers = Table with Integer
+
+function main() returns ExitCode
+	var names = Names.sized(3)
+	names.put(1, value: "ada")
+	print("{names.describe(0)} {names.describe(1)} {names.describe(2)} {names.describe(3)}\n")
+	let copy = names.clone()
+	names.clear(1)
+	print("{names.describe(1)} {copy.describe(0)} {copy.describe(1)}\n")
+	var numbers = Numbers.sized(2)
+	numbers.put(0, value: 7)
+	print("{numbers.describe(0)} {numbers.describe(1)}\n")
+	numbers.clear(0)
+	print("{numbers.describe(0)}\n")
+	return 0
+end 'main'
+
+//> empty held empty outside
+//> empty empty held
+//> held held
+//> held
