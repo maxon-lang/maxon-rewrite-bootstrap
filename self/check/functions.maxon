@@ -59,12 +59,12 @@ function declareGenerics(mutates c Checker, mutates p ast.Project, f ast.FuncDec
 		checkFail(c.modID, off: offsetOf(c, p: p, node: f.id), code: diag.errGenericDeclaration, msg: "the method '{f.name}' takes no type parameters of its own: use the type's, or write a function", errs: errs)
 		return
 	end 'ownParams'
-	let ofInterface = isMethod and p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].kind == ast.TypeKind.typeParam
-	if isMethod and (ofInterface or p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeParams.count() > 0) 'ofType'
-		var generics = ast.cloneTypeArgs(p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeParams)
+	let ofInterface = isMethod and ast.typeKind(p.types, t: nt) == ast.TypeKind.typeParam
+	if isMethod and (ofInterface or p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].typeParams.count() > 0) 'ofType'
+		var generics = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].typeParams)
 		if ofInterface 'interface'
 			generics.push(nt)
-			generics.append(p.types.slots[ast.typeSlot(p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].bounds[0].ifaceTy)][ast.typeIndex(p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].bounds[0].ifaceTy)].typeArgs)
+			generics.append(p.types.lists[ast.typeList(p.types, t: p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].bounds[0].ifaceTy)][ast.typeIndex(p.types, t: p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].bounds[0].ifaceTy)].typeArgs)
 		end 'interface'
 		var bounds = ast.ParamBoundList.create(0)
 		let mark = errs.count()
@@ -111,8 +111,8 @@ function addFunction(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, f
 	if failedSince(errs, mark: mark) 'badGenerics'
 		return
 	end 'badGenerics'
-	if nt != ast.noType and p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].kind == ast.TypeKind.enumTy and p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'enumDestructor'
-		let tName = p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].name.clone()
+	if nt != ast.noType and ast.typeKind(p.types, t: nt) == ast.TypeKind.enumTy and p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'enumDestructor'
+		let tName = p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].name.clone()
 		checkFail(c.modID, off: off, code: diag.errDestructorMisuse, msg: "'{tName}' is an enum, whose values are plain numbers with nothing to end; remove 'destructs', or make '{tName}' a type or a union", errs: errs)
 		return
 	end 'enumDestructor'
@@ -143,7 +143,7 @@ end 'addFunction'
 
 // addMethods declares the methods of a type, a union or an enum.
 function addMethods(mutates c Checker, mutates p ast.Project, methods ast.FuncDeclList, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
-	let isRecord = p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].kind == ast.TypeKind.record
+	let isRecord = ast.typeKind(p.types, t: nt) == ast.TypeKind.record
 	for i in 0 upto methods.count() 'each'
 		addMethod(c, p: p, m: methods[i].clone(), nt: nt, isRecord: isRecord, declared: declared, errs: errs)
 	end 'each'
@@ -159,14 +159,14 @@ function addMethod(mutates c Checker, mutates p ast.Project, m ast.FuncDecl, nt 
 		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
 		return
 	end 'clone'
-	if p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].findMethod(m.name).isSome() 'dup'
-		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(m.name, typeName: p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].name), errs: errs)
+	if p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].findMethod(m.name).isSome() 'dup'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(m.name, typeName: p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].name), errs: errs)
 		return
 	end 'dup'
 	let fid = newFuncEntry(c, p: p, f: m, ownerTy: nt, ref: ast.DeclRef.make(c.modID, ordinal: 0 as ast.DeclOrdinal))
-	p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].methods.push(ast.MethodRef.make(m.name.clone(), func: fid))
+	p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].methods.push(ast.MethodRef.make(m.name.clone(), func: fid))
 	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'destructor'
-		p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].dropFunc = fid
+		p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].dropFunc = fid
 	end 'destructor'
 	addFunction(c, p: p, f: m, fid: fid, nt: nt, declared: declared, errs: errs)
 end 'addMethod'

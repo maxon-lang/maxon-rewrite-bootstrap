@@ -454,6 +454,7 @@ function orderModules(mutates run Run, mutates p ast.Project, mutates errs diag.
 end 'orderModules'
 
 function addCheckTasks(mutates run Run, mutates p ast.Project, order check.ModuleOrder)
+	ast.setModuleReads(p, first: run.first)
 	run.checks = check.startChecks(p, order: order.clone(), makesProgram: run.makesProgram)
 	run.checksStarted = true
 	let first = run.first

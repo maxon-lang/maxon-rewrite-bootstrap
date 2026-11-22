@@ -9,7 +9,7 @@ let tableWord = "table"
 // tableConcrete is the type whose table a value of the type t is boxed with: t itself, but an integer constant is a value
 // of the integer type that its extensions add methods to.
 function tableConcrete(p ast.Project, t ast.TypeID) returns ast.TypeID
-	if p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.constInt 'constant'
+	if ast.typeKind(p.types, t: t) == ast.TypeKind.constInt 'constant'
 		return p.builtins.anon64Ty
 	end 'constant'
 	return t
@@ -18,7 +18,7 @@ end 'tableConcrete'
 // standsForInterface is whether a value of the type t, with the code's type parameters bound, is an interface value
 // already, which a place of an interface takes as it is.
 function standsForInterface(p ast.Project, t ast.TypeID) returns bool
-	return p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.interfaceTy
+	return ast.typeKind(p.types, t: t) == ast.TypeKind.interfaceTy
 end 'standsForInterface'
 
 // witnessTable is the table that a value of the type src, written at site in the code of module, is boxed with to be a
@@ -30,7 +30,7 @@ export function witnessTable(mutates p ast.Project, module diag.ModuleID, site a
 	let concrete = tableConcrete(p, t: applied)
 	let wanted = ast.substituteType(p.types, t: iface, params: bindParams, args: bindArgs)
 	var conformance = module
-	if p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind == ast.TypeKind.typeParam 'passed'
+	if ast.typeKind(p.types, t: src) == ast.TypeKind.typeParam 'passed'
 		conformance = passedWitness(p, enclosing: bindWitnesses, param: src, iface: wanted)
 	end 'passed' else 'seen'
 		let mark = errs.count()
@@ -102,11 +102,11 @@ end 'lowerBoxed'
 // isRecoveryCast is whether the cast e takes a value of a type out of an interface value.
 function isRecoveryCast(l Lowerer, p ast.Project, e ast.NodeID) returns bool
 	let castTy = exprType(p, module: l.module, node: e)
-	if p.types.slots[ast.typeSlot(castTy)][ast.typeIndex(castTy)].kind == ast.TypeKind.interfaceTy 'boxes'
+	if ast.typeKind(p.types, t: castTy) == ast.TypeKind.interfaceTy 'boxes'
 		return false
 	end 'boxes'
 	let operandTy = exprType(p, module: l.module, node: ast.castExprE(p.modules[l.mi].tree, id: e))
-	return p.types.slots[ast.typeSlot(operandTy)][ast.typeIndex(operandTy)].kind == ast.TypeKind.interfaceTy
+	return ast.typeKind(p.types, t: operandTy) == ast.TypeKind.interfaceTy
 end 'isRecoveryCast'
 
 // lowerRecoveryCast takes the value out of the interface value inner, which the cast consumes, when the box holds a value

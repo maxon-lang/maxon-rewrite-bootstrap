@@ -8,7 +8,7 @@
 // the declaration of a type, an enum, a union or a built-in generic type, String, bool, and for every integer the one
 // anonymous integer type that `int` names.
 export function extensionKey(p Project, t TypeID) returns table.Option with TypeID
-	return match p.types.slots[typeSlot(t)][typeIndex(t)].kind 'k'
+	return match typeKind(p.types, t: t) 'k'
 		record gives table.Option.some(originOf(p.types, t: t))
 		enumTy gives table.Option.some(originOf(p.types, t: t))
 		unionTy gives table.Option.some(originOf(p.types, t: t))
@@ -58,11 +58,11 @@ end 'aliasIn'
 // has no declaration, as Array, declares none.
 export function bodyAlias(p Project, t TypeID, member String) returns table.Option with DeclRef
 	let origin = originOf(p.types, t: t)
-	if not p.types.slots[typeSlot(origin)][typeIndex(origin)].hasDecl 'undeclared'
+	if not p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].hasDecl 'undeclared'
 		return table.Option.none
 	end 'undeclared'
-	let owner = p.types.slots[typeSlot(origin)][typeIndex(origin)].decl.clone()
-	let key = nestedAliasName(p.types.slots[typeSlot(origin)][typeIndex(origin)].name, name: member)
+	let owner = p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].decl.clone()
+	let key = nestedAliasName(p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].name, name: member)
 	var found as table.Option with DeclOrdinal
 	if owner.module == diag.stdlibID 'std'
 		found = p.stdlib.names.get(key)
@@ -140,10 +140,10 @@ end 'givesConformance'
 // modules from names that give it one.
 export function seenInterfaces(p Project, from diag.ModuleID, t TypeID) returns TypeIDList
 	var out = TypeIDList.create(0)
-	if p.types.slots[typeSlot(t)][typeIndex(t)].kind == TypeKind.interfaceTy or p.types.slots[typeSlot(t)][typeIndex(t)].kind == TypeKind.typeParam 'abstract'
+	if typeKind(p.types, t: t) == TypeKind.interfaceTy or typeKind(p.types, t: t) == TypeKind.typeParam 'abstract'
 		return out
 	end 'abstract'
-	out.append(p.types.slots[typeSlot(originOf(p.types, t: t))][typeIndex(originOf(p.types, t: t))].conforms)
+	out.append(p.types.lists[typeList(p.types, t: originOf(p.types, t: t))][typeIndex(p.types, t: originOf(p.types, t: t))].conforms)
 	let key = extensionKey(p, t: t)
 	if key.isSome() and from != diag.stdlibID 'extensions'
 		let owner = key.unwrap()
@@ -197,7 +197,7 @@ end 'interfaceExtensionMethod'
 function collectInterfaceMethods(p Project, m Module, have TypeIDList, name String, mutates found FuncIDList)
 	for i in 0 upto m.extMethods.count() 'each'
 		let owner = m.extMethods[i].owner
-		if m.extMethods[i].name == name and p.types.slots[typeSlot(owner)][typeIndex(owner)].kind == TypeKind.interfaceTy and reachedBy(p.types, have: have, want: owner) and not found.contains(m.extMethods[i].func) 'hit'
+		if m.extMethods[i].name == name and typeKind(p.types, t: owner) == TypeKind.interfaceTy and reachedBy(p.types, have: have, want: owner) and not found.contains(m.extMethods[i].func) 'hit'
 			found.push(m.extMethods[i].func)
 		end 'hit'
 	end 'each'
@@ -235,9 +235,9 @@ export function interfaceExtensionArgs(mutates p Project, recv TypeID, have Type
 	for i in 0 upto have.count() 'each'
 		if originOf(p.types, t: have[i]) == origin 'direct'
 			let declared = originOf(p.types, t: recv)
-			let params = cloneTypeArgs(p.types.slots[typeSlot(declared)][typeIndex(declared)].typeParams)
+			let params = cloneTypeArgs(p.types.lists[typeList(p.types, t: declared)][typeIndex(p.types, t: declared)].typeParams)
 			let bound = substituteType(p.types, t: have[i], params: params, args: typeArgsOf(p.types, t: recv))
-			args.append(p.types.slots[typeSlot(bound)][typeIndex(bound)].typeArgs)
+			args.append(p.types.lists[typeList(p.types, t: bound)][typeIndex(p.types, t: bound)].typeArgs)
 			return args
 		end 'direct'
 	end 'each'
@@ -382,8 +382,8 @@ end 'conformanceSource'
 // declaresConformance is whether the declaration of t says it implements iface, with t's type arguments in what it binds.
 export function declaresConformance(mutates p Project, t TypeID, iface TypeID) returns bool
 	let orig = originOf(p.types, t: t)
-	let conforms = cloneTypeArgs(p.types.slots[typeSlot(orig)][typeIndex(orig)].conforms)
-	let params = cloneTypeArgs(p.types.slots[typeSlot(orig)][typeIndex(orig)].typeParams)
+	let conforms = cloneTypeArgs(p.types.lists[typeList(p.types, t: orig)][typeIndex(p.types, t: orig)].conforms)
+	let params = cloneTypeArgs(p.types.lists[typeList(p.types, t: orig)][typeIndex(p.types, t: orig)].typeParams)
 	let args = typeArgsOf(p.types, t: t)
 	for i in 0 upto conforms.count() 'each'
 		let have = substituteType(p.types, t: conforms[i], params: params, args: args)
@@ -421,9 +421,9 @@ export function boundSlots(p Project, fn FuncID) returns ParamBoundList
 	var out = ParamBoundList.create(0)
 	for i in 0 upto p.funcs.slots[funcSlot(fn)][funcIndex(fn)].generics.count() 'params'
 		let param = p.funcs.slots[funcSlot(fn)][funcIndex(fn)].generics[i]
-		for j in 0 upto p.types.slots[typeSlot(param)][typeIndex(param)].bounds.count() 'bounds'
-			if not p.builtins.isCapability(p.types.slots[typeSlot(param)][typeIndex(param)].bounds[j].ifaceTy) 'interface'
-				out.push(p.types.slots[typeSlot(param)][typeIndex(param)].bounds[j].clone())
+		for j in 0 upto p.types.lists[typeList(p.types, t: param)][typeIndex(p.types, t: param)].bounds.count() 'bounds'
+			if not p.builtins.isCapability(p.types.lists[typeList(p.types, t: param)][typeIndex(p.types, t: param)].bounds[j].ifaceTy) 'interface'
+				out.push(p.types.lists[typeList(p.types, t: param)][typeIndex(p.types, t: param)].bounds[j].clone())
 			end 'interface'
 		end 'bounds'
 	end 'params'
@@ -437,12 +437,12 @@ end 'boundSlots'
 
 // reachesInterface is whether the interface have is an instance of the interface declaration want, or extends one.
 export function reachesInterface(tt TypeTable, have TypeID, want TypeID) returns bool
-	let orig = tt.slots[typeSlot(have)][typeIndex(have)].effectiveOrigin()
+	let orig = tt.lists[typeList(tt, t: have)][typeIndex(tt, t: have)].effectiveOrigin()
 	if orig == want 'same'
 		return true
 	end 'same'
-	for i in 0 upto tt.slots[typeSlot(orig)][typeIndex(orig)].conforms.count() 'parents'
-		if reachesInterface(tt, have: tt.slots[typeSlot(orig)][typeIndex(orig)].conforms[i], want: want) 'hit'
+	for i in 0 upto tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].conforms.count() 'parents'
+		if reachesInterface(tt, have: tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].conforms[i], want: want) 'hit'
 			return true
 		end 'hit'
 	end 'parents'
@@ -502,14 +502,14 @@ end 'requirementsOf'
 
 function collectRequirements(tt TypeTable, iface TypeID, mutates out RequirementList)
 	let orig = originOf(tt, t: iface)
-	for i in 0 upto tt.slots[typeSlot(orig)][typeIndex(orig)].sigs.count() 'own'
-		let sig = tt.slots[typeSlot(orig)][typeIndex(orig)].sigs[i]
+	for i in 0 upto tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].sigs.count() 'own'
+		let sig = tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].sigs[i]
 		if not requirementIndex(out, sig: sig).isSome() 'new'
 			out.push(Requirement.make(iface, sig: sig))
 		end 'new'
 	end 'own'
-	for i in 0 upto tt.slots[typeSlot(orig)][typeIndex(orig)].conforms.count() 'parents'
-		collectRequirements(tt, iface: tt.slots[typeSlot(orig)][typeIndex(orig)].conforms[i], out: out)
+	for i in 0 upto tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].conforms.count() 'parents'
+		collectRequirements(tt, iface: tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].conforms[i], out: out)
 	end 'parents'
 end 'collectRequirements'
 

@@ -22,10 +22,10 @@ end 'Column'
 // expectedArgs are the type arguments of the type that the context expects when it is an instance of the built-in
 // collection of kind, and none otherwise.
 function expectedArgs(p ast.Project, want ast.TypeID, kind ast.TypeKind) returns ast.TypeIDList
-	if want == ast.noType or p.types.slots[ast.typeSlot(want)][ast.typeIndex(want)].kind != kind 'other'
+	if want == ast.noType or ast.typeKind(p.types, t: want) != kind 'other'
 		return ast.TypeIDList.create(0)
 	end 'other'
-	return ast.cloneTypeArgs(p.types.slots[ast.typeSlot(want)][ast.typeIndex(want)].typeArgs)
+	return ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: want)][ast.typeIndex(p.types, t: want)].typeArgs)
 end 'expectedArgs'
 
 function checkCollectionLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
@@ -175,12 +175,12 @@ end 'bareRange'
 // holdsBareNumbers is whether a collection stores numbers that no alias names, which a variable cannot hold: it could not
 // take a number outside their range later.
 function holdsBareNumbers(p ast.Project, t ast.TypeID) returns bool
-	let kind = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind
+	let kind = ast.typeKind(p.types, t: t)
 	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinMap and kind != ast.TypeKind.builtinList and not ast.isTupleType(p.types, t: t) 'other'
 		return false
 	end 'other'
-	for i in 0 upto p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].typeArgs.count() 'args'
-		let arg = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].typeArgs[i]
+	for i in 0 upto p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].typeArgs.count() 'args'
+		let arg = p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].typeArgs[i]
 		if typeIsAnonInt(p.types, t: arg) or holdsBareNumbers(p, t: arg) 'bare'
 			return true
 		end 'bare'

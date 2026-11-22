@@ -59,7 +59,7 @@ func (m *maxonBody) strings(xs []string) string {
 // ownerParam binds a parameter of a type of the table.
 func (m *maxonBody) ownerParam(owner string, i int) string {
 	v := m.fresh("p")
-	m.line("let %s = tt.slots[typeSlot(%[2]s)][typeIndex(%[2]s)].typeParams[%d]", v, maxonOwner(owner), i)
+	m.line("let %s = tt.lists[typeList(tt, t: %[2]s)][typeIndex(tt, t: %[2]s)].typeParams[%d]", v, maxonOwner(owner), i)
 	return v
 }
 
@@ -217,7 +217,7 @@ func emitMaxon(t table) string {
 	}
 	for _, r := range recordTypes {
 		for _, iface := range r.Implements {
-			types.line("tt.slots[typeSlot(%[1]s)][typeIndex(%[1]s)].conforms.push(b.%s)", maxonOwner(r.Key), maxonField(iface, false))
+			types.line("tt.lists[typeList(tt, t: %[1]s)][typeIndex(tt, t: %[1]s)].conforms.push(b.%s)", maxonOwner(r.Key), maxonField(iface, false))
 		}
 	}
 	for _, a := range typeAliases {

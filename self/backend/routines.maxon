@@ -122,20 +122,20 @@ export type RoutineSet
 end 'RoutineSet'
 
 function fieldCount(tt ast.TypeTable, owner ast.TypeID) returns Count
-	return tt.slots[ast.typeSlot(ast.originOf(tt, t: owner))][ast.typeIndex(ast.originOf(tt, t: owner))].fields.count()
+	return tt.lists[ast.typeList(tt, t: ast.originOf(tt, t: owner))][ast.typeIndex(tt, t: ast.originOf(tt, t: owner))].fields.count()
 end 'fieldCount'
 
 function caseCount(tt ast.TypeTable, owner ast.TypeID) returns Count
-	return tt.slots[ast.typeSlot(ast.originOf(tt, t: owner))][ast.typeIndex(ast.originOf(tt, t: owner))].cases.count()
+	return tt.lists[ast.typeList(tt, t: ast.originOf(tt, t: owner))][ast.typeIndex(tt, t: ast.originOf(tt, t: owner))].cases.count()
 end 'caseCount'
 
 function payloadCount(tt ast.TypeTable, owner ast.TypeID, caseIndex Count) returns Count
-	return tt.slots[ast.typeSlot(ast.originOf(tt, t: owner))][ast.typeIndex(ast.originOf(tt, t: owner))].cases[caseIndex].payload.count()
+	return tt.lists[ast.typeList(tt, t: ast.originOf(tt, t: owner))][ast.typeIndex(tt, t: ast.originOf(tt, t: owner))].cases[caseIndex].payload.count()
 end 'payloadCount'
 
 // elementType is the type of what an array holds.
 function elementType(tt ast.TypeTable, array ast.TypeID) returns ast.TypeID
-	return tt.slots[ast.typeSlot(array)][ast.typeIndex(array)].typeArgs[0]
+	return tt.lists[ast.typeList(tt, t: array)][ast.typeIndex(tt, t: array)].typeArgs[0]
 end 'elementType'
 
 function anyManagedPayload(mutates tt ast.TypeTable, owner ast.TypeID, caseIndex Count) returns bool
@@ -151,7 +151,7 @@ end 'anyManagedPayload'
 // onlyFrees is whether dropping a value of the type is freeing its box and nothing else: a record with no managed field,
 // or a union that has no managed payload in any case.
 function onlyFrees(mutates p ast.Project, ty ast.TypeID) returns bool
-	let kind = p.types.slots[ast.typeSlot(ty)][ast.typeIndex(ty)].kind
+	let kind = ast.typeKind(p.types, t: ty)
 	if kind == ast.TypeKind.record 'record'
 		for i in 0 upto fieldCount(p.types, owner: ty) 'fields'
 			let fieldTy = ast.fieldType(p.types, owner: ty, index: i)
@@ -285,7 +285,7 @@ function emitRoutine(mutates u CodeUnit, mutates p ast.Project, routine TypeRout
 end 'emitRoutine'
 
 function emitDrop(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
-	let kind = p.types.slots[ast.typeSlot(ty)][ast.typeIndex(ty)].kind
+	let kind = ast.typeKind(p.types, t: ty)
 	if kind == ast.TypeKind.primString 'string'
 		dropString(u)
 		return
@@ -326,7 +326,7 @@ function emitDrop(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 end 'emitDrop'
 
 function emitCopy(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
-	let kind = p.types.slots[ast.typeSlot(ty)][ast.typeIndex(ty)].kind
+	let kind = ast.typeKind(p.types, t: ty)
 	if kind == ast.TypeKind.primString 'string'
 		copyString(u)
 		return
@@ -494,7 +494,7 @@ end 'leaveUnlessLast'
 
 // heldType is the type of what a frozen value or a cown holds.
 function heldType(tt ast.TypeTable, owner ast.TypeID) returns ast.TypeID
-	return tt.slots[ast.typeSlot(owner)][ast.typeIndex(owner)].typeArgs[0]
+	return tt.lists[ast.typeList(tt, t: owner)][ast.typeIndex(tt, t: owner)].typeArgs[0]
 end 'heldType'
 
 // dropFrozen lets go of one owner of a frozen value: the last frees the box and then drops what it held, in the order

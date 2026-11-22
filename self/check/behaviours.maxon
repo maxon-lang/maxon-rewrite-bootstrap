@@ -148,13 +148,13 @@ function selfFieldInBehaviour(c Checker, mutates p ast.Project, name String) ret
 		return table.Option.none
 	end 'notMethod'
 	var rt = ast.noType
-	if p.types.slots[ast.typeSlot(c.owner)][ast.typeIndex(c.owner)].kind == ast.TypeKind.record 'record'
+	if ast.typeKind(p.types, t: c.owner) == ast.TypeKind.record 'record'
 		rt = c.owner
 	end 'record'
 	if rt == ast.noType 'noRecord'
 		return table.Option.none
 	end 'noRecord'
-	match consumes p.types.slots[ast.typeSlot(ast.originOf(p.types, t: rt))][ast.typeIndex(ast.originOf(p.types, t: rt))].findField(name) 'field'
+	match consumes p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: rt))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: rt))].findField(name) 'field'
 		some(index) then return table.Option.some(ast.fieldType(p.types, owner: rt, index: index))
 		none then return table.Option.none
 	end 'field'
@@ -426,7 +426,7 @@ function dropWithCall(mutates c Checker, mutates p ast.Project, call ast.NodeID,
 	if not requireVisible(c, p: p, node: arg, target: method, errs: errs) 'hidden'
 		return ast.noFunc
 	end 'hidden'
-	queueMethodBounds(c, p: p, off: offsetOf(c, p: p, node: call), method: method, args: p.types.slots[ast.typeSlot(content)][ast.typeIndex(content)].typeArgs.clone())
+	queueMethodBounds(c, p: p, off: offsetOf(c, p: p, node: call), method: method, args: p.types.lists[ast.typeList(p.types, t: content)][ast.typeIndex(p.types, t: content)].typeArgs.clone())
 	return method
 end 'dropWithCall'
 
@@ -440,9 +440,9 @@ end 'isNakedDestructor'
 function dropWithCandidates(p ast.Project, t ast.TypeID) returns String
 	let orig = ast.originOf(p.types, t: t)
 	var names = ast.StringList.create(0)
-	for i in 0 upto p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].methods.count() 'methods'
-		if isNakedDestructor(p, method: p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].methods[i].func) 'candidate'
-			names.push(p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].methods[i].name.clone())
+	for i in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].methods.count() 'methods'
+		if isNakedDestructor(p, method: p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].methods[i].func) 'candidate'
+			names.push(p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].methods[i].name.clone())
 		end 'candidate'
 	end 'methods'
 	if names.count() == 0 'none'
@@ -468,12 +468,12 @@ end 'checkCownCycle'
 // reachesThroughCown is whether a value of type from holds one of type target, with a cown on the way. via is whether the
 // way so far already went through one.
 function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
-	let kind = p.types.slots[ast.typeSlot(from)][ast.typeIndex(from)].kind
+	let kind = ast.typeKind(p.types, t: from)
 	let orig = ast.originOf(p.types, t: from)
 	let holder = nameOfType(p, t: from)
 	if kind == ast.TypeKind.record 'record'
-		for fi in 0 upto p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].fields.count() 'fields'
-			let label = "{holder}.{p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].fields[fi].name}"
+		for fi in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields.count() 'fields'
+			let label = "{holder}.{p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields[fi].name}"
 			let held = ast.fieldType(p.types, owner: from, index: fi)
 			if followHolding(p, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 				return true
@@ -482,9 +482,9 @@ function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.T
 		return false
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		for ci in 0 upto p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases.count() 'cases'
-			let label = "{holder}.{p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[ci].name}"
-			for pi in 0 upto p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[ci].payload.count() 'payload'
+		for ci in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases.count() 'cases'
+			let label = "{holder}.{p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[ci].name}"
+			for pi in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[ci].payload.count() 'payload'
 				let held = ast.payloadType(p.types, owner: from, caseIndex: ci, index: pi)
 				if followHolding(p, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 					return true
@@ -494,8 +494,8 @@ function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.T
 		return false
 	end 'union'
 	if kind.isBuiltin() and kind != ast.TypeKind.builtinHandle 'builtin'
-		for ai in 0 upto p.types.slots[ast.typeSlot(from)][ast.typeIndex(from)].typeArgs.count() 'args'
-			let held = p.types.slots[ast.typeSlot(from)][ast.typeIndex(from)].typeArgs[ai]
+		for ai in 0 upto p.types.lists[ast.typeList(p.types, t: from)][ast.typeIndex(p.types, t: from)].typeArgs.count() 'args'
+			let held = p.types.lists[ast.typeList(p.types, t: from)][ast.typeIndex(p.types, t: from)].typeArgs[ai]
 			if followHolding(p, label: holder, held: held, isCown: kind == ast.TypeKind.builtinCown, target: target, via: via, path: path, visited: visited) 'found'
 				return true
 			end 'found'

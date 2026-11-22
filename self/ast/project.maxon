@@ -272,15 +272,48 @@ export function setDeclConst(mutates p Project, ref DeclRef, consumes value Cons
 	p.modules[modIndex(ref.module)].tables.setDeclConst(ref.ordinal, value: value)
 end 'setDeclConst'
 
+typealias Reached = Array with bool
+
+// setModuleReads records, for each module the compile compiles from first on, the slots whose shapes its stages read:
+// those of the modules it names, directly or through others, whose stages its own wait on, and of the modules an
+// earlier compile compiled, which are done.
+export function setModuleReads(mutates p Project, first Count)
+	for m in first upto p.modules.count() 'modules'
+		var reached = Reached.filled(p.modules.count(), value: false)
+		for e in 0 upto first 'earlier'
+			reached[e] = true
+		end 'earlier'
+		var pending = SlotList.create(0)
+		pending.push(m)
+		while pending.count() > 0 'reach'
+			let at = try pending.pop() otherwise panic("a module was taken off an empty list")
+			for j in 0 upto p.resolutions[at].deps.count() 'deps'
+				let d = modIndex(p.resolutions[at].deps[j].module)
+				if not reached[d] 'new'
+					reached[d] = true
+					pending.push(d)
+				end 'new'
+			end 'deps'
+		end 'reach'
+		var slots = SlotList.create(0)
+		for d in 0 upto p.modules.count() 'slots'
+			if reached[d] and d != m 'read'
+				slots.push(moduleSlot(p.modules[d].id))
+			end 'read'
+		end 'slots'
+		setShapeReads(p.types, module: p.modules[m].id, slots: slots)
+	end 'modules'
+end 'setModuleReads'
+
 // rawTypeOf is the type of the raw values of the enum or union t, an origin, once the constants stage of the module that
 // declares it has typed them, and noType before then or where its cases write literals.
 export function rawTypeOf(p Project, t TypeID) returns TypeID
-	let s = typeSlot(t)
-	let i = typeIndex(t)
-	if not p.types.slots[s][i].hasDecl 'undeclared'
+	let s = typeList(p.types, t: t)
+	let i = typeIndex(p.types, t: t)
+	if not p.types.lists[s][i].hasDecl 'undeclared'
 		return noType
 	end 'undeclared'
-	let module = p.types.slots[s][i].decl.module
+	let module = p.types.lists[s][i].decl.module
 	if module == diag.stdlibID 'std'
 		return p.stdlib.tables.rawType(t)
 	end 'std'
@@ -289,12 +322,12 @@ end 'rawTypeOf'
 
 // setRawType records the type of the raw values of t, which the module that declares it has typed.
 export function setRawType(mutates p Project, t TypeID, raw TypeID)
-	let s = typeSlot(t)
-	let i = typeIndex(t)
-	if not p.types.slots[s][i].hasDecl 'undeclared'
-		panic("raw values are typed for '{p.types.slots[s][i].name}', which no module declares")
+	let s = typeList(p.types, t: t)
+	let i = typeIndex(p.types, t: t)
+	if not p.types.lists[s][i].hasDecl 'undeclared'
+		panic("raw values are typed for '{p.types.lists[s][i].name}', which no module declares")
 	end 'undeclared'
-	p.modules[modIndex(p.types.slots[s][i].decl.module)].tables.setRawType(t, raw: raw)
+	p.modules[modIndex(p.types.lists[s][i].decl.module)].tables.setRawType(t, raw: raw)
 end 'setRawType'
 
 // receiverLocal is the local the body of f binds its receiver to, or noLocal.
@@ -521,37 +554,37 @@ end 'typeLinkNames'
 
 // nominalLinkName is the link name of a declared type, and of an instance of a generic one.
 function nominalLinkName(p Project, t TypeID) returns String
-	let origin = p.types.slots[typeSlot(t)][typeIndex(t)].effectiveOrigin()
-	if p.types.slots[typeSlot(origin)][typeIndex(origin)].isTuple 'tuple'
-		return "({joinNames(typeLinkNames(p, args: p.types.slots[typeSlot(t)][typeIndex(t)].typeArgs), sep: ", ")})"
+	let origin = p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].effectiveOrigin()
+	if p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].isTuple 'tuple'
+		return "({joinNames(typeLinkNames(p, args: p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].typeArgs), sep: ", ")})"
 	end 'tuple'
-	if not p.types.slots[typeSlot(origin)][typeIndex(origin)].hasDecl 'undeclared'
-		panic("the type {p.types.slots[typeSlot(origin)][typeIndex(origin)].name} has no declaration, so no module can be named for its code")
+	if not p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].hasDecl 'undeclared'
+		panic("the type {p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].name} has no declaration, so no module can be named for its code")
 	end 'undeclared'
-	let declaring = p.types.slots[typeSlot(origin)][typeIndex(origin)].decl.module
-	let base = "{moduleLinkPath(p, modID: declaring)}{linkSeparator}{p.types.slots[typeSlot(origin)][typeIndex(origin)].name}"
-	if p.types.slots[typeSlot(t)][typeIndex(t)].typeArgs.count() == 0 'plain'
+	let declaring = p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].decl.module
+	let base = "{moduleLinkPath(p, modID: declaring)}{linkSeparator}{p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].name}"
+	if p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].typeArgs.count() == 0 'plain'
 		return base
 	end 'plain'
 	if statesCount(p.types, t: t) 'counted'
-		return countedSpelling(base, count: "{statedCount(p.types, t: t)}", element: typeLinkName(p, t: p.types.slots[typeSlot(t)][typeIndex(t)].typeArgs[0]))
+		return countedSpelling(base, count: "{statedCount(p.types, t: t)}", element: typeLinkName(p, t: p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].typeArgs[0]))
 	end 'counted'
-	return instanceSpelling(base, args: typeLinkNames(p, args: p.types.slots[typeSlot(t)][typeIndex(t)].typeArgs))
+	return instanceSpelling(base, args: typeLinkNames(p, args: p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].typeArgs))
 end 'nominalLinkName'
 
 // typeLinkName is the link name of a type. Two integer aliases of one name are told apart by their ranges, which is all the
 // code for an integer type depends on.
 export function typeLinkName(p Project, t TypeID) returns String
-	return match p.types.slots[typeSlot(t)][typeIndex(t)].kind 'k'
-		invalid gives p.types.slots[typeSlot(t)][typeIndex(t)].name.clone()
-		primBool gives p.types.slots[typeSlot(t)][typeIndex(t)].name.clone()
-		primString gives p.types.slots[typeSlot(t)][typeIndex(t)].name.clone()
-		primVoid gives p.types.slots[typeSlot(t)][typeIndex(t)].name.clone()
-		primNever gives p.types.slots[typeSlot(t)][typeIndex(t)].name.clone()
-		typeParam gives p.types.slots[typeSlot(t)][typeIndex(t)].name.clone()
-		interfaceTy gives p.types.slots[typeSlot(t)][typeIndex(t)].name.clone()
+	return match typeKind(p.types, t: t) 'k'
+		invalid gives p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].name.clone()
+		primBool gives p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].name.clone()
+		primString gives p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].name.clone()
+		primVoid gives p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].name.clone()
+		primNever gives p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].name.clone()
+		typeParam gives p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].name.clone()
+		interfaceTy gives p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].name.clone()
 		intRange gives intLinkName(p.types, t: t)
-		constInt gives "integer constant {p.types.slots[typeSlot(t)][typeIndex(t)].minVal.toString()}"
+		constInt gives "integer constant {p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].minVal.toString()}"
 		floatRange gives floatLinkName(p.types, t: t)
 		constFloat gives "float constant {floatLowBits(p.types, t: t)}"
 		record gives nominalLinkName(p, t: t)
@@ -584,27 +617,27 @@ end 'funcTypeLinkName'
 
 function floatLinkName(tt TypeTable, t TypeID) returns String
 	let spelling = "float({floatLowBits(tt, t: t)} to {floatHighBits(tt, t: t)})"
-	if tt.slots[typeSlot(t)][typeIndex(t)].name == "" 'anonymous'
+	if tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name == "" 'anonymous'
 		return spelling
 	end 'anonymous'
-	return "{tt.slots[typeSlot(t)][typeIndex(t)].name}{intLinkAliasMark}{spelling}"
+	return "{tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name}{intLinkAliasMark}{spelling}"
 end 'floatLinkName'
 
 function intLinkName(tt TypeTable, t TypeID) returns String
 	let spelling = intSpelling(tt, t: t)
-	if tt.slots[typeSlot(t)][typeIndex(t)].name == "" 'anonymous'
+	if tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name == "" 'anonymous'
 		return spelling
 	end 'anonymous'
-	return "{tt.slots[typeSlot(t)][typeIndex(t)].name}{intLinkAliasMark}{spelling}"
+	return "{tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name}{intLinkAliasMark}{spelling}"
 end 'intLinkName'
 
 let extensionLinkWord = "extension"
 
 // declaringModule is the module that declares the type t, which is the standard library for one that has no declaration.
 export function declaringModule(p Project, t TypeID) returns diag.ModuleID
-	let origin = p.types.slots[typeSlot(t)][typeIndex(t)].effectiveOrigin()
-	if p.types.slots[typeSlot(origin)][typeIndex(origin)].hasDecl 'declared'
-		return p.types.slots[typeSlot(origin)][typeIndex(origin)].decl.module
+	let origin = p.types.lists[typeList(p.types, t: t)][typeIndex(p.types, t: t)].effectiveOrigin()
+	if p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].hasDecl 'declared'
+		return p.types.lists[typeList(p.types, t: origin)][typeIndex(p.types, t: origin)].decl.module
 	end 'declared'
 	return diag.stdlibID
 end 'declaringModule'
@@ -625,7 +658,7 @@ export function funcLinkName(p Project, fid FuncID) returns String
 	if owner != noType 'method'
 		let ownerName = typeLinkName(p, t: owner)
 		var text = "{ownerName}.{name}"
-		if p.types.slots[typeSlot(owner)][typeIndex(owner)].typeArgs.count() > 0 'instance'
+		if p.types.lists[typeList(p.types, t: owner)][typeIndex(p.types, t: owner)].typeArgs.count() > 0 'instance'
 			text = "({ownerName}).{name}"
 		end 'instance'
 		let declaring = p.funcs.slots[funcSlot(fid)][funcIndex(fid)].module

@@ -20,7 +20,7 @@ function funcSymbol(p ast.Project, f ast.FuncID) returns String
 		return name
 	end 'free'
 	let ownerName = ast.typeName(p.types, t: owner)
-	if p.types.slots[ast.typeSlot(owner)][ast.typeIndex(owner)].typeArgs.count() > 0 'instance'
+	if p.types.lists[ast.typeList(p.types, t: owner)][ast.typeIndex(p.types, t: owner)].typeArgs.count() > 0 'instance'
 		return "({ownerName}).{name}"
 	end 'instance'
 	return "{ownerName}.{name}"
@@ -247,7 +247,7 @@ function unifyType(p ast.Project, param ast.TypeID, arg ast.TypeID, params ast.T
 	if param == ast.noType or arg == ast.noType 'none'
 		return
 	end 'none'
-	let kind = p.types.slots[ast.typeSlot(param)][ast.typeIndex(param)].kind
+	let kind = ast.typeKind(p.types, t: param)
 	if kind == ast.TypeKind.typeParam 'parameter'
 		match consumes indexOfType(params, t: param) 'index'
 			some(i) then fixArg(p, arg: arg, index: i, args: args)
@@ -256,8 +256,8 @@ function unifyType(p ast.Project, param ast.TypeID, arg ast.TypeID, params ast.T
 		return
 	end 'parameter'
 	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy or kind.isBuiltin() 'instance'
-		if p.types.slots[ast.typeSlot(arg)][ast.typeIndex(arg)].kind == kind and ast.originOf(p.types, t: param) == ast.originOf(p.types, t: arg) 'sameDeclaration'
-			unifyAll(p, param: p.types.slots[ast.typeSlot(param)][ast.typeIndex(param)].typeArgs.clone(), arg: p.types.slots[ast.typeSlot(arg)][ast.typeIndex(arg)].typeArgs.clone(), params: params, args: args)
+		if ast.typeKind(p.types, t: arg) == kind and ast.originOf(p.types, t: param) == ast.originOf(p.types, t: arg) 'sameDeclaration'
+			unifyAll(p, param: p.types.lists[ast.typeList(p.types, t: param)][ast.typeIndex(p.types, t: param)].typeArgs.clone(), arg: p.types.lists[ast.typeList(p.types, t: arg)][ast.typeIndex(p.types, t: arg)].typeArgs.clone(), params: params, args: args)
 		end 'sameDeclaration'
 	end 'instance'
 end 'unifyType'
@@ -284,15 +284,15 @@ function unifyBounds(mutates p ast.Project, params ast.TypeIDList, mutates args 
 		if arg == ast.noType or not typeIsNominal(p.types, t: arg) 'open'
 			continue 'each'
 		end 'open'
-		let bounds = p.types.slots[ast.typeSlot(params[i])][ast.typeIndex(params[i])].bounds.clone()
+		let bounds = p.types.lists[ast.typeList(p.types, t: params[i])][ast.typeIndex(p.types, t: params[i])].bounds.clone()
 		for bi in 0 upto bounds.count() 'bounds'
 			let bound = bounds[bi].ifaceTy
-			if p.types.slots[ast.typeSlot(bound)][ast.typeIndex(bound)].typeArgs.count() == 0 'plain'
+			if p.types.lists[ast.typeList(p.types, t: bound)][ast.typeIndex(p.types, t: bound)].typeArgs.count() == 0 'plain'
 				continue 'bounds'
 			end 'plain'
 			let declared = conformanceTo(p, t: arg, iface: ast.originOf(p.types, t: bound))
 			if declared != ast.noType 'found'
-				unifyAll(p, param: p.types.slots[ast.typeSlot(bound)][ast.typeIndex(bound)].typeArgs.clone(), arg: p.types.slots[ast.typeSlot(declared)][ast.typeIndex(declared)].typeArgs.clone(), params: params, args: args)
+				unifyAll(p, param: p.types.lists[ast.typeList(p.types, t: bound)][ast.typeIndex(p.types, t: bound)].typeArgs.clone(), arg: p.types.lists[ast.typeList(p.types, t: declared)][ast.typeIndex(p.types, t: declared)].typeArgs.clone(), params: params, args: args)
 			end 'found'
 		end 'bounds'
 	end 'each'
@@ -328,7 +328,7 @@ function inferRest(c Checker, p ast.Project, node ast.NodeID, callee String, par
 	end 'expected'
 	for i in 0 upto filled.count() 'each'
 		if filled[i] == ast.noType 'open'
-			failAt(c, p: p, node: node, code: diag.errCannotInfer, msg: "the type argument '{p.types.slots[ast.typeSlot(params[i])][ast.typeIndex(params[i])].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
+			failAt(c, p: p, node: node, code: diag.errCannotInfer, msg: "the type argument '{p.types.lists[ast.typeList(p.types, t: params[i])][ast.typeIndex(p.types, t: params[i])].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
 			return filled
 		end 'open'
 	end 'each'

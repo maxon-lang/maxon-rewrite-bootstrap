@@ -45,7 +45,7 @@ end 'writtenTypeOfCall'
 // makes the type that states it. The bare name is the fixed array the context expects, where it expects one.
 function callFixedArrayCreate(mutates c Checker, mutates p ast.Project, call ast.NodeID, named ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	var nt = named
-	if p.types.slots[ast.typeSlot(named)][ast.typeIndex(named)].typeArgs.count() == 0 and c.expect != ast.noType and ast.originOf(p.types, t: c.expect) == p.builtins.fixedArrayOrigin 'expected'
+	if p.types.lists[ast.typeList(p.types, t: named)][ast.typeIndex(p.types, t: named)].typeArgs.count() == 0 and c.expect != ast.noType and ast.originOf(p.types, t: c.expect) == p.builtins.fixedArrayOrigin 'expected'
 		nt = c.expect
 	end 'expected'
 	let form = createForm(c, p: p, call: call)
@@ -74,7 +74,7 @@ function callFixedArrayCreate(mutates c Checker, mutates p ast.Project, call ast
 			target = p.builtins.fixedArrayCreateCountedFilledFunc
 		end 'filled'
 	end 'runtimeSized'
-	let t = callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: target, hasGiven: p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeArgs.count() > 0, given: p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeArgs.clone(), errs: errs)
+	let t = callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: target, hasGiven: p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].typeArgs.count() > 0, given: p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].typeArgs.clone(), errs: errs)
 	if t == ast.noType or stated 'done'
 		return t
 	end 'done'
@@ -88,7 +88,7 @@ function constantLengthType(mutates c Checker, mutates p ast.Project, unsized as
 	if not isConstInt(p, t: lt) 'runtime'
 		return unsized
 	end 'runtime'
-	let value = p.types.slots[ast.typeSlot(lt)][ast.typeIndex(lt)].minVal.clone()
+	let value = p.types.lists[ast.typeList(p.types, t: lt)][ast.typeIndex(p.types, t: lt)].minVal.clone()
 	if value.isZero() or value.isNeg() or value.gt(ast.I128.fromCount(fixedArrayCountLimit)) 'outside'
 		failAt(c, p: p, node: length, code: diag.errFixedArrayCount, msg: "A `FixedArray` element count runs from 1 to {fixedArrayCountLimit}, and create's length is the constant {value.toString()}", errs: errs)
 		return ast.noType

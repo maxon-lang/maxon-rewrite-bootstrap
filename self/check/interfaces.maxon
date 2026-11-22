@@ -57,7 +57,7 @@ export function valueRefusal(p ast.Project, iface ast.TypeID) returns String
 		if p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].isStatic 'static'
 			return "its requirement '{name}' is static, and a static function has no value to run on"
 		end 'static'
-		let selfParam = p.types.slots[ast.typeSlot(ast.originOf(p.types, t: reqs[i].iface))][ast.typeIndex(ast.originOf(p.types, t: reqs[i].iface))].selfParam
+		let selfParam = p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: reqs[i].iface))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: reqs[i].iface))].selfParam
 		if selfParam != ast.noType and namesType(p, sig: sig, t: selfParam) 'self'
 			return "its requirement '{name}' names 'Self', which is another type in each value"
 		end 'self'
@@ -81,7 +81,7 @@ end 'namesType'
 // boxable is whether a value of the type t can be put in an interface value: a value of a type that can implement an
 // interface, or of a type parameter, whose bounds say which. A float is not one, as in maxon.
 function boxable(p ast.Project, t ast.TypeID) returns bool
-	let k = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind
+	let k = ast.typeKind(p.types, t: t)
 	return k == ast.TypeKind.typeParam or typeIsNominal(p.types, t: t) or ast.extensionKey(p, t: t).isSome()
 end 'boxable'
 

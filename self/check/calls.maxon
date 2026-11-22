@@ -208,7 +208,7 @@ function namesFunctionField(mutates c Checker, mutates p ast.Project, callee ast
 		return false
 	end 'notRecord'
 	let name = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
-	match consumes p.types.slots[ast.typeSlot(ast.originOf(p.types, t: t))][ast.typeIndex(ast.originOf(p.types, t: t))].findField(name) 'field'
+	match consumes p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: t))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: t))].findField(name) 'field'
 		some(index) then return fieldIsFunction(p, owner: t, index: index)
 		none then return false
 	end 'field'
@@ -266,7 +266,7 @@ end 'declaredFunction'
 
 // methodNamed is the method of that name that the declaration of a type has, or none.
 function methodNamed(p ast.Project, t ast.TypeID, name String) returns ast.FuncID
-	match p.types.slots[ast.typeSlot(ast.originOf(p.types, t: t))][ast.typeIndex(ast.originOf(p.types, t: t))].findMethod(name) 'method'
+	match p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: t))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: t))].findMethod(name) 'method'
 		some(fid) then return fid
 		none then return ast.noFunc
 	end 'method'
@@ -323,7 +323,7 @@ end 'failAmbiguousMethod'
 function extensionText(p ast.Project, fid ast.FuncID, module String) returns String
 	let iface = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].extendedIface
 	if iface != ast.noType 'ofInterface'
-		return "an extension of {p.types.slots[ast.typeSlot(iface)][ast.typeIndex(iface)].name} in {module}"
+		return "an extension of {p.types.lists[ast.typeList(p.types, t: iface)][ast.typeIndex(p.types, t: iface)].name} in {module}"
 	end 'ofInterface'
 	return "an extension in {module}"
 end 'extensionText'
@@ -445,10 +445,10 @@ end 'boundRequirement'
 
 // callOnType types a call written on a type's name: a case of a union that carries a payload, or a static function.
 function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, nt ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
-	if p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].kind == ast.TypeKind.typeParam 'parameter'
+	if ast.typeKind(p.types, t: nt) == ast.TypeKind.typeParam 'parameter'
 		return callOnTypeParam(c, p: p, call: call, param: nt, name: name, errs: errs)
 	end 'parameter'
-	if p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].kind == ast.TypeKind.unionTy and p.types.slots[ast.typeSlot(ast.originOf(p.types, t: nt))][ast.typeIndex(ast.originOf(p.types, t: nt))].findCase(name).isSome() 'union'
+	if ast.typeKind(p.types, t: nt) == ast.TypeKind.unionTy and p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: nt))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: nt))].findCase(name).isSome() 'union'
 		return unionConstructor(c, p: p, call: call, ut: nt, caseName: name, errs: errs)
 	end 'union'
 	if name == "create" and ast.originOf(p.types, t: nt) == p.builtins.fixedArrayOrigin 'fixedArray'
@@ -460,7 +460,7 @@ function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, n
 		return ast.noType
 	end 'ambiguous'
 	if sm != ast.noFunc and p.funcs.slots[ast.funcSlot(sm)][ast.funcIndex(sm)].isStatic 'static'
-		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeArgs.count() > 0, given: p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeArgs.clone(), errs: errs)
+		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].typeArgs.count() > 0, given: p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].typeArgs.clone(), errs: errs)
 	end 'static'
 	if sm != ast.noFunc 'instance'
 		return refuseInstanceMethodWithoutReceiver(c, p: p, node: ast.callExprCallee(p.modules[c.modIdx].tree, id: call), owner: nt, name: name, errs: errs)
@@ -501,7 +501,7 @@ function callMethod(mutates c Checker, mutates p ast.Project, call ast.NodeID, r
 	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].selfConv, method: name, errs: errs) 'frozen'
 		return ast.noType
 	end 'frozen'
-	return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: p.types.slots[ast.typeSlot(content)][ast.typeIndex(content)].typeArgs.count() > 0, given: p.types.slots[ast.typeSlot(content)][ast.typeIndex(content)].typeArgs.clone(), errs: errs)
+	return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: p.types.lists[ast.typeList(p.types, t: content)][ast.typeIndex(p.types, t: content)].typeArgs.count() > 0, given: p.types.lists[ast.typeList(p.types, t: content)][ast.typeIndex(p.types, t: content)].typeArgs.clone(), errs: errs)
 end 'callMethod'
 
 // callInterfaceExtension types a call of the method that an extension of an interface adds, on a value of the type
@@ -681,7 +681,7 @@ function unionConstructor(mutates c Checker, mutates p ast.Project, call ast.Nod
 	let orig = ast.originOf(p.types, t: ut)
 	let caseIndex = caseIndexNamed(p, orig: orig, name: caseName)
 	let unionName = nameOfType(p, t: ut)
-	if p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[caseIndex].payload.count() == 0 'noPayload'
+	if p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[caseIndex].payload.count() == 0 'noPayload'
 		failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: "case '{caseName}' carries no payload: write '{unionName}.{caseName}'", errs: errs)
 		return ast.noType
 	end 'noPayload'
@@ -692,12 +692,12 @@ function unionConstructor(mutates c Checker, mutates p ast.Project, call ast.Nod
 	var resolved = ut
 	let mark = errs.count()
 	var ordered = ast.NodeIDList.create(0)
-	if p.types.slots[ast.typeSlot(ut)][ast.typeIndex(ut)].typeParams.count() > 0 'generic'
+	if p.types.lists[ast.typeList(p.types, t: ut)][ast.typeIndex(p.types, t: ut)].typeParams.count() > 0 'generic'
 		ordered = checkedArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: 0, errs: errs)
 		if failedSince(errs, mark: mark) 'badArgs'
 			return ast.noType
 		end 'badArgs'
-		let params = ast.cloneTypeArgs(p.types.slots[ast.typeSlot(ut)][ast.typeIndex(ut)].typeParams)
+		let params = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: ut)][ast.typeIndex(p.types, t: ut)].typeParams)
 		let own = ast.selfType(p.types, declTy: ut)
 		let args = infer(c, p: p, node: call, callee: unionName, params: params, specs: specs, ordered: ordered, result: own, errs: errs)
 		if failedSince(errs, mark: mark) 'cannotInfer'
@@ -728,19 +728,19 @@ end 'unionConstructor'
 
 // caseIndexNamed is the place of the case of that name among those of a union or an enum, which has one.
 function caseIndexNamed(p ast.Project, orig ast.TypeID, name String) returns Count
-	match p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].findCase(name) 'case'
+	match p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].findCase(name) 'case'
 		some(i) then return i
 		none then _ = 0
 	end 'case'
-	panic("'{p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].name}' has no case '{name}'")
+	panic("'{p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].name}' has no case '{name}'")
 end 'caseIndexNamed'
 
 // payloadSpecs are the parameters a union's constructor of a case takes: the payload, each consumed.
 function payloadSpecs(mutates p ast.Project, ut ast.TypeID, caseIndex Count) returns ast.ParamSpecList
 	let orig = ast.originOf(p.types, t: ut)
 	var specs = ast.ParamSpecList.create(0)
-	for i in 0 upto p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[caseIndex].payload.count() 'each'
-		let name = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[caseIndex].payload[i].name.clone()
+	for i in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[caseIndex].payload.count() 'each'
+		let name = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[caseIndex].payload[i].name.clone()
 		let t = ast.payloadType(p.types, owner: ut, caseIndex: caseIndex, index: i)
 		specs.push(ast.ParamSpec.make(name, ty: t, conv: ast.Convention.convConsumes))
 	end 'each'
@@ -785,7 +785,7 @@ function boundCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, pa
 		return ast.noType
 	end 'notRequired'
 	if p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].isStatic 'static'
-		failAt(c, p: p, node: call, code: diag.errStaticRequirementNotDispatchable, msg: diag.staticRequirementNotDispatchable("{p.types.slots[ast.typeSlot(iface)][ast.typeIndex(iface)].name}.{name}", reacher: "a value of type parameter '{nameOfType(p, t: param)}'"), errs: errs)
+		failAt(c, p: p, node: call, code: diag.errStaticRequirementNotDispatchable, msg: diag.staticRequirementNotDispatchable("{p.types.lists[ast.typeList(p.types, t: iface)][ast.typeIndex(p.types, t: iface)].name}.{name}", reacher: "a value of type parameter '{nameOfType(p, t: param)}'"), errs: errs)
 		return ast.noType
 	end 'static'
 	let selfConv = p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].selfConv

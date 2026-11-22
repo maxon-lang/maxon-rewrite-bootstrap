@@ -342,7 +342,7 @@ end 'visitReturnStmt'
 function convertReturned(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, value ast.NodeID, v Reg) returns Reg
 	let fails = arithInfoAt(p, module: l.module, node: s).fails
 	let target = p.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].retTy
-	if p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].kind == ast.TypeKind.floatRange 'float'
+	if ast.typeKind(p.types, t: target) == ast.TypeKind.floatRange 'float'
 		return floatConverted(l, p: p, v: v, e: value, target: target, fails: fails)
 	end 'float'
 	let fail = overflowTo(l, p: p, fails: fails)

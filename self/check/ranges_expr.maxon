@@ -462,7 +462,7 @@ function countedAccessFunc(p ast.Project, isGet bool, proven bool) returns ast.F
 		return p.builtins.fixedArraySetProvenFunc
 	end 'provenSet'
 	let name = "get" if isGet else "set"
-	return p.types.slots[ast.typeSlot(p.builtins.fixedArrayOrigin)][ast.typeIndex(p.builtins.fixedArrayOrigin)].findMethod(name).unwrap()
+	return p.types.lists[ast.typeList(p.types, t: p.builtins.fixedArrayOrigin)][ast.typeIndex(p.types, t: p.builtins.fixedArrayOrigin)].findMethod(name).unwrap()
 end 'countedAccessFunc'
 
 // rangeChangedAt is an expression that a call may change, if it names a place.

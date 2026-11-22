@@ -7,8 +7,8 @@ export typealias TypeIDMap = table.StringMap with TypeID
 function registerStdAlias(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, consumes lo I128, consumes hi I128) returns TypeID
 	let tid = internIntRange(tt, aliasName: name.clone(), minVal: lo.clone(), maxVal: hi.clone(), inferred: false)
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
-	tt.slots[typeSlot(tid)][typeIndex(tid)].hasDecl = true
-	tt.slots[typeSlot(tid)][typeIndex(tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
+	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].hasDecl = true
+	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	var ad = AliasDecl.make(0 as NodeID)
 	ad.visibility = "export"
 	ad.name = name.clone()
@@ -21,8 +21,8 @@ end 'registerStdAlias'
 function registerStdFloatAlias(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, lo Count, hi Count) returns TypeID
 	let tid = internFloatRange(tt, aliasName: name.clone(), lo: lo, hi: hi)
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
-	tt.slots[typeSlot(tid)][typeIndex(tid)].hasDecl = true
-	tt.slots[typeSlot(tid)][typeIndex(tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
+	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].hasDecl = true
+	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	var ad = AliasDecl.make(0 as NodeID)
 	ad.visibility = "export"
 	ad.name = name.clone()
@@ -44,7 +44,7 @@ end 'registerStdInstanceAlias'
 function addStdTypeParam(mutates tt TypeTable, mutates std Module, owner TypeID, consumes name String) returns TypeID
 	var tp = TypeEntry.make(TypeKind.typeParam, name: name.clone())
 	let tid = allocType(tt, module: diag.stdlibID, e: tp)
-	tt.slots[typeSlot(owner)][typeIndex(owner)].typeParams.push(tid)
+	tt.lists[typeList(tt, t: owner)][typeIndex(tt, t: owner)].typeParams.push(tid)
 	return tid
 end 'addStdTypeParam'
 
@@ -79,7 +79,7 @@ function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates st
 	fn.ownerTy = selfType(tt, declTy: owner)
 	fn.hasReceiver = not isStatic
 	fn.selfConv = selfConv
-	fn.generics = cloneTypeArgs(tt.slots[typeSlot(owner)][typeIndex(owner)].typeParams)
+	fn.generics = cloneTypeArgs(tt.lists[typeList(tt, t: owner)][typeIndex(tt, t: owner)].typeParams)
 	fn.retTy = ret
 	fn.intrinsic = op
 	for i in 0 upto params.count() 'eachP'
@@ -88,7 +88,7 @@ function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates st
 	end 'eachP'
 	let fid = allocFunc(ft, module: diag.stdlibID, f: fn)
 	if listed 'listed'
-		tt.slots[typeSlot(owner)][typeIndex(owner)].methods.push(MethodRef.make(name, func: fid))
+		tt.lists[typeList(tt, t: owner)][typeIndex(tt, t: owner)].methods.push(MethodRef.make(name, func: fid))
 	end 'listed'
 	return fid
 end 'registerMethodOn'
@@ -142,8 +142,8 @@ function registerRecordType(mutates tt TypeTable, mutates std Module, mutates ty
 end 'registerRecordType'
 
 function addRecordField(mutates tt TypeTable, owner TypeID, consumes name String, ty TypeID, isVar bool, exported bool)
-	let index = tt.slots[typeSlot(owner)][typeIndex(owner)].fields.count()
-	tt.slots[typeSlot(owner)][typeIndex(owner)].fields.push(FieldInfo.make(name, ty: ty, isVar: isVar, exported: exported, hasDefault: false, defaultExpr: 0 as NodeID, index: index))
+	let index = tt.lists[typeList(tt, t: owner)][typeIndex(tt, t: owner)].fields.count()
+	tt.lists[typeList(tt, t: owner)][typeIndex(tt, t: owner)].fields.push(FieldInfo.make(name, ty: ty, isVar: isVar, exported: exported, hasDefault: false, defaultExpr: 0 as NodeID, index: index))
 end 'addRecordField'
 
 function registerUnionType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, paramNames StringList) returns TypeID
@@ -164,7 +164,7 @@ function registerUnionType(mutates tt TypeTable, mutates std Module, mutates typ
 end 'registerUnionType'
 
 function addUnionCase(mutates tt TypeTable, owner TypeID, consumes name String, consumes payload CaseFieldList)
-	tt.slots[typeSlot(owner)][typeIndex(owner)].cases.push(CaseInfo.make(name, payload: payload, hasRaw: false, rawValue: I128.zero()))
+	tt.lists[typeList(tt, t: owner)][typeIndex(tt, t: owner)].cases.push(CaseInfo.make(name, payload: payload, hasRaw: false, rawValue: I128.zero()))
 end 'addUnionCase'
 
 function registerEnumType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, cases StringList) returns TypeID
@@ -220,7 +220,7 @@ export function initBuiltins(mutates tt TypeTable, mutates ft FuncTable, mutates
 	b.exitCodeTy = exitTy
 	b.countTy = countTy
 	b.elementIndexTy = elementIndexTy
-	tt.slots[typeSlot(countTy)][typeIndex(countTy)].supertype = elementIndexTy
+	tt.lists[typeList(tt, t: countTy)][typeIndex(tt, t: countTy)].supertype = elementIndexTy
 	b.fullRangeIntTy = fullTy
 	b.byteTy = byteTy
 	declareBuiltinTable(tt, ft: ft, std: std, b: b, typeMap: typeMap, funcMap: funcMap)

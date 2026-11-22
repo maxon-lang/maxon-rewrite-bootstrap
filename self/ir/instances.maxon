@@ -23,13 +23,13 @@ end 'InstanceSet'
 // typeDepth is how deeply instances nest in t: a parameter or a plain type is 0, and Box with (Box with Count) is 2. A body
 // that calls itself with a growing type argument has no end, which a limit on the depth finds.
 export function typeDepth(tt ast.TypeTable, t ast.TypeID) returns Count
-	let n = tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].typeArgs.count()
+	let n = tt.lists[ast.typeList(tt, t: t)][ast.typeIndex(tt, t: t)].typeArgs.count()
 	if n == 0 'plain'
 		return 0
 	end 'plain'
 	var deepest = 0 as Count
 	for i in 0 upto n 'args'
-		let d = typeDepth(tt, t: tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].typeArgs[i])
+		let d = typeDepth(tt, t: tt.lists[ast.typeList(tt, t: t)][ast.typeIndex(tt, t: t)].typeArgs[i])
 		if d > deepest 'deeper'
 			deepest = d
 		end 'deeper'
@@ -67,9 +67,9 @@ export function resolveTarget(mutates p ast.Project, module diag.ModuleID, site 
 		// A frozen receiver lends its contents, so the method is the one of the type it holds.
 		let received = ast.substituteType(p.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
 		let recv = ast.contentType(p.types, t: received)
-		let origin = p.types.slots[ast.typeSlot(recv)][ast.typeIndex(recv)].effectiveOrigin()
+		let origin = p.types.lists[ast.typeList(p.types, t: recv)][ast.typeIndex(p.types, t: recv)].effectiveOrigin()
 		let name = p.funcs.slots[ast.funcSlot(info.method)][ast.funcIndex(info.method)].name.clone()
-		if p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].findMethod(name).isSome() 'own'
+		if p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].findMethod(name).isSome() 'own'
 			return witnessFor(p, module: module, site: site, recv: recv, name: name, conformance: module, errs: errs)
 		end 'own'
 		let param = ast.contentType(p.types, t: info.receiverTy)
@@ -83,8 +83,8 @@ end 'resolveTarget'
 // an extension of the type adds where the module of the conformance sees it, as an instance for a generic type's
 // arguments, or else the instance for recv of the one that an extension of an interface it implements adds there.
 function witnessFor(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, recv ast.TypeID, name String, conformance diag.ModuleID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
-	let origin = p.types.slots[ast.typeSlot(recv)][ast.typeIndex(recv)].effectiveOrigin()
-	match consumes p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].findMethod(name) 'found'
+	let origin = p.types.lists[ast.typeList(p.types, t: recv)][ast.typeIndex(p.types, t: recv)].effectiveOrigin()
+	match consumes p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].findMethod(name) 'found'
 		some(method) then return instantiateMethod(p, module: module, site: site, method: method, recv: recv, errs: errs)
 		none then _ = 0
 	end 'found'
@@ -134,7 +134,7 @@ function instantiateWith(mutates p ast.Project, module diag.ModuleID, site ast.N
 	for i in 0 upto slots.count() 'slots'
 		let gi = indexOfParam(generics, param: slots[i].paramTy)
 		let declared = slots[i].ifaceTy
-		if p.types.slots[ast.typeSlot(written[gi])][ast.typeIndex(written[gi])].kind == ast.TypeKind.typeParam 'passed'
+		if ast.typeKind(p.types, t: written[gi]) == ast.TypeKind.typeParam 'passed'
 			let passedIface = ast.substituteType(p.types, t: declared, params: generics, args: written)
 			witnesses.push(ast.Witness.make(slots[i].paramTy, ifaceTy: declared, module: passedWitness(p, enclosing: enclosing, param: written[gi], iface: passedIface)))
 			continue 'slots'
@@ -185,12 +185,12 @@ end 'requireOneConformance'
 
 // sharesInterface is whether the interfaces a and b are, or extend, one interface.
 function sharesInterface(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns bool
-	let origin = tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].effectiveOrigin()
+	let origin = tt.lists[ast.typeList(tt, t: a)][ast.typeIndex(tt, t: a)].effectiveOrigin()
 	if ast.reachesInterface(tt, have: b, want: origin) 'reached'
 		return true
 	end 'reached'
-	for i in 0 upto tt.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].conforms.count() 'parents'
-		if sharesInterface(tt, a: tt.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].conforms[i], b: b) 'shared'
+	for i in 0 upto tt.lists[ast.typeList(tt, t: origin)][ast.typeIndex(tt, t: origin)].conforms.count() 'parents'
+		if sharesInterface(tt, a: tt.lists[ast.typeList(tt, t: origin)][ast.typeIndex(tt, t: origin)].conforms[i], b: b) 'shared'
 			return true
 		end 'shared'
 	end 'parents'
@@ -217,7 +217,7 @@ function instantiateMethod(mutates p ast.Project, module diag.ModuleID, site ast
 	if p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].generics.count() == 0 'plain'
 		return table.Option.some(method)
 	end 'plain'
-	let args = ast.cloneTypeArgs(p.types.slots[ast.typeSlot(recv)][ast.typeIndex(recv)].typeArgs)
+	let args = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: recv)][ast.typeIndex(p.types, t: recv)].typeArgs)
 	return instantiateWith(p, module: module, site: site, origin: method, written: args, args: args, enclosing: ast.WitnessList.create(0), errs: errs)
 end 'instantiateMethod'
 

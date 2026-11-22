@@ -25,7 +25,7 @@ export function funcSymbol(p ast.Project, fid ast.FuncID) returns String
 		return String.from(b)
 	end 'free'
 	let ownerName = ast.typeName(p.types, t: owner)
-	if p.types.slots[ast.typeSlot(owner)][ast.typeIndex(owner)].typeArgs.count() > 0 'instance'
+	if p.types.lists[ast.typeList(p.types, t: owner)][ast.typeIndex(p.types, t: owner)].typeArgs.count() > 0 'instance'
 		return "({ownerName}).{name}{ast.witnessSuffix(p, fid: fid)}"
 	end 'instance'
 	return "{ownerName}.{name}"

@@ -517,7 +517,7 @@ function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 		let orig = ast.originOf(p.types, t: call.unionTy)
 		var out = s
 		for i in 0 upto call.ordered.count() 'args'
-			let name = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[call.unionCase].payload[i].name.clone()
+			let name = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[call.unionCase].payload[i].name.clone()
 			out = consume(o, p: p, e: call.ordered[i], dest: OwnDest.make(OwnDestKind.destField, name: name), s: out)
 		end 'args'
 		return out
@@ -844,7 +844,7 @@ function structLitOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	var out = s
 	for i in 0 upto lit.ordered.count() 'fields'
 		if lit.ordered[i] != 0 'given'
-			let name = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].fields[i].name.clone()
+			let name = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields[i].name.clone()
 			out = consume(o, p: p, e: lit.ordered[i], dest: OwnDest.make(OwnDestKind.destField, name: name), s: out)
 		end 'given'
 	end 'fields'

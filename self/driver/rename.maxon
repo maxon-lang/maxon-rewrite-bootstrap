@@ -677,7 +677,7 @@ function builtinMethod(p ast.Project, owner String, name String) returns table.O
 		panic("rename: {owner} is no built-in type with methods")
 	end 'unknown'
 	let t = ty.unwrap()
-	return p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].findMethod(name)
+	return p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].findMethod(name)
 end 'builtinMethod'
 
 // rulesFor are the rules that rename a call of the method name, as the checker resolved the call.

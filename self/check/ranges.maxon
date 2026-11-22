@@ -125,17 +125,17 @@ function rangeCheckValues(mutates r Ranges, p ast.Project, ord ast.DeclOrdinal)
 		return
 	end 'notRecord'
 	let tid = declTypeOf(p, ref: ast.DeclRef.make(r.modID, ordinal: ord))
-	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields.count() 'fields'
-		if p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].hasDefault 'default'
+	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields.count() 'fields'
+		if p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].hasDefault 'default'
 			r.failed = false
-			_ = rangeValue(r, p: p, e: p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].defaultExpr)
+			_ = rangeValue(r, p: p, e: p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].defaultExpr)
 		end 'default'
 	end 'fields'
 end 'rangeCheckValues'
 
 function rangeRawValues(mutates r Ranges, p ast.Project, tid ast.TypeID)
-	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases.count() 'cases'
-		let e = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases[i].rawExpr
+	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases.count() 'cases'
+		let e = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases[i].rawExpr
 		if e != 0 'written'
 			r.failed = false
 			_ = rangeValue(r, p: p, e: e)

@@ -552,7 +552,7 @@ what it finds out is a table it owns, indexed by `NodeID`. Nothing adds a node a
 | `ast.NodeID` | a node of one module: its index in `Tree.records`, counted from 1 in the order the parser makes them; 0 is no node |
 | `diag.Site` | where a node is: its module and the byte offset of its first token |
 | `ast.DeclRef` | a top-level declaration: its module and its `DeclOrdinal`, its index in `Module.decls` |
-| `ast.TypeID`, `ast.FuncID` | a type or a function: a word whose bits 32-47 name its slot of the `TypeTable` or `FuncTable` and whose bits 0-31 are its index there. Slot 0 holds the built-ins, the stdlib, every structural type (an instance, a range, a constant, a function type's origin, a tuple) and every instance of a generic function, which any module may make; slot 1 + m holds the types and functions module m declares and the closures and behaviours its bodies make, which only m's stages make, so their handles depend on m's source alone. 0 is none (`noType`, `noFunc`) |
+| `ast.TypeID`, `ast.FuncID` | a type or a function. A nominal type's handle and every function's is a word whose bits 32-47 name its slot of the `TypeTable` or `FuncTable` and whose bits 0-31 are its index there: slot 0 holds the built-ins, the stdlib and what the stages of the project make, and slot 1 + m the types and functions module m declares, the closures and behaviours its bodies make and the instances of generic functions its stages ask for, which only m's stages make, so their handles depend on m's source alone. A structural type's handle (an instance, a range, a constant, a function type's origin, a tuple's record and its type parameters) has bit 62 set, its `TypeKind` in bits 57-61 and a 57-bit hash of its structure below (`ast/shapes.maxon`), so it is one word in every module. Each slot holds the shapes its stages made or took from another slot, and a lookup goes through the task's own slot, slot 0 and the slots of the modules it names, directly or through others, which it waited on (`TypeTable.reads`): at the start of each task the slot's index takes in the places of the shapes those slots made since, so a read is one probe, and a kind is read from the handle (`ast.typeKind`); a stage never writes another slot. Two structures under one hash are an internal error that names both. 0 is none (`noType`, `noFunc`) |
 | `ast.LocalID` | a local variable: its index in the module's `Typing.locals`; 0 is none |
 
 A node's index depends only on its module's text, so a module that did not change keeps its indexes and tables. What is
@@ -623,10 +623,10 @@ lowered. `consumed` is written by the ownership pass while it verifies the modul
 
 **Types and functions.** A type is a `TypeEntry` in the `TypeTable`: its kind (`record`, `enumTy`, `unionTy`, `intRange`, the
 built-in collections, `typeParam`, ...), name, declaration, fields, cases, methods, bounds and type arguments. An instance such
-as `Box with Count` is one type wherever it is written: `instantiateType` interns it by its origin and arguments
-(`instCache`), reads the declaration's fields, cases and methods and substitutes the arguments. Integer ranges are interned by
-their bounds. A function, a method and an instance of a generic function are `FuncEntry`s in the `FuncTable`, interned the same
-way. Declare fills them in; every later phase reads them.
+as `Box with Count` is one type wherever it is written: its handle is the hash of its origin and arguments
+(`instantiateType`), and it reads the declaration's fields, cases and methods and substitutes the arguments. Integer ranges
+are hashed by their name and bounds. A function, a method and an instance of a generic function are `FuncEntry`s in the
+`FuncTable`; an instance is interned in the slot of the module that asks for it, by its origin, arguments and conformances. Declare fills them in; every later phase reads them.
 
 ### Allocation
 
@@ -1970,9 +1970,9 @@ end 'wrap'
   The order of a module's instances is the order it found them in, and modules are lowered in a fixed order, so the same
   unit keeps an instance on every run. A compile that stops short of generate (`check`) still has each module find its
   instances, which is where `E3906` is raised.
-- **Interning.** `Box with Count` is one type wherever it is written: the project's `TypeTable` interns each instance,
-  keyed by its origin and arguments (`ast.instantiateType`). Every module that needs an instance gets the same type, and the
-  order in which modules interned it is never visible in any output. An instance reads the declaration's fields, cases and
+- **Interning.** `Box with Count` is one type wherever it is written: an instance's handle is the hash of its origin and
+  arguments (`ast.instantiateType`), so every module that needs an instance gets the same type, each holding its own copy
+  of the entry, and the order in which modules interned it is never visible in any output. An instance reads the declaration's fields, cases and
   methods and substitutes its arguments.
 - **Limits.** A generic type may not contain itself, even with a larger type argument each time (`E4014`), and a
   generic function may not call itself with ever larger type arguments (`E3906`, past a nesting depth of 16). Each module that

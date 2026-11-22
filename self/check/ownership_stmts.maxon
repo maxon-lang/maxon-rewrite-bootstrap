@@ -507,7 +507,7 @@ function forEachOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID, c
 		end 'advances'
 	end 'protocol'
 	var lent = ast.LocalIDList.create(0)
-	if lends and p.types.slots[ast.typeSlot(ast.contentType(p.types, t: ownType(o, node: source)))][ast.typeIndex(ast.contentType(p.types, t: ownType(o, node: source)))].kind == ast.TypeKind.builtinMap 'entries'
+	if lends and ast.typeKind(p.types, t: ast.contentType(p.types, t: ownType(o, node: source))) == ast.TypeKind.builtinMap 'entries'
 		lent = lentValue(o, p: p, st: st)
 	end 'entries' else if lends 'element'
 		lent.push(ownLocalOf(o, node: st))
@@ -634,7 +634,7 @@ end 'armBorrows'
 // the arm, and the payloads it does not name are dropped with the subject.
 function takeApart(mutates o Ownership, mutates p ast.Project, core ast.NodeID, arm ast.NodeID)
 	let u = ast.contentType(p.types, t: ownType(o, node: ast.matchCoreSubject(p.modules[o.c.modIdx].tree, id: core)))
-	if p.types.slots[ast.typeSlot(u)][ast.typeIndex(u)].kind != ast.TypeKind.unionTy 'notUnion'
+	if ast.typeKind(p.types, t: u) != ast.TypeKind.unionTy 'notUnion'
 		return
 	end 'notUnion'
 	let orig = ast.originOf(p.types, t: u)
@@ -646,11 +646,11 @@ function takeApart(mutates o Ownership, mutates p ast.Project, core ast.NodeID, 
 		end 'literal'
 		let info = ownPattern(o, node: pat)
 		let site = offsetOfOwn(o, p: p, node: pat)
-		for j in 0 upto p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[info.caseIdx].payload.count() 'payload'
+		for j in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[info.caseIdx].payload.count() 'payload'
 			if j < info.bindings.count() and info.bindings[j] != ast.noLocal 'named'
 				oblige(o, p: p, l: info.bindings[j], site: site)
 			end 'named' else 'dropped'
-				let name = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[info.caseIdx].payload[j].name.clone()
+				let name = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[info.caseIdx].payload[j].name.clone()
 				let t = ast.payloadType(p.types, owner: u, caseIndex: info.caseIdx, index: j)
 				requireDroppable(o, p: p, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropPayload, name: name))
 			end 'dropped'
@@ -665,7 +665,7 @@ end 'takeApart'
 // arm names.
 function requireUnnamedCasesDroppable(mutates o Ownership, mutates p ast.Project, core ast.NodeID, arm ast.NodeID, u ast.TypeID)
 	let orig = ast.originOf(p.types, t: u)
-	var named = Array.filled(p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases.count(), value: false)
+	var named = Array.filled(p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases.count(), value: false)
 	let arms = ast.matchCoreArmsRef(p.modules[o.c.modIdx].tree, id: core)
 	for i in 0 upto p.modules[o.c.modIdx].tree.listLen(arms) 'arms'
 		let other = p.modules[o.c.modIdx].tree.listAt(arms, index: i) as ast.NodeID
@@ -682,8 +682,8 @@ function requireUnnamedCasesDroppable(mutates o Ownership, mutates p ast.Project
 		if named[ci] 'named'
 			continue 'cases'
 		end 'named'
-		for pi in 0 upto p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[ci].payload.count() 'payload'
-			let name = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[ci].payload[pi].name.clone()
+		for pi in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[ci].payload.count() 'payload'
+			let name = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[ci].payload[pi].name.clone()
 			let t = ast.payloadType(p.types, owner: u, caseIndex: ci, index: pi)
 			requireDroppable(o, p: p, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropPayload, name: name))
 		end 'payload'

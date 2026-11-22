@@ -222,7 +222,7 @@ function voidCalleeText(c Checker, p ast.Project, call ast.NodeID) returns Strin
 	end 'plain'
 	let name = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
 	let holder = ast.contentType(p.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)))
-	if holder != ast.noType and p.types.slots[ast.typeSlot(ast.originOf(p.types, t: holder))][ast.typeIndex(ast.originOf(p.types, t: holder))].hasDecl and p.types.slots[ast.typeSlot(ast.originOf(p.types, t: holder))][ast.typeIndex(ast.originOf(p.types, t: holder))].decl.module != diag.stdlibID 'declared'
+	if holder != ast.noType and p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: holder))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: holder))].hasDecl and p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: holder))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: holder))].decl.module != diag.stdlibID 'declared'
 		return "{declaredNameOfType(p, t: holder)}.{name}"
 	end 'declared'
 	return name
@@ -493,7 +493,7 @@ end 'isGeneric'
 function methodCall(p ast.Project, recv ast.TypeID, method ast.FuncID) returns ast.CallInfo
 	var info = ast.CallInfo.make(ast.CallKind.callMethod, fn: method, receiverTy: ast.noType)
 	if isGeneric(p, f: method) 'generic'
-		info.typeArgs = p.types.slots[ast.typeSlot(recv)][ast.typeIndex(recv)].typeArgs.clone()
+		info.typeArgs = p.types.lists[ast.typeList(p.types, t: recv)][ast.typeIndex(p.types, t: recv)].typeArgs.clone()
 	end 'generic'
 	info.selfConv = p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].selfConv
 	return info
@@ -506,7 +506,7 @@ function methodResult(mutates p ast.Project, recv ast.TypeID, method ast.FuncID)
 		return result
 	end 'plain'
 	let generics = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].generics)
-	let args = ast.cloneTypeArgs(p.types.slots[ast.typeSlot(recv)][ast.typeIndex(recv)].typeArgs)
+	let args = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: recv)][ast.typeIndex(p.types, t: recv)].typeArgs)
 	return ast.substituteType(p.types, t: result, params: generics, args: args)
 end 'methodResult'
 

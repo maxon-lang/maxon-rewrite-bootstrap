@@ -41,7 +41,7 @@ function typedByConstants(p ast.Project, ref ast.DeclRef) returns bool
 	if not isNominalDecl(p.modules[ast.modIndex(ref.module)].decls[ref.ordinal as Count]) 'notNominal'
 		return false
 	end 'notNominal'
-	return p.types.slots[ast.typeSlot(declTypeOf(p, ref: ref))][ast.typeIndex(declTypeOf(p, ref: ref))].rawKind == ast.RawKind.value
+	return p.types.lists[ast.typeList(p.types, t: declTypeOf(p, ref: ref))][ast.typeIndex(p.types, t: declTypeOf(p, ref: ref))].rawKind == ast.RawKind.value
 end 'typedByConstants'
 
 function pushIfConstant(p ast.Project, consumes ref ast.DeclRef, mutates out ConstReads)
@@ -221,8 +221,8 @@ function constReadsOf(p ast.Project, ref ast.DeclRef) returns ConstReads
 		return out
 	end 'constant'
 	let tid = declTypeOf(p, ref: ref)
-	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases.count() 'cases'
-		constRefs(p, modIdx: modIdx, e: p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases[i].rawExpr, out: out)
+	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases.count() 'cases'
+		constRefs(p, modIdx: modIdx, e: p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases[i].rawExpr, out: out)
 	end 'cases'
 	return out
 end 'constReadsOf'
@@ -324,7 +324,7 @@ end 'interpolatesNothing'
 // of a literal's type. The range analysis gives the value of any other, once it runs.
 function constantValue(p ast.Project, t ast.TypeID) returns ast.ConstValue
 	if isConstInt(p, t: t) 'literal'
-		return ast.ConstValue.makeInt(t, v: p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.clone())
+		return ast.ConstValue.makeInt(t, v: p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].minVal.clone())
 	end 'literal'
 	return ast.ConstValue.typed(t)
 end 'constantValue'
@@ -421,7 +421,7 @@ function isLiteralFactory(p ast.Project, fn ast.FuncID) returns bool
 	if p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module == diag.stdlibID or not p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].isStatic or p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].generics.count() > 0 or p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].errTy != ast.noType or owner == ast.noType 'notStatic'
 		return false
 	end 'notStatic'
-	if p.types.slots[ast.typeSlot(ast.originOf(p.types, t: owner))][ast.typeIndex(ast.originOf(p.types, t: owner))].typeParams.count() > 0 'genericOwner'
+	if p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: owner))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: owner))].typeParams.count() > 0 'genericOwner'
 		return false
 	end 'genericOwner'
 	let mi = ast.modIndex(p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module)

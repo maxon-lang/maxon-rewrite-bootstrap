@@ -83,12 +83,12 @@ end 'checkWhenDeclared'
 // checkFieldDefaults types the default of each field of a record as a value of the field's type.
 function checkFieldDefaults(mutates c Checker, mutates p ast.Project, tid ast.TypeID, mutates errs diag.ErrorList)
 	let selfTy = ast.selfType(p.types, declTy: tid)
-	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields.count() 'each'
-		if not p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].hasDefault 'none'
+	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields.count() 'each'
+		if not p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].hasDefault 'none'
 			continue 'each'
 		end 'none'
-		let defaultExpr = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].defaultExpr
-		let fieldTy = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].ty
+		let defaultExpr = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].defaultExpr
+		let fieldTy = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].ty
 		enterContext(c, p: p, f: ast.noFunc, owner: selfTy, calls: true)
 		startUses(c, node: defaultExpr, inField: true)
 		let t = checkExpecting(c, p: p, e: defaultExpr, want: fieldTy, errs: errs)
