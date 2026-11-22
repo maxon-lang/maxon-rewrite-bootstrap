@@ -1,4 +1,4 @@
-// Command builtingen generates, from the table in table.go, the declarations of minimaxon's built-ins in self/, the
+// Command builtingen generates, from the table in table.go, the declarations of minimaxon's built-ins in self/ and the record that holds their handles, the
 // Intrinsic and runtime-symbol enums, and the dispatch from each intrinsic to its hand-written body in the checker and
 // the interpreter. `go generate ./internal/builtingen` runs it.
 package main
@@ -14,6 +14,7 @@ import (
 
 const (
 	maxonFile           = "../../self/ast/builtins_gen.maxon"
+	maxonRecordFile     = "../../self/ast/builtins_record_gen.maxon"
 	maxonRtFile         = "../../self/ir/runtime_gen.maxon"
 	maxonIntrinsicsFile = "../../self/ir/intrinsics_gen.maxon"
 	maxonCheckFile      = "../../self/check/builtins_gen.maxon"
@@ -63,7 +64,7 @@ func generate() (outs []output, err error) {
 		}
 	}()
 	t := load()
-	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRtFile, []byte(emitMaxonRt(t))}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))}, output{maxonInterpFile, []byte(emitMaxonInterp(t))}, output{interpTextOpsFile, []byte(emitTextOps())})
+	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRecordFile, []byte(emitMaxonBuiltinsRecord(t))}, output{maxonRtFile, []byte(emitMaxonRt(t))}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))}, output{maxonInterpFile, []byte(emitMaxonInterp(t))}, output{interpTextOpsFile, []byte(emitTextOps())})
 	return outs, nil
 }
 

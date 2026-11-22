@@ -35,6 +35,23 @@ var primTypes = []primType{
 	{"Float", "b.anonFloatTy"},
 }
 
+// extraField is a field of self's Builtins record that no row of the table gives it: a type that initBuiltins registers
+// by hand because it is no row of the table (the types of an unsuffixed literal, never, FullRangeFloat), and the maps of
+// the stdlib's declarations that it fills last. Zero is the value Builtins.empty() holds until it does.
+type extraField struct {
+	Name, Type, Zero string
+}
+
+var extraFields = []extraField{
+	{"neverTy", "TypeID", "noType"},
+	{"anon64Ty", "TypeID", "noType"},
+	{"anonU64Ty", "TypeID", "noType"},
+	{"fullRangeFloatTy", "TypeID", "noType"},
+	{"stringMethods", "FuncIDMap", "FuncIDMap.new()"},
+	{"stdlibTypeMap", "TypeIDMap", "TypeIDMap.new()"},
+	{"stdlibFuncMap", "FuncIDMap", "FuncIDMap.new()"},
+}
+
 // builtinType is a runtime primitive: an ast.BuiltinTy of its own BuiltinKind.
 type builtinType struct {
 	Key    string // the ast.Builtins field Key

@@ -12,20 +12,6 @@ let trapSkipLine = "<!-- skip: language difference: arithmetic that can fail nee
 
 let panicWord = "panic"
 
-// The codes of maxon that minimaxon has no diagnostic for: its linear values are noncopyable values with a destructor
-// here, so it refuses the move itself and never reports that one was left unconsumed or refused.
-let maxonErrLinearNotConsumed = "E3223"
-
-let maxonErrLinearRefused = "E3224"
-
-// The codes of maxon's rules about immutable and unique values, which minimaxon meets as a move out of a borrow or a write to a
-// let.
-let maxonErrImmutableWritten = "E3207"
-
-let maxonErrUniqueRefused = "E3214"
-
-let ownershipSkipLine = "<!-- skip: language difference: ownership is refused by another rule -->\n"
-
 // loopSkipLine is what a spec test gets whose program changes the collection that its for walks: maxon lets the loop and its
 // body share it, and here the loop holds it for the body.
 let loopSkipLine = "<!-- skip: language difference: a loop holds the collection it walks -->\n"
@@ -33,12 +19,9 @@ let loopSkipLine = "<!-- skip: language difference: a loop holds the collection 
 // positionsMovedLine tells the runner to compare the diagnostics of a fixed test without their positions, which the fixes moved.
 let positionsMovedLine = "<!-- positions: moved -->\n"
 
-let syntaxSkipLine = "<!-- skip: differing error code: syntax error -->\n"
-
-let operandSkipLine = "<!-- skip: differing error code: operand types -->\n"
-
 // CodeSkip is a pair of codes of a test that expects a compile error: the first code that maxon expects and the first code
 // that minimaxon reports for the same program, which refuses it for another known reason, and the skip line the test gets.
+// codeSkipTable (skips_gen.maxon, from skips.tsv) lists them.
 type CodeSkip
 	var expected as String
 	var reported as String
@@ -50,50 +33,6 @@ type CodeSkip
 end 'CodeSkip'
 
 typealias CodeSkips = Array with CodeSkip
-
-// addCodeSkips adds the pair of every expected code with every reported code, each with the skip line.
-function addCodeSkips(mutates skips CodeSkips, expected ast.StringList, reported ast.StringList, line String)
-	for e in 0 upto expected.count() 'expected'
-		for r in 0 upto reported.count() 'reported'
-			skips.push(CodeSkip.make(expected[e].clone(), reported: reported[r].clone(), line: line.clone()))
-		end 'reported'
-	end 'expected'
-end 'addCodeSkips'
-
-// codeSkipTable is the pairs of codes whose tests are skipped: maxon reports the later use of a moved value, a linear one
-// or a write through a read-only value, a write to an immutable value or a unique value kept or bound, where minimaxon refuses the move or the write itself; and two codes of the
-// parser and of the checker that the same error is given under here.
-function codeSkipTable() returns CodeSkips
-	var skips = CodeSkips.create(0)
-	var movedExpected = ast.StringList.create(0)
-	movedExpected.push(diag.errUseAfterMove)
-	movedExpected.push(maxonErrLinearNotConsumed)
-	movedExpected.push(maxonErrLinearRefused)
-	movedExpected.push(diag.errFrozenChange)
-	var movedReported = ast.StringList.create(0)
-	movedReported.push(diag.errMoveOutOfBorrow)
-	movedReported.push(diag.errNotDroppable)
-	movedReported.push(diag.errAssignToImmutable)
-	addCodeSkips(skips, expected: movedExpected, reported: movedReported, line: ownershipSkipLine)
-	var refusedExpected = ast.StringList.create(0)
-	refusedExpected.push(maxonErrImmutableWritten)
-	refusedExpected.push(maxonErrUniqueRefused)
-	var refusedReported = ast.StringList.create(0)
-	refusedReported.push(diag.errMoveOutOfBorrow)
-	refusedReported.push(diag.errAssignToImmutable)
-	addCodeSkips(skips, expected: refusedExpected, reported: refusedReported, line: ownershipSkipLine)
-	var syntaxExpected = ast.StringList.create(0)
-	syntaxExpected.push(diag.errUnexpectedToken)
-	var syntaxReported = ast.StringList.create(0)
-	syntaxReported.push(diag.errExpectedToken)
-	addCodeSkips(skips, expected: syntaxExpected, reported: syntaxReported, line: syntaxSkipLine)
-	var operandExpected = ast.StringList.create(0)
-	operandExpected.push(diag.errExpressionError)
-	var operandReported = ast.StringList.create(0)
-	operandReported.push(diag.errTypeMismatch)
-	addCodeSkips(skips, expected: operandExpected, reported: operandReported, line: operandSkipLine)
-	return skips
-end 'codeSkipTable'
 
 // codeSkipLine is the skip line of the pair that a test's first expected and first reported codes make, or nothing when the
 // pair is not in the table.

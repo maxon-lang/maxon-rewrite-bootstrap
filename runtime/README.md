@@ -41,4 +41,4 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
   module, so that it may call what no program can (root README, "Tests"). Its names start with `test` or `tally`, so
   as not to clash with the runtime's own.
 - **A DLL function is called by its name**, a string literal, which must be in the executable's import list
-  (`rtImports` in `self/backend/entry.maxon`); `self/backend` panics on one that is not.
+  (`importNames` in `internal/abigen/imports.go`, which generates `self/backend/imports_gen.maxon`); `self/backend` panics on one that is not.

@@ -1,5 +1,6 @@
-// Command diaggen generates the diagnostic code constants of self/diag from self/diag/codes.tsv, and their message
-// functions from self/diag/messages.tsv. `go generate ./internal/diaggen` runs it.
+// Command diaggen generates the diagnostic code constants of self/diag from self/diag/codes.tsv, their message
+// functions from self/diag/messages.tsv, and the table of code pairs that `fix specs` skips from self/driver/skips.tsv,
+// which names codes of the first. `go generate ./internal/diaggen` runs it.
 // With --maxon <maxon repository> it writes nothing and checks the table against maxon's ErrorCodeRegistry.maxon
 // instead.
 package main
@@ -79,6 +80,14 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
+	skipSrc, err := os.ReadFile(skipTableFile)
+	if err != nil {
+		fail(err)
+	}
+	skips, err := parseSkips(string(skipSrc), rows)
+	if err != nil {
+		fail(err)
+	}
 	if *maxonRepo != "" {
 		registry, err := os.ReadFile(filepath.Join(*maxonRepo, filepath.FromSlash(registryFile)))
 		if err != nil {
@@ -89,7 +98,7 @@ func main() {
 		}
 		return
 	}
-	for _, o := range generate(rows, messages) {
+	for _, o := range generate(rows, messages, skips) {
 		if err := os.WriteFile(o.path, o.code, 0o644); err != nil {
 			fail(err)
 		}
@@ -207,10 +216,11 @@ func templateParams(template string) ([]string, error) {
 	return params, nil
 }
 
-func generate(rows []row, messages []message) []output {
+func generate(rows []row, messages []message, skips []skipRow) []output {
 	return []output{
 		{maxonFile, []byte(emitMaxon(rows))},
 		{messageMaxonFile, []byte(emitMaxonMessages(messages))},
+		{skipMaxonFile, []byte(emitMaxonSkips(skips))},
 	}
 }
 

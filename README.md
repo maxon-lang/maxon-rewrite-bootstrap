@@ -68,7 +68,7 @@ the kinds by tests blocked, most blocking first. Then `fix specs` applies the fi
 name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`, the module written before a bare name that means one declaration of another module, as `qualify` writes it) to every test that runs a program; a test
 that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
 instead, and so does a test that expects a compile error which minimaxon reports first under another code for a known reason
-(the pairs of `codeSkipTable` in `self/driver/fix.maxon`: ownership refused by another rule, the syntax error, operand
+(the pairs of `self/driver/skips.tsv`, generated into `codeSkipTable`: ownership refused by another rule, the syntax error, operand
 types). A test that expects a compile error and is first refused under another code by a fixable language difference
 (arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
@@ -277,12 +277,12 @@ run.
 | Generator | Source of truth | Writes |
 |---|---|---|
 | `internal/grammargen` | `self/syntax/Maxon.g4` | `self/syntax/parser_gen.maxon`, `self/syntax/tokens_gen.maxon`, `self/ast/nodes_gen.maxon`, and the keywords `cmd/convert` reserves (`cmd/convert/reserved_gen.go`) |
-| `internal/builtingen` | `internal/builtingen/table.go` | `self/ast/builtins_gen.maxon`, `self/ir/runtime_gen.maxon`, `self/ir/intrinsics_gen.maxon`, `self/check/builtins_gen.maxon`, `self/interp/builtins_gen.maxon` |
-| `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv` | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon` |
+| `internal/builtingen` | `internal/builtingen/table.go` | `self/ast/builtins_gen.maxon`, `self/ast/builtins_record_gen.maxon` (the `Builtins` record, its `empty()` and `isCapability`: a field for each type row, function handle and primitive of the table, and the few fields `extraFields` lists), `self/ir/runtime_gen.maxon`, `self/ir/intrinsics_gen.maxon`, `self/check/builtins_gen.maxon`, `self/interp/builtins_gen.maxon` |
+| `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv`, `self/driver/skips.tsv` (the code pairs `fix specs` skips; it names codes of the first) | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon`, `self/driver/skips_gen.maxon` |
 | `internal/irgen` | `internal/irgen/irtable/table.go` | `self/ir/ir_gen.maxon` |
 | `internal/x64gen` | `internal/x64gen/x64table/table.go` | `self/backend/x64_gen.maxon` |
 | `internal/rulegen` | `internal/rulegen/generic.rules`, checked against the IR table (and the x64 rules against the instruction table) | `self/opt/rewrite_gen.maxon` |
-| `internal/abigen` | `internal/abigen/table.go` | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon` |
+| `internal/abigen` | `internal/abigen/table.go`, `internal/abigen/imports.go` (the kernel32 functions of the import table, in slot order; a test checks that every name the runtime and the entry stub call is listed) | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon`, `self/backend/imports_gen.maxon` (`rtDll`, a slot constant `imp<Name>` for each import, `rtImports`) |
 | `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
 
 **The grammar.** `Maxon.g4` is a subset of ANTLR 4 notation that its header explains. It says how each construct is written

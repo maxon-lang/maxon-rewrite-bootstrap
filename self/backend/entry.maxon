@@ -3,81 +3,6 @@
 // the runtime makes starts at. The rest of the runtime is Maxon source that is compiled with every program; the
 // symbols it defines are the linker's to resolve.
 
-// rtDll is the one library the executable imports from.
-export let rtDll = "kernel32.dll"
-
-// The imports are in the order of their slots in the import table, which code calls through by index.
-export let impGetProcessHeap = 0 as Count
-
-export let impHeapAlloc = 1 as Count
-
-export let impGetStdHandle = 2 as Count
-
-export let impWriteFile = 3 as Count
-
-export let impExitProcess = 4 as Count
-
-export let impHeapFree = 5 as Count
-
-export function rtImports() returns NameList
-	var names = NameList.create(0)
-	names.push("GetProcessHeap")
-	names.push("HeapAlloc")
-	names.push("GetStdHandle")
-	names.push("WriteFile")
-	names.push("ExitProcess")
-	names.push("HeapFree")
-	names.push("GetCommandLineA")
-	names.push("CreateFileA")
-	names.push("ReadFile")
-	names.push("GetFileSizeEx")
-	names.push("CloseHandle")
-	names.push("MoveFileExA")
-	names.push("DeleteFileA")
-	names.push("FindFirstFileA")
-	names.push("FindNextFileA")
-	names.push("FindClose")
-	names.push("GetFileAttributesA")
-	names.push("CreateDirectoryA")
-	names.push("GetEnvironmentVariableA")
-	names.push("CreateProcessA")
-	names.push("WaitForSingleObject")
-	names.push("GetExitCodeProcess")
-	names.push("GetLastError")
-	names.push("CreatePipe")
-	names.push("SetHandleInformation")
-	names.push("PeekNamedPipe")
-	names.push("GetCommandLineW")
-	names.push("CreateFileW")
-	names.push("MoveFileExW")
-	names.push("DeleteFileW")
-	names.push("FindFirstFileW")
-	names.push("FindNextFileW")
-	names.push("GetFileAttributesW")
-	names.push("CreateDirectoryW")
-	names.push("GetEnvironmentVariableW")
-	names.push("CreateProcessW")
-	names.push("GetModuleFileNameW")
-	names.push("GetCurrentDirectoryW")
-	names.push("GetModuleFileNameA")
-	names.push("GetCurrentDirectoryA")
-	names.push("GetTickCount64")
-	names.push("TerminateProcess")
-	names.push("GetCurrentProcessId")
-	names.push("SetThreadStackGuarantee")
-	names.push("AddVectoredExceptionHandler")
-	names.push("CreateThread")
-	names.push("CreateEventW")
-	names.push("SetEvent")
-	names.push("TlsAlloc")
-	names.push("TlsSetValue")
-	names.push("GetActiveProcessorCount")
-	names.push("SwitchToThread")
-	names.push("QueryPerformanceCounter")
-	names.push("QueryPerformanceFrequency")
-	return names
-end 'rtImports'
-
 let stdOutputHandle = -11
 
 let stdErrorHandle = -12
@@ -185,7 +110,7 @@ end 'emitEntry'
 // emitTlsSetup takes the thread-local slot every thread keeps its context in, goes to pastTheTeb when the slot is not
 // inline in the TEB (TLS_OUT_OF_INDEXES among them), and stores the main thread's context in it.
 function emitTlsSetup(mutates u CodeUnit, pastTheTeb LabelID)
-	u.asm.callImport(importIndex("TlsAlloc"))
+	u.asm.callImport(impTlsAlloc)
 	u.asm.storeWord32(rsp, disp: dwordSlot, src: rax)
 	u.asm.loadWord32(rax, base: rsp, disp: dwordSlot)
 	u.asm.cmpImm(rax, imm: tebTlsSlots)
@@ -201,7 +126,7 @@ end 'emitTlsSetup'
 // emitTlsStore stores rdx in the running thread's thread-local slot.
 function emitTlsStore(mutates u CodeUnit)
 	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtTlsSlot))
-	u.asm.callImport(importIndex("TlsSetValue"))
+	u.asm.callImport(impTlsSetValue)
 end 'emitTlsStore'
 
 // emitThreadSaves pushes the registers that Win64 has a callee keep and the code a thread runs does not: rbx, rbp, rsi,
@@ -325,7 +250,7 @@ function emitFaultHandlerSetup(mutates u CodeUnit)
 	emitStackGuarantee(u)
 	u.asm.movImm(rcx, imm: vectoredHandlerFirst)
 	u.asm.leaSymbol(rdx, symbol: faultSymbol)
-	u.asm.callImport(importIndex("AddVectoredExceptionHandler"))
+	u.asm.callImport(impAddVectoredExceptionHandler)
 end 'emitFaultHandlerSetup'
 
 // emitStackGuarantee keeps stack past the guard page of the running thread for the fault handler, in a frame of the
@@ -334,7 +259,7 @@ function emitStackGuarantee(mutates u CodeUnit)
 	u.asm.movImm(rax, imm: faultStackGuarantee)
 	u.asm.store(rsp, disp: guaranteeSlot, src: rax)
 	u.asm.lea(rcx, base: rsp, disp: guaranteeSlot)
-	u.asm.callImport(importIndex("SetThreadStackGuarantee"))
+	u.asm.callImport(impSetThreadStackGuarantee)
 end 'emitStackGuarantee'
 
 // emitFaultHandler writes the vectored exception handler (Win64 ABI: the EXCEPTION_POINTERS in rcx, the answer in rax).

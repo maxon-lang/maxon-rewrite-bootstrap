@@ -1,5 +1,6 @@
-// Command abigen generates, from the layouts table in table.go, the constants that the runtime and the compilers share:
-// the offsets and sizes of the string, array, byte array and union boxes. `go generate ./internal/abigen` runs it.
+// Command abigen generates what the runtime and the compilers must agree on: from the layouts table in table.go the
+// offsets and sizes of the string, array, byte array and union boxes, and from the import list in imports.go the slots
+// of the DLL functions the executable imports. `go generate ./internal/abigen` runs it.
 package main
 
 //go:generate go run .
@@ -32,6 +33,10 @@ func main() {
 			fmt.Fprintln(os.Stderr, "abigen:", err)
 			os.Exit(1)
 		}
+	}
+	if err := os.WriteFile(importsFile, []byte(importsMaxon(importNames)), 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, "abigen:", err)
+		os.Exit(1)
 	}
 }
 
