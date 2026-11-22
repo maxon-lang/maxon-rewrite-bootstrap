@@ -96,7 +96,7 @@ export type Timings
 		text = "{text}{rule()}{row("total", time: millisText(whole), share: shareText(whole, whole: whole))}"
 		text = "{text}{emitReport(emit)}"
 		if inlinedCalls > 0 'inlined'
-			text = "{text}\ncalls inlined: {inlinedCalls}\n"
+			text = "{text}\ncalls inlined: {inlinedCalls}\nfallbacks taken: {emit.fallbacks}\n"
 		end 'inlined'
 		text = "{text}\nslowest modules\n{row("module", time: "ms", share: "%")}{rule()}"
 		var listed = TimeTotals.create(0)

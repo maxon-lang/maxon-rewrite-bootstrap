@@ -1,0 +1,26 @@
+// A call that is given an array to change ends what was read of it: its length and its elements are read again after
+// the call, in a loop and around one.
+typealias Counts = Array with Count
+
+function grow(mutates a Counts, by Count)
+	for i in 0 upto by 'each'
+		a.push(i)
+	end 'each'
+end 'grow'
+
+function main() returns ExitCode
+	var a = Counts.filled(1, value: 5)
+	let before = a.count()
+	let first = a[0]
+	grow(a, by: 2)
+	let after = a.count()
+	var total = 0 as Count
+	for i in 0 upto 4 'each'
+		total = try total + a.count() + a[a.count() - 1] otherwise panic("total overflowed")
+		grow(a, by: i)
+	end 'each'
+	print("{before} {first} {after} {total} {a.count()}\n")
+	return 0
+end 'main'
+
+//> 1 5 3 19 9

@@ -1,6 +1,8 @@
 // The optimizer's passes in the order a native build runs them: on each function SSA construction, then the fold pass; then
 // on the module the expansion of the primitives (expand.maxon) and leaf inlining (inline.maxon), which folds again each
-// function that got a copy.
+// function that got a copy; then on each function loop rotation (rotate.maxon), loop-invariant code motion (licm.maxon),
+// which finds a preheader on the guard that rotation leaves, and common subexpression elimination (cse.maxon), which
+// merges what moved out of a loop with what was computed before it.
 
 // Optimizer is the state of the passes, kept from one function to the next.
 export type Optimizer
@@ -8,9 +10,15 @@ export type Optimizer
 	export var fold as Fold
 	export var expander as Expander
 	export var inliner as Inliner
+	export var rotator as Rotator
+	export var licm as Licm
+	export var cse as Cse
+	// The analyses the passes after inlining share: each pass that changes a function has them found again.
+	var analysis as Analysis
+	var facts as LoopFacts
 
 	export static function new() returns Optimizer
-		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new()}
+		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(), cse: Cse.new(), analysis: Analysis.new(), facts: LoopFacts.new()}
 	end 'new'
 end 'Optimizer'
 
@@ -21,3 +29,30 @@ export function optimizeModule(mutates o Optimizer, mutates fns ir.IrFunctionLis
 		o.fold.foldFunction(fns[i])
 	end 'each'
 end 'optimizeModule'
+
+// refine runs the passes that come after leaf inlining on f and the bodies of its closures and behaviours. A function
+// with a refusal is never compiled, so it is left as it is.
+function refine(mutates o Optimizer, mutates f ir.IrFunction)
+	if f.refusals.count() > 0 'refused'
+		return
+	end 'refused'
+	for i in 0 upto f.bodies.count() 'bodies'
+		refine(o, f: f.bodies[i])
+	end 'bodies'
+	if f.blocks.count() == 0 'empty'
+		return
+	end 'empty'
+	o.analysis.dominators(f)
+	o.facts.find(f, flow: o.analysis.flow)
+	if o.analysis.flow.retreatFrom.count() > 0 'loops'
+		if o.rotator.rotate(f, analysis: o.analysis, facts: o.facts) 'rotated'
+			o.analysis.dominators(f)
+			o.facts.find(f, flow: o.analysis.flow)
+		end 'rotated'
+		if o.licm.hoist(f, analysis: o.analysis, facts: o.facts) 'hoisted'
+			o.analysis.dominators(f)
+			o.facts.find(f, flow: o.analysis.flow)
+		end 'hoisted'
+	end 'loops'
+	o.cse.eliminate(f, analysis: o.analysis, facts: o.facts)
+end 'refine'

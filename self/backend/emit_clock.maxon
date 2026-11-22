@@ -26,13 +26,16 @@ end 'EmitPhase'
 export typealias PhaseNanos = Array with Count
 
 // EmitClock charges the time between two of its laps to the phase the later one names. A clock that is off charges none.
+// It also counts the functions whose fallback, the IR they had before the optimizations that can raise a loop's pressure,
+// was compiled because the optimized one was refused.
 export type EmitClock
 	export var enabled as bool
 	export var nanos as PhaseNanos
+	export var fallbacks as Count
 	var last as Count
 
 	export static function off() returns EmitClock
-		return EmitClock{enabled: false, nanos: PhaseNanos.create(0), last: 0}
+		return EmitClock{enabled: false, nanos: PhaseNanos.create(0), fallbacks: 0, last: 0}
 	end 'off'
 
 	export static function start() returns EmitClock
@@ -40,7 +43,7 @@ export type EmitClock
 		for _ in 0 upto EmitPhase.allCaseNames.count() 'phases'
 			nanos.push(0)
 		end 'phases'
-		return EmitClock{enabled: true, nanos: nanos, last: Clock.nowNanos()}
+		return EmitClock{enabled: true, nanos: nanos, fallbacks: 0, last: Clock.nowNanos()}
 	end 'start'
 
 	// restart drops the time since the last lap, which was of no phase.

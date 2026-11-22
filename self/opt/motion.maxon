@@ -1,0 +1,130 @@
+// What the passes that merge and move instructions (cse.maxon, licm.maxon, rotate.maxon) may do with each operation of the
+// IR, decided in one place, motionOf, which names every operation so that a new one fails the build here until it is
+// classified. The IR table's effects say what an operation touches; this says what follows from that for moving it.
+//
+// Memory, and what can change it under a read. A read is merged with an earlier one, or moved out of a loop, only where
+// nothing between can have written what it reads. The IR keeps no types and no calling conventions, so the rule is about
+// operations, not about which box a register holds:
+//
+// - A store, a move out of a place, a drop of a place (dropslot, dropat), an atomic operation and a frame box write
+//   memory, and any of them may write what a read reads: an address can point into any box or slot.
+// - A call of any kind (a function, a closure, a witness, an import, a runtime entry) may write through every address it
+//   is given and every box its arguments reach. A `mutates` or `sets` argument is the address of the caller's place, a
+//   push, an insert or a remove is a runtime call that changes the length and may move the buffer of the array it is
+//   given, and the IR does not say which argument is which. So every call ends every read: a push to one array ends the
+//   reads of every other array too, since two registers may hold one box (two reads of one borrowed place give the same
+//   box, and a `let` parameter may be the box that a `mutates` parameter's place holds).
+// - A drop of a register, an allocation, a copy, a box, a closure and a function value write only boxes that no other
+//   live register reaches: unique ownership gives a dropped value's boxes to the value alone (a borrow of it has ended
+//   before it is dropped), and a new box is new. They end no read.
+// - A read of what another thread may write (a global of the runtime, a raw word, the thread's context) is never merged
+//   or moved, since a loop that waits on such a word would then wait forever.
+//
+// Faults. An operation that goes to a failure block (a guard, a bounds check, checked arithmetic) or that the hardware
+// stops on (an unchecked division or remainder, which a guard before it makes safe) runs only where it ran: it is merged
+// with an earlier identical one, which already passed, and moved only to a point where it ran first anyway.
+
+// Motion is what may be done with an operation.
+export enum Motion
+	// constant gives a value from what it names alone (a number, a string, a datum, an address the link or the frame
+	// places). It is never merged or moved: writing it again costs less than a register held across a loop, and the backend
+	// reads a constant operand as an immediate. A reader that leaves a loop takes a copy of it along.
+	constant
+	// pure gives a value from its operands alone, and cannot fail or fault.
+	pure
+	// divides is pure but faults on a divisor of 0, which a guard before it rules out.
+	divides
+	// check goes to its failure block on its operands alone, and may give a value.
+	check
+	// read gives what memory holds, which only the function's own stores and calls change.
+	read
+	// sharedRead gives what memory holds that another thread may write.
+	sharedRead
+	// quiet has an effect, but changes nothing that a read of the function sees.
+	quiet
+	// clobber may change what any read sees.
+	clobber
+end 'Motion'
+
+// motionOf is what may be done with the instruction x.
+export function motionOf(x ir.Instr) returns Motion
+	return match x.op 'op'
+		opNone gives panic("opt: an instruction with no operation")
+		opConst or
+		opStr or
+		opDatum or
+		opSlotAddr or
+		opGlobalAddr or
+		opCodeAddress gives Motion.constant
+		opLoadParam or
+		opFieldAddr or
+		opCmp or
+		opFBin or
+		opFCmp or
+		opFUnary or
+		opIntToFloat or
+		opFloatToInt or
+		opNot gives Motion.pure
+		opBin gives binMotion(x)
+		opNeg gives Motion.check if ir.instrCanFail(x) else Motion.pure
+		opGuard or
+		opBounds gives Motion.check
+		opLoadSlot or
+		opLoadField or
+		opLoadAt or
+		opLength or
+		opElemAddr or
+		opElemLoad or
+		opLoadByte or
+		opBuffer or
+		opWordAt or
+		opByteAt gives Motion.read
+		opLoadGlobal or
+		opLoadRaw or
+		opThreadContext gives Motion.sharedRead
+		opAlloc or
+		opClosure or
+		opFuncValue or
+		opBox or
+		opIsType or
+		opDrop or
+		opCopy gives Motion.quiet
+		opStoreSlot or
+		opStoreField or
+		opStoreAt or
+		opStoreRaw or
+		opCallImport or
+		opAtomicAdd or
+		opAtomicExchange or
+		opCompareExchange or
+		opSpinPause or
+		opCallCode or
+		opCall or
+		opCallRuntime or
+		opWhen or
+		opCallValue or
+		opFrameBox or
+		opCallWitness or
+		opDropSlot or
+		opDropAt or
+		opMoveSlot or
+		opMoveAt gives Motion.clobber
+	end 'op'
+end 'motionOf'
+
+function binMotion(x ir.Instr) returns Motion
+	if ir.instrCanFail(x) 'checked'
+		return Motion.check
+	end 'checked'
+	let op = ir.binOp(x)
+	if op == ir.BinOp.binDiv or op == ir.BinOp.binMod 'faults'
+		return Motion.divides
+	end 'faults'
+	return Motion.pure
+end 'binMotion'
+
+// keyed is whether an instruction of the motion m is merged with an earlier identical one: what it gives, or whether it
+// passes, depends on its operands alone, and on memory for a read.
+export function keyed(m Motion) returns bool
+	return m == Motion.pure or m == Motion.divides or m == Motion.check or m == Motion.read
+end 'keyed'

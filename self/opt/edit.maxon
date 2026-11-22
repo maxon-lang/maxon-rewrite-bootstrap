@@ -1,0 +1,456 @@
+// The edits that loop rotation, loop-invariant code motion and common subexpression elimination make to a function,
+// collected while the analyses they decide on still describe it, then applied in one copy: instructions removed or
+// replaced by others, instructions appended to the end of a block, blocks added before another one, and the edges of a
+// terminator changed.
+// The copy lays the blocks out again, each added block right before the block it was added for, so a loop's preheader
+// falls into its header, and leaves out the blocks that nothing reaches any more, such as the failure block of a check
+// that was removed.
+
+// noChain ends a chain of appended instructions or added blocks, whose links are an index plus 1.
+let noChain = 0 as Count
+
+export type Editor
+	// By instruction: whether it goes, and the first and last of what replaces it. By appended instruction: the next one
+	// appended to the same block or put in place of the same instruction.
+	var removed as Array with bool
+	var insteadHead as Array with Count
+	var insteadTail as Array with Count
+	var extras as ir.InstrList
+	var extraNext as Array with Count
+	// By block: the first and last instruction appended to it, and the first block added before it; by added block, the
+	// next one added before the same block.
+	var extraHead as Array with Count
+	var extraTail as Array with Count
+	var addedHead as Array with Count
+	var addedNext as Array with Count
+	// How many blocks the function had before the pass added any.
+	var original as Count
+	// edges holds the edges of the terminator loadEdges read, for storeEdges to write back.
+	export var edges as ir.SuccessorVisitor
+	export var changed as bool
+	var reached as Array with bool
+	var work as Array with Count
+	var layout as Array with Count
+	var newID as ir.BlockIDList
+	// The order write lays the instructions out in, by their place in f (the added ones after the function's own), and
+	// the place each one is at and the one each place holds while it moves them.
+	var order as Array with Count
+	var placeOf as Array with Count
+	var held as Array with Count
+	var blockParams as ir.RegList
+	var blocks as ir.BlockList
+
+	export static function new() returns Editor
+		return Editor{removed: Array.create(0), insteadHead: Array.create(0), insteadTail: Array.create(0), extras: ir.InstrList.create(0), extraNext: Array.create(0), extraHead: Array.create(0), extraTail: Array.create(0), addedHead: Array.create(0), addedNext: Array.create(0), original: 0, edges: ir.SuccessorVisitor.new(), changed: false, reached: Array.create(0), work: Array.create(0), layout: Array.create(0), newID: ir.BlockIDList.create(0), order: Array.create(0), placeOf: Array.create(0), held: Array.create(0), blockParams: ir.RegList.create(0), blocks: ir.BlockList.create(0)}
+	end 'new'
+
+	// begin starts the edits of f.
+	export function begin(mutates self, f ir.IrFunction)
+		ir.resetFlags(removed, n: f.instrs.count())
+		ir.resetCounts(insteadHead, n: f.instrs.count())
+		ir.resetCounts(insteadTail, n: f.instrs.count())
+		extras.clear()
+		extraNext.clear()
+		original = f.blocks.count()
+		ir.resetCounts(extraHead, n: original)
+		ir.resetCounts(extraTail, n: original)
+		ir.resetCounts(addedHead, n: original)
+		ir.resetCounts(addedNext, n: original)
+		changed = false
+	end 'begin'
+
+	export function remove(mutates self, k Count)
+		removed[k] = true
+		changed = true
+	end 'remove'
+
+	export function isRemoved(k Count) returns bool
+		return removed[k]
+	end 'isRemoved'
+
+	// append puts x at the end of block b, after its instructions and what was appended to it before.
+	export function append(mutates self, b Count, consumes x ir.Instr)
+		let link = self.extra(x)
+		if extraTail[b] == noChain 'first'
+			extraHead[b] = link
+		end 'first' else 'more'
+			extraNext[linkIndex(extraTail[b])] = link
+		end 'more'
+		extraTail[b] = link
+	end 'append'
+
+	// appendedReads adds to out the registers that the instructions appended to block b read.
+	export function appendedReads(f ir.IrFunction, b Count, mutates out ir.RegList)
+		var link = extraHead[b]
+		while link != noChain 'extras'
+			let e = linkIndex(link)
+			ir.instrReads(f, x: extras[e], out: out)
+			link = extraNext[e]
+		end 'extras'
+	end 'appendedReads'
+
+	// renameAppended makes the instructions appended to block b read each register as names says.
+	export function renameAppended(mutates self, mutates f ir.IrFunction, b Count, names ir.RegList)
+		var link = extraHead[b]
+		while link != noChain 'extras'
+			let e = linkIndex(link)
+			ir.renameInstrReads(extras[e], args: f.args, names: names)
+			link = extraNext[e]
+		end 'extras'
+	end 'renameAppended'
+
+	// replace puts x in place of instruction k, after what was put there before, and removes k.
+	export function replace(mutates self, k Count, consumes x ir.Instr)
+		removed[k] = true
+		let link = self.extra(x)
+		if insteadTail[k] == noChain 'first'
+			insteadHead[k] = link
+		end 'first' else 'more'
+			extraNext[linkIndex(insteadTail[k])] = link
+		end 'more'
+		insteadTail[k] = link
+	end 'replace'
+
+	// extra keeps x as an instruction the edits add and gives its link.
+	function extra(mutates self, consumes x ir.Instr) returns Count
+		let e = extras.count()
+		extras.push(x)
+		extraNext.push(noChain)
+		changed = true
+		return plusOne(e)
+	end 'extra'
+
+	// addBlock adds a block with no instructions, the parameters params[start] on, count of them, and the terminator t,
+	// laid out right before block before, and gives its number.
+	export function addBlock(mutates self, mutates f ir.IrFunction, before Count, params ir.RegList, start Count, count Count, consumes t ir.Term) returns Count
+		let b = f.blocks.count()
+		let first = f.blockParams.count()
+		for i in 0 upto count 'params'
+			let r = params[sum(start, b: i)]
+			f.blockParams.push(r)
+		end 'params'
+		f.blocks.push(ir.Block.make(0, endAt: 0, params: first, paramCount: count, term: t))
+		extraHead.push(noChain)
+		extraTail.push(noChain)
+		addedHead.push(noChain)
+		addedNext.push(noChain)
+		// Blocks added before one block are laid out in the order they were added.
+		let link = plusOne(b)
+		if addedHead[before] == noChain 'first'
+			addedHead[before] = link
+		end 'first' else 'more'
+			var at = linkIndex(addedHead[before])
+			while addedNext[at] != noChain 'last'
+				at = linkIndex(addedNext[at])
+			end 'last'
+			addedNext[at] = link
+		end 'more'
+		changed = true
+		return b
+	end 'addBlock'
+
+	// loadEdges reads the edges of the terminator of block b into edges.
+	export function loadEdges(mutates self, f ir.IrFunction, b Count)
+		edges.clear()
+		ir.visitTerm(edges, f: f, t: f.blocks[b].term)
+	end 'loadEdges'
+
+	// extendEdge makes edge i of edges pass the arguments it passed and then more.
+	export function extendEdge(mutates self, mutates f ir.IrFunction, i Count, more ir.RegList)
+		let at = f.args.count()
+		for j in 0 upto edges.argsCount[i] 'old'
+			let r = f.args[sum(edges.argsStart[i], b: j)]
+			f.args.push(r)
+		end 'old'
+		for j in 0 upto more.count() 'more'
+			f.args.push(more[j])
+		end 'more'
+		edges.argsStart[i] = at
+		edges.argsCount[i] = try f.args.count() - at otherwise panic("opt: arguments out of order")
+	end 'extendEdge'
+
+	// storeEdges writes edges back into the terminator of block b, whose edges loadEdges read: the same kind of terminator
+	// with the targets and arguments edges now holds.
+	export function storeEdges(mutates self, mutates f ir.IrFunction, b Count)
+		let kind = f.blocks[b].term.kind
+		if kind == ir.TermKind.termJump 'jump'
+			f.blocks[b].term = ir.newJumpWith(edges.out[0], argsStart: ir.indexOf(edges.argsStart[0]), argsCount: ir.indexOf(edges.argsCount[0]))
+		end 'jump' else if kind == ir.TermKind.termBranch 'branch'
+			// The false edge's arguments come right after the true edge's, so both are copied.
+			let start = f.args.count()
+			self.copyArgs(f, i: 0)
+			let middle = f.args.count()
+			self.copyArgs(f, i: 1)
+			let falseCount = try f.args.count() - middle otherwise panic("opt: arguments out of order")
+			f.blocks[b].term = ir.newBranchWith(ir.branchCond(f.blocks[b].term), ifTrue: edges.out[0], trueArgsStart: ir.indexOf(start), trueArgsCount: ir.indexOf(try middle - start otherwise panic("opt: arguments out of order")), ifFalse: edges.out[1], falseArgsCount: ir.indexOf(falseCount))
+		end 'branch' else if kind == ir.TermKind.termSwitch 'switch'
+			let first = ir.switchCasesStart(f.blocks[b].term)
+			let count = ir.switchCasesCount(f.blocks[b].term)
+			for i in 0 upto count 'cases'
+				let at = sum(first, b: i)
+				f.cases[at].target = edges.out[i]
+				f.cases[at].args = ir.indexOf(edges.argsStart[i])
+				f.cases[at].argCount = ir.indexOf(edges.argsCount[i])
+			end 'cases'
+			f.blocks[b].term = ir.newSwitchWith(ir.switchValue(f.blocks[b].term), casesFirst: ir.indexOf(first), casesCount: ir.indexOf(count), fallback: edges.out[count], fallbackArgsStart: ir.indexOf(edges.argsStart[count]), fallbackArgsCount: ir.indexOf(edges.argsCount[count]))
+		end 'switch' else if kind == ir.TermKind.termRet or kind == ir.TermKind.termTrap or kind == ir.TermKind.termThrow 'exits'
+			return
+		end 'exits' else 'none'
+			panic("opt: block b{b} of {f.name} has no terminator")
+		end 'none'
+		changed = true
+	end 'storeEdges'
+
+	function copyArgs(mutates self, mutates f ir.IrFunction, i Count)
+		for j in 0 upto edges.argsCount[i] 'each'
+			let r = f.args[sum(edges.argsStart[i], b: j)]
+			f.args.push(r)
+		end 'each'
+	end 'copyArgs'
+
+	// finish applies the edits to f, if there were any. Edits that only remove instructions that cannot fail, of a
+	// function whose blocks hold their instructions in their order, leave every block reached and every number as it is,
+	// so the instructions that stay are moved down in place instead of copied (every copy of a record allocates).
+	export function finish(mutates self, mutates f ir.IrFunction)
+		if not changed 'none'
+			return
+		end 'none'
+		if extras.count() == 0 and f.blocks.count() == original and inOrder(f) and not self.removesFailing(f) 'inPlace'
+			self.compact(f)
+			return
+		end 'inPlace'
+		self.reach(f)
+		self.lay(f)
+		self.write(f)
+	end 'finish'
+
+	// removesFailing is whether an instruction that goes can fail, which leaves its failure block unreached.
+	function removesFailing(f ir.IrFunction) returns bool
+		for k in 0 upto f.instrs.count() 'instrs'
+			if removed[k] and ir.instrCanFail(f.instrs[k]) 'fails'
+				return true
+			end 'fails'
+		end 'instrs'
+		return false
+	end 'removesFailing'
+
+	// compact moves each instruction that stays down over those that go, block after block, by exchanging it with what
+	// the place it goes to holds, which went or was put there by an earlier exchange.
+	function compact(mutates self, mutates f ir.IrFunction)
+		var spare = ir.Instr.make(ir.Opcode.opNone)
+		var next = 0 as Count
+		for b in 0 upto f.blocks.count() 'blocks'
+			let first = next
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				if not removed[k] 'kept'
+					if next != k 'move'
+						let moved = exchange(f.instrs[k], value: spare)
+						spare = exchange(f.instrs[next], value: moved)
+					end 'move'
+					next = plusOne(next)
+				end 'kept'
+			end 'instrs'
+			f.blocks[b].first = first
+			f.blocks[b].endAt = next
+		end 'blocks'
+		f.instrs.truncate(next)
+	end 'compact'
+
+	// reach finds the blocks the entry reaches through the terminators and the failure edges of the instructions that stay.
+	function reach(mutates self, f ir.IrFunction)
+		let n = f.blocks.count()
+		ir.resetFlags(reached, n: n)
+		work.clear()
+		reached[0] = true
+		work.push(0)
+		while work.count() > 0 'walk'
+			let b = try work.pop() otherwise panic("opt: an empty walk")
+			if b < original 'own'
+				for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+					if not removed[k] 'kept'
+						self.reachTo(ir.failTarget(f.instrs[k]))
+					end 'kept'
+					let instead = insteadHead[k]
+					self.reachChain(instead)
+				end 'instrs'
+			end 'own'
+			let appended = extraHead[b]
+			self.reachChain(appended)
+			edges.clear()
+			ir.visitTerm(edges, f: f, t: f.blocks[b].term)
+			for i in 0 upto edges.out.count() 'edges'
+				let target = edges.out[i]
+				self.reachTo(target)
+			end 'edges'
+		end 'walk'
+	end 'reach'
+
+	function reachChain(mutates self, head Count)
+		var link = head
+		while link != noChain 'extras'
+			let e = linkIndex(link)
+			self.reachTo(ir.failTarget(extras[e]))
+			link = extraNext[e]
+		end 'extras'
+	end 'reachChain'
+
+	function reachTo(mutates self, target ir.BlockID)
+		if target == ir.noBlock 'none'
+			return
+		end 'none'
+		let t = ir.blockIndex(target)
+		if not reached[t] 'new'
+			reached[t] = true
+			work.push(t)
+		end 'new'
+	end 'reachTo'
+
+	// lay orders the blocks that are reached: the function's own in their order, each after the blocks added before it, and
+	// numbers them in that order.
+	function lay(mutates self, f ir.IrFunction)
+		layout.clear()
+		newID.clear()
+		for b in 0 upto f.blocks.count() 'none'
+			newID.push(ir.noBlock)
+		end 'none'
+		for b in 0 upto original 'blocks'
+			var link = addedHead[b]
+			while link != noChain 'added'
+				let a = linkIndex(link)
+				self.place(a)
+				link = addedNext[a]
+			end 'added'
+			self.place(b)
+		end 'blocks'
+	end 'lay'
+
+	function place(mutates self, b Count)
+		if reached[b] 'reached'
+			newID[b] = ir.blockOf(layout.count())
+			layout.push(b)
+		end 'reached'
+	end 'place'
+
+	// write lays the instructions, the parameters and the blocks of f out again in the order lay found, with every block
+	// they name numbered again. The instructions are moved, not copied: those added go after the function's own, the order
+	// each one takes is worked out, and the list is put in that order by exchanging its elements in place.
+	function write(mutates self, mutates f ir.IrFunction)
+		let own = f.instrs.count()
+		for e in 0 upto extras.count() 'extras'
+			f.instrs.push(extras[e].clone())
+		end 'extras'
+		order.clear()
+		blockParams.clear()
+		blocks.clear()
+		for i in 0 upto layout.count() 'blocks'
+			let b = layout[i]
+			let first = order.count()
+			if b < original 'own'
+				for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+					if not removed[k] 'kept'
+						order.push(k)
+					end 'kept'
+					let instead = insteadHead[k]
+					self.orderChain(instead, own: own)
+				end 'instrs'
+			end 'own'
+			let appended = extraHead[b]
+			self.orderChain(appended, own: own)
+			let firstParam = blockParams.count()
+			for j in 0 upto f.blocks[b].paramCount 'params'
+				blockParams.push(f.blockParam(b, i: j))
+			end 'params'
+			let term = self.renumberTerm(f, t: f.blocks[b].term.clone())
+			blocks.push(ir.Block.make(first, endAt: order.count(), params: firstParam, paramCount: f.blocks[b].paramCount, term: term))
+		end 'blocks'
+		self.permute(f)
+		for k in 0 upto f.instrs.count() 'fails'
+			self.renumberFail(f.instrs[k])
+		end 'fails'
+		let oldParams = exchange(f.blockParams, value: exchange(blockParams, value: ir.RegList.create(0)))
+		blockParams = oldParams
+		let oldBlocks = exchange(f.blocks, value: exchange(blocks, value: ir.BlockList.create(0)))
+		blocks = oldBlocks
+	end 'write'
+
+	// orderChain puts the instructions of a chain of appended ones, own + their index in f, next in order.
+	function orderChain(mutates self, head Count, own Count)
+		var link = head
+		while link != noChain 'extras'
+			let e = linkIndex(link)
+			order.push(sum(own, b: e))
+			link = extraNext[e]
+		end 'extras'
+	end 'orderChain'
+
+	// permute puts the instructions of f in order: the instruction at place p is the one order[p] names, and the rest go.
+	// placeOf is where each instruction is now and held which instruction each place holds; each place is filled by one
+	// exchange of two elements, which moves no more than they are.
+	function permute(mutates self, mutates f ir.IrFunction)
+		let n = f.instrs.count()
+		placeOf.clear()
+		held.clear()
+		for k in 0 upto n 'identity'
+			placeOf.push(k)
+			held.push(k)
+		end 'identity'
+		var spare = ir.Instr.make(ir.Opcode.opNone)
+		for p in 0 upto order.count() 'places'
+			let x = order[p]
+			let source = placeOf[x]
+			if source != p 'move'
+				let first = exchange(f.instrs[p], value: spare)
+				spare = exchange(f.instrs[source], value: first)
+				let back = exchange(f.instrs[p], value: spare)
+				spare = back
+				let y = held[p]
+				held[p] = x
+				held[source] = y
+				placeOf[x] = p
+				placeOf[y] = source
+			end 'move'
+		end 'places'
+		f.instrs.truncate(order.count())
+	end 'permute'
+
+	function renumberFail(mutates self, mutates x ir.Instr)
+		let fail = ir.failTarget(x)
+		if fail != ir.noBlock 'fails'
+			ir.setFail(x, fail: newID[ir.blockIndex(fail)])
+		end 'fails'
+	end 'renumberFail'
+
+	// renumberTerm is t with the blocks it names numbered again; a switch's cases are numbered again in their pool.
+	function renumberTerm(mutates self, mutates f ir.IrFunction, consumes t ir.Term) returns ir.Term
+		var out = t
+		let kind = out.kind
+		if kind == ir.TermKind.termJump 'jump'
+			out.target = newID[ir.blockIndex(out.target)]
+		end 'jump' else if kind == ir.TermKind.termBranch 'branch'
+			out.target = newID[ir.blockIndex(out.target)]
+			out.other = newID[ir.blockIndex(out.other)]
+		end 'branch' else if kind == ir.TermKind.termSwitch 'switch'
+			out.target = newID[ir.blockIndex(out.target)]
+			let first = ir.switchCasesStart(out)
+			for i in 0 upto ir.switchCasesCount(out) 'cases'
+				let at = sum(first, b: i)
+				f.cases[at].target = newID[ir.blockIndex(f.cases[at].target)]
+			end 'cases'
+		end 'switch' else if kind == ir.TermKind.termNone 'none'
+			panic("opt: a block of {f.name} has no terminator")
+		end 'none'
+		return out
+	end 'renumberTerm'
+end 'Editor'
+
+// inOrder is whether the blocks of f hold the instructions of f one after another, in the order of the blocks.
+function inOrder(f ir.IrFunction) returns bool
+	var at = 0 as Count
+	for b in 0 upto f.blocks.count() 'blocks'
+		if f.blocks[b].first != at 'apart'
+			return false
+		end 'apart'
+		at = f.blocks[b].endAt
+	end 'blocks'
+	return at == f.instrs.count()
+end 'inOrder'

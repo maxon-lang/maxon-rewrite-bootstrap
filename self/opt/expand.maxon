@@ -137,16 +137,6 @@ function hasExpandable(f ir.IrFunction) returns bool
 	return false
 end 'hasExpandable'
 
-// treeHasExpandable is hasExpandable of f or of a body of its closures and behaviours.
-function treeHasExpandable(f ir.IrFunction) returns bool
-	for i in 0 upto f.bodies.count() 'bodies'
-		if treeHasExpandable(f.bodies[i]) 'body'
-			return true
-		end 'body'
-	end 'bodies'
-	return hasExpandable(f)
-end 'treeHasExpandable'
-
 // expandable is whether x is a call that the expansion replaces: of an entry that reads a length, or an element whose value
 // the call gives. A call whose value nothing reads, as a trap block's, stays.
 function expandable(x ir.Instr) returns bool

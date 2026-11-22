@@ -1,0 +1,31 @@
+// A loop that pushes to the array whose length and elements it reads sees each push: the length and the buffer are read
+// again after it, never kept from before it, and the same for a byte array.
+typealias Counts = Array with Count
+
+function main() returns ExitCode
+	var a = Counts.filled(2, value: 1)
+	var i = 0 as Count
+	var sum = 0 as Count
+	while i < a.count() 'grow'
+		sum = try sum + a[i] otherwise panic("sum overflowed")
+		if a.count() < 40 'more'
+			a.push(i)
+		end 'more'
+		i = try i + 1 otherwise panic("index overflowed")
+	end 'grow'
+	var bytes = ByteArray.create(0)
+	bytes.push(3)
+	var b = 0 as Count
+	var high = 0 as Count
+	while b < bytes.count() 'bytes'
+		high = try high + bytes[b] as Count otherwise panic("sum overflowed")
+		if bytes.count() < 20 'more'
+			bytes.push(try (b mod 7) as Byte otherwise 0)
+		end 'more'
+		b = try b + 1 otherwise panic("index overflowed")
+	end 'bytes'
+	print("{a.count()} {sum} {bytes.count()} {high}\n")
+	return 0
+end 'main'
+
+//> 40 705 20 55

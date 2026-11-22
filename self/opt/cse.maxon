@@ -1,0 +1,287 @@
+// Common subexpression elimination, maxon's CommonSubexpressionElimination (analyzeBlock, canonicalExpressionOf): an
+// instruction that computes what an instruction that dominates it computed already is removed, and what read its value
+// reads the earlier one's. The walk goes down the dominator tree of the segments with a table of what is computed on the
+// path from the entry, each segment's entries removed when the walk leaves it, so a sibling never sees them.
+//
+// What is merged is what motion.maxon calls keyed: a pure operation, a division, a check and a read, each by its operation,
+// its operands (read through the replacements found so far, so a chain collapses in one walk) and its immediates. A check
+// that an identical one dominates cannot fail, since the earlier one passed: a redundant bounds check of the same index
+// against the same length goes, with its failure block. A check's entry is made at the start of the segment after it,
+// which is where it is known to have passed and where its value is defined; its failure block does not see it.
+//
+// A read is merged only with one that reads the same memory: each read is keyed by the version of memory it sees, a number
+// that changes wherever memory may change. Versions are given along the reverse postorder: a segment's starts as a new
+// one at the entry, where its predecessors end with different versions, and at the header of a loop that may write
+// memory; otherwise it is the one every predecessor ends with (for a loop's header, every predecessor outside the loop).
+// Each instruction that may write memory starts a new one. Two points that share a version have no write between them on
+// any path from the one to the other: the version is new after a write, and is handed on only where every way in agrees,
+// so a path that passed a write carries another version until it reaches the point that made its own. With the earlier
+// point dominating the later one, that is when the later read may take the earlier one's value.
+//
+// The cost is linear: one analysis, one pass over the segments in reverse postorder, the walk with its table (open
+// addressing, its slots stamped by function so it is never cleared), and the copy of the function when something went.
+
+// smallestCseTable is the fewest slots the table of a function has; it has at least twice as many as the function has
+// instructions, so a probe stays short.
+let smallestCseTable = 64 as Count
+
+// noVersion is the version of what reads no memory.
+let noVersion = 0 as Count
+
+// noEntry is a table slot that holds nothing, and a register with no replacement found yet.
+let noEntry = 0 as Count
+
+let cseLow32Mask = 4294967295 as Count
+
+let cseHalfShift = 32 as Count
+
+let cseFnvOffset = 2166136261 as Count
+
+let cseFnvPrime = 16777619 as Count
+
+export type Cse
+	// merged is how many instructions the pass removed, over every function it was given.
+	export var merged as Count
+	var editor as Editor
+	// By segment: the version of memory it starts and ends with.
+	var entry as Array with Count
+	var exit as Array with Count
+	var versions as Count
+	// The register each register is read as, and whether any is read as another.
+	var repl as ir.RegList
+	var replaced as bool
+	// The table: by slot, the instruction plus 1 that it holds, the version it read, and the stamp of the function that
+	// filled it; filled lists the slots in the order they were filled, which the walk empties back to a mark.
+	var slotInstr as Array with Count
+	var slotVersion as Array with Count
+	var slotStamp as Array with Count
+	var stamp as Count
+	var mask as Count
+	var filled as Array with Count
+	// The walk: the segments on the path, the next child of each, and the height of filled when it was entered.
+	var stack as Array with Count
+	var cursor as Array with Count
+	var marks as Array with Count
+	var regs as ir.RegList
+
+	export static function new() returns Cse
+		return Cse{merged: 0, editor: Editor.new(), entry: Array.create(0), exit: Array.create(0), versions: 0, repl: ir.RegList.create(0), replaced: false, slotInstr: Array.create(0), slotVersion: Array.create(0), slotStamp: Array.create(0), stamp: 0, mask: 0, filled: Array.create(0), stack: Array.create(0), cursor: Array.create(0), marks: Array.create(0), regs: ir.RegList.create(0)}
+	end 'new'
+
+	// eliminate removes the redundant instructions of f, which is in SSA form and keeps the verifier's rules, and which
+	// analysis and facts describe.
+	export function eliminate(mutates self, mutates f ir.IrFunction, analysis Analysis, facts LoopFacts)
+		self.version(analysis, facts: facts)
+		self.startTable(f)
+		repl.clear()
+		for r in 0 upto f.regs.count() 'regs'
+			repl.push(ir.regOf(r))
+		end 'regs'
+		replaced = false
+		editor.begin(f)
+		self.walk(f, analysis: analysis, facts: facts)
+		if not editor.changed 'none'
+			return
+		end 'none'
+		editor.finish(f)
+	end 'eliminate'
+
+	// version gives each segment the version of memory it starts and ends with.
+	function version(mutates self, analysis Analysis, facts LoopFacts)
+		let segs = analysis.flow.segCount()
+		ir.resetCounts(entry, n: segs)
+		ir.resetCounts(exit, n: segs)
+		versions = noVersion
+		for i in 0 upto analysis.flow.order.count() 'order'
+			let s = analysis.flow.order[i]
+			var v = noVersion
+			let head = facts.headerOf[s]
+			if s != 0 'entered'
+				var agreed = true
+				for e in analysis.flow.predStart[s] upto analysis.flow.predStart[plusOne(s)] 'preds'
+					let p = analysis.flow.pred[e]
+					if not analysis.flow.reached[p] or (head != ir.noLoop and facts.loops.holds(loopIndex(head), node: p)) 'skip'
+						continue 'preds'
+					end 'skip'
+					if v == noVersion 'first'
+						v = exit[p]
+					end 'first' else if exit[p] != v 'differs'
+						agreed = false
+					end 'differs'
+				end 'preds'
+				if not agreed or (head != ir.noLoop and facts.clobbers[loopIndex(head)]) 'changes'
+					v = noVersion
+				end 'changes'
+			end 'entered'
+			if v == noVersion 'new'
+				v = self.newVersion()
+			end 'new'
+			entry[s] = v
+			exit[s] = v
+			if facts.clobberAt(s) != noClobber 'writes'
+				let after = self.newVersion()
+				exit[s] = after
+			end 'writes'
+		end 'order'
+	end 'version'
+
+	function newVersion(mutates self) returns Count
+		versions = plusOne(versions)
+		return versions
+	end 'newVersion'
+
+	// startTable makes the table room for f, empty.
+	function startTable(mutates self, f ir.IrFunction)
+		var size = smallestCseTable
+		let wanted = try f.instrs.count() * 2 otherwise panic("opt: a function past memory")
+		while size < wanted 'grow'
+			size = try size * 2 otherwise panic("opt: a function past memory")
+		end 'grow'
+		if slotInstr.count() < size 'room'
+			ir.resetCounts(slotInstr, n: size)
+			ir.resetCounts(slotVersion, n: size)
+			ir.resetCounts(slotStamp, n: size)
+			stamp = 0
+		end 'room'
+		stamp = plusOne(stamp)
+		mask = try size - 1 otherwise panic("opt: a table of no slots")
+		filled.clear()
+	end 'startTable'
+
+	// walk visits the segments the entry reaches in preorder of the dominator tree, over a stack of its own, since a
+	// function can have more segments than the native stack has frames.
+	function walk(mutates self, mutates f ir.IrFunction, analysis Analysis, facts LoopFacts)
+		stack.clear()
+		cursor.clear()
+		marks.clear()
+		self.enter(f, s: 0, analysis: analysis, facts: facts)
+		while stack.count() > 0 'walk'
+			let top = try stack.count() - 1 otherwise panic("opt: an empty walk")
+			let s = stack[top]
+			let at = cursor[top]
+			if at < analysis.domStart[plusOne(s)] 'child'
+				cursor[top] = plusOne(at)
+				let child = analysis.domChild[at]
+				self.enter(f, s: child, analysis: analysis, facts: facts)
+			end 'child' else 'leave'
+				let mark = try marks.pop() otherwise panic("opt: an empty walk")
+				while filled.count() > mark 'empty'
+					let slot = try filled.pop() otherwise panic("opt: an empty walk")
+					slotStamp[slot] = 0
+				end 'empty'
+				_ = try stack.pop() otherwise panic("opt: an empty walk")
+				_ = try cursor.pop() otherwise panic("opt: an empty walk")
+			end 'leave'
+		end 'walk'
+	end 'walk'
+
+	// enter visits the segment s: what it computes that was computed on the path to it goes, and the rest is recorded.
+	function enter(mutates self, mutates f ir.IrFunction, s Count, analysis Analysis, facts LoopFacts)
+		let children = analysis.domStart[s]
+		stack.push(s)
+		cursor.push(children)
+		let height = filled.count()
+		marks.push(height)
+		if s != analysis.flow.segBase[analysis.flow.segBlock[s]] 'afterCheck'
+			// The check that ended the segment before this one passed here.
+			let k = try analysis.flow.segEnd[try s - 1 otherwise panic("opt: a segment before the first")] - 1 otherwise panic("opt: an empty segment ends in a check")
+			if not editor.isRemoved(k) and keyed(motionOf(f.instrs[k])) 'record'
+				self.record(f, k: k, v: noVersion)
+			end 'record'
+		end 'afterCheck'
+		var v = entry[s]
+		let last = facts.clobberAt(s)
+		for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+			if replaced 'rename'
+				ir.renameInstrReads(f.instrs[k], args: f.args, names: repl)
+			end 'rename'
+			let m = motionOf(f.instrs[k])
+			if m == Motion.clobber 'clobber'
+				v = exit[s] if plusOne(k) == last else self.newVersion()
+				continue 'instrs'
+			end 'clobber'
+			if not keyed(m) 'unkeyed'
+				continue 'instrs'
+			end 'unkeyed'
+			let seen = v if m == Motion.read else noVersion
+			let earlier = self.lookup(f, k: k, v: seen)
+			if earlier != noEntry 'redundant'
+				editor.remove(k)
+				merged = plusOne(merged)
+				let dst = f.instrs[k].dst
+				if dst != ir.noReg 'value'
+					repl[regIndex(dst)] = f.instrs[linkIndex(earlier)].dst
+					replaced = true
+				end 'value'
+			end 'redundant' else if not ir.instrCanFail(f.instrs[k]) 'record'
+				self.record(f, k: k, v: seen)
+			end 'record'
+		end 'instrs'
+		// Every read of a replaced register is dominated by what it replaced, so it comes later in the walk: the walk
+		// renames them all as it goes.
+		if replaced and not analysis.flow.endsInFailure(s) 'term'
+			let b = analysis.flow.segBlock[s]
+			ir.renameTermReads(f.blocks[b].term, args: f.args, cases: f.cases, names: repl)
+		end 'term'
+	end 'enter'
+
+	// lookup is the instruction plus 1 in the table that computes what instruction k does with memory at version v, or
+	// noEntry.
+	function lookup(f ir.IrFunction, k Count, v Count) returns Count
+		var slot = hashOf(f.instrs[k], v: v) and mask
+		while slotStamp[slot] == stamp 'probe'
+			let other = slotInstr[slot]
+			if slotVersion[slot] == v and sameComputation(f.instrs[linkIndex(other)], b: f.instrs[k]) 'hit'
+				return other
+			end 'hit'
+			slot = (try slot + 1 otherwise panic("opt: a slot past memory")) and mask
+		end 'probe'
+		return noEntry
+	end 'lookup'
+
+	function record(mutates self, f ir.IrFunction, k Count, v Count)
+		var slot = hashOf(f.instrs[k], v: v) and mask
+		while slotStamp[slot] == stamp 'probe'
+			slot = (try slot + 1 otherwise panic("opt: a slot past memory")) and mask
+		end 'probe'
+		slotStamp[slot] = stamp
+		slotInstr[slot] = plusOne(k)
+		slotVersion[slot] = v
+		filled.push(slot)
+	end 'record'
+end 'Cse'
+
+// sameComputation is whether two keyed instructions compute the same thing: the same operation on the same operands and
+// immediates. The failure block of a check is not part of what it computes.
+function sameComputation(a ir.Instr, b ir.Instr) returns bool
+	return a.op == b.op and a.sub == b.sub and a.flags == b.flags and a.a == b.a and a.b == b.b and a.imm == b.imm
+end 'sameComputation'
+
+// hashOf is the slot a keyed instruction that sees memory at version v starts its probe at, before the mask: 32-bit
+// FNV-1a over its parts, each cut to 32 bits so that no product overflows.
+function hashOf(x ir.Instr, v Count) returns Count
+	let bits = ir.bitsOfWord(x.imm)
+	var h = cseFnvOffset
+	h = mixHash(h, part: x.op.ordinal)
+	h = mixHash(h, part: x.sub as Count)
+	h = mixHash(h, part: x.flags as Count)
+	h = mixHash(h, part: regPart(x.a))
+	h = mixHash(h, part: regPart(x.b))
+	h = mixHash(h, part: bits and cseLow32Mask)
+	h = mixHash(h, part: bits shr cseHalfShift)
+	return mixHash(h, part: v and cseLow32Mask)
+end 'hashOf'
+
+// regPart is the bits of a register field, which an operand that is not there holds as 0 or ir.noReg.
+function regPart(r ir.Reg) returns Count
+	return ir.bitsOfWord(r as ir.Word) and cseLow32Mask
+end 'regPart'
+
+function mixHash(h Count, part Count) returns Count
+	return (try (h xor (part and cseLow32Mask)) * cseFnvPrime otherwise panic("opt: a 32-bit hash past a word")) and cseLow32Mask
+end 'mixHash'
+
+// loopIndex is the loop that an index of ir.GraphLoops names, which is not ir.noLoop.
+function loopIndex(l ir.Index) returns Count
+	return try l as Count otherwise panic("opt: a loop below 0")
+end 'loopIndex'

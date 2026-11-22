@@ -76,6 +76,9 @@
 (elemLoad a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (LoadRegBaseIndex8Disp r d i [0])
 (loadByte.array a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (MovzxRegByteBaseIndex1Disp r d i [0])
 (loadByte.string s i) => (MovzxRegByteBaseIndex1Disp r s i [stringBytesOffset])
+(buffer s) => (LoadRegBaseDisp r s [arrayDataOffset])
+(wordAt d i) => (LoadRegBaseIndex8Disp r d i [0])
+(byteAt d i) => (MovzxRegByteBaseIndex1Disp r d i [0])
 
 // Integer arithmetic. A checked operation goes to its failure block when the result does not fit: the carry flag says
 // so for an unsigned word, and the overflow flag for a signed one.

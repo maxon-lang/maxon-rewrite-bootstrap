@@ -1,0 +1,30 @@
+// expect-exit: 1
+// A bounds check whose index and array do not change in a loop fails where it did: after the output the loop wrote
+// before it, and with the entry's own message, whether it moves before the loop or stays.
+typealias Counts = Array with Count
+
+function sumAt(a Counts, k Count) returns Count
+	var sum = 0 as Count
+	var i = 0 as Count
+	while i < 3 'each'
+		sum = try sum + a[k] otherwise panic("sum overflowed")
+		i = try i + 1 otherwise panic("index overflowed")
+	end 'each'
+	return sum
+end 'sumAt'
+
+function main() returns ExitCode
+	var a = Counts.filled(3, value: 2)
+	print("{sumAt(a, k: 1)}\n")
+	let k = a.count()
+	var i = 0 as Count
+	while i < 3 'each'
+		print("{i}\n")
+		print("{a[k]}\n")
+		i = try i + 1 otherwise panic("index overflowed")
+	end 'each'
+	return 0
+end 'main'
+
+//> 6
+//> 0

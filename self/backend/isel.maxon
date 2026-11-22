@@ -187,6 +187,25 @@ export type Selector
 		return (try d as Count otherwise panic("backend: a definition before the first instruction")) == prevCount(irAt)
 	end 'fuses'
 
+	// knownLength is whether the IR register index holds the length of the array in the IR register box at the instruction
+	// being selected: a length of it earlier in the same block defines index, and nothing between writes memory or calls
+	// (the IR table's effects), so nothing between can have changed the length.
+	function knownLength(f ir.IrFunction, box ir.Reg, index ir.Reg) returns bool
+		if not self.definedBy(f, r: index, op: ir.Opcode.opLength) 'other'
+			return false
+		end 'other'
+		let d = self.defOf(index)
+		if ir.lengthSrc(f.instrs[d]) != box or ir.lengthOf(f.instrs[d]) != ir.Collection.collectionArray or d < f.blocks[irBlock].first or d >= irAt 'elsewhere'
+			return false
+		end 'elsewhere'
+		for k in nextCount(d) upto irAt 'between'
+			if (ir.opEffects(f.instrs[k].op) and (ir.effectWrites or ir.effectCalls)) != 0 'changes'
+				return false
+			end 'changes'
+		end 'between'
+		return true
+	end 'knownLength'
+
 	// typeName is the symbol of the word of data whose address names the type t, for the table of a value of it and the cast
 	// that tests for it, defined in the unit once.
 	function typeName(mutates self, p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
@@ -541,11 +560,14 @@ export type Selector
 	end 'elementBuffer'
 
 	// pushInPlace goes to slow unless the entry inserts at the end of an array whose buffer has room; otherwise it counts
-	// the new element and is the address of the elements, which the new one goes into at the index.
-	function pushInPlace(mutates self, box MReg, index MReg, slow MBlockID) returns MReg
-		let length = self.load(box, disp: imm32Of(arrayLengthOffset))
-		self.target(X64Form.cmpRegReg, a: index, b: length, c: noMReg, aux: 0, imm: 0)
-		self.branchTo(X64CondCode.notEqual, block: slow)
+	// the new element and is the address of the elements, which the new one goes into at the index. atEnd says that the
+	// index is the array's length (knownLength), which a push's is, so only the room is tested.
+	function pushInPlace(mutates self, box MReg, index MReg, atEnd bool, slow MBlockID) returns MReg
+		if not atEnd 'end'
+			let length = self.load(box, disp: imm32Of(arrayLengthOffset))
+			self.target(X64Form.cmpRegReg, a: index, b: length, c: noMReg, aux: 0, imm: 0)
+			self.branchTo(X64CondCode.notEqual, block: slow)
+		end 'end'
 		let capacity = self.load(box, disp: imm32Of(arrayCapacityOffset))
 		self.target(X64Form.cmpRegReg, a: index, b: capacity, c: noMReg, aux: 0, imm: 0)
 		self.branchTo(X64CondCode.aboveEqual, block: slow)
@@ -848,12 +870,14 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'bytesSet' else if symbol == ir.Rt.rtArrayInsert 'arrayInsert'
-		let data = sel.pushInPlace(box, index: index, slow: slow)
+		let atEnd = sel.knownLength(fn, box: fn.args[start], index: fn.args[nextCount(start)])
+		let data = sel.pushInPlace(box, index: index, atEnd: atEnd, slow: slow)
 		sel.target(X64Form.storeBaseIndex8DispReg, a: data, b: index, c: argAt(fn, start: start, index: 2), aux: 0, imm: 0)
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'arrayInsert' else if symbol == ir.Rt.rtBytesInsert 'bytesInsert'
-		let data = sel.pushInPlace(box, index: index, slow: slow)
+		let atEnd = sel.knownLength(fn, box: fn.args[start], index: fn.args[nextCount(start)])
+		let data = sel.pushInPlace(box, index: index, atEnd: atEnd, slow: slow)
 		sel.target(X64Form.storeBaseIndex1DispReg8, a: data, b: index, c: argAt(fn, start: start, index: 2), aux: 0, imm: 0)
 		sel.args.clear()
 		sel.jumpTo(done)
@@ -1128,13 +1152,14 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 end 'selectFunction'
 
 // selectOrFallBack writes the code of f, or, where a hot loop of f needs more registers than the target has and the
-// function had other IR before leaf inlining (fallback), the code of that: a loop that compiled with the calls compiles
-// so, whatever inlining did to it (README, "Leaf inlining"). A hot loop refused all the same is E5001, reported at the
-// function.
+// function had other IR before the expansion of the primitives, leaf inlining and the passes after it (fallback), the code
+// of that: a loop that compiled without them compiles so, whatever they did to it (README, "Leaf inlining"). A hot loop
+// refused all the same is E5001, reported at the function.
 function selectOrFallBack(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, hasFallback bool, fallback ir.IrFunction, symbol String, instance bool, closure bool, mutates errs diag.ErrorList)
 	var refusals = selectFunction(sel, p: p, ms: ms, f: f, symbol: symbol, instance: instance, closure: closure)
 	if refusals.count() > 0 and hasFallback 'fallBack'
 		refusals = selectFunction(sel, p: p, ms: ms, f: fallback, symbol: symbol, instance: instance, closure: closure)
+		sel.allocator.spiller.clock.fallbacks = try sel.allocator.spiller.clock.fallbacks + 1 otherwise panic("backend: more fallbacks than memory")
 	end 'fallBack'
 	if refusals.count() > 0 'refused'
 		reportRefusals(p, ms: ms, f: f, refusals: refusals, errs: errs)

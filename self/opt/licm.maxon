@@ -1,0 +1,537 @@
+// Loop-invariant code motion, maxon's LoopInvariantCodeMotion (hoistFromLoop, hoistIntoPreheader): an instruction whose
+// operands do not change in a loop, and which gives the same answer on every iteration, moves to the loop's preheader,
+// the block that runs once before the loop's header is first entered. The loops are taken innermost first, and what
+// leaves a loop is seen by the loop around it where the inner loop starts, so a value leaves a whole nest in one run.
+//
+// What may move (motion.maxon), each only with operands defined outside the loop or moved out of it before it:
+//
+// - A pure operation, from anywhere in the loop: it cannot fail or fault, so running it when the loop body would not
+//   have changes nothing a program sees.
+// - A read, when nothing in the loop may write memory (the loop holds no clobber), so it reads the same on every
+//   iteration, and when the first iteration runs it anyway: its segment dominates every way out of the loop and every
+//   edge back to the header, or it is in the header's prefix (below). A loop that holds a store or a call of any kind,
+//   a push among them, keeps every read where it is. The read of an array's buffer may also move when the length of the
+//   same array has moved to the preheader before it: that read proved the box there, and nothing frees a box that the
+//   loop still names, so reading another word of its header cannot fault. An element read that stays in such a loop,
+//   of an array that does not change in it, is split for this into the read of the array's buffer (Buffer), which
+//   leaves, and the read at the index (WordAt, ByteAt), which stays; where the buffer cannot leave, nothing is split.
+// - A check or a division, only from the prefix of the header: the header's instructions up to the first one that
+//   stays. The header runs whenever the preheader has run, so such an instruction ran first in the iteration after
+//   nothing but what moved with it, which has no effect a program sees: it fails or faults in the preheader exactly when
+//   it would have at the start of the first iteration, after the same effects, with the same message. A check also needs
+//   its failure block outside the loop, and everything that block dominates (at most maxFailPathSegments segments) to
+//   read only values defined outside the loop, since it is then entered from the preheader.
+//
+// A constant is never moved: a reader that leaves takes a copy of the constant along, and the one in the loop stays for
+// its other readers. A loop entered from one block whose only edge is to the header has that block as its preheader;
+// otherwise one is made on the edges into the header from outside the loop, laid out right before it.
+//
+// The cost is linear in the instructions and the sum of the loops' sizes: one analysis, one decision per instruction of
+// each loop that holds it, and one copy of the function when something moved.
+
+// maxFailPathSegments is the most segments that the failure block of a check that moves may dominate, so that the check
+// of what they read stays small; a trap block and the jump to a shared panic block are one or two.
+let maxFailPathSegments = 8 as Count
+
+// noTarget is an instruction's target when no loop moved it.
+let noTarget = 0 as Count
+
+// noSplit is an element read's splitOff when no buffer read was split off it.
+let noSplit = 0 as Count
+
+export type Licm
+	// hoisted is how many instructions the pass moved out of a loop, over every function it was given, once for each loop.
+	export var hoisted as Count
+	var editor as Editor
+	// By register: the segment where it is defined as far as the loops are concerned; for a value moved out of a loop, the
+	// immediate dominator of the loop's header, which is outside it and inside every loop around it.
+	var home as Array with Count
+	// By register: the loop plus 1 whose preheader reads the header of the box it holds, or 0.
+	var witness as Array with Count
+	// By instruction, and after them by buffer read split off an element read (virtual[v] is instruction real + v): the
+	// segment it runs first in for the must-run test (the header of the loop it last left), the loop plus 1 that it last
+	// left, and its place plus 1 in order when it left that one.
+	var runsAt as Array with Count
+	var target as Array with Count
+	var lastAt as Array with Count
+	var real as Count
+	// The buffer reads split off element reads, the element read each was split off, and the register each gives once it
+	// is placed; by instruction, the buffer read plus 1 split off it, or noSplit.
+	var virtual as ir.InstrList
+	var virtualOf as Array with Count
+	var virtualReg as ir.RegList
+	var splitOff as Array with Count
+	// The instructions in the order they moved, an instruction again each time it leaves another loop.
+	var order as Array with Count
+	// The places in order of what left each loop: from leftFirst[l] (plus 1, or noChain), each one's next in leftNext.
+	var leftFirst as Array with Count
+	var leftLast as Array with Count
+	var leftNext as Array with Count
+	// By loop: whether anything left it, and the preheader it goes to.
+	var anyLeft as Array with bool
+	var preheader as Array with Count
+	var mustSeg as Count
+	var regs as ir.RegList
+	var names as ir.RegList
+	var params as ir.RegList
+	var stack as Array with Count
+
+	export static function new() returns Licm
+		return Licm{hoisted: 0, editor: Editor.new(), home: Array.create(0), witness: Array.create(0), runsAt: Array.create(0), target: Array.create(0), lastAt: Array.create(0), real: 0, virtual: ir.InstrList.create(0), virtualOf: Array.create(0), virtualReg: ir.RegList.create(0), splitOff: Array.create(0), order: Array.create(0), leftFirst: Array.create(0), leftLast: Array.create(0), leftNext: Array.create(0), anyLeft: Array.create(0), preheader: Array.create(0), mustSeg: 0, regs: ir.RegList.create(0), names: ir.RegList.create(0), params: ir.RegList.create(0), stack: Array.create(0)}
+	end 'new'
+
+	// hoist moves what is invariant out of the loops of f and says whether anything moved. f is in SSA form and keeps the
+	// verifier's rules; analysis and facts describe it, and it has a loop.
+	export function hoist(mutates self, mutates f ir.IrFunction, analysis Analysis, facts LoopFacts) returns bool
+		self.start(f, analysis: analysis, facts: facts)
+		var l = facts.loops.loopCount()
+		while l > 0 'loops'
+			l = try l - 1 otherwise panic("opt: a loop below 0")
+			self.fromLoop(f, l: l, analysis: analysis, facts: facts)
+		end 'loops'
+		if order.count() == 0 'none'
+			return false
+		end 'none'
+		self.place(f, analysis: analysis, facts: facts)
+		return true
+	end 'hoist'
+
+	function start(mutates self, f ir.IrFunction, analysis Analysis, facts LoopFacts)
+		let n = f.regs.count()
+		ir.resetCounts(home, n: n)
+		ir.resetCounts(witness, n: n)
+		for r in 0 upto n 'regs'
+			if analysis.flow.defs.defined[r] 'defined'
+				home[r] = analysis.flow.defs.seg[r]
+			end 'defined'
+		end 'regs'
+		real = f.instrs.count()
+		ir.resetCounts(runsAt, n: real)
+		ir.resetCounts(target, n: real)
+		ir.resetCounts(lastAt, n: real)
+		ir.resetCounts(splitOff, n: real)
+		virtual.clear()
+		virtualOf.clear()
+		virtualReg.clear()
+		for s in 0 upto analysis.flow.segCount() 'segs'
+			for i in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+				runsAt[i] = s
+			end 'instrs'
+		end 'segs'
+		order.clear()
+		leftNext.clear()
+		ir.resetCounts(leftFirst, n: facts.loops.loopCount())
+		ir.resetCounts(leftLast, n: facts.loops.loopCount())
+		ir.resetFlags(anyLeft, n: facts.loops.loopCount())
+		ir.resetCounts(preheader, n: facts.loops.loopCount())
+	end 'start'
+
+	// fromLoop decides what leaves loop l, whose inner loops are decided already.
+	function fromLoop(mutates self, f ir.IrFunction, l Count, analysis Analysis, facts LoopFacts)
+		let head = facts.loops.header[l]
+		self.findMustSeg(l, analysis: analysis, facts: facts)
+		// The header's block first, which is where the prefix is.
+		let hb = analysis.flow.segBlock[head]
+		var prefix = true
+		for s in analysis.flow.segBase[hb] upto analysis.flow.segBase[plusOne(hb)] 'prefix'
+			if not facts.loops.holds(l, node: s) 'outside'
+				break 'prefix'
+			end 'outside'
+			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+				if not self.consider(f, x: f.instrs[k], k: k, l: l, inPrefix: prefix, analysis: analysis, facts: facts) 'stays'
+					prefix = false
+					self.trySplit(f, k: k, l: l, analysis: analysis, facts: facts)
+				end 'stays'
+			end 'instrs'
+		end 'prefix'
+		for m in facts.memberStart[l] upto facts.memberStart[plusOne(l)] 'members'
+			let s = facts.member[m]
+			if analysis.flow.segBlock[s] == hb 'header'
+				continue 'members'
+			end 'header'
+			let inner = facts.headerOf[s]
+			if inner != ir.noLoop and loopIndex(inner) != l 'innerHeader'
+				self.fromInner(f, inner: loopIndex(inner), l: l, analysis: analysis, facts: facts)
+			end 'innerHeader'
+			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+				if target[k] == noTarget 'inPlace'
+					if not self.consider(f, x: f.instrs[k], k: k, l: l, inPrefix: false, analysis: analysis, facts: facts) 'stays'
+						self.trySplit(f, k: k, l: l, analysis: analysis, facts: facts)
+					end 'stays'
+				end 'inPlace'
+			end 'instrs'
+		end 'members'
+	end 'fromLoop'
+
+	// fromInner considers again, for loop l, what left its inner loop inner and went no further.
+	function fromInner(mutates self, f ir.IrFunction, inner Count, l Count, analysis Analysis, facts LoopFacts)
+		let mark = plusOne(inner)
+		var link = leftFirst[inner]
+		while link != noChain 'moved'
+			let i = linkIndex(link)
+			link = leftNext[i]
+			let k = order[i]
+			if target[k] == mark and lastAt[k] == plusOne(i) 'there'
+				if k < real 'own'
+					_ = self.consider(f, x: f.instrs[k], k: k, l: l, inPrefix: false, analysis: analysis, facts: facts)
+				end 'own' else 'split'
+					let x = virtual[try k - real otherwise panic("opt: a split read before the instructions")].clone()
+					_ = self.consider(f, x: x, k: k, l: l, inPrefix: false, analysis: analysis, facts: facts)
+				end 'split'
+			end 'there'
+		end 'moved'
+	end 'fromInner'
+
+	// trySplit splits a buffer read off instruction k, an element read that stays in loop l, when that buffer read can
+	// leave l.
+	function trySplit(mutates self, f ir.IrFunction, k Count, l Count, analysis Analysis, facts LoopFacts)
+		if splitOff[k] != noSplit or facts.clobbers[l] 'no'
+			return
+		end 'no'
+		let op = f.instrs[k].op
+		if not (op == ir.Opcode.opElemLoad or (op == ir.Opcode.opLoadByte and ir.loadByteOf(f.instrs[k]) == ir.Collection.collectionArray)) 'other'
+			return
+		end 'other'
+		let arr = f.instrs[k].a
+		if facts.loops.holds(l, node: home[regIndex(arr)]) 'varies'
+			return
+		end 'varies'
+		let id = sum(real, b: virtual.count())
+		virtual.push(ir.newBuffer(ir.noReg, src: arr))
+		virtualOf.push(k)
+		virtualReg.push(ir.noReg)
+		let at = runsAt[k]
+		runsAt.push(at)
+		target.push(noTarget)
+		lastAt.push(0)
+		let x = ir.newBuffer(ir.noReg, src: arr)
+		if self.consider(f, x: x, k: id, l: l, inPrefix: false, analysis: analysis, facts: facts) 'leaves'
+			splitOff[k] = virtual.count()
+			return
+		end 'leaves'
+		_ = try virtual.pop() otherwise panic("opt: an empty list")
+		_ = try virtualOf.pop() otherwise panic("opt: an empty list")
+		_ = try virtualReg.pop() otherwise panic("opt: an empty list")
+		_ = try runsAt.pop() otherwise panic("opt: an empty list")
+		_ = try target.pop() otherwise panic("opt: an empty list")
+		_ = try lastAt.pop() otherwise panic("opt: an empty list")
+	end 'trySplit'
+
+	// findMustSeg finds the nearest segment that dominates every segment of loop l with an edge out of it or back to its
+	// header: a segment that dominates it runs on every iteration that goes on or leaves.
+	function findMustSeg(mutates self, l Count, analysis Analysis, facts LoopFacts)
+		let head = facts.loops.header[l]
+		var found = false
+		var at = head
+		for m in facts.memberStart[l] upto facts.memberStart[plusOne(l)] 'members'
+			let s = facts.member[m]
+			for e in analysis.flow.succStart[s] upto analysis.flow.succStart[plusOne(s)] 'succs'
+				let t = analysis.flow.succ[e]
+				if t == head or not facts.loops.holds(l, node: t) 'way'
+					if not found 'first'
+						at = s
+						found = true
+					end 'first' else 'meet'
+						at = analysis.flow.commonDominatorOf(at, other: s)
+					end 'meet'
+				end 'way'
+			end 'succs'
+		end 'members'
+		mustSeg = at
+	end 'findMustSeg'
+
+	// consider moves x, instruction k, out of loop l if it may go, and says whether it did.
+	function consider(mutates self, f ir.IrFunction, x ir.Instr, k Count, l Count, inPrefix bool, analysis Analysis, facts LoopFacts) returns bool
+		let m = motionOf(x)
+		let movable = match m 'motion'
+			constant gives false
+			pure gives true
+			divides gives inPrefix
+			check gives inPrefix and self.failStaysOut(f, x: x, l: l, analysis: analysis, facts: facts)
+			read gives not facts.clobbers[l] and (inPrefix or analysis.flow.dominates(runsAt[k], b: mustSeg) or self.witnessed(x, l: l))
+			sharedRead or
+			quiet or
+			clobber gives false
+		end 'motion'
+		if not movable or not self.invariant(f, x: x, l: l, analysis: analysis, facts: facts) 'stays'
+			return false
+		end 'stays'
+		let mark = plusOne(l)
+		target[k] = mark
+		runsAt[k] = facts.loops.header[l]
+		order.push(k)
+		leftNext.push(noChain)
+		let link = order.count()
+		if leftLast[l] == noChain 'first'
+			leftFirst[l] = link
+		end 'first' else 'more'
+			leftNext[linkIndex(leftLast[l])] = link
+		end 'more'
+		leftLast[l] = link
+		lastAt[k] = order.count()
+		anyLeft[l] = true
+		hoisted = plusOne(hoisted)
+		let box = boxRead(x)
+		if box != ir.noReg 'witness'
+			witness[regIndex(box)] = mark
+		end 'witness'
+		regs.clear()
+		ir.instrWrites(x, out: regs)
+		let outside = analysis.flow.idom[facts.loops.header[l]]
+		for i in 0 upto regs.count() 'writes'
+			if regs[i] != ir.noReg 'named'
+				home[regIndex(regs[i])] = outside
+			end 'named'
+		end 'writes'
+		return true
+	end 'consider'
+
+	// witnessed is whether x reads an array's buffer whose box a read that left loop l before it read.
+	function witnessed(x ir.Instr, l Count) returns bool
+		return x.op == ir.Opcode.opBuffer and witness[regIndex(ir.bufferSrc(x))] == plusOne(l)
+	end 'witnessed'
+
+	// invariant is whether every operand of x is defined outside loop l, or is a constant, which a copy serves.
+	function invariant(mutates self, f ir.IrFunction, x ir.Instr, l Count, analysis Analysis, facts LoopFacts) returns bool
+		regs.clear()
+		ir.instrReads(f, x: x, out: regs)
+		for i in 0 upto regs.count() 'reads'
+			let r = regs[i]
+			if facts.loops.holds(l, node: home[regIndex(r)]) and not self.isConstant(f, r: r, analysis: analysis, facts: facts) 'varies'
+				return false
+			end 'varies'
+		end 'reads'
+		return true
+	end 'invariant'
+
+	// isConstant is whether an instruction that motion.maxon calls constant defines r.
+	function isConstant(f ir.IrFunction, r ir.Reg, analysis Analysis, facts LoopFacts) returns bool
+		let at = analysis.flow.defs.instr[regIndex(r)]
+		if at == ir.noDef 'param'
+			return false
+		end 'param'
+		return motionOf(f.instrs[try at as Count otherwise panic("opt: a definition before the instructions")]) == Motion.constant
+	end 'isConstant'
+
+	// failStaysOut is whether the failure block of the check x is outside loop l and what it dominates reads only what is
+	// defined outside l, within maxFailPathSegments segments.
+	function failStaysOut(mutates self, f ir.IrFunction, x ir.Instr, l Count, analysis Analysis, facts LoopFacts) returns bool
+		let fail = analysis.flow.segBase[ir.blockIndex(ir.failTarget(x))]
+		if facts.loops.holds(l, node: fail) 'inside'
+			return false
+		end 'inside'
+		stack.clear()
+		stack.push(fail)
+		var seen = 0 as Count
+		while stack.count() > 0 'walk'
+			let s = try stack.pop() otherwise panic("opt: an empty walk")
+			seen = plusOne(seen)
+			if seen > maxFailPathSegments 'large'
+				return false
+			end 'large'
+			for i in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+				regs.clear()
+				ir.instrReads(f, x: f.instrs[i], out: regs)
+				if not self.readsOutside(l, analysis: analysis, facts: facts) 'reads'
+					return false
+				end 'reads'
+			end 'instrs'
+			if not analysis.flow.endsInFailure(s) 'last'
+				regs.clear()
+				ir.termReads(f, t: f.blocks[analysis.flow.segBlock[s]].term, out: regs)
+				if not self.readsOutside(l, analysis: analysis, facts: facts) 'reads'
+					return false
+				end 'reads'
+			end 'last'
+			for c in analysis.domStart[s] upto analysis.domStart[plusOne(s)] 'children'
+				let child = analysis.domChild[c]
+				stack.push(child)
+			end 'children'
+		end 'walk'
+		return true
+	end 'failStaysOut'
+
+	// readsOutside is whether every register in regs is defined outside loop l.
+	function readsOutside(l Count, analysis Analysis, facts LoopFacts) returns bool
+		for i in 0 upto regs.count() 'each'
+			if facts.loops.holds(l, node: home[regIndex(regs[i])]) 'inside'
+				return false
+			end 'inside'
+		end 'each'
+		return true
+	end 'readsOutside'
+
+	// place makes the preheaders and moves each instruction to the preheader of the last loop it left, in the order it
+	// left that loop, with a copy of each constant it reads from inside that loop; then each element read that a buffer
+	// read was split off, and that stayed, becomes the read at the index of the buffer read's register.
+	function place(mutates self, mutates f ir.IrFunction, analysis Analysis, facts LoopFacts)
+		editor.begin(f)
+		for l in 0 upto facts.loops.loopCount() 'loops'
+			if anyLeft[l] 'some'
+				let ph = self.preheaderOf(f, l: l, analysis: analysis, facts: facts)
+				preheader[l] = ph
+			end 'some'
+		end 'loops'
+		names.clear()
+		for r in 0 upto f.regs.count() 'names'
+			names.push(ir.regOf(r))
+		end 'names'
+		for i in 0 upto order.count() 'order'
+			let k = order[i]
+			if lastAt[k] == plusOne(i) 'last'
+				let l = try target[k] - 1 otherwise panic("opt: an instruction that moved has no loop")
+				if k < real 'own'
+					self.move(f, k: k, l: l, analysis: analysis, facts: facts)
+				end 'own' else 'split'
+					self.moveBuffer(f, v: try k - real otherwise panic("opt: a split read before the instructions"), l: l)
+				end 'split'
+			end 'last'
+		end 'order'
+		for k in 0 upto real 'splits'
+			if splitOff[k] != noSplit and target[k] == noTarget 'split'
+				let data = virtualReg[linkIndex(splitOff[k])]
+				let dst = f.instrs[k].dst
+				let index = f.instrs[k].b
+				if f.instrs[k].op == ir.Opcode.opElemLoad 'word'
+					editor.replace(k, x: ir.newWordAt(dst, data: data, index: index))
+				end 'word' else 'byte'
+					editor.replace(k, x: ir.newByteAt(dst, data: data, index: index))
+				end 'byte'
+			end 'split'
+		end 'splits'
+		editor.finish(f)
+	end 'place'
+
+	// moveBuffer writes buffer read v in the preheader of loop l, unless the element read it was split off left as a
+	// whole.
+	function moveBuffer(mutates self, mutates f ir.IrFunction, v Count, l Count)
+		if target[virtualOf[v]] != noTarget 'whole'
+			return
+		end 'whole'
+		let data = f.newReg(ir.IrKind.kindScalar)
+		names.push(data)
+		virtualReg[v] = data
+		let arr = ir.bufferSrc(virtual[v])
+		let ph = preheader[l]
+		editor.append(ph, x: ir.newBuffer(data, src: arr))
+	end 'moveBuffer'
+
+	function move(mutates self, mutates f ir.IrFunction, k Count, l Count, analysis Analysis, facts LoopFacts)
+		let ph = preheader[l]
+		regs.clear()
+		ir.instrReads(f, x: f.instrs[k], out: regs)
+		params.clear()
+		for i in 0 upto regs.count() 'reads'
+			let r = regs[i]
+			if facts.loops.holds(l, node: home[regIndex(r)]) and names[regIndex(r)] == r 'constant'
+				let def = try analysis.flow.defs.instr[regIndex(r)] as Count otherwise panic("opt: a constant with no definition")
+				let kind = f.regs[regIndex(r)]
+				let copy = f.newReg(kind)
+				names.push(copy)
+				var x = f.instrs[def].clone()
+				x.dst = copy
+				editor.append(ph, x: x)
+				names[regIndex(r)] = copy
+				params.push(r)
+			end 'constant'
+		end 'reads'
+		var x = f.instrs[k].clone()
+		if params.count() > 0 'renamed'
+			ir.renameInstrReads(x, args: f.args, names: names)
+			for i in 0 upto params.count() 'reset'
+				let r = params[i]
+				names[regIndex(r)] = r
+			end 'reset'
+		end 'renamed'
+		editor.append(ph, x: x)
+		editor.remove(k)
+	end 'move'
+
+	// preheaderOf is the block before the header of loop l that runs once each time the loop is entered: the one block
+	// that enters it, when its only edge is to the header, or a block made for it on the edges that enter it.
+	function preheaderOf(mutates self, mutates f ir.IrFunction, l Count, analysis Analysis, facts LoopFacts) returns Count
+		let head = facts.loops.header[l]
+		let hb = analysis.flow.segBlock[head]
+		let header = ir.blockOf(hb)
+		stack.clear()
+		var edges = 0 as Count
+		for e in analysis.flow.predStart[head] upto analysis.flow.predStart[plusOne(head)] 'preds'
+			let p = analysis.flow.pred[e]
+			if analysis.flow.reached[p] and not facts.loops.holds(l, node: p) 'entering'
+				let pb = analysis.flow.segBlock[p]
+				if not self.listed(pb) 'new'
+					stack.push(pb)
+					editor.loadEdges(f, b: pb)
+					for i in 0 upto editor.edges.out.count() 'count'
+						if editor.edges.out[i] == header 'in'
+							edges = plusOne(edges)
+						end 'in'
+					end 'count'
+				end 'new'
+			end 'entering'
+		end 'preds'
+		if edges == 1 and stack.count() == 1 and f.blocks[stack[0]].term.kind == ir.TermKind.termJump 'own'
+			return stack[0]
+		end 'own'
+		let made = ir.blockOf(f.blocks.count())
+		if edges == 1 'oneEdge'
+			let pb = stack[0]
+			editor.loadEdges(f, b: pb)
+			var start = 0 as Count
+			var count = 0 as Count
+			for i in 0 upto editor.edges.out.count() 'find'
+				if editor.edges.out[i] == header 'in'
+					start = editor.edges.argsStart[i]
+					count = editor.edges.argsCount[i]
+					editor.edges.out[i] = made
+					editor.edges.argsCount[i] = 0
+				end 'in'
+			end 'find'
+			editor.storeEdges(f, b: pb)
+			params.clear()
+			return editor.addBlock(f, before: hb, params: params, start: 0, count: 0, t: ir.newJumpWith(header, argsStart: ir.indexOf(start), argsCount: ir.indexOf(count)))
+		end 'oneEdge'
+		params.clear()
+		for i in 0 upto f.blocks[hb].paramCount 'params'
+			let p = f.blockParam(hb, i: i)
+			let kind = f.regs[regIndex(p)]
+			let r = f.newReg(kind)
+			params.push(r)
+		end 'params'
+		let argsAt = f.args.count()
+		for i in 0 upto params.count() 'args'
+			f.args.push(params[i])
+		end 'args'
+		for j in 0 upto stack.count() 'enter'
+			let pb = stack[j]
+			editor.loadEdges(f, b: pb)
+			for i in 0 upto editor.edges.out.count() 'edges'
+				if editor.edges.out[i] == header 'in'
+					editor.edges.out[i] = made
+				end 'in'
+			end 'edges'
+			editor.storeEdges(f, b: pb)
+		end 'enter'
+		return editor.addBlock(f, before: hb, params: params, start: 0, count: params.count(), t: ir.newJumpWith(header, argsStart: ir.indexOf(argsAt), argsCount: ir.indexOf(params.count())))
+	end 'preheaderOf'
+
+	function listed(b Count) returns bool
+		for i in 0 upto stack.count() 'each'
+			if stack[i] == b 'found'
+				return true
+			end 'found'
+		end 'each'
+		return false
+	end 'listed'
+end 'Licm'
+
+// boxRead is the array whose box x reads the header of, or ir.noReg.
+function boxRead(x ir.Instr) returns ir.Reg
+	if x.op == ir.Opcode.opBuffer 'buffer'
+		return ir.bufferSrc(x)
+	end 'buffer'
+	if x.op == ir.Opcode.opLength and ir.lengthOf(x) == ir.Collection.collectionArray 'length'
+		return ir.lengthSrc(x)
+	end 'length'
+	return ir.noReg
+end 'boxRead'

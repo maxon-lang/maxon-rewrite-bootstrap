@@ -51,6 +51,12 @@ export type Analysis
 		self.frontiers()
 	end 'dominance'
 
+	// dominators is the part of analyze that the passes over loops and redundancy read: the flow and the dominator tree.
+	export function dominators(mutates self, f ir.IrFunction)
+		flow.build(f)
+		self.dominatorTree()
+	end 'dominators'
+
 	function dominatorTree(mutates self)
 		pairFrom.clear()
 		pairTo.clear()

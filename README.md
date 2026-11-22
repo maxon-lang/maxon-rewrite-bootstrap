@@ -267,7 +267,7 @@ layering cannot erode:
 | `resolve` | name resolution, into the module's `Resolution`: which declaration each name and type reference names, which type parameter each constraint binds, which modules the module depends on, visibility | `ast`, `diag`, `table` |
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, what its arithmetic computes (`evaluate_gen.maxon`, generated from the IR table: `evalBin`, `evalCmp`, `evalGuard` and the rest, one per operation that computes a word from its operands, which the interpreter and the fold pass both call; `evaluate.maxon` has the algorithms the table names: the 64-bit wraps, the wide product, the shifts, the overflow tests and the float conversions), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
-| `opt` | the optimizer: leaf inlining (`Leaves`, `Inliner`, `self/opt/inline.maxon`), its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters) and the fold pass (`Fold`, `self/opt/fold.maxon`), which `optimizeModule` (`self/opt/optimizer.maxon`) runs in that order on every function a native build compiles | `ast`, `ir` |
+| `opt` | the optimizer: leaf inlining (`Leaves`, `Inliner`, `self/opt/inline.maxon`), its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters) and the fold pass (`Fold`, `self/opt/fold.maxon`), which `optimizeModule` (`self/opt/optimizer.maxon`) runs in that order on every function a native build compiles; after leaf inlining, loop rotation (`Rotator`, `rotate.maxon`), loop-invariant code motion (`Licm`, `licm.maxon`) and common subexpression elimination (`Cse`, `cse.maxon`), over what may be merged or moved of each operation (`motionOf`, `motion.maxon`), the loops' facts (`LoopFacts`, `loops.maxon`) and the edits they share (`Editor`, `edit.maxon`) | `ast`, `ir` |
 | `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
@@ -500,7 +500,7 @@ runs the stages that can report an error.
 | bodies | `check` | `moduleBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
 | verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
 | lower | `ir` | after the check of every module has ended (`endCheck`, which waits on every verify, each of which made its module's typing its product), `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before the backend, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
-| optimize | `opt` | for a native build, in the task that lowers the module, right after it: `opt.optimizeModule` puts each function in SSA form and folds it (see "The IR"), then `opt.findLeaves` finds the module's leaves and `opt.inlineModule` replaces the calls of leaves, its own and those of the modules it names, by copies of their bodies and folds again what got one (see "Leaf inlining"); `--emit-ir` and `--verify-ir` see the result. A test keeps the IR as lowered for the interpreter (`Options.keepsLowered`), which tracks borrows by the loads of slots and reports a drop of a register that holds nothing |
+| optimize | `opt` | for a native build, in the task that lowers the module, right after it: `opt.optimizeModule` puts each function in SSA form and folds it (see "The IR"), then `opt.findLeaves` finds the module's leaves and `opt.inlineModule` replaces the calls of leaves, its own and those of the modules it names, by copies of their bodies and folds again what got one (see "Leaf inlining"), then rotates the loops of each function, moves what does not change out of them and merges what is computed twice (see "The passes after inlining"); `--emit-ir` and `--verify-ir` see the result. A test keeps the IR as lowered for the interpreter (`Options.keepsLowered`), which tracks borrows by the loads of slots and reports a drop of a register that holds nothing |
 | emit | `backend` | `emitModule`: IR to x64, one code unit per module, in module order, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. In the link (`linkProgram`) the entry stub and the runtime's unit come first; `emitTypeRoutines` then makes the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in waves, ordered by where the modules first ask for them |
 | link | `backend` | `link` keeps only the sections of code and the pieces of data that the entry reaches through symbol and data references (every function is compiled; what nothing calls is dropped here), lays the units out in order, patches the references and `writePeImage` writes the executable. A symbol is its link name (see "Link names"); the one symbol that may be defined more than once is an instance of a generic function, and the table keeps the first unit's definition, so the copies are never reached and drop out like any dead section. Any other symbol defined twice is an internal error |
 
@@ -899,12 +899,49 @@ what a later pass such as reference counting or an optimization changes.
   for the one that is not there), so a throwing callee joins the caller's failure handling where the call did. A module's
   calls of the leaves of the modules it names are inlined as its own: its lower task waited for theirs (see "The modules
   phase"). On `self`, 7,226 calls are inlined, and the build of `self` by itself takes about 6% less time.
-- **E5001 and inlining.** A copy must not make a loop fail to compile: with the call, the values live across it were in
-  memory across it (the call tier of spilling), across the copy they are not. Maxon checks a pressure budget only for its
-  wrapper and called-once rules and none for leaves. Here a function that got a copy or an expansion of a primitive and
-  may hold a loop (an edge to a block not after its own) keeps the IR it had before both (`ir.Fallbacks`, which the driver
-  holds by module), and the emit compiles that in its place where it refuses a hot loop of the inlined one
-  (`selectOrFallBack`), so a program that compiles without inlining and the expansion compiles with them, exactly;
+- **The passes after inlining** run on each function of a module once every call of a leaf in it is replaced, in this
+  order. What each may do with an operation is decided in one place, `opt.motionOf` (`self/opt/motion.maxon`), which names
+  every operation: a constant, a pure operation, a division (pure but faulting on 0), a check, a read of memory that only
+  the function's own writes and calls change, a read of memory another thread may write (a runtime global, a raw word, the
+  thread's context: never merged or moved), an operation that changes nothing a read sees (an allocation, a copy, a box, a
+  closure, a drop of a register, whose boxes unique ownership gives to the dropped value alone), and a clobber (a store, a
+  move out of a place, a `dropslot` or `dropat`, an atomic operation, a frame box, and every call: a `mutates` argument is
+  the address of the caller's place and a push or an insert is a runtime call that changes its array's length and buffer,
+  and the IR keeps no types or conventions to say which box a call may change, so a call ends every read).
+  - **Loop rotation** (`self/opt/rotate.maxon`) turns a loop whose header tests whether to leave, as a `while` is lowered,
+    into the test once before the loop and a copy of it at the end of each iteration, so an iteration ends in one
+    conditional branch instead of a jump back to the test. It copies only a header of one segment and at most
+    `maxRotatedTest` (8) operations that can be computed again, entered from the loop only by jumps, so a loop grows by at
+    most `maxRotationCopies` (16) operations; the header's parameters become parameters of the block it entered the loop by
+    and, where the code after the loop reads them, of the exit, each read renamed by the region of the dominator tree it
+    is in, and a loop with a read anywhere else is left as it is. `for` loops are lowered rotated already.
+  - **Loop-invariant code motion** (`self/opt/licm.maxon`, maxon's `LoopInvariantCodeMotion`) moves to a loop's preheader
+    (the block that enters it, or one made on the edges that enter its header) a pure operation whose operands do not
+    change in the loop; a read, when the loop holds no clobber and the first iteration runs it anyway (its segment
+    dominates every exit and every edge back), or when a read of the same array's box moved before it; and a check or a
+    division only from the header's prefix, the operations before the first that stays, so it fails in the preheader
+    exactly when, and after the same effects as, it would have at the start of the first iteration, and only when its
+    failure path reads nothing the loop defines. An element read that stays in such a loop is split into the read of the
+    array's buffer (`buffer`, which leaves) and the access at the index (`wordat`, `byteat`), which only a native build
+    makes. Loops are taken innermost first, so a value leaves a whole nest; a constant is copied, not moved.
+  - **Common subexpression elimination** (`self/opt/cse.maxon`, maxon's `CommonSubexpressionElimination`) walks the
+    dominator tree with a scoped hash table: an operation that computes what an operation dominating it computed goes, a
+    check that an identical dominating one passed goes with its failure block, and a read is merged only with one that
+    sees the same version of memory, a number that changes at each clobber, at a join whose ways in disagree and at the
+    header of a loop that holds a clobber, so no read is merged across a write on any path.
+
+  They share one analysis, found again only after a pass that changed the function, and an edit that only removes
+  instructions moves the rest down in place. On `self` they rotate 598 loops, move 13,032 operations out of loops (once
+  for each loop an operation leaves) and remove 62,900, for about 180 ms of the build's task time (the analyses 50, rotation
+  20, code motion 45, elimination 40, the fallbacks' copies 30), which the emit stage of the compiler they build gives back
+  in part; the instruction selection's push also reads an array's length once when the index is that length.
+- **E5001 and the optimizations.** A copy must not make a loop fail to compile: with the call, the values live across it
+  were in memory across it (the call tier of spilling), across the copy they are not, and a value moved out of a loop or
+  merged with one before it lives across the loop. Maxon checks a pressure budget only for its wrapper and called-once
+  rules and none for leaves. Here a function that may hold a loop (an edge to a block not after its own) keeps the IR it
+  had before the expansion, the copies and the passes after them (`ir.Fallbacks`, which the driver holds by module), and
+  the emit compiles that in its place where it refuses a hot loop of the optimized one (`selectOrFallBack`), so a program
+  that compiles without them compiles with them, exactly; `--timings` prints how many fallbacks were taken.
   `tests/run/a-hot-loop-that-calls-a-leaf-compiles-as-with-the-call.maxon` is a loop that needs the fallback, and so is a
   loop of the `main` of `tests/run/array-methods.maxon`, which holds fifteen values once its element reads are expanded.
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
@@ -1031,9 +1068,10 @@ runtime each implement the entries. The element is always visible in the call:
   lowered), each operation on its model of the collection: a `bounds` by the IR's own meaning (`ir.evalBounds`), as the fold
   decides one whose operands are constants, and an element by the cell its entry's address would name, so its checks of a
   stale or freed box and of a borrow a call is still waiting to use (`elemaddr` and `elem` open a window as `loadat` does)
-  are those of the call. A native build expands each function after the fold, before leaf inlining; with no call left in
+  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `wordat` and
+  `byteat` that code motion splits an element read into reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
   a loop, a loop that the call let compile may need more registers than x64 has, so the function's IR before the expansion
-  is its fallback (see "E5001 and inlining"), whose calls the backend writes in place as it always did.
+  is its fallback (see "E5001 and the optimizations"), whose calls the backend writes in place as it always did.
 - An array whose element is an integer that fits in a byte (`ByteArray`, `Array with Byte`) packs one byte to an element, so it
   calls the `rt.bytes.*` entries instead of `rt.array.*`: `rt.bytes.get` and `rt.bytes.set` in place of the address of an
   element, and its own `insert`, `remove`, `append` (a copy of the bytes), `appendStr` and `toString`. `ast.packsBytes` decides

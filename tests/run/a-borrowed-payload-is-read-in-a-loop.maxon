@@ -1,0 +1,41 @@
+// A loop over an array that a match binding borrows reads it as it is: its length and its buffer read once before the loop
+// are the array's own, in a loop that writes nothing.
+typealias Counts = Array with Count
+
+union Bag
+	many(items Counts)
+	none
+end 'Bag'
+
+function weighted(items Counts) returns Count
+	var sum = 0 as Count
+	for i in 0 upto items.count() 'each'
+		sum = try sum + items[i] * (i + 1) otherwise panic("sum overflowed")
+	end 'each'
+	return sum
+end 'weighted'
+
+function total(bag Bag) returns Count
+	var sum = 0 as Count
+	match bag 'bag'
+		many(items) then sum = weighted(items)
+		none then sum = 0
+	end 'bag'
+	return sum
+end 'total'
+
+function main() returns ExitCode
+	var items = Counts.create(0)
+	for i in 0 upto 10 'fill'
+		items.push(i)
+	end 'fill'
+	let bag = Bag.many(items)
+	var sum = 0 as Count
+	for round in 0 upto 3 'rounds'
+		sum = try sum + total(bag) + round otherwise panic("sum overflowed")
+	end 'rounds'
+	print("{sum} {total(Bag.none)}\n")
+	return 0
+end 'main'
+
+//> 993 0

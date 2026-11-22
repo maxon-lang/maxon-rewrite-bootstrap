@@ -27,9 +27,10 @@
 //
 // A copy must not make a loop fail to compile: a loop that needs more registers than the target has is E5001, and with the
 // call, the values live across it were in memory across it, which they need not be across the copy, nor across the
-// expansion of a primitive. So a function that may hold a loop keeps the IR it had before its expansions and its copies as
-// its fallback (ir.Fallbacks), which the backend compiles in its place where it refuses a hot loop of the inlined one: such
-// a function compiles exactly as it would have without either.
+// expansion of a primitive, nor across what the passes after inlining merge or move out of a loop. So a function that may
+// hold a loop keeps the IR it had before its expansions, its copies and those passes as its fallback (ir.Fallbacks), which
+// the backend compiles in its place where it refuses a hot loop of the optimized one: such a function compiles exactly as
+// it would have without any of them.
 
 // maxLeafOps is the most instructions and terminators the hot path of a leaf with no cold block has: maxon's measured
 // budget, which admits accessors and small helpers and keeps the code a copy adds small.
@@ -457,14 +458,15 @@ function inlineInto(mutates o Optimizer, mutates f ir.IrFunction, own Leaves, ow
 end 'inlineInto'
 
 // inlineModule expands the primitives of the functions of a module, fns, once the optimizer has run on them
-// (expand.maxon), then replaces their calls of leaves and folds again each function that got a copy; a function that may
-// hold a loop and gets an expansion or a copy keeps the IR it had before both in fallbacks. Every function is expanded
-// before any is copied, so every copy of a leaf is the same body. own are the module's leaves; lowered and leaves are the
+// (expand.maxon), then replaces their calls of leaves, folds again each function that got a copy, and runs the passes
+// after inlining (optimizer.maxon); a function that may hold a loop keeps the IR it had before all of them in fallbacks,
+// since each can make a loop need more registers. Every function is expanded before any is copied, so every copy of a
+// leaf is the same body. own are the module's leaves; lowered and leaves are the
 // functions and leaves of the modules this compile lowers, by their index from first, of which the module may read those
 // reads marks: the ones it names, whose lower its own waited for. The module's own entry in lowered is not read.
 export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates fallbacks ir.Fallbacks, own Leaves, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
 	for i in 0 upto fns.count() 'expand'
-		if mayLoop(fns[i]) and (treeHasExpandable(fns[i]) or treeHasLeafCall(fns[i], own: own, leaves: leaves, reads: reads, first: first)) 'fallback'
+		if mayLoop(fns[i]) 'fallback'
 			fallbacks.add(i, f: fns[i].clone())
 		end 'fallback'
 		_ = o.expander.expandFunction(fns[i])
@@ -476,17 +478,10 @@ export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList,
 		end 'changed'
 		fns[i] = f
 	end 'functions'
+	for i in 0 upto fns.count() 'refine'
+		refine(o, f: fns[i])
+	end 'refine'
 end 'inlineModule'
-
-// treeHasLeafCall is hasLeafCall of f or of a body of its closures and behaviours.
-function treeHasLeafCall(f ir.IrFunction, own Leaves, leaves LeavesList, reads Array with bool, first Count) returns bool
-	for i in 0 upto f.bodies.count() 'bodies'
-		if treeHasLeafCall(f.bodies[i], own: own, leaves: leaves, reads: reads, first: first) 'body'
-			return true
-		end 'body'
-	end 'bodies'
-	return f.refusals.count() == 0 and hasLeafCall(f, own: own, leaves: leaves, reads: reads, first: first)
-end 'treeHasLeafCall'
 
 // mayLoop is whether f, or a body of its closures and behaviours, may hold a loop: whether an edge goes to a block that
 // is not after its own. Every cycle of blocks has such an edge.

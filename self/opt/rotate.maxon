@@ -1,0 +1,485 @@
+// Loop rotation: a loop whose header tests whether to leave, as lowering writes a `while`, becomes the test once before
+// the loop (the guard) and a copy of it at the end of each iteration, so an iteration takes one conditional branch at its
+// bottom instead of a jump back to the test and the test's branch. The header stays as the guard, entered only from
+// outside; each edge back to it becomes a copy of its instructions and its branch, and the block it branched to inside
+// the loop is the loop's header from then on. Loop-invariant code motion then finds a preheader on the guard's edge into
+// the loop, which runs only when the loop does.
+//
+// Only the test is copied, and only a small one: a header of one segment (nothing in it can fail) of at most
+// maxRotatedTest instructions that can be computed again (motion.maxon: constant, pure, division, read), ending in a branch
+// with one edge into the loop and one out, entered from inside the loop only by jumps. So each rotated loop grows by at
+// most maxRotationCopies instructions, its header's times the number of jumps back to it.
+//
+// The header's parameters are the values that change from one iteration to the next. After rotation the guard has them
+// for the first test, and the rest of the loop and the code after it need the values of the iteration that is running
+// or that left: the block the header branched to into the loop (which must have no other way in) gets a parameter for
+// each one it reads, and the exit gets one for each the code after the loop reads (only where the header is its one way
+// in). Each read is renamed by the region of the dominator tree it is in; a read anywhere else leaves the loop as it is.
+// A value the header computes must be read only in the header, so the copies need no parameters of their own.
+//
+// The cost is linear in the instructions plus, for each loop rotated, the part of the dominator tree it renames.
+
+// maxRotatedTest is the most instructions a header that is copied may have: a comparison, its constants and the reads it
+// compares, as `while i < a.count()` is.
+let maxRotatedTest = 8 as Count
+
+// maxRotationCopies is the most instructions the copies of one header may add in all, which bounds a loop's growth.
+let maxRotationCopies = 16 as Count
+
+// noParam is a register's mark when it is no parameter of the header being looked at.
+let noParam = 0 as Count
+
+// The regions whose reads of a header's parameters are counted apart: the header itself, the part of the loop that the
+// branch into it dominates, and the part after the loop that the exit dominates.
+let regionHeader = 0 as Count
+
+let regionLoop = 1 as Count
+
+let regionExit = 2 as Count
+
+let regions = 3 as Count
+
+export type Rotator
+	// rotated is how many loops the pass rotated, over every function it was given.
+	export var rotated as Count
+	var editor as Editor
+	// By register: how many times the function reads it, whether a block other than the one that defines it reads it, and
+	// the place plus 1 of the header parameter it is, for the header being looked at.
+	var readCount as Array with Count
+	var counted as Count
+	var readElsewhere as Array with bool
+	var paramMark as Array with Count
+	// By parameter of the header being looked at and region, at parameter * regions + region: its reads there.
+	var readsIn as Array with Count
+	var latches as Array with Count
+	var stack as Array with Count
+	var regs as ir.RegList
+	var names as ir.RegList
+	var more as ir.RegList
+	var copied as ir.RegList
+	var loopParams as ir.RegList
+	var exitParams as ir.RegList
+
+	export static function new() returns Rotator
+		return Rotator{rotated: 0, editor: Editor.new(), readCount: Array.create(0), counted: 0, readElsewhere: Array.create(0), paramMark: Array.create(0), readsIn: Array.create(0), latches: Array.create(0), stack: Array.create(0), regs: ir.RegList.create(0), names: ir.RegList.create(0), more: ir.RegList.create(0), copied: ir.RegList.create(0), loopParams: ir.RegList.create(0), exitParams: ir.RegList.create(0)}
+	end 'new'
+
+	// rotate rotates the loops of f whose header tests whether to leave, and says whether it rotated any. f is in SSA form
+	// and keeps the verifier's rules; analysis and facts describe it, and it has a loop.
+	export function rotate(mutates self, mutates f ir.IrFunction, analysis Analysis, facts LoopFacts) returns bool
+		self.countReads(f, analysis: analysis, facts: facts)
+		editor.begin(f)
+		names.clear()
+		for r in 0 upto f.regs.count() 'names'
+			names.push(ir.regOf(r))
+		end 'names'
+		ir.resetCounts(paramMark, n: f.regs.count())
+		for l in 0 upto facts.loops.loopCount() 'loops'
+			if self.rotatable(f, l: l, analysis: analysis, facts: facts) 'rotate'
+				self.rotateLoop(f, l: l, analysis: analysis, facts: facts)
+			end 'rotate'
+		end 'loops'
+		editor.finish(f)
+		return editor.changed
+	end 'rotate'
+
+	// countReads counts the reads of each register, and finds those read outside the block that defines them.
+	function countReads(mutates self, f ir.IrFunction, analysis Analysis, facts LoopFacts)
+		let n = f.regs.count()
+		ir.resetCounts(readCount, n: n)
+		counted = n
+		ir.resetFlags(readElsewhere, n: n)
+		for s in 0 upto analysis.flow.segCount() 'segs'
+			let b = analysis.flow.segBlock[s]
+			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+				regs.clear()
+				ir.instrReads(f, x: f.instrs[k], out: regs)
+				self.countIn(b, analysis: analysis, facts: facts)
+			end 'instrs'
+			if not analysis.flow.endsInFailure(s) 'last'
+				regs.clear()
+				ir.termReads(f, t: f.blocks[b].term, out: regs)
+				self.countIn(b, analysis: analysis, facts: facts)
+			end 'last'
+		end 'segs'
+	end 'countReads'
+
+	function countIn(mutates self, b Count, analysis Analysis, facts LoopFacts)
+		for i in 0 upto regs.count() 'each'
+			let r = regIndex(regs[i])
+			readCount[r] = plusOne(readCount[r])
+			if analysis.flow.defs.defined[r] and analysis.flow.segBlock[analysis.flow.defs.seg[r]] != b 'elsewhere'
+				readElsewhere[r] = true
+			end 'elsewhere'
+		end 'each'
+	end 'countIn'
+
+	// rotatable is whether loop l has the shape rotation takes, with every read of its header's parameters in a region it
+	// renames.
+	function rotatable(mutates self, f ir.IrFunction, l Count, analysis Analysis, facts LoopFacts) returns bool
+		let head = facts.loops.header[l]
+		let hb = analysis.flow.segBlock[head]
+		if analysis.flow.segBase[plusOne(hb)] != plusOne(head) or f.blocks[hb].term.kind != ir.TermKind.termBranch 'shape'
+			return false
+		end 'shape'
+		let size = try f.blocks[hb].endAt - f.blocks[hb].first otherwise panic("opt: a block that ends before it starts")
+		if size > maxRotatedTest 'large'
+			return false
+		end 'large'
+		for k in f.blocks[hb].first upto f.blocks[hb].endAt 'instrs'
+			if not self.copyable(f, k: k) 'stays'
+				return false
+			end 'stays'
+		end 'instrs'
+		let into = self.loopTarget(f, l: l, analysis: analysis, facts: facts)
+		if into == ir.noBlock 'noTest'
+			return false
+		end 'noTest'
+		if not self.oneWayIn(analysis.flow.segBase[ir.blockIndex(into)], analysis: analysis, facts: facts) 'joined'
+			return false
+		end 'joined'
+		if not self.findLatches(f, l: l, analysis: analysis, facts: facts) or (try latches.count() * size otherwise panic("opt: a loop past memory")) > maxRotationCopies 'latches'
+			return false
+		end 'latches'
+		return self.paramsRenamable(f, l: l, analysis: analysis, facts: facts)
+	end 'rotatable'
+
+	// copyable is whether instruction k of a header may be copied: computed again, it gives the same, and it defines its
+	// value in the block alone.
+	function copyable(f ir.IrFunction, k Count) returns bool
+		let m = motionOf(f.instrs[k])
+		if not (m == Motion.constant or m == Motion.pure or m == Motion.divides or m == Motion.read) 'effect'
+			return false
+		end 'effect'
+		let dst = f.instrs[k].dst
+		return dst == ir.noReg or not readElsewhere[regIndex(dst)]
+	end 'copyable'
+
+	// oneWayIn is whether one edge enters segment s.
+	function oneWayIn(s Count, analysis Analysis, facts LoopFacts) returns bool
+		return (try analysis.flow.predStart[plusOne(s)] - analysis.flow.predStart[s] otherwise panic("opt: edges out of order")) == 1
+	end 'oneWayIn'
+
+	// loopTarget is the target of the branch that ends loop l's header that is inside the loop, when the other is outside
+	// it and neither is the header, or ir.noBlock.
+	function loopTarget(f ir.IrFunction, l Count, analysis Analysis, facts LoopFacts) returns ir.BlockID
+		let hb = analysis.flow.segBlock[facts.loops.header[l]]
+		let head = facts.loops.header[l]
+		let yes = ir.branchIfTrue(f.blocks[hb].term)
+		let no = ir.branchIfFalse(f.blocks[hb].term)
+		let yesIn = facts.loops.holds(l, node: analysis.flow.segBase[ir.blockIndex(yes)])
+		let noIn = facts.loops.holds(l, node: analysis.flow.segBase[ir.blockIndex(no)])
+		if yesIn == noIn or analysis.flow.segBase[ir.blockIndex(yes)] == head or analysis.flow.segBase[ir.blockIndex(no)] == head 'both'
+			return ir.noBlock
+		end 'both'
+		return yes if yesIn else no
+	end 'loopTarget'
+
+	// findLatches lists the blocks that go back to loop l's header and says whether each does by a jump.
+	function findLatches(mutates self, f ir.IrFunction, l Count, analysis Analysis, facts LoopFacts) returns bool
+		let head = facts.loops.header[l]
+		latches.clear()
+		for e in analysis.flow.predStart[head] upto analysis.flow.predStart[plusOne(head)] 'preds'
+			let p = analysis.flow.pred[e]
+			if analysis.flow.reached[p] and facts.loops.holds(l, node: p) 'latch'
+				let b = analysis.flow.segBlock[p]
+				if analysis.flow.endsInFailure(p) or f.blocks[b].term.kind != ir.TermKind.termJump 'notJump'
+					return false
+				end 'notJump'
+				latches.push(b)
+			end 'latch'
+		end 'preds'
+		return latches.count() > 0
+	end 'findLatches'
+
+	// paramsRenamable is whether every read of a parameter of loop l's header is in the header, in the region the branch
+	// into the loop dominates, or in the region the exit dominates where the header is the exit's one way in; it records
+	// which parameters each region reads.
+	function paramsRenamable(mutates self, f ir.IrFunction, l Count, analysis Analysis, facts LoopFacts) returns bool
+		let head = facts.loops.header[l]
+		let hb = analysis.flow.segBlock[head]
+		let count = f.blocks[hb].paramCount
+		ir.resetCounts(readsIn, n: try count * regions otherwise panic("opt: a block past memory"))
+		self.markParams(f, hb: hb, mark: true)
+		regs.clear()
+		for k in f.blocks[hb].first upto f.blocks[hb].endAt 'instrs'
+			ir.instrReads(f, x: f.instrs[k], out: regs)
+		end 'instrs'
+		ir.termReads(f, t: f.blocks[hb].term, out: regs)
+		self.tally(regionHeader)
+		let into = self.loopTarget(f, l: l, analysis: analysis, facts: facts)
+		let body = analysis.flow.segBase[ir.blockIndex(into)]
+		self.tallyRegion(f, root: body, region: regionLoop, analysis: analysis, facts: facts)
+		let exit = analysis.flow.segBase[ir.blockIndex(self.exitOf(f, hb: hb, into: into))]
+		if self.oneWayIn(exit, analysis: analysis, facts: facts) 'exitRegion'
+			self.tallyRegion(f, root: exit, region: regionExit, analysis: analysis, facts: facts)
+		end 'exitRegion'
+		var ok = true
+		for i in 0 upto count 'params'
+			let p = regIndex(f.blockParam(hb, i: i))
+			let tallied = sum(sum(self.readsOf(i, region: regionHeader), b: self.readsOf(i, region: regionLoop)), b: self.readsOf(i, region: regionExit))
+			if readCount[p] != tallied 'elsewhere'
+				ok = false
+			end 'elsewhere'
+		end 'params'
+		self.markParams(f, hb: hb, mark: false)
+		return ok
+	end 'paramsRenamable'
+
+	function markParams(mutates self, f ir.IrFunction, hb Count, mark bool)
+		for i in 0 upto f.blocks[hb].paramCount 'params'
+			let p = regIndex(f.blockParam(hb, i: i))
+			paramMark[p] = plusOne(i) if mark else noParam
+		end 'params'
+	end 'markParams'
+
+	// readsOf is how many reads of parameter i were counted in region.
+	function readsOf(i Count, region Count) returns Count
+		return readsIn[sum(try i * regions otherwise panic("opt: a block past memory"), b: region)]
+	end 'readsOf'
+
+	// tally counts the reads in regs of each marked parameter as reads in region.
+	function tally(mutates self, region Count)
+		for i in 0 upto regs.count() 'each'
+			let mark = paramMark[regIndex(regs[i])]
+			if mark != noParam 'param'
+				let at = sum(try linkIndex(mark) * regions otherwise panic("opt: a block past memory"), b: region)
+				readsIn[at] = plusOne(readsIn[at])
+			end 'param'
+		end 'each'
+	end 'tally'
+
+	// tallyRegion counts the reads of each marked parameter in the segments that root dominates as reads in region.
+	function tallyRegion(mutates self, f ir.IrFunction, root Count, region Count, analysis Analysis, facts LoopFacts)
+		stack.clear()
+		stack.push(root)
+		while stack.count() > 0 'walk'
+			let s = try stack.pop() otherwise panic("opt: an empty walk")
+			regs.clear()
+			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+				ir.instrReads(f, x: f.instrs[k], out: regs)
+			end 'instrs'
+			if not analysis.flow.endsInFailure(s) 'last'
+				let b = analysis.flow.segBlock[s]
+				ir.termReads(f, t: f.blocks[b].term, out: regs)
+				editor.appendedReads(f, b: b, out: regs)
+			end 'last'
+			self.tally(region)
+			for c in analysis.domStart[s] upto analysis.domStart[plusOne(s)] 'children'
+				stack.push(analysis.domChild[c])
+			end 'children'
+		end 'walk'
+	end 'tallyRegion'
+
+	// renameRegion makes every read in the segments that root dominates read each register as names says.
+	function renameRegion(mutates self, mutates f ir.IrFunction, root Count, analysis Analysis, facts LoopFacts)
+		stack.clear()
+		stack.push(root)
+		while stack.count() > 0 'walk'
+			let s = try stack.pop() otherwise panic("opt: an empty walk")
+			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
+				ir.renameInstrReads(f.instrs[k], args: f.args, names: names)
+			end 'instrs'
+			if not analysis.flow.endsInFailure(s) 'last'
+				let b = analysis.flow.segBlock[s]
+				ir.renameTermReads(f.blocks[b].term, args: f.args, cases: f.cases, names: names)
+				editor.renameAppended(f, b: b, names: names)
+			end 'last'
+			for c in analysis.domStart[s] upto analysis.domStart[plusOne(s)] 'children'
+				stack.push(analysis.domChild[c])
+			end 'children'
+		end 'walk'
+	end 'renameRegion'
+
+	// exitOf is the target of the header's branch that is not into.
+	function exitOf(f ir.IrFunction, hb Count, into ir.BlockID) returns ir.BlockID
+		let yes = ir.branchIfTrue(f.blocks[hb].term)
+		return ir.branchIfFalse(f.blocks[hb].term) if yes == into else yes
+	end 'exitOf'
+
+	// rotateLoop rotates loop l, which rotatable took and whose reads of its header's parameters it counted.
+	function rotateLoop(mutates self, mutates f ir.IrFunction, l Count, analysis Analysis, facts LoopFacts)
+		let head = facts.loops.header[l]
+		let hb = analysis.flow.segBlock[head]
+		let into = self.loopTarget(f, l: l, analysis: analysis, facts: facts)
+		let out = self.exitOf(f, hb: hb, into: into)
+		self.newParams(f, hb: hb, region: regionLoop)
+		self.addParams(f, b: ir.blockIndex(into))
+		let body = analysis.flow.segBase[ir.blockIndex(into)]
+		self.renameAs(f, root: body, exit: false, analysis: analysis, facts: facts)
+		self.newParams(f, hb: hb, region: regionExit)
+		self.addParams(f, b: ir.blockIndex(out))
+		let after = analysis.flow.segBase[ir.blockIndex(out)]
+		self.renameAs(f, root: after, exit: true, analysis: analysis, facts: facts)
+		for i in 0 upto latches.count() 'latches'
+			let latch = latches[i]
+			self.copyTest(f, hb: hb, latch: latch, into: into)
+		end 'latches'
+		// The guard passes the parameters themselves.
+		editor.loadEdges(f, b: hb)
+		for i in 0 upto editor.edges.out.count() 'edges'
+			if editor.edges.out[i] == into 'loop'
+				editor.extendEdge(f, i: i, more: loopParams)
+			end 'loop' else 'exit'
+				editor.extendEdge(f, i: i, more: exitParams)
+			end 'exit'
+		end 'edges'
+		editor.storeEdges(f, b: hb)
+		rotated = plusOne(rotated)
+	end 'rotateLoop'
+
+	// newParams makes a register in more for each parameter of the header hb that region reads, which it lists in
+	// loopParams or exitParams.
+	function newParams(mutates self, mutates f ir.IrFunction, hb Count, region Count)
+		more.clear()
+		if region == regionLoop 'loop'
+			loopParams.clear()
+		end 'loop' else 'exit'
+			exitParams.clear()
+		end 'exit'
+		for i in 0 upto f.blocks[hb].paramCount 'params'
+			if self.readsOf(i, region: region) > 0 'read'
+				let p = f.blockParam(hb, i: i)
+				let kind = f.regs[regIndex(p)]
+				let q = self.newReg(f, kind: kind)
+				more.push(q)
+				if region == regionLoop 'loop'
+					loopParams.push(p)
+				end 'loop' else 'exit'
+					exitParams.push(p)
+				end 'exit'
+			end 'read'
+		end 'params'
+	end 'newParams'
+
+	// addParams gives block b the registers in more as parameters after its own.
+	function addParams(mutates self, mutates f ir.IrFunction, b Count)
+		if more.count() == 0 'none'
+			return
+		end 'none'
+		let first = f.blockParams.count()
+		for i in 0 upto f.blocks[b].paramCount 'old'
+			let p = f.blockParam(b, i: i)
+			f.blockParams.push(p)
+		end 'old'
+		for i in 0 upto more.count() 'more'
+			f.blockParams.push(more[i])
+		end 'more'
+		f.blocks[b].params = first
+		f.blocks[b].paramCount = try f.blockParams.count() - first otherwise panic("opt: parameters out of order")
+	end 'addParams'
+
+	// renameAs makes the reads in the region root dominates of the parameters exitParams or loopParams lists read the
+	// register in more in its place.
+	function renameAs(mutates self, mutates f ir.IrFunction, root Count, exit bool, analysis Analysis, facts LoopFacts)
+		if more.count() == 0 'none'
+			return
+		end 'none'
+		for i in 0 upto more.count() 'set'
+			let p = exitParams[i] if exit else loopParams[i]
+			names[regIndex(p)] = more[i]
+		end 'set'
+		self.renameRegion(f, root: root, analysis: analysis, facts: facts)
+		for i in 0 upto more.count() 'reset'
+			let p = exitParams[i] if exit else loopParams[i]
+			names[regIndex(p)] = p
+		end 'reset'
+	end 'renameAs'
+
+	// newReg is a new register of f, which every table by register has room for.
+	function newReg(mutates self, mutates f ir.IrFunction, kind ir.IrKind) returns ir.Reg
+		let r = f.newReg(kind)
+		names.push(r)
+		paramMark.push(noParam)
+		readCount.push(0)
+		readElsewhere.push(false)
+		return r
+	end 'newReg'
+
+	// countAs adds by to the count of reads of each register in regs: what changes when a latch's jump becomes a copy of
+	// the test, so that a later loop's parameters are counted as they are read now. A register made since the reads were
+	// counted is no loop's header parameter, and a read renamed to one is no longer a read of one, so neither is counted.
+	function countAs(mutates self, by bool)
+		for i in 0 upto regs.count() 'each'
+			let r = regIndex(regs[i])
+			if r >= counted 'new'
+				continue 'each'
+			end 'new'
+			if by 'more'
+				readCount[r] = plusOne(readCount[r])
+			end 'more' else 'fewer'
+				readCount[r] = try readCount[r] - 1 otherwise panic("opt: a read that was not counted")
+			end 'fewer'
+		end 'each'
+	end 'countAs'
+
+	// copyTest replaces the jump of latch to the header hb with a copy of the header's instructions and its branch, reading
+	// what the jump passed where the header read its parameters.
+	function copyTest(mutates self, mutates f ir.IrFunction, hb Count, latch Count, into ir.BlockID)
+		let start = ir.jumpArgsStart(f.blocks[latch].term)
+		regs.clear()
+		ir.termReads(f, t: f.blocks[latch].term, out: regs)
+		self.countAs(false)
+		for i in 0 upto f.blocks[hb].paramCount 'params'
+			let p = regIndex(f.blockParam(hb, i: i))
+			names[p] = f.args[sum(start, b: i)]
+		end 'params'
+		copied.clear()
+		for k in f.blocks[hb].first upto f.blocks[hb].endAt 'defs'
+			let dst = f.instrs[k].dst
+			if dst != ir.noReg 'value'
+				let kind = f.regs[regIndex(dst)]
+				let fresh = self.newReg(f, kind: kind)
+				names[regIndex(dst)] = fresh
+				copied.push(dst)
+			end 'value'
+		end 'defs'
+		regs.clear()
+		for k in f.blocks[hb].first upto f.blocks[hb].endAt 'copy'
+			var x = f.instrs[k].clone()
+			ir.renameInstrReads(x, args: f.args, names: names)
+			if x.dst != ir.noReg 'value'
+				x.dst = names[regIndex(x.dst)]
+			end 'value'
+			ir.instrReads(f, x: x, out: regs)
+			editor.append(latch, x: x)
+		end 'copy'
+		// The copy's branch: the header's, read through names, each edge passing what the jump passed for the parameters
+		// that its target was given.
+		let t = f.blocks[hb].term.clone()
+		let cond = names[regIndex(ir.branchCond(t))]
+		let trueStart = f.args.count()
+		self.copyEdgeArgs(f, start: ir.branchTrueArgsStart(t), count: ir.branchTrueArgsCount(t), target: ir.branchIfTrue(t), into: into, jumpStart: start, hb: hb)
+		let middle = f.args.count()
+		self.copyEdgeArgs(f, start: ir.branchFalseArgsStart(t), count: ir.branchFalseArgsCount(t), target: ir.branchIfFalse(t), into: into, jumpStart: start, hb: hb)
+		let falseCount = try f.args.count() - middle otherwise panic("opt: arguments out of order")
+		f.blocks[latch].term = ir.newBranchWith(cond, ifTrue: ir.branchIfTrue(t), trueArgsStart: ir.indexOf(trueStart), trueArgsCount: ir.indexOf(try middle - trueStart otherwise panic("opt: arguments out of order")), ifFalse: ir.branchIfFalse(t), falseArgsCount: ir.indexOf(falseCount))
+		ir.termReads(f, t: f.blocks[latch].term, out: regs)
+		self.countAs(true)
+		for i in 0 upto f.blocks[hb].paramCount 'reset'
+			let p = f.blockParam(hb, i: i)
+			names[regIndex(p)] = p
+		end 'reset'
+		for i in 0 upto copied.count() 'resetDefs'
+			let d = copied[i]
+			names[regIndex(d)] = d
+		end 'resetDefs'
+	end 'copyTest'
+
+	// copyEdgeArgs appends to args the arguments of an edge of the header's branch, read through names, followed by what
+	// the latch's jump passed for each header parameter that the edge's target was given one for.
+	function copyEdgeArgs(mutates self, mutates f ir.IrFunction, start Count, count Count, target ir.BlockID, into ir.BlockID, jumpStart Count, hb Count)
+		for i in 0 upto count 'args'
+			let r = f.args[sum(start, b: i)]
+			let named = names[regIndex(r)]
+			f.args.push(named)
+		end 'args'
+		let toLoop = target == into
+		let given = loopParams.count() if toLoop else exitParams.count()
+		for i in 0 upto given 'given'
+			let p = loopParams[i] if toLoop else exitParams[i]
+			let r = names[regIndex(p)]
+			f.args.push(r)
+		end 'given'
+	end 'copyEdgeArgs'
+end 'Rotator'
