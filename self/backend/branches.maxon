@@ -16,9 +16,16 @@ export type BlockLayout
 	var flagsLiveAfter as BoolList
 	// framed is whether the function needs a frame of its own: its rbp-based slots, a spill, a call or the stack.
 	var framed as bool
+	// position is where each block is in order. loopEnd is, for the head of a loop as the code runs it, the position past
+	// the last block that branches back to it, and 0 for any other block; heads says whether there is a loop. starts are
+	// where the encoding of the function without padding put the block at each position, and past the last, its end.
+	var position as CountList
+	var loopEnd as CountList
+	var heads as bool
+	var starts as CountList
 
 	export static function new() returns BlockLayout
-		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), framed: true}
+		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), framed: true, position: CountList.create(0), loopEnd: CountList.create(0), heads: false, starts: CountList.create(0)}
 	end 'new'
 
 	function plan(mutates self, fn MirFunction)
@@ -33,13 +40,55 @@ export type BlockLayout
 			for o in 0 upto fn.order.count() 'asWritten'
 				order.push(fn.order[o])
 			end 'asWritten'
-			return
-		end 'fallsThrough'
-		self.resolveJumps(fn)
-		order.push(fn.order[0])
-		self.place(fn, cold: false)
-		self.place(fn, cold: true)
+		end 'fallsThrough' else 'reordered'
+			self.resolveJumps(fn)
+			order.push(fn.order[0])
+			self.place(fn, cold: false)
+			self.place(fn, cold: true)
+		end 'reordered'
+		self.findLoopHeads(fn)
 	end 'plan'
+
+	// findLoopHeads finds the head of each loop as the code runs it: a block of a loop that a branch of a hot block laid
+	// out at or after it goes back to, so the branch that closes the loop reaches it each time round, and the last such
+	// block, which ends the loop's code. A block that is not laid out is after every block.
+	function findLoopHeads(mutates self, fn MirFunction)
+		let blocks = fn.blocks.count()
+		ir.resetCounts(loopEnd, n: blocks)
+		heads = false
+		position.clear()
+		for _ in 0 upto blocks 'unplaced'
+			position.push(blocks)
+		end 'unplaced'
+		for pos in 0 upto order.count() 'positions'
+			position[order[pos] as Count] = pos
+		end 'positions'
+		for pos in 0 upto order.count() 'blocks'
+			let b = order[pos] as Count
+			if fn.blocks[b].likelihood == Likelihood.cold 'cold'
+				continue 'blocks'
+			end 'cold'
+			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+				if fn.instrs[k].kind == MKind.target and fn.instrs[k].ref == MRef.edge 'branch'
+					let target = resolved[fn.edges[refIndex(fn.instrs[k])].target as Count] as Count
+					if position[target] <= pos and fn.blocks[target].loopDepth > 0 'back'
+						loopEnd[target] = nextCount(pos)
+						heads = true
+					end 'back'
+				end 'branch'
+			end 'instrs'
+		end 'blocks'
+	end 'findLoopHeads'
+
+	// isLoopHead is whether the block at a position of order heads a loop.
+	function isLoopHead(pos Count) returns bool
+		return loopEnd[order[pos] as Count] != 0
+	end 'isLoopHead'
+
+	// loopBytes is how long the code of the loop headed by the block at a position of order was without padding.
+	function loopBytes(pos Count) returns Count
+		return try starts[loopEnd[order[pos] as Count]] - starts[pos] otherwise panic("backend: a loop that ends before its head")
+	end 'loopBytes'
 
 	// label is the label a branch along an edge goes to.
 	function label(fn MirFunction, edge Count) returns LabelID

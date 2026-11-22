@@ -5,7 +5,7 @@ let modulus = 1000000007 as Word
 
 let iterations = 100000000 as Word
 
-function main() returns ExitCode
+function work() returns ExitCode
 	var i = 0 as Word
 	var sum = 0 as Word
 	while i < iterations 'each'
@@ -14,6 +14,15 @@ function main() returns ExitCode
 	end 'each'
 	print("{sum}\n")
 	return 0
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let started = Clock.nowNanos()
+	let code = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("work ns {elapsed}\n")
+	return code
 end 'main'
 
 //> 498245273

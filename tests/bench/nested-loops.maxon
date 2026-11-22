@@ -9,7 +9,7 @@ let rounds = 1000 as Count
 
 let modulus = 1000003 as Word
 
-function main() returns ExitCode
+function work() returns ExitCode
 	var cells = Words.filled(size, value: 1)
 	for round in 0 upto rounds 'rounds'
 		for i in 1 upto size 'cells'
@@ -29,6 +29,15 @@ function main() returns ExitCode
 	end 'sum'
 	print("{checksum}\n")
 	return 0
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let started = Clock.nowNanos()
+	let code = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("work ns {elapsed}\n")
+	return code
 end 'main'
 
 //> 529894

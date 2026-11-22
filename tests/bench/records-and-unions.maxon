@@ -32,7 +32,7 @@ function weight(s Shape) returns Word
 	end 'weight'
 end 'weight'
 
-function main() returns ExitCode
+function work() returns ExitCode
 	var shapes = Shapes.create(0)
 	for i in 0 upto count 'build'
 		let p = Point.make(i as Word, y: try ((i as Word) * 7) mod modulus otherwise panic("point overflowed"))
@@ -52,6 +52,15 @@ function main() returns ExitCode
 	end 'rounds'
 	print("{checksum}\n")
 	return 0
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let started = Clock.nowNanos()
+	let code = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("work ns {elapsed}\n")
+	return code
 end 'main'
 
 //> 753546

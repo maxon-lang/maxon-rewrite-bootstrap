@@ -24,7 +24,7 @@ let localDataVariable = "LOCALAPPDATA"
 // entryMagic and entryFormat begin every entry, so that a file of another kind or of an earlier layout is no entry.
 let entryMagic = "minimaxon build cache entry"
 
-let entryFormat = 1 as Count
+let entryFormat = 2 as Count
 
 let entryExtension = ".entry"
 

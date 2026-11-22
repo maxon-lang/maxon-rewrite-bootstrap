@@ -224,10 +224,13 @@ failures are listed, and the exit code is 0 when nothing failed. With `--verbose
 
 `tests/bench/` holds the benchmarks: a counted loop, nested loops over an array, string building, records and unions, and a
 recursive function, each deterministic and ending in the checksum it prints (its `//>` line). The corpus runner leaves
-the directory out, since the programs run long enough to time. `.\bench.ps1 [-Compiler bin\minimaxon.exe]` builds each with
-the compiler and prints a table of the executable's code size (`.text` bytes, read from the PE section header by
-`textsize.ps1`) and its best run time of three, and reports a program whose output is not its checksum; it is how a change
-to the code generator is measured. `.\selftime.ps1` records the `.text` bytes of the compiler it built in `docs/self-compile-times.md`.
+the directory out, since the programs run long enough to time. Each times its work with `Clock.nowNanos` and prints it last,
+as a `work ns` line. `.\bench.ps1 [-Compiler bin\minimaxon.exe] [-Target x64-windows|x64-linux] [-Runs 7]` builds each with
+the compiler and prints a table of the executable's code size (`.text` bytes, read from the PE section header, or the ELF
+code segment, by `textsize.ps1`), the best time of its work and of its process over the runs, each with the spread of the
+runs, and reports a program whose output is not its checksum; it is how a change to the code generator is measured. The
+process is started with `CreateProcessW`, its output going to a file, and for `x64-linux` from a copy in WSL's `/tmp` by a
+shell there, so neither PowerShell nor the start of WSL is in the time. `.\selftime.ps1` records the `.text` bytes of the compiler it built in `docs/self-compile-times.md`.
 
 Directives in comments say what the program must do:
 
@@ -1453,7 +1456,12 @@ nothing.
   whole list with one exchange when a class of its runs out, as mimalloc's thread-free list works; only the owner takes, and
   takes everything, so no push meets a box taken and pushed again. A mask over the address would save the header word, but
   HeapAlloc gives no alignment to a chunk's size, so a large box would carry up to a chunk of padding or every free a lookup
-  in a map of the address space.
+  in a map of the address space. On Linux a large box's block is pages of its own, whole pages long, and a freed one is kept
+  by the freeing thread's heap (up to 32 blocks and 4 MB, the one kept longest given back first to make room), and the
+  shortest kept block that holds a large box and is at most a quarter longer serves it, its box zeroed; so a program that
+  grows and drops buffers maps and unmaps no pages for each (the array-indexing benchmark made 1,875 mmaps, now 61, and
+  `build self` 6,782, now about 3,800). Windows' process heap keeps freed blocks itself, and a heap of its own showed no
+  gain there.
 - **Counting allocations.** The runtime knows the heap boxes that are allocated and not freed in every executable, so the
   runtime is the same code whatever the build: each heap counts the slots it carves and the large boxes it holds, less those
   it frees, and the live boxes are the sum over the threads' heaps less the slots on their stacks and lists
@@ -1608,6 +1616,18 @@ straight on; a jump to the block laid out next is left out, and a conditional br
 the other way. Where the flags are dead after it, a constant 0 is the 32-bit `xor` of the register with itself, and a copy
 followed by the addition or subtraction of a constant to the copied register (the copy allocation makes of a two-address
 form's operand that lives on) is one `lea`.
+
+Code is placed by its lines (`align.maxon`): x64 fetches code and caches its decoded operations by 64-byte lines, and code
+that runs through one more line than its length needs costs that line each time it runs (on a Zen 3 the same loop took 150
+or 195 ms, and the same recursive function 140 or 152 ms, by where the line breaks fell). The head of a loop as the code runs
+it (a block that a hot block laid out at or after it branches back to) is padded with the fewest of the x64 table's
+recommended multi-byte nops to the start of the next line when that has the loop, from its head to the end of the last block
+that branches back, span one line fewer (`fitLine`); a function with a loop is encoded twice for that, first without padding
+to measure its loops, and its section starts on a line, which the padding is computed from. The link starts every section
+on 16 bytes, and moves one to the next line when that has it span one line fewer; it starts each unit, and the image its
+code, on a line, and fills the gaps with `int3`. A section carries the boundary it asks for (`CodeSection.alignment`), which
+the build cache keeps with it. Against none of this, the code of `self` is 7% larger and the spread of a loop's time over
+where it lands went from 48 ms to 3 ms.
 
 #### Liveness, spilling and E5001
 

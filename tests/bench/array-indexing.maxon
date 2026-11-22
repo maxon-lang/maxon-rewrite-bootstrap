@@ -10,7 +10,7 @@ let rounds = 20000 as Count
 
 let spread = 1000 as Count
 
-function main() returns ExitCode
+function work() returns ExitCode
 	var a = Words.create(0)
 	var text = ""
 	for i in 0 upto size 'fill'
@@ -31,6 +31,15 @@ function main() returns ExitCode
 	end 'rounds'
 	print("{sum} {high}\n")
 	return 0
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let started = Clock.nowNanos()
+	let code = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("work ns {elapsed}\n")
+	return code
 end 'main'
 
 //> 99900000000 100000000

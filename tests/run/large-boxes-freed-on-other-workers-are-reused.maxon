@@ -1,0 +1,49 @@
+// Large boxes, past the heap's size classes, made by behaviours on several workers and dropped by others: each behaviour
+// builds a string by doubling, whose larger halves are large boxes, and puts it in place of the cown's last one, which
+// another worker may have made. A freed large block is kept by the thread that freed it and reused, and none is lost or
+// counted twice.
+//> 16384 16384 16384 16384
+
+type Text
+	export var s as String
+
+	static function make() returns Text
+		return Text{s: ""}
+	end 'make'
+end 'Text'
+
+let doublings = 10 as Count
+
+let rounds = 40 as Count
+
+function grow(c cown with Text, seed Count)
+	for r in 0 upto rounds 'each'
+		let mine = share(c)
+		when mine as t 'grow'
+			var next = "{seed}{r mod 10}23456789abcdef"
+			for _ in 0 upto doublings 'double'
+				next = "{next}{next}"
+			end 'double'
+			t.s = next
+		end 'grow'
+	end 'each'
+end 'grow'
+
+function lengths(a cown with Text, b cown with Text, c cown with Text, d cown with Text)
+	when a, b, c, d as w, x, y, z 'lengths'
+		print("{w.s.byteLength()} {x.s.byteLength()} {y.s.byteLength()} {z.s.byteLength()}\n")
+	end 'lengths'
+end 'lengths'
+
+function main() returns ExitCode
+	let a = cown(Text.make())
+	let b = cown(Text.make())
+	let c = cown(Text.make())
+	let d = cown(Text.make())
+	grow(a, seed: 1)
+	grow(b, seed: 2)
+	grow(c, seed: 3)
+	grow(d, seed: 4)
+	lengths(a, b: b, c: c, d: d)
+	return 0
+end 'main'

@@ -1,23 +1,43 @@
 // The encoder of machine IR: an allocated function, every operand physical, into a code unit, with the same label
 // uses and fixups for the linker as the rest of the backend writes. The blocks are laid out as a BlockLayout plans
 // (branches.maxon), which also says where the flags are dead: there a constant 0 is the short exclusive or, and a copy
-// before the addition of a constant to it is one lea.
+// before the addition of a constant to it is one lea. The head of a loop is placed by fitLine (align.maxon).
 
 // machinePageSize is how far the stack may grow past the last page it touched: a frame bigger than that touches each
 // page on the way down, so the guard page is met in order.
 let machinePageSize = 4096
 
 // encodeMachineFunction writes a function whose registers are allocated into the unit, as a section of its own, and
-// defines its symbol.
+// defines its symbol. A function with a loop is written twice: first without padding, which gives each loop's length, and
+// then for good, with each loop's head placed so that the loop spans no more lines of code than its length needs.
 export function encodeMachineFunction(mutates u CodeUnit, fn MirFunction, instance bool, mutates lay BlockLayout)
 	lay.plan(fn)
 	u.beginSection()
+	if lay.heads 'loops'
+		lay.starts.clear()
+		encodeBlocks(u, fn: fn, lay: lay, measure: true)
+		u.rewindSection()
+		u.alignSection(codeLineBytes)
+	end 'loops'
+	u.defineFunction(fn.symbol, instance: instance)
+	encodeBlocks(u, fn: fn, lay: lay, measure: false)
+end 'encodeMachineFunction'
+
+// encodeBlocks writes the blocks of fn in the order of the layout. Measuring, it notes where each starts in lay.starts and
+// pads nothing; otherwise it pads before the head of each loop as fitLine says.
+function encodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout, measure bool)
 	for _ in 0 upto fn.blocks.count() 'labels'
 		_ = u.asm.newLabel()
 	end 'labels'
-	u.defineFunction(fn.symbol, instance: instance)
 	for pos in 0 upto lay.order.count() 'blocks'
 		let b = lay.order[pos]
+		if measure 'note'
+			lay.starts.push(u.sectionOffset())
+		end 'note' else 'pad'
+			if lay.isLoopHead(pos) 'loop'
+				encodeNops(u.asm.code, bytes: fitLine(u.sectionOffset(), bytes: lay.loopBytes(pos)))
+			end 'loop'
+		end 'pad'
 		u.asm.bind(b as LabelID)
 		var next = noNextBlock
 		if pos + 1 < lay.order.count() 'follows'
@@ -28,7 +48,10 @@ export function encodeMachineFunction(mutates u CodeUnit, fn MirFunction, instan
 			k = encodeAt(u, fn: fn, lay: lay, k: k, stop: fn.blocks[b as Count].endAt, next: next)
 		end 'instrs'
 	end 'blocks'
-end 'encodeMachineFunction'
+	if measure 'end'
+		lay.starts.push(u.sectionOffset())
+	end 'end'
+end 'encodeBlocks'
 
 // noNextBlock is the block after the last one laid out, which no branch goes to.
 let noNextBlock = -1 as ir.Index

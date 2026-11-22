@@ -57,6 +57,11 @@ const (
 	fsSegmentPrefix = 0x64
 	// repPrefix is also the mandatory prefix of pause, which is a rep nop.
 	repPrefix = 0xF3
+	// nopOpcode is the second byte of the multi-byte nop, 0F 1F /0, and oneByteNop the nop of one byte.
+	nopOpcode  = 0x1F
+	oneByteNop = 0x90
+	// int3Opcode is the one-byte trap.
+	int3Opcode = 0xCC
 )
 
 // constant is a name and the value that the generated Maxon gives it.
@@ -571,7 +576,7 @@ func buildForms() []form {
 			setsFlags: true, readsMemory: true, writesMemory: true,
 			fixedUses: []string{"rax"}, fixedDefs: []string{"rax"},
 		},
-		form{name: "Pause", mnemonic: "pause", prefix: []byte{repPrefix}, opcode: []byte{0x90}, effects: noEffects},
+		form{name: "Pause", mnemonic: "pause", prefix: []byte{repPrefix}, opcode: []byte{oneByteNop}, effects: noEffects},
 		form{
 			name: "LoadRegGsBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			prefix: []byte{gsSegmentPrefix}, rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
@@ -593,7 +598,36 @@ func buildForms() []form {
 			opcode: []byte{opcodeHigh, 0x80}, effects: readsFlag,
 		},
 	)
-	return append(fs, sseForms()...)
+	return append(append(fs, sseForms()...), fillForms()...)
+}
+
+// fillForms fill code up to a boundary. int3 fills a gap that nothing runs, between functions, so that a stray jump into
+// one traps. The nops pad code that may run, before a loop's head, one instruction of each length up to the longest the
+// Intel manual recommends (vol. 2B, NOP), as AMD's optimization guide recommends them too: 0F 1F /0 with a memory operand
+// of rax, whose ModRM byte, SIB byte and zero displacement give the length, and the operand-size prefix for one byte more.
+// The operand is never read, so its bytes are fixed and stand in the opcode.
+func fillForms() []form {
+	const (
+		raxOnly       = 0x00 // ModRM [rax], or a SIB byte of rax indexed by rax at scale 1
+		zeroDisp8     = 0x00
+		raxIndexedSib = 0x00
+	)
+	nop := func(name string, prefix []byte, opcode ...byte) form {
+		return form{name: name, mnemonic: "nop", prefix: prefix, opcode: opcode, effects: noEffects}
+	}
+	zeroDisp32 := []byte{0, 0, 0, 0}
+	return []form{
+		{name: "Int3", mnemonic: "int3", opcode: []byte{int3Opcode}, effects: noEffects},
+		nop("Nop1", nil, oneByteNop),
+		nop("Nop2", []byte{operandSizePrefix}, oneByteNop),
+		nop("Nop3", nil, opcodeHigh, nopOpcode, raxOnly),
+		nop("Nop4", nil, opcodeHigh, nopOpcode, modDisp8, zeroDisp8),
+		nop("Nop5", nil, opcodeHigh, nopOpcode, modDisp8|sibFollows, raxIndexedSib, zeroDisp8),
+		nop("Nop6", []byte{operandSizePrefix}, opcodeHigh, nopOpcode, modDisp8|sibFollows, raxIndexedSib, zeroDisp8),
+		nop("Nop7", nil, append([]byte{opcodeHigh, nopOpcode, modDisp32}, zeroDisp32...)...),
+		nop("Nop8", nil, append([]byte{opcodeHigh, nopOpcode, modDisp32 | sibFollows, raxIndexedSib}, zeroDisp32...)...),
+		nop("Nop9", []byte{operandSizePrefix}, append([]byte{opcodeHigh, nopOpcode, modDisp32 | sibFollows, raxIndexedSib}, zeroDisp32...)...),
+	}
 }
 
 // sseForms are the SSE2 forms of the floats, which are in xmm registers: a form that names only xmm registers has them

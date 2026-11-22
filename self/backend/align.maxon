@@ -1,0 +1,72 @@
+// Where code starts, so that the time code takes depends on the code alone and not on where the link happened to place
+// it. An x64 processor fetches code and caches its decoded operations by lines of codeLineBytes, and a loop or a call that
+// runs through one more line than its length needs costs that line each time round: measured on a Zen 3, the same loop
+// took 150 or 195 ms and the same recursive function 140 or 152 ms by where the line breaks fell. So a function starts on
+// functionAlignment, and a function, or the code of a loop from its head to the last branch back to it, that would run
+// into one more line than its length needs is moved to the start of the next line (fitLine); a function with a loop starts
+// on a line, which its loops are placed from. A function's padding is never run; a loop's runs once each time the loop is
+// entered from above, as the fewest nops.
+
+// functionAlignment is the boundary every function starts on.
+let functionAlignment = 16 as Count
+
+// codeLineBytes is the line of code that a fetch reads and the cache of decoded operations holds, and the boundary the
+// image starts its code on and the link each unit's, so that a place in a line of a unit is the same place in memory.
+let codeLineBytes = 64 as Count
+
+// longestNop is the length of the longest nop of the x64 table.
+let longestNop = 9 as Count
+
+// fitLine is the padding that moves code of a length from offset to the start of the next line, when that has it span one
+// line fewer, and 0 otherwise.
+function fitLine(offset Count, bytes Count) returns Count
+	let padding = paddingTo(offset, alignment: codeLineBytes)
+	if linesSpanned(offset, bytes: bytes) > linesSpanned(0, bytes: bytes) 'saves'
+		return padding
+	end 'saves'
+	return 0
+end 'fitLine'
+
+// linesSpanned is how many lines code of a length at offset runs into.
+function linesSpanned(offset Count, bytes Count) returns Count
+	let into = offset mod codeLineBytes
+	return try (into + bytes + codeLineBytes - 1) / codeLineBytes otherwise panic("backend: code past memory")
+end 'linesSpanned'
+
+// paddingTo is how many bytes take offset up to the next multiple of alignment.
+function paddingTo(offset Count, alignment Count) returns Count
+	let over = try offset mod alignment otherwise panic("backend: an alignment of 0")
+	if over == 0 'aligned'
+		return 0
+	end 'aligned'
+	return try alignment - over otherwise panic("backend: a remainder past its divisor")
+end 'paddingTo'
+
+// encodeNops writes the fewest nops that are bytes long: the longest ones, then one of the rest.
+function encodeNops(mutates code ByteArray, bytes Count)
+	var left = bytes
+	while left > longestNop 'longest'
+		encodeNop9(code)
+		left = try left - longestNop otherwise panic("backend: nops below zero")
+	end 'longest'
+	match left 'length'
+		0 then return
+		1 then encodeNop1(code)
+		2 then encodeNop2(code)
+		3 then encodeNop3(code)
+		4 then encodeNop4(code)
+		5 then encodeNop5(code)
+		6 then encodeNop6(code)
+		7 then encodeNop7(code)
+		8 then encodeNop8(code)
+		9 then encodeNop9(code)
+		default then panic("backend: a nop of {left} bytes, past the longest")
+	end 'length'
+end 'encodeNops'
+
+// encodeInt3s fills bytes of code that nothing runs with the one-byte trap, so that a stray jump into them stops there.
+function encodeInt3s(mutates code ByteArray, bytes Count)
+	for _ in 0 upto bytes 'each'
+		encodeInt3(code)
+	end 'each'
+end 'encodeInt3s'

@@ -2,8 +2,6 @@
 // code and the pieces of data that the entry reaches, as Go's linker does: every function is compiled, and what nothing
 // calls is dropped here. The layout follows the order of the units, and of the sections and pieces in each.
 
-let linkCodeAlignment = 16 as Count
-
 let linkDataAlignment = 8 as Count
 
 let importSlotBytes = 8 as Count
@@ -107,7 +105,7 @@ end 'zeros'
 function newLinkUnit(u CodeUnit) returns LinkUnit
 	var sections = CodeSectionList.create(0)
 	if u.sections.count() == 0 'single'
-		sections.push(CodeSection.make(0, symbolFixups: 0, dataFixups: 0, importFixups: 0))
+		sections.push(CodeSection.make(0, symbolFixups: 0, dataFixups: 0, importFixups: 0, alignment: functionAlignment))
 	end 'single' else 'several'
 		if u.sections[0].code != 0 'before'
 			panic("link: a unit has code before its first section")
@@ -116,7 +114,7 @@ function newLinkUnit(u CodeUnit) returns LinkUnit
 			sections.push(u.sections[i].clone())
 		end 'copy'
 	end 'several'
-	sections.push(CodeSection.make(u.asm.code.count(), symbolFixups: u.asm.symbolFixups.count(), dataFixups: u.asm.dataFixups.count(), importFixups: u.asm.importFixups.count()))
+	sections.push(CodeSection.make(u.asm.code.count(), symbolFixups: u.asm.symbolFixups.count(), dataFixups: u.asm.dataFixups.count(), importFixups: u.asm.importFixups.count(), alignment: functionAlignment))
 	var sectionStarts = CountList.create(0)
 	for i in 0 upto sections.count() 'starts'
 		sectionStarts.push(sections[i].code)
@@ -223,7 +221,7 @@ export function link(units LinkUnits, entry String, system ast.TargetSystem, map
 	if mapsSymbols 'map'
 		symbolMap = symbolMapText(links, units: units, symbols: symbols, defined: defined, textRva: image.textRva, codeSize: sizes.code)
 	end 'map'
-	var code = ByteArray.create(sizes.code)
+	var code = ByteArray.create(0)
 	var data = ByteArray.create(sizes.data)
 	for i in 0 upto links.count() 'copy'
 		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image)
@@ -463,7 +461,7 @@ function layOut(mutates links LinkUnitList) returns LinkSizes
 	for i in 0 upto links.count() 'units'
 		place(links[i])
 		if links[i].hasCode 'code'
-			codeSize = alignUp(codeSize, alignment: linkCodeAlignment)
+			codeSize = alignUp(codeSize, alignment: codeLineBytes)
 		end 'code'
 		links[i].codeBase = codeSize
 		codeSize = try codeSize + links[i].codeSize otherwise panic("link: code past memory")
@@ -480,9 +478,15 @@ end 'layOut'
 function place(mutates l LinkUnit)
 	for s in 0 upto l.liveCode.count() 'sections'
 		if l.liveCode[s] 'live'
-			l.hasCode = true
-			l.codeAt[s] = l.codeSize
+			let alignment = l.sections[s].alignment
+			if alignment > codeLineBytes or alignment == 0 'boundary'
+				panic("link: a section that asks for a boundary of {alignment} bytes, which the image does not start its code on")
+			end 'boundary'
 			let length = try l.sections[s + 1].code - l.sections[s].code otherwise panic("link: a section that ends before it starts")
+			l.hasCode = true
+			l.codeSize = alignUp(l.codeSize, alignment: alignment)
+			l.codeSize = try l.codeSize + fitLine(l.codeSize, bytes: length) otherwise panic("link: code past memory")
+			l.codeAt[s] = l.codeSize
 			l.codeSize = try l.codeSize + length otherwise panic("link: code past memory")
 		end 'live'
 	end 'sections'
@@ -517,6 +521,13 @@ function copyRange(mutates dest ByteArray, at Count, src ByteArray, begin Count,
 	end 'each'
 end 'copyRange'
 
+// appendRange puts the bytes of src from one offset up to another at the end of dest.
+function appendRange(mutates dest ByteArray, src ByteArray, begin Count, finish Count)
+	for i in begin upto finish 'each'
+		dest.push(src[i])
+	end 'each'
+end 'appendRange'
+
 // linkPatch makes the 32-bit field at pos of the code, which sits at textRva, reach target, an address of the image. The
 // field counts from its own end.
 function linkPatch(mutates code ByteArray, pos Count, textRva Count, target Count)
@@ -526,7 +537,8 @@ function linkPatch(mutates code ByteArray, pos Count, textRva Count, target Coun
 end 'linkPatch'
 
 // copyAndPatch puts the live sections and pieces of a unit, u at place unit of the layout, into the code and the data of the
-// image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it.
+// image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it. The units
+// come in the order of their places, so the code is written in that order, with traps in the gaps that align a section.
 function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image)
 	let l = links[unit].clone()
 	for p in 0 upto l.liveData.count() 'data'
@@ -541,7 +553,8 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 		let begin = l.sections[s].clone()
 		let finish = l.sections[s + 1].clone()
 		let at = try l.codeBase + l.codeAt[s] otherwise panic("link: code past memory")
-		copyRange(code, at: at, src: u.asm.code, begin: begin.code, finish: finish.code)
+		encodeInt3s(code, bytes: try at - code.count() otherwise panic("link: sections out of the order of their places"))
+		appendRange(code, src: u.asm.code, begin: begin.code, finish: finish.code)
 		for j in begin.dataFixups upto finish.dataFixups 'dataFixups'
 			let fixup = u.asm.dataFixups[j].clone()
 			let piece = l.dataPieces[j]

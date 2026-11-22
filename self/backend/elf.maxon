@@ -15,9 +15,6 @@ let elfProgramHeaderBytes = 56 as Count
 
 let elfProgramHeaderCount = 2 as Count
 
-// elfCodeAlignment is the alignment of the code's start, which the link lays its sections out from.
-let elfCodeAlignment = 16 as Count
-
 // elfEmptyDataBytes is the data segment of a program with no data: a PT_LOAD with no bytes in the file is one a loader may
 // refuse, as maxon's writer notes.
 let elfEmptyDataBytes = 8 as Count
@@ -57,7 +54,7 @@ let elfNoSections = 0 as Count
 // table here.
 export function buildElfImage(layout ImageLayout) returns Image
 	let headersSize = sum(elfHeaderBytes, b: product(elfProgramHeaderBytes, b: elfProgramHeaderCount))
-	let codeOffset = alignUp(headersSize, alignment: elfCodeAlignment)
+	let codeOffset = alignUp(headersSize, alignment: codeLineBytes)
 	let codeEnd = sum(codeOffset, b: layout.codeSize)
 	let dataOffset = alignUp(codeEnd, alignment: elfPageBytes)
 	let dataLength = layout.dataSize if layout.dataSize > 0 else elfEmptyDataBytes

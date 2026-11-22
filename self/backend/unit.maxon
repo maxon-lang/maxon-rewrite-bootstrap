@@ -114,15 +114,17 @@ end 'SymbolDef'
 export typealias SymbolDefList = Array with SymbolDef
 
 // CodeSection is where a part of a unit's code begins, and where its fixups of each kind begin, which are in the order of
-// their positions.
+// their positions, and the boundary the link starts it on: the code in it is aligned from its start, so it is aligned in
+// the image only on that boundary.
 export type CodeSection
 	export var code as Count
 	export var symbolFixups as Count
 	export var dataFixups as Count
 	export var importFixups as Count
+	export var alignment as Count
 
-	export static function make(code Count, symbolFixups Count, dataFixups Count, importFixups Count) returns CodeSection
-		return CodeSection{code: code, symbolFixups: symbolFixups, dataFixups: dataFixups, importFixups: importFixups}
+	export static function make(code Count, symbolFixups Count, dataFixups Count, importFixups Count, alignment Count) returns CodeSection
+		return CodeSection{code: code, symbolFixups: symbolFixups, dataFixups: dataFixups, importFixups: importFixups, alignment: alignment}
 	end 'make'
 end 'CodeSection'
 
@@ -581,8 +583,34 @@ export type CodeUnit
 	// sections only through symbols.
 	export function beginSection(mutates self)
 		asm.endLabels()
-		sections.push(CodeSection.make(asm.pos(), symbolFixups: asm.symbolFixups.count(), dataFixups: asm.dataFixups.count(), importFixups: asm.importFixups.count()))
+		sections.push(CodeSection.make(asm.pos(), symbolFixups: asm.symbolFixups.count(), dataFixups: asm.dataFixups.count(), importFixups: asm.importFixups.count(), alignment: functionAlignment))
 	end 'beginSection'
+
+	// sectionOffset is how far the code written next is from the start of the section begun last.
+	function sectionOffset() returns Count
+		return try asm.pos() - sections[self.lastSection()].code otherwise panic("backend: code before its section")
+	end 'sectionOffset'
+
+	// rewindSection forgets the code, the references and the labels of the section begun last, so that it can be written
+	// again.
+	function rewindSection(mutates self)
+		let s = sections[self.lastSection()].clone()
+		asm.code.truncate(s.code)
+		asm.symbolFixups.truncate(s.symbolFixups)
+		asm.dataFixups.truncate(s.dataFixups)
+		asm.importFixups.truncate(s.importFixups)
+		asm.endLabels()
+	end 'rewindSection'
+
+	// alignSection has the link start the section begun last on a boundary, which its code was placed from.
+	function alignSection(mutates self, alignment Count)
+		let last = self.lastSection()
+		sections[last].alignment = maxOf(sections[last].alignment, b: alignment)
+	end 'alignSection'
+
+	function lastSection() returns Count
+		return try sections.count() - 1 otherwise panic("backend: code outside a section")
+	end 'lastSection'
 
 	export function defineData(mutates self, symbol String, size Count)
 		dataSymbols.push(SymbolDef.make(symbol.clone(), offset: data.reserve(size), instance: false))

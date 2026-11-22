@@ -62,7 +62,7 @@ function energy(x Reals, y Reals, z Reals, vx Reals, vy Reals, vz Reals, mass Re
 	return e
 end 'energy'
 
-function main() returns ExitCode
+function work() returns ExitCode
 	var a = Reals.create(0)
 	var b = Reals.create(0)
 	for i in 0 upto size 'fill'
@@ -95,6 +95,15 @@ function main() returns ExitCode
 	end 'steps'
 	print("{total} {energy(x, y: y, z: z, vx: vx, vy: vy, vz: vz, mass: mass)}\n")
 	return 0
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let started = Clock.nowNanos()
+	let code = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("work ns {elapsed}\n")
+	return code
 end 'main'
 
 //> 7417500.0 4.17563179860496
