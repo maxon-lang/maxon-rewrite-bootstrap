@@ -15,24 +15,24 @@ function failedSince(errs diag.ErrorList, mark Count) returns bool
 end 'failedSince'
 
 function offsetOf(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID) returns diag.U32
-	return ms.tree.reportStartOf(node)
+	return ms.tree().reportStartOf(node)
 end 'offsetOf'
 
 // exprOffset is where an expression starts, which is where maxon points for a value that is not what its place needs.
 function exprOffset(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID) returns diag.U32
-	return try ast.exprStart(ms.tree, e: node) as diag.U32 otherwise panic("an expression starts past the end of its module")
+	return try ast.exprStart(ms.tree(), e: node) as diag.U32 otherwise panic("an expression starts past the end of its module")
 end 'exprOffset'
 
 // braceOffset is where the brace of a struct literal opens, which is where maxon reports a field it leaves out: the
 // layout puts the brace right after the type name.
 function braceOffset(c Checker, p ast.Project, ms ast.ModuleState, literal ast.NodeID) returns diag.U32
-	return try ms.tree.startOf(literal) + (ast.structLitExprTypeName(ms.tree, id: literal).byteLength() as diag.U32) otherwise panic("a struct literal ends past its module")
+	return try ms.tree().startOf(literal) + (ast.structLitExprTypeName(ms.tree(), id: literal).byteLength() as diag.U32) otherwise panic("a struct literal ends past its module")
 end 'braceOffset'
 
 // closingOffset is where the parenthesis closing a call stands, which is where maxon reports the payload that a union case
 // is given of the wrong type.
 function closingOffset(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns diag.U32
-	match ast.exprEnd(ms.tree, e: call) 'end'
+	match ast.exprEnd(ms.tree(), e: call) 'end'
 		some(finish) then return try (finish - 1) as diag.U32 otherwise panic("a call ends past its module")
 		none then return exprOffset(c, p: p, ms: ms, node: call)
 	end 'end'
@@ -40,8 +40,8 @@ end 'closingOffset'
 
 // placeOffset is where maxon points for an assignment to a place: a field at its name, any other place at its start.
 function placeOffset(c Checker, p ast.Project, ms ast.ModuleState, place ast.NodeID) returns diag.U32
-	if ms.tree.kindOf(place) == ast.NodeKind.memberExpr 'field'
-		return ms.tree.memberNameStart(place)
+	if ms.tree().kindOf(place) == ast.NodeKind.memberExpr 'field'
+		return ms.tree().memberNameStart(place)
 	end 'field'
 	return exprOffset(c, p: p, ms: ms, node: place)
 end 'placeOffset'
@@ -101,8 +101,8 @@ function declareBounds(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	for i in 0 upto constraints.count() 'each'
 		let cs = constraints[i].clone()
 		let constrained = boundedParamOf(c, p: p, ms: ms, cs: cs)
-		for bi in 0 upto ms.tree.listLen(cs.bounds) 'bounds'
-			let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree.listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
+		for bi in 0 upto ms.tree().listLen(cs.bounds) 'bounds'
+			let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
 			if failedSince(errs, mark: mark) 'failed'
 				return
 			end 'failed'
@@ -164,8 +164,8 @@ end 'declareConforms'
 function conformedInterfaces(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, interfaces diag.U32, capabilities bool, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var named = ast.TypeIDList.create(0)
 	let mark = errs.count()
-	for i in 0 upto ms.tree.listLen(interfaces) 'each'
-		let tr = ms.tree.listAt(interfaces, index: i) as ast.NodeID
+	for i in 0 upto ms.tree().listLen(interfaces) 'each'
+		let tr = ms.tree().listAt(interfaces, index: i) as ast.NodeID
 		let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: tr, isBound: false, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return named
@@ -230,11 +230,11 @@ function errorOf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s
 	let off = offsetOf(c, p: p, ms: ms, node: site)
 	var unresolved = diag.ErrorList.create(0)
 	var t = ast.noType
-	if not ast.typeRefIsTuple(ms.tree, id: throwsRef) 'named'
+	if not ast.typeRefIsTuple(ms.tree(), id: throwsRef) 'named'
 		t = resolveNamedTypeRef(c, p: p, ms: ms, tr: throwsRef, selfTy: ast.noType, errs: unresolved)
 	end 'named'
 	if t == ast.noType 'unresolved'
-		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: diag.throwsNamesNoError(ast.typeRefName(ms.tree, id: throwsRef)), errs: errs)
+		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: diag.throwsNamesNoError(ast.typeRefName(ms.tree(), id: throwsRef)), errs: errs)
 		return ast.noType
 	end 'unresolved'
 	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.interfaceTy 'interface'
@@ -302,7 +302,7 @@ end 'declareSignature'
 // its declaration, which only a call or a case that infers the arguments accepts; requireInstance refuses it anywhere
 // else. A typealias of an instance names the instance. It reports why a 'Self' outside a type names none.
 function typeNamed(c Checker, p ast.Project, ms ast.ModuleState, name ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let spelling = ast.nameExprName(ms.tree, id: name)
+	let spelling = ast.nameExprName(ms.tree(), id: name)
 	if spelling == "Self" 'selfName'
 		if c.owner == ast.noType 'noOwner'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: name), code: diag.errUnknownType, msg: "'Self' names a type only inside one", errs: errs)
@@ -367,18 +367,18 @@ end 'defaultHead'
 // defaultType is the type a field's default value gives the field: its cast, a bool, a string, or the type the default
 // names to make a value of.
 function defaultType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let k = ms.tree.kindOf(e)
+	let k = ms.tree().kindOf(e)
 	if k == ast.NodeKind.castExpr 'cast'
-		return resolveTypeRef(c, p: p, ms: ms, tr: ast.castExprTarget(ms.tree, id: e), selfTy: selfTy, errs: errs)
+		return resolveTypeRef(c, p: p, ms: ms, tr: ast.castExprTarget(ms.tree(), id: e), selfTy: selfTy, errs: errs)
 	end 'cast'
 	if k == ast.NodeKind.boolLit 'bool'
 		return p.builtins.boolTy
 	end 'bool'
-	if k == ast.NodeKind.strLit and ms.tree.strIsPlain(ast.strLitPartsRef(ms.tree, id: e)) 'string'
+	if k == ast.NodeKind.strLit and ms.tree().strIsPlain(ast.strLitPartsRef(ms.tree(), id: e)) 'string'
 		return p.builtins.stringTy
 	end 'string'
-	let head = defaultHead(ms.tree, e: e)
-	if head != 0 and ms.tree.kindOf(head) == ast.NodeKind.nameExpr 'named'
+	let head = defaultHead(ms.tree(), e: e)
+	if head != 0 and ms.tree().kindOf(head) == ast.NodeKind.nameExpr 'named'
 		let mark = errs.count()
 		let nt = typeNamed(c, p: p, ms: ms, name: head, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'

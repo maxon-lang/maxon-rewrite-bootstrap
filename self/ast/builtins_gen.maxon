@@ -394,7 +394,7 @@ export function intrinsicMayOverlap(op Intrinsic) returns bool
 	return false
 end 'intrinsicMayOverlap'
 
-function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)
+function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)
 	declareBuiltinTypes(tt, reads: reads, std: std, b: b, typeMap: typeMap)
 	declareArrayMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareFixedArrayMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
@@ -421,7 +421,7 @@ function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	declareRawMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 end 'declareBuiltinTable'
 
-function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap)
+function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap)
 	var names1 = StringList.create(0)
 	names1.push("T")
 	b.arrayOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinArray, name: "Array", paramNames: names1)
@@ -583,7 +583,7 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std M
 	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty29)
 end 'declareBuiltinTypes'
 
-function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("count", ty: b.elementIndexTy, conv: Convention.convLet))
@@ -699,7 +699,7 @@ function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	ft.lists[funcList(ft, f: f60)][funcIndex(ft, f: f60)].errTy = b.arrayErrorTy
 end 'declareArrayMethods'
 
-function declareFixedArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareFixedArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.fixedArrayOrigin)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fixedArrayOrigin, op: Intrinsic.intrFixedArrayCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 	let ty2 = selfType(tt, reads: reads, declTy: b.fixedArrayOrigin)
@@ -763,7 +763,7 @@ function declareFixedArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates 
 	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].bounds.push(ParamBound.make(p34, ifaceTy: b.copyableTy))
 end 'declareFixedArrayMethods'
 
-function declareMapMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareMapMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.mapOrigin)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
@@ -806,7 +806,7 @@ function declareMapMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Func
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareMapMethods'
 
-function declareListMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareListMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.listOrigin)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
@@ -873,7 +873,7 @@ function declareListMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fun
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareListMethods'
 
-function declarePoolMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declarePoolMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.poolOrigin)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
@@ -899,7 +899,7 @@ function declarePoolMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fun
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declarePoolMethods'
 
-function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringByteLength, name: "byteLength", generics: TypeIDList.create(0), ret: b.countTy, params: ParamSpecList.create(0), declareInStd: false)
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].isStatic = false
@@ -1080,48 +1080,48 @@ function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft F
 	b.stringMethods.insert("toUpper", value: f44)
 end 'declareStringMethods'
 
-function declareByteViewMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareByteViewMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.byteViewTy, op: Intrinsic.intrByteViewCreateIterator, name: "createIterator", isStatic: false, selfConv: Convention.convLet, ret: b.byteIteratorTy, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].errTy = b.iterationErrorTy
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.byteViewTy, op: Intrinsic.intrByteViewCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareByteViewMethods'
 
-function declareByteIteratorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareByteIteratorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.byteIteratorTy, op: Intrinsic.intrByteIteratorCurrent, name: "current", isStatic: false, selfConv: Convention.convLet, ret: b.byteTy, params: ParamSpecList.create(0), listed: true)
 	let f1 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.byteIteratorTy, op: Intrinsic.intrByteIteratorAdvance, name: "advance", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].errTy = b.iterationErrorTy
 end 'declareByteIteratorMethods'
 
-function declareCodepointViewMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareCodepointViewMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.codepointViewTy, op: Intrinsic.intrCodepointViewCreateIterator, name: "createIterator", isStatic: false, selfConv: Convention.convLet, ret: b.codepointIteratorTy, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].errTy = b.iterationErrorTy
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.codepointViewTy, op: Intrinsic.intrCodepointViewCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareCodepointViewMethods'
 
-function declareCodepointIteratorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareCodepointIteratorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.codepointIteratorTy, op: Intrinsic.intrCodepointIteratorCurrent, name: "current", isStatic: false, selfConv: Convention.convLet, ret: b.codepointTy, params: ParamSpecList.create(0), listed: true)
 	let f1 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.codepointIteratorTy, op: Intrinsic.intrCodepointIteratorAdvance, name: "advance", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].errTy = b.iterationErrorTy
 end 'declareCodepointIteratorMethods'
 
-function declareUtf16ViewMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareUtf16ViewMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.utf16ViewTy, op: Intrinsic.intrUtf16ViewCreateIterator, name: "createIterator", isStatic: false, selfConv: Convention.convLet, ret: b.utf16IteratorTy, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].errTy = b.iterationErrorTy
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.utf16ViewTy, op: Intrinsic.intrUtf16ViewCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareUtf16ViewMethods'
 
-function declareUtf16IteratorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareUtf16IteratorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.utf16IteratorTy, op: Intrinsic.intrUtf16IteratorCurrent, name: "current", isStatic: false, selfConv: Convention.convLet, ret: b.codeUnit16Ty, params: ParamSpecList.create(0), listed: true)
 	let f1 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.utf16IteratorTy, op: Intrinsic.intrUtf16IteratorAdvance, name: "advance", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].errTy = b.iterationErrorTy
 end 'declareUtf16IteratorMethods'
 
-function declareStringIndexMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareStringIndexMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.stringIndexTy, op: Intrinsic.intrStringIndexCharIndex, name: "charIndex", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.stringIndexTy, op: Intrinsic.intrStringIndexBytePos, name: "bytePos", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareStringIndexMethods'
 
-function declareBuiltinFunctions(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareBuiltinFunctions(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	var tp1 = TypeEntry.make(TypeKind.typeParam, name: "T")
 	tp1.boundIface = b.droppableTy
 	let g2 = allocType(tt, module: diag.stdlibID, e: tp1)
@@ -1193,12 +1193,12 @@ function declareBuiltinFunctions(mutates tt TypeSlot, reads TypeTable, mutates f
 	_ = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrExchange, name: "exchange", generics: oneArgList(g33), ret: g33, params: ps34, declareInStd: true)
 end 'declareBuiltinFunctions'
 
-function declareCommandLineMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareCommandLineMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.commandLineTy, op: Intrinsic.intrCommandLineArgs, name: "args", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
 end 'declareCommandLineMethods'
 
-function declareProcessMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareProcessMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	var ps1 = ParamSpecList.create(0)
 	ps1.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
 	let f2 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.processTy, op: Intrinsic.intrProcessEnvironmentVariable, name: "environmentVariable", isStatic: true, selfConv: Convention.convLet, ret: b.stringTy, params: ps1, listed: true)
@@ -1211,11 +1211,11 @@ function declareProcessMethods(mutates tt TypeSlot, reads TypeTable, mutates ft 
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.processTy, op: Intrinsic.intrProcessSetExitCode, name: "setExitCode", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps4, listed: true)
 end 'declareProcessMethods'
 
-function declareClockMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareClockMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.clockTy, op: Intrinsic.intrClockNowNanos, name: "nowNanos", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareClockMethods'
 
-function declareFilePathMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareFilePathMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.filePathTy)
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("path", ty: b.stringTy, conv: Convention.convLet))
@@ -1228,7 +1228,7 @@ function declareFilePathMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.filePathTy, op: Intrinsic.intrFilePathToString, name: "toString", isStatic: false, selfConv: Convention.convLet, ret: b.stringTy, params: ParamSpecList.create(0), listed: true)
 end 'declareFilePathMethods'
 
-function declareFileMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareFileMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	var ps1 = ParamSpecList.create(0)
 	ps1.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	let f2 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileReadText, name: "readText", isStatic: true, selfConv: Convention.convLet, ret: b.stringTy, params: ps1, listed: true)
@@ -1255,7 +1255,7 @@ function declareFileMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fun
 	ft.lists[funcList(ft, f: f11)][funcIndex(ft, f: f11)].errTy = b.fileDeleteErrorTy
 end 'declareFileMethods'
 
-function declareDirectoryMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareDirectoryMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	var ps1 = ParamSpecList.create(0)
 	ps1.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryIsDirectory, name: "isDirectory", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps1, listed: true)
@@ -1270,7 +1270,7 @@ function declareDirectoryMethods(mutates tt TypeSlot, reads TypeTable, mutates f
 	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].errTy = b.directoryListErrorTy
 end 'declareDirectoryMethods'
 
-function declareSubprocessMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareSubprocessMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("executable", ty: b.executableTy, conv: Convention.convLet))
@@ -1286,12 +1286,12 @@ function declareSubprocessMethods(mutates tt TypeSlot, reads TypeTable, mutates 
 	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].errTy = b.subprocessErrorTy
 end 'declareSubprocessMethods'
 
-function declareCollectedOutputMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareCollectedOutputMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.collectedOutputTy, op: Intrinsic.intrCollectedOutputExitCode, name: "exitCode", isStatic: false, selfConv: Convention.convLet, ret: b.exitCodeTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.collectedOutputTy, op: Intrinsic.intrCollectedOutputSucceeded, name: "succeeded", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
 end 'declareCollectedOutputMethods'
 
-function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	var ps1 = ParamSpecList.create(0)
 	ps1.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
 	ps1.push(ParamSpec.make("offset", ty: b.countTy, conv: Convention.convLet))

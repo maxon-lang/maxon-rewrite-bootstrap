@@ -71,8 +71,8 @@ function declareGenerics(mutates c Checker, p ast.Project, mutates ms ast.Module
 		for i in 0 upto f.whereList.count() 'cons'
 			let cs = f.whereList[i].clone()
 			let constrained = boundedParamOf(c, p: p, ms: ms, cs: cs)
-			for bi in 0 upto ms.tree.listLen(cs.bounds) 'bounds'
-				let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree.listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
+			for bi in 0 upto ms.tree().listLen(cs.bounds) 'bounds'
+				let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
 				if failedSince(errs, mark: mark) 'failed'
 					return
 				end 'failed'
@@ -299,7 +299,7 @@ export function reportSecondEntry(mutates c Checker, p ast.Project, ms ast.Modul
 		some(o) gives o
 		none panic("reportSecondEntry: module {c.modID} declares no {entryFunction}")
 	end 'found'
-	let off = p.modules[c.modIdx].decls[ord as Count].offset(ms.tree)
+	let off = p.modules[c.modIdx].decls[ord as Count].offset(ms.tree())
 	checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateDefinition(entryFunction, keyword: "function"), errs: errs)
 end 'reportSecondEntry'
 

@@ -124,7 +124,7 @@ function pathText(o Ownership, p ast.Project, ms ast.ModuleState, path AccessPat
 	for i in 0 upto path.steps.count() 'each'
 		let k = path.steps[i].kind
 		if k == StepKind.stepElement 'element'
-			b.append("[{placeText(ms.tree, e: path.steps[i].index)}]".toByteArray())
+			b.append("[{placeText(ms.tree(), e: path.steps[i].index)}]".toByteArray())
 		end 'element' else if k == StepKind.stepField 'field'
 			b.append(".{fieldName(p, ms: ms, step: path.steps[i])}".toByteArray())
 		end 'field'
@@ -165,8 +165,8 @@ end 'withContents'
 // pathOf is the place an expression names, or a path with no root for an expression that computes a fresh value. A bare
 // field name selects from the receiver of the function being checked.
 function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns AccessPath
-	let n = ast.through(ms.tree, e: e)
-	let k = ms.tree.kindOf(n)
+	let n = ast.through(ms.tree(), e: e)
+	let k = ms.tree().kindOf(n)
 	if k == ast.NodeKind.nameExpr 'name'
 		let name = ownName(o, node: n)
 		if name.kind == ast.NameKind.nameLocal 'local'
@@ -188,7 +188,7 @@ function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) re
 		if member.kind != ast.MemberKind.memberField 'notField'
 			return AccessPath.none()
 		end 'notField'
-		let obj = ast.memberExprObj(ms.tree, id: n)
+		let obj = ast.memberExprObj(ms.tree(), id: n)
 		var path = pathOf(o, p: p, ms: ms, e: obj)
 		if not path.isPlace() 'fresh'
 			return path
@@ -198,13 +198,13 @@ function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) re
 		return path
 	end 'member'
 	if k == ast.NodeKind.indexExpr 'index'
-		let obj = ast.indexExprObj(ms.tree, id: n)
+		let obj = ast.indexExprObj(ms.tree(), id: n)
 		var path = pathOf(o, p: p, ms: ms, e: obj)
 		if not path.isPlace() 'fresh'
 			return path
 		end 'fresh'
 		withContents(p, ms: ms, steps: path.steps, t: ownType(o, node: obj))
-		path.steps.push(PathStep.element(indexArg(ms.tree, e: n)))
+		path.steps.push(PathStep.element(indexArg(ms.tree(), e: n)))
 		return path
 	end 'index'
 	return AccessPath.none()
@@ -217,13 +217,13 @@ end 'indexArg'
 
 // projectsElement is whether a place is, or lies inside, an element of a primitive, which only the primitive owns.
 function projectsElement(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
-	let n = ast.through(ms.tree, e: e)
-	let k = ms.tree.kindOf(n)
+	let n = ast.through(ms.tree(), e: e)
+	let k = ms.tree().kindOf(n)
 	if k == ast.NodeKind.indexExpr 'index'
 		return true
 	end 'index'
 	if k == ast.NodeKind.memberExpr 'member'
-		return ownMember(o, node: n).kind == ast.MemberKind.memberField and projectsElement(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree, id: n))
+		return ownMember(o, node: n).kind == ast.MemberKind.memberField and projectsElement(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: n))
 	end 'member'
 	return false
 end 'projectsElement'
@@ -232,8 +232,8 @@ end 'projectsElement'
 // 0 where e is no part of such a place. Such a place is a projection as an element is: it is read where it stands, and
 // never moved, changed or kept.
 function projectionOf(o Ownership, ms ast.ModuleState, e ast.NodeID) returns ast.NodeID
-	let n = ast.through(ms.tree, e: e)
-	let k = ms.tree.kindOf(n)
+	let n = ast.through(ms.tree(), e: e)
+	let k = ms.tree().kindOf(n)
 	if k == ast.NodeKind.callExpr 'call'
 		if ast.isProjectionCall(o.c.typing, call: n) 'projects'
 			return n
@@ -244,10 +244,10 @@ function projectionOf(o Ownership, ms ast.ModuleState, e ast.NodeID) returns ast
 		if ownMember(o, node: n).kind != ast.MemberKind.memberField 'notField'
 			return 0 as ast.NodeID
 		end 'notField'
-		return projectionOf(o, ms: ms, e: ast.memberExprObj(ms.tree, id: n))
+		return projectionOf(o, ms: ms, e: ast.memberExprObj(ms.tree(), id: n))
 	end 'member'
 	if k == ast.NodeKind.indexExpr 'index'
-		return projectionOf(o, ms: ms, e: ast.indexExprObj(ms.tree, id: n))
+		return projectionOf(o, ms: ms, e: ast.indexExprObj(ms.tree(), id: n))
 	end 'index'
 	return 0 as ast.NodeID
 end 'projectionOf'
@@ -258,7 +258,7 @@ end 'projectionOf'
 function lenders(o Ownership, ms ast.ModuleState, call ast.NodeID) returns ast.NodeIDList
 	let info = ownCall(o, node: call)
 	var out = ast.NodeIDList.create(0)
-	let receiver = ast.callReceiver(ms.tree, e: call, kind: info.kind)
+	let receiver = ast.callReceiver(ms.tree(), e: call, kind: info.kind)
 	if receiver != 0 and lends(info.selfConv) 'receiver'
 		out.push(receiver)
 	end 'receiver'

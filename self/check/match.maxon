@@ -135,7 +135,7 @@ end 'lendsContents'
 // checkMatch types a match and gives the type of its value, which is void for a statement and never where no arm gives
 // one.
 function checkMatch(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, core ast.NodeID, isExpr bool, mutates errs diag.ErrorList) returns ast.TypeID
-	let subject = ast.matchCoreSubject(ms.tree, id: core)
+	let subject = ast.matchCoreSubject(ms.tree(), id: core)
 	let subjectTy = checkExpr(c, p: p, ms: ms, e: subject, errs: errs)
 	if subjectTy == ast.noType 'badSubject'
 		return ast.noType
@@ -147,11 +147,11 @@ function checkMatch(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	end 'unfit'
 	let expect = c.expect
 	var state = MatchState.make(offsetOf(c, p: p, ms: ms, node: core))
-	pushBlock(c, label: ast.matchCoreLabel(ms.tree, id: core), isLoop: false, node: core)
-	let armsRef = ast.matchCoreArmsRef(ms.tree, id: core)
-	let owned = ast.matchCoreConsumes(ms.tree, id: core)
-	for i in 0 upto ms.tree.listLen(armsRef) 'arms'
-		let arm = ms.tree.listAt(armsRef, index: i) as ast.NodeID
+	pushBlock(c, label: ast.matchCoreLabel(ms.tree(), id: core), isLoop: false, node: core)
+	let armsRef = ast.matchCoreArmsRef(ms.tree(), id: core)
+	let owned = ast.matchCoreConsumes(ms.tree(), id: core)
+	for i in 0 upto ms.tree().listLen(armsRef) 'arms'
+		let arm = ms.tree().listAt(armsRef, index: i) as ast.NodeID
 		checkArmScoped(c, p: p, ms: ms, arm: arm, st: st, owned: owned, isExpr: isExpr, expect: expect, state: state, errs: errs)
 		checkFallthrough(c, p: p, ms: ms, armsRef: armsRef, index: i, st: st, errs: errs)
 	end 'arms'
@@ -173,26 +173,26 @@ end 'checkMatch'
 // checkFallthrough refuses an arm that falls through after a 'return', and one that falls into an arm that binds a payload: the
 // arm it falls into is reached from a case it does not name, so its bindings would take apart a case the value does not hold.
 function checkFallthrough(mutates c Checker, p ast.Project, ms ast.ModuleState, armsRef diag.U32, index Count, st ast.TypeID, mutates errs diag.ErrorList)
-	let arm = ms.tree.listAt(armsRef, index: index) as ast.NodeID
-	if not ast.matchArmFalls(ms.tree, id: arm) 'stays'
+	let arm = ms.tree().listAt(armsRef, index: index) as ast.NodeID
+	if not ast.matchArmFalls(ms.tree(), id: arm) 'stays'
 		return
 	end 'stays'
-	let action = ast.matchArmAction(ms.tree, id: arm)
-	if action != 0 and ms.tree.kindOf(action) == ast.NodeKind.returnStmt 'returns'
+	let action = ast.matchArmAction(ms.tree(), id: arm)
+	if action != 0 and ms.tree().kindOf(action) == ast.NodeKind.returnStmt 'returns'
 		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: action), code: diag.errMatchFallthroughWithReturn, msg: diag.fallthroughWithReturn(), errs: errs)
 		return
 	end 'returns'
 	let next = try index + 1 otherwise index
-	if next >= ms.tree.listLen(armsRef) 'last'
+	if next >= ms.tree().listLen(armsRef) 'last'
 		return
 	end 'last'
-	let target = ms.tree.listAt(armsRef, index: next) as ast.NodeID
-	let patternsRef = ast.matchArmPatternsRef(ms.tree, id: target)
-	for i in 0 upto ms.tree.listLen(patternsRef) 'patterns'
-		let pattern = ms.tree.listAt(patternsRef, index: i) as ast.NodeID
-		if patternBindsNames(ms.tree, pattern: pattern) 'binds'
+	let target = ms.tree().listAt(armsRef, index: next) as ast.NodeID
+	let patternsRef = ast.matchArmPatternsRef(ms.tree(), id: target)
+	for i in 0 upto ms.tree().listLen(patternsRef) 'patterns'
+		let pattern = ms.tree().listAt(patternsRef, index: i) as ast.NodeID
+		if patternBindsNames(ms.tree(), pattern: pattern) 'binds'
 			let word = unionWordOf(p, ms: ms, t: st)
-			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: pattern), code: diag.errUnsupportedFeature, msg: "Unsupported: `and fallthrough` into the payload-binding arm '{ast.patternCaseName(ms.tree, id: pattern)}' of `{word} {nameOfType(p, ms: ms, t: st)}` — the preceding arm matched a DIFFERENT case, so on that edge these bindings would destructure a case the value does not hold (reading another case's slots, or a slot that arm already moved out and nulled). Fall through into a payload-free arm, or give this arm its own body", errs: errs)
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: pattern), code: diag.errUnsupportedFeature, msg: "Unsupported: `and fallthrough` into the payload-binding arm '{ast.patternCaseName(ms.tree(), id: pattern)}' of `{word} {nameOfType(p, ms: ms, t: st)}` — the preceding arm matched a DIFFERENT case, so on that edge these bindings would destructure a case the value does not hold (reading another case's slots, or a slot that arm already moved out and nulled). Fall through into a payload-free arm, or give this arm its own body", errs: errs)
 			return
 		end 'binds'
 	end 'patterns'
@@ -219,7 +219,7 @@ end 'unionWordOf'
 // checkSubject refuses a subject that cannot be matched on.
 function checkSubject(mutates c Checker, p ast.Project, ms ast.ModuleState, core ast.NodeID, subject ast.NodeID, subjectTy ast.TypeID, st ast.TypeID, mutates errs diag.ErrorList) returns bool
 	let off = offsetOf(c, p: p, ms: ms, node: subject)
-	if ast.matchCoreConsumes(ms.tree, id: core) and isFrozenType(p, ms: ms, t: subjectTy) 'frozen'
+	if ast.matchCoreConsumes(ms.tree(), id: core) and isFrozenType(p, ms: ms, t: subjectTy) 'frozen'
 		checkFail(c.modID, off: off, code: diag.errMoveOutOfField, msg: "the contents of a frozen value are shared with its other owners, so 'match consumes' cannot take them apart; match without 'consumes', or use 'thaw(...)' for an owned copy", errs: errs)
 		return false
 	end 'frozen'
@@ -243,9 +243,9 @@ end 'hasCases'
 
 // checkArmScoped checks an arm in a scope of its own, which holds what its patterns bind.
 function checkArmScoped(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, arm ast.NodeID, st ast.TypeID, owned bool, isExpr bool, expect ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
-	let form = ast.matchArmForm(ms.tree, id: arm)
-	if ast.matchArmIsDefault(ms.tree, id: arm) 'default'
-		if hasCases(p, ms: ms, t: st) and form != ast.ArmKind.armPanic and not ast.matchArmThrows(ms.tree, id: arm) 'mustThrow'
+	let form = ast.matchArmForm(ms.tree(), id: arm)
+	if ast.matchArmIsDefault(ms.tree(), id: arm) 'default'
+		if hasCases(p, ms: ms, t: st) and form != ast.ArmKind.armPanic and not ast.matchArmThrows(ms.tree(), id: arm) 'mustThrow'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: arm), code: diag.errMatchDefaultEnumMustThrow, msg: "on an enum or union, 'default' is 'default throws ...' or 'default panic(...)'", errs: errs)
 			return
 		end 'mustThrow'
@@ -260,25 +260,25 @@ end 'checkArmScoped'
 // owned by the arm instead of borrowed from the subject.
 function checkArm(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, arm ast.NodeID, st ast.TypeID, owned bool, isExpr bool, expect ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
 	let mark = errs.count()
-	let patternsRef = ast.matchArmPatternsRef(ms.tree, id: arm)
-	let altCount = ms.tree.listLen(patternsRef)
+	let patternsRef = ast.matchArmPatternsRef(ms.tree(), id: arm)
+	let altCount = ms.tree().listLen(patternsRef)
 	for i in 0 upto altCount 'patterns'
-		let pattern = ms.tree.listAt(patternsRef, index: i) as ast.NodeID
+		let pattern = ms.tree().listAt(patternsRef, index: i) as ast.NodeID
 		checkPattern(c, p: p, ms: ms, pattern: pattern, st: st, owned: owned, altCount: altCount, state: state, errs: errs)
 		if failedSince(errs, mark: mark) 'badPattern'
 			return
 		end 'badPattern'
 	end 'patterns'
-	let form = ast.matchArmForm(ms.tree, id: arm)
+	let form = ast.matchArmForm(ms.tree(), id: arm)
 	let off = offsetOf(c, p: p, ms: ms, node: arm)
-	let value = ast.matchArmValue(ms.tree, id: arm)
+	let value = ast.matchArmValue(ms.tree(), id: arm)
 	if form == ast.ArmKind.armThen 'then'
-		if isExpr and not ast.matchArmThrows(ms.tree, id: arm) 'inExpr'
+		if isExpr and not ast.matchArmThrows(ms.tree(), id: arm) 'inExpr'
 			checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "an arm of a match expression 'gives' a value", errs: errs)
 			return
 		end 'inExpr'
-		let action = ast.matchArmAction(ms.tree, id: arm)
-		let keyword = blockStatementKeyword(ms.tree.kindOf(action))
+		let action = ast.matchArmAction(ms.tree(), id: arm)
+		let keyword = blockStatementKeyword(ms.tree().kindOf(action))
 		if keyword != "" 'block'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: action), code: diag.errMatchBlockStatement, msg: diag.matchBlockStatement(keyword), errs: errs)
 			return
@@ -336,11 +336,11 @@ end 'joinArm'
 
 // matchEndOffset is where maxon reports a match that does not cover its subject: the 'end' that closes it.
 function matchEndOffset(c Checker, p ast.Project, ms ast.ModuleState, core ast.NodeID) returns diag.U32
-	let endNode = ast.matchCoreEnd(ms.tree, id: core)
+	let endNode = ast.matchCoreEnd(ms.tree(), id: core)
 	if endNode == 0 'unlabelled'
 		return offsetOf(c, p: p, ms: ms, node: core)
 	end 'unlabelled'
-	return ms.tree.endKeywordStart(endNode)
+	return ms.tree().endKeywordStart(endNode)
 end 'matchEndOffset'
 
 // checkExhaustive refuses a match that no default ends and that leaves a case of its subject out.
@@ -387,7 +387,7 @@ function missingCases(p ast.Project, ms ast.ModuleState, orig ast.TypeID, state 
 end 'missingCases'
 
 function checkPattern(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pattern ast.NodeID, st ast.TypeID, owned bool, altCount Count, mutates state MatchState, mutates errs diag.ErrorList)
-	let form = ast.patternForm(ms.tree, id: pattern)
+	let form = ast.patternForm(ms.tree(), id: pattern)
 	if form == ast.PatternKind.patCase 'case'
 		checkCasePattern(c, p: p, ms: ms, pattern: pattern, st: st, owned: owned, altCount: altCount, state: state, errs: errs)
 		return
@@ -403,8 +403,8 @@ end 'checkPattern'
 
 function checkCasePattern(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pattern ast.NodeID, st ast.TypeID, owned bool, altCount Count, mutates state MatchState, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: pattern)
-	let qualifier = ast.patternCaseName(ms.tree, id: pattern)
-	let member = ast.patternMember(ms.tree, id: pattern)
+	let qualifier = ast.patternCaseName(ms.tree(), id: pattern)
+	let member = ast.patternMember(ms.tree(), id: pattern)
 	var caseName = qualifier.clone()
 	if member != "" 'qualified'
 		caseName = member.clone()
@@ -434,7 +434,7 @@ function checkCasePattern(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		none then _ = 0
 	end 'index'
 	var locals = ast.LocalIDList.create(0)
-	if ast.patternHasBindings(ms.tree, id: pattern) 'binds'
+	if ast.patternHasBindings(ms.tree(), id: pattern) 'binds'
 		if not bindCase(c, p: p, ms: ms, pattern: pattern, st: st, caseIdx: caseIdx, owned: owned, altCount: altCount, locals: locals, errs: errs) 'bad'
 			return
 		end 'bad'
@@ -455,9 +455,9 @@ end 'reportUnknownCase'
 // enum's.
 function bindCase(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pattern ast.NodeID, st ast.TypeID, caseIdx Count, owned bool, altCount Count, mutates locals ast.LocalIDList, mutates errs diag.ErrorList) returns bool
 	let off = offsetOf(c, p: p, ms: ms, node: pattern)
-	let caseName = ast.patternCaseName(ms.tree, id: pattern)
-	let bindingsRef = ast.patternBindingsRef(ms.tree, id: pattern)
-	let bindingCount = ms.tree.listLen(bindingsRef)
+	let caseName = ast.patternCaseName(ms.tree(), id: pattern)
+	let bindingsRef = ast.patternBindingsRef(ms.tree(), id: pattern)
+	let bindingCount = ms.tree().listLen(bindingsRef)
 	let orig = ast.originOf(ms.types, reads: p.types, t: st)
 	var payloadCount = 0 as Count
 	if kindOfType(p, ms: ms, t: st) == ast.TypeKind.unionTy 'union'
@@ -472,7 +472,7 @@ function bindCase(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		return false
 	end 'alternatives'
 	for i in 0 upto payloadCount 'payload'
-		let bindingName = ms.tree.nameAt(ms.tree.listAt(bindingsRef, index: i))
+		let bindingName = ms.tree().nameAt(ms.tree().listAt(bindingsRef, index: i))
 		if bindingName == "_" 'ignored'
 			locals.push(ast.noLocal)
 			continue 'payload'
@@ -490,17 +490,17 @@ end 'bindCase'
 
 function checkLiteralPattern(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pattern ast.NodeID, st ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: pattern)
-	let value = ast.patternValue(ms.tree, id: pattern)
+	let value = ast.patternValue(ms.tree(), id: pattern)
 	let t = checkExpr(c, p: p, ms: ms, e: value, errs: errs)
 	if t == ast.noType 'failed'
 		return
 	end 'failed'
-	let valueKind = ms.tree.kindOf(value)
+	let valueKind = ms.tree().kindOf(value)
 	if valueKind == ast.NodeKind.boolLit and st == p.builtins.boolTy 'bool'
 		recordBoolPattern(c, p: p, ms: ms, pattern: pattern, value: value, state: state, errs: errs)
 		return
 	end 'bool'
-	if valueKind == ast.NodeKind.strLit and st == p.builtins.stringTy and ms.tree.strIsPlain(ast.strLitPartsRef(ms.tree, id: value)) 'string'
+	if valueKind == ast.NodeKind.strLit and st == p.builtins.stringTy and ms.tree().strIsPlain(ast.strLitPartsRef(ms.tree(), id: value)) 'string'
 		return
 	end 'string'
 	if isConstInt(p, ms: ms, t: t) and ast.isIntType(ms.types, reads: p.types, t: st) 'integer'
@@ -515,7 +515,7 @@ function checkLiteralPattern(mutates c Checker, p ast.Project, mutates ms ast.Mo
 end 'checkLiteralPattern'
 
 function recordBoolPattern(mutates c Checker, p ast.Project, ms ast.ModuleState, pattern ast.NodeID, value ast.NodeID, mutates state MatchState, mutates errs diag.ErrorList)
-	let isTrue = ast.boolLitValue(ms.tree, id: value)
+	let isTrue = ast.boolLitValue(ms.tree(), id: value)
 	var seenAlready = state.sawFalse
 	var word = "False"
 	if isTrue 'truth'
@@ -535,8 +535,8 @@ end 'recordBoolPattern'
 
 function checkRangePattern(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pattern ast.NodeID, st ast.TypeID, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: pattern)
-	let lowNode = ast.patternValue(ms.tree, id: pattern)
-	let highNode = ast.patternHigh(ms.tree, id: pattern)
+	let lowNode = ast.patternValue(ms.tree(), id: pattern)
+	let highNode = ast.patternHigh(ms.tree(), id: pattern)
 	let lo = checkExpr(c, p: p, ms: ms, e: lowNode, errs: errs)
 	if lo == ast.noType 'badLow'
 		return
@@ -550,7 +550,7 @@ function checkRangePattern(mutates c Checker, p ast.Project, mutates ms ast.Modu
 		return
 	end 'notInts'
 	var top = ast.typeEntry(ms.types, reads: p.types, t: hi).minVal.clone()
-	if not ast.patternInclusive(ms.tree, id: pattern) 'exclusive'
+	if not ast.patternInclusive(ms.tree(), id: pattern) 'exclusive'
 		top = top.sub(ast.I128.one())
 	end 'exclusive'
 	if ast.typeEntry(ms.types, reads: p.types, t: lo).minVal.gt(top) 'empty'

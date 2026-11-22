@@ -269,6 +269,9 @@ end 'FileSpan'
 
 export typealias FileSpanList = Array with FileSpan
 
+// Module is a module of the project: where it is and the modules under it, and the products of its parse (its files,
+// declarations, their names and the typealiases its types nest) and of its resolve or its bodies (its tree), frozen when the
+// stage that made them ended, so that a task that waited on the stage shares them.
 export type Module
 	export var id as diag.ModuleID
 	export var path as String
@@ -278,17 +281,17 @@ export type Module
 	export var filePaths as StringList
 	export var childNames as StringList
 	export var childIDs as Array with diag.ModuleID
-	export var files as FileSpanList
-	export var tree as Tree
-	export var decls as DeclList
-	export var names as DeclIndex
+	export var files as frozen with FileSpanList
+	export var tree as frozen with Tree
+	export var decls as frozen with DeclList
+	export var names as frozen with DeclIndex
 	// nested are the typealiases that the module's type bodies and extensions declare, which a bare name finds in an extension of
 	// their owner.
-	export var nested as NestedAliasList
+	export var nested as frozen with NestedAliasList
 	export var tables as ModuleTables
 
 	export static function new(id diag.ModuleID, consumes path String, consumes text String, consumes files FileSpanList) returns Module
-		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), tables: ModuleTables.new()}
+		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: freeze(files), tree: freeze(Tree.new(id, text: text)), decls: freeze(DeclList.create(0)), names: freeze(DeclIndex.new()), nested: freeze(NestedAliasList.create(0)), tables: ModuleTables.new()}
 	end 'new'
 
 	export function display() returns String
@@ -309,6 +312,43 @@ export type Module
 		end 'each'
 		return table.Option.none
 	end 'findChild'
+
+	// viewOf is the module as a task sees it that waited on the stages that made tree and, where parsed, on its parse: where it
+	// is, and those products, shared, with tables, a view of its tables.
+	export function viewOf(consumes viewTree frozen with Tree, parsed bool, consumes viewTables ModuleTables) returns Module
+		var view = Module{id: id, path: path.clone(), dir: dir.clone(), isRuntime: isRuntime, filePaths: filePaths.clone(), childNames: childNames.clone(), childIDs: childIDs.clone(), files: share(files), tree: viewTree, decls: share(decls), names: share(names), nested: share(nested), tables: viewTables}
+		if not parsed 'unparsed'
+			view.files = freeze(FileSpanList.create(0))
+			view.decls = freeze(DeclList.create(0))
+			view.names = freeze(DeclIndex.new())
+			view.nested = freeze(NestedAliasList.create(0))
+		end 'unparsed'
+		return view
+	end 'viewOf'
+
+	// takeParsed makes what the parse made of the module its products.
+	export function takeParsed(mutates self, consumes parsed ParsedModule)
+		var made = parsed
+		tree = freeze(exchange(made.tree, value: Tree.new(id, text: "")))
+		files = freeze(exchange(made.files, value: FileSpanList.create(0)))
+		decls = freeze(exchange(made.decls, value: DeclList.create(0)))
+		names = freeze(exchange(made.names, value: DeclIndex.new()))
+		nested = freeze(exchange(made.nested, value: NestedAliasList.create(0)))
+	end 'takeParsed'
+end 'Module'
+
+// ParsedModule is a module's source as its parse makes it, which the parse owns and writes: its files, its tree, its
+// declarations, their names and the typealiases its types nest.
+export type ParsedModule
+	export var files as FileSpanList
+	export var tree as Tree
+	export var decls as DeclList
+	export var names as DeclIndex
+	export var nested as NestedAliasList
+
+	export static function new(id diag.ModuleID, consumes text String, consumes files FileSpanList) returns ParsedModule
+		return ParsedModule{files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0)}
+	end 'new'
 
 	export function appendRawDecl(mutates self, consumes d Decl)
 		decls.push(d)
@@ -337,6 +377,6 @@ export type Module
 		decls.push(d)
 		return true
 	end 'declare'
-end 'Module'
+end 'ParsedModule'
 
 export typealias ModuleList = Array with Module

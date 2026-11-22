@@ -1514,14 +1514,14 @@ end 'resolveInterfaceDecl'
 export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let modID = ms.module
 	let modIdx = ast.modIndex(modID)
-	var r = Resolver.make(modID, tree: exchange(ms.tree, value: ast.Tree.new(modID, text: "")), res: exchange(ms.resolution, value: ast.Resolution.new(modID)))
+	var r = Resolver.make(modID, tree: exchange(ms.ownTree, value: ast.Tree.new(modID, text: "")), res: exchange(ms.resolution, value: ast.Resolution.new(modID)))
 	let declCount = p.modules[modIdx].decls.count()
 	for i in 0 upto declCount 'eachD'
 		r.typeParams = TypeParamMap.new()
 		let d = p.modules[modIdx].decls[i].clone()
 		resolveTopDecl(r, p: p, ms: ms, d: d, errs: errs)
 	end 'eachD'
-	ms.tree = exchange(r.tree, value: ast.Tree.new(modID, text: ""))
+	ms.ownTree = exchange(r.tree, value: ast.Tree.new(modID, text: ""))
 	ms.resolution = exchange(r.res, value: ast.Resolution.new(modID))
 end 'resolveModule'
 

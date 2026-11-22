@@ -182,7 +182,7 @@ function testParser()
 	end 'ir'
 end 'testParser'
 
-function checkInterpAst(m ast.Module)
+function checkInterpAst(m ast.ParsedModule)
 	if m.decls.count() != 1 'cnt'
 		panic("expected 1 decl in interp test")
 	end 'cnt'
@@ -224,7 +224,7 @@ function testPositionsAndDiag()
 	texts.push("function one()\n\treturn\nend 'one'\n")
 	texts.push("function two()\n\tlet x = 1\n\treturn\nend 'two'\n")
 	let pr = syntax.parseModuleFiles(0 as diag.ModuleID, path: "m", filePaths: paths, fileTexts: texts, target: ast.Target.windowsX64())
-	var m as ast.Module
+	var m as ast.ParsedModule
 	match consumes pr 'r'
 		ok(modVal) then m = modVal
 		err(e) then panic("unexpected parseModuleFiles error: {e[0].format()}")
@@ -234,15 +234,17 @@ function testPositionsAndDiag()
 	end 'd2'
 	let d0Off = m.decls[0].offset(m.tree)
 	let d1Off = m.decls[1].offset(m.tree)
-	let loc0 = ast.locateModuleOffset(m, offset: d0Off)
-	let loc1 = ast.locateModuleOffset(m, offset: d1Off)
+	var made = ast.Module.new(0 as diag.ModuleID, path: "m", text: "", files: ast.FileSpanList.create(0))
+	made.takeParsed(m)
+	let loc0 = ast.locateModuleOffset(made, offset: d0Off)
+	let loc1 = ast.locateModuleOffset(made, offset: d1Off)
 	assertEqStr(loc0.file, expected: "a.maxon", label: "loc0.file")
 	assertEqStr(loc1.file, expected: "b.maxon", label: "loc1.file")
 	if loc0.line != 1 or loc0.col != functionNameColumn or loc1.line != 1 or loc1.col != functionNameColumn 'lc'
 		panic("unexpected decl locs")
 	end 'lc'
 	var mods = ast.ModuleList.create(0)
-	mods.push(m)
+	mods.push(made)
 	var errs = diag.ErrorList.create(0)
 	diag.pushSiteError(errs, code: "E3001", message: "second", module: 0 as diag.ModuleID, offset: d1Off)
 	diag.pushSiteError(errs, code: "E2001", message: "first", module: 0 as diag.ModuleID, offset: d0Off)

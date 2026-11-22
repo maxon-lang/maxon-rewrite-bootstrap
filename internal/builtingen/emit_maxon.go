@@ -154,7 +154,7 @@ func emitMaxon(t table) string {
 		byGroup[g] = append(byGroup[g], f)
 	}
 
-	sb.WriteString("function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)\n")
+	sb.WriteString("function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)\n")
 	sb.WriteString("\tdeclareBuiltinTypes(tt, reads: reads, std: std, b: b, typeMap: typeMap)\n")
 	for _, g := range groups {
 		fmt.Fprintf(&sb, "\t%s(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)\n", maxonGroupFunction(g))
@@ -224,7 +224,7 @@ func emitMaxon(t table) string {
 		ty := types.ty(fn{}, "", parseType(a.Type))
 		types.line("registerStdInstanceAlias(std, typeMap: typeMap, name: %q, ty: %s)", a.Name, ty)
 	}
-	sb.WriteString("\nfunction declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap)\n")
+	sb.WriteString("\nfunction declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap)\n")
 	sb.WriteString(types.sb.String())
 	sb.WriteString("end 'declareBuiltinTypes'\n")
 
@@ -234,7 +234,7 @@ func emitMaxon(t table) string {
 			emitMaxonFunction(body, f)
 		}
 		name := maxonGroupFunction(g)
-		fmt.Fprintf(&sb, "\nfunction %s(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)\n", name)
+		fmt.Fprintf(&sb, "\nfunction %s(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)\n", name)
 		sb.WriteString(body.sb.String())
 		fmt.Fprintf(&sb, "end '%s'\n", name)
 	}

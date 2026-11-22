@@ -78,7 +78,7 @@ function rawKindOf(p ast.Project, ms ast.ModuleState, raw ast.NodeID) returns as
 	if raw == 0 'none'
 		return ast.RawKind.integer
 	end 'none'
-	let k = ms.tree.kindOf(raw)
+	let k = ms.tree().kindOf(raw)
 	if k == ast.NodeKind.intLit 'integer'
 		return ast.RawKind.integer
 	end 'integer'
@@ -110,24 +110,24 @@ function readRaw(mutates c Checker, p ast.Project, ms ast.ModuleState, tid ast.T
 	if kind == ast.RawKind.integer 'integer'
 		st.value = st.next.clone()
 		if st.explicit 'written'
-			st.value = ast.intLitValue(ms.tree, id: raw)
+			st.value = ast.intLitValue(ms.tree(), id: raw)
 		end 'written'
 		st.next = st.value.add(ast.I128.one())
 		st.text = ""
 		shown = st.value.toString()
 	end 'integer' else if kind == ast.RawKind.float 'floatKind'
-		let bits = ast.floatLitBits(ms.tree, id: raw)
+		let bits = ast.floatLitBits(ms.tree(), id: raw)
 		st.value = ast.I128.fromCount(bits)
 		st.text = ""
 		shown = ast.floatDiagnosticText(bits)
 	end 'floatKind' else if kind == ast.RawKind.string 'stringKind'
-		let parts = ast.strLitPartsRef(ms.tree, id: raw)
-		if not ms.tree.strIsPlain(parts) 'interpolated'
+		let parts = ast.strLitPartsRef(ms.tree(), id: raw)
+		if not ms.tree().strIsPlain(parts) 'interpolated'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: raw), code: diag.errRawValueNotLiteral, msg: "a raw value is a constant: write the string without an interpolated value", errs: errs)
 			return false
 		end 'interpolated'
 		st.value = ast.I128.zero()
-		st.text = ast.strPartsText(ms.tree, partsRef: parts)
+		st.text = ast.strPartsText(ms.tree(), partsRef: parts)
 		shown = st.text.clone()
 	end 'stringKind' else 'valueKind'
 		st.value = ast.I128.zero()

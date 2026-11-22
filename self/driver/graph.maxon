@@ -219,6 +219,9 @@ type Run
 	var goal as Goal
 	// first is the first module that the compile compiles: the ones before it were compiled by an earlier compile.
 	var first as Count
+	// begun is how many segments of each module it compiles are complete when the compile begins: none, or the parse's for a
+	// compile of modules parsed already.
+	var begun as Count
 	var makesProgram as bool
 	var checks as check.Checks
 	var checksStarted as bool
@@ -254,21 +257,16 @@ type Run
 	var current as Count
 	// errors are the errors each task found, by task, which the compile's list takes in task order when it ends.
 	var errors as ErrorLists
-	// verifiesReads is whether each task of a module runs in a view of the products of the tasks it waited on (--verify-reads):
-	// resolvedTrees are then the trees the resolve made, by module, which a task that did not wait on a module's bodies reads
-	// in place of the one its bodies made, and viewed the modules whose tree the running task's view holds so.
+	// verifiesReads is whether a read of an entry that a task's view does not hold names the task (--verify-reads).
 	var verifiesReads as bool
-	var resolvedTrees as Array with ast.Tree
-	var keptTrees as Reached
-	var viewed as TaskIDs
-	// hiddenModules are what the running task's view holds out of the project of the modules whose parse or resolve it did not
-	// wait on.
-	var hiddenModules as ast.HiddenModules
-	// heldTables are the project's tables while a task of a module runs on its view of them.
-	var heldTables as ast.HeldTables
+	// trees are the trees the stages of each module the compile compiles made, by module from first on, which a task reads the
+	// latest of that it waited on (taskView).
+	var trees as Array with TreeProducts
+	// held is the project while a task of a module runs on its view of it (lendTask).
+	var held as table.Option with ast.Project
 
 	static function make(goal Goal, first Count, makesProgram bool, modules Count) returns Run
-		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), leaves: opt.LeavesList.create(0), fallbacks: ir.FallbacksList.create(0), keepsLowered: false, reversesModules: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off(), inputs: ast.Inputs.new(), waited: Array.create(0), current: 0, errors: ErrorLists.create(0), verifiesReads: false, resolvedTrees: Array.create(0), keptTrees: Reached.create(0), viewed: TaskIDs.create(0), hiddenModules: ast.HiddenModules.create(0), heldTables: ast.HeldTables.none()}
+		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, begun: 0, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), leaves: opt.LeavesList.create(0), fallbacks: ir.FallbacksList.create(0), keepsLowered: false, reversesModules: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off(), inputs: ast.Inputs.new(), waited: Array.create(0), current: 0, errors: ErrorLists.create(0), verifiesReads: false, trees: Array.create(0), held: table.Option.none}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors.
@@ -304,13 +302,17 @@ end 'noChecked'
 // of the earliest phase that has any, which the error list also holds when it is not empty at the start.
 function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList) returns Run
 	var run = Run.make(goal, first: first, makesProgram: makesProgram, modules: p.modules.count())
-	ast.sealTables(p.types, ft: p.funcs, first: first)
+	ast.sealProject(p, first: first)
 	run.keepsLowered = options.keepsLowered
 	run.reversesModules = options.reversesModules
 	run.verifiesReads = options.verifiesReads
-	for m in 0 upto p.modules.count() 'trees'
-		run.resolvedTrees.push(ast.Tree.new(p.modules[m].id, text: ""))
-		run.keptTrees.push(false)
+	for m in first upto p.modules.count() 'trees'
+		var made = TreeProducts.none()
+		if from == Stage.resolve 'parsed'
+			made.add(ast.Phase.parse.ordinal, tree: share(p.modules[m].tree))
+			run.begun = ast.Phase.resolve.ordinal
+		end 'parsed'
+		run.trees.push(made)
 	end 'trees'
 	run.earlierErrors = errs.count()
 	if options.timings 'timed'
@@ -459,17 +461,16 @@ function phaseOfStage(stage Stage) returns ast.Phase
 	end 's'
 end 'phaseOfStage'
 
-typealias Reached = Array with bool
-
 // taskInputs are what of each slot of the tables a task reads: of each module the compile compiles, the segments of the
 // stages of it that the task waited on, directly or through the tasks it waited on, and every segment of the others,
-// whose stages ended before the compile's tasks were added. To an executor of behaviours they are the frozen segments
+// whose stages ended before the compile's tasks were added, and the segments of the stages that ended before the compile
+// began (Run.begun). To an executor of behaviours they are the frozen segments
 // that the task's behaviour captures. Each input's own were found before it (Run.waited), so the task's are theirs with
 // each input's own segment added.
 function taskInputs(run Run, p ast.Project, task Count) returns ast.Inputs
 	var inputs = ast.Inputs.new()
 	for m in run.first upto p.modules.count() 'compiled'
-		inputs.waited(ast.moduleSlot(p.modules[m].id), count: 0)
+		inputs.waited(ast.moduleSlot(p.modules[m].id), count: run.begun)
 	end 'compiled'
 	let start = run.graph.tasks[task].firstInput
 	let stop = try start + run.graph.tasks[task].inputCount otherwise panic("driver: a task's inputs end past memory")
@@ -486,20 +487,111 @@ function taskInputs(run Run, p ast.Project, task Count) returns ast.Inputs
 end 'taskInputs'
 
 // lendTask lends the running task, of a stage of module m, its module's state, with what lent says of the module, and makes the
-// project's tables its view of the products of the stages it waited on (ast.enterTaskView), which giveTask ends.
+// project its view of the products of the stages it waited on (taskView), which giveTask ends.
 function lendTask(mutates run Run, mutates p ast.Project, m Count, lent ast.Lent) returns ast.ModuleState
 	let stage = run.graph.tasks[run.current].stage
 	let module = p.modules[m].id
 	let ms = ast.lendModule(p, module: module, lent: lent, phase: phaseOfStage(stage), inputs: run.inputs)
-	run.heldTables = ast.enterTaskView(p, own: module, visible: run.inputs, verifies: run.verifiesReads)
+	let view = taskView(run, p: p, own: m)
+	run.held = table.Option.some(exchange(p, value: view))
 	return ms
 end 'lendTask'
 
-// giveTask ends the view lendTask made and gives the project back what it lent.
+// giveTask ends the view lendTask made, gives the project back what it lent, and keeps the tree the task made, if any.
 function giveTask(mutates run Run, mutates p ast.Project, consumes ms ast.ModuleState)
-	ast.leaveTaskView(p, held: exchange(run.heldTables, value: ast.HeldTables.none()))
+	var none as table.Option with ast.Project
+	none = table.Option.none
+	match consumes exchange(run.held, value: none) 'held'
+		some(project) then _ = exchange(p, value: project)
+		none then panic("driver: a task ends that holds no project")
+	end 'held'
+	let m = ast.modIndex(ms.module)
+	let phase = phaseOfStage(run.graph.tasks[run.current].stage).ordinal
+	let makesTree = ms.lent == ast.Lent.source or ((ms.lent == ast.Lent.tree or ms.lent == ast.Lent.resolution) and not ms.readsSharedTree())
 	ast.giveBack(p, ms: ms)
+	if makesTree 'tree'
+		let slot = try m - run.first otherwise panic("driver: a module compiled earlier makes a tree")
+		run.trees[slot].add(phase, tree: share(p.modules[m].tree))
+	end 'tree'
 end 'giveTask'
+
+// TreeProducts are the trees the stages of a module made, each frozen when its stage ended, with the phases that made them.
+type TreeProducts
+	var phases as TaskIDs
+	var trees as Array with frozen with ast.Tree
+
+	static function none() returns TreeProducts
+		return TreeProducts{phases: TaskIDs.create(0), trees: Array.create(0)}
+	end 'none'
+
+	function add(mutates self, phase Count, consumes tree frozen with ast.Tree)
+		phases.push(phase)
+		trees.push(tree)
+	end 'add'
+
+	// latest is the tree of the latest stage among the first waited, as a task that waited on them reads it.
+	function latest(waited Count) returns table.Option with frozen with ast.Tree
+		var k = trees.count()
+		while k > 0 'trees'
+			k = k - 1
+			if phases[k] < waited 'waited'
+				return table.Option.some(share(trees[k]))
+			end 'waited'
+		end 'trees'
+		return table.Option.none
+	end 'latest'
+end 'TreeProducts'
+
+// treeOf is the tree of module a that a task reads which waited on its first waited segments: the latest a stage of it that
+// the task waited on made, or the module's own for a module an earlier compile compiled.
+function treeOf(run Run, p ast.Project, a Count, waited Count) returns frozen with ast.Tree
+	if a < run.first 'earlier'
+		return share(p.modules[a].tree)
+	end 'earlier'
+	match consumes run.trees[a - run.first].latest(waited) 'made'
+		some(found) then return found
+		none then return freeze(ast.Tree.new(p.modules[a].id, text: ""))
+	end 'made'
+end 'treeOf'
+
+// taskView is the project as the running task, of a stage of module own, reads it: of each module, the products of the
+// stages of it that the task waited on, shared, as an executor of behaviours gives a task what it captured, and the tables
+// of types and functions as ast.viewTypes and ast.viewFuncs give them. What a stage it did not wait on made is not there.
+function taskView(run Run, p ast.Project, own Count) returns ast.Project
+	let parsed = ast.Phase.resolve.ordinal
+	let resolved = ast.Phase.aliases.ordinal
+	let verified = ast.Phase.lower.ordinal
+	let noResolution = freeze(ast.Resolution.new(p.modules[own].id))
+	let noTyping = freeze(ast.Typing.new(p.modules[own].id))
+	var modules = ast.ModuleList.create(0)
+	var resolutions as Array with frozen with ast.Resolution
+	resolutions = Array.create(0)
+	var typings as Array with frozen with ast.Typing
+	typings = Array.create(0)
+	for a in 0 upto p.modules.count() 'modules'
+		var waited = ast.everySegment
+		if a >= run.first 'compiled'
+			waited = run.inputs.of(ast.moduleSlot(p.modules[a].id), present: ast.everySegment)
+		end 'compiled'
+		let tree = treeOf(run, p: p, a: a, waited: waited)
+		let tables = p.modules[a].tables.viewOf(waited)
+		modules.push(p.modules[a].viewOf(tree, parsed: waited >= parsed, viewTables: tables))
+		if waited >= resolved 'resolved'
+			resolutions.push(share(p.resolutions[a]))
+		end 'resolved' else 'unresolved'
+			resolutions.push(share(noResolution))
+		end 'unresolved'
+		if waited >= verified 'verified'
+			typings.push(share(p.typings[a]))
+		end 'verified' else 'unverified'
+			typings.push(share(noTyping))
+		end 'unverified'
+	end 'modules'
+	let module = p.modules[own].id
+	let types = ast.viewTypes(p.types, own: module, visible: run.inputs, verifies: run.verifiesReads)
+	let funcs = ast.viewFuncs(p.funcs, own: module, visible: run.inputs, verifies: run.verifiesReads)
+	return ast.viewOf(p, modules: modules, types: types, funcs: funcs, resolutions: resolutions, typings: typings)
+end 'taskView'
 
 // runTimedTask is runTask with its wall time added to the compile's timings.
 function runTimedTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
@@ -526,50 +618,8 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, memory proj
 	end 'inputs' else 'whole'
 		run.inputs = ast.Inputs.new()
 	end 'whole'
-	let verifies = run.verifiesReads and ofModule
-	if verifies 'view'
-		let own = p.modules[m].id
-		run.hiddenModules = ast.enterModulesView(p, own: own, first: run.first, visible: run.inputs)
-		viewTrees(run, p: p, own: m)
-	end 'view'
 	runStage(run, p: p, task: task, memory: memory, output: output, options: options, ready: ready, errs: errs)
-	if verifies 'leave'
-		ast.leaveModulesView(p, first: run.first, hidden: exchange(run.hiddenModules, value: ast.HiddenModules.create(0)))
-		swapViewedTrees(run, p: p)
-		run.viewed = TaskIDs.create(0)
-	end 'leave'
 end 'runTask'
-
-// viewTrees makes the view of the running task, of a stage of module own, hold the tree the resolve made of each module
-// whose bodies it did not wait on and that ran (a task of the bodies keeps it, keepResolvedTree).
-function viewTrees(mutates run Run, mutates p ast.Project, own Count)
-	let bodies = try ast.Phase.bodies.ordinal + 1 otherwise panic("driver: a phase past memory")
-	for a in run.first upto p.modules.count() 'modules'
-		let waited = run.inputs.of(ast.moduleSlot(p.modules[a].id), present: bodies)
-		if a != own and waited < bodies and run.keptTrees[a] 'resolved'
-			run.viewed.push(a)
-		end 'resolved'
-	end 'modules'
-	swapViewedTrees(run, p: p)
-end 'viewTrees'
-
-// swapViewedTrees swaps the tree of each module of the view with the one the resolve made.
-function swapViewedTrees(mutates run Run, mutates p ast.Project)
-	for i in 0 upto run.viewed.count() 'viewed'
-		let a = run.viewed[i]
-		let bodies = exchange(p.modules[a].tree, value: ast.Tree.new(p.modules[a].id, text: ""))
-		p.modules[a].tree = exchange(run.resolvedTrees[a], value: bodies)
-	end 'viewed'
-end 'swapViewedTrees'
-
-// keepResolvedTree keeps the tree the resolve made of module m, whose bodies begin, for the views of tasks that do not wait on
-// them.
-function keepResolvedTree(mutates run Run, p ast.Project, m Count)
-	if run.verifiesReads 'verifies'
-		run.resolvedTrees[m] = p.modules[m].tree.clone()
-		run.keptTrees[m] = true
-	end 'verifies'
-end 'keepResolvedTree'
 
 // runStage runs the work of a task's stage.
 function runStage(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
@@ -612,9 +662,6 @@ end 'resolveTask'
 // what the stage writes, and the project is what it reads of the modules it waited on.
 function checkTask(mutates run Run, mutates p ast.Project, m Count, stage Stage, mutates errs diag.ErrorList)
 	let module = p.modules[m].id
-	if stage == Stage.bodies 'bodies'
-		keepResolvedTree(run, p: p, m: m)
-	end 'bodies'
 	let unit = lendTask(run, p: p, m: m, lent: ast.Lent.tree)
 	run.checks.modules[m].unit = unit
 	match stage 's'

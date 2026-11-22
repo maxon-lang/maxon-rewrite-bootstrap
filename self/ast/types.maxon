@@ -681,7 +681,7 @@ export type Inputs
 end 'Inputs'
 
 // everySegment marks a slot of Inputs that the task reads whole.
-let everySegment = 4294967295 as Count
+export let everySegment = 4294967295 as Count
 
 // A nominal type's handle and every function's name the slot that holds its entry, in the bits from handleSlotShift, the
 // list of the slot it is in, in the bits from handleListShift, and its place in that list, in the bits below: sharedSlot is

@@ -103,7 +103,7 @@ end 'withoutTests'
 export function giveTyping(mutates state ModuleState, mutates p ast.Project)
 	let modID = state.checker.modID
 	let finished = exchange(state.checker.typing, value: ast.Typing.new(modID))
-	p.typings[ast.modIndex(modID)] = finished
+	p.typings[ast.modIndex(modID)] = freeze(finished)
 	state.typed = true
 end 'giveTyping'
 

@@ -15,13 +15,13 @@ end 'CreateForm'
 
 function createForm(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns CreateForm
 	var form = CreateForm.make()
-	let argsRef = ast.callExprArgsRef(ms.tree, id: call)
-	for i in 0 upto ms.tree.listLen(argsRef) 'each'
-		let arg = ms.tree.listAt(argsRef, index: i) as ast.NodeID
-		let label = ast.argLabel(ms.tree, id: arg)
+	let argsRef = ast.callExprArgsRef(ms.tree(), id: call)
+	for i in 0 upto ms.tree().listLen(argsRef) 'each'
+		let arg = ms.tree().listAt(argsRef, index: i) as ast.NodeID
+		let label = ast.argLabel(ms.tree(), id: arg)
 		if label == "" and i == 0 'length'
 			form.hasLength = true
-			form.length = ast.argValue(ms.tree, id: arg)
+			form.length = ast.argValue(ms.tree(), id: arg)
 		end 'length' else if label == "value" 'value'
 			form.hasValue = true
 		end 'value' else 'other'
@@ -33,9 +33,9 @@ end 'createForm'
 
 // writtenTypeOfCall is how the call names the type it calls create on.
 function writtenTypeOfCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, nt ast.TypeID) returns String
-	let obj = ast.memberExprObj(ms.tree, id: ast.callExprCallee(ms.tree, id: call))
-	if ms.tree.kindOf(obj) == ast.NodeKind.nameExpr 'named'
-		return ast.nameExprName(ms.tree, id: obj)
+	let obj = ast.memberExprObj(ms.tree(), id: ast.callExprCallee(ms.tree(), id: call))
+	if ms.tree().kindOf(obj) == ast.NodeKind.nameExpr 'named'
+		return ast.nameExprName(ms.tree(), id: obj)
 	end 'named'
 	return nameOfType(p, ms: ms, t: nt)
 end 'writtenTypeOfCall'
@@ -113,7 +113,7 @@ end 'refuseZeroedFixedArray'
 // checkFixedArrayCreateArgs refuses create() of a fixed array of an element that has no zero value, at the type the call
 // names.
 function checkFixedArrayCreateArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
-	let named = ast.memberExprObj(ms.tree, id: ast.callExprCallee(ms.tree, id: call))
+	let named = ast.memberExprObj(ms.tree(), id: ast.callExprCallee(ms.tree(), id: call))
 	refuseZeroedFixedArray(c, p: p, ms: ms, node: named, call: call, errs: errs)
 end 'checkFixedArrayCreateArgs'
 
@@ -137,14 +137,14 @@ end 'readsReceiverCount'
 // checkTypeQuery types sizeof(T) and countof(T). Of a concrete type each is an integer constant; sizeof of a type that a
 // generic's parameters build is a Count that each instance knows.
 function checkTypeQuery(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let tr = ast.typeQueryExprType(ms.tree, id: e)
+	let tr = ast.typeQueryExprType(ms.tree(), id: e)
 	let owner = c.owner
 	let t = resolveTypeRef(c, p: p, ms: ms, tr: tr, selfTy: owner, errs: errs)
 	if t == ast.noType 'unknown'
 		return ast.noType
 	end 'unknown'
 	ast.setNodeType(c.typing, node: tr, ty: t)
-	if ast.typeQueryExprOp(ms.tree, id: e) == "sizeof" 'sizeof'
+	if ast.typeQueryExprOp(ms.tree(), id: e) == "sizeof" 'sizeof'
 		if ast.mentionsTypeParam(ms.types, reads: p.types, t: t) 'generic'
 			return p.builtins.countTy
 		end 'generic'

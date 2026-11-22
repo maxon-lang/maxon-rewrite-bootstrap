@@ -128,7 +128,9 @@ type Fn
 end 'Fn'
 
 function interpFunction(mutates p ast.Project, name String, convs ConvList) returns ast.FuncID
-	let node = p.modules[0].tree.alloc(ast.NodeKind.funcDecl, start: 0 as diag.U32)
+	var tree = thaw(p.modules[0].tree)
+	let node = tree.alloc(ast.NodeKind.funcDecl, start: 0 as diag.U32)
+	p.modules[0].tree = freeze(tree)
 	var entry = ast.FuncEntry.make(name.clone(), visibility: "export", module: 0 as diag.ModuleID, nodeID: node)
 	for i in 0 upto convs.count() 'params'
 		entry.params.push(ast.ParamSpec.make("p{i}", ty: p.builtins.countTy, conv: convs[i]))

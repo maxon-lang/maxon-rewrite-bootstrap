@@ -54,9 +54,9 @@ end 'declareHidden'
 // elementRead makes the expression that reads the element at index of the tuple an expression of the type ownerTy gives, at
 // a binding whose name the message about it uses.
 function elementRead(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, obj ast.NodeID, ownerTy ast.TypeID, index Count, binding diag.U32) returns ast.NodeID
-	let read = ast.newMemberExpr(ms.tree, start: try (binding - 1) as diag.U32 otherwise panic("a name starts at the first offset of a module"))
-	ast.setMemberExprObj(ms.tree, id: read, value: obj)
-	ast.setMemberExprNameRef(ms.tree, id: read, ref: binding)
+	let read = ast.newMemberExpr(ms.ownTree, start: try (binding - 1) as diag.U32 otherwise panic("a name starts at the first offset of a module"))
+	ast.setMemberExprObj(ms.ownTree, id: read, value: obj)
+	ast.setMemberExprNameRef(ms.ownTree, id: read, ref: binding)
 	var info = ast.MemberInfo.make(ast.MemberKind.memberField, ownerTy: ownerTy)
 	info.fieldIndex = index
 	c.typing.members.insert(read as Count, value: info)
@@ -96,17 +96,17 @@ function tupleSource(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		end 'declare'
 		return table.Option.none
 	end 'arity'
-	if isPurePlace(ms.tree, typing: c.typing, e: value) 'place'
+	if isPurePlace(ms.tree(), typing: c.typing, e: value) 'place'
 		return table.Option.some(TupleSource.make(value, ty: t))
 	end 'place'
-	let hold = ast.newLetStmt(ms.tree, start: ms.tree.startOf(s))
-	ast.setLetStmtNameRef(ms.tree, id: hold, ref: nameRefAt(ms.tree.startOf(s)))
-	ast.setLetStmtInit(ms.tree, id: hold, value: value)
+	let hold = ast.newLetStmt(ms.ownTree, start: ms.tree().startOf(s))
+	ast.setLetStmtNameRef(ms.ownTree, id: hold, ref: nameRefAt(ms.tree().startOf(s)))
+	ast.setLetStmtInit(ms.ownTree, id: hold, value: value)
 	let local = declareHidden(c, name: "tuple", t: t, definedAt: hold)
 	c.typing.nodeLocals.insert(hold as Count, value: local)
 	syn.push(hold)
-	let name = ast.newNameExpr(ms.tree, start: ms.tree.startOf(value))
-	ast.setNameExprNameRef(ms.tree, id: name, ref: nameRefAt(ms.tree.startOf(s)))
+	let name = ast.newNameExpr(ms.ownTree, start: ms.tree().startOf(value))
+	ast.setNameExprNameRef(ms.ownTree, id: name, ref: nameRefAt(ms.tree().startOf(s)))
 	c.typing.names.insert(name as Count, value: ast.NameInfo.localName(local))
 	ast.setNodeType(c.typing, node: name, ty: t)
 	return table.Option.some(TupleSource.make(name, ty: t))
@@ -116,14 +116,14 @@ end 'tupleSource'
 // of the name spells.
 function bindElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, source TupleSource, index Count, at ast.NodeID, ref diag.U32, isVar bool, mutates syn ast.NodeIDList, mutates errs diag.ErrorList)
 	let elem = elementRead(c, p: p, ms: ms, obj: source.node, ownerTy: source.ty, index: index, binding: ref)
-	let bound = ast.newLetStmt(ms.tree, start: ms.tree.startOf(at))
-	ast.setLetStmtNameRef(ms.tree, id: bound, ref: ref)
-	ast.setLetStmtInit(ms.tree, id: bound, value: elem)
+	let bound = ast.newLetStmt(ms.ownTree, start: ms.tree().startOf(at))
+	ast.setLetStmtNameRef(ms.ownTree, id: bound, ref: ref)
+	ast.setLetStmtInit(ms.ownTree, id: bound, value: elem)
 	if isVar 'mutable'
-		ast.setLetStmtIsVar(ms.tree, id: bound)
+		ast.setLetStmtIsVar(ms.ownTree, id: bound)
 	end 'mutable'
 	let t = ast.nodeType(c.typing, node: elem)
-	let name = ms.tree.nameAt(ref)
+	let name = ms.tree().nameAt(ref)
 	if isVar and (isConstInt(p, ms: ms, t: t) or typeIsAnonInt(ms.types, reads: p.types, t: t) or holdsBareNumbers(p, ms: ms, t: t)) 'bareNumber'
 		failAt(c, p: p, ms: ms, node: at, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
 		return
@@ -133,22 +133,22 @@ function bindElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 end 'bindElement'
 
 function checkDestruct(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let namesRef = ast.destructStmtNamesRef(ms.tree, id: s)
-	let count = ms.tree.listLen(namesRef)
+	let namesRef = ast.destructStmtNamesRef(ms.tree(), id: s)
+	let count = ms.tree().listLen(namesRef)
 	var syn = ast.NodeIDList.create(0)
-	match consumes tupleSource(c, p: p, ms: ms, s: s, value: ast.destructStmtInit(ms.tree, id: s), names: count, assignment: false, syn: syn, errs: errs) 'source'
+	match consumes tupleSource(c, p: p, ms: ms, s: s, value: ast.destructStmtInit(ms.tree(), id: s), names: count, assignment: false, syn: syn, errs: errs) 'source'
 		some(source) then bindElements(c, p: p, ms: ms, s: s, source: source, namesRef: namesRef, syn: syn, errs: errs)
 		none then _ = 0
 	end 'source'
 end 'checkDestruct'
 
 function bindElements(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, source TupleSource, namesRef diag.U32, consumes syn ast.NodeIDList, mutates errs diag.ErrorList)
-	let isVar = ast.destructStmtIsVar(ms.tree, id: s)
+	let isVar = ast.destructStmtIsVar(ms.tree(), id: s)
 	var steps = syn
-	for i in 0 upto ms.tree.listLen(namesRef) 'each'
-		let at = ms.tree.listAt(namesRef, index: i) as ast.NodeID
-		let ref = ast.bindNameNameRef(ms.tree, id: at)
-		if ms.tree.nameAt(ref) != "_" 'named'
+	for i in 0 upto ms.tree().listLen(namesRef) 'each'
+		let at = ms.tree().listAt(namesRef, index: i) as ast.NodeID
+		let ref = ast.bindNameNameRef(ms.tree(), id: at)
+		if ms.tree().nameAt(ref) != "_" 'named'
 			bindElement(c, p: p, ms: ms, source: source, index: i, at: at, ref: ref, isVar: isVar, syn: steps, errs: errs)
 		end 'named'
 	end 'each'
@@ -157,10 +157,10 @@ end 'bindElements'
 
 // checkTupleAssign types an assignment of the elements of a tuple to variables, which are existing ones, new ones, or none.
 function checkTupleAssign(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let targetsRef = ast.tupleAssignStmtTargetsRef(ms.tree, id: s)
-	let count = ms.tree.listLen(targetsRef)
+	let targetsRef = ast.tupleAssignStmtTargetsRef(ms.tree(), id: s)
+	let count = ms.tree().listLen(targetsRef)
 	var syn = ast.NodeIDList.create(0)
-	match consumes tupleSource(c, p: p, ms: ms, s: s, value: ast.tupleAssignStmtValue(ms.tree, id: s), names: count, assignment: true, syn: syn, errs: errs) 'source'
+	match consumes tupleSource(c, p: p, ms: ms, s: s, value: ast.tupleAssignStmtValue(ms.tree(), id: s), names: count, assignment: true, syn: syn, errs: errs) 'source'
 		some(source) then assignElements(c, p: p, ms: ms, s: s, source: source, targetsRef: targetsRef, syn: syn, errs: errs)
 		none then _ = 0
 	end 'source'
@@ -168,23 +168,23 @@ end 'checkTupleAssign'
 
 function assignElements(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, source TupleSource, targetsRef diag.U32, consumes syn ast.NodeIDList, mutates errs diag.ErrorList)
 	var steps = syn
-	for i in 0 upto ms.tree.listLen(targetsRef) 'each'
-		let at = ms.tree.listAt(targetsRef, index: i) as ast.NodeID
-		let ref = ast.assignTargetNameRef(ms.tree, id: at)
-		if ms.tree.nameAt(ref) == "_" 'discard'
+	for i in 0 upto ms.tree().listLen(targetsRef) 'each'
+		let at = ms.tree().listAt(targetsRef, index: i) as ast.NodeID
+		let ref = ast.assignTargetNameRef(ms.tree(), id: at)
+		if ms.tree().nameAt(ref) == "_" 'discard'
 			continue 'each'
 		end 'discard'
-		let declares = ast.assignTargetIsLet(ms.tree, id: at) or ast.assignTargetIsVar(ms.tree, id: at)
+		let declares = ast.assignTargetIsLet(ms.tree(), id: at) or ast.assignTargetIsVar(ms.tree(), id: at)
 		if declares 'declare'
-			bindElement(c, p: p, ms: ms, source: source, index: i, at: at, ref: ref, isVar: ast.assignTargetIsVar(ms.tree, id: at), syn: steps, errs: errs)
+			bindElement(c, p: p, ms: ms, source: source, index: i, at: at, ref: ref, isVar: ast.assignTargetIsVar(ms.tree(), id: at), syn: steps, errs: errs)
 			continue 'each'
 		end 'declare'
-		let assign = ast.newAssignStmt(ms.tree, start: ms.tree.startOf(at))
-		let target = ast.newNameExpr(ms.tree, start: ms.tree.startOf(at))
-		ast.setNameExprNameRef(ms.tree, id: target, ref: ref)
-		ast.setAssignStmtTarget(ms.tree, id: assign, value: target)
+		let assign = ast.newAssignStmt(ms.ownTree, start: ms.tree().startOf(at))
+		let target = ast.newNameExpr(ms.ownTree, start: ms.tree().startOf(at))
+		ast.setNameExprNameRef(ms.ownTree, id: target, ref: ref)
+		ast.setAssignStmtTarget(ms.ownTree, id: assign, value: target)
 		let elem = elementRead(c, p: p, ms: ms, obj: source.node, ownerTy: source.ty, index: i, binding: ref)
-		ast.setAssignStmtValue(ms.tree, id: assign, value: elem)
+		ast.setAssignStmtValue(ms.ownTree, id: assign, value: elem)
 		checkAssign(c, p: p, ms: ms, s: assign, errs: errs)
 		steps.push(assign)
 	end 'each'
@@ -195,8 +195,8 @@ end 'assignElements'
 // of what it holds to the names of the loop. It gives none after it reported why the elements are no tuple of as many
 // elements as there are names.
 function declareTupleVariable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, varType ast.TypeID, mutates bound ast.NodeIDList, mutates errs diag.ErrorList) returns ast.LocalID
-	let namesRef = ast.forStmtVarsRef(ms.tree, id: s)
-	let count = ms.tree.listLen(namesRef)
+	let namesRef = ast.forStmtVarsRef(ms.tree(), id: s)
+	let count = ms.tree().listLen(namesRef)
 	if not ast.isTupleType(ms.types, reads: p.types, t: varType) 'notTuple'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: diag.destructureNonTuple(gotName(p, ms: ms, t: varType)), errs: errs)
 		return ast.noLocal
@@ -207,15 +207,15 @@ function declareTupleVariable(mutates c Checker, p ast.Project, mutates ms ast.M
 		return ast.noLocal
 	end 'arity'
 	let local = declareHidden(c, name: "tuple", t: varType, definedAt: s)
-	let name = ast.newNameExpr(ms.tree, start: ms.tree.startOf(s))
-	ast.setNameExprNameRef(ms.tree, id: name, ref: nameRefAt(ms.tree.startOf(s)))
+	let name = ast.newNameExpr(ms.ownTree, start: ms.tree().startOf(s))
+	ast.setNameExprNameRef(ms.ownTree, id: name, ref: nameRefAt(ms.tree().startOf(s)))
 	c.typing.names.insert(name as Count, value: ast.NameInfo.localName(local))
 	ast.setNodeType(c.typing, node: name, ty: varType)
 	let source = TupleSource.make(name, ty: varType)
 	for i in 0 upto count 'each'
-		let at = ms.tree.listAt(namesRef, index: i) as ast.NodeID
-		let ref = ast.bindNameNameRef(ms.tree, id: at)
-		if ms.tree.nameAt(ref) != "_" 'named'
+		let at = ms.tree().listAt(namesRef, index: i) as ast.NodeID
+		let ref = ast.bindNameNameRef(ms.tree(), id: at)
+		if ms.tree().nameAt(ref) != "_" 'named'
 			bindElement(c, p: p, ms: ms, source: source, index: i, at: at, ref: ref, isVar: false, syn: bound, errs: errs)
 		end 'named'
 	end 'each'
@@ -225,14 +225,14 @@ end 'declareTupleVariable'
 // putStepsBeforeBody makes the lets of a loop over tuples the first statements of its body, which each pass then runs as it
 // runs the rest of the body, at the start of every pass of the loop.
 function putStepsBeforeBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, steps ast.NodeIDList)
-	let body = ast.forStmtBodyRef(ms.tree, id: s)
+	let body = ast.forStmtBodyRef(ms.tree(), id: s)
 	var items = ast.U32List.create(0)
 	for i in 0 upto steps.count() 'steps'
 		items.push(steps[i] as diag.U32)
 	end 'steps'
-	for i in 0 upto ms.tree.listLen(body) 'body'
-		items.push(ms.tree.listAt(body, index: i))
+	for i in 0 upto ms.tree().listLen(body) 'body'
+		items.push(ms.tree().listAt(body, index: i))
 	end 'body'
-	let ref = ms.tree.pushList(items)
-	ast.setForStmtBodyRef(ms.tree, id: s, ref: ref)
+	let ref = ms.ownTree.pushList(items)
+	ast.setForStmtBodyRef(ms.ownTree, id: s, ref: ref)
 end 'putStepsBeforeBody'

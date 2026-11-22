@@ -153,11 +153,11 @@ end 'CaseRead'
 // payload, and none for any other expression. Making such a case needs its payload, so a member of it that its tag answers
 // (`Op.mul.latency`) is read without making one.
 function payloadCaseNamed(mutates c Checker, p ast.Project, ms ast.ModuleState, obj ast.NodeID) returns table.Option with CaseRead
-	if ms.tree.kindOf(obj) != ast.NodeKind.memberExpr 'notMember'
+	if ms.tree().kindOf(obj) != ast.NodeKind.memberExpr 'notMember'
 		return table.Option.none
 	end 'notMember'
-	let head = ast.memberExprObj(ms.tree, id: obj)
-	if ms.tree.kindOf(head) != ast.NodeKind.nameExpr 'notName'
+	let head = ast.memberExprObj(ms.tree(), id: obj)
+	if ms.tree().kindOf(head) != ast.NodeKind.nameExpr 'notName'
 		return table.Option.none
 	end 'notName'
 	var probe = diag.ErrorList.create(0)
@@ -165,7 +165,7 @@ function payloadCaseNamed(mutates c Checker, p ast.Project, ms ast.ModuleState, 
 	if probe.count() > 0 or not typeHasKind(p, ms: ms, t: named, kind: ast.TypeKind.unionTy) or ast.typeEntry(ms.types, reads: p.types, t: named).typeParams.count() > 0 'notUnion'
 		return table.Option.none
 	end 'notUnion'
-	match consumes ast.typeEntry(ms.types, reads: p.types, t: named).findCase(ast.memberExprName(ms.tree, id: obj)) 'found'
+	match consumes ast.typeEntry(ms.types, reads: p.types, t: named).findCase(ast.memberExprName(ms.tree(), id: obj)) 'found'
 		some(i) then return payloadRead(p, ms: ms, t: named, caseIndex: i)
 		none then return table.Option.none
 	end 'found'
@@ -181,7 +181,7 @@ end 'payloadRead'
 // checkCaseRead types a member that the tag of a case with a payload answers: its name, its ordinal, its raw value, or a
 // field of its raw value. Any other member of it is not a value that can be made without the payload.
 function checkCaseRead(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, read CaseRead, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(ms.tree, id: e)
+	let member = ast.memberExprName(ms.tree(), id: e)
 	var kind = ast.MemberKind.memberCaseRawField
 	var result = p.builtins.stringTy
 	var fieldIndex = 0 as Count
@@ -218,6 +218,6 @@ end 'checkCaseRead'
 
 function caseNeedsPayload(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, read CaseRead, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = ast.typeEntry(ms.types, reads: p.types, t: read.owner).cases[read.caseIndex].name.clone()
-	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: ast.memberExprObj(ms.tree, id: e)), code: diag.errCallArgCountMismatch, msg: "case '{name}' carries a payload: construct it with arguments", errs: errs)
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: ast.memberExprObj(ms.tree(), id: e)), code: diag.errCallArgCountMismatch, msg: "case '{name}' carries a payload: construct it with arguments", errs: errs)
 	return ast.noType
 end 'caseNeedsPayload'

@@ -30,7 +30,9 @@ end 'irProject'
 // irFunction declares a function of the project's module, which the lowering reads its parameters from, and gives the
 // node it is declared at.
 function irFunction(mutates p ast.Project, name String, params Count) returns ast.FuncID
-	let node = p.modules[0].tree.alloc(ast.NodeKind.funcDecl, start: 0 as diag.U32)
+	var tree = thaw(p.modules[0].tree)
+	let node = tree.alloc(ast.NodeKind.funcDecl, start: 0 as diag.U32)
+	p.modules[0].tree = freeze(tree)
 	var entry = ast.FuncEntry.make(name.clone(), visibility: "export", module: 0 as diag.ModuleID, nodeID: node)
 	for i in 0 upto params 'params'
 		entry.params.push(ast.ParamSpec.make("p{i}", ty: p.builtins.countTy, conv: ast.Convention.convLet))
@@ -44,21 +46,27 @@ end 'irFunction'
 function irLocal(mutates p ast.Project, fn ast.FuncID, name String, ty ast.TypeID, slot ast.SlotIndex)
 	var entry = ast.LocalEntry.make(name.clone(), ty: ty, isVar: true, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
 	entry.slot = slot
-	let id = p.typings[0].allocLocal(entry)
+	var typing = thaw(p.typings[0])
+	let id = typing.allocLocal(entry)
 	let node = ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: fn).nodeID
 	var ids = ast.LocalIDList.create(0)
-	match consumes p.typings[0].funcLocals.get(node as Count) 'known'
+	match consumes typing.funcLocals.get(node as Count) 'known'
 		some(list) then ids = list
 		none then _ = 0
 	end 'known'
 	ids.push(id)
-	p.typings[0].funcLocals.insert(node as Count, value: ids)
+	typing.funcLocals.insert(node as Count, value: ids)
+	p.typings[0] = freeze(typing)
 end 'irLocal'
 
 // irNode makes a node of the module that the checker typed.
 function irNode(mutates p ast.Project, kind ast.NodeKind, ty ast.TypeID) returns ast.NodeID
-	let node = p.modules[0].tree.alloc(kind, start: 0 as diag.U32)
-	ast.setNodeType(p.typings[0], node: node, ty: ty)
+	var tree = thaw(p.modules[0].tree)
+	let node = tree.alloc(kind, start: 0 as diag.U32)
+	p.modules[0].tree = freeze(tree)
+	var typing = thaw(p.typings[0])
+	ast.setNodeType(typing, node: node, ty: ty)
+	p.typings[0] = freeze(typing)
 	return node
 end 'irNode'
 
@@ -329,19 +337,27 @@ function testRaw()
 	let countTy = p.builtins.countTy
 	var local = ast.LocalEntry.make("w", ty: countTy, isVar: true, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
 	local.slot = 0 as ast.SlotIndex
-	let wID = p.typings[0].allocLocal(local)
+	var typing = thaw(p.typings[0])
+	let wID = typing.allocLocal(local)
 	var ids = ast.LocalIDList.create(0)
 	ids.push(wID)
-	p.typings[0].funcLocals.insert(ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: probe).nodeID as Count, value: ids)
+	typing.funcLocals.insert(ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: probe).nodeID as Count, value: ids)
+	p.typings[0] = freeze(typing)
 	let wNode = irNode(p, kind: ast.NodeKind.nameExpr, ty: countTy)
-	p.typings[0].names.insert(wNode as Count, value: ast.NameInfo.localName(wID))
-	let nameNode = ast.newStrLit(p.modules[0].tree, start: 0 as diag.U32)
+	var named = thaw(p.typings[0])
+	named.names.insert(wNode as Count, value: ast.NameInfo.localName(wID))
+	p.typings[0] = freeze(named)
+	var tree = thaw(p.modules[0].tree)
+	let nameNode = ast.newStrLit(tree, start: 0 as diag.U32)
 	var parts = ast.StrPartsBuilder.new()
-	parts.decoded(p.modules[0].tree, text: "Sleep")
-	let partsRef = parts.finish(p.modules[0].tree)
-	ast.setStrLitPartsRef(p.modules[0].tree, id: nameNode, ref: partsRef)
+	parts.decoded(tree, text: "Sleep")
+	let partsRef = parts.finish(tree)
+	ast.setStrLitPartsRef(tree, id: nameNode, ref: partsRef)
+	p.modules[0].tree = freeze(tree)
 	let five = irNode(p, kind: ast.NodeKind.intLit, ty: countTy)
-	ast.setIntLitMagnitude(p.modules[0].tree, id: five, value: ast.I128.fromCount(5 as Count))
+	var literal = thaw(p.modules[0].tree)
+	ast.setIntLitMagnitude(literal, id: five, value: ast.I128.fromCount(5 as Count))
+	p.modules[0].tree = freeze(literal)
 	var addressOperands = ast.NodeIDList.create(0)
 	addressOperands.push(wNode)
 	var importOperands = ast.NodeIDList.create(0)

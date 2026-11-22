@@ -29,13 +29,13 @@ function expectedArgs(p ast.Project, ms ast.ModuleState, want ast.TypeID, kind a
 end 'expectedArgs'
 
 function checkCollectionLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let elemsRef = ast.collectionLitExprElemsRef(ms.tree, id: e)
-	let valuesRef = ast.collectionLitExprValuesRef(ms.tree, id: e)
-	if ms.tree.listLen(elemsRef) == 0 'empty'
+	let elemsRef = ast.collectionLitExprElemsRef(ms.tree(), id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(ms.tree(), id: e)
+	if ms.tree().listLen(elemsRef) == 0 'empty'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: diag.emptyArrayLiteral(), errs: errs)
 		return ast.noType
 	end 'empty'
-	let isMap = ms.tree.listLen(valuesRef) > 0
+	let isMap = ms.tree().listLen(valuesRef) > 0
 	let wide = c.literalWide
 	let want = c.expect
 	c.literalWide = true
@@ -50,14 +50,14 @@ function checkCollectionLit(mutates c Checker, p ast.Project, mutates ms ast.Mod
 end 'checkCollectionLit'
 
 function checkArrayLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
-	let elemsRef = ast.collectionLitExprElemsRef(ms.tree, id: e)
+	let elemsRef = ast.collectionLitExprElemsRef(ms.tree(), id: e)
 	let given = expectedArgs(p, ms: ms, want: want, kind: ast.TypeKind.builtinArray)
 	var elems = Column.open("'value'")
 	if given.count() == 1 and given[0] != ast.noType 'stated'
 		elems = Column.fixedTo(given[0], label: "'value'")
 	end 'stated'
-	for i in 0 upto ms.tree.listLen(elemsRef) 'each'
-		if not addToColumn(c, p: p, ms: ms, col: elems, node: ms.tree.listAt(elemsRef, index: i) as ast.NodeID, errs: errs) 'bad'
+	for i in 0 upto ms.tree().listLen(elemsRef) 'each'
+		if not addToColumn(c, p: p, ms: ms, col: elems, node: ms.tree().listAt(elemsRef, index: i) as ast.NodeID, errs: errs) 'bad'
 			return ast.noType
 		end 'bad'
 	end 'each'
@@ -68,8 +68,8 @@ function checkArrayLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 end 'checkArrayLit'
 
 function checkMapLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
-	let keysRef = ast.collectionLitExprElemsRef(ms.tree, id: e)
-	let valuesRef = ast.collectionLitExprValuesRef(ms.tree, id: e)
+	let keysRef = ast.collectionLitExprElemsRef(ms.tree(), id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(ms.tree(), id: e)
 	let given = expectedArgs(p, ms: ms, want: want, kind: ast.TypeKind.builtinMap)
 	var keys = Column.open("'key'")
 	var values = Column.open("'value'")
@@ -77,11 +77,11 @@ function checkMapLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		keys = Column.fixedTo(given[0], label: "'key'")
 		values = Column.fixedTo(given[1], label: "'value'")
 	end 'stated'
-	for i in 0 upto ms.tree.listLen(keysRef) 'each'
-		if not addToColumn(c, p: p, ms: ms, col: keys, node: ms.tree.listAt(keysRef, index: i) as ast.NodeID, errs: errs) 'badKey'
+	for i in 0 upto ms.tree().listLen(keysRef) 'each'
+		if not addToColumn(c, p: p, ms: ms, col: keys, node: ms.tree().listAt(keysRef, index: i) as ast.NodeID, errs: errs) 'badKey'
 			return ast.noType
 		end 'badKey'
-		if not addToColumn(c, p: p, ms: ms, col: values, node: ms.tree.listAt(valuesRef, index: i) as ast.NodeID, errs: errs) 'badValue'
+		if not addToColumn(c, p: p, ms: ms, col: values, node: ms.tree().listAt(valuesRef, index: i) as ast.NodeID, errs: errs) 'badValue'
 			return ast.noType
 		end 'badValue'
 	end 'each'

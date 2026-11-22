@@ -255,15 +255,14 @@ end 'nameInfoOf'
 
 export function checkerStartMod(mutates p ast.Project, modIdx Count) returns Checker
 	let modID = p.modules[modIdx].id
-	let swapped = exchange(p.typings[modIdx], value: ast.Typing.new(modID))
-	return Checker.make(modID, typing: swapped)
+	return Checker.make(modID, typing: thaw(p.typings[modIdx]))
 end 'checkerStartMod'
 
 export function checkerEndMod(mutates p ast.Project, consumes c Checker)
 	var mc = c
 	let mIdx = mc.modIdx
 	let finalTp = exchange(mc.typing, value: ast.Typing.new(mc.modID))
-	p.typings[mIdx] = finalTp
+	p.typings[mIdx] = freeze(finalTp)
 end 'checkerEndMod'
 
 export function typeIsAnonInt(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
@@ -530,7 +529,7 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	var fix = diag.Fix.none()
 	let integers = sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange
 	if integers 'cast'
-		fix = castFix(ms.tree, e: node, target: tName)
+		fix = castFix(ms.tree(), e: node, target: tName)
 	end 'cast'
 	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(clashName(p, ms: ms, t: target, other: src), got: clashName(p, ms: ms, t: src, other: target), castable: integers), fix: fix, errs: errs)
 	return false
@@ -1066,8 +1065,8 @@ end 'instantiateGeneric'
 // its 'with' binds. A bound binds every associated type, since a call through it is typed by them; a conformance that
 // binds none is refused where its declaration is checked, which names what it lacks.
 export function resolveBoundTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = ms.tree.startOf(tr)
-	let tName = ast.typeRefName(ms.tree, id: tr)
+	let off = ms.tree().startOf(tr)
+	let tName = ast.typeRefName(ms.tree(), id: tr)
 	match ast.nodeDecl(p, ms: ms, node: tr as Count) 'hit'
 		some(ref) then return checkInterfaceRef(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, isBound: isBound, errs: errs)
 		none then _ = 0
@@ -1083,9 +1082,9 @@ end 'resolveBoundTypeRef'
 // failUnknownType reports a type reference that names no type. A bare name may name a declaration of another module, which
 // is always qualified, so the error is marked for locating to say how.
 function failUnknownType(c Checker, p ast.Project, ms ast.ModuleState, tr ast.NodeID, mutates errs diag.ErrorList)
-	let off = ms.tree.startOf(tr)
-	let tName = ast.typeRefName(ms.tree, id: tr)
-	if ms.tree.listLen(ast.typeRefQualifierRef(ms.tree, id: tr)) == 0 'bare'
+	let off = ms.tree().startOf(tr)
+	let tName = ast.typeRefName(ms.tree(), id: tr)
+	if ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: tr)) == 0 'bare'
 		diag.pushUnqualifiedError(errs, code: diag.errUnknownType, message: diag.unknownType(tName), module: c.modID, offset: off, name: tName.clone())
 		return
 	end 'bare'
@@ -1106,8 +1105,8 @@ function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.
 		checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
 		return ast.noType
 	end 'notIface'
-	let argsRef = ast.typeRefTypeArgsRef(ms.tree, id: tr)
-	let argCount = ms.tree.listLen(argsRef)
+	let argsRef = ast.typeRefTypeArgsRef(ms.tree(), id: tr)
+	let argCount = ms.tree().listLen(argsRef)
 	let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: tid).typeParams)
 	if params.count() == 0 'plain'
 		if argCount > 0 'hasArgs'
@@ -1129,7 +1128,7 @@ function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.
 	end 'badCount'
 	var args = ast.TypeIDList.create(0)
 	for i in 0 upto argCount 'args'
-		let at = resolveTypeRef(c, p: p, ms: ms, tr: ms.tree.listAt(argsRef, index: i) as ast.NodeID, selfTy: ast.noType, errs: errs)
+		let at = resolveTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(argsRef, index: i) as ast.NodeID, selfTy: ast.noType, errs: errs)
 		if at == ast.noType 'failed'
 			return ast.noType
 		end 'failed'
@@ -1139,13 +1138,13 @@ function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.
 end 'verifyInterfaceTarget'
 
 export function resolveTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if ast.typeRefIsTuple(ms.tree, id: tr) 'tuple'
+	if ast.typeRefIsTuple(ms.tree(), id: tr) 'tuple'
 		return resolveTupleTypeRef(c, p: p, ms: ms, tr: tr, selfTy: selfTy, errs: errs)
 	end 'tuple'
 	let t = resolveNamedTypeRef(c, p: p, ms: ms, tr: tr, selfTy: selfTy, errs: errs)
 	if t != ast.noType and ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.interfaceTy 'ifTy'
-		let off = ms.tree.startOf(tr)
-		c.pendingValueTypes.push(PendingValueType.make(off, iface: t, written: ast.typeRefName(ms.tree, id: tr)))
+		let off = ms.tree().startOf(tr)
+		c.pendingValueTypes.push(PendingValueType.make(off, iface: t, written: ast.typeRefName(ms.tree(), id: tr)))
 	end 'ifTy'
 	return t
 end 'resolveTypeRef'
@@ -1153,10 +1152,10 @@ end 'resolveTypeRef'
 // resolveTupleTypeRef is the tuple that a parenthesized list of types stands for. A type that cannot be an element is
 // refused where the list names it.
 function resolveTupleTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let elemsRef = ast.typeRefElemsRef(ms.tree, id: tr)
+	let elemsRef = ast.typeRefElemsRef(ms.tree(), id: tr)
 	var elems = ast.TypeIDList.create(0)
-	for i in 0 upto ms.tree.listLen(elemsRef) 'each'
-		let node = ms.tree.listAt(elemsRef, index: i) as ast.NodeID
+	for i in 0 upto ms.tree().listLen(elemsRef) 'each'
+		let node = ms.tree().listAt(elemsRef, index: i) as ast.NodeID
 		let t = resolveTypeRef(c, p: p, ms: ms, tr: node, selfTy: selfTy, errs: errs)
 		if t == ast.noType 'failed'
 			return ast.noType
@@ -1168,12 +1167,12 @@ end 'resolveTupleTypeRef'
 
 // bareNumberName is "int" or "float" when a type reference is that word alone, and "" for any other.
 function bareNumberName(p ast.Project, ms ast.ModuleState, tr ast.NodeID) returns String
-	let qualified = ms.tree.listLen(ast.typeRefQualifierRef(ms.tree, id: tr)) > 0
-	let applied = ms.tree.listLen(ast.typeRefTypeArgsRef(ms.tree, id: tr)) > 0
-	if ast.typeRefIsTuple(ms.tree, id: tr) or qualified or applied 'other'
+	let qualified = ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: tr)) > 0
+	let applied = ms.tree().listLen(ast.typeRefTypeArgsRef(ms.tree(), id: tr)) > 0
+	if ast.typeRefIsTuple(ms.tree(), id: tr) or qualified or applied 'other'
 		return ""
 	end 'other'
-	let name = ast.typeRefName(ms.tree, id: tr)
+	let name = ast.typeRefName(ms.tree(), id: tr)
 	if name == "int" or name == "float" 'bare'
 		return name
 	end 'bare'
@@ -1181,15 +1180,15 @@ function bareNumberName(p ast.Project, ms ast.ModuleState, tr ast.NodeID) return
 end 'bareNumberName'
 
 function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = ms.tree.startOf(tr)
-	let tName = ast.typeRefName(ms.tree, id: tr)
-	let argsRef = ast.typeRefTypeArgsRef(ms.tree, id: tr)
-	let hasArgs = ms.tree.listLen(argsRef) > 0
+	let off = ms.tree().startOf(tr)
+	let tName = ast.typeRefName(ms.tree(), id: tr)
+	let argsRef = ast.typeRefTypeArgsRef(ms.tree(), id: tr)
+	let hasArgs = ms.tree().listLen(argsRef) > 0
 	match ast.resolutionOf(p, ms: ms).typeParamSlots.get(tr as Count) 'tpSlot'
 		some(slot) then return resolveBoundTP(c, p: p, ms: ms, off: off, name: tName, slot: slot, hasArgs: hasArgs, errs: errs)
 		none then _ = 0
 	end 'tpSlot'
-	let qualCount = ms.tree.listLen(ast.typeRefQualifierRef(ms.tree, id: tr))
+	let qualCount = ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: tr))
 	if qualCount == 0 'unqual'
 		if tName == "bool" 'bl'
 			if hasArgs 'badA'
@@ -1259,8 +1258,8 @@ function applyTypeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		failUnknownType(c, p: p, ms: ms, tr: tr, errs: errs)
 		return ast.noType
 	end 'unk'
-	let argsRef = ast.typeRefTypeArgsRef(ms.tree, id: tr)
-	let argCount = ms.tree.listLen(argsRef)
+	let argsRef = ast.typeRefTypeArgsRef(ms.tree(), id: tr)
+	let argCount = ms.tree().listLen(argsRef)
 	if ast.typeEntry(ms.types, reads: p.types, t: target).typeParams.count() == 0 'nonGen'
 		if argCount > 0 'badA'
 			checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' is not generic and takes no type arguments", errs: errs)
@@ -1269,14 +1268,14 @@ function applyTypeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	end 'nonGen'
 	var resolvedArgs = ast.TypeIDList.create(0)
 	for i in 0 upto argCount 'eachA'
-		let aNode = ms.tree.listAt(argsRef, index: i) as ast.NodeID
+		let aNode = ms.tree().listAt(argsRef, index: i) as ast.NodeID
 		let at = resolveTypeRef(c, p: p, ms: ms, tr: aNode, selfTy: selfTy, errs: errs)
 		if at == ast.noType 'fail'
 			return ast.noType
 		end 'fail'
 		resolvedArgs.push(at)
 	end 'eachA'
-	let count = ast.typeRefCount(ms.tree, id: tr)
+	let count = ast.typeRefCount(ms.tree(), id: tr)
 	if count == 0 'uncounted'
 		return instantiateGeneric(c, p: p, ms: ms, off: off, orig: target, args: resolvedArgs, errs: errs)
 	end 'uncounted'
@@ -1293,13 +1292,13 @@ let fixedArrayCountLimit = 4294967295 as Count
 // countedInstance is the instance of a fixed array that states the count a type reference writes after 'with', which is
 // an integer literal from 1 to fixedArrayCountLimit.
 function countedInstance(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, unsized ast.TypeID, tName String, count ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = ms.tree.startOf(count)
+	let off = ms.tree().startOf(count)
 	if ast.originOf(ms.types, reads: p.types, t: unsized) != p.builtins.fixedArrayOrigin 'notFixed'
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' states no count: only a 'FixedArray' takes one before its element, as in 'FixedArray with 3 Int'", errs: errs)
 		return ast.noType
 	end 'notFixed'
-	let value = ast.typeCountValue(ms.tree, id: count)
-	let negative = ast.typeCountNegative(ms.tree, id: count)
+	let value = ast.typeCountValue(ms.tree(), id: count)
+	let negative = ast.typeCountNegative(ms.tree(), id: count)
 	if negative or value.isZero() or value.gt(ast.I128.fromCount(fixedArrayCountLimit)) 'outside'
 		var written = value.toString()
 		if negative 'minus'

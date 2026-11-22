@@ -1,0 +1,28 @@
+// A payload that an arm of a match in a loop moves out of its binding is bound anew on the next pass.
+union Maybe
+	some(value String)
+	none
+end 'Maybe'
+
+function pick(i Count) returns Maybe
+	if i == 1 'one'
+		return Maybe.none
+	end 'one'
+	return Maybe.some("x{i}")
+end 'pick'
+
+function main() returns ExitCode
+	for i in 0 upto 3 'each'
+		var text = "start"
+		match consumes pick(i) 'made'
+			some(found) then text = found
+			none then text = "none"
+		end 'made'
+		print("{text}\n")
+	end 'each'
+	return 0
+end 'main'
+
+//> x0
+//> none
+//> x2

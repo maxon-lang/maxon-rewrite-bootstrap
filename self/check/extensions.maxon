@@ -23,13 +23,13 @@ function extendedType(mutates c Checker, p ast.Project, ms ast.ModuleState, xd a
 	if xd.isInt 'integer'
 		return p.builtins.anon64Ty
 	end 'integer'
-	let name = ast.typeRefName(ms.tree, id: xd.target)
+	let name = ast.typeRefName(ms.tree(), id: xd.target)
 	let off = offsetOf(c, p: p, ms: ms, node: xd.target)
 	match consumes ast.nodeDecl(p, ms: ms, node: xd.target as Count) 'bound'
 		some(ref) then return declaredExtendedType(c, p: p, ms: ms, ref: ref, name: name, off: off, errs: errs)
 		none then _ = 0
 	end 'bound'
-	let unqualified = ms.tree.listLen(ast.typeRefQualifierRef(ms.tree, id: xd.target)) == 0
+	let unqualified = ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: xd.target)) == 0
 	if unqualified and name == "bool" 'boolean'
 		return p.builtins.boolTy
 	end 'boolean'
@@ -112,7 +112,7 @@ function addExtensionMethod(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	addFunction(c, p: p, ms: ms, f: m, fid: fid, nt: nt, declared: declared, errs: errs)
 	var conditional = 0 as Count
 	for i in 0 upto xd.whereList.count() 'conditions'
-		conditional = try conditional + ms.tree.listLen(xd.whereList[i].bounds) otherwise panic("too many bounds")
+		conditional = try conditional + ms.tree().listLen(xd.whereList[i].bounds) otherwise panic("too many bounds")
 	end 'conditions'
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].conditionalBounds = conditional
 end 'addExtensionMethod'
@@ -148,7 +148,7 @@ end 'declareExtension'
 // it where the code knows no method of that name of the type.
 function declareInterfaceExtension(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, xd ast.ExtensionDecl, iface ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
 	let name = ast.typeEntry(ms.types, reads: p.types, t: iface).name.clone()
-	if ms.tree.listLen(xd.conforms) > 0 'conforms'
+	if ms.tree().listLen(xd.conforms) > 0 'conforms'
 		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: xd.id), code: diag.errUnsupportedFeature, msg: "Unsupported: `extension {name} implements ...` — an extension of an interface adds methods to the types that implement it and declares no conformance; let '{name}' extend the other interface, or say `implements` on each type", errs: errs)
 		return
 	end 'conforms'
@@ -262,7 +262,7 @@ function declareAliasesOfExtension(mutates c Checker, p ast.Project, mutates ms 
 		bindExtensionParams(c, p: p, ms: ms, xd: xd, nt: nt)
 		key = ast.extensionKey(p, ms: ms, t: nt).unwrap()
 	end 'extended'
-	let owner = ast.extensionOwnerName(ms.tree, xd: xd)
+	let owner = ast.extensionOwnerName(ms.tree(), xd: xd)
 	for i in 0 upto xd.aliases.count() 'aliases'
 		match consumes p.modules[c.modIdx].names.get(ast.nestedAliasName(owner, name: xd.aliases[i].name)) 'declared'
 			some(ord) then fileExtensionAlias(c, p: p, ms: ms, a: xd.aliases[i].clone(), ord: ord, key: key, nt: nt, errs: errs)
@@ -275,7 +275,7 @@ end 'declareAliasesOfExtension'
 // declarations hold cases and methods only, or an interface, whose conformers have no one type to name them by.
 function refuseExtensionAliases(mutates c Checker, p ast.Project, ms ast.ModuleState, xd ast.ExtensionDecl, code String, msg String, mutates errs diag.ErrorList)
 	for i in 0 upto xd.aliases.count() 'each'
-		checkFail(c.modID, off: ms.tree.startOf(xd.aliases[i].id), code: code.clone(), msg: msg.clone(), errs: errs)
+		checkFail(c.modID, off: ms.tree().startOf(xd.aliases[i].id), code: code.clone(), msg: msg.clone(), errs: errs)
 	end 'each'
 end 'refuseExtensionAliases'
 
@@ -293,7 +293,7 @@ end 'fileExtensionAlias'
 // ranged one would be a type for each instance of a generic type, and the body of the type may declare the name.
 function refuseExtensionAlias(mutates c Checker, p ast.Project, ms ast.ModuleState, a ast.AliasDecl, key ast.TypeID, nt ast.TypeID, mutates errs diag.ErrorList) returns bool
 	if ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams.count() > 0 and not ast.aliasNamesInstance(a) 'perInstance'
-		checkFail(c.modID, off: ms.tree.startOf(a.id), code: diag.errUnsupportedFeature, msg: ast.perInstanceRangeRefusal(a.name), errs: errs)
+		checkFail(c.modID, off: ms.tree().startOf(a.id), code: diag.errUnsupportedFeature, msg: ast.perInstanceRangeRefusal(a.name), errs: errs)
 		return true
 	end 'perInstance'
 	if ast.bodyAlias(p, ms: ms, t: nt, member: a.name).isSome() 'declared'
@@ -313,7 +313,7 @@ export function bindMemberRefs(mutates c Checker, p ast.Project, mutates ms ast.
 end 'bindMemberRefs'
 
 function bindMemberRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ref ast.MemberRef, mutates errs diag.ErrorList)
-	let off = ms.tree.startOf(ref.node)
+	let off = ms.tree().startOf(ref.node)
 	let ownerName = ast.declName(p, ref: ref.owner)
 	if ast.declKindOf(p, ref: ref.owner) == ast.DeclKind.interfaceDecl 'interface'
 		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType("{ownerName}.{ref.member}"), errs: errs)

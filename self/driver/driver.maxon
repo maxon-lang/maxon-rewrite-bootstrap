@@ -79,7 +79,7 @@ type Options
 	// reversesModules runs the modules of each stage in another order that keeps each after the modules it names, which
 	// shows that what a compile makes does not depend on that order.
 	var reversesModules as bool
-	// verifiesReads stops the compile at a task's read of an entry that is the product of a stage the task did not wait on,
+	// verifiesReads names the task that reads a type or function entry that is the product of a stage it did not wait on,
 	// which is a fault of the task graph.
 	var verifiesReads as bool
 

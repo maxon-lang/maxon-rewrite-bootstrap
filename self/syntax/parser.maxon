@@ -1,5 +1,5 @@
 export union ParseResult
-	ok(module ast.Module)
+	ok(module ast.ParsedModule)
 	err(errors diag.ErrorList)
 end 'ParseResult'
 
@@ -1151,7 +1151,7 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 	if p.errors.count() > 0 'syntaxErrors'
 		return ParseResult.err(exchange(p.errors, value: diag.ErrorList.create(0)))
 	end 'syntaxErrors'
-	var m = ast.Module.new(module, path: path, text: "", files: files)
+	var m = ast.ParsedModule.new(module, text: "", files: files)
 	m.tree = exchange(p.tree, value: ast.Tree.new(module, text: ""))
 	m.decls = decls
 	return ParseResult.ok(m)

@@ -39,7 +39,7 @@ function captureFrom(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if not c.bFrames[behaviour].isClosure and not requireCapturable(c, p: p, ms: ms, use: use, outer: outer, errs: errs) 'refused'
 		return ast.noLocal
 	end 'refused'
-	let ref = ms.tree.captureRef(use, depth: level)
+	let ref = ms.tree().captureRef(use, depth: level)
 	c.typing.names.insert(ref as Count, value: ast.NameInfo.localName(outer))
 	return captureLocal(c, p: p, ms: ms, behaviour: behaviour, outer: outer, ref: ref, use: use)
 end 'captureFrom'
@@ -92,7 +92,7 @@ function requireCapturable(mutates c Checker, p ast.Project, mutates ms ast.Modu
 		return true
 	end 'fine'
 	var what = "a let or 'mutates' parameter"
-	if source.projected and isForVariable(ms.tree, l: source) 'element'
+	if source.projected and isForVariable(ms.tree(), l: source) 'element'
 		what = "the variable of a loop over a collection"
 	end 'element' else if source.projected 'projected'
 		what = "a match binding"
@@ -164,15 +164,15 @@ end 'selfFieldInBehaviour'
 // the values of the cowns it names. It is false when a name that gives access cannot be bound.
 function enterBehaviour(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, stmt ast.NodeID, values ast.TypeIDList, mutates errs diag.ErrorList) returns bool
 	var entry = ast.FuncEntry.make(ast.behaviourName(funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: c.fn), index: c.whens), visibility: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).visibility.clone(), module: c.modID, nodeID: stmt)
-	entry.bodyRef = ast.whenStmtBodyRef(ms.tree, id: stmt)
+	entry.bodyRef = ast.whenStmtBodyRef(ms.tree(), id: stmt)
 	entry.retTy = p.builtins.voidTy
 	let fid = ast.allocFunc(ms.funcs, module: c.modID, f: entry)
 	c.whens = try c.whens + 1 otherwise panic("too many behaviours in one function")
 	let bi = enterNested(c, fid: fid, closure: false)
 	c.inBehaviour = true
-	let namesRef = ast.whenStmtNamesRef(ms.tree, id: stmt)
+	let namesRef = ast.whenStmtNamesRef(ms.tree(), id: stmt)
 	for i in 0 upto values.count() 'accesses'
-		let name = ms.tree.nameAt(ms.tree.listAt(namesRef, index: i))
+		let name = ms.tree().nameAt(ms.tree().listAt(namesRef, index: i))
 		var access = ast.LocalEntry.make(name, ty: values[i], isVar: false, isParam: true, conv: ast.Convention.convMutates, definedAt: stmt)
 		access.paramIndex = i
 		let id = bindLocal(c, p: p, ms: ms, entry: access, off: offsetOf(c, p: p, ms: ms, node: stmt), errs: errs)
@@ -254,35 +254,35 @@ end 'addBehaviourParam'
 // checkBehaviour types a behaviour: it names cowns, and its body runs once it has exclusive access to all of them, with
 // the names after 'as' giving mutable access to their values.
 function checkBehaviour(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let cownsRef = ast.whenStmtCownsRef(ms.tree, id: s)
-	let cownCount = ms.tree.listLen(cownsRef)
-	let nameCount = ms.tree.listLen(ast.whenStmtNamesRef(ms.tree, id: s))
+	let cownsRef = ast.whenStmtCownsRef(ms.tree(), id: s)
+	let cownCount = ms.tree().listLen(cownsRef)
+	let nameCount = ms.tree().listLen(ast.whenStmtNamesRef(ms.tree(), id: s))
 	if cownCount != nameCount 'count'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errWhenCowns, msg: "the behaviour names {cownCount} cown(s) but gives {nameCount} name(s) to their values after 'as': one name for each", errs: errs)
 		return
 	end 'count'
 	var values = ast.TypeIDList.create(0)
 	for i in 0 upto cownCount 'cowns'
-		let cown = ms.tree.listAt(cownsRef, index: i) as ast.NodeID
+		let cown = ms.tree().listAt(cownsRef, index: i) as ast.NodeID
 		let t = checkExpr(c, p: p, ms: ms, e: cown, errs: errs)
 		if t == ast.noType 'failed'
 			return
 		end 'failed'
-		let name = ast.nameExprName(ms.tree, id: cown)
+		let name = ast.nameExprName(ms.tree(), id: cown)
 		if not typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.builtinCown) 'notCown'
 			failAt(c, p: p, ms: ms, node: cown, code: diag.errWhenCowns, msg: "'{name}' is {describeType(p, ms: ms, t: t)}, and a behaviour names cown references: make one with 'cown(value)'", errs: errs)
 			return
 		end 'notCown'
 		values.push(typeElemType(p, ms: ms, ownerTy: t))
 		for j in 0 upto i 'earlier'
-			if sameName(c, a: ms.tree.listAt(cownsRef, index: j) as ast.NodeID, b: cown) 'twice'
+			if sameName(c, a: ms.tree().listAt(cownsRef, index: j) as ast.NodeID, b: cown) 'twice'
 				failAt(c, p: p, ms: ms, node: cown, code: diag.errWhenSameCown, msg: "'{name}' is named twice by one behaviour, which would give it two mutable names for one value; name each cown once", errs: errs)
 				return
 			end 'twice'
 		end 'earlier'
 	end 'cowns'
 	if enterBehaviour(c, p: p, ms: ms, stmt: s, values: values, errs: errs) 'entered'
-		checkBlock(c, p: p, ms: ms, body: ast.whenStmtBodyRef(ms.tree, id: s), errs: errs)
+		checkBlock(c, p: p, ms: ms, body: ast.whenStmtBodyRef(ms.tree(), id: s), errs: errs)
 	end 'entered'
 	leaveBehaviour(c, p: p, ms: ms, stmt: s)
 end 'checkBehaviour'
@@ -355,12 +355,12 @@ end 'argumentType'
 // must be Droppable. The content of the second is ended by its destructor d, which is a method name and no value, so the
 // argument is taken out of the call before the ordinary arguments are checked.
 function cownCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let argsRef = ast.callExprArgsRef(ms.tree, id: call)
+	let argsRef = ast.callExprArgsRef(ms.tree(), id: call)
 	var dropAt = 0 as Count
 	var dropArg = 0 as ast.NodeID
-	for i in 0 upto ms.tree.listLen(argsRef) 'args'
-		let arg = ms.tree.listAt(argsRef, index: i) as ast.NodeID
-		if ast.argLabel(ms.tree, id: arg) == ast.dropWithLabel 'found'
+	for i in 0 upto ms.tree().listLen(argsRef) 'args'
+		let arg = ms.tree().listAt(argsRef, index: i) as ast.NodeID
+		if ast.argLabel(ms.tree(), id: arg) == ast.dropWithLabel 'found'
 			dropAt = i
 			dropArg = arg
 			break 'args'
@@ -408,8 +408,8 @@ function dropWithCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errCapabilityMisuse, msg: "'{contentName}' is Droppable, so the cown drops it with its last reference and there is nothing to decide: remove 'dropWith:'", errs: errs)
 		return ast.noFunc
 	end 'droppable'
-	let value = ast.argValue(ms.tree, id: arg)
-	if ms.tree.kindOf(value) != ast.NodeKind.nameExpr 'notName'
+	let value = ast.argValue(ms.tree(), id: arg)
+	if ms.tree().kindOf(value) != ast.NodeKind.nameExpr 'notName'
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errCapabilityMisuse, msg: "'dropWith:' names a destructor of the content by its name alone, as 'dropWith: rollback'", errs: errs)
 		return ast.noFunc
 	end 'notName'
@@ -417,7 +417,7 @@ function dropWithCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errCapabilityMisuse, msg: "'{contentName}' is a type parameter and has no destructor to name: a value that is not Droppable cannot go into a cown in generic code; add the bound 'where {contentName} implements Droppable'", errs: errs)
 		return ast.noFunc
 	end 'parameter'
-	let name = ast.nameExprName(ms.tree, id: value)
+	let name = ast.nameExprName(ms.tree(), id: value)
 	let method = methodNamed(p, ms: ms, t: content, name: name)
 	if method == ast.noFunc or not isNakedDestructor(p, ms: ms, method: method) 'notDestructor'
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errCapabilityMisuse, msg: "'{name}' is not a destructor of '{contentName}' that takes no other argument and returns nothing{dropWithCandidates(p, ms: ms, t: content)}", errs: errs)

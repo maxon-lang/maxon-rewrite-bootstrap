@@ -606,7 +606,7 @@ function funcSite(o Ownership, p ast.Project, ms ast.ModuleState) returns diag.U
 end 'funcSite'
 
 function offsetOfOwn(o Ownership, p ast.Project, ms ast.ModuleState, node ast.NodeID) returns diag.U32
-	return ms.tree.reportStartOf(node)
+	return ms.tree().reportStartOf(node)
 end 'offsetOfOwn'
 
 // selfLocalOf is the receiver of the function being checked.
@@ -653,7 +653,7 @@ end 'requireDroppable'
 // requireTemporaryDroppable is the drop of a fresh value that the statement does not give to anything.
 function requireTemporaryDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, s OwnState, kind OwnDropKind)
 	let t = ownType(o, node: e)
-	if not s.dead and isManagedOwn(p, ms: ms, t: t) and not ast.isStorage(ms.tree, typing: o.c.typing, node: e) 'fresh'
+	if not s.dead and isManagedOwn(p, ms: ms, t: t) and not ast.isStorage(ms.tree(), typing: o.c.typing, node: e) 'fresh'
 		requireDroppable(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: e), t: t, d: OwnDrop.make(kind, name: ""))
 	end 'fresh'
 end 'requireTemporaryDroppable'
@@ -750,7 +750,7 @@ end 'report'
 
 // lineOf is the line a site is on, for a message that says where a value was moved to.
 function lineOf(o Ownership, p ast.Project, ms ast.ModuleState, site diag.U32) returns Count
-	return ast.locateTextOffset(ms.tree.text, files: p.modules[o.c.modIdx].files, offset: site).line
+	return ast.locateTextOffset(ms.tree().text, files: p.modules[o.c.modIdx].files, offset: site).line
 end 'lineOf'
 
 function fail(mutates o Ownership, p ast.Project, site diag.U32, code String, consumes msg String)
@@ -782,7 +782,7 @@ function cloneFixIf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	if not canCopy(o, p: p, ms: ms, t: t) 'noCopy'
 		return diag.Fix.none()
 	end 'noCopy'
-	return cloneFix(ms.tree, e: e)
+	return cloneFix(ms.tree(), e: e)
 end 'cloneFixIf'
 
 // pushFrameOwn opens a frame for a loop or match.

@@ -9,10 +9,10 @@ let stringLiteralInterface = "InitableFromStringLiteral"
 // checkFromExpr types `Type from value`. The head is the name of the type, and the value a literal of the shape that type
 // is written from.
 function checkFromExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let head = ast.fromExprHead(ms.tree, id: e)
-	let value = ast.fromExprValue(ms.tree, id: e)
+	let head = ast.fromExprHead(ms.tree(), id: e)
+	let value = ast.fromExprValue(ms.tree(), id: e)
 	var ty = ast.noType
-	if ms.tree.kindOf(head) == ast.NodeKind.nameExpr 'name'
+	if ms.tree().kindOf(head) == ast.NodeKind.nameExpr 'name'
 		let mark = errs.count()
 		ty = typeNamed(c, p: p, ms: ms, name: head, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
@@ -25,7 +25,7 @@ function checkFromExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		if failedSince(errs, mark: mark) 'undefined'
 			return ast.noType
 		end 'undefined'
-		failAt(c, p: p, ms: ms, node: head, code: diag.errUnknownType, msg: "'{placeText(ms.tree, e: head)}' names no type: 'from' follows the name of the type that is written from the value", errs: errs)
+		failAt(c, p: p, ms: ms, node: head, code: diag.errUnknownType, msg: "'{placeText(ms.tree(), e: head)}' names no type: 'from' follows the name of the type that is written from the value", errs: errs)
 		return ast.noType
 	end 'unnamed'
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
@@ -39,7 +39,7 @@ end 'checkFromExpr'
 // element type, which each element must fit; the bare name takes the one the elements give.
 function checkFromCollection(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = nameOfType(p, ms: ms, t: ty)
-	if ms.tree.kindOf(value) != ast.NodeKind.collectionLitExpr 'notLiteral'
+	if ms.tree().kindOf(value) != ast.NodeKind.collectionLitExpr 'notLiteral'
 		if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.builtinList 'list'
 			failAt(c, p: p, ms: ms, node: value, code: diag.errUnsupportedFeature, msg: "Unsupported: '{name} from' an array value; write the elements as a literal: '{name} from [a, b]'", errs: errs)
 			return ast.noType
@@ -47,7 +47,7 @@ function checkFromCollection(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal: '{name} from [a, b]'", errs: errs)
 		return ast.noType
 	end 'notLiteral'
-	if ms.tree.listLen(ast.collectionLitExprValuesRef(ms.tree, id: value)) > 0 'map'
+	if ms.tree().listLen(ast.collectionLitExprValuesRef(ms.tree(), id: value)) > 0 'map'
 		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal, and this one gives keys: '{name} from [a, b]'", errs: errs)
 		return ast.noType
 	end 'map'
@@ -92,7 +92,7 @@ function checkFromFixedArray(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	if literal == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let written = ms.tree.listLen(ast.collectionLitExprElemsRef(ms.tree, id: value)) as Count
+	let written = ms.tree().listLen(ast.collectionLitExprElemsRef(ms.tree(), id: value)) as Count
 	if ast.statesCount(ms.types, reads: p.types, t: ty) 'counted'
 		let count = ast.statedCount(ms.types, reads: p.types, t: ty)
 		if written != count 'otherCount'
@@ -128,7 +128,7 @@ end 'implementsNamed'
 // checkFromString types a type written from a string literal, which is a call of its `init` with the literal.
 function checkFromString(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, head ast.NodeID, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = nameOfType(p, ms: ms, t: ty)
-	if ms.tree.kindOf(value) != ast.NodeKind.strLit 'notLiteral'
+	if ms.tree().kindOf(value) != ast.NodeKind.strLit 'notLiteral'
 		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes a string literal: '{name} from \"text\"'", errs: errs)
 		return ast.noType
 	end 'notLiteral'

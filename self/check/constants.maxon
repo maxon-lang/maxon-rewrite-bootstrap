@@ -212,7 +212,7 @@ function constReadsOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) return
 	end 'other'
 	if ast.declIsConst(p, ref: ref) 'constant'
 		match p.modules[modIdx].decls[ref.ordinal as Count] 'k'
-			constDecl(cd) then constRefs(p, ms: ms, tree: ms.tree, res: ast.resolutionOf(p, ms: ms), e: cd.value, out: out)
+			constDecl(cd) then constRefs(p, ms: ms, tree: ms.tree(), res: ast.resolutionOf(p, ms: ms), e: cd.value, out: out)
 			funcDecl(_) then panic("the constant at ordinal {ref.ordinal} is a function")
 			typeDecl(_) then panic("the constant at ordinal {ref.ordinal} is a type")
 			enumDecl(_) then panic("the constant at ordinal {ref.ordinal} is an enum")
@@ -225,7 +225,7 @@ function constReadsOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) return
 	end 'constant'
 	let tid = declTypeOf(p, ms: ms, ref: ref)
 	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: tid).cases.count() 'cases'
-		constRefs(p, ms: ms, tree: ms.tree, res: ast.resolutionOf(p, ms: ms), e: ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].rawExpr, out: out)
+		constRefs(p, ms: ms, tree: ms.tree(), res: ast.resolutionOf(p, ms: ms), e: ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].rawExpr, out: out)
 	end 'cases'
 	return out
 end 'constReadsOf'
@@ -251,7 +251,7 @@ function visitConst(mutates w ConstOrder, c Checker, p ast.Project, ms ast.Modul
 		return true
 	end 'done'
 	if st == constVisiting 'cycle'
-		let off = p.modules[c.modIdx].decls[ord as Count].offset(ms.tree)
+		let off = p.modules[c.modIdx].decls[ord as Count].offset(ms.tree())
 		checkFail(c.modID, off: off, code: diag.errDependsOnItself, msg: diag.circularConstants(constCycle(p.modules[c.modIdx], path: w.path, ord: ord)), errs: errs)
 		return false
 	end 'cycle'
@@ -317,10 +317,10 @@ end 'checkConstantType'
 
 // interpolatesNothing is whether the value is no string with an interpolated part.
 function interpolatesNothing(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
-	if ms.tree.kindOf(e) != ast.NodeKind.strLit 'notString'
+	if ms.tree().kindOf(e) != ast.NodeKind.strLit 'notString'
 		return true
 	end 'notString'
-	return ms.tree.strIsPlain(ast.strLitPartsRef(ms.tree, id: e))
+	return ms.tree().strIsPlain(ast.strLitPartsRef(ms.tree(), id: e))
 end 'interpolatesNothing'
 
 // constantValue is the constant with the type its value has, and the value where the type holds it: an integer constant
@@ -400,11 +400,11 @@ end 'checkConstants'
 // (`Meta.create(4, isMemory: true)`): the call is known before the program runs, as the literal it returns is, so a constant
 // may make it where it makes no other.
 function isLiteralFactoryCall(c Checker, p ast.Project, ms ast.ModuleState, callee ast.NodeID) returns bool
-	if ms.tree.kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
+	if ms.tree().kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
 		return false
 	end 'notMember'
-	let obj = ast.memberExprObj(ms.tree, id: callee)
-	if ms.tree.kindOf(obj) != ast.NodeKind.nameExpr 'notType'
+	let obj = ast.memberExprObj(ms.tree(), id: callee)
+	if ms.tree().kindOf(obj) != ast.NodeKind.nameExpr 'notType'
 		return false
 	end 'notType'
 	var probe = diag.ErrorList.create(0)
@@ -412,7 +412,7 @@ function isLiteralFactoryCall(c Checker, p ast.Project, ms ast.ModuleState, call
 	if probe.count() > 0 or t == ast.noType or not typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.record) 'notRecord'
 		return false
 	end 'notRecord'
-	let fn = methodOf(c, p: p, ms: ms, t: t, name: ast.memberExprName(ms.tree, id: callee), node: callee, errs: probe)
+	let fn = methodOf(c, p: p, ms: ms, t: t, name: ast.memberExprName(ms.tree(), id: callee), node: callee, errs: probe)
 	return probe.count() == 0 and fn != ast.noFunc and isLiteralFactory(p, ms: ms, fn: fn)
 end 'isLiteralFactoryCall'
 
@@ -430,7 +430,7 @@ function isLiteralFactory(p ast.Project, ms ast.ModuleState, fn ast.FuncID) retu
 	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).module
 	let body = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).bodyRef
 	if module == ms.module 'own'
-		return returnsLiteral(p, ms: ms, tree: ms.tree, res: ast.resolutionOf(p, ms: ms), body: body)
+		return returnsLiteral(p, ms: ms, tree: ms.tree(), res: ast.resolutionOf(p, ms: ms), body: body)
 	end 'own'
 	let mi = ast.modIndex(module)
 	p.modules[mi].tables.requireHeld()

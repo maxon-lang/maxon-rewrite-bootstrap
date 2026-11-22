@@ -79,13 +79,13 @@ function namedAliases(p ast.Project, ms ast.ModuleState, tr ast.NodeID, mutates 
 		some(ref) then pushIfInstanceAlias(p, ref: ref, out: out)
 		none then _ = 0
 	end 'bound'
-	let argsRef = ast.typeRefTypeArgsRef(ms.tree, id: tr)
-	for i in 0 upto ms.tree.listLen(argsRef) 'args'
-		namedAliases(p, ms: ms, tr: ms.tree.listAt(argsRef, index: i) as ast.NodeID, out: out)
+	let argsRef = ast.typeRefTypeArgsRef(ms.tree(), id: tr)
+	for i in 0 upto ms.tree().listLen(argsRef) 'args'
+		namedAliases(p, ms: ms, tr: ms.tree().listAt(argsRef, index: i) as ast.NodeID, out: out)
 	end 'args'
-	let elemsRef = ast.typeRefElemsRef(ms.tree, id: tr)
-	for i in 0 upto ms.tree.listLen(elemsRef) 'elems'
-		namedAliases(p, ms: ms, tr: ms.tree.listAt(elemsRef, index: i) as ast.NodeID, out: out)
+	let elemsRef = ast.typeRefElemsRef(ms.tree(), id: tr)
+	for i in 0 upto ms.tree().listLen(elemsRef) 'elems'
+		namedAliases(p, ms: ms, tr: ms.tree().listAt(elemsRef, index: i) as ast.NodeID, out: out)
 	end 'elems'
 end 'namedAliases'
 
@@ -118,11 +118,11 @@ end 'selfOfDecl'
 // funcTypeRefs are the type references a function type names: its parameters' types and its result's.
 function funcTypeRefs(p ast.Project, ms ast.ModuleState, fn ast.NodeID) returns ast.NodeIDList
 	var out = ast.NodeIDList.create(0)
-	let paramsRef = ast.funcTypeParamsRef(ms.tree, id: fn)
-	for i in 0 upto ms.tree.listLen(paramsRef) 'params'
-		out.push(ast.funcTypeParamType(ms.tree, id: ms.tree.listAt(paramsRef, index: i) as ast.NodeID))
+	let paramsRef = ast.funcTypeParamsRef(ms.tree(), id: fn)
+	for i in 0 upto ms.tree().listLen(paramsRef) 'params'
+		out.push(ast.funcTypeParamType(ms.tree(), id: ms.tree().listAt(paramsRef, index: i) as ast.NodeID))
 	end 'params'
-	let ret = ast.funcTypeReturns(ms.tree, id: fn)
+	let ret = ast.funcTypeReturns(ms.tree(), id: fn)
 	if ret != 0 'returns'
 		out.push(ret)
 	end 'returns'
@@ -134,27 +134,27 @@ end 'funcTypeRefs'
 // a generic type spells the signature that its instances share, and is not.
 function declareFuncAlias(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
 	let selfTy = aliasSelf(c, p: p, ms: ms, a: a, ref: ref)
-	let paramsRef = ast.funcTypeParamsRef(ms.tree, id: a.fn)
+	let paramsRef = ast.funcTypeParamsRef(ms.tree(), id: a.fn)
 	var params = ast.TypeIDList.create(0)
 	var convs = ast.ConventionList.create(0)
-	for i in 0 upto ms.tree.listLen(paramsRef) 'params'
-		let param = ms.tree.listAt(paramsRef, index: i) as ast.NodeID
-		let t = resolveTypeRef(c, p: p, ms: ms, tr: ast.funcTypeParamType(ms.tree, id: param), selfTy: selfTy, errs: errs)
+	for i in 0 upto ms.tree().listLen(paramsRef) 'params'
+		let param = ms.tree().listAt(paramsRef, index: i) as ast.NodeID
+		let t = resolveTypeRef(c, p: p, ms: ms, tr: ast.funcTypeParamType(ms.tree(), id: param), selfTy: selfTy, errs: errs)
 		if t == ast.noType 'failed'
 			return
 		end 'failed'
 		params.push(t)
-		convs.push(ast.parseConvention(ast.funcTypeParamConvention(ms.tree, id: param)))
+		convs.push(ast.parseConvention(ast.funcTypeParamConvention(ms.tree(), id: param)))
 	end 'params'
 	var result = p.builtins.voidTy
-	let ret = ast.funcTypeReturns(ms.tree, id: a.fn)
+	let ret = ast.funcTypeReturns(ms.tree(), id: a.fn)
 	if ret != 0 'returns'
 		result = resolveTypeRef(c, p: p, ms: ms, tr: ret, selfTy: selfTy, errs: errs)
 		if result == ast.noType 'failed'
 			return
 		end 'failed'
 	end 'returns'
-	var shape = ast.FuncShape.make(convs, mutatesCaptures: ast.funcTypeCapturesRef(ms.tree, id: a.fn) != 0)
+	var shape = ast.FuncShape.make(convs, mutatesCaptures: ast.funcTypeCapturesRef(ms.tree(), id: a.fn) != 0)
 	if selfTy == ast.noType or ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: selfTy)).typeParams.count() == 0 'brand'
 		shape.brand = ast.FuncBrand.make("{ast.declKey(ref)}", name: a.name.clone())
 	end 'brand'
@@ -175,9 +175,9 @@ function declareAliasType(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		declareFuncAlias(c, p: p, ms: ms, a: a, ref: ref, errs: errs)
 		return
 	end 'function'
-	let off = ms.tree.startOf(a.instance)
-	if not ast.typeRefIsTuple(ms.tree, id: a.instance) and ms.tree.listLen(ast.typeRefTypeArgsRef(ms.tree, id: a.instance)) == 0 'plain'
-		let target = ast.typeRefName(ms.tree, id: a.instance)
+	let off = ms.tree().startOf(a.instance)
+	if not ast.typeRefIsTuple(ms.tree(), id: a.instance) and ms.tree().listLen(ast.typeRefTypeArgsRef(ms.tree(), id: a.instance)) == 0 'plain'
+		let target = ast.typeRefName(ms.tree(), id: a.instance)
 		checkFail(c.modID, off: off, code: diag.errAliasTarget, msg: "a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '{target}' itself where '{a.name}' is used", errs: errs)
 		return
 	end 'plain'
@@ -196,7 +196,7 @@ function visitAlias(mutates w AliasWalk, mutates c Checker, p ast.Project, mutat
 		return
 	end 'done'
 	if st == aliasVisiting 'cycle'
-		let off = p.modules[c.modIdx].decls[ord as Count].offset(ms.tree)
+		let off = p.modules[c.modIdx].decls[ord as Count].offset(ms.tree())
 		checkFail(c.modID, off: off, code: diag.errDependsOnItself, msg: diag.circularTypealias(aliasCycle(p.modules[c.modIdx], path: w.path, ord: ord)), errs: errs)
 		return
 	end 'cycle'
@@ -281,8 +281,8 @@ function declareSupertype(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		some(t) then own = t
 		none then return
 	end 'own'
-	let off = ms.tree.startOf(a.parent)
-	let parentName = ast.typeRefName(ms.tree, id: a.parent)
+	let off = ms.tree().startOf(a.parent)
+	let parentName = ast.typeRefName(ms.tree(), id: a.parent)
 	var parent = ast.noType
 	match ast.nodeDecl(p, ms: ms, node: a.parent as Count) 'named'
 		some(pref) then parent = declTypeOrNone(p, ms: ms, ref: pref)
@@ -303,7 +303,7 @@ function declareSupertype(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		return
 	end 'outside'
 	if parent == own or ast.isSubtypeOf(ms.types, reads: p.types, sub: parent, sup: own) 'cycle'
-		checkFail(c.modID, off: ms.tree.reportStartOf(a.id), code: diag.errResolutionCycle, msg: diag.aliasCycle(a.name), errs: errs)
+		checkFail(c.modID, off: ms.tree().reportStartOf(a.id), code: diag.errResolutionCycle, msg: diag.aliasCycle(a.name), errs: errs)
 		return
 	end 'cycle'
 	ms.types.lists[ast.typeList(ms.types, t: own)][ast.typeIndex(ms.types, t: own)].supertype = parent

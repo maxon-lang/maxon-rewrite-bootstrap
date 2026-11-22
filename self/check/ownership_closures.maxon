@@ -10,13 +10,13 @@
 // borrows.
 function borrowsOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns OwnBorrows
 	var out = OwnBorrows.new()
-	let k = ms.tree.kindOf(e)
+	let k = ms.tree().kindOf(e)
 	if k == ast.NodeKind.castExpr 'cast'
-		return borrowsOf(o, p: p, ms: ms, e: ast.castExprE(ms.tree, id: e))
+		return borrowsOf(o, p: p, ms: ms, e: ast.castExprE(ms.tree(), id: e))
 	end 'cast'
 	if k == ast.NodeKind.condExpr 'cond'
-		out.addAll(borrowsOf(o, p: p, ms: ms, e: ast.condExprThen(ms.tree, id: e)))
-		out.addAll(borrowsOf(o, p: p, ms: ms, e: ast.condExprElse(ms.tree, id: e)))
+		out.addAll(borrowsOf(o, p: p, ms: ms, e: ast.condExprThen(ms.tree(), id: e)))
+		out.addAll(borrowsOf(o, p: p, ms: ms, e: ast.condExprElse(ms.tree(), id: e)))
 		return out
 	end 'cond'
 	if k == ast.NodeKind.closureExpr 'closure'
@@ -105,7 +105,7 @@ function requireNoBorrows(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 		let param = o.c.typing.locals[b.param as Count].clone()
 		var fix = diag.Fix.none()
 		if param.conv == ast.Convention.convLet 'let'
-			fix = conventionFix(ms.tree, param: param.definedAt, keyword: fixKindConsumes)
+			fix = conventionFix(ms.tree(), param: param.definedAt, keyword: fixKindConsumes)
 		end 'let'
 		failFixed(o, p: p, site: site, code: diag.errClosureBorrow, msg: "'{b.name}' is a borrowed function value, which may hold borrows of its caller's values, so it cannot be {what}; declare the parameter 'consumes {b.name}' to own it", fix: fix)
 		return
@@ -156,7 +156,7 @@ end 'bindHolder'
 // holdArgument holds what a closure written as an argument borrows while the rest of the call is evaluated. A local
 // holds its own for its whole scope.
 function holdArgument(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID)
-	let k = ms.tree.kindOf(e)
+	let k = ms.tree().kindOf(e)
 	if k != ast.NodeKind.closureExpr and k != ast.NodeKind.castExpr 'notClosure'
 		return
 	end 'notClosure'

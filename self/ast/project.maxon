@@ -82,19 +82,18 @@ export typealias FuncLocalsList = Array with FuncLocals
 // that module's stages write them, and a stage of another module reads the parts of the stages it waited on. A read finds
 // the latest part that holds the entry, as a stage after another overrides what it decided.
 export type ModuleTables
-	var parts as Array with TablesPart
+	// sealed are the parts of the stages that ended, frozen, which a task that waited on them shares; open are the parts after
+	// them, the one at k being open[k - sealed.count()], which the holder may still write.
+	var sealed as Array with frozen with TablesPart
+	var open as Array with TablesPart
 	// phase is the part that the task holding the tables writes.
 	var phase as Count
-	// seen is how many parts a reader of another module's tables may read, where a view of the products of the stages it waited
-	// on holds them to it (--verify-reads), and reader names the reader for a read past them.
-	var seen as Count
-	var reader as String
 	// lent is whether these are the tables a project holds while a task of the module holds the module's own: no stage reads
 	// them, as the task reads its module's tables in its state.
 	var lent as bool
 
 	export static function new() returns Self
-		return Self{parts: Array.create(0), phase: Phase.builtins.ordinal, seen: everySegment, reader: "", lent: false}
+		return Self{sealed: Array.create(0), open: Array.create(0), phase: Phase.builtins.ordinal, lent: false}
 	end 'new'
 
 	export static function lentOut() returns Self
@@ -111,40 +110,85 @@ export type ModuleTables
 		end 'lent'
 	end 'requireHeld'
 
-	// requireSeen stops the compile where a read finds an entry in part k, which a stage the reader did not wait on decided.
-	function requireSeen(k Count)
-		if k >= seen 'unwaited'
-			panic("{reader} reads part {k} of a module's tables, which no product of a stage it waited on holds")
-		end 'unwaited'
-	end 'requireSeen'
-
-	// written is the part the holder writes, made with the parts before it where the tables have none yet.
+	// written is the index in open of the part the holder writes, made with the parts before it where the tables have none yet.
 	function written(mutates self) returns Count
-		while parts.count() <= phase 'room'
-			parts.push(TablesPart.new())
+		while partCount() <= phase 'room'
+			open.push(TablesPart.new())
 		end 'room'
-		return phase
+		return try phase - sealed.count() otherwise panic("part {phase} of a module's tables is written after it was sealed")
 	end 'written'
 
 	// partCount is how many parts the tables have, which is how many a read looks through.
 	export function partCount() returns Count
-		return parts.count()
+		return try sealed.count() + open.count() otherwise panic("more parts than memory")
 	end 'partCount'
 
-	// setSeen holds the reads of the tables to their first count parts, or lets them read every part again.
-	export function setSeen(mutates self, count Count, consumes by String)
-		seen = count
-		reader = by
-	end 'setSeen'
+	// part is the part at k, sealed or open.
+	function part(k Count) returns borrowed TablesPart
+		let n = sealed.count()
+		if k < n 'sealed'
+			return sealed[k]
+		end 'sealed'
+		return open[k - n]
+	end 'part'
+
+	// seal freezes the parts before upTo, whose stages ended, making the ones the tables have none of yet.
+	export function seal(mutates self, upTo Count)
+		if upTo <= sealed.count() 'sealed'
+			return
+		end 'sealed'
+		let n = try upTo - sealed.count() otherwise panic("a seal before the parts sealed already")
+		var rest = TablesParts.create(0)
+		for i in 0 upto open.count() 'open'
+			let part = exchange(open[i], value: TablesPart.new())
+			if i < n 'complete'
+				sealed.push(freeze(part))
+			end 'complete' else 'later'
+				rest.push(part)
+			end 'later'
+		end 'open'
+		while sealed.count() < upTo 'empty'
+			sealed.push(freeze(TablesPart.new()))
+		end 'empty'
+		open = rest
+	end 'seal'
+
+	// viewOf is the tables as a task that waited on the stages of the first count parts reads them: those parts, shared. The
+	// tables a task holds are read in its state, so a view of them refuses a read (requireHeld).
+	export function viewOf(count Count) returns ModuleTables
+		if lent 'lent'
+			return ModuleTables.lentOut()
+		end 'lent'
+		var view = ModuleTables.new()
+		var n = sealed.count()
+		if count < n 'fewer'
+			n = count
+		end 'fewer'
+		for k in 0 upto n 'parts'
+			view.sealed.push(share(sealed[k]))
+		end 'parts'
+		return view
+	end 'viewOf'
+
+	// sealWritten seals the part the holder wrote, whose stage ends.
+	export function sealWritten(mutates self)
+		let upTo = try phase + 1 otherwise panic("a part past memory")
+		seal(upTo)
+	end 'sealWritten'
+
+	// sealAll seals every part, which work outside the tasks wrote, when a compile begins.
+	export function sealAll(mutates self)
+		let n = partCount()
+		seal(n)
+	end 'sealAll'
 
 	export function declType(ord DeclOrdinal) returns table.Option with TypeID
 		let i = ord as Count
-		var k = parts.count()
+		var k = partCount()
 		while k > 0 'parts'
 			k = k - 1
-			if i < parts[k].declTypes.count() and parts[k].declTypes[i] != noType 'hit'
-				requireSeen(k)
-				return table.Option.some(parts[k].declTypes[i])
+			if i < part(k).declTypes.count() and part(k).declTypes[i] != noType 'hit'
+				return table.Option.some(part(k).declTypes[i])
 			end 'hit'
 		end 'parts'
 		return table.Option.none
@@ -152,19 +196,18 @@ export type ModuleTables
 
 	export function setDeclType(mutates self, ord DeclOrdinal, t TypeID)
 		let k = written()
-		parts[k].setDeclType(ord, t: t)
+		open[k].setDeclType(ord, t: t)
 	end 'setDeclType'
 
 	export function paramType(node NodeID) returns table.Option with TypeID
-		var k = parts.count()
+		var k = partCount()
 		while k > 0 'parts'
 			k = k - 1
-			if parts[k].paramTypes.isEmpty() 'none'
+			if part(k).paramTypes.isEmpty() 'none'
 				continue 'parts'
 			end 'none'
-			let found = parts[k].paramTypes.get(node as Count)
+			let found = part(k).paramTypes.get(node as Count)
 			if found.isSome() 'hit'
-				requireSeen(k)
 				return found
 			end 'hit'
 		end 'parts'
@@ -173,17 +216,16 @@ export type ModuleTables
 
 	export function setParamType(mutates self, node NodeID, t TypeID)
 		let k = written()
-		parts[k].paramTypes.insert(node as Count, value: t)
+		open[k].paramTypes.insert(node as Count, value: t)
 	end 'setParamType'
 
 	export function declFunc(ord DeclOrdinal) returns table.Option with FuncID
 		let i = ord as Count
-		var k = parts.count()
+		var k = partCount()
 		while k > 0 'parts'
 			k = k - 1
-			if i < parts[k].declFuncs.count() and parts[k].declFuncs[i] != noFunc 'hit'
-				requireSeen(k)
-				return table.Option.some(parts[k].declFuncs[i])
+			if i < part(k).declFuncs.count() and part(k).declFuncs[i] != noFunc 'hit'
+				return table.Option.some(part(k).declFuncs[i])
 			end 'hit'
 		end 'parts'
 		return table.Option.none
@@ -191,19 +233,18 @@ export type ModuleTables
 
 	export function setDeclFunc(mutates self, ord DeclOrdinal, f FuncID)
 		let k = written()
-		parts[k].setDeclFunc(ord, f: f)
+		open[k].setDeclFunc(ord, f: f)
 	end 'setDeclFunc'
 
 	export function nodeFunc(node NodeID) returns table.Option with FuncID
-		var k = parts.count()
+		var k = partCount()
 		while k > 0 'parts'
 			k = k - 1
-			if parts[k].nodeFuncs.isEmpty() 'none'
+			if part(k).nodeFuncs.isEmpty() 'none'
 				continue 'parts'
 			end 'none'
-			let found = parts[k].nodeFuncs.get(node as Count)
+			let found = part(k).nodeFuncs.get(node as Count)
 			if found.isSome() 'hit'
-				requireSeen(k)
 				return found
 			end 'hit'
 		end 'parts'
@@ -212,16 +253,15 @@ export type ModuleTables
 
 	export function setNodeFunc(mutates self, node NodeID, f FuncID)
 		let k = written()
-		parts[k].nodeFuncs.insert(node as Count, value: f)
+		open[k].nodeFuncs.insert(node as Count, value: f)
 	end 'setNodeFunc'
 
 	export function declConst(ord DeclOrdinal) returns table.Option with ConstValue
-		var k = parts.count()
+		var k = partCount()
 		while k > 0 'parts'
 			k = k - 1
-			if parts[k].declConsts.has(ord as Count) 'hit'
-				requireSeen(k)
-				return parts[k].declConsts.get(ord as Count)
+			if part(k).declConsts.has(ord as Count) 'hit'
+				return part(k).declConsts.get(ord as Count)
 			end 'hit'
 		end 'parts'
 		return table.Option.none
@@ -229,19 +269,18 @@ export type ModuleTables
 
 	export function setDeclConst(mutates self, ord DeclOrdinal, consumes value ConstValue)
 		let k = written()
-		parts[k].declConsts.insert(ord as Count, value: value)
+		open[k].declConsts.insert(ord as Count, value: value)
 	end 'setDeclConst'
 
 	export function rawType(t TypeID) returns TypeID
-		var k = parts.count()
+		var k = partCount()
 		while k > 0 'parts'
 			k = k - 1
-			if parts[k].rawTypes.isEmpty() 'none'
+			if part(k).rawTypes.isEmpty() 'none'
 				continue 'parts'
 			end 'none'
-			let found = parts[k].rawTypes.get(t as Count)
+			let found = part(k).rawTypes.get(t as Count)
 			if found.isSome() 'hit'
-				requireSeen(k)
 				return found.unwrap()
 			end 'hit'
 		end 'parts'
@@ -250,21 +289,20 @@ export type ModuleTables
 
 	export function setRawType(mutates self, t TypeID, raw TypeID)
 		let k = written()
-		parts[k].rawTypes.insert(t as Count, value: raw)
+		open[k].rawTypes.insert(t as Count, value: raw)
 	end 'setRawType'
 
 	// localsPart is the part that holds the locals the bodies stage bound to the function f, where it bound any, and sets at
 	// to their place in it.
 	function localsPart(f FuncID, sets at Count) returns table.Option with Count
-		var k = parts.count()
+		var k = partCount()
 		while k > 0 'parts'
 			k = k - 1
-			if parts[k].localsAt.isEmpty() 'none'
+			if part(k).localsAt.isEmpty() 'none'
 				continue 'parts'
 			end 'none'
-			let found = parts[k].localsAt.get(f as Count)
+			let found = part(k).localsAt.get(f as Count)
 			if found.isSome() 'hit'
-				requireSeen(k)
 				at = found.unwrap()
 				return table.Option.some(k)
 			end 'hit'
@@ -276,7 +314,7 @@ export type ModuleTables
 	export function receiverLocal(f FuncID) returns LocalID
 		var at as Count
 		match localsPart(f, at: at) 'part'
-			some(k) then return parts[k].funcLocals[at].receiver
+			some(k) then return part(k).funcLocals[at].receiver
 			none then return noLocal
 		end 'part'
 	end 'receiverLocal'
@@ -284,31 +322,30 @@ export type ModuleTables
 	export function paramLocal(f FuncID, index Count) returns LocalID
 		var at as Count
 		match localsPart(f, at: at) 'part'
-			some(k) then return parts[k].funcLocals[at].params[index]
+			some(k) then return part(k).funcLocals[at].params[index]
 			none then panic("a parameter is read of a function whose body has bound none")
 		end 'part'
 	end 'paramLocal'
 
 	export function setReceiverLocal(mutates self, f FuncID, l LocalID)
 		let k = written()
-		let at = parts[k].localsFor(f)
-		parts[k].funcLocals[at].receiver = l
+		let at = open[k].localsFor(f)
+		open[k].funcLocals[at].receiver = l
 	end 'setReceiverLocal'
 
 	export function pushParamLocal(mutates self, f FuncID, l LocalID)
 		let k = written()
-		let at = parts[k].localsFor(f)
-		parts[k].funcLocals[at].params.push(l)
+		let at = open[k].localsFor(f)
+		open[k].funcLocals[at].params.push(l)
 	end 'pushParamLocal'
 
 	// memberDecl is the typealias that a check stage bound the type written Owner.member at node to.
 	export function memberDecl(node Count) returns table.Option with DeclRef
-		var k = parts.count()
+		var k = partCount()
 		while k > 0 'parts'
 			k = k - 1
-			if not parts[k].memberDecls.isEmpty() and parts[k].memberDecls.has(node) 'hit'
-				requireSeen(k)
-				return parts[k].memberDecls.get(node)
+			if not part(k).memberDecls.isEmpty() and part(k).memberDecls.has(node) 'hit'
+				return part(k).memberDecls.get(node)
 			end 'hit'
 		end 'parts'
 		return table.Option.none
@@ -316,22 +353,22 @@ export type ModuleTables
 
 	export function bindMemberDecl(mutates self, node NodeID, consumes d DeclRef)
 		let k = written()
-		parts[k].memberDecls.insert(node as Count, value: d)
+		open[k].memberDecls.insert(node as Count, value: d)
 	end 'bindMemberDecl'
 
 	export function pushExtMethod(mutates self, consumes e ExtMethod)
 		let k = written()
-		parts[k].extMethods.push(e)
+		open[k].extMethods.push(e)
 	end 'pushExtMethod'
 
 	export function pushExtAlias(mutates self, consumes e ExtAlias)
 		let k = written()
-		parts[k].extAliases.push(e)
+		open[k].extAliases.push(e)
 	end 'pushExtAlias'
 
 	export function pushExtConform(mutates self, consumes e ExtConform)
 		let k = written()
-		parts[k].extConforms.push(e)
+		open[k].extConforms.push(e)
 	end 'pushExtConform'
 
 	// extMethodCount and the rest read what the module's extensions add, all parts as one list in the order of the parts, an
@@ -351,35 +388,34 @@ export type ModuleTables
 	export function extMethod(i Count) returns borrowed ExtMethod
 		var at = i
 		let k = extPart(ExtList.methods, at: at)
-		return parts[k].extMethods[at]
+		return part(k).extMethods[at]
 	end 'extMethod'
 
 	export function extAlias(i Count) returns borrowed ExtAlias
 		var at = i
 		let k = extPart(ExtList.aliases, at: at)
-		return parts[k].extAliases[at]
+		return part(k).extAliases[at]
 	end 'extAlias'
 
 	export function extConform(i Count) returns borrowed ExtConform
 		var at = i
 		let k = extPart(ExtList.conforms, at: at)
-		return parts[k].extConforms[at]
+		return part(k).extConforms[at]
 	end 'extConform'
 
 	function extCount(list ExtList) returns Count
 		var n = 0 as Count
-		for k in 0 upto parts.count() 'parts'
-			n = try n + parts[k].extLength(list) otherwise panic("more extensions than memory")
+		for k in 0 upto partCount() 'parts'
+			n = try n + part(k).extLength(list) otherwise panic("more extensions than memory")
 		end 'parts'
 		return n
 	end 'extCount'
 
 	// extPart is the part that holds the i-th entry of the list, and makes at its index in that part.
 	function extPart(list ExtList, mutates at Count) returns Count
-		for k in 0 upto parts.count() 'parts'
-			let n = parts[k].extLength(list)
+		for k in 0 upto partCount() 'parts'
+			let n = part(k).extLength(list)
 			if at < n 'here'
-				requireSeen(k)
 				return k
 			end 'here'
 			at = at - n
@@ -387,6 +423,8 @@ export type ModuleTables
 		panic("an extension past those the module's tables hold")
 	end 'extPart'
 end 'ModuleTables'
+
+typealias TablesParts = Array with TablesPart
 
 // ExtList names a list of what a module's extensions add.
 enum ExtList
@@ -663,24 +701,27 @@ export type Project
 	export var rootModule as diag.ModuleID
 	export var modules as ModuleList
 	export var stdlib as Module
-	export var byPath as PathModMap
+	export var byPath as frozen with PathModMap
 	export var types as TypeTable
 	export var funcs as FuncTable
-	export var builtins as Builtins
-	export var resolutions as Array with Resolution
-	export var typings as Array with Typing
+	export var builtins as frozen with Builtins
+	// resolutions and typings are the products of each module's resolve and verify, by module.
+	export var resolutions as Array with frozen with Resolution
+	export var typings as Array with frozen with Typing
 
 	export static function new(consumes root String) returns Project
 		var tt = TypeTable.new()
 		var ft = FuncTable.new()
-		var std = Module.new(diag.stdlibID, path: "", text: "", files: FileSpanList.create(0))
+		var built = ParsedModule.new(diag.stdlibID, text: "", files: FileSpanList.create(0))
 		var shared = lendTypeSlot(tt, module: diag.stdlibID, segment: Phase.builtins.ordinal, inputs: Inputs.new())
 		var sharedFuncs = lendFuncSlot(ft, module: diag.stdlibID, segment: Phase.builtins.ordinal)
-		let bs = initBuiltins(shared, reads: tt, ft: sharedFuncs, funcReads: ft, std: std)
+		let bs = initBuiltins(shared, reads: tt, ft: sharedFuncs, funcReads: ft, std: built)
+		var std = Module.new(diag.stdlibID, path: "", text: "", files: FileSpanList.create(0))
+		std.takeParsed(built)
 		returnTypeSlot(tt, held: shared)
 		returnFuncSlot(ft, held: sharedFuncs)
 		let bp = PathModMap.new()
-		var p = Project{root: root, target: Target.windowsX64(), rootModule: 0 as diag.ModuleID, modules: ModuleList.create(0), stdlib: std, byPath: bp, types: tt, funcs: ft, builtins: bs, resolutions: Array.create(0), typings: Array.create(0)}
+		var p = Project{root: root, target: Target.windowsX64(), rootModule: 0 as diag.ModuleID, modules: ModuleList.create(0), stdlib: std, byPath: freeze(bp), types: tt, funcs: ft, builtins: freeze(bs), resolutions: Array.create(0), typings: Array.create(0)}
 		for i in 0 upto p.stdlib.decls.count() 'stdReg'
 			let ord = try i as DeclOrdinal otherwise 0 as DeclOrdinal
 			let name = p.stdlib.decls[i].name()
@@ -695,32 +736,47 @@ export type Project
 		end 'stdReg'
 		return p
 	end 'new'
+
+	static function view(consumes root String, consumes target Target, rootModule diag.ModuleID, consumes modules ModuleList, consumes stdlib Module, consumes byPath frozen with PathModMap, consumes types TypeTable, consumes funcs FuncTable, consumes builtins frozen with Builtins, consumes resolutions Array with frozen with Resolution, consumes typings Array with frozen with Typing) returns Project
+		return Project{root: root, target: target, rootModule: rootModule, modules: modules, stdlib: stdlib, byPath: byPath, types: types, funcs: funcs, builtins: builtins, resolutions: resolutions, typings: typings}
+	end 'view'
 end 'Project'
+
+// viewOf is the project as a task of a module reads it, made of shares of the products of the stages it waited on: modules,
+// the tables of types and functions, resolutions and typings, each a view or a share, and the rest of p shared.
+export function viewOf(p Project, consumes modules ModuleList, consumes types TypeTable, consumes funcs FuncTable, consumes resolutions Array with frozen with Resolution, consumes typings Array with frozen with Typing) returns Project
+	let stdlib = p.stdlib.viewOf(share(p.stdlib.tree), parsed: true, viewTables: p.stdlib.tables.viewOf(everySegment))
+	return Project.view(p.root.clone(), target: p.target.clone(), rootModule: p.rootModule, modules: modules, stdlib: stdlib, byPath: share(p.byPath), types: types, funcs: funcs, builtins: share(p.builtins), resolutions: resolutions, typings: typings)
+end 'viewOf'
 
 export function addModule(mutates p Project, consumes m Module) returns diag.ModuleID
 	let id = try p.modules.count() as diag.ModuleID otherwise panic("too many modules")
 	var copyM = m
 	copyM.id = id
-	copyM.tree.module = id
-	p.byPath.insert(copyM.path, value: id)
+	var tree = thaw(copyM.tree)
+	tree.module = id
+	copyM.tree = freeze(tree)
+	var byPath = thaw(p.byPath)
+	byPath.insert(copyM.path, value: id)
+	p.byPath = freeze(byPath)
 	p.modules.push(copyM)
 	addSlots(p.types, ft: p.funcs)
-	p.resolutions.push(Resolution.new(id))
-	p.typings.push(Typing.new(id))
+	p.resolutions.push(freeze(Resolution.new(id)))
+	p.typings.push(freeze(Typing.new(id)))
 	return id
 end 'addModule'
 
 // ModuleBody is what a module holds of its source and of its check: the parts that only a compile of the module itself
 // reads, and that a compile of another module never does.
 export type ModuleBody
-	export var files as FileSpanList
-	export var tree as Tree
-	export var decls as DeclList
-	export var names as DeclIndex
-	export var resolution as Resolution
-	export var typing as Typing
+	export var files as frozen with FileSpanList
+	export var tree as frozen with Tree
+	export var decls as frozen with DeclList
+	export var names as frozen with DeclIndex
+	export var resolution as frozen with Resolution
+	export var typing as frozen with Typing
 
-	export static function make(consumes files FileSpanList, consumes tree Tree, consumes decls DeclList, consumes names DeclIndex, consumes resolution Resolution, consumes typing Typing) returns ModuleBody
+	export static function make(consumes files frozen with FileSpanList, consumes tree frozen with Tree, consumes decls frozen with DeclList, consumes names frozen with DeclIndex, consumes resolution frozen with Resolution, consumes typing frozen with Typing) returns ModuleBody
 		return ModuleBody{files: files, tree: tree, decls: decls, names: names, resolution: resolution, typing: typing}
 	end 'make'
 end 'ModuleBody'
@@ -728,19 +784,25 @@ end 'ModuleBody'
 // takeBody takes the body of a module out of the project, which keeps the module with an empty one.
 export function takeBody(mutates p Project, module diag.ModuleID) returns ModuleBody
 	let m = modIndex(module)
-	return ModuleBody.make(exchange(p.modules[m].files, value: FileSpanList.create(0)), tree: exchange(p.modules[m].tree, value: Tree.new(module, text: "")), decls: exchange(p.modules[m].decls, value: DeclList.create(0)), names: exchange(p.modules[m].names, value: DeclIndex.new()), resolution: exchange(p.resolutions[m], value: Resolution.new(module)), typing: exchange(p.typings[m], value: Typing.new(module)))
+	let files = exchange(p.modules[m].files, value: freeze(FileSpanList.create(0)))
+	let tree = exchange(p.modules[m].tree, value: freeze(Tree.new(module, text: "")))
+	let decls = exchange(p.modules[m].decls, value: freeze(DeclList.create(0)))
+	let names = exchange(p.modules[m].names, value: freeze(DeclIndex.new()))
+	let resolution = exchange(p.resolutions[m], value: freeze(Resolution.new(module)))
+	let typing = exchange(p.typings[m], value: freeze(Typing.new(module)))
+	return ModuleBody.make(files, tree: tree, decls: decls, names: names, resolution: resolution, typing: typing)
 end 'takeBody'
 
 // putBody gives a module the body that takeBody took.
 export function putBody(mutates p Project, module diag.ModuleID, consumes body ModuleBody)
 	let m = modIndex(module)
 	var held = body
-	p.modules[m].files = exchange(held.files, value: FileSpanList.create(0))
-	p.modules[m].tree = exchange(held.tree, value: Tree.new(module, text: ""))
-	p.modules[m].decls = exchange(held.decls, value: DeclList.create(0))
-	p.modules[m].names = exchange(held.names, value: DeclIndex.new())
-	p.resolutions[m] = exchange(held.resolution, value: Resolution.new(module))
-	p.typings[m] = exchange(held.typing, value: Typing.new(module))
+	p.modules[m].files = exchange(held.files, value: freeze(FileSpanList.create(0)))
+	p.modules[m].tree = exchange(held.tree, value: freeze(Tree.new(module, text: "")))
+	p.modules[m].decls = exchange(held.decls, value: freeze(DeclList.create(0)))
+	p.modules[m].names = exchange(held.names, value: freeze(DeclIndex.new()))
+	p.resolutions[m] = exchange(held.resolution, value: freeze(Resolution.new(module)))
+	p.typings[m] = exchange(held.typing, value: freeze(Typing.new(module)))
 end 'putBody'
 
 // rootQualifier and stdlibQualifier start a qualified name of the root module's and of the standard library's

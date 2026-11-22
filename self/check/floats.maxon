@@ -61,7 +61,7 @@ function floatMismatch(c Checker, p ast.Project, ms ast.ModuleState, node ast.No
 	let castable = typeIsAnonFloat(ms.types, reads: p.types, t: src) or ast.isIntType(ms.types, reads: p.types, t: src)
 	var fix = diag.Fix.none()
 	if castable 'cast'
-		fix = castFix(ms.tree, e: node, target: tName)
+		fix = castFix(ms.tree(), e: node, target: tName)
 	end 'cast'
 	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, ms: ms, t: src), castable: false), fix: fix, errs: errs)
 end 'floatMismatch'

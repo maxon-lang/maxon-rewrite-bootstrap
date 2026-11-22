@@ -546,7 +546,7 @@ function allocShellTypeParams(mutates ms ast.ModuleState, p ast.Project, modID d
 		let tpName = tps[i].name.clone()
 		let tpNode = tps[i].id
 		if seen.has(tpName) 'dup'
-			let off = ms.source.tree.records[tpNode as Count].start
+			let off = ms.parsed.tree.records[tpNode as Count].start
 			diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{tpName}' is already declared as a type parameter", module: modID, offset: off)
 			continue 'each'
 		end 'dup'
@@ -559,7 +559,7 @@ end 'allocShellTypeParams'
 
 function createShellType(mutates ms ast.ModuleState, p ast.Project, modID diag.ModuleID, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
 	let ref = ast.DeclRef.make(modID, ordinal: ord)
-	let d = ms.source.decls[ord as Count].clone()
+	let d = ms.parsed.decls[ord as Count].clone()
 	match d 'k'
 		typeDecl(td) then allocRecordShell(ms, p: p, ref: ref, td: td, errs: errs)
 		enumDecl(ed) then allocEnumShell(ms, p: p, ref: ref, ed: ed)
@@ -610,21 +610,21 @@ function allocIfaceShell(mutates ms ast.ModuleState, p ast.Project, ref ast.Decl
 end 'allocIfaceShell'
 
 function buildModuleTable(mutates ms ast.ModuleState, p ast.Project, modID diag.ModuleID, mutates errs diag.ErrorList)
-	let count = ms.source.decls.count()
+	let count = ms.parsed.decls.count()
 	for i in 0 upto count 'each'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many decls")
 		createShellType(ms, p: p, modID: modID, ord: ord, errs: errs)
-		let dName = ms.source.decls[i].name()
-		let dOff = ms.source.decls[i].offset(ms.source.tree)
-		match ms.source.indexDecl(ord) 'dup'
-			some(prevOrd) then pushDuplicateDecl(ms.source, dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
-			none then noteNestedAlias(ms.source, dName: dName, ord: ord)
+		let dName = ms.parsed.decls[i].name()
+		let dOff = ms.parsed.decls[i].offset(ms.parsed.tree)
+		match ms.parsed.indexDecl(ord) 'dup'
+			some(prevOrd) then pushDuplicateDecl(ms.parsed, dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
+			none then noteNestedAlias(ms.parsed, dName: dName, ord: ord)
 		end 'dup'
 	end 'each'
 end 'buildModuleTable'
 
 // noteNestedAlias files a typealias that a type's body or an extension declares under its owner.
-function noteNestedAlias(mutates m ast.Module, dName String, ord ast.DeclOrdinal)
+function noteNestedAlias(mutates m ast.ParsedModule, dName String, ord ast.DeclOrdinal)
 	if m.decls[ord as Count].keyword() != "typealias" 'other'
 		return
 	end 'other'
@@ -634,7 +634,7 @@ function noteNestedAlias(mutates m ast.Module, dName String, ord ast.DeclOrdinal
 	end 'owner'
 end 'noteNestedAlias'
 
-function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
+function pushDuplicateDecl(m ast.ParsedModule, consumes dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
 	let testName = m.decls[ord as Count].testName()
 	if testName != "" 'tests'
 		// Two tests that compile to one symbol are two names that differ only where a character is no letter, digit or underscore.
@@ -657,14 +657,14 @@ end 'pushDuplicateDecl'
 // pushDuplicateNestedAlias reports a typealias that the body of its type, or an extension of it, declares a second time. A
 // typealias that an extension declares is the one at fault where the other is in the body of the type, as it is the one that
 // adds a name that is taken; otherwise the later of the two is.
-function pushDuplicateNestedAlias(m ast.Module, dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
+function pushDuplicateNestedAlias(m ast.ParsedModule, dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
 	match consumes ast.nestedAliasOwner(dName) 'owner'
 		some(owner) then pushDuplicateMember(m, owner: owner, dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
 		none then panic("'{dName}' is not a nested typealias")
 	end 'owner'
 end 'pushDuplicateNestedAlias'
 
-function pushDuplicateMember(m ast.Module, owner String, dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
+function pushDuplicateMember(m ast.ParsedModule, owner String, dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
 	let inBody = declaredByBody(m, owner: owner, ord: ord)
 	let prevInBody = declaredByBody(m, owner: owner, ord: prevOrd)
 	var at = dOff
@@ -682,7 +682,7 @@ end 'pushDuplicateMember'
 
 // declaredByBody is whether the typealias at ord is one that the body of the type owner declares, and not one of its
 // extensions.
-function declaredByBody(m ast.Module, owner String, ord ast.DeclOrdinal) returns bool
+function declaredByBody(m ast.ParsedModule, owner String, ord ast.DeclOrdinal) returns bool
 	var id = 0 as ast.NodeID
 	match m.decls[ord as Count].clone() 'k'
 		aliasDecl(a) then id = a.id
@@ -701,13 +701,13 @@ function declaredByBody(m ast.Module, owner String, ord ast.DeclOrdinal) returns
 end 'declaredByBody'
 
 // fileNameAt is the name of the file of the module that holds the offset, without its directory.
-function fileNameAt(m ast.Module, offset diag.U32) returns String
+function fileNameAt(m ast.ParsedModule, offset diag.U32) returns String
 	for i in 0 upto m.files.count() 'each'
 		if offset >= m.files[i].start and offset < m.files[i].endOff 'hit'
 			return lastPathPart(m.files[i].path)
 		end 'hit'
 	end 'each'
-	return m.display()
+	panic("the offset {offset} is in no file of the module")
 end 'fileNameAt'
 
 function lastPathPart(path String) returns String
@@ -766,12 +766,8 @@ function readOneFile(fp String, mutates fTexts ast.StringList, mutates errs diag
 	end 'rf'
 end 'readOneFile'
 
-function copyParsedIntoModule(mutates ms ast.ModuleState, p ast.Project, consumes parsedMod ast.Module)
-	var pm = parsedMod
-	ms.source.files = pm.files
-	ms.source.tree = pm.tree
-	ms.source.decls = pm.decls
-	ms.source.names = pm.names
+function copyParsedIntoModule(mutates ms ast.ModuleState, p ast.Project, consumes parsedMod ast.ParsedModule)
+	ms.parsed = parsedMod
 end 'copyParsedIntoModule'
 
 // sourceFiles are the paths of the source files of the project at dir, directory by directory in the order of the walk, as the

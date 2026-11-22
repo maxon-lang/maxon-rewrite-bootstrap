@@ -50,7 +50,7 @@ function omittedIndex(c Checker, call ast.NodeID) returns table.Option with Coun
 end 'omittedIndex'
 
 function argumentCount(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns Count
-	return ms.tree.listLen(ast.callExprArgsRef(ms.tree, id: call))
+	return ms.tree().listLen(ast.callExprArgsRef(ms.tree(), id: call))
 end 'argumentCount'
 
 // positionalName is the name of a parameter of a built-in function that its argument fills by its place, never by a label.
@@ -66,8 +66,8 @@ end 'failArity'
 // orderArgs puts a call's arguments in the order of the parameters, which labels name after the first. receivers is 1 for a method called on a value, which maxon counts as an argument in the arity message.
 function orderArgs(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
 	var ordered = ast.NodeIDList.create(0)
-	let argsRef = ast.callExprArgsRef(ms.tree, id: call)
-	let total = ms.tree.listLen(argsRef)
+	let argsRef = ast.callExprArgsRef(ms.tree(), id: call)
+	let total = ms.tree().listLen(argsRef)
 	let skipped = omittedIndex(c, call: call)
 	var given = total
 	if skipped.isSome() 'skips'
@@ -85,8 +85,8 @@ function orderArgs(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID
 		if omittedAt(skipped, index: ai) 'left'
 			continue 'args'
 		end 'left'
-		let arg = ms.tree.listAt(argsRef, index: ai) as ast.NodeID
-		let label = ast.argLabel(ms.tree, id: arg)
+		let arg = ms.tree().listAt(argsRef, index: ai) as ast.NodeID
+		let label = ast.argLabel(ms.tree(), id: arg)
 		var slot = seen
 		if seen < specs.count() and specs[seen].name == positionalName 'positional'
 			if label != "" 'labelled'
@@ -118,7 +118,7 @@ function orderArgs(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID
 				return ordered
 			end 'duplicate'
 		end 'labelled'
-		ordered[slot] = ast.argValue(ms.tree, id: arg)
+		ordered[slot] = ast.argValue(ms.tree(), id: arg)
 		seen = try seen + 1 otherwise seen
 	end 'args'
 	for j in 0 upto specs.count() 'required'
@@ -183,7 +183,7 @@ end 'bindArgs'
 // parameter takes the contents of a frozen value for.
 function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, value ast.NodeID, callee String, spec ast.ParamSpec, payload bool, mutates errs diag.ErrorList) returns bool
 	let t = ast.nodeType(c.typing, node: value)
-	let temporary = ast.isMutatingFunction(ms.types, reads: p.types, t: spec.ty) and not ast.isStorage(ms.tree, typing: c.typing, node: value)
+	let temporary = ast.isMutatingFunction(ms.types, reads: p.types, t: spec.ty) and not ast.isStorage(ms.tree(), typing: c.typing, node: value)
 	if ast.isByAddress(spec.conv) and not temporary 'byAddress'
 		if t != spec.ty 'different'
 			let expected = nameOfType(p, ms: ms, t: spec.ty)

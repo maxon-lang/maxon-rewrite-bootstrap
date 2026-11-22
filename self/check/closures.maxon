@@ -116,8 +116,8 @@ function checkClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	if typeHasKind(p, ms: ms, t: c.expect, kind: ast.TypeKind.funcTy) 'expected'
 		shape = c.expect
 	end 'expected'
-	let paramsRef = ast.closureExprParamsRef(ms.tree, id: e)
-	let n = ms.tree.listLen(paramsRef)
+	let paramsRef = ast.closureExprParamsRef(ms.tree(), id: e)
+	let n = ms.tree().listLen(paramsRef)
 	if shape != ast.noType and n != ast.funcParamCount(ms.types, reads: p.types, t: shape) 'arity'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: "the closure takes {n} parameter(s), and '{nameOfType(p, ms: ms, t: shape)}' takes {ast.funcParamCount(ms.types, reads: p.types, t: shape)}; give it one for each", errs: errs)
 		return ast.noType
@@ -126,8 +126,8 @@ function checkClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	var convs = ast.ConventionList.create(0)
 	let owner = c.owner
 	for i in 0 upto n 'params'
-		let param = ms.tree.listAt(paramsRef, index: i) as ast.NodeID
-		let tr = ast.closureParamType(ms.tree, id: param)
+		let param = ms.tree().listAt(paramsRef, index: i) as ast.NodeID
+		let tr = ast.closureParamType(ms.tree(), id: param)
 		var t = ast.noType
 		if tr != 0 'typed'
 			t = resolveTypeRef(c, p: p, ms: ms, tr: tr, selfTy: owner, errs: errs)
@@ -137,15 +137,15 @@ function checkClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		end 'typed' else if shape != ast.noType 'inferred'
 			t = ast.funcParamType(ms.types, reads: p.types, t: shape, index: i)
 		end 'inferred' else 'untyped'
-			let name = ast.closureParamName(ms.tree, id: param)
+			let name = ast.closureParamName(ms.tree(), id: param)
 			failAt(c, p: p, ms: ms, node: param, code: diag.errUnsupportedFeature, msg: "the closure parameter '{name}' has no type, which only a closure written where a function type is expected may leave out; write it: 'function({name} Count) gives ...'", errs: errs)
 			return ast.noType
 		end 'untyped'
 		types.push(t)
-		convs.push(ast.parseConvention(ast.closureParamConvention(ms.tree, id: param)))
+		convs.push(ast.parseConvention(ast.closureParamConvention(ms.tree(), id: param)))
 	end 'params'
 	var result = ast.noType
-	let returnsRef = ast.closureExprReturns(ms.tree, id: e)
+	let returnsRef = ast.closureExprReturns(ms.tree(), id: e)
 	if returnsRef != 0 'declared'
 		result = resolveTypeRef(c, p: p, ms: ms, tr: returnsRef, selfTy: owner, errs: errs)
 		if result == ast.noType 'failed'
@@ -157,7 +157,7 @@ function checkClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	let mutating = shape != ast.noType and ast.funcMutatesCaptures(ms.types, reads: p.types, t: shape)
 	let fid = enterClosure(c, p: p, ms: ms, e: e, types: types, convs: convs, result: result, mutating: mutating, errs: errs)
 	if fid != ast.noFunc 'entered'
-		checkBlock(c, p: p, ms: ms, body: ast.closureExprBodyRef(ms.tree, id: e), errs: errs)
+		checkBlock(c, p: p, ms: ms, body: ast.closureExprBodyRef(ms.tree(), id: e), errs: errs)
 	end 'entered'
 	let made = leaveClosure(c, p: p, e: e)
 	if fid == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: made).retTy == ast.noType 'failed'
@@ -178,18 +178,18 @@ end 'checkClosure'
 // captures to change them. It gives none when a parameter cannot be bound, after reporting why.
 function enterClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, types ast.TypeIDList, convs ast.ConventionList, result ast.TypeID, mutating bool, mutates errs diag.ErrorList) returns ast.FuncID
 	var entry = ast.FuncEntry.make(ast.closureName(funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: c.fn), index: c.whens), visibility: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).visibility.clone(), module: c.modID, nodeID: e)
-	entry.bodyRef = ast.closureExprBodyRef(ms.tree, id: e)
+	entry.bodyRef = ast.closureExprBodyRef(ms.tree(), id: e)
 	entry.retTy = result
 	entry.isClosure = true
 	let fid = ast.allocFunc(ms.funcs, module: c.modID, f: entry)
 	c.whens = try c.whens + 1 otherwise panic("too many closures in one function")
 	let frame = enterNested(c, fid: fid, closure: true)
 	c.bFrames[frame].mutatesCaptures = mutating
-	let paramsRef = ast.closureExprParamsRef(ms.tree, id: e)
+	let paramsRef = ast.closureExprParamsRef(ms.tree(), id: e)
 	var failedParam = false
 	for i in 0 upto types.count() 'params'
-		let param = ms.tree.listAt(paramsRef, index: i) as ast.NodeID
-		let name = ast.closureParamName(ms.tree, id: param)
+		let param = ms.tree().listAt(paramsRef, index: i) as ast.NodeID
+		let name = ast.closureParamName(ms.tree(), id: param)
 		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
 		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].paramTypes.push(types[i])
 		if name == "_" 'anonymous'
@@ -252,15 +252,15 @@ function callValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	for i in 0 upto n 'params'
 		specs.push(ast.ParamSpec.make("{i + 1}", ty: ast.funcParamType(ms.types, reads: p.types, t: t, index: i), conv: ast.funcParamConv(ms.types, reads: p.types, t: t, index: i)))
 	end 'params'
-	let argsRef = ast.callExprArgsRef(ms.tree, id: call)
-	let given = ms.tree.listLen(argsRef)
+	let argsRef = ast.callExprArgsRef(ms.tree(), id: call)
+	let given = ms.tree().listLen(argsRef)
 	if given != n 'arity'
 		failAt(c, p: p, ms: ms, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(nameOfType(p, ms: ms, t: t), expected: "{n}", got: "{given}"), errs: errs)
 		return ast.noType
 	end 'arity'
 	var info = ast.CallInfo.make(ast.CallKind.callValue, fn: ast.noFunc, receiverTy: t)
 	for i in 0 upto n 'args'
-		let value = ast.argValue(ms.tree, id: ms.tree.listAt(argsRef, index: i) as ast.NodeID)
+		let value = ast.argValue(ms.tree(), id: ms.tree().listAt(argsRef, index: i) as ast.NodeID)
 		if checkExpecting(c, p: p, ms: ms, e: value, want: specs[i].ty, errs: errs) == ast.noType 'failed'
 			return ast.noType
 		end 'failed'

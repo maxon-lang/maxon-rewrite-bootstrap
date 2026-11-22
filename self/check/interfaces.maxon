@@ -112,7 +112,7 @@ function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, n
 		end 'notCopyable'
 	end 'copyable'
 	// A try that passes its failure on gives its expression's value, which is what is put in the box.
-	let valueNode = ast.through(ms.tree, e: node)
+	let valueNode = ast.through(ms.tree(), e: node)
 	if not c.typing.boxes.has(valueNode as Count) 'first'
 		c.typing.boxes.insert(valueNode as Count, value: iface)
 		c.pendingBoxes.push(PendingBox.make(at, src: src, iface: iface, withinFn: c.boundedFn, code: diag.errTypeMismatch, refusal: wrong.conformWords(srcName, iface: ifaceName)))

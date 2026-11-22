@@ -117,10 +117,10 @@ end 'requireMayTakeApart'
 
 // requireMayTakeApartFrom checks each record along a field path that a move takes a part from.
 function requireMayTakeApartFrom(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, what String) returns bool
-	let k = ms.tree.kindOf(e)
+	let k = ms.tree().kindOf(e)
 	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
 	if k == ast.NodeKind.memberExpr 'member'
-		let obj = ast.memberExprObj(ms.tree, id: e)
+		let obj = ast.memberExprObj(ms.tree(), id: e)
 		return requireMayTakeApartFrom(o, p: p, ms: ms, e: obj, what: what) and requireMayTakeApart(o, p: p, ms: ms, site: site, t: ownType(o, node: obj), what: what)
 	end 'member'
 	if k == ast.NodeKind.nameExpr and ownName(o, node: e).kind == ast.NameKind.nameSelfField 'selfField'

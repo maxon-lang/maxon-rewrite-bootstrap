@@ -7,8 +7,8 @@ function walk(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, bo
 	let held = o.projections.count()
 	let holders = o.holders.count()
 	var cur = s
-	for i in 0 upto ms.tree.listLen(body) 'each'
-		let st = ms.tree.listAt(body, index: i) as ast.NodeID
+	for i in 0 upto ms.tree().listLen(body) 'each'
+		let st = ms.tree().listAt(body, index: i) as ast.NodeID
 		cur = stmt(o, p: p, ms: ms, st: st, s: cur)
 	end 'each'
 	// The function values that the block's locals hold end with it, and so do their holds.
@@ -25,7 +25,7 @@ function stmt(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st
 end 'stmt'
 
 function visitStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
-	let k = ms.tree.kindOf(st)
+	let k = ms.tree().kindOf(st)
 	if k == ast.NodeKind.letStmt 'let'
 		return letStmtOwn(o, p: p, ms: ms, st: st, s: s)
 	end 'let'
@@ -41,25 +41,25 @@ function visitStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		return cur
 	end 'expansion'
 	if k == ast.NodeKind.discardStmt 'discard'
-		let value = ast.discardStmtValue(ms.tree, id: st)
+		let value = ast.discardStmtValue(ms.tree(), id: st)
 		let out = eval(o, p: p, ms: ms, e: value, s: s)
 		requireTemporaryDroppable(o, p: p, ms: ms, e: value, s: out, kind: OwnDropKind.dropDiscard)
 		return out
 	end 'discard'
 	if k == ast.NodeKind.exprStmt 'expr'
-		let e = ast.exprStmtE(ms.tree, id: st)
+		let e = ast.exprStmtE(ms.tree(), id: st)
 		let out = expr(o, p: p, ms: ms, e: e, s: s)
-		if ms.tree.kindOf(e) == ast.NodeKind.panicExpr 'panics'
+		if ms.tree().kindOf(e) == ast.NodeKind.panicExpr 'panics'
 			return OwnState.unreachable()
 		end 'panics'
 		return out
 	end 'expr'
 	if k == ast.NodeKind.ifStmt 'if'
-		let cond = expr(o, p: p, ms: ms, e: ast.ifStmtCond(ms.tree, id: st), s: s)
-		let a = walk(o, p: p, ms: ms, body: ast.ifStmtThenRef(ms.tree, id: st), s: cond.clone())
+		let cond = expr(o, p: p, ms: ms, e: ast.ifStmtCond(ms.tree(), id: st), s: s)
+		let a = walk(o, p: p, ms: ms, body: ast.ifStmtThenRef(ms.tree(), id: st), s: cond.clone())
 		var b = cond
-		if ast.ifStmtHasElse(ms.tree, id: st) 'else'
-			b = walk(o, p: p, ms: ms, body: ast.ifStmtElseRef(ms.tree, id: st), s: b)
+		if ast.ifStmtHasElse(ms.tree(), id: st) 'else'
+			b = walk(o, p: p, ms: ms, body: ast.ifStmtElseRef(ms.tree(), id: st), s: b)
 		end 'else'
 		return join(o, p: p, ms: ms, a: a, b: b)
 	end 'if'
@@ -67,21 +67,21 @@ function visitStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		return ifTryStmtOwn(o, p: p, ms: ms, st: st, s: s)
 	end 'ifTry'
 	if k == ast.NodeKind.whileStmt 'while'
-		return loopOwn(o, p: p, ms: ms, target: st, s: s, body: ast.whileStmtBodyRef(ms.tree, id: st), cond: ast.whileStmtCond(ms.tree, id: st), fresh: ast.noLocal)
+		return loopOwn(o, p: p, ms: ms, target: st, s: s, body: ast.whileStmtBodyRef(ms.tree(), id: st), cond: ast.whileStmtCond(ms.tree(), id: st), fresh: ast.noLocal)
 	end 'while'
-	if k == ast.NodeKind.forStmt and not ast.forStmtIsRange(ms.tree, id: st) 'forEach'
+	if k == ast.NodeKind.forStmt and not ast.forStmtIsRange(ms.tree(), id: st) 'forEach'
 		return forEachOwn(o, p: p, ms: ms, st: st, s: s)
 	end 'forEach'
 	if k == ast.NodeKind.forStmt 'for'
-		let start = expr(o, p: p, ms: ms, e: ast.forStmtFrom(ms.tree, id: st), s: s)
-		let bound = expr(o, p: p, ms: ms, e: ast.forStmtTo(ms.tree, id: st), s: start)
-		return loopOwn(o, p: p, ms: ms, target: st, s: bound, body: ast.forStmtBodyRef(ms.tree, id: st), cond: 0 as ast.NodeID, fresh: ast.noLocal)
+		let start = expr(o, p: p, ms: ms, e: ast.forStmtFrom(ms.tree(), id: st), s: s)
+		let bound = expr(o, p: p, ms: ms, e: ast.forStmtTo(ms.tree(), id: st), s: start)
+		return loopOwn(o, p: p, ms: ms, target: st, s: bound, body: ast.forStmtBodyRef(ms.tree(), id: st), cond: 0 as ast.NodeID, fresh: ast.noLocal)
 	end 'for'
 	if k == ast.NodeKind.whenStmt 'when'
 		return whenStmtOwn(o, p: p, ms: ms, st: st, s: s)
 	end 'when'
 	if k == ast.NodeKind.matchStmt 'match'
-		return matchOwn(o, p: p, ms: ms, core: ast.matchStmtMatch(ms.tree, id: st), s: s)
+		return matchOwn(o, p: p, ms: ms, core: ast.matchStmtMatch(ms.tree(), id: st), s: s)
 	end 'match'
 	if k == ast.NodeKind.tryStmt 'try'
 		return tryStmtOwn(o, p: p, ms: ms, st: st, s: s)
@@ -104,12 +104,12 @@ end 'visitStmtOwn'
 function letStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
 	let sym = ownLocalOf(o, node: st)
 	let site = offsetOfOwn(o, p: p, ms: ms, node: st)
-	let init = ast.letStmtInit(ms.tree, id: st)
+	let init = ast.letStmtInit(ms.tree(), id: st)
 	if init == 0 'uninitialised'
 		oblige(o, p: p, ms: ms, l: sym, site: site)
 		return withFact(s, fact: OwnFact.make(sym, site: site, kind: OwnFactKind.factUninitialised, dest: OwnDest.of(OwnDestKind.destVariable)))
 	end 'uninitialised'
-	let name = ast.letStmtName(ms.tree, id: st)
+	let name = ast.letStmtName(ms.tree(), id: st)
 	let out = consume(o, p: p, ms: ms, e: init, dest: OwnDest.make(OwnDestKind.destBinding, name: name), s: s)
 	bindHolder(o, p: p, ms: ms, local: sym, e: init)
 	oblige(o, p: p, ms: ms, l: sym, site: site)
@@ -117,13 +117,13 @@ function letStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 end 'letStmtOwn'
 
 function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
-	let target = ast.assignStmtTarget(ms.tree, id: st)
-	let value = ast.assignStmtValue(ms.tree, id: st)
+	let target = ast.assignStmtTarget(ms.tree(), id: st)
+	let value = ast.assignStmtValue(ms.tree(), id: st)
 	let site = offsetOfOwn(o, p: p, ms: ms, node: st)
-	let k = ms.tree.kindOf(target)
+	let k = ms.tree().kindOf(target)
 	if k == ast.NodeKind.nameExpr 'name'
 		let name = ownName(o, node: target)
-		let targetName = ast.nameExprName(ms.tree, id: target)
+		let targetName = ast.nameExprName(ms.tree(), id: target)
 		if name.kind == ast.NameKind.nameLocal 'local'
 			let out = consume(o, p: p, ms: ms, e: value, dest: OwnDest.make(OwnDestKind.destVariable, name: targetName), s: s)
 			requireWritable(o, p: p, ms: ms, site: site, path: AccessPath.at(name.local))
@@ -151,7 +151,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 		panic("ownership: unhandled assignment target")
 	end 'name'
 	if k == ast.NodeKind.memberExpr 'member'
-		let field = ast.memberExprName(ms.tree, id: target)
+		let field = ast.memberExprName(ms.tree(), id: target)
 		let out = consumeInto(o, p: p, ms: ms, target: target, value: value, dest: OwnDest.make(OwnDestKind.destField, name: field.clone()), s: s)
 		if changesProjection(o, p: p, ms: ms, e: target, site: site, what: "assigned") 'projection'
 			return out
@@ -167,10 +167,10 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 			none then _ = 0
 		end 'part'
 		requireOverwriteDroppable(o, p: p, ms: ms, st: st, target: target, s: out)
-		return eval(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree, id: target), s: out)
+		return eval(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: target), s: out)
 	end 'member'
 	if k == ast.NodeKind.indexExpr 'index'
-		let collection = placeText(ms.tree, e: ast.indexExprObj(ms.tree, id: target))
+		let collection = placeText(ms.tree(), e: ast.indexExprObj(ms.tree(), id: target))
 		let out = consumeInto(o, p: p, ms: ms, target: target, value: value, dest: OwnDest.make(OwnDestKind.destElement, name: collection), s: s)
 		if changesProjection(o, p: p, ms: ms, e: target, site: site, what: "assigned") 'projection'
 			return out
@@ -190,7 +190,7 @@ end 'assignStmtOwn'
 // requireOverwriteDroppable is the drop of the value a field or an element holds when an assignment replaces it.
 function requireOverwriteDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, target ast.NodeID, s OwnState)
 	if not s.dead 'live'
-		let name = placeText(ms.tree, e: target)
+		let name = placeText(ms.tree(), e: target)
 		requireDroppable(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: st), t: ownType(o, node: target), d: OwnDrop.make(OwnDropKind.dropOverwrite, name: name))
 	end 'live'
 end 'requireOverwriteDroppable'
@@ -219,15 +219,15 @@ end 'whenStmtOwn'
 
 function behaviourOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, behaviour ast.WhenInfo, consumes s OwnState) returns OwnState
 	var out = s
-	let cowns = ast.whenStmtCownsRef(ms.tree, id: st)
-	for i in 0 upto ms.tree.listLen(cowns) 'cowns'
-		let cn = ms.tree.listAt(cowns, index: i) as ast.NodeID
+	let cowns = ast.whenStmtCownsRef(ms.tree(), id: st)
+	for i in 0 upto ms.tree().listLen(cowns) 'cowns'
+		let cn = ms.tree().listAt(cowns, index: i) as ast.NodeID
 		out = expr(o, p: p, ms: ms, e: cn, s: out)
 	end 'cowns'
 	for i in 0 upto behaviour.captures.count() 'captures'
 		out = consume(o, p: p, ms: ms, e: behaviour.captures[i].refNode, dest: OwnDest.of(OwnDestKind.destBehaviour), s: out)
 	end 'captures'
-	runNested(o, p: p, ms: ms, fid: behaviour.fn, body: ast.whenStmtBodyRef(ms.tree, id: st), site: st, closureTy: ast.noType)
+	runNested(o, p: p, ms: ms, fid: behaviour.fn, body: ast.whenStmtBodyRef(ms.tree(), id: st), site: st, closureTy: ast.noType)
 	return out
 end 'behaviourOwn'
 
@@ -250,8 +250,8 @@ end 'runNested'
 // tryStmtOwn checks the body of a try block with its failures going to the handler, which starts from the join of the
 // states where they happen.
 function tryStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
-	let handles = ast.tryStmtHasOtherwise(ms.tree, id: st)
-	let body = ast.tryStmtBodyRef(ms.tree, id: st)
+	let handles = ast.tryStmtHasOtherwise(ms.tree(), id: st)
+	let body = ast.tryStmtBodyRef(ms.tree(), id: st)
 	if not enterTry(o, handles: handles) 'passes'
 		return walk(o, p: p, ms: ms, body: body, s: s)
 	end 'passes'
@@ -260,15 +260,15 @@ function tryStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	if not handles 'noHandler'
 		return after
 	end 'noHandler'
-	let handler = walk(o, p: p, ms: ms, body: ast.tryStmtHandlerRef(ms.tree, id: st), s: c.entry)
+	let handler = walk(o, p: p, ms: ms, body: ast.tryStmtHandlerRef(ms.tree(), id: st), s: c.entry)
 	return join(o, p: p, ms: ms, a: after, b: handler)
 end 'tryStmtOwn'
 
 // ifTryStmtOwn checks a conditional try: the failures of its call go to the else block, which starts from the join of the
 // states where they happen, and the block that runs when the call succeeds owns what the call gave.
 function ifTryStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
-	let call = ast.ifTryStmtCall(ms.tree, id: st)
-	let name = ast.ifTryStmtName(ms.tree, id: st)
+	let call = ast.ifTryStmtCall(ms.tree(), id: st)
+	let name = ast.ifTryStmtName(ms.tree(), id: st)
 	let mark = o.inFlight.count()
 	let added = enterTry(o, handles: true)
 	var after = s
@@ -285,12 +285,12 @@ function ifTryStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		oblige(o, p: p, ms: ms, l: sym, site: offsetOfOwn(o, p: p, ms: ms, node: st))
 		after = without(after, l: sym)
 	end 'bound'
-	let walked = walk(o, p: p, ms: ms, body: ast.ifTryStmtThenRef(ms.tree, id: st), s: after)
+	let walked = walk(o, p: p, ms: ms, body: ast.ifTryStmtThenRef(ms.tree(), id: st), s: after)
 	let succeeded = endScope(o, p: p, ms: ms, mark: scope, s: walked)
-	if not ast.ifTryStmtHasElse(ms.tree, id: st) 'noElse'
+	if not ast.ifTryStmtHasElse(ms.tree(), id: st) 'noElse'
 		return join(o, p: p, ms: ms, a: succeeded, b: entry)
 	end 'noElse'
-	let failed = walk(o, p: p, ms: ms, body: ast.ifTryStmtElseRef(ms.tree, id: st), s: entry)
+	let failed = walk(o, p: p, ms: ms, body: ast.ifTryStmtElseRef(ms.tree(), id: st), s: entry)
 	return join(o, p: p, ms: ms, a: succeeded, b: failed)
 end 'ifTryStmtOwn'
 
@@ -351,13 +351,13 @@ end 'land'
 // nothing for a try that passes it to the caller.
 function handled(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes entry OwnState)
 	let mark = o.inFlight.count()
-	let ret = ast.tryExprRet(ms.tree, id: e)
-	let brk = ast.tryExprBrk(ms.tree, id: e)
-	let cont = ast.tryExprCont(ms.tree, id: e)
-	let thr = ast.tryExprThr(ms.tree, id: e)
-	let handler = ast.tryExprHandler(ms.tree, id: e)
+	let ret = ast.tryExprRet(ms.tree(), id: e)
+	let brk = ast.tryExprBrk(ms.tree(), id: e)
+	let cont = ast.tryExprCont(ms.tree(), id: e)
+	let thr = ast.tryExprThr(ms.tree(), id: e)
+	let handler = ast.tryExprHandler(ms.tree(), id: e)
 	if handler != 0 'handler'
-		_ = walk(o, p: p, ms: ms, body: ast.handlerBlockBodyRef(ms.tree, id: handler), s: entry)
+		_ = walk(o, p: p, ms: ms, body: ast.handlerBlockBodyRef(ms.tree(), id: handler), s: entry)
 	end 'handler' else if ret != 0 'return'
 		_ = returnStmtOwn(o, p: p, ms: ms, st: ret, s: entry)
 	end 'return' else if brk != 0 'break'
@@ -373,28 +373,28 @@ end 'handled'
 // tryExprOwn is a try whose value comes from its expression or from 'otherwise', like the branches of a conditional, or
 // a transparent one, whose expression is only read.
 function tryExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
-	let inner = ast.tryExprE(ms.tree, id: e)
-	let passes = ast.propagates(ms.tree, e: e)
-	if ast.isTransparent(ms.tree, e: e) 'transparent'
+	let inner = ast.tryExprE(ms.tree(), id: e)
+	let passes = ast.propagates(ms.tree(), e: e)
+	if ast.isTransparent(ms.tree(), e: e) 'transparent'
 		let added = enterTry(o, handles: not passes)
 		let after = eval(o, p: p, ms: ms, e: inner, s: s)
 		let entry = leaveTryEntry(o, added: added)
 		handled(o, p: p, ms: ms, e: e, entry: entry)
 		return after
 	end 'transparent'
-	if ast.tryExprIgnore(ms.tree, id: e) 'ignore'
+	if ast.tryExprIgnore(ms.tree(), id: e) 'ignore'
 		let added = enterTry(o, handles: not passes)
 		let after = eval(o, p: p, ms: ms, e: inner, s: s)
 		let entry = leaveTryEntry(o, added: added)
 		return join(o, p: p, ms: ms, a: after, b: entry)
 	end 'ignore'
-	let handler = ast.tryExprHandler(ms.tree, id: e)
+	let handler = ast.tryExprHandler(ms.tree(), id: e)
 	if handler != 0 'falls'
 		let mark = o.inFlight.count()
 		let added = enterTry(o, handles: true)
 		let after = eval(o, p: p, ms: ms, e: inner, s: s)
 		let entry = leaveTryEntry(o, added: added)
-		let ended = walk(o, p: p, ms: ms, body: ast.handlerBlockBodyRef(ms.tree, id: handler), s: entry)
+		let ended = walk(o, p: p, ms: ms, body: ast.handlerBlockBodyRef(ms.tree(), id: handler), s: entry)
 		land(o, mark: mark)
 		return join(o, p: p, ms: ms, a: after, b: ended)
 	end 'falls'
@@ -403,13 +403,13 @@ function tryExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	let after = consume(o, p: p, ms: ms, e: inner, dest: OwnDest.of(OwnDestKind.destResult), s: s)
 	let entry = leaveTryEntry(o, added: added)
 	land(o, mark: mark)
-	let fallback = consume(o, p: p, ms: ms, e: ast.tryFallback(ms.tree, e: e), dest: OwnDest.of(OwnDestKind.destResult), s: entry)
+	let fallback = consume(o, p: p, ms: ms, e: ast.tryFallback(ms.tree(), e: e), dest: OwnDest.of(OwnDestKind.destResult), s: entry)
 	return join(o, p: p, ms: ms, a: after, b: fallback)
 end 'tryExprOwn'
 
 function returnStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
 	var out = s
-	let value = ast.returnStmtValue(ms.tree, id: st)
+	let value = ast.returnStmtValue(ms.tree(), id: st)
 	if value != 0 and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).result == ast.ResultConv.resultBorrowed 'lent'
 		out = expr(o, p: p, ms: ms, e: value, s: out)
 		requireLentByParameters(o, p: p, ms: ms, e: value)
@@ -470,7 +470,7 @@ end 'requireLentByParameters'
 // throwStmtOwn is a failure that always happens: it goes to the innermost try's handler, or with none out of the
 // function.
 function throwStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
-	let out = consume(o, p: p, ms: ms, e: ast.throwStmtValue(ms.tree, id: st), dest: OwnDest.of(OwnDestKind.destReturn), s: s)
+	let out = consume(o, p: p, ms: ms, e: ast.throwStmtValue(ms.tree(), id: st), dest: OwnDest.of(OwnDestKind.destReturn), s: s)
 	let added = enterTry(o, handles: false)
 	failure(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: st), s: out)
 	if added 'added'
@@ -531,7 +531,7 @@ function loopOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	let closed = popFrameOwn(o)
 	// A loop whose condition is the literal true is left by 'break' alone, so no path leaves it from the top or the
 	// bottom of the body.
-	if isTrue(ms.tree, e: cond) 'forever'
+	if isTrue(ms.tree(), e: cond) 'forever'
 		return closed.breaks
 	end 'forever'
 	let bottom = join(o, p: p, ms: ms, a: entry, b: after)
@@ -545,7 +545,7 @@ end 'loopOwn'
 // place it is must be mutable, and is held as an array is. A collection that is not a place is a temporary that the
 // statement owns.
 function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
-	let source = ast.forStmtFrom(ms.tree, id: st)
+	let source = ast.forStmtFrom(ms.tree(), id: st)
 	let start = expr(o, p: p, ms: ms, e: source, s: s)
 	let path = pathOf(o, p: p, ms: ms, e: source)
 	// A borrowed result is held where it lies, but lends no part of itself to be changed through the variable.
@@ -579,7 +579,7 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 			o.projections.push(OwnProjection.make(lent[i].clone(), place: 0 as ast.NodeID, kind: OwnProjectionKind.projectLoop, ty: ownType(o, node: source)))
 		end 'each'
 	end 'hold'
-	let out = loopOwn(o, p: p, ms: ms, target: st, s: start, body: ast.forStmtBodyRef(ms.tree, id: st), cond: 0 as ast.NodeID, fresh: fresh)
+	let out = loopOwn(o, p: p, ms: ms, target: st, s: start, body: ast.forStmtBodyRef(ms.tree(), id: st), cond: 0 as ast.NodeID, fresh: fresh)
 	release(o, mark: mark)
 	for _ in 0 upto lent.count() 'unlend'
 		_ = try o.lenders.pop() otherwise panic("ownership: the lender of a loop's variable vanished")
@@ -591,8 +591,8 @@ end 'forEachOwn'
 // as the map's: a key is read-only, and `_` is no variable.
 function lentValue(o Ownership, p ast.Project, ms ast.ModuleState, st ast.NodeID) returns ast.LocalIDList
 	var lent = ast.LocalIDList.create(0)
-	let namesRef = ast.forStmtVarsRef(ms.tree, id: st)
-	let at = ms.tree.listAt(namesRef, index: 1 as Count) as ast.NodeID
+	let namesRef = ast.forStmtVarsRef(ms.tree(), id: st)
+	let at = ms.tree().listAt(namesRef, index: 1 as Count) as ast.NodeID
 	match consumes o.c.typing.nodeLocals.get(at as Count) 'value'
 		some(local) then lent.push(local)
 		none then _ = 0
@@ -612,8 +612,8 @@ function isTrue(tree ast.Tree, e ast.NodeID) returns bool
 end 'isTrue'
 
 function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, core ast.NodeID, consumes s OwnState) returns OwnState
-	let consuming = ast.matchCoreConsumes(ms.tree, id: core)
-	let subject = ast.matchCoreSubject(ms.tree, id: core)
+	let consuming = ast.matchCoreConsumes(ms.tree(), id: core)
+	let subject = ast.matchCoreSubject(ms.tree(), id: core)
 	var start = s
 	if consuming 'consumes'
 		_ = requireMayTakeApart(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: subject), t: ast.contentType(ms.types, reads: p.types, t: ownType(o, node: subject)), what: "a 'match consumes'")
@@ -625,11 +625,12 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 	var subjectPaths = AccessPaths.create(0)
 	var subjectKnown = false
 	var result = OwnState.unreachable()
-	let arms = ast.matchCoreArmsRef(ms.tree, id: core)
+	let arms = ast.matchCoreArmsRef(ms.tree(), id: core)
 	var fell = OwnState.unreachable()
-	for i in 0 upto ms.tree.listLen(arms) 'arms'
-		let arm = ms.tree.listAt(arms, index: i) as ast.NodeID
-		var a = join(o, p: p, ms: ms, a: start.clone(), b: fell)
+	for i in 0 upto ms.tree().listLen(arms) 'arms'
+		let arm = ms.tree().listAt(arms, index: i) as ast.NodeID
+		let entered = join(o, p: p, ms: ms, a: start.clone(), b: fell)
+		var a = freshBindings(o, ms: ms, arm: arm, s: entered)
 		let mark = o.obliged.count()
 		if consuming 'takeApart'
 			takeApart(o, p: p, ms: ms, core: core, arm: arm)
@@ -645,21 +646,21 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 				o.projections.push(OwnProjection.make(subjectPaths[j].clone(), place: 0 as ast.NodeID, kind: OwnProjectionKind.projectMatch, ty: ownType(o, node: subject)))
 			end 'each'
 		end 'hold'
-		let form = ast.matchArmForm(ms.tree, id: arm)
+		let form = ast.matchArmForm(ms.tree(), id: arm)
 		if form == ast.ArmKind.armThen 'then'
-			a = stmt(o, p: p, ms: ms, st: ast.matchArmAction(ms.tree, id: arm), s: a)
+			a = stmt(o, p: p, ms: ms, st: ast.matchArmAction(ms.tree(), id: arm), s: a)
 		end 'then' else if form == ast.ArmKind.armGives 'gives'
 			let flight = o.inFlight.count()
-			a = consume(o, p: p, ms: ms, e: ast.matchArmValue(ms.tree, id: arm), dest: OwnDest.of(OwnDestKind.destResult), s: a)
+			a = consume(o, p: p, ms: ms, e: ast.matchArmValue(ms.tree(), id: arm), dest: OwnDest.of(OwnDestKind.destResult), s: a)
 			land(o, mark: flight)
 		end 'gives' else 'panics'
-			_ = expr(o, p: p, ms: ms, e: ast.matchArmValue(ms.tree, id: arm), s: a)
+			_ = expr(o, p: p, ms: ms, e: ast.matchArmValue(ms.tree(), id: arm), s: a)
 			a = OwnState.unreachable()
 		end 'panics'
 		release(o, mark: held)
 		a = endScope(o, p: p, ms: ms, mark: mark, s: a)
 		fell = OwnState.unreachable()
-		if ast.matchArmFalls(ms.tree, id: arm) 'falls'
+		if ast.matchArmFalls(ms.tree(), id: arm) 'falls'
 			fell = a
 		end 'falls' else 'leaves'
 			result = join(o, p: p, ms: ms, a: result, b: a)
@@ -670,12 +671,32 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 	return join(o, p: p, ms: ms, a: result, b: closed.breaks)
 end 'matchOwn'
 
+// freshBindings is the state at the start of an arm, whose bindings each hold the payload the arm binds them to anew,
+// whatever a pass of a loop around the match did with them before.
+function freshBindings(o Ownership, ms ast.ModuleState, arm ast.NodeID, consumes s OwnState) returns OwnState
+	var out = s
+	let patterns = ast.matchArmPatternsRef(ms.tree(), id: arm)
+	for i in 0 upto ms.tree().listLen(patterns) 'patterns'
+		let pat = ms.tree().listAt(patterns, index: i) as ast.NodeID
+		if ast.patternForm(ms.tree(), id: pat) != ast.PatternKind.patCase 'literal'
+			continue 'patterns'
+		end 'literal'
+		let info = ownPattern(o, node: pat)
+		for j in 0 upto info.bindings.count() 'bindings'
+			if info.bindings[j] != ast.noLocal 'named'
+				out = without(out, l: info.bindings[j])
+			end 'named'
+		end 'bindings'
+	end 'patterns'
+	return out
+end 'freshBindings'
+
 // armBorrows is whether an arm binds a payload that is not a scalar, which borrows from the subject.
 function armBorrows(o Ownership, p ast.Project, ms ast.ModuleState, arm ast.NodeID) returns bool
-	let patterns = ast.matchArmPatternsRef(ms.tree, id: arm)
-	for i in 0 upto ms.tree.listLen(patterns) 'patterns'
-		let pat = ms.tree.listAt(patterns, index: i) as ast.NodeID
-		if ast.patternForm(ms.tree, id: pat) != ast.PatternKind.patCase 'literal'
+	let patterns = ast.matchArmPatternsRef(ms.tree(), id: arm)
+	for i in 0 upto ms.tree().listLen(patterns) 'patterns'
+		let pat = ms.tree().listAt(patterns, index: i) as ast.NodeID
+		if ast.patternForm(ms.tree(), id: pat) != ast.PatternKind.patCase 'literal'
 			continue 'patterns'
 		end 'literal'
 		let info = ownPattern(o, node: pat)
@@ -692,15 +713,15 @@ end 'armBorrows'
 // takeApart is the start of an arm of a match that consumes its subject: each payload the arm names is an owned local of
 // the arm, and the payloads it does not name are dropped with the subject.
 function takeApart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, core ast.NodeID, arm ast.NodeID)
-	let u = ast.contentType(ms.types, reads: p.types, t: ownType(o, node: ast.matchCoreSubject(ms.tree, id: core)))
+	let u = ast.contentType(ms.types, reads: p.types, t: ownType(o, node: ast.matchCoreSubject(ms.tree(), id: core)))
 	if ast.typeKind(ms.types, reads: p.types, t: u) != ast.TypeKind.unionTy 'notUnion'
 		return
 	end 'notUnion'
 	let orig = ast.originOf(ms.types, reads: p.types, t: u)
-	let patterns = ast.matchArmPatternsRef(ms.tree, id: arm)
-	for i in 0 upto ms.tree.listLen(patterns) 'patterns'
-		let pat = ms.tree.listAt(patterns, index: i) as ast.NodeID
-		if ast.patternForm(ms.tree, id: pat) != ast.PatternKind.patCase 'literal'
+	let patterns = ast.matchArmPatternsRef(ms.tree(), id: arm)
+	for i in 0 upto ms.tree().listLen(patterns) 'patterns'
+		let pat = ms.tree().listAt(patterns, index: i) as ast.NodeID
+		if ast.patternForm(ms.tree(), id: pat) != ast.PatternKind.patCase 'literal'
 			continue 'patterns'
 		end 'literal'
 		let info = ownPattern(o, node: pat)
@@ -715,7 +736,7 @@ function takeApart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleStat
 			end 'dropped'
 		end 'payload'
 	end 'patterns'
-	if ast.matchArmIsDefault(ms.tree, id: arm) 'default'
+	if ast.matchArmIsDefault(ms.tree(), id: arm) 'default'
 		requireUnnamedCasesDroppable(o, p: p, ms: ms, core: core, arm: arm, u: u)
 	end 'default'
 end 'takeApart'
@@ -725,13 +746,13 @@ end 'takeApart'
 function requireUnnamedCasesDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, core ast.NodeID, arm ast.NodeID, u ast.TypeID)
 	let orig = ast.originOf(ms.types, reads: p.types, t: u)
 	var named = Array.filled(ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count(), value: false)
-	let arms = ast.matchCoreArmsRef(ms.tree, id: core)
-	for i in 0 upto ms.tree.listLen(arms) 'arms'
-		let other = ms.tree.listAt(arms, index: i) as ast.NodeID
-		let patterns = ast.matchArmPatternsRef(ms.tree, id: other)
-		for j in 0 upto ms.tree.listLen(patterns) 'patterns'
-			let pat = ms.tree.listAt(patterns, index: j) as ast.NodeID
-			if ast.patternForm(ms.tree, id: pat) == ast.PatternKind.patCase 'case'
+	let arms = ast.matchCoreArmsRef(ms.tree(), id: core)
+	for i in 0 upto ms.tree().listLen(arms) 'arms'
+		let other = ms.tree().listAt(arms, index: i) as ast.NodeID
+		let patterns = ast.matchArmPatternsRef(ms.tree(), id: other)
+		for j in 0 upto ms.tree().listLen(patterns) 'patterns'
+			let pat = ms.tree().listAt(patterns, index: j) as ast.NodeID
+			if ast.patternForm(ms.tree(), id: pat) == ast.PatternKind.patCase 'case'
 				named[ownPattern(o, node: pat).caseIdx] = true
 			end 'case'
 		end 'patterns'
