@@ -116,7 +116,7 @@ end 'pollIfStale'
 // thread spins or a processor is idle, and the call is younger than syscallRetakeNanos. It says whether it did anything.
 function retake(scheduler Count, now Count) returns bool
 	var acted = false
-	for i in 0 upto procCount(scheduler) 'procs'
+	for i in 0 upto madeProcs(scheduler) 'procs'
 		let proc = procAt(scheduler, index: i)
 		let status = __Raw.loadWord(proc, offset: procStatusOffset)
 		if status == procRunning or status == procSyscall 'held'

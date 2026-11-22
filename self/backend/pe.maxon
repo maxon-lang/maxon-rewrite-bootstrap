@@ -45,7 +45,9 @@ let peSubsystemConsole = 3 as Count
 
 let peDllCharacteristics = 33120 as Count
 
-let peStackCommit = 65536 as Count
+// peStackCommit is the stack Windows commits for a thread when it starts, one page as maxon's: the rest is committed a page
+// at a time as the stack reaches its guard page, so a thread holds only the stack it has used.
+let peStackCommit = 4096 as Count
 
 let peHeapReserve = 1048576 as Count
 

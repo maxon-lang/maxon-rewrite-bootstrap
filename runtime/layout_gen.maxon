@@ -288,8 +288,14 @@ let schedCarveNextOffset = 240 as Count
 // schedCarveEndOffset is where the scheduler's record holds the end of that block.
 let schedCarveEndOffset = 248 as Count
 
-// schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id.
-let schedProcessorsOffset = 256 as Count
+// schedCarveBytesOffset is where the scheduler's record holds the size of the next block that records are carved from, 0 before the first, under the lock.
+let schedCarveBytesOffset = 256 as Count
+
+// schedMadeProcsOffset is where the scheduler's record holds how many processors are made: a processor is made when a thread first takes it, and those made are the first of the ids, under the lock.
+let schedMadeProcsOffset = 264 as Count
+
+// schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
+let schedProcessorsOffset = 272 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count
@@ -482,6 +488,9 @@ let heapEndOffset = 2056 as Count
 
 // heapEmptyStackOffset is where a heap's record holds the word 0, the stack of every class that has none of its own yet.
 let heapEmptyStackOffset = 2064 as Count
+
+// heapChunkBytesOffset is where a heap's record holds the size of its next chunk, 0 before its first.
+let heapChunkBytesOffset = 2080 as Count
 
 // heapRemoteOffset is where a heap's record holds the list of the boxes that other threads freed, linked through their first words, on a cache line of its own since other threads write it.
 let heapRemoteOffset = 2112 as Count

@@ -826,9 +826,9 @@ function holdProgram(c Compile, p ast.Project, known Known, mutates errs diag.Er
 	refusals(p, lowered: lowered, errs: errs)
 end 'holdProgram'
 
-// linkUnits links the modules' units with the ready ones into the executable at the compile's output. It reads the project
-// whole, which holds the modules' homes.
-function linkUnits(c Compile, mutates p ast.Project, consumes units backend.UnitList, ready frozen with backend.UnitList, entry ast.FuncID, tests ast.FuncIDList)
+// linkUnits links the modules' units with the ready ones into the executable at the compile's output, and gives whether it
+// runs the scheduler. It reads the project whole, which holds the modules' homes.
+function linkUnits(c Compile, mutates p ast.Project, consumes units backend.UnitList, ready frozen with backend.UnitList, entry ast.FuncID, tests ast.FuncIDList) returns bool
 	if c.goal != Goal.executable 'goal'
 		panic("driver: a compile whose goal is {c.goal} links no executable")
 	end 'goal'
@@ -837,7 +837,7 @@ function linkUnits(c Compile, mutates p ast.Project, consumes units backend.Unit
 	if c.options.emitMap 'emitMap'
 		symbolMap = "{c.output}{mapExtension}"
 	end 'emitMap'
-	try backend.compileProgram(p, modules: units, ready: ready, entry: entry, tests: tests, options: backend.RuntimeOptions.make(c.options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {c.output}")
+	return try backend.compileProgram(p, modules: units, ready: ready, entry: entry, tests: tests, options: backend.RuntimeOptions.make(c.options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {c.output}")
 end 'linkUnits'
 
 typealias ErrorLists = Array with diag.ErrorList

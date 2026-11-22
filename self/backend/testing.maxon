@@ -67,8 +67,9 @@ end 'runPeImageOutput'
 
 // runtimeUnit is the entries of the runtime that the test programs and the entry stub call, written in assembly by the
 // internal convention (the first two arguments in rcx and rdx, the result in r8): alloc, free, write, a stand-in for
-// itoa, checkLeaks, which exits with the runtime's leak code and writes no report, schedDrain and workerMain, which have
-// no behaviour to run, and panic, which exits with the panic code and writes nothing. They call Windows by Win64.
+// itoa, checkLeaks, which exits with the runtime's leak code and writes no report, and panic, which exits with the panic
+// code and writes nothing. They call Windows by Win64. A test program uses no scheduler, so its entry calls main itself
+// (start.maxon) and needs nothing of the scheduler's.
 export function runtimeUnit(count bool) returns CodeUnit
 	let result = x64InternalResult
 	var u = CodeUnit.new()
@@ -123,12 +124,6 @@ export function runtimeUnit(count bool) returns CodeUnit
 	u.asm.callImport(impExitProcess)
 	u.asm.bind(clean)
 	asmEpilogue(u)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtMainRun))
-	asmPrologue(u)
-	u.asm.callRegister(x64InternalArg(0))
-	asmEpilogue(u)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtWorkerMain))
-	u.asm.ret()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtPanic))
 	asmPrologue(u)
 	u.asm.movImm(rcx, imm: testPanicExitCode)

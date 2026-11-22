@@ -88,11 +88,18 @@ goroutine's is. Where it differs from Go, and why:
   (await, sleep, a poll descriptor) and a test's own then need no lock of their own.
 - **Timers are one heap under the scheduler's lock**, as maxon keeps its timer store under `__sched_lock`, where Go 1.14
   keeps a heap per processor; the design's decision (`phase4/concurrency-design.md`, section 5).
-- **`main` is a green thread, as Go's is a goroutine.** The stub calls `mainRun` with the code that calls `main`, which
-  runs it on a green thread and the scheduler on the main thread until nothing is left. As Go's newproc wakes no thread
-  before main has started, `main`'s green thread is queued on the main thread's processor with no thread woken for it
-  (`queueReady`), so a program starts one thread of its own, the monitor's, until it makes work for more. `schedDrain` stays for the seed's
-  stub, which calls `main` itself and the drain after it.
+- **`main` is a green thread, as Go's is a goroutine, in a program that uses the scheduler.** The stub calls `mainRun` with
+  the code that calls `main`, which runs it on a green thread and the scheduler on the main thread until nothing is left.
+  As Go's newproc wakes no thread before main has started, `main`'s green thread is queued on the main thread's processor
+  with no thread woken for it (`queueReady`), so a program starts one thread of its own, the monitor's, until it makes work
+  for more. A program whose code reaches no green thread is linked without any of this (root README, "Main with or without
+  the scheduler"): `main` runs on the main thread, and the link puts routines that do nothing in place of `enterBlocking`,
+  `exitBlocking` and `takeExitClaim`, and the stub's own in place of `osSetExitCode`, so the runtime's shared code never
+  tests which kind of program it is in. Go has no such program; maxon's runtime starts its scheduler only for a program
+  that uses it, as this does. `schedDrain` is called by no stub; it stays while the seed's table names it.
+- **Records are made as they are needed**, as Go makes a P's caches lazily: a processor when a thread first takes it, a
+  heap's chunks from 16 KB doubling to 1 MB, the blocks green threads' records are carved from from a page doubling to
+  64 KB, and a green thread's stack committed a page at a time from one, so a program holds what it uses.
 - **Strands are maxon's, which Go has not**: the coroutines of an async call run one at a time with the green thread that
   started them (`strand.maxon`), handing the strand over only where one waits, yields or finishes, as maxon's strand of a
   green thread does; a member that parks gives the strand up inside `park`, so every wait of the runtime is one of the

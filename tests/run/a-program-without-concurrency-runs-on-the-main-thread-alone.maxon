@@ -1,0 +1,24 @@
+// A program that prints, allocates, frees and sets its exit code, and starts nothing that runs at once, is linked without
+// the scheduler: main runs on the main thread's own stack, Process.setExitCode keeps its code without a scheduler, and the
+// leak count reads the main thread's heap alone.
+// expect-scheduler: none
+// expect-exit: 3
+//> 0 1 4 9 16
+//> five squares
+
+typealias Texts = Array with String
+
+function main() returns ExitCode
+	var squares = Texts.create(0)
+	for i in 0 upto 5 'squares'
+		squares.push("{i * i}")
+	end 'squares'
+	var line = squares[0].clone()
+	for i in 1 upto squares.count() 'join'
+		line = "{line} {squares[i]}"
+	end 'join'
+	print("{line}\n")
+	print("five squares\n")
+	Process.setExitCode(3)
+	return 0
+end 'main'

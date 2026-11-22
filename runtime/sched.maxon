@@ -10,12 +10,12 @@
 //
 // A behaviour is a green thread: `when` calls schedEnter once for each behaviour it makes, before the behaviour can run,
 // and schedPush when it becomes runnable, which gives it a green thread that runs the record's run with the record. The
-// main thread is thread 0 with processor 0 from the start, and runs main on its own stack; after main, schedDrain runs
-// the scheduler on that stack until no behaviour or green thread is left. The program then ends with ExitProcess, which
-// ends the other threads wherever they are.
+// main thread is thread 0 with processor 0, made with the scheduler when mainRun starts main's green thread; it runs the
+// scheduler on its own stack until no behaviour or green thread is left. The program then ends with ExitProcess, which
+// ends the other threads wherever they are. A program whose code needs none of this is linked without the scheduler
+// (self/backend/start.maxon), and its main thread's context never names one.
 
-// noScheduler is the scheduler field of the main thread's context until the first behaviour or green thread is made or an
-// exit code set.
+// noScheduler is the scheduler field of a context before the scheduler is made, and for good in a program without it.
 let noScheduler = 0 as Count
 
 let noProc = 0 as Count
@@ -23,8 +23,6 @@ let noProc = 0 as Count
 let noThread = 0 as Count
 
 let noGreen = 0 as Count
-
-let mainProc = 0 as Count
 
 // stepDown added to a count lowers it by one, since the atomic add takes a word.
 let stepDown = 0xFFFFFFFFFFFFFFFF as Count
@@ -63,8 +61,11 @@ let randomStep = 0x9E3779B97F4A7C15 as Count
 let randomShift = 32 as Count
 
 // carveBlockBytes is the block of the process that green threads' and stacks' records are carved from, which the runtime
-// keeps for the life of the process as Go keeps its g records.
+// keeps for the life of the process as Go keeps its g records. The first block is firstCarveBlockBytes, a page, and each
+// next one twice the last up to carveBlockBytes, so a program of a few green threads holds a page of their records.
 let carveBlockBytes = 65536 as Count
+
+let firstCarveBlockBytes = 4096 as Count
 
 #if os(Windows)
 	// The Win32 values the scheduler passes.
@@ -312,7 +313,7 @@ end 'mayStartSpinning'
 // spun, whose readier saw a spinning thread and woke none, would otherwise wait. When some queue holds work the thread
 // takes an idle processor and spins again.
 function takeProcForQueued(context Count, scheduler Count) returns bool
-	let procs = procCount(scheduler)
+	let procs = madeProcs(scheduler)
 	for i in 0 upto procs 'procs'
 		if not runqEmpty(procAt(scheduler, index: i)) 'queued'
 			lockScheduler(scheduler)
@@ -344,7 +345,7 @@ end 'resetSpinning'
 // runnext too, which gives one of the green threads taken and puts the rest on the thief's ring.
 function stealWork(context Count, proc Count) returns Count
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
-	let procs = procCount(scheduler)
+	let procs = madeProcs(scheduler)
 	for round in 0 upto stealTries 'rounds'
 		let last = round == stealTries - 1
 		var victim = (try nextRandom(context) mod procs otherwise 0) as Count
@@ -591,19 +592,42 @@ function idleProcPut(scheduler Count, proc Count)
 	_ = __Raw.atomicAdd(scheduler, offset: schedIdleProcCountOffset, value: 1)
 end 'idleProcPut'
 
-// idleProcGet is Go's pidleget, under the lock: an idle processor, or noProc.
+// idleProcGet is Go's pidleget, under the lock: an idle processor, or noProc. A processor that no thread has taken yet is
+// idle too, and is made when it is first taken, after every idle one that was made: a program that keeps one processor
+// busy holds the record of one.
 function idleProcGet(scheduler Count) returns Count
-	let proc = __Raw.loadWord(scheduler, offset: schedIdleProcsOffset)
+	var proc = __Raw.loadWord(scheduler, offset: schedIdleProcsOffset)
 	if proc != noProc 'one'
 		__Raw.storeWord(scheduler, offset: schedIdleProcsOffset, value: __Raw.loadWord(proc, offset: procLinkOffset))
-		_ = __Raw.atomicAdd(scheduler, offset: schedIdleProcCountOffset, value: stepDown)
-	end 'one'
+	end 'one' else if madeProcs(scheduler) < procCount(scheduler) 'unmade'
+		proc = makeProc(scheduler)
+	end 'unmade' else 'none'
+		return noProc
+	end 'none'
+	_ = __Raw.atomicAdd(scheduler, offset: schedIdleProcCountOffset, value: stepDown)
 	return proc
 end 'idleProcGet'
+
+// makeProc makes the processor of the next id, under the lock or before another thread runs. Its slot is written before the
+// count of the made ones grows, so that a thread that reads the count without the lock (madeProcs) finds the slots below it
+// written.
+function makeProc(scheduler Count) returns Count
+	let id = madeProcs(scheduler)
+	let proc = keep(procBytes)
+	__Raw.storeWord(proc, offset: procIdOffset, value: id)
+	__Raw.storeWord(scheduler, offset: try schedProcessorsOffset + id * wordBytes otherwise panic("too many processors for memory"), value: proc)
+	__Raw.storeWord(scheduler, offset: schedMadeProcsOffset, value: __Raw.wrappingAdd(id, right: 1))
+	return proc
+end 'makeProc'
 
 function procCount(scheduler Count) returns Count
 	return __Raw.loadWord(scheduler, offset: schedProcsOffset)
 end 'procCount'
+
+// madeProcs is how many processors are made, those of the ids below it, which a walk of the processors' queues visits.
+function madeProcs(scheduler Count) returns Count
+	return __Raw.loadWord(scheduler, offset: schedMadeProcsOffset)
+end 'madeProcs'
 
 // procAt is the processor of an index.
 function procAt(scheduler Count, index Count) returns Count
@@ -894,21 +918,13 @@ function makeScheduler(mainContext Count) returns Count
 	__Raw.storeWord(scheduler, offset: schedProcsOffset, value: procs)
 	__Raw.storeWord(scheduler, offset: schedMainThreadOffset, value: mainContext)
 	__Raw.storeWord(scheduler, offset: schedLastPollOffset, value: 1)
-	var i = procs
-	while i > 0 'procs'
-		i = __Raw.wrappingSub(i, right: 1)
-		let proc = keep(procBytes)
-		__Raw.storeWord(proc, offset: procIdOffset, value: i)
-		__Raw.storeWord(scheduler, offset: try schedProcessorsOffset + i * wordBytes otherwise panic("too many processors for memory"), value: proc)
-		if i != mainProc 'idle'
-			idleProcPut(scheduler, proc: proc)
-		end 'idle'
-	end 'procs'
+	__Raw.storeWord(scheduler, offset: schedIdleProcCountOffset, value: __Raw.wrappingSub(procs, right: 1))
+	let main = makeProc(scheduler)
 	initThread(scheduler, context: mainContext)
 	setThreadIdentity(mainContext)
 	initPoller(scheduler)
 	initPreemption()
-	acquireProc(mainContext, proc: procAt(scheduler, index: mainProc))
+	acquireProc(mainContext, proc: main)
 	return scheduler
 end 'makeScheduler'
 
@@ -951,8 +967,15 @@ function carve(scheduler Count, bytes Count) returns Count
 	lockScheduler(scheduler)
 	var next = __Raw.loadWord(scheduler, offset: schedCarveNextOffset)
 	if __Raw.wrappingAdd(next, right: bytes) > __Raw.loadWord(scheduler, offset: schedCarveEndOffset) or next == 0 'block'
-		next = keep(carveBlockBytes)
-		__Raw.storeWord(scheduler, offset: schedCarveEndOffset, value: __Raw.wrappingAdd(next, right: carveBlockBytes))
+		var block = __Raw.loadWord(scheduler, offset: schedCarveBytesOffset)
+		if block == 0 'first'
+			block = firstCarveBlockBytes
+		end 'first'
+		next = keep(block)
+		__Raw.storeWord(scheduler, offset: schedCarveEndOffset, value: __Raw.wrappingAdd(next, right: block))
+		if block < carveBlockBytes 'grow'
+			__Raw.storeWord(scheduler, offset: schedCarveBytesOffset, value: __Raw.wrappingAdd(block, right: block))
+		end 'grow'
 	end 'block'
 	__Raw.storeWord(scheduler, offset: schedCarveNextOffset, value: __Raw.wrappingAdd(next, right: bytes))
 	unlockScheduler(scheduler)

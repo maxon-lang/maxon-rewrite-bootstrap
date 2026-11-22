@@ -56,7 +56,7 @@ type LinkUnit
 	// firstID is the id of the unit's first definition: its code symbols, then its data symbols.
 	var firstID as Count
 	// targets is the id of what each symbol fixup names, and dataPieces the piece each data fixup points into. A section
-	// has them once the mark has found it live, which is the only time they are used.
+	// has them once a mark has found it live, and they are used only while it is.
 	var targets as CountList
 	var dataPieces as CountList
 
@@ -134,15 +134,98 @@ function newLinkUnit(u CodeUnit) returns LinkUnit
 	return LinkUnit.make(sections, sectionStarts: sectionStarts, pieces: pieces, liveCode: falses(sectionCount), liveData: falses(pieceCount), codeAt: zeros(sectionCount), dataAt: zeros(pieceCount), targets: zeros(u.asm.symbolFixups.count()), dataPieces: zeros(u.asm.dataFixups.count()))
 end 'newLinkUnit'
 
-// Linked is the executable of a link, and the map of its code's symbols when the link was asked for one.
+// Linked is the executable of a link, the map of its code's symbols when the link was asked for one, and whether the
+// program runs the scheduler (SchedulerChoice).
 export type Linked
 	export var image as Image
 	export var symbolMap as String
+	export var scheduled as bool
 
-	static function make(consumes image Image, consumes symbolMap String) returns Linked
-		return Linked{image: image, symbolMap: symbolMap}
+	static function make(consumes image Image, consumes symbolMap String, scheduled bool) returns Linked
+		return Linked{image: image, symbolMap: symbolMap, scheduled: scheduled}
 	end 'make'
 end 'Linked'
+
+// Substitute is a symbol that a program without the scheduler links to another definition: a routine of the scheduler that
+// code outside it names, and its form for a program of one thread.
+export type Substitute
+	var symbol as String
+	var alone as String
+
+	export static function make(consumes symbol String, consumes alone String) returns Substitute
+		return Substitute{symbol: symbol, alone: alone}
+	end 'make'
+end 'Substitute'
+
+export typealias SubstituteList = Array with Substitute
+
+// SchedulerChoice is how a link decides whether a program runs the scheduler, by reachability: the program is linked as one
+// of a single thread, every substitute in place of its symbol, and when the live code then reaches witness it uses the
+// scheduler, and is linked again with every symbol its own. witness is code that whatever needs the scheduler reaches, and
+// nothing else does.
+export type SchedulerChoice
+	var witness as String
+	var substitutes as SubstituteList
+
+	export static function make(consumes witness String, consumes substitutes SubstituteList) returns SchedulerChoice
+		return SchedulerChoice{witness: witness, substitutes: substitutes}
+	end 'make'
+end 'SchedulerChoice'
+
+// SavedTarget is the definition of a symbol that a substitute's stands in for while the link marks a program of one thread.
+type SavedTarget
+	var id as Count
+	var target as LinkTarget
+
+	static function make(id Count, consumes target LinkTarget) returns SavedTarget
+		return SavedTarget{id: id, target: target}
+	end 'make'
+end 'SavedTarget'
+
+typealias SavedTargetList = Array with SavedTarget
+
+// substitute puts the definition of each substitute in place of its symbol's, and gives what it replaced. A symbol that no
+// unit defines is named by none, as in a program linked with a runtime of its own.
+function substitute(mutates defined LinkTargetList, symbols SymbolIds, choice SchedulerChoice) returns SavedTargetList
+	var saved = SavedTargetList.create(0)
+	for i in 0 upto choice.substitutes.count() 'substitutes'
+		let id = lookupSymbol(symbols, symbol: choice.substitutes[i].symbol)
+		if id == 0 'unnamed'
+			continue 'substitutes'
+		end 'unnamed'
+		let alone = lookupSymbol(symbols, symbol: choice.substitutes[i].alone)
+		if defined[alone].kind != LinkTargetKind.linkCode 'missing'
+			panic("link: {choice.substitutes[i].alone}, the form of {choice.substitutes[i].symbol} without the scheduler, is not code")
+		end 'missing'
+		saved.push(SavedTarget.make(id, target: defined[id].clone()))
+		defined[id] = defined[alone].clone()
+	end 'substitutes'
+	return saved
+end 'substitute'
+
+// restore gives each symbol that substitute replaced its own definition back.
+function restore(mutates defined LinkTargetList, saved SavedTargetList)
+	for i in 0 upto saved.count() 'saved'
+		defined[saved[i].id] = saved[i].target.clone()
+	end 'saved'
+end 'restore'
+
+// reaches is whether the mark found the code that a symbol names live.
+function reaches(links LinkUnitList, symbols SymbolIds, defined LinkTargetList, symbol String) returns bool
+	let id = lookupSymbol(symbols, symbol: symbol)
+	if id == 0 or defined[id].kind != LinkTargetKind.linkCode 'none'
+		return false
+	end 'none'
+	return links[defined[id].unit].liveCode[defined[id].part]
+end 'reaches'
+
+// forgetLive makes every section and piece dead again, for another mark from the entry.
+function forgetLive(mutates links LinkUnitList)
+	for i in 0 upto links.count() 'units'
+		links[i].liveCode = falses(links[i].liveCode.count())
+		links[i].liveData = falses(links[i].liveData.count())
+	end 'units'
+end 'forgetLive'
 
 // LinkUnits are the units of a link in the order it lays them out: the first of the program's own (the entry stub), the
 // ready units, which every program linked with them shares and a link only reads, and then the rest of the program's own.
@@ -181,9 +264,10 @@ export type LinkUnits
 	end 'add'
 end 'LinkUnits'
 
-// link is the executable of the units for the system, with the code reachable from the entry symbol. With mapsSymbols it
-// also gives the map of the code's symbols (see symbolMapText).
-export function link(units LinkUnits, entry String, system ast.TargetSystem, mapsSymbols bool) returns Linked
+// link is the executable of the units for the system, with the code reachable from the entry symbol, and the scheduler
+// only when the program needs it (choice). With mapsSymbols it also gives the map of the code's symbols (see
+// symbolMapText).
+export function link(units LinkUnits, entry String, choice SchedulerChoice, system ast.TargetSystem, mapsSymbols bool) returns Linked
 	var links = LinkUnitList.create(0)
 	for i in 0 upto units.count() 'units'
 		links.push(newLinkUnit(units.at(i)))
@@ -213,7 +297,14 @@ export function link(units LinkUnits, entry String, system ast.TargetSystem, map
 	if start.kind != LinkTargetKind.linkCode 'entry'
 		panic("no entry symbol {entry}")
 	end 'entry'
+	let saved = substitute(defined, symbols: symbols, choice: choice)
 	markLive(links, units: units, symbols: symbols, defined: defined, start: start)
+	let scheduled = reaches(links, symbols: symbols, defined: defined, symbol: choice.witness)
+	if scheduled 'scheduler'
+		restore(defined, saved: saved)
+		forgetLive(links)
+		markLive(links, units: units, symbols: symbols, defined: defined, start: start)
+	end 'scheduler'
 	let sizes = layOut(links)
 	let table = PreemptibleTable.of(links, wanted: namedByLiveCode(links, id: preemptibleCode))
 	let tableAt = alignUp(sizes.data, alignment: linkDataAlignment)
@@ -224,10 +315,6 @@ export function link(units LinkUnits, entry String, system ast.TargetSystem, map
 		relocated.push(pointers[i].pos)
 	end 'relocated'
 	var image = buildImage(system, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), relocated: relocated))
-	var symbolMap = ""
-	if mapsSymbols 'map'
-		symbolMap = symbolMapText(links, units: units, symbols: symbols, defined: defined, textRva: image.textRva, codeSize: sizes.code)
-	end 'map'
 	var code = ByteArray.create(0)
 	var data = ByteArray.create(dataSize)
 	for i in 0 upto links.count() 'copy'
@@ -240,7 +327,13 @@ export function link(units LinkUnits, entry String, system ast.TargetSystem, map
 	end 'pointers'
 	placeCode(image, at: 0, bytes: code)
 	placeData(image, at: 0, bytes: data)
-	return Linked.make(image, symbolMap: symbolMap)
+	var symbolMap = ""
+	if mapsSymbols 'map'
+		// The map names each symbol at its own definition, so a substitute's code is listed by its own name.
+		restore(defined, saved: saved)
+		symbolMap = symbolMapText(links, units: units, symbols: symbols, defined: defined, textRva: image.textRva, codeSize: sizes.code)
+	end 'map'
+	return Linked.make(image, symbolMap: symbolMap, scheduled: scheduled)
 end 'link'
 
 // livePointers are the words of the live data that hold the address of other data, with both where they end up in the data
@@ -433,8 +526,12 @@ function markSection(mutates links LinkUnitList, u CodeUnit, symbols SymbolIds, 
 		links[unit].liveData[piece] = true
 	end 'data'
 	for j in begin.symbolFixups upto finish.symbolFixups 'symbols'
-		let id = lookupSymbol(symbols, symbol: u.asm.symbolFixups[j].symbol)
-		links[unit].targets[j] = id
+		// A fixup's id is the same in every mark of a link, which a mark's lookup fills in once: no symbol's id is 0.
+		var id = links[unit].targets[j]
+		if id == 0 'unlooked'
+			id = lookupSymbol(symbols, symbol: u.asm.symbolFixups[j].symbol)
+			links[unit].targets[j] = id
+		end 'unlooked'
 		let target = defined[id].clone()
 		if target.kind == LinkTargetKind.linkUndefined 'undefined'
 			panic("undefined symbol {u.asm.symbolFixups[j].symbol}")
@@ -607,14 +704,20 @@ function movedPos(at Count, fixupPos Count, sectionStart Count) returns Count
 end 'movedPos'
 
 // namedByLiveCode is whether a live section refers to the symbol of an id: the mark gave the target of each fixup of a
-// live section, and left every other one 0, which is no symbol's.
+// live section.
 function namedByLiveCode(links LinkUnitList, id Count) returns bool
 	for u in 0 upto links.count() 'units'
-		for j in 0 upto links[u].targets.count() 'fixups'
-			if links[u].targets[j] == id 'named'
-				return true
-			end 'named'
-		end 'fixups'
+		for s in 0 upto links[u].liveCode.count() 'sections'
+			if not links[u].liveCode[s] 'dropped'
+				continue 'sections'
+			end 'dropped'
+			let next = try s + 1 otherwise panic("link: more sections than memory")
+			for j in links[u].sections[s].symbolFixups upto links[u].sections[next].symbolFixups 'fixups'
+				if links[u].targets[j] == id 'named'
+					return true
+				end 'named'
+			end 'fixups'
+		end 'sections'
 	end 'units'
 	return false
 end 'namedByLiveCode'

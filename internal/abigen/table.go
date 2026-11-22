@@ -299,8 +299,12 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the next free byte of the block the green threads' records and the stacks' records are carved from, under the lock."},
 	{"schedCarveEndOffset", 31, false, toRuntime,
 		"where the scheduler's record holds the end of that block."},
-	{"schedProcessorsOffset", 32, false, toRuntime,
-		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id."},
+	{"schedCarveBytesOffset", 32, false, toRuntime,
+		"where the scheduler's record holds the size of the next block that records are carved from, 0 before the first, under the lock."},
+	{"schedMadeProcsOffset", 33, false, toRuntime,
+		"where the scheduler's record holds how many processors are made: a processor is made when a thread first takes it, and those made are the first of the ids, under the lock."},
+	{"schedProcessorsOffset", 34, false, toRuntime,
+		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
 	// at the tail of and that the owner and thieves take from the head of, and runnext, the green thread readied last),
@@ -454,6 +458,8 @@ var layouts = []layoutConst{
 		"where a heap's record holds the end of its current chunk."},
 	{"heapEmptyStackOffset", 258, false, toRuntime,
 		"where a heap's record holds the word 0, the stack of every class that has none of its own yet."},
+	{"heapChunkBytesOffset", 260, false, toRuntime,
+		"where a heap's record holds the size of its next chunk, 0 before its first."},
 	{"heapRemoteOffset", 264, false, toRuntime,
 		"where a heap's record holds the list of the boxes that other threads freed, linked through their first words, on a cache line of its own since other threads write it."},
 	{"heapLargeKeptOffset", 272, false, toRuntime,

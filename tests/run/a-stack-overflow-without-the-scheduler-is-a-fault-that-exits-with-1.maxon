@@ -1,0 +1,17 @@
+// native-only
+// Recursion with no end overflows the main thread's own stack in a program without the scheduler: the fault handler writes
+// its line and ends the process with 1, the panic's code. The interpreter would recurse on its own stack.
+// expect-scheduler: none
+// expect-exit: 1
+//> down
+
+typealias Depth = int(0 to i64.max)
+
+function down(n Depth) returns Depth
+	return try down(try n + 1 otherwise 0) + 1 otherwise 0
+end 'down'
+
+function main() returns ExitCode
+	print("down\n")
+	return 0 if down(0) == 0 else 2
+end 'main'

@@ -1,0 +1,10 @@
+// A panic of a program without the scheduler writes its line and ends the process with 1, through an exit that takes no
+// claim of a scheduler there is none of.
+// expect-scheduler: none
+// expect-exit: 1
+//> before
+
+function main() returns ExitCode
+	print("before\n")
+	panic("on the main thread alone")
+end 'main'

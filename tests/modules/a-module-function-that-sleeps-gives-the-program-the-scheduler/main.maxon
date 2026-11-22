@@ -1,0 +1,14 @@
+// native-only
+// main calls a function of its own that calls another module's, which sleeps: the link follows the calls into the module
+// and gives the program the scheduler. The interpreter runs no sleep.
+// expect-scheduler: used
+//> resumed after a pause
+
+function resume() returns String
+	return pause.briefly("resumed")
+end 'resume'
+
+function main() returns ExitCode
+	print("{resume()}\n")
+	return 0
+end 'main'

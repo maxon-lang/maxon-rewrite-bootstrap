@@ -1,0 +1,25 @@
+// native-only
+// main starts no coroutine itself: a function it calls does and awaits it, which is enough for the link to give the program
+// the scheduler, so main runs as a green thread that can wait. Process.setExitCode then keeps its code in the scheduler's
+// record. The interpreter runs no coroutine.
+// expect-scheduler: used
+// expect-exit: 5
+//> doubled 21 to 42
+
+typealias Score = int(0 to 1000)
+
+function twice(n Score) returns Score
+	sleep(1)
+	return try n * 2 otherwise 0
+end 'twice'
+
+function doubled(n Score) returns Score
+	let p = async twice(n)
+	return await p
+end 'doubled'
+
+function main() returns ExitCode
+	print("doubled 21 to {doubled(21)}\n")
+	Process.setExitCode(5)
+	return 0
+end 'main'

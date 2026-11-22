@@ -453,8 +453,9 @@ end 'putFreeStack'
 // The blocking-call hand-off, Go's entersyscall and exitsyscall. A runtime function that makes a system call that may
 // block brackets it, so that the monitor can take the processor from the thread meanwhile and hand it to another thread
 // (retake, handOffProc). The bracket's exit may switch the green thread to another thread, so a function that brackets a
-// call holds nothing of the running thread across it. Off a green thread (main, before the drain) it does nothing: the
-// thread then keeps its processor, as before there were green threads.
+// call holds nothing of the running thread across it. Off a green thread (a thread's own scheduler) it does nothing: the
+// thread then keeps its processor. A program without the scheduler links a routine that does nothing in place of each
+// end (self/backend/start.maxon), since exitBlocking may switch to the scheduler.
 
 // enterBlocking is Go's entersyscall: the processor is marked as in a blocking call, which the monitor may take it from.
 function enterBlocking()
@@ -569,9 +570,9 @@ end 'resumeAt'
 
 	let pageGuard = 0x100 as Count
 
-	// stackFirstCommitBytes is what a new stack commits at its top; the guard page below it grows the stack on its first
-	// touch, as the system grows a thread's.
-	let stackFirstCommitBytes = 16384 as Count
+	// stackFirstCommitBytes is what a new stack commits at its top, a page, as the executable's header has the system commit
+	// for a thread; the guard page below it grows the stack on its first touch, as the system grows a thread's.
+	let stackFirstCommitBytes = 4096 as Count
 
 	// stackGuardBytes is the guard page at the bottom of a stack's reserve.
 	let stackGuardBytes = 4096 as Count

@@ -317,10 +317,12 @@ type Run
 	var timings as Timings
 	// made are the modules' units of a compile whose goal is the units, which programs are then linked with.
 	var made as backend.UnitList
+	// scheduled is whether the executable the link made runs the scheduler.
+	var scheduled as bool
 
 	static function make(consumes compile Compile, modules Count) returns Run
 		let plan = check.EntryPlan.none(compile.makesProgram)
-		return Run{compile: compile, graph: TaskGraph.new(modules), work: Array.create(0), homesOut: false, outcomes: Array.create(0), started: Outcome.none(), states: TaskStates.create(0), errors: ErrorLists.create(0), earlierErrors: 0, entryPlan: plan, checksStarted: false, checked: check.Checked.none(), generates: false, timings: Timings.off(), made: backend.UnitList.create(0)}
+		return Run{compile: compile, graph: TaskGraph.new(modules), work: Array.create(0), homesOut: false, outcomes: Array.create(0), started: Outcome.none(), states: TaskStates.create(0), errors: ErrorLists.create(0), earlierErrors: 0, entryPlan: plan, checksStarted: false, checked: check.Checked.none(), generates: false, timings: Timings.off(), made: backend.UnitList.create(0), scheduled: false}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors: the IR as
@@ -339,7 +341,7 @@ type Run
 				return Generated.nothing()
 			end 'compiled'
 		end 'modules'
-		return Generated.make(checked.entry, modules: modules)
+		return Generated.make(checked.entry, modules: modules, scheduled: scheduled)
 	end 'generated'
 end 'Run'
 
@@ -569,7 +571,7 @@ function linkTask(mutates run Run, mutates p ast.Project, known Known, ready fro
 		run.made = units
 		return
 	end 'units'
-	linkUnits(run.compile, p: p, units: units, ready: ready, entry: entryOf(known), tests: testsOf(known))
+	run.scheduled = linkUnits(run.compile, p: p, units: units, ready: ready, entry: entryOf(known), tests: testsOf(known))
 end 'linkTask'
 
 // endCheck takes in, in module order, what each module's check made, which the generate stage reads.

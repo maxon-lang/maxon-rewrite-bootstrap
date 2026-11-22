@@ -126,17 +126,19 @@ end 'copyOfProject'
 let runtimeModule = 0 as diag.ModuleID
 
 // Generated is what the generate stage lowered, which a compile that makes an executable links and which the interpreter runs
-// as it is: the modules' functions, in the order the check visited the modules, and main.
+// as it is: the modules' functions, in the order the check visited the modules, and main; and whether the executable that
+// the compile linked runs the scheduler.
 type Generated
 	var entry as ast.FuncID
 	var modules as backend.FunctionLists
+	var scheduled as bool
 
-	static function make(entry ast.FuncID, consumes modules backend.FunctionLists) returns Generated
-		return Generated{entry: entry, modules: modules}
+	static function make(entry ast.FuncID, consumes modules backend.FunctionLists, scheduled bool) returns Generated
+		return Generated{entry: entry, modules: modules, scheduled: scheduled}
 	end 'make'
 
 	static function nothing() returns Generated
-		return Generated{entry: ast.noFunc, modules: backend.FunctionLists.create(0)}
+		return Generated{entry: ast.noFunc, modules: backend.FunctionLists.create(0), scheduled: false}
 	end 'nothing'
 end 'Generated'
 

@@ -1,7 +1,7 @@
 // The entry stub of a Linux executable, which calls the kernel itself: the code the process starts at keeps the stack
 // pointer the kernel started it with, where the arguments and the environment are, sets the standard handles, makes fs
-// point at the main thread's thread-local slot, moves to a stack of the main thread's reserve, calls main, runs the
-// behaviours it scheduled and exits with what main returns. A thread the runtime makes starts in the routine the runtime
+// point at the main thread's thread-local slot, moves to a stack of the main thread's reserve, runs main by rt.runMain
+// (start.maxon) and exits with what main returns. A thread the runtime makes starts in the routine the runtime
 // calls to make it, which clones the process's thread onto the stack the runtime mapped.
 
 // The standard handles of a Linux process are its file descriptors 1 and 2.
@@ -36,13 +36,15 @@ function emitLinuxRuntime(calls EntryCalls, options RuntimeOptions) returns Code
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsSlot), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtMainContext), size: contextBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtProcessStart), size: wordBytes)
+	emitStartData(u)
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
 	emitLinuxEntry(u, count: options.countAllocations)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtMainGreen))
-	emitMainGreen(u, calls: calls)
+	emitStartRoutines(u, calls: calls)
+	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
 	emitLinuxThreadStart(u)
+	u.beginSection()
 	u.defineCode(faultSymbol)
 	emitLinuxFaultHandler(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtSigreturn))
@@ -73,7 +75,7 @@ function emitLinuxEntry(mutates u CodeUnit, count bool)
 	emitMainStack(u, unmapped: unmapped)
 	emitSignalStack(u)
 	emitFaultActions(u)
-	emitRunMain(u)
+	u.asm.callSymbol(runMainSymbol)
 	if count 'leaks'
 		callRuntime(u, entry: ir.Rt.rtCheckLeaks, arg: resultWord())
 	end 'leaks'

@@ -198,15 +198,16 @@ on the schedule: print only from behaviours that the cowns put in order, such as
 A program that schedules so many behaviours that 20 schedules of the interpreter would cost seconds says how many it
 runs under (`// schedules: N`).
 
-A program that schedules behaviours runs natively more than once, each run another schedule, and every run must give
-what the directives say: the runner knows it schedules some when a function it lowered, or a body in one, has a `When`
-instruction, and a test of the runtime counts as one, since it may run the scheduler by hand. It runs 2 times in a
+A program that runs the scheduler runs natively more than once, each run another schedule, and every run must give
+what the directives say: the runner knows it does from the link, which gives the scheduler only to a program whose code
+reaches it (see "Main with or without the scheduler"), a test of the runtime that runs it by hand among them. It runs 2 times in a
 run of the corpus, or N with `--repeat=N`, under the worker count of the runner's environment, which every executable
 it starts inherits (`MAXON_MAX_PROCS`, else the machine's processors). `--behaviours` runs only those programs, and
 only natively, which is how a program meets other worker counts: `suites.ps1` runs the corpus with the machine's count,
 which holds every program to the interpreter too, and then `test --behaviours` with `MAXON_MAX_PROCS` at 1 and at 2,
 so the gate runs each such program 6 times natively under three counts, for about two seconds; it compiles only the
-programs that have the word `when` in a file, or are tests of the runtime, and leaves out the rest uncounted. A soak
+programs that have one of the words `when`, `async`, `sleep` and `Scheduler` in a file, or are tests of the runtime, and
+leaves out the rest uncounted. A soak
 is the same flags with `--repeat=300` at each count. A failure names the run and the worker count. The stress
 programs are `behaviours-over-a-ring-of-cowns` and `behaviours-on-one-to-eight-cowns-and-pushers-handing-off` (1 to 8
 cowns per `when` and per-sender order across hand-offs, after maxon's `cown-multi-torture` and
@@ -249,6 +250,7 @@ Directives in comments say what the program must do:
 | `// memory-limit: N` | the native run may use at most N megabytes; the runner does not enforce it yet |
 | `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly |
 | `// schedules: N` | run the program under N schedules of the interpreter (seeds 0 to N - 1) instead of 20; for a program of thousands of behaviours |
+| `// expect-scheduler: used` or `none` | the link must give the program the scheduler, or must not (see "Main with or without the scheduler"); what a program does cannot show it |
 
 ### Errors
 
@@ -365,7 +367,7 @@ layering cannot erode:
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, what its arithmetic computes (`evaluate_gen.maxon`, generated from the IR table: `evalBin`, `evalCmp`, `evalGuard` and the rest, one per operation that computes a word from its operands, which the interpreter and the fold pass both call; `evaluate.maxon` has the algorithms the table names: the 64-bit wraps, the wide product, the shifts, the overflow tests and the float conversions), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: leaf inlining (`Leaves`, `Inliner`, `self/opt/inline.maxon`), its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters) and the fold pass (`Fold`, `self/opt/fold.maxon`), which `optimizeModule` (`self/opt/optimizer.maxon`) runs in that order on every function a native build compiles; after leaf inlining, loop rotation (`Rotator`, `rotate.maxon`), loop-invariant code motion (`Licm`, `licm.maxon`) and common subexpression elimination (`Cse`, `cse.maxon`), over what may be merged or moved of each operation (`motionOf`, `motion.maxon`), the loops' facts (`LoopFacts`, `loops.maxon`) and the edits they share (`Editor`, `edit.maxon`) | `ast`, `ir`, `table` |
-| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub of each system (`entry.maxon`, `entry_linux.maxon`), the linker, and the writers of the executable's formats behind one image (`image.maxon`: the PE writer `pe.maxon` and the ELF writer `elf.maxon`) | `ast`, `diag`, `ir`, `table` |
+| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub of each system (`entry.maxon`, `entry_linux.maxon`) and the two ways it starts main (`start.maxon`), the linker, which decides between them by what the program reaches, and the writers of the executable's formats behind one image (`image.maxon`: the PE writer `pe.maxon` and the ELF writer `elf.maxon`) | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; `cache.maxon` is the build cache, `unittests.maxon` the compile of a module's tests; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -1807,8 +1809,8 @@ with every program, so a change to it is tested by the next compile with no rebu
 the program's types stays compiler-emitted: the drop and copy routines and the entry stub (`self/backend/routines.maxon`,
 `entry.maxon`). Both are written in x64 by the internal convention: a routine takes its value in the first argument
 register, which its prologue stores in its frame, returns a copy in the result register, and works only in registers a
-call may leave holding anything, so it saves none; the stub passes `main`'s exit code to `schedDrain` and `checkLeaks`,
-and their results on, in the same registers. `runtime/README.md` lists the files and the rules a runtime file follows.
+call may leave holding anything, so it saves none; the stub passes `main`'s exit code to `checkLeaks`, and its result on,
+in the same registers. `runtime/README.md` lists the files and the rules a runtime file follows.
 
 **Where it is found.** As maxon finds its library tiers: walking up from the compiler's executable, the first directory
 that holds a `runtime/` directory (`project.runtimeDirectory`), so a compiler built in a checkout uses the checkout's and an
@@ -1890,9 +1892,9 @@ a box is live, and gives the code back otherwise. Behaviour, exit codes and mess
 **Threads.** Each thread keeps its context, a record of `contextBytes` (`abigen`), in one thread-local slot. Before
 `main` the stub takes it with `TlsAlloc` into `g.tlsSlot`, panics when it is not one of the TEB's 64 inline slots (as
 maxon's `emitRequireTebTlsSlot` does, `TLS_OUT_OF_INDEXES` included), keeps its offset in the TEB's slot array in
-`g.tlsOffset`, and stores the main thread's context, the global `g.mainContext`, with `TlsSetValue`. After `main` it
-calls the runtime's `schedDrain` with `main`'s exit code, which runs the behaviours that are left and gives the code
-back. A thread the runtime makes starts at `rt.threadStart`, which `CreateThread` calls by Win64 with the thread's
+`g.tlsOffset`, and stores the main thread's context, the global `g.mainContext`, with `TlsSetValue`; a program without
+the scheduler needs it too, since the heap is the thread's. Then it calls `rt.runMain` (see "Main with or without the
+scheduler"). A thread the runtime makes starts at `rt.threadStart`, which `CreateThread` calls by Win64 with the thread's
 context: it saves the registers Win64 keeps that the internal convention does not (`rsi`, `rdi`) and the one it holds
 the context in (`rbx`), keeps the fault handler's stack (`SetThreadStackGuarantee`), stores the
 context with `TlsSetValue` and calls the runtime's `workerMain` with it. `abigen` also has the layouts of a frozen
@@ -1960,9 +1962,10 @@ on both systems a thread of its own, which holds no processor and so is never st
 threads (G) run by threads (M) that each hold a processor (P) while they run one. There are as many processors as
 `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` says (1 when it says 0) or as `MAXON_MAX_PROCS` asks (a decimal count from 1
 to 2^31 - 1 with an optional `+`, as maxon reads it; any other value is ignored); `Scheduler.processorCount()` is that count
-(`osProcessorCount`), the same before the first behaviour as after it. The main thread is thread 0 with processor 0 from the
-first behaviour or green thread on, which also starts the monitor; other threads are started by work, each with the main
-thread's 256 MB stack reserve, and a program that schedules nothing starts no thread. A behaviour is a green thread:
+(`osProcessorCount`), the same before the first behaviour as after it. A processor's record (2 KB, most of it its run queue)
+is made when a thread first takes it (`makeProc`), so a program that keeps one busy holds one; those not yet made count as
+idle. The main thread is thread 0 with processor 0 from `mainRun` on, which also starts the monitor; other threads are
+started by work, each with the main thread's 256 MB stack reserve. A behaviour is a green thread:
 `schedPush` gives its record a green thread that calls its `run` with the record, and counts it finished when that returns,
 so the code at `run` must have released and freed what the behaviour holds by then.
 
@@ -1992,12 +1995,37 @@ so the code at `run` must have released and freed what the behaviour holds by th
   completion port on Windows (`GetQueuedCompletionStatusEx`, broken by `PostQueuedCompletionStatus`) and epoll with an
   eventfd on Linux; a completion whose key is a poll descriptor readies the green thread that waits on it.
 
-`main` runs as a green thread, as Go runs it as a goroutine, so that it can wait: the stub calls the runtime's `mainRun`
-with the address of its own `rt.mainGreen`, which calls `main` (or each test of an executable of tests) and gives the exit
-code. `mainRun` makes the green thread, has the main thread run the scheduler until no behaviour or green thread is left
-(the last to finish wakes it), and gives back `main`'s code, or the code that `Process.setExitCode` set last; then
-`ExitProcess` ends the other threads wherever they are. So every program starts the scheduler and the monitor, and its
-`main` may be preempted. A panic or a trap on any thread writes its line and exits with 1 at once.
+**Main with or without the scheduler** (`self/backend/start.maxon`). The link decides by reachability, with no flag,
+whether a program runs the scheduler (`SchedulerChoice`): it marks the live code from the entry as for a program of one
+thread, with each of the scheduler's routines that code outside it names linked to its single-thread form, and the
+program uses the scheduler when that code reaches `rt.stackSwitch`. Running a green thread and leaving one are the only
+switches of a stack, so a `when`, an `async` call, an `await`, `sleep`, `Scheduler.yield()` and whatever comes to start
+or park a green thread reach it, in whichever function or module they are, and nothing else does: printing, files,
+processes, the environment, allocation, `Process.setExitCode`, `Scheduler.processorCount()`, panics and the leak count
+do not. The single-thread forms (the substitutes) are the blocking call's bracket (`enterBlocking`, `exitBlocking`), the
+exit claim (`takeExitClaim`), each a routine that does nothing (`rt.unbracketed`) since no other thread can take a
+processor or stop one, and `Process.setExitCode`, which keeps its code in the stub's `g.exitCode` (`rt.setExitCodeAlone`)
+rather than in the scheduler's record; `exitBlocking` may switch to the scheduler, so without its substitute every program
+that prints would reach the witness. The link chooses the routine rather than the runtime testing a mode on each call: the
+bracket costs a call to a `ret` around a write, and the scheduler's code is not in the executable at all. The entry calls
+`rt.runMain` either way:
+
+- **Without the scheduler** it is `rt.mainAlone`, which calls `main` (or each test of an executable of tests) by
+  `rt.mainGreen` on the main thread's own stack, as the entry did before green threads, and gives its code, or the code
+  `Process.setExitCode` set last. The process has one thread; no scheduler, processor, monitor, poller or green stack is
+  made, the main thread's context never names a scheduler, and a panic, a fault, the leak count (`liveBoxes`) and the exit
+  read nothing of one. An empty program is about 5 KB, its code about 1.3 KB.
+- **With it**, `rt.runMain` calls the runtime's `mainRun` with the address of `rt.mainGreen`, and `main` runs as a green
+  thread, as Go runs it as a goroutine, so that it can wait: `mainRun` makes the green thread, has the main thread run the
+  scheduler until no behaviour or green thread is left (the last to finish wakes it), and gives back `main`'s code, or the
+  code that `Process.setExitCode` set last; then `ExitProcess` ends the other threads wherever they are. Its `main` may be
+  preempted.
+
+`main` has the same stack in both: the main thread's is the 256 MB reserve of the executable's header on Windows and the
+stub's mapping of that size on Linux (see "Faults and the stack"), and a green thread's is a reserve of the same size. A
+test of the corpus says which it expects with `// expect-scheduler: used` or `none`, which the runner holds to the link's
+answer, and runs the programs the link gave the scheduler several times, and again under one and two workers. A panic or a
+trap on any thread writes its line and exits with 1 at once.
 
 - **Strands.** The coroutines that `async` starts run in strands, as maxon's do (`runtime/strand.maxon`): a strand is a
   green thread that started a coroutine, its root, and the coroutines it and they start, and only the member that holds the
@@ -2015,7 +2043,9 @@ across a preemption, a blocking call handed off, timers and a completion of the 
 
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
 `self/backend/pe.maxon`): the compiler's passes recurse once per level of nesting of an expression, except down a chain of
-operators, which each pass walks with a loop (`ast.leftChain`), so a sum of 200,000 terms needs no deep stack. A reserve is address space, committed a page at a time as the stack grows. Before `main` the stub keeps 32 KB
+operators, which each pass walks with a loop (`ast.leftChain`), so a sum of 200,000 terms needs no deep stack. A reserve is address space, committed a page at a time as the stack grows:
+the header has the system commit one page when a thread starts (`peStackCommit`, maxon's 4 KB), and a green thread's
+stack starts with one page and its guard. Before `main` the stub keeps 32 KB
 past the stack's guard page (`SetThreadStackGuarantee`) and registers a vectored exception handler (`rt.fault`), as
 maxon's runtime does: a stack overflow, an access violation or an integer divide fault writes `panic: stack overflow at
 rip=0x<address>` (or `nil pointer or invalid memory access`, `integer divide by zero`, `integer overflow`) to standard

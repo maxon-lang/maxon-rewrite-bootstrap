@@ -1,6 +1,6 @@
 // The entry stub: the code the executable starts at, which sets up the heap, the standard handles and the main thread's
-// context, runs main as a green thread with the behaviours it schedules and exits with what main returns. It also has the code a thread
-// the runtime makes starts at. The rest of the runtime is Maxon source that is compiled with every program; the
+// context, runs main, as a green thread with the behaviours it schedules when the program uses the scheduler (start.maxon),
+// and exits with what main returns. It also has the code a thread the runtime makes starts at. The rest of the runtime is Maxon source that is compiled with every program; the
 // symbols it defines are the linker's to resolve.
 
 let stdOutputHandle = -11
@@ -68,13 +68,15 @@ function emitWindowsRuntime(calls EntryCalls, options RuntimeOptions) returns Co
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsSlot), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsOffset), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtMainContext), size: contextBytes)
+	emitStartData(u)
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
 	emitEntry(u, count: options.countAllocations)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtMainGreen))
-	emitMainGreen(u, calls: calls)
+	emitStartRoutines(u, calls: calls)
+	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
 	emitThreadStart(u)
+	u.beginSection()
 	u.defineCode(faultSymbol)
 	emitFaultHandler(u)
 	emitGreenRoutines(u, system: ast.TargetSystem.windows)
@@ -89,26 +91,6 @@ function emitGreenRoutines(mutates u CodeUnit, system ast.TargetSystem)
 	emitAsyncPreempt(u, system: system)
 end 'emitGreenRoutines'
 
-// emitMainGreen writes rt.mainGreen, the code main's green thread runs, which greenMain calls by the internal convention
-// with the green thread: it calls main, whose result is the exit code, or each test of an executable of tests, after which
-// the code is 0.
-function emitMainGreen(mutates u CodeUnit, calls EntryCalls)
-	for i in 0 upto calls.symbols.count() 'calls'
-		u.asm.callSymbol(calls.symbols[i])
-	end 'calls'
-	if not calls.exitsWithResult 'passed'
-		u.asm.movImm(resultWord(), imm: 0)
-	end 'passed'
-	u.asm.ret()
-end 'emitMainGreen'
-
-// emitRunMain has the runtime's mainRun run main as a green thread, by rt.mainGreen, and run the scheduler until nothing is
-// left; the exit code is in the result register after it.
-function emitRunMain(mutates u CodeUnit)
-	u.asm.leaSymbol(argWord(), symbol: ir.rtSymbol(ir.Rt.rtMainGreen))
-	u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtMainRun))
-end 'emitRunMain'
-
 // callRuntime calls an entry of the runtime by the internal convention with the word a register holds as its one
 // argument. The entries the stub calls take one word each: main's exit code, the thread's context or the message.
 function callRuntime(mutates u CodeUnit, entry ir.Rt, arg X64Register)
@@ -118,10 +100,11 @@ function callRuntime(mutates u CodeUnit, entry ir.Rt, arg X64Register)
 	u.asm.callSymbol(ir.rtSymbol(entry))
 end 'callRuntime'
 
-// emitEntry writes the executable's entry point: it sets up the heap, the standard handles and the main thread's
-// context, runs main (or each test) as a green thread until it and the behaviours and green threads it made have
-// finished, and exits with what main returns (0 after the tests). In an executable that counts its allocations, the
-// runtime's checkLeaks sees the exit code first, and exits with a leak report in its place when a box is still live.
+// emitEntry writes the executable's entry point: it sets up the heap, the standard handles, the fault handler and the main
+// thread's context, runs main (or each test) by rt.runMain, which with the scheduler runs it as a green thread until it and
+// the behaviours and green threads it made have finished (start.maxon), and exits with what main returns (0 after the
+// tests). In an executable that counts its allocations, the runtime's checkLeaks sees the exit code first, and exits with a
+// leak report in its place when a box is still live.
 function emitEntry(mutates u CodeUnit, count bool)
 	u.asm.subImm(rsp, imm: windowsShadowSize)
 	u.asm.callImport(impGetProcessHeap)
@@ -135,7 +118,7 @@ function emitEntry(mutates u CodeUnit, count bool)
 	emitFaultHandlerSetup(u)
 	let pastTheTeb = u.asm.newLabel()
 	emitTlsSetup(u, pastTheTeb: pastTheTeb)
-	emitRunMain(u)
+	u.asm.callSymbol(runMainSymbol)
 	if count 'leaks'
 		callRuntime(u, entry: ir.Rt.rtCheckLeaks, arg: resultWord())
 	end 'leaks'

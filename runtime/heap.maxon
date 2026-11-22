@@ -9,7 +9,7 @@
 // each: a heap keeps a few blocks and at most largeKeptBytes, the shortest that fits serves a box, and the rest go back.
 // Each class keeps the addresses of the slots freed in it on a stack of its own, so a free and the next alloc of the class
 // are a push and a pop; a class whose stack is empty takes a new slot from the end of the heap's current chunk, a block of
-// chunkBytes of the process heap that every class of the heap carves from, so boxes allocated together lie together. The
+// the process heap that every class of the heap carves from, so boxes allocated together lie together. The
 // stack is apart from the slots, not a list linked through them, so an alloc reads nothing of a slot that may have left
 // the cache since it was freed: it only writes it.
 //
@@ -78,9 +78,13 @@ let largestSmallBytes = 8192 as Count
 // from 512 to largestSmallBytes, 52 classes of a word each.
 let lastKey = 416 as Count
 
-// chunkBytes is the block of the process heap that a heap's classes carve their slots from: large enough that HeapAlloc
-// maps it fresh, with pages that cost nothing until a slot is used.
+// chunkBytes is the block of the process heap that a heap's classes carve their slots from once the heap has grown: large
+// enough that HeapAlloc maps it fresh, with pages that cost nothing until a slot is used. A heap's first chunk is
+// firstChunkBytes, four pages, which hold a slot of the largest class, and each next one twice the last up to chunkBytes, since HeapAlloc
+// commits the whole of a chunk it maps: a program that allocates a few boxes holds a few pages, not a megabyte.
 let chunkBytes = 1048576 as Count
+
+let firstChunkBytes = 16384 as Count
 
 // largeBoxPadBytes is what a large box's block holds before the box: the header in its last word, and a word before it so
 // that the box keeps the 16-byte alignment that HeapAlloc gives the block, as a buffer that a loop walks wants. On Linux
@@ -336,18 +340,32 @@ function allocFresh(heap Count, key Count, bytes Count) returns Count
 	let slotBytes = __Raw.wrappingAdd(boxHeaderBytes, right: __Raw.loadWord(heap, offset: __Raw.wrappingAdd(key, right: heapBoxBytesOffset)))
 	var slot = __Raw.loadWord(heap, offset: heapNextOffset)
 	if __Raw.wrappingSub(__Raw.loadWord(heap, offset: heapEndOffset), right: slot) < slotBytes 'chunk'
-		#if os(Windows)
-			slot = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: chunkBytes)
-		#else
-			slot = mapPages(chunkBytes)
-		#endif
-		__Raw.storeWord(heap, offset: heapEndOffset, value: __Raw.wrappingAdd(slot, right: chunkBytes))
+		slot = newChunk(heap)
 	end 'chunk'
 	__Raw.storeWord(heap, offset: heapNextOffset, value: __Raw.wrappingAdd(slot, right: slotBytes))
 	__Raw.storeWord(slot, offset: 0, value: __Raw.wrappingAdd(heap, right: key))
 	countOut(heap, change: 1)
 	return __Raw.wrappingAdd(slot, right: boxHeaderBytes)
 end 'allocFresh'
+
+// newChunk gives heap a new chunk, which its classes carve from on, and gives its start: firstChunkBytes the first time and
+// twice the last up to chunkBytes, so a thread that allocates little holds little.
+function newChunk(heap Count) returns Count
+	var bytes = __Raw.loadWord(heap, offset: heapChunkBytesOffset)
+	if bytes == 0 'first'
+		bytes = firstChunkBytes
+	end 'first'
+	#if os(Windows)
+		let chunk = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
+	#else
+		let chunk = mapPages(bytes)
+	#endif
+	__Raw.storeWord(heap, offset: heapEndOffset, value: __Raw.wrappingAdd(chunk, right: bytes))
+	if bytes < chunkBytes 'grow'
+		__Raw.storeWord(heap, offset: heapChunkBytesOffset, value: __Raw.wrappingAdd(bytes, right: bytes))
+	end 'grow'
+	return chunk
+end 'newChunk'
 
 // growStack gives a class whose stack is full one twice the size, or firstStackBytes in place of the empty one, holding
 // what the old one held, and gives the word above its top.

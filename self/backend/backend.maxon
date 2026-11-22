@@ -47,13 +47,13 @@ function linkCalling(mutates p ast.Project, consumes modules UnitList, ready fro
 	let routines = emitTypeRoutines(p, ms: ms, units: units)
 	ast.giveBack(p, ms: ms)
 	units.add(routines)
-	return link(units, entry: ir.rtSymbol(ir.Rt.rtEntry), system: p.target.system, mapsSymbols: mapsSymbols)
+	return link(units, entry: ir.rtSymbol(ir.Rt.rtEntry), choice: schedulerChoice(), system: p.target.system, mapsSymbols: mapsSymbols)
 end 'linkCalling'
 
 // compileProgram writes the executable that linkProgram makes of the modules' units to out, and the map of its code's symbols
-// to symbolMap when that is not empty. An executable of tests has no main: its entry calls tests, in order, and exits with 0
-// when none panicked.
-export function compileProgram(mutates p ast.Project, consumes modules UnitList, ready frozen with UnitList, entry ast.FuncID, tests ast.FuncIDList, options RuntimeOptions, out FilePath, symbolMap String) throws FileWriteError
+// to symbolMap when that is not empty, and gives whether it runs the scheduler. An executable of tests has no main: its entry
+// calls tests, in order, and exits with 0 when none panicked.
+export function compileProgram(mutates p ast.Project, consumes modules UnitList, ready frozen with UnitList, entry ast.FuncID, tests ast.FuncIDList, options RuntimeOptions, out FilePath, symbolMap String) returns bool throws FileWriteError
 	var entries = tests.clone()
 	let runsTests = tests.count() > 0
 	if not runsTests 'main'
@@ -65,4 +65,5 @@ export function compileProgram(mutates p ast.Project, consumes modules UnitList,
 		let mapPath = try FilePath.from(symbolMap) otherwise panic("backend: the symbol map {symbolMap} is not a path")
 		try File.writeText(mapPath, content: linked.symbolMap)
 	end 'map'
+	return linked.scheduled
 end 'compileProgram'

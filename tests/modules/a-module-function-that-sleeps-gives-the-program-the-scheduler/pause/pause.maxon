@@ -1,0 +1,6 @@
+// A library's function that waits: whoever calls it, however far from main, makes the program one that runs the
+// scheduler.
+export function briefly(label String) returns String
+	sleep(1)
+	return "{label} after a pause"
+end 'briefly'
