@@ -17,7 +17,7 @@ $compiler = (Resolve-Path $Compiler).Path
 # test: what"). The tests that pass and are not listed are counted (the line "NEW file.md: test"), so that the list can be
 # extended.
 function Test-Specs {
-	$output = $null | & $compiler test specs --require-passed 2>&1 | Out-String
+	$output = & "$PSScriptRoot\spec-run.ps1" $compiler --require-passed 2>&1 | Out-String
 	$code = $LASTEXITCODE
 	if ($output -notmatch '(?m)^(\d+) passed, \d+ failed, \d+ skipped') {
 		Write-Output $output

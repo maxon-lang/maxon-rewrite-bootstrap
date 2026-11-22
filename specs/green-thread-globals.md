@@ -195,7 +195,6 @@ scaled=42
 <!-- test: every-handler-may-co-own-a-module-let -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 **A MODULE `let` ARRAY IS READ BY EVERY THREAD, AND NO HANDLER STEPS A COUNT ON IT.** A handler that puts it
 somewhere that outlives a statement keeps a reference to image data and gives it back. Eight handlers doing that at
 once on different OS threads read one array, so the program ends with every round counted and nothing leaked.
@@ -244,8 +243,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias NameArray = Array with String
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias HeldNamesArray = Array with immutable NameArray
+typealias HeldNamesArray = Array with NameArray
 
 typealias ChurnReplyArray = Array with Promise with Integer
 ```
@@ -259,7 +257,6 @@ held=1600000 names=4
 <!-- test: lets-reaching-one-array-are-read-through-one-table -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 **ONE ARRAY BEHIND SEVERAL `let`s.** `table` holds `names` twice and `names`'s own slot holds it too, so the
 array is reached through three `let`s, and the handler reads it through each of them.
 ```maxon
@@ -294,8 +291,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias NameArray = Array with String
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameTable = Array with immutable NameArray
+typealias NameTable = Array with NameArray
 ```
 ```stdout
 n=8

@@ -4322,7 +4322,6 @@ error E2004: <fragment>:11:11: Cannot operate on Tally and String
 ```
 
 <!-- test: error.a-result-of-a-function-with-an-abandoned-body-stored-into-a-frozen-array-reports-only-the-syntax-error -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` is abandoned at its syntax error, so what its result holds is unknown: storing the result into an array of
 `immutable Box` is not reported as storing mutable data. Storing it into an array of `Box` is clean, and `other`
@@ -4332,8 +4331,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias Boxes = Array with Box
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -4371,7 +4369,6 @@ error E2004: <fragment>:20:11: Cannot operate on Tally and String
 ```
 
 <!-- test: error.an-undefined-call-as-the-result-of-a-function-stored-into-a-frozen-array-reports-only-the-undefined-call -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` returns the result of `nothere`, which does not exist, so that result is unknown: nothing is concluded about what
 `pick` returns or about the stores of it into either array. `other` stays reported.
@@ -4380,8 +4377,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias Boxes = Array with Box
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -4419,7 +4415,6 @@ error E2004: <fragment>:20:11: Cannot operate on Tally and String
 ```
 
 <!-- test: error.a-result-passed-through-a-wrapper-of-an-abandoned-function-stored-into-a-frozen-array-reports-only-the-syntax-error -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` is abandoned at its syntax error, and `wrap` returns the result of calling it, so what `wrap` returns is unknown
 too: storing the result of `wrap` into an array of `immutable Box` is not reported as storing mutable data. Storing it
@@ -4429,8 +4424,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias Boxes = Array with Box
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally

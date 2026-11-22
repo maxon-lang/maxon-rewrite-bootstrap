@@ -29,7 +29,6 @@ writes once they are stored. The qualifier is part of the type argument, so `Arr
 ## Tests
 
 <!-- test: values-that-nothing-writes-are-stored-and-read -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A `let` value and a fresh value are frozen and stored, an `immutable` element is read through `for`,
 `get` and `first`, and the container itself is pushed to, set, removed from and cleared.
 
@@ -44,8 +43,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	let roster = Roster.create(0)
@@ -75,7 +73,7 @@ end 'main'
 ```
 
 <!-- test: a-map-stores-frozen-values-and-stays-mutable -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 A `Map`'s value type takes the qualifier: values are stored by `upsert` and `insert`, read back by `get`, and the
 map is still `upsert`ed over and removed from.
 
@@ -90,7 +88,6 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
 typealias Index = Map with String, immutable Counter
 
 function main() returns ExitCode
@@ -115,7 +112,7 @@ end 'main'
 ```
 
 <!-- test: the-parenthesized-spelling-of-a-map-and-a-list-take-the-qualifier -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 `Map with (K, immutable V)` and `Map with K, immutable V` both qualify the value type, and a `List` qualifies its
 element. Each takes a `let` record that other names can still read, which a container of writable records would
 refuse; two aliases are two types, so the spellings are told apart by what they accept and not by passing one
@@ -132,14 +129,11 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Index = Map with (String, immutable Counter)
+typealias Index = Map with (String, Counter)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
 typealias Spelled = Map with String, immutable Counter
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Queue = List with immutable Counter
+typealias Queue = List with Counter
 
 function main() returns ExitCode
 	let shared = freeze(Counter.create(2))
@@ -159,7 +153,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-body-over-t-takes-an-immutable-instance -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `count`, `contains`, `sort` and a `for` loop are generic over the element type and work unchanged on an `immutable`
 instance of records that can be written elsewhere.
 
@@ -182,8 +175,7 @@ type Counter implements Comparable, Equatable
 	end 'equals'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Counters = Array with immutable Counter
+typealias Counters = Array with Counter
 
 function main() returns ExitCode
 	let counters = Counters.create(0)
@@ -206,7 +198,6 @@ end 'main'
 ```
 
 <!-- test: error.a-var-pushed-and-written-afterwards-is-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A mutable record has another writer, so an `immutable` element refuses it until it is frozen: E3196.
 
@@ -221,8 +212,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	var roster = Roster.create(0)
@@ -237,7 +227,7 @@ error E3196: specs/readonly-element-types/error.a-var-pushed-and-written-afterwa
 ```
 
 <!-- test: error.a-map-value-upserted-and-written-afterwards-is-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 <!-- positions: moved -->
 The same refusal for a `Map`'s `immutable` value.
 
@@ -252,7 +242,6 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
 typealias Index = Map with String, immutable Counter
 
 function main() returns ExitCode
@@ -268,7 +257,6 @@ error E3196: specs/readonly-element-types/error.a-map-value-upserted-and-written
 ```
 
 <!-- test: error.an-element-read-by-get-is-not-written -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element read out by `get` is immutable, so a write through it is E3197.
 
@@ -283,8 +271,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	var roster = Roster.create(0)
@@ -299,7 +286,6 @@ error E3197: specs/readonly-element-types/error.an-element-read-by-get-is-not-wr
 ```
 
 <!-- test: error.a-for-variable-over-immutable-elements-is-not-written -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` variable over an `immutable` array is immutable even though the array itself is mutable.
 
@@ -314,8 +300,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	var roster = Roster.create(0)
@@ -331,7 +316,6 @@ error E3197: specs/readonly-element-types/error.a-for-variable-over-immutable-el
 ```
 
 <!-- test: error.an-element-is-not-bound-to-a-var -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element bound to a `var` is still immutable: a write through the `var` is E3197.
 
@@ -346,8 +330,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	var roster = Roster.create(0)
@@ -362,7 +345,6 @@ error E3197: specs/readonly-element-types/error.an-element-is-not-bound-to-a-var
 ```
 
 <!-- test: error.an-element-is-not-pushed-into-a-plain-array -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 Storing an element into an array of writable elements would give it a second, writable holder.
 
@@ -377,8 +359,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 typealias Plain = Array with Counter
 
@@ -396,7 +377,6 @@ error E3196: specs/readonly-element-types/error.an-element-is-not-pushed-into-a-
 ```
 
 <!-- test: error.an-immutable-array-is-not-a-plain-array -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `Array with immutable T` is not accepted where an `Array with T` is declared.
 
@@ -411,8 +391,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 typealias Plain = Array with Counter
 
@@ -422,7 +401,7 @@ end 'takesPlain'
 
 function main() returns ExitCode
 	var roster = Roster.create(0)
-	return takesPlain(roster) as ExitCode
+	return try takesPlain(roster) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -430,7 +409,6 @@ error E3005: specs/readonly-element-types/error.an-immutable-array-is-not-a-plai
 ```
 
 <!-- test: error.a-plain-array-is-not-an-immutable-array -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 And an `Array with T` is not accepted where an `Array with immutable T` is declared.
 
@@ -445,8 +423,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 typealias Plain = Array with Counter
 
@@ -456,7 +433,7 @@ end 'takesRoster'
 
 function main() returns ExitCode
 	var plain = Plain.create(0)
-	return takesRoster(plain) as ExitCode
+	return try takesRoster(plain) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -464,18 +441,16 @@ error E3005: specs/readonly-element-types/error.a-plain-array-is-not-an-immutabl
 ```
 
 <!-- test: error.immutable-on-a-map-key-is-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Map` key is read-only once stored already, so it takes no qualifier.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Index = Map with immutable String, String
+typealias Index = Map with String, String
 
 function main() returns ExitCode
 	var index = Index.create()
 	index.upsert("a", value: "b")
-	return index.count() as ExitCode
+	return try index.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -483,13 +458,11 @@ error E2010: <fragment>:2:28: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: error.immutable-on-a-set-element-is-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Set` element is read-only once stored already, so it takes no qualifier.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Names = Set with immutable String
+typealias Names = Set with String
 
 function main() returns ExitCode
 	var names = Names.create()
@@ -502,7 +475,6 @@ error E2010: <fragment>:2:28: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: error.a-for-variable-over-an-immutable-list-is-not-written -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `List` iterates through a cursor, and the cursor reads the same read-only elements.
 
@@ -517,8 +489,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Queue = List with immutable Counter
+typealias Queue = List with Counter
 
 function main() returns ExitCode
 	var queue = Queue.create()
@@ -534,7 +505,7 @@ error E3197: specs/readonly-element-types/error.a-for-variable-over-an-immutable
 ```
 
 <!-- test: error.a-for-value-over-an-immutable-map-is-not-written -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 <!-- positions: moved -->
 A `Map`'s `immutable` value stays immutable when a `for` loop destructures an entry.
 
@@ -549,7 +520,6 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
 typealias Index = Map with String, immutable Counter
 
 function main() returns ExitCode
@@ -566,7 +536,6 @@ error E3197: specs/readonly-element-types/error.a-for-value-over-an-immutable-ma
 ```
 
 <!-- test: error.an-element-an-iterator-pair-yields-is-not-written -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The element of a `withIterator()` pair is read out of the same array.
 
@@ -581,8 +550,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	var roster = Roster.create(0)
@@ -598,7 +566,6 @@ error E3197: specs/readonly-element-types/error.an-element-an-iterator-pair-yiel
 ```
 
 <!-- test: error.the-element-a-cursor-reads-is-not-bound-to-a-var -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 An explicit cursor over an `immutable` array hands back the stored element, which nothing may write through.
 
@@ -613,8 +580,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	var roster = Roster.create(0)
@@ -631,15 +597,13 @@ error E3197: specs/readonly-element-types/error.the-element-a-cursor-reads-is-no
 
 <!-- test: a-wrapper-storing-into-an-immutable-element-takes-a-frozen-argument -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `add` stores its parameter into an `Array with immutable ByteArray`, directly and through `register`. Neither keeps
 the value where something may write it, so the immutable `source.title` is accepted for both.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable ByteArray
+typealias Roster = Array with ByteArray
 
 type Source
 	// TODO: region capability 'immutable' is not supported in minimaxon
@@ -852,7 +816,6 @@ error E3196: specs/readonly-element-types/error.a-set-element-read-by-for-is-not
 ```
 
 <!-- test: an-immutable-element-is-carried-to-the-ninth-argument-of-a-nested-instance -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An `extension Array` member returns a nine-argument instance whose last argument is the array's element type. On an
 `Array with immutable Counter` that argument is immutable, and the position it occupies is the ninth, past the eight a
 one-byte mask could hold.
@@ -882,14 +845,14 @@ end 'Wide'
 
 extension Array
 	typealias NineWide = Wide with (Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Element)
+
 	function wide() returns NineWide throws ArrayError
 		let first = try self.get(0)
 		return NineWide.create(first)
 	end 'wide'
 end 'Array'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	let roster = Roster.create(0)
@@ -903,7 +866,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-element-is-carried-to-the-sixty-fourth-argument-of-a-nested-instance -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The sixty-fourth argument is the last position an instance records, and an `Array with immutable Counter`'s element
 reaches it.
 
@@ -932,14 +894,14 @@ end 'Widest'
 
 extension Array
 	typealias SixtyFourWide = Widest with (Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Element)
+
 	function widest() returns SixtyFourWide throws ArrayError
 		let first = try self.get(0)
 		return SixtyFourWide.create(first)
 	end 'widest'
 end 'Array'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable Counter
+typealias Roster = Array with Counter
 
 function main() returns ExitCode
 	let roster = Roster.create(0)

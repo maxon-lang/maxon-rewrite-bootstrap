@@ -1166,7 +1166,9 @@ directory-scope.md: every-unmarked-declaration-kind-is-visible-to-another-file-o
 directory-scope.md: module-is-an-ordinary-identifier
 directory-scope.md: unmarked-functions-call-each-other-across-three-files-of-a-directory
 directory.md: current-directory-not-empty
+directory.md: directory-is-directory
 directory.md: file-is-not-directory
+directory.md: list-directory-count
 directory.md: list-nonexistent-directory
 discarded-results.md: a-function-that-always-panics-is-not-pure-so-its-result-is-droppable
 discarded-results.md: a-function-writing-an-array-it-was-handed-keeps-its-result-droppable
@@ -1551,6 +1553,7 @@ error-handling.md: error.void-try-in-assignment
 error-handling.md: throw-borrowed-union-co-owns
 error-handling.md: throw-borrowed-union-leaves-a-sibling-path-borrowing
 error-handling.md: throw-matching-the-declared-clause-is-untouched
+error-handling.md: throw-sole-owned-field-leaves-a-sibling-path-borrowing
 error-handling.md: throws-a-stdlib-error-has-a-user-declared-spelling
 error-handling.md: throws-a-stdlib-error-the-compiler-synthesizes
 error-handling.md: throws-concrete-union-is-untouched
@@ -2337,16 +2340,11 @@ generic-opaque-value-store.md: an-extension-member-returning-an-associated-type-
 generic-opaque-value-store.md: an-extension-member-taking-an-associated-type-serves-a-concrete-and-an-interface-conformer
 generic-opaque-value-store.md: an-unqualified-sibling-static-fed-a-borrowed-parameter-stores-it-through-the-call-sites-descriptor
 generic-opaque-value-store.md: an-unqualified-sibling-static-fed-a-borrowed-record-stores-it-through-the-call-sites-descriptor
-generic-opaque-value-store.md: error.a-conformer-binding-an-interface-that-an-extension-in-another-file-stores-is-refused
-generic-opaque-value-store.md: error.a-conformer-binding-an-interface-that-an-extension-stores-as-an-element-is-refused
-generic-opaque-value-store.md: error.a-conformer-binding-an-interface-that-an-extension-stores-is-refused-though-no-body-uses-the-alias
-generic-opaque-value-store.md: error.a-conformer-in-the-earlier-file-binding-an-interface-that-an-extension-in-a-later-file-stores-is-refused
 generic-opaque-value-store.md: error.a-private-concrete-function-and-the-next-files-private-generic-one-of-one-name-collide
 generic-opaque-value-store.md: error.a-private-generic-function-and-a-later-files-private-concrete-one-of-one-directory-and-name-collide
 generic-opaque-value-store.md: error.a-private-generic-function-and-the-next-files-private-concrete-one-of-one-name-collide
 generic-opaque-value-store.md: error.an-instance-method-named-statically-without-its-receiver-is-refused
 generic-opaque-value-store.md: error.an-instance-method-named-through-an-instance-alias-without-its-receiver-is-refused
-generic-opaque-value-store.md: error.the-reported-binding-is-the-position-the-extension-stores
 generic-opaque-value-store.md: error.two-files-of-one-directory-private-generic-functions-of-one-name-collide
 generic-opaque-value-store.md: string-argument-outlives-its-source
 generic-opaque-value-store.md: trivial-argument-takes-no-reference
@@ -2655,6 +2653,7 @@ immutable-constants.md: a-constant-module-let-passed-to-a-parameter-a-plain-fiel
 immutable-constants.md: a-constant-static-let-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller
 immutable-constants.md: an-all-let-record-read-from-an-element-is-stored-into-a-plain-payload
 immutable-constants.md: an-inline-byte-literal-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller
+immutable-constants.md: constant-names-are-pushed-into-an-immutable-array-and-read-by-for
 immutable-method-call.md: append-on-string-parameter-ok
 immutable-method-call.md: append-on-var-self-field-string-ok
 immutable-method-call.md: append-to-a-string-field-off-a-local-let
@@ -2704,6 +2703,7 @@ implicit-type-conversion.md: no-int-to-bool
 implicit-type-conversion.md: no-string-to-int
 init-from-literal-rules.md: a-fixed-array-alias-takes-from-an-array-literal
 init-from-literal-rules.md: an-alias-declared-in-a-generic-type-takes-from-an-array-literal
+init-from-literal-rules.md: an-alias-declared-in-an-extension-body-takes-from-an-array-literal
 init-from-literal-rules.md: error.comparing-two-generic-instances-without-equals-is-refused
 init-from-literal-rules.md: error.from-literal-on-an-undeclared-name
 init-from-literal-rules.md: error.from-literal-requires-the-conformance
@@ -4454,6 +4454,10 @@ raw-bit-patterns.md: folded-unsigned-constants-reach-an-unsigned-quantity-field
 raw-bit-patterns.md: folded-unsigned-constants-reach-an-unsigned-quantity-parameter
 raw-bit-patterns.md: unsigned-division-over-a-top-bit-variable-reaches-an-unsigned-quantity-parameter
 raw-bit-patterns.md: xor-over-a-top-bit-variable-reaches-an-unsigned-quantity-parameter
+readonly-element-types.md: error.a-for-variable-over-immutable-elements-is-not-written
+readonly-element-types.md: error.an-element-an-iterator-pair-yields-is-not-written
+readonly-element-types.md: error.an-element-is-not-bound-to-a-var
+readonly-element-types.md: error.an-element-read-by-get-is-not-written
 rebindable-slot-borrow.md: an-immutable-field-read-is-counted-too
 rebindable-slot-borrow.md: managed-field-read-survives-the-field-being-replaced
 rebindable-slot-borrow.md: string-field-read-survives-the-field-being-replaced
@@ -4620,9 +4624,13 @@ regions-everywhere.md: a-var-written-through-and-passed-to-a-reading-function-is
 regions-everywhere.md: a-write-through-a-let-bound-to-ordinary-data-is-legal
 regions-freeze.md: clone-in-a-generic-body-of-a-record-that-holds-itself-through-an-array-runs
 regions-freeze.md: freeze-of-a-fresh-call-runs
+regions-generic-flows.md: a-closure-that-reads-its-parameter-runs-for-an-immutable-instance
+regions-generic-flows.md: a-declared-generic-with-an-immutable-argument-runs-beside-a-mutable-one
+regions-generic-flows.md: a-loop-variable-over-an-immutable-array-is-blamed-as-immutable
 regions-generic-flows.md: a-nested-tuple-with-another-item-capability-is-another-type
 regions-generic-flows.md: a-receiverless-generic-call-with-a-mutable-argument-runs
 regions-generic-flows.md: a-tuple-bound-to-a-local-into-a-list-of-plain-tuples-refused
+regions-generic-flows.md: an-immutable-element-in-a-tuple-literal-refused
 regions-holds.md: a-closure-parameter-spelled-like-the-cell-is-not-the-cell
 regions-holds.md: a-field-path-handed-by-reference-and-read-by-another-operand-is-refused
 regions-holds.md: a-field-read-constructor-argument-survives-a-later-operand-that-replaces-the-field
@@ -5670,6 +5678,7 @@ top-level-let.md: error.a-type-refused-in-one-file-and-written-in-a-healthy-file
 top-level-let.md: error.an-exit-code-local-is-refused-where-a-ranged-alias-is-required
 top-level-let.md: error.an-undeclared-base-in-a-top-level-initializer-is-an-undefined-variable
 top-level-let.md: error.an-undeclared-base-inside-a-top-level-array-is-an-undefined-variable
+top-level-let.md: error.an-undefined-call-as-the-result-of-a-function-stored-into-a-frozen-array-reports-only-the-undefined-call
 top-level-let.md: error.an-unneeded-cast-beside-an-independent-error-in-another-function-reports-only-the-error
 top-level-let.md: error.file-private-constant-cross-file
 top-level-let.md: error.file-private-constant-read-in-a-body-cross-file

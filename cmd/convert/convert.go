@@ -43,8 +43,17 @@ type sourceLine struct {
 	removed  bool
 }
 
+// inputKind is what a converted text is: a source file of maxon's library or tools, or the program of a spec test, which
+// may declare a name that minimaxon has built in, as any program may.
+type inputKind int
+
+const (
+	sourceFile inputKind = iota
+	specProgram
+)
+
 // Convert converts existing Maxon source code to minimaxon syntax and layout.
-func Convert(file, src string) Result {
+func Convert(file, src string, kind inputKind) Result {
 	text := normalizeText(src)
 	if strings.TrimSpace(text) == "" {
 		return Result{Text: "", Formatted: true}
@@ -63,6 +72,9 @@ func Convert(file, src string) Result {
 		warnings = append(warnings, Warning{File: file, Line: line.origLine, Message: msg})
 	}
 
+	if kind == sourceFile {
+		dropBuiltinDeclarations(lines)
+	}
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines)
 	rewriteWithIterator(lines, addWarn)
@@ -493,6 +505,54 @@ func splitLines(src string) []sourceLine {
 	return lines
 }
 
+// blockDeclWords are the words of a top-level declaration that runs to its own `end`, and lineDeclWords those of one
+// that is a line.
+var (
+	blockDeclWords = []string{"type", "union", "enum", "interface", "function"}
+	lineDeclWords  = []string{"typealias", "let", "var"}
+)
+
+// dropBuiltinDeclarations leaves out each top-level declaration of a name that minimaxon has built in, with the comment
+// above it: maxon's library declares what the compiler declares here, and a second declaration would be another
+// declaration of the name, which the code written against the built-in never meets.
+func dropBuiltinDeclarations(lines []sourceLine) {
+	for i := 0; i < len(lines); i++ {
+		l := &lines[i]
+		if l.removed || len(l.code) == 0 || l.indent != "" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || l.code[declIdx].kind != tokIdent || !builtinNames[l.code[declIdx+1].text] {
+			continue
+		}
+		last := i
+		switch word := l.code[declIdx].text; {
+		case slices.Contains(blockDeclWords, word):
+			last = topLevelEnd(lines, i)
+		case slices.Contains(lineDeclWords, word):
+		default:
+			continue
+		}
+		for k := i - 1; k >= 0 && len(lines[k].code) == 0 && lines[k].comment != ""; k-- {
+			lines[k].removed = true
+		}
+		for k := i; k <= last; k++ {
+			lines[k].removed = true
+		}
+		i = last
+	}
+}
+
+// topLevelEnd is the line of the `end` that closes the top-level declaration that line start opens.
+func topLevelEnd(lines []sourceLine, start int) int {
+	for k := start + 1; k < len(lines); k++ {
+		if len(lines[k].code) > 0 && lines[k].indent == "" && lines[k].code[0].text == "end" {
+			return k
+		}
+	}
+	panic(fmt.Sprintf("line %d: the declaration has no end", lines[start].origLine))
+}
+
 // joinEndOtherwise joins old Maxon's `end 'label'\notherwise ...` onto one line as minimaxon requires.
 func joinEndOtherwise(lines []sourceLine) {
 	for i := range lines {
@@ -609,6 +669,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		if line.removed || len(line.code) == 0 {
 			continue
 		}
+		line.code = stripTypeArgCapabilities(line.code)
 
 		// Pop blocks closed by `end` at matching indentation.
 		if line.code[0].text == "end" && !namesACase(line.code, currentBlock() == blockEnum) {
@@ -800,7 +861,7 @@ func opensBlockInBrackets(toks []token) bool {
 
 // unsupportedExtensionTargets are the names an extension cannot extend in minimaxon although it may name them: library
 // types and interfaces that it has no counterpart of, or that it does not extend.
-var unsupportedExtensionTargets = []string{"Set", "Iterable", "Iterator", "Log", "Logger", "CivilDate", "ParseError", "byte", "float", "Character", "Equatable", "Comparable", "Hashable", "Error"}
+var unsupportedExtensionTargets = []string{"Set", "Log", "Logger", "CivilDate", "ParseError", "byte", "float", "Character", "Error"}
 
 // builtinGenericTypes are the library types that an extension may name and that take type arguments.
 var builtinGenericTypes = []string{"Array", "Map", "List", "Pool", "Handle", "Frozen", "Cown", "FixedArray"}
@@ -1186,32 +1247,35 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 		warn(line, fmt.Sprintf("capability typealias '%s' is not supported in minimaxon", rhs[0].text))
 	}
 
-	implIdx := -1
-	for i := eqIdx + 1; i < len(toks); i++ {
-		if toks[i].kind == tokIdent && toks[i].text == "implements" {
-			implIdx = i
-			break
-		}
-	}
+}
 
-	limit := len(toks)
-	if implIdx >= 0 {
-		limit = implIdx
-	}
-	withIdx := -1
-	for i := eqIdx + 1; i < limit; i++ {
-		if toks[i].kind == tokIdent && toks[i].text == "with" {
-			withIdx = i
-			break
+// stripTypeArgCapabilities leaves out the capability word before a type argument (`Array with immutable Key`,
+// `Map with (immutable K, V)`): an element here has the one owner its container gives it, so a key the map holds is
+// already one that nothing else changes (README, "Where it differs from Maxon").
+func stripTypeArgCapabilities(toks []token) []token {
+	out := toks[:0:0]
+	var argLists []bool // for each open parenthesis, whether it opens the type arguments after a `with`
+	for i, t := range toks {
+		prev := token{}
+		if len(out) > 0 {
+			prev = out[len(out)-1]
 		}
-	}
-	if withIdx >= 0 && withIdx+1 < limit {
-		for i := withIdx + 1; i < limit; i++ {
-			if toks[i].kind == tokIdent && isCapabilityWord(toks[i].text) {
-				warn(line, fmt.Sprintf("type argument capability '%s' is not supported in minimaxon", toks[i].text))
+		afterWith := prev.kind == tokIdent && prev.text == "with"
+		inArgList := len(argLists) > 0 && argLists[len(argLists)-1] && (prev.text == "(" || prev.text == ",")
+		if (afterWith || inArgList) && t.kind == tokIdent && isCapabilityWord(t.text) && i+1 < len(toks) && toks[i+1].kind == tokIdent {
+			continue
+		}
+		switch t.text {
+		case "(":
+			argLists = append(argLists, afterWith)
+		case ")":
+			if len(argLists) > 0 {
+				argLists = argLists[:len(argLists)-1]
 			}
 		}
+		out = append(out, t)
 	}
+	return out
 }
 
 func checkUnionCase(line *sourceLine, warn func(*sourceLine, string)) {

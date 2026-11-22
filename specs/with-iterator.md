@@ -433,10 +433,8 @@ end 'main'
 ```
 
 <!-- test: withIterator.the-wrapper-takes-an-extension-method-over-the-iterator-element -->
-<!-- skip: extensions of 'Iterator' are not supported in minimaxon -->
 The wrapper conforms to `Iterator` with the tuple `(Source, Element)` as its one associated type, so an `extension Iterator` method that names `Element` reaches it and answers that tuple.
 ```maxon
-// TODO: extensions of 'Iterator' are not supported in minimaxon
 extension Iterator
 	function currentAgain() returns Element
 		return self.current()

@@ -551,7 +551,6 @@ filled
 ```
 
 <!-- test: characterset-at-a-generic-instance-field -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 ### A `CharacterSet` substituted into a generic instance's field
 
 The third arm, and the one that shows the three were one defect rather than three: an instance's cascade is
@@ -571,8 +570,7 @@ type Box uses T
 	end 'init'
 end 'Box'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias CharacterSetBox = Box with immutable CharacterSet
+typealias CharacterSetBox = Box with CharacterSet
 
 function main() returns ExitCode
 	var inits = 0 as Tally

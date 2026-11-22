@@ -159,6 +159,16 @@ func emitMaxon(t table) string {
 		byGroup[g] = append(byGroup[g], f)
 	}
 
+	sb.WriteString("function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap)\n")
+	for _, a := range stdAliases {
+		register := "registerStdAlias"
+		if a.Float {
+			register = "registerStdFloatAlias"
+		}
+		fmt.Fprintf(&sb, "\tb.%s = %s(tt, reads: reads, std: std, typeMap: typeMap, name: %q, lo: %s, hi: %s)\n", a.Field, register, a.Name, a.Lo, a.Hi)
+	}
+	sb.WriteString("end 'declareStdAliases'\n\n")
+
 	sb.WriteString("function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)\n")
 	sb.WriteString("\tdeclareBuiltinTypes(tt, reads: reads, std: std, b: b, typeMap: typeMap)\n")
 	for _, g := range groups {

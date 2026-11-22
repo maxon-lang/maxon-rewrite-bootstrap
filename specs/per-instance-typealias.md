@@ -1176,13 +1176,13 @@ end 'Seq'
 function main() returns ExitCode
 	let box = Box.create(3)
 	let crate = Crate.create(4)
-	let all = box.all()
+	var all = box.all()
 	all.push(box.first())
-	let more = crate.all()
+	var more = crate.all()
 	more.push(crate.first())
-	let chain = crate.chained()
+	var chain = crate.chained()
 	chain.append(crate.first())
-	return (all.count() + more.count() + chain.count()) as ExitCode
+	return try (all.count() + more.count() + chain.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1984,7 +1984,7 @@ function main() returns ExitCode
 	let box = Box.create(3)
 	let plain = Plain.create(4)
 	let listed = box.items()
-	listed.push(box.first() as Wide)
+	listed.push((box.first() as Wide) as Digit)
 	let arrayed = plain.items()
 	arrayed.push(plain.first())
 	return (listed.count() + arrayed.count()) as ExitCode
@@ -2174,12 +2174,10 @@ error E3005: <fragment>:25:12: Value 50 is outside the range of 'NodePower' (int
 ```
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-over-the-librarys -->
-<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 `extension Iterable` declares `ElementTransform` in the library. The program's `extension Iterable` declares it
 with two parameters: `combine` takes the program's, and the library's `map` keeps its own.
 ```maxon
 // --- file: ext.maxon
-// TODO: extensions of 'Iterable' are not supported in minimaxon
 export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 
@@ -2216,13 +2214,11 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-over-the-librarys-on-the-programs-own-conformer -->
-<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 `Zebra` is a generic conformer of the program's own whose name sorts after every library conformer's, so the
 bare `ElementTransform` key holds its element in both declarations. `map` still takes the library's one parameter
 and `combine` the program's two.
 ```maxon
 // --- file: ext.maxon
-// TODO: extensions of 'Iterable' are not supported in minimaxon
 export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 
@@ -2277,12 +2273,10 @@ end 'main'
 ```
 
 <!-- test: an-interface-extension-member-of-the-programs-wins-for-a-plain-array-beside-a-conformer-that-sorts-last -->
-<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 The same declarations with the receivers swapped for the original shape: the program's `Zebra` still sorts after
 every library conformer, and a plain `Array` is the receiver of `map` and of `combine`.
 ```maxon
 // --- file: ext.maxon
-// TODO: extensions of 'Iterable' are not supported in minimaxon
 export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 

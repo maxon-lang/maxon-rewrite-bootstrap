@@ -4682,7 +4682,6 @@ end 'main'
 ```
 
 <!-- test: an-array-extension-returning-its-argument-on-a-let-of-read-only-elements-into-a-var-runs -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `echo` returns `Element`, but what it returns is its argument, a record `main` built, so the `var` that takes
 it may write it even though the array's elements are read-only.
 ```maxon
@@ -4702,8 +4701,7 @@ extension Array
 	end 'echo'
 end 'Array'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Points = Array with immutable Point
+typealias Points = Array with Point
 
 function main() returns ExitCode
 	let ps = Points.create(0)
@@ -4720,7 +4718,6 @@ end 'main'
 <!-- test: a-read-only-list-element-returned-through-a-cursor-into-a-var-then-written-is-refused -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` hands back an element of a list whose elements are read-only, reached through the list's cursor, so
 the binding that takes it may not write it.
@@ -4735,8 +4732,7 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Points = List with immutable Point
+typealias Points = List with Point
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
 // TODO: return type capability 'immutable' is not supported in minimaxon
@@ -4761,7 +4757,6 @@ error E3197: <fragment>:26:2: cannot write 'n' through 'q', which is immutable
 ```
 
 <!-- test: an-array-extension-element-of-read-only-elements-into-a-var-then-written-is-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `head` hands back the array's stored element, and the array's elements are read-only, so the binding
 that takes it may not write it, whoever declared the member.
@@ -4782,8 +4777,7 @@ extension Array
 	end 'head'
 end 'Array'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Points = Array with immutable Point
+typealias Points = Array with Point
 
 function main() returns ExitCode
 	let ps = Points.create(0)
@@ -4799,7 +4793,6 @@ error E3197: <fragment>:24:2: cannot write 'n' through 'q', which is immutable
 ```
 
 <!-- test: an-array-extension-forwarding-a-stored-element-of-read-only-elements-is-not-written-through -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `front` returns what `head` returns, an element of the array whose elements are read-only, so no binding that takes it may write it.
 ```maxon
@@ -4817,13 +4810,13 @@ extension Array
 	function head() returns Element throws ArrayError
 		return try self.get(0)
 	end 'head'
+
 	function front() returns Element throws ArrayError
 		return try self.head()
 	end 'front'
 end 'Array'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Points = Array with immutable Point
+typealias Points = Array with Point
 
 function main() returns ExitCode
 	let ps = Points.create(0)

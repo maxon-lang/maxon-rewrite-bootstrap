@@ -218,15 +218,16 @@ function addLibrary(mutates p ast.Project, rootPath String, mutates errs diag.Er
 		return
 	end 'itself'
 	match consumes libraryDirectory() 'found'
-		some(dir) then _ = addLibraryAt(p, dir: dir, errs: errs)
+		some(dir) then _ = addLibraryAt(p, dir: dir, memory: SourceFiles.create(0), errs: errs)
 		none then return
 	end 'found'
 end 'addLibrary'
 
-// addLibraryAt adds the modules of the library's source at dir to p and gives its root, or none when dir holds no module.
-function addLibraryAt(mutates p ast.Project, dir String, mutates errs diag.ErrorList) returns table.Option with diag.ModuleID
+// addLibraryAt adds the modules of the library's source at dir to p and gives its root, or none when dir holds no module. Its
+// files are the ones in memory when there are any, as a project's are.
+function addLibraryAt(mutates p ast.Project, dir String, memory SourceFiles, mutates errs diag.ErrorList) returns table.Option with diag.ModuleID
 	var nodes = DiscDirList.create(0)
-	let scanned = scanDirectory(nodes, dir: dir.clone(), modPath: ast.stdlibQualifier, isRoot: true, memory: SourceFiles.create(0), errs: errs)
+	let scanned = scanDirectory(nodes, dir: dir.clone(), modPath: ast.stdlibQualifier, isRoot: true, memory: memory, errs: errs)
 	if not scanned.isSome() 'none'
 		return table.Option.none
 	end 'none'
@@ -900,8 +901,8 @@ end 'discoverFilesInto'
 // discoverDirectory adds the modules of the directory at rootPath, the files of which are the ones in memory when there are
 // any.
 function discoverDirectory(mutates p ast.Project, rootPath String, memory SourceFiles, mutates errs diag.ErrorList)
-	if memory.count() == 0 and isLibraryDirectory(rootPath) 'library'
-		match addLibraryAt(p, dir: rootPath, errs: errs) 'root'
+	if isLibraryDirectory(rootPath) 'library'
+		match addLibraryAt(p, dir: rootPath, memory: memory, errs: errs) 'root'
 			some(root) then p.rootModule = root
 			none then _ = 0
 		end 'root'

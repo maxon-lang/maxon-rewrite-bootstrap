@@ -315,7 +315,6 @@ error E2010: <fragment>:4:24: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: capability-word-on-a-map-key-argument-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Map`'s key is stored by value, so no capability word qualifies it.
 
@@ -330,8 +329,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Table = Map with immutable Tally, Box
+typealias Table = Map with Tally, Box
 
 function main() returns ExitCode
 	return 0
@@ -342,7 +340,6 @@ error E2010: <fragment>:12:28: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: isolated-type-argument-without-the-bound-refused -->
-<!-- skip: type argument capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A generic type that does not bound its parameter by `isolated` takes no `isolated` argument.
 
@@ -361,8 +358,7 @@ type Wrapper uses Element
 	var item as Element
 end 'Wrapper'
 
-// TODO: type argument capability 'isolated' is not supported in minimaxon
-typealias Wrapped = Wrapper with isolated Box
+typealias Wrapped = Wrapper with Box
 
 function main() returns ExitCode
 	return 0

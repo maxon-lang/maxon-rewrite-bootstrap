@@ -1663,7 +1663,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.an-interface-extension-leaves-a-library-conformer-the-members-the-compiler-supplies -->
-<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 An interface extension's member is a default, and a conformer the compiler supplies the member to keeps the compiler's, in
 whatever layer the conformer is declared. The program's `extension Iterable` declares `clone`, which the compiler
 supplies to the library type `ByteView` and to the program's own `Bag`, so the extension is not refused and neither
@@ -1683,7 +1682,6 @@ type Bag implements Iterable with (RangeBound, RangeIterator)
 	end 'createIterator'
 end 'Bag'
 
-// TODO: extensions of 'Iterable' are not supported in minimaxon
 extension Iterable
 	function clone() returns Self
 		print("extension clone\n")

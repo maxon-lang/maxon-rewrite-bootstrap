@@ -196,13 +196,11 @@ end 'main'
 
 <!-- test: a-field-record-swapped-out-is-stored-into-a-let-field -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `let old = self.log` followed by `self.log = Log.create()` moves the record out of the field: the replacement is a
 fresh value, nothing else holds the old record, so `old` is its only holder and a `let` field may take it.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameList = Array with immutable ByteArray
+typealias NameList = Array with ByteArray
 
 type Told
 	export var names as NameList
@@ -265,15 +263,13 @@ end 'main'
 
 <!-- test: unrelated-work-between-the-swap-load-and-store-is-accepted -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 Statements that neither read nor write the field, the old record, or anything that reaches them may sit between the
 load and the store: the old record is still the only holder when the replacement lands.
 
 ```maxon
 typealias Count = int(0 to 1000)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameList = Array with immutable ByteArray
+typealias NameList = Array with ByteArray
 
 type Told
 	export var names as NameList
@@ -339,12 +335,10 @@ end 'main'
 
 <!-- test: a-record-another-holder-also-names-is-swapped-out-and-kept -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The `Holder` was built around a `Log` that `main` still names. Swapping the field leaves that second holder with the old record, and the `let` field keeps it: a write through `shared` is read through `kept`.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameList = Array with immutable ByteArray
+typealias NameList = Array with ByteArray
 
 type Told
 	export var names as NameList

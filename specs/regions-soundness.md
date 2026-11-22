@@ -665,15 +665,13 @@ error E3207: <fragment>:33:16: 'relay' writes 'p' (line 27: a result read from i
 ```
 
 <!-- test: a-mixed-join-pushed-into-an-array-of-immutable-elements-is-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `FrozenBoxes` holds `immutable Box`, and `p if flag else Box.create(1)` may be the caller's mutable `p`, so the push is refused.
 
 ```maxon
 typealias Tally = int(0 to 1024)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -683,8 +681,8 @@ type Box
 	end 'create'
 end 'Box'
 
-function stash(frozens FrozenBoxes, p Box, flag bool)
-	frozens.push(p if flag else Box.create(1))
+function stash(mutates frozens FrozenBoxes, p Box, flag bool)
+	frozens.push(p.clone() if flag else Box.create(1))
 end 'stash'
 
 function main() returns ExitCode

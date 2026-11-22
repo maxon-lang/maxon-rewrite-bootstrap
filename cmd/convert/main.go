@@ -256,7 +256,7 @@ func convertFile(specs bool, name, text string) fileResult {
 		res := ConvertSpec(name, text)
 		return fileResult{Text: res.Text, Warnings: res.Warnings, Changed: res.Changed, Tests: res.Tests}
 	}
-	res := Convert(name, text)
+	res := Convert(name, text, sourceFile)
 	return fileResult{Text: res.Text, Warnings: res.Warnings, Changed: res.Text != text}
 }
 

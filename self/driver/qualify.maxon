@@ -59,8 +59,9 @@ function projectQualifications(dir String, mutates errs diag.ErrorList) returns 
 	end 'broken'
 	var ignored = diag.ErrorList.create(0)
 	resolve.resolveFrom(p, first: 0, errs: ignored)
+	let ofLibrary = p.modules[ast.modIndex(p.rootModule)].isLibrary
 	for m in 0 upto p.modules.count() 'modules'
-		if p.modules[m].isLibrary 'library'
+		if p.modules[m].isLibrary and not ofLibrary 'library'
 			continue 'modules'
 		end 'library'
 		for i in 0 upto p.resolutions[m].unbound.count() 'names'

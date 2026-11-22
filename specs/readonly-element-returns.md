@@ -19,7 +19,6 @@ cannot write through the returned value (E3197). A copy made with `clone()` is a
 
 <!-- test: error.a-method-returning-an-immutable-element-declares-its-result-immutable -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `at` returns `try self.items.get(i)`, an element of the `immutable` array `items`. A plain `Counter` result would hand
 the caller a writable name for the record the shelf holds.
@@ -36,8 +35,7 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Items = Array with immutable Counter
+	typealias Items = Array with Counter
 	let items as Items
 
 	static function create() returns Self
@@ -68,7 +66,6 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 
 
 <!-- test: a-generic-method-returning-its-item-type-over-an-immutable-instance-runs -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The same through a generic shelf: `Shelf with immutable Counter` stores and returns frozen counters, and the item
 type it returns is `immutable` by the instance.
 
@@ -91,24 +88,23 @@ type Shelf uses Item
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(item Item)
-		self.items.push(item)
+	function add(item Item) where Item implements Copyable
+		self.items.push(item.clone())
 	end 'add'
 
-	function at(i ElementIndex) returns Item throws ArrayError
+	function at(i ElementIndex) returns Item throws ArrayError where Item implements Copyable
 		return try self.items.get(i)
 	end 'at'
 end 'Shelf'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias CounterShelf = Shelf with immutable Counter
+typealias CounterShelf = Shelf with Counter
 
 function main() returns ExitCode
 	let shared = freeze(Counter.create(4))
 	let shelf = CounterShelf.create()
 	shelf.add(shared)
 	let first = try shelf.at(0) otherwise return 1
-	return first.n as ExitCode
+	return try first.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -118,7 +114,6 @@ end 'main'
 
 <!-- test: error.a-method-returning-an-immutable-element-or-a-fresh-record-hands-back-a-read-only-value -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `at` returns the element on one path and a fresh record on the other. The caller cannot tell which, so the result
 is read-only and a write through the caller's `var` is E3197.
@@ -135,8 +130,7 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Items = Array with immutable Counter
+	typealias Items = Array with Counter
 	let items as Items
 
 	static function create() returns Self
@@ -169,7 +163,6 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is read-on
 
 <!-- test: error.a-method-returning-an-immutable-map-value-declares-its-result-immutable -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The value side of `Map with String, immutable Counter` is `immutable` when a method returns it.
 
@@ -185,7 +178,6 @@ type Counter
 end 'Counter'
 
 type Index
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Entries = Map with String, immutable Counter
 	let entries as Entries
 
@@ -219,7 +211,6 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 <!-- test: a-method-returning-an-immutable-element-is-read-through-a-let -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The accepted twin: the result is declared `immutable` and the caller binds the returned element with `let` and
 reads it.
 
@@ -235,8 +226,7 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Items = Array with immutable Counter
+	typealias Items = Array with Counter
 	let items as Items
 
 	static function create() returns Self
@@ -270,7 +260,6 @@ end 'main'
 <!-- test: error.an-immutable-result-is-not-written-by-its-caller -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The result is declared `immutable`, so a write through the caller's binding is E3197.
 
@@ -286,8 +275,7 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Items = Array with immutable Counter
+	typealias Items = Array with Counter
 	let items as Items
 
 	static function create() returns Self
@@ -322,7 +310,6 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is immutab
 <!-- test: a-method-returning-an-immutable-element-is-copied-with-clone -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The accepted twin: a `clone()` of the returned element is a new record, so the caller's `var` writes the copy and
 the shelf's record keeps its value.
 
@@ -338,8 +325,7 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Items = Array with immutable Counter
+	typealias Items = Array with Counter
 	let items as Items
 
 	static function create() returns Self

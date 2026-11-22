@@ -2028,7 +2028,6 @@ kept 9
 ```
 
 <!-- test: throw-sole-owned-field-leaves-a-sibling-path-borrowing -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -2036,13 +2035,12 @@ union Fault implements Error
 	bad(text String, at Tally)
 end 'Fault'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FaultArray = Array with immutable Fault
+typealias FaultArray = Array with Fault
 
 type Holder
 	export let fault as Fault
 
-	static function keepInto(kept FaultArray, at Tally) throws Fault
+	static function keepInto(mutates kept FaultArray, at Tally) throws Fault
 		let holder = Self{fault: Fault.bad("at {at}", at: at)}
 		let fault = holder.fault
 		if at > 500 'late'
@@ -2056,14 +2054,14 @@ function keptBytes(kept FaultArray) returns Tally
 	var total = 0 as Tally
 	for f in kept 'each'
 		match f 'fault'
-			bad(text, _) then total = total + text.byteLength() as Tally
+			bad(text, _) then total = try total + text.byteLength() as Tally otherwise panic("out of range")
 		end 'fault'
 	end 'each'
 	return total
 end 'keptBytes'
 
 function main() returns ExitCode
-	let kept = FaultArray.create(0)
+	var kept = FaultArray.create(0)
 	try Holder.keepInto(kept, at: 3) otherwise return 1
 	try Holder.keepInto(kept, at: 40) otherwise return 2
 	try Holder.keepInto(kept, at: 900) otherwise (e) 'late'

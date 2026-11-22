@@ -277,19 +277,19 @@ end 'Derived'
 		},
 		{
 			name: "a typealias in a type's body is left as Maxon writes it",
-			in: `type Pool uses Element
+			in: `type Bin uses Element
 	typealias Items = Array with Element
 	var items as Items
-end 'Pool'
+end 'Bin'
 
 type Holder
 	typealias Index = int(0 to 99)
 end 'Holder'
 `,
-			want: `type Pool uses Element
+			want: `type Bin uses Element
 	typealias Items = Array with Element
 	var items as Items
-end 'Pool'
+end 'Bin'
 
 type Holder
 	typealias Index = int(0 to 99)
@@ -468,11 +468,21 @@ end 'f'
 			in:   "function f(xs Row)\n\tfor (iter, x) in xs.withIterator() 'each'\n\t\tfor (iter, y) in xs.withIterator() 'inner'\n\t\t\tprint(\"{iter.index()} {y}\")\n\t\tend 'inner'\n\t\tprint(\"{iter.index()} {x}\")\n\tend 'each'\nend 'f'\n",
 			want: "function f(xs Row)\n\tfor (iter, x) in xs.enumerated() 'each'\n\t\tfor (iter, y) in xs.enumerated() 'inner'\n\t\t\tprint(\"{iter} {y}\")\n\t\tend 'inner'\n\t\tprint(\"{iter} {x}\")\n\tend 'each'\nend 'f'\n",
 		},
+		{
+			name: "a library declaration of a built-in name is left out with its comment",
+			in:   "// The error of iteration.\npublic enum IterationError implements Error\n\texhausted\nend 'IterationError'\n\npublic typealias Count = int(0 to u64.max)\n\npublic enum Ordering\n\tlessThan\nend 'Ordering'\n",
+			want: "public enum Ordering\n\tlessThan\nend 'Ordering'\n",
+		},
+		{
+			name: "a capability word before a type argument is left out",
+			in:   "typealias Keys = Array with immutable Key\n\ntype Table uses Key, Value\n\tvar slots as Map with (immutable Key, Array with isolated Value)\nend 'Table'\n",
+			want: "typealias Keys = Array with Key\n\ntype Table uses Key, Value\n\tvar slots as Map with (Key, Array with Value)\nend 'Table'\n",
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := Convert("test.maxon", tc.in)
+			res := Convert("test.maxon", tc.in, sourceFile)
 			if len(res.Warnings) > 0 {
 				t.Fatalf("unexpected warnings: %v", res.Warnings)
 			}
@@ -499,7 +509,7 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		},
 		{
 			name:     "ranged typealias in a generic type",
-			in:       "type Pool uses Element\n\ttypealias Idx = int(0 to u64.max)\nend 'Pool'\n",
+			in:       "type Bin uses Element\n\ttypealias Idx = int(0 to u64.max)\nend 'Bin'\n",
 			wantTodo: "ranged typealiases in a generic type",
 		},
 		{
@@ -591,7 +601,7 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := Convert("test.maxon", tc.in)
+			res := Convert("test.maxon", tc.in, sourceFile)
 			if len(res.Warnings) == 0 {
 				t.Fatalf("expected warning containing %q, got none\noutput:\n%s", tc.wantTodo, res.Text)
 			}

@@ -26,7 +26,7 @@ $null | bin\minimaxon.exe fix specs
 if ($LASTEXITCODE -ne 0) {
 	exit 1
 }
-bin\minimaxon.exe test specs --record-passed
+& "$PSScriptRoot\spec-run.ps1" bin\minimaxon.exe --record-passed
 if ($LASTEXITCODE -ne 0) {
 	exit 1
 }

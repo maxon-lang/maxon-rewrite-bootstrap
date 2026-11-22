@@ -186,26 +186,33 @@ function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
 	return libraryLookup(r, p: p, name: name)
 end 'bareLookup'
 
-// libraryLookup is the declaration of the standard library's root named name, when the project holds the library and the
-// module sees it.
+// libraryLookup is the public declaration named name of a module of the standard library, for a module of the program: the
+// library's modules are layers that name each other qualified, as any modules do, and a program sees all of their public
+// names bare, so the layering is the library's own. The first module in the project's order that declares it is the one,
+// since projectLibraryCollisions refuses a public name that two of them declare.
 function libraryLookup(r Resolver, p ast.Project, name String) returns LookupResult
-	return match p.library 'library'
-		some(root) gives libraryRootLookup(r, p: p, root: root, name: name)
-		none gives LookupResult.miss()
+	if p.modules[ast.modIndex(r.modID)].isLibrary 'library'
+		return LookupResult.miss()
 	end 'library'
+	for m in 0 upto p.modules.count() 'modules'
+		if not p.modules[m].isLibrary 'program'
+			continue 'modules'
+		end 'program'
+		let hit = libraryModuleLookup(r, p: p, module: p.modules[m].id, name: name)
+		if hit.found 'visible'
+			return hit
+		end 'visible'
+	end 'modules'
+	return LookupResult.miss()
 end 'libraryLookup'
 
-// libraryRootLookup is libraryLookup in the library whose root is the module root, which the library's root itself has
-// looked in already as its own.
-function libraryRootLookup(r Resolver, p ast.Project, root diag.ModuleID, name String) returns LookupResult
-	if root == r.modID 'own'
-		return LookupResult.miss()
-	end 'own'
-	match p.modules[ast.modIndex(root)].names.get(name) 'declared'
-		some(ord) then return visibleHit(r, p: p, ref: ast.DeclRef.make(root, ordinal: ord))
+// libraryModuleLookup is libraryLookup in the one library module module.
+function libraryModuleLookup(r Resolver, p ast.Project, module diag.ModuleID, name String) returns LookupResult
+	match p.modules[ast.modIndex(module)].names.get(name) 'declared'
+		some(ord) then return visibleHit(r, p: p, ref: ast.DeclRef.make(module, ordinal: ord))
 		none then return LookupResult.miss()
 	end 'declared'
-end 'libraryRootLookup'
+end 'libraryModuleLookup'
 
 // visibleHit is the lookup that found ref, when the module sees it, and a miss otherwise.
 function visibleHit(r Resolver, p ast.Project, consumes ref ast.DeclRef) returns LookupResult
@@ -1635,6 +1642,40 @@ function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ms ast.ModuleSt
 	r.typeParams = outer
 end 'resolveInterfaceDecl'
 
+// refuseLibraryCollisions refuses a public declaration of the library module that an earlier module of the library declares
+// publicly too: a program sees every library module's public names bare (libraryLookup), so one name may be public in one of
+// them only.
+function refuseLibraryCollisions(mutates r Resolver, p ast.Project, mutates errs diag.ErrorList)
+	let own = ast.modIndex(r.modID)
+	for i in 0 upto p.modules[own].decls.count() 'decls'
+		if p.modules[own].decls[i].isExtension() 'extension'
+			continue 'decls'
+		end 'extension'
+		let ref = ast.DeclRef.make(r.modID, ordinal: try i as ast.DeclOrdinal otherwise panic("too many declarations"))
+		if ast.declLevel(p, ref: ref) != ast.Visibility.everyone 'notPublic'
+			continue 'decls'
+		end 'notPublic'
+		let name = ast.declName(p, ref: ref)
+		for m in 0 upto own 'earlier'
+			if not p.modules[m].isLibrary 'program'
+				continue 'earlier'
+			end 'program'
+			match p.modules[m].names.get(name) 'declared'
+				some(ord) then refuseCollision(r, p: p, ref: ref, other: ast.DeclRef.make(p.modules[m].id, ordinal: ord), errs: errs)
+				none then _ = 0
+			end 'declared'
+		end 'earlier'
+	end 'decls'
+end 'refuseLibraryCollisions'
+
+function refuseCollision(mutates r Resolver, p ast.Project, ref ast.DeclRef, other ast.DeclRef, mutates errs diag.ErrorList)
+	if ast.declLevel(p, ref: other) != ast.Visibility.everyone 'notPublic'
+		return
+	end 'notPublic'
+	let name = ast.declName(p, ref: ref)
+	pushErr(errs, modID: r.modID, off: r.tree.startOf(ast.declNodeID(p, ref: ref)), code: diag.errDuplicateDefinition, msg: "'{name}' is public in {ast.describeModule(p, modID: other.module)} too, and a program names every public declaration of the standard library bare; rename one of them or make it 'export'")
+end 'refuseCollision'
+
 export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let modID = ms.module
 	let modIdx = ast.modIndex(modID)
@@ -1645,6 +1686,9 @@ export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates
 		let d = p.modules[modIdx].decls[i].clone()
 		resolveTopDecl(r, p: p, ms: ms, d: d, errs: errs)
 	end 'eachD'
+	if p.modules[modIdx].isLibrary 'library'
+		refuseLibraryCollisions(r, p: p, errs: errs)
+	end 'library'
 	ms.ownTree = exchange(r.tree, value: ast.Tree.new(modID, text: ""))
 	ms.resolution = exchange(r.res, value: ast.Resolution.new(modID))
 end 'resolveModule'

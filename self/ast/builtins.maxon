@@ -212,21 +212,10 @@ export function initBuiltins(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	b.neverTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primNever, name: "never"))
 	b.anon64Ty = internIntRange(tt, reads: reads, aliasName: "", minVal: I128.i64Min(), maxVal: I128.i64Max(), inferred: false)
 	b.anonU64Ty = internIntRange(tt, reads: reads, aliasName: "", minVal: I128.zero(), maxVal: I128.u64Max(), inferred: false)
-	let exitTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "ExitCode", lo: I128.zero(), hi: I128.fromCount(4294967295 as Count))
-	let countTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Count", lo: I128.zero(), hi: I128.u64Max())
-	let elementIndexTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "ElementIndex", lo: I128.zero(), hi: I128.u64Max())
-	let fullTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "FullRangeInt", lo: I128.i64Min(), hi: I128.i64Max())
-	let byteTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Byte", lo: I128.zero(), hi: I128.fromCount(255 as Count))
-	b.fullRangeFloatTy = registerStdFloatAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "FullRangeFloat", lo: floatNegate(floatMaxBits), hi: floatMaxBits)
+	declareStdAliases(tt, reads: reads, std: std, b: b, typeMap: typeMap)
 	b.anonFloatTy = internFloatRange(tt, reads: reads, aliasName: "", lo: floatNegate(floatMaxBits), hi: floatMaxBits)
-	b.codepointTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Codepoint", lo: I128.zero(), hi: I128.fromCount(1114111 as Count))
-	b.codeUnit16Ty = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodeUnit16", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
-	b.exitCodeTy = exitTy
-	b.countTy = countTy
-	b.elementIndexTy = elementIndexTy
-	tt.lists[typeList(tt, t: countTy)][typeIndex(tt, t: countTy)].supertype = elementIndexTy
-	b.fullRangeIntTy = fullTy
-	b.byteTy = byteTy
+	let countTy = b.countTy
+	tt.lists[typeList(tt, t: countTy)][typeIndex(tt, t: countTy)].supertype = b.elementIndexTy
 	declareBuiltinTable(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, typeMap: typeMap, funcMap: funcMap)
 	b.stdlibTypeMap = typeMap
 	b.stdlibFuncMap = funcMap

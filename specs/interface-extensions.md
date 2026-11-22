@@ -1056,7 +1056,6 @@ end 'main'
 ```
 
 <!-- test: interface-extensions.a-member-the-compiler-supplies-to-a-conformer-is-the-compilers-at-every-door -->
-<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 The same boundary for a member the compiler supplies. The compiler gives every `type` a `clone`, so `extension
 Iterable`'s `clone` is a default `Bag` never takes: the direct call and the call inside a generic body that
 holds `Bag` as an `Iterable` both reach the compiler's copy, and the extension's body is never run.
@@ -1073,7 +1072,6 @@ type Bag implements Iterable with (RangeBound, RangeIterator)
 	end 'createIterator'
 end 'Bag'
 
-// TODO: extensions of 'Iterable' are not supported in minimaxon
 extension Iterable
 	function clone() returns Self
 		print("extension clone\n")
@@ -1214,7 +1212,6 @@ end 'main'
 ```
 
 <!-- test: interface-extensions.a-conformers-own-clone-beats-the-compilers-and-the-extensions -->
-<!-- skip: extensions of 'Iterable' are not supported in minimaxon -->
 A `clone` the type declares itself is neither the compiler's nor the extension's: it wins at every door, whether it is
 written in the type's body or in an `extension Bag implements Cloneable` of the same layer.
 ```maxon
@@ -1254,7 +1251,6 @@ extension Bag implements Cloneable
 	end 'clone'
 end 'Bag'
 
-// TODO: extensions of 'Iterable' are not supported in minimaxon
 extension Iterable
 	function clone() returns Self
 		print("extension clone\n")

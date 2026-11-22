@@ -744,7 +744,7 @@ end 'Container'
 extension Container
 	export typealias ItemPredicate = function(Item) returns bool
 
-	function checkOnly(p ItemPredicate) returns bool
+	function checkOnly(p ItemPredicate) returns bool where Item implements Droppable
 		return p(self.only())
 	end 'checkOnly'
 end 'Container'
@@ -752,11 +752,11 @@ end 'Container'
 type Bag uses Element implements Container with Element
 	export var value as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{value: v}
 	end 'create'
 
-	function only() returns Element
+	function only() returns Element where Element implements Copyable
 		return self.value
 	end 'only'
 end 'Bag'

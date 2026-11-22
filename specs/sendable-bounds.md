@@ -95,7 +95,6 @@ error E3215: <fragment>:13:11: 'Step' is a function type, so it cannot be 'T' of
 
 <!-- test: a-sendable-bound-refuses-an-immutable-function-type -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `immutable` does not make a function type a value, so `immutable Step` is refused as `Step` is.
 
@@ -113,8 +112,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenStepPool = Pool with immutable Step
+typealias FrozenStepPool = Pool with Step
 
 typealias FrozenStepPools = Array with FrozenStepPool
 
@@ -408,7 +406,6 @@ error E3215: <fragment>:13:11: 'Pending' is a promise, so it cannot be 'T' of 'P
 <!-- test: a-sendable-bound-refuses-an-immutable-promise-alias -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `immutable` does not make a promise a value, so `immutable Pending` is refused as `Pending` is.
 
@@ -426,8 +423,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias PendingPool = Pool with immutable Pending
+typealias PendingPool = Pool with Pending
 
 function seven() returns Integer
 	Scheduler.yield()
@@ -447,7 +443,6 @@ error E3215: <fragment>:13:11: 'Pending' is a promise, so it cannot be 'T' of 'P
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-whose-graph-reaches-a-function-value -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `immutable Holder` stands as sendable, but a `Holder` holds a function value, which no share walk can mark, so
 the bound refuses it and names what the graph reaches.
@@ -474,8 +469,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias HolderPool = Pool with immutable Holder
+typealias HolderPool = Pool with Holder
 
 typealias HolderPools = Array with HolderPool
 
@@ -493,7 +487,6 @@ error E3215: <fragment>:21:11: 'Holder' cannot be shared with another thread, so
 <!-- test: a-sendable-bound-refuses-an-immutable-record-whose-graph-reaches-a-promise -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `immutable Holder` stands as sendable, but a `Holder` holds a promise, which no share walk can mark, so the bound
 refuses it and names what the graph reaches, in the words a `freeze` of a `Holder` uses.
@@ -520,8 +513,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias HolderPool = Pool with immutable Holder
+typealias HolderPool = Pool with Holder
 
 typealias HolderPools = Array with HolderPool
 
@@ -544,7 +536,6 @@ error E3215: <fragment>:21:11: 'Holder' cannot be shared with another thread, so
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record-whose-interface-field-holds-a-function-value -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- process: own -->
 A `Holder` holds a `Shape`, and the program converts a `Stepper`, which holds a function value, to `Shape`.
 The bound judges `Holder`'s own graph, not the conformers of `Shape`, so `immutable Holder` meets it, and in a
@@ -588,8 +579,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias HolderPool = Pool with immutable Holder
+typealias HolderPool = Pool with Holder
 
 function wrap() returns Shape
 	return Stepper.create(function(n) gives n + 1)
@@ -611,7 +601,6 @@ end 'main'
 <!-- test: freezing-a-record-whose-interface-field-reaches-a-function-value-is-refused-at-the-freeze -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 In a program that spawns a service, the `freeze` that makes a `Holder` shared judges what its `Shape` field may
@@ -657,8 +646,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias HolderPool = Pool with immutable Holder
+typealias HolderPool = Pool with Holder
 
 type Door
 	var seen as Tally
@@ -692,7 +680,6 @@ note: <fragment>:52:9: `Stepper` is converted to `Shape` here
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record-whose-interface-field-holds-an-os-handle -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- process: own -->
 A `Holder` holds a `Shape`, and the program converts a `Port`, which holds a listening socket, to `Shape`. The
 bound judges `Holder`'s own graph, not the conformers of `Shape`, so `immutable Holder` meets it, and in a program
@@ -734,8 +721,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias HolderPool = Pool with immutable Holder
+typealias HolderPool = Pool with Holder
 
 function open(listener TcpListener) returns Shape
 	return Port.create(listener)
@@ -758,7 +744,6 @@ end 'main'
 <!-- test: freezing-a-record-whose-interface-field-reaches-an-os-handle-is-refused-at-the-freeze -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 In a program that spawns a service, the `freeze` that makes a `Holder` shared judges what its `Shape` field may
@@ -802,8 +787,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias HolderPool = Pool with immutable Holder
+typealias HolderPool = Pool with Holder
 
 type Door
 	var seen as Tally
@@ -873,7 +857,6 @@ error E3215: <fragment>:13:11: 'Tallies' is not sendable, so it cannot be 'T' of
 
 <!-- test: a-sendable-bound-accepts-an-immutable-container-instance-through-an-alias -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable Tallies` is shared read-only, so the bound holds.
 
 ```maxon
@@ -890,8 +873,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias TalliesPool = Pool with immutable Tallies
+typealias TalliesPool = Pool with Tallies
 
 function tallies() returns Tallies
 	let made = Tallies.create(0)
@@ -1026,7 +1008,6 @@ error E3215: <fragment>:22:11: 'TallyBox' is not sendable, so it cannot be 'T' o
 
 <!-- test: a-sendable-bound-accepts-an-immutable-tuple-alias -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable Span` is shared read-only, so the bound holds for the tuple it denotes.
 
 ```maxon
@@ -1043,8 +1024,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias SpanPool = Pool with immutable Span
+typealias SpanPool = Pool with Span
 
 function span() returns Span
 	return (3, 4)
@@ -1065,7 +1045,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-accepts-an-immutable-union-with-a-payload -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable Reading` is shared read-only, so the bound holds.
 
 ```maxon
@@ -1085,8 +1064,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias ReadingPool = Pool with immutable Reading
+typealias ReadingPool = Pool with Reading
 
 function main() returns ExitCode
 	let pool = ReadingPool.create(Reading.exact(5))
@@ -1107,7 +1085,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-accepts-an-immutable-instance-of-a-generic-record -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable TallyBox` is shared read-only, so the bound holds.
 
 ```maxon
@@ -1132,8 +1109,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias TallyBoxPool = Pool with immutable TallyBox
+typealias TallyBoxPool = Pool with TallyBox
 
 function main() returns ExitCode
 	let pool = TallyBoxPool.create(TallyBox.create(5))
@@ -1150,7 +1126,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-holding-an-os-handle-as-unique -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A record that holds an OS handle in a field of its own is `unique`, so `immutable Holder` does not stand as
 sendable and the bound refuses it as a `unique` type.
@@ -1173,8 +1148,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias HolderPool = Pool with immutable Holder
+typealias HolderPool = Pool with Holder
 
 typealias HolderPools = Array with HolderPool
 
@@ -1599,7 +1573,6 @@ error E3215: <fragment>:11:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 <!-- test: an-isolated-bound-on-the-owner-does-not-prove-an-immutable-sendable-argument-over-it -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `isolated`, which admits a `unique` `Token`, but `Pool with immutable Rows`, `Rows` being
 `Array with (T, Tally)`, is a `sendable` position and an `isolated` bound does not prove it. It is refused where `Outer`
@@ -1629,8 +1602,7 @@ end 'Pool'
 type Outer uses T where T implements isolated
 	typealias Pair = (T, Tally)
 	typealias Rows = Array with Pair
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Inner = Pool with immutable Rows
+	typealias Inner = Pool with Rows
 	export var pool as Inner
 
 	static function create(pool Inner) returns Self
@@ -1745,7 +1717,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pool with immutable Held`, `Held` being `Box with T`, inside `Outer uses T` is an `immutable` record over a `T` that `Outer` does not
 bound `sendable`. It is refused where `Outer` writes it, once, and `TextOuter` adds no report.
@@ -1770,8 +1741,7 @@ end 'Pool'
 
 type Outer uses T
 	typealias Held = Box with T
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Inner = Pool with immutable Held
+	typealias Inner = Pool with Held
 	export var pool as Inner
 
 	static function create(pool Inner) returns Self
@@ -1795,7 +1765,6 @@ error E3215: <fragment>:20:12: 'Outer.Held' is built over 'T' of 'Outer', which 
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record-over-a-type-parameter-its-owner-bounds -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Outer` bounds `T` `sendable`, so `Pool with immutable Held`, `Held` being `Box with T`, meets the bound in `Outer`: every parameter it
 mentions is bounded, the `Box` is not `unique`, and the rest of its graph can be shared. `TextOuter` is judged
 against `Outer`'s own bound only.
@@ -1821,8 +1790,7 @@ end 'Pool'
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
 	typealias Held = Box with T
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Inner = Pool with immutable Held
+	typealias Inner = Pool with Held
 	export var pool as Inner
 
 	static function create(pool Inner) returns Self
@@ -1849,7 +1817,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-over-a-bounded-type-parameter-whose-graph-reaches-a-function-value -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `sendable`, but `Box` also holds a function value, so `Pool with immutable Held`, `Held` being `Box with T`, cannot be
 shared whatever `T` is. It is refused where `Outer` writes it, once, and `Outer with String` adds no report.
@@ -1880,8 +1847,7 @@ end 'Pool'
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
 	typealias Held = Box with T
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Inner = Pool with immutable Held
+	typealias Inner = Pool with Held
 	export var pool as Inner
 
 	static function create(pool Inner) returns Self
@@ -1905,7 +1871,6 @@ error E3215: <fragment>:24:12: 'Outer.Held' cannot be shared with another thread
 
 <!-- test: a-sendable-bound-refuses-an-immutable-container-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pool with immutable Held`, `Held` being `Array with T`, inside `Outer uses T` is an `immutable` container over a `T` that `Outer` does
 not bound `sendable`. It is refused where `Outer` writes it, once.
@@ -1922,8 +1887,7 @@ end 'Pool'
 
 type Outer uses T
 	typealias Held = Array with T
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Items = Pool with immutable Held
+	typealias Items = Pool with Held
 	export var items as Items
 
 	static function create(items Items) returns Self
@@ -1942,7 +1906,6 @@ error E3215: <fragment>:12:12: 'Outer.Held' is built over 'T' of 'Outer', which 
 
 <!-- test: a-sendable-bound-accepts-an-immutable-container-over-a-type-parameter-its-owner-bounds -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Outer` bounds `T` `sendable`, so `Pool with immutable Held`, `Held` being `Array with T`, meets the bound in `Outer`, and
 `Outer with String` is judged against `Outer`'s own bound only.
 
@@ -1959,8 +1922,7 @@ end 'Pool'
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
 	typealias Held = Array with T
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Items = Pool with immutable Held
+	typealias Items = Pool with Held
 	export var items as Items
 
 	static function create(items Items) returns Self
@@ -1987,7 +1949,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-immutable-tuple-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pool with immutable Pair`, `Pair` being `(T, Tally)`, inside `Outer uses T` is an `immutable` tuple over a `T` that
 `Outer` does not bound `sendable`. It is refused where `Outer` writes it, once, and `Outer with Step` adds no report.
@@ -2008,8 +1969,7 @@ end 'Pool'
 
 type Outer uses T
 	typealias Pair = (T, Tally)
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias PairPool = Pool with immutable Pair
+	typealias PairPool = Pool with Pair
 	export var pool as PairPool
 
 	static function create(pool PairPool) returns Self
@@ -2033,7 +1993,6 @@ error E3215: <fragment>:15:12: '(T, Tally)' is built over 'T' of 'Outer', which 
 
 <!-- test: a-sendable-bound-names-the-first-declared-of-two-unbounded-parameters-an-argument-is-built-over -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pair` is `(U, T)` inside `Outer uses T, U`, so `Pool with immutable Pair` is built over two parameters `Outer` does not bound
 `sendable`. The refusal names `T`, the one `Outer` declares first, although `Pair` writes `U` first.
@@ -2050,8 +2009,7 @@ end 'Pool'
 
 type Outer uses T, U
 	typealias Pair = (U, T)
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias PairPool = Pool with immutable Pair
+	typealias PairPool = Pool with Pair
 	export var pool as PairPool
 
 	static function create(pool PairPool) returns Self
@@ -2070,7 +2028,6 @@ error E3215: <fragment>:12:12: '(U, T)' is built over 'T' of 'Outer', which is n
 
 <!-- test: a-sendable-bound-accepts-an-immutable-tuple-over-a-type-parameter-its-owner-bounds -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Outer` bounds `T` `sendable`, so `Pool with immutable Pair`, `Pair` being `(T, Tally)`, meets the bound in `Outer`: every
 parameter the tuple mentions is bounded and the rest of its graph can be shared. `Outer with String` is judged against
 `Outer`'s own bound only.
@@ -2090,8 +2047,7 @@ end 'Pool'
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
 	typealias Pair = (T, Tally)
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias PairPool = Pool with immutable Pair
+	typealias PairPool = Pool with Pair
 	export var pool as PairPool
 
 	static function create(pool PairPool) returns Self
@@ -2118,7 +2074,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-immutable-phantom-record-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Tag uses T` holds only a `String`, so its graph never reaches `T`, but `Tagged` is `Tag with T` and so mentions `T`.
 `Pool with immutable Tagged` inside `Outer uses T` is refused where `Outer` writes it, once, and `TextOuter` adds no report.
@@ -2143,8 +2098,7 @@ end 'Pool'
 
 type Outer uses T
 	typealias Tagged = Tag with T
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Inner = Pool with immutable Tagged
+	typealias Inner = Pool with Tagged
 	export var pool as Inner
 
 	static function create(pool Inner) returns Self
@@ -2168,7 +2122,6 @@ error E3215: <fragment>:20:12: 'Outer.Tagged' is built over 'T' of 'Outer', whic
 
 <!-- test: a-sendable-bound-refuses-an-immutable-phantom-record-over-a-function-type-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Tag uses T` holds only a `String`, so its graph never reaches `T`, but `Tagged` is `Tag with Maker` and `Maker` is a function type over `T`, so `Tagged` mentions `T`.
 `Pool with immutable Tagged` inside `Outer uses T` is refused where `Outer` writes it, once.
@@ -2196,8 +2149,7 @@ end 'Pool'
 type Outer uses T
 	typealias Maker = function(T) returns Tally
 	typealias Tagged = Tag with Maker
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias Inner = Pool with immutable Tagged
+	typealias Inner = Pool with Tagged
 	export var n as Tally
 
 	static function create(n Tally) returns Self
@@ -2429,7 +2381,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-accepts-an-immutable-instance-of-a-generic-record-over-a-nested-alias -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable CellBox` is shared read-only, so the bound holds for a `Box with Grid.Cell`.
 
 ```maxon
@@ -2461,8 +2412,7 @@ end 'Pool'
 
 typealias CellBox = Box with Grid.Cell
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenPool = Pool with immutable CellBox
+typealias FrozenPool = Pool with CellBox
 
 function main() returns ExitCode
 	let pool = FrozenPool.create(CellBox.create(5))
@@ -2762,7 +2712,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-each-of-two-mutually-recursive-function-aliases-over-a-type-parameter -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Loop2` and `Loop` name each other and only `Loop` names `T`, so both mention `T`, whichever of them the walk meets first.
 `First` is `Tag with Loop` and `Second` is `Tag with Loop2`; each `Pool with immutable` of them is refused where `Outer` writes it.
@@ -2792,10 +2741,8 @@ type Outer uses T
 	typealias Loop = function(Loop2, T) returns Tally
 	typealias First = Tag with Loop
 	typealias Second = Tag with Loop2
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias A = Pool with immutable First
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias B = Pool with immutable Second
+	typealias A = Pool with First
+	typealias B = Pool with Second
 	export var a as A
 	export var b as B
 
@@ -2816,7 +2763,6 @@ error E3215: <fragment>:26:12: 'Outer.Second' is built over 'T' of 'Outer', whic
 
 <!-- test: a-sendable-bound-names-the-first-declared-parameter-for-each-member-of-a-cycle -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Loop2` and `Loop` name each other, and between them they mention both `T` and `U`, neither of which `Outer` bounds
 `sendable`. Each `Pool with immutable` of `First` or `Second` is refused where `Outer` writes it, and both name `T`, the
@@ -2847,10 +2793,8 @@ type Outer uses T, U
 	typealias Loop = function(T, Loop2) returns Tally
 	typealias First = Tag with Loop
 	typealias Second = Tag with Loop2
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias A = Pool with immutable Second
-	// TODO: type argument capability 'immutable' is not supported in minimaxon
-	typealias B = Pool with immutable First
+	typealias A = Pool with Second
+	typealias B = Pool with First
 	export var a as A
 	export var b as B
 
@@ -4347,7 +4291,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record-of-text-and-numbers -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable Job` stands as sendable, and a `Job`'s graph is a `String` and an array of numbers, which a share walk
 marks, so the bound holds.
 
@@ -4374,8 +4317,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias JobPool = Pool with immutable Job
+typealias JobPool = Pool with Job
 
 function main() returns ExitCode
 	let pool = JobPool.create(freeze(Job.create("build", steps: [3, 4])))
@@ -4473,7 +4415,6 @@ error E3215: <fragment>:22:11: 'Triple' is not sendable, so it cannot be 'T' of 
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record-too-wide-to-pack-in-a-word -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable Triple` is shared read-only, so the bound holds. A `Triple` is a three-slot heap record, as its size
 shows.
 
@@ -4499,8 +4440,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias TriplePool = Pool with immutable Triple
+typealias TriplePool = Pool with Triple
 
 function main() returns ExitCode
 	let pool = TriplePool.create(Triple.create(1, mid: 2, hi: 3))

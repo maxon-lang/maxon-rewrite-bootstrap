@@ -166,14 +166,12 @@ error E3196: <fragment>:17:23: cannot store an immutable 'Box' into 'Array.inser
 ```
 
 <!-- test: list-with-immutable-takes-frozen-values-and-runs -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A list of frozen boxes takes frozen values, and the element read back is frozen too.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxList = List with immutable Box
+typealias FrozenBoxList = List with Box
 
 type Box
 	export var n as Tally
@@ -200,7 +198,6 @@ end 'main'
 ```
 
 <!-- test: a-declared-generic-with-an-immutable-argument-runs-beside-a-mutable-one -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Stack with Job` takes mutable jobs and `Stack with immutable Job` takes frozen ones, from one declaration.
 
 ```maxon
@@ -222,8 +219,8 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(item T)
-		self.items.push(item)
+	function push(mutates self, item T) where T implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function size() returns Tally
@@ -233,13 +230,12 @@ end 'Stack'
 
 typealias JobStack = Stack with Job
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenJobStack = Stack with immutable Job
+typealias FrozenJobStack = Stack with Job
 
 function main() returns ExitCode
-	let mine = JobStack.create()
+	var mine = JobStack.create()
 	mine.push(Job.create(1))
-	let shared = FrozenJobStack.create()
+	var shared = FrozenJobStack.create()
 	let pinned = freeze(Job.create(2))
 	shared.push(pinned)
 	print("{mine.size()} {shared.size()}\n")
@@ -254,7 +250,6 @@ end 'main'
 ```
 
 <!-- test: a-mutable-value-pushed-into-a-declared-generic-with-an-immutable-argument-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `FrozenJobStack` fixes `T` to a frozen `Job`, so the mutable `loose` is refused by the same method that took `pinned`.
 
@@ -277,8 +272,8 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(item T)
-		self.items.push(item)
+	function push(mutates self, item T) where T implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function size() returns Tally
@@ -286,8 +281,7 @@ type Stack uses T
 	end 'size'
 end 'Stack'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenJobStack = Stack with immutable Job
+typealias FrozenJobStack = Stack with Job
 
 function main() returns ExitCode
 	var shared = FrozenJobStack.create()
@@ -302,15 +296,13 @@ error E3196: <fragment>:35:14: cannot store a mutable 'Job' into 'Stack.push.ite
 ```
 
 <!-- test: a-mutable-local-pushed-into-an-immutable-array-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Array with immutable Box` holds frozen boxes: a mutable local cannot be stored, even though it is read again.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -334,15 +326,13 @@ error E3196: <fragment>:16:13: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-fresh-value-pushed-into-an-immutable-array-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A fresh value is mutable data too: the element must be frozen first.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -364,15 +354,13 @@ error E3196: <fragment>:15:13: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-moved-local-pushed-into-an-immutable-array-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `moved` is not read again, but moving mutable data into a frozen element does not freeze it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -395,15 +383,14 @@ error E3196: <fragment>:16:13: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-mutable-value-reaching-an-immutable-element-through-a-parameter-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `stash` stores `item` into frozen elements, so it needs frozen data and the call with the mutable `loose` is refused.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -431,15 +418,13 @@ error E3207: <fragment>:21:15: 'stash' needs 'item' frozen (line 14: `items.push
 ```
 
 <!-- test: a-mutable-value-upserted-into-an-immutable-map-value-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The value type of `Map with (String, immutable Box)` is frozen, and `upsert` is judged by the same rule as `push`.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxMap = Map with (String, immutable Box)
+typealias FrozenBoxMap = Map with (String, Box)
 
 type Box
 	export var n as Tally
@@ -462,15 +447,13 @@ error E3196: <fragment>:16:25: cannot store a mutable 'Box' into 'Map.upsert.val
 ```
 
 <!-- test: a-mutable-value-set-into-an-immutable-array-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `set` is the indexed store door, and it holds an `immutable` element to the same rule.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -495,15 +478,13 @@ error E3196: <fragment>:18:26: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: an-array-literal-of-fresh-values-into-an-immutable-array-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The literal's elements are stores into the instance's slots like any other.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -524,7 +505,6 @@ error E3196: <fragment>:14:32: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-static-factory-of-an-immutable-instance-refuses-a-mutable-argument -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `FrozenHolder.wrap` has no receiver, and the alias fixes `T` to a frozen `Job`.
 
@@ -542,8 +522,8 @@ end 'Job'
 type Holder uses T
 	var held as T
 
-	static function wrap(item T) returns Self
-		return Self{held: item}
+	static function wrap(item T) returns Self where T implements Copyable
+		return Self{held: item.clone()}
 	end 'wrap'
 
 	function number() returns Tally
@@ -551,8 +531,7 @@ type Holder uses T
 	end 'number'
 end 'Holder'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenHolder = Holder with immutable Job
+typealias FrozenHolder = Holder with Job
 
 function main() returns ExitCode
 	let loose = Job.create(2)
@@ -708,15 +687,14 @@ end 'main'
 ```
 
 <!-- test: a-fresh-value-reaching-an-immutable-element-through-a-parameter-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `stash` stores `item` into frozen elements, so it needs frozen data and a fresh value is refused at the call like a mutable local.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -742,15 +720,14 @@ error E3207: <fragment>:19:15: 'stash' needs 'item' frozen (line 14: `items.push
 ```
 
 <!-- test: a-mutable-local-read-again-reaching-an-immutable-element-through-a-parameter-is-reported-once -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The refusal names the call and `immutable`; the read-again local gets no second sentence.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -821,14 +798,12 @@ error E3207: <fragment>:29:7: 'load' writes 'crate' (line 23: 'List.append' keep
 ```
 
 <!-- test: a-frozen-field-of-a-parameter-held-by-a-let-into-an-immutable-list-runs -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The same `load` into a list of frozen boxes needs a frozen `crate`, and gets one.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxList = List with immutable Box
+typealias FrozenBoxList = List with Box
 
 type Box
 	export var n as Tally
@@ -842,17 +817,17 @@ type Crate
 	export var item as Box
 
 	static function create(item Box) returns Self
-		return Self{item: item}
+		return Self{item: item.clone()}
 	end 'create'
 end 'Crate'
 
-function load(crate Crate, into FrozenBoxList)
-	let first = crate.item
+function load(crate Crate, mutates into FrozenBoxList)
+	let first = crate.item.clone()
 	into.append(first)
 end 'load'
 
 function main() returns ExitCode
-	let list = FrozenBoxList.create()
+	var list = FrozenBoxList.create()
 	let live = freeze(Crate.create(Box.create(1)))
 	load(live, into: list)
 	print("{list.count()}\n")
@@ -867,15 +842,14 @@ end 'main'
 ```
 
 <!-- test: a-mutable-argument-for-a-parameter-held-by-a-let-into-an-immutable-list-refused-at-the-call -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `load` is correct for a frozen `crate`, so the refusal is at the call that passes a mutable one.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxList = List with immutable Box
+typealias FrozenBoxList = List with Box
 
 type Box
 	export var n as Tally
@@ -1466,7 +1440,6 @@ error E3196: <fragment>:37:14: cannot store an immutable 'Box' into 'an item of 
 ```
 
 <!-- test: a-tuple-of-frozen-items-handed-to-an-immutable-generic-method-runs -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `absorb` takes `(T, T)` with `T` fixed to `immutable Box`, so a tuple of two frozen boxes is stored.
 
 ```maxon
@@ -1488,7 +1461,7 @@ type Bag uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function absorb(pair(T, T))
+	function absorb(pair (T, T))
 		self.items.push(pair.0)
 		self.items.push(pair.1)
 	end 'absorb'
@@ -1498,8 +1471,7 @@ type Bag uses T
 	end 'size'
 end 'Bag'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBag = Bag with immutable Box
+typealias FrozenBag = Bag with Box
 
 function main() returns ExitCode
 	let bag = FrozenBag.create()
@@ -1578,15 +1550,13 @@ error E3196: <fragment>:14:16: cannot store an isolated 'Box' into 'a value of t
 ```
 
 <!-- test: an-immutable-element-in-a-tuple-literal-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `held` is read out of an `immutable` element, and the tuple keeps it where the write through `pair.0` is refused.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias ReadOnlyBoxes = Array with immutable Box
+typealias ReadOnlyBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -1612,15 +1582,13 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'pair.0', which is immuta
 ```
 
 <!-- test: an-immutable-element-in-a-map-literal-refused -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `held` is read out of an `immutable` element, and the map would keep it where something may write it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias ReadOnlyBoxes = Array with immutable Box
+typealias ReadOnlyBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -1684,7 +1652,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-list-of-another-element-capability-is-another-type -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `List with List with Box` and `List with List with immutable Box` differ in the inner element capability.
 
@@ -1695,8 +1662,7 @@ typealias NestedBoxes = List with BoxList
 
 typealias BoxList = List with Box
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxList = List with immutable Box
+typealias FrozenBoxList = List with Box
 
 type Box
 	export var n as Tally
@@ -1749,15 +1715,13 @@ error E3196: <fragment>:14:16: cannot store an immutable 'Box' into 'a value of 
 ```
 
 <!-- test: a-loop-variable-over-an-immutable-array-is-blamed-as-immutable -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The elements are frozen by the array's type, and the refusal says `immutable`.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -1782,15 +1746,13 @@ error E3197: <fragment>:19:3: cannot write 'n' through 'item', which is immutabl
 ```
 
 <!-- test: a-write-through-a-value-read-out-of-an-immutable-list-is-blamed-as-immutable -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `first` is read out of a list whose elements are frozen, so a write through it is refused.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxList = List with immutable Box
+typealias FrozenBoxList = List with Box
 
 type Box
 	export var n as Tally
@@ -1816,15 +1778,13 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'first', which is immutab
 
 <!-- test: an-element-handed-back-by-a-call-over-an-immutable-array-is-blamed-as-immutable -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` returns an `immutable` element of a frozen array, so writing through the binding `held` is blamed on the `immutable` element.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -1854,7 +1814,6 @@ error E3197: <fragment>:22:2: cannot write 'n' through 'held', which is immutabl
 ```
 
 <!-- test: a-declared-generic-over-a-tuple-of-its-parameter-takes-frozen-and-mutable-arguments-and-runs -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Pair` is a tuple of the declared generic's `T`, so its items are frozen for `Pairs with immutable Box` and mutable for `Pairs with Box`.
 
 ```maxon
@@ -1877,8 +1836,8 @@ type Pairs uses T
 		return Self{items: Items.create()}
 	end 'create'
 
-	function add(first T, second T)
-		self.items.append((first, second))
+	function add(mutates self, first T, second T) where T implements Copyable
+		self.items.append((first.clone(), second.clone()))
 	end 'add'
 
 	function size() returns Tally
@@ -1886,19 +1845,18 @@ type Pairs uses T
 	end 'size'
 end 'Pairs'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenPairs = Pairs with immutable Box
+typealias FrozenPairs = Pairs with Box
 
 typealias BoxPairs = Pairs with Box
 
 function main() returns ExitCode
 	let a = freeze(Box.create(1))
 	let b = freeze(Box.create(2))
-	let frozen = FrozenPairs.create()
+	var frozen = FrozenPairs.create()
 	frozen.add(a, second: b)
 	let c = Box.create(3)
 	let d = Box.create(4)
-	let plain = BoxPairs.create()
+	var plain = BoxPairs.create()
 	plain.add(c, second: d)
 	print("{frozen.size()} {plain.size()}\n")
 	return 0
@@ -2100,15 +2058,13 @@ error E3196: <fragment>:13:10: cannot store an immutable 'Box' into 'an item of 
 ```
 
 <!-- test: a-nested-array-of-another-capability-is-another-type -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Bag.Items` is `Array with Box` for `BoxBag`; an `Array with immutable Box` is a different type, so the argument is refused as a type mismatch.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenBoxes = Array with immutable Box
+typealias FrozenBoxes = Array with Box
 
 type Box
 	export var n as Tally
@@ -2152,7 +2108,6 @@ error E3005: <fragment>:38:6: argument type mismatch for 'more': expected 'Array
 ```
 
 <!-- test: a-closure-that-writes-its-parameter-is-refused-for-an-immutable-instance -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` takes `T`, which `FrozenVisitor` fixes to `immutable Box`; `bump` writes its parameter, so the closure cannot stand for a `Step`.
 
@@ -2184,8 +2139,7 @@ type Visitor uses T
 	end 'sum'
 end 'Visitor'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenVisitor = Visitor with immutable Box
+typealias FrozenVisitor = Visitor with Box
 
 function bump(b Box) returns Tally
 	b.n = b.n + 1
@@ -2205,7 +2159,6 @@ error E3210: <fragment>:40:30: function value for 'Visitor.Step' writes its para
 ```
 
 <!-- test: a-closure-that-reads-its-parameter-runs-for-an-immutable-instance -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A closure that only reads its parameter takes the frozen box.
 
 ```maxon
@@ -2227,8 +2180,8 @@ type Visitor uses T
 		return Self{total: 0}
 	end 'create'
 
-	function visit(item T, step Step)
-		self.total = self.total + step(item)
+	function visit(mutates self, item T, step Step)
+		self.total = try self.total + step(item) otherwise panic("out of range")
 	end 'visit'
 
 	function sum() returns Tally
@@ -2236,11 +2189,10 @@ type Visitor uses T
 	end 'sum'
 end 'Visitor'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenVisitor = Visitor with immutable Box
+typealias FrozenVisitor = Visitor with Box
 
 function main() returns ExitCode
-	let visitor = FrozenVisitor.create()
+	var visitor = FrozenVisitor.create()
 	let pinned = freeze(Box.create(1))
 	visitor.visit(pinned, step: function(b Box) gives b.n)
 	print("{visitor.sum()}\n")
@@ -2441,7 +2393,6 @@ error E3209: <fragment>:18:10: a return does not fit the declared result: 'Leaf.
 ```
 
 <!-- test: a-field-assignment-into-an-immutable-instance-refuses-a-mutable-value -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `FrozenHolder` fixes `T` to a frozen `Job`, so the public field `held` is an immutable slot and `loose` cannot be assigned to it.
 
@@ -2459,13 +2410,12 @@ end 'Job'
 type Holder uses T
 	export var held as T
 
-	static function wrap(item T) returns Self
-		return Self{held: item}
+	static function wrap(item T) returns Self where T implements Copyable
+		return Self{held: item.clone()}
 	end 'wrap'
 end 'Holder'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenHolder = Holder with immutable Job
+typealias FrozenHolder = Holder with Job
 
 function main() returns ExitCode
 	var pinned = freeze(Job.create(1))
@@ -2481,7 +2431,6 @@ error E3196: <fragment>:26:16: cannot store a mutable 'Job' into 'held', which h
 ```
 
 <!-- test: a-field-assignment-into-an-immutable-instance-takes-a-frozen-value-and-runs -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The same field takes a frozen value, and a mutable instance of the same type takes a mutable one.
 
 ```maxon
@@ -2503,8 +2452,7 @@ type Holder uses T
 	end 'wrap'
 end 'Holder'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenHolder = Holder with immutable Job
+typealias FrozenHolder = Holder with Job
 
 typealias PlainHolder = Holder with Job
 

@@ -253,14 +253,10 @@ function declareAliasesOfExtension(mutates c Checker, p ast.Project, mutates ms 
 		refuseExtensionAliases(c, p: p, ms: ms, xd: xd, code: diag.errExpectedToken, msg: diag.expectedToken("'function'", got: "typealias"), errs: errs)
 		nt = ast.noType
 	end 'cases'
-	if nt != ast.noType and ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.interfaceTy 'interface'
-		refuseExtensionAliases(c, p: p, ms: ms, xd: xd, code: diag.errUnsupportedFeature, msg: "Unsupported: a typealias in an extension of the interface '{ast.typeEntry(ms.types, reads: p.types, t: nt).name}': an interface's typealiases are declared in its body, and an extension of an interface adds methods only", errs: errs)
-		nt = ast.noType
-	end 'interface'
 	var key = ast.noType
 	if nt != ast.noType 'extended'
 		bindExtensionParams(c, p: p, ms: ms, xd: xd, nt: nt)
-		key = ast.extensionKey(p, ms: ms, t: nt).unwrap()
+		key = extensionAliasKey(p, ms: ms, nt: nt)
 	end 'extended'
 	let owner = ast.extensionOwnerName(ms.tree(), xd: xd)
 	for i in 0 upto xd.aliases.count() 'aliases'
@@ -271,8 +267,17 @@ function declareAliasesOfExtension(mutates c Checker, p ast.Project, mutates ms 
 	end 'aliases'
 end 'declareAliasesOfExtension'
 
+// extensionAliasKey is the type that the typealiases of an extension of nt are filed under, as its methods are: an interface
+// itself, whose associated types they name as its methods do, and the extension key of any other type.
+function extensionAliasKey(p ast.Project, ms ast.ModuleState, nt ast.TypeID) returns ast.TypeID
+	if ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.interfaceTy 'interface'
+		return nt
+	end 'interface'
+	return ast.extensionKey(p, ms: ms, t: nt).unwrap()
+end 'extensionAliasKey'
+
 // refuseExtensionAliases refuses the typealiases of an extension of a type that cannot take them: an enum or a union, whose
-// declarations hold cases and methods only, or an interface, whose conformers have no one type to name them by.
+// declarations hold cases and methods only.
 function refuseExtensionAliases(mutates c Checker, p ast.Project, ms ast.ModuleState, xd ast.ExtensionDecl, code String, msg String, mutates errs diag.ErrorList)
 	for i in 0 upto xd.aliases.count() 'each'
 		checkFail(c.modID, off: ms.tree().startOf(xd.aliases[i].id), code: code.clone(), msg: msg.clone(), errs: errs)

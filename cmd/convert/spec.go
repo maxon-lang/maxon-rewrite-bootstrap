@@ -222,7 +222,7 @@ func (c *specConverter) convertSection(body []string, firstLine int) []string {
 	if first == last {
 		return body
 	}
-	res := Convert(c.file, strings.Join(body[first:last], "\n"))
+	res := Convert(c.file, strings.Join(body[first:last], "\n"), specProgram)
 	for _, w := range res.Warnings {
 		w.Line += firstLine + first - 1
 		c.warnings = append(c.warnings, w)

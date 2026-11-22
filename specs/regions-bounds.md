@@ -58,7 +58,6 @@ error E3215: <fragment>:20:11: 'Job' is not sendable, so it cannot be 'T' of 'Po
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable Job` is shared read-only, so the bound holds.
 
 ```maxon
@@ -81,8 +80,7 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias FrozenPool = Pool with immutable Job
+typealias FrozenPool = Pool with Job
 
 function main() returns ExitCode
 	let pool = FrozenPool.create(freeze(Job.create(2)))

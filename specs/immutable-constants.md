@@ -285,23 +285,21 @@ end 'main'
 ```
 
 <!-- test: constant-names-are-pushed-into-an-immutable-array-and-read-by-for -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An array whose element is `immutable ByteArray` takes a module `let` and a local `let`, and `for` reads each name back.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameArray = Array with immutable ByteArray
+typealias NameArray = Array with ByteArray
 
 let Alpha = b"alpha"
 
 function main() returns ExitCode
 	let beta = b"be"
-	let names = NameArray.create(0)
+	var names = NameArray.create(0)
 	names.push(Alpha)
 	names.push(beta)
 	var total = 0 as Count
 	for name in names 'eachName'
-		total = total + name.count()
+		total = try total + name.count() otherwise panic("out of range")
 	end 'eachName'
 	print("{names.count()} {total}\n")
 	return 0
@@ -655,13 +653,11 @@ end 'main'
 
 <!-- test: inline-byte-literal-is-immutable -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An inline literal is image data like a constant `let`: it is stored into an `immutable` field and into an
 `immutable` array element with no `freeze` and no copy.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameArray = Array with immutable ByteArray
+typealias NameArray = Array with ByteArray
 
 type Tok
 	// TODO: region capability 'immutable' is not supported in minimaxon
@@ -1331,18 +1327,15 @@ end 'main'
 
 <!-- test: reads-of-an-immutable-slot-are-immutable -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `get`, a `for` loop and a `Map` value all hand back `immutable` data when the slot is `immutable`, so each goes
 straight into an `immutable` result or element.
 
 ```maxon
 let Alpha = b"alpha"
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameArray = Array with immutable ByteArray
+typealias NameArray = Array with ByteArray
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameMap = Map with (ByteArray, immutable ByteArray)
+typealias NameMap = Map with (ByteArray, ByteArray)
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
 function firstOf(names NameArray) returns immutable ByteArray
@@ -1379,7 +1372,6 @@ end 'main'
 ```
 
 <!-- test: a-map-get-result-takes-its-capability-from-the-value-slot-only -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The key `Spelling` is immutable, and the value array `get` returns is the map's own, writable one: the result does not
 join the key's capability.
 
@@ -1388,8 +1380,7 @@ let Spelling = b"x"
 
 let Declaring = b"decl"
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias PathArray = Array with immutable ByteArray
+typealias PathArray = Array with ByteArray
 
 typealias PathMap = Map with (ByteArray, PathArray)
 
@@ -1563,13 +1554,11 @@ end 'main'
 <!-- test: a-call-declared-to-return-immutable-data-passed-to-a-frozen-need-does-not-freeze-the-receiver -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `nameAt` is declared `returns immutable`, so its result is frozen however `table` is held: `reframe` writes `table` and
 passes the result to `canon`, which needs frozen data, and `table` stays a mutable parameter.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameList = Array with immutable ByteArray
+typealias NameList = Array with ByteArray
 
 type Table
 	export var names as NameList
@@ -1711,13 +1700,11 @@ error E3207: <fragment>:17:15: 'takes' takes `immutable` 'name'; 'sigs' is mutab
 <!-- test: an-immutable-element-fills-an-immutable-struct-field -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An element of an `Array with immutable ByteArray` is frozen data, so it fills a field declared `immutable ByteArray`
 with nothing copied.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameList = Array with immutable ByteArray
+typealias NameList = Array with ByteArray
 
 type Window
 	// TODO: region capability 'immutable' is not supported in minimaxon
@@ -1749,13 +1736,11 @@ end 'main'
 <!-- test: an-immutable-element-fills-a-one-word-union-payload -->
 <!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A union whose only payload case holds one `immutable` word takes an element of an `Array with immutable ByteArray`
 and is stored into a `var` field.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameList = Array with immutable ByteArray
+typealias NameList = Array with ByteArray
 
 union Source
 	file
@@ -1802,13 +1787,11 @@ end 'main'
 
 <!-- test: an-immutable-element-fills-the-second-payload-case-of-a-boxed-union -->
 <!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A union with two payload cases is boxed, and its second case takes `immutable` elements of an
 `Array with immutable ByteArray` as well.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameList = Array with immutable ByteArray
+typealias NameList = Array with ByteArray
 
 union Shape
 	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
@@ -2434,12 +2417,10 @@ end 'main'
 
 <!-- test: a-name-read-through-a-result-chain-keeps-its-immutable-element -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 An element of an array of `immutable` names stays `immutable` when the array is reached through a call result.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NameRoster = Array with immutable ByteArray
+typealias NameRoster = Array with ByteArray
 
 type Frozen
 	export let texts as NameRoster
@@ -2552,13 +2533,11 @@ end 'main'
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A constant name stored in an `immutable` field, an `immutable` array element and a map key is the one image record, never a
 copy. Reading it back out of each holder and freezing the arrays that hold it neither copies it nor aborts the freeze.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Names = Array with immutable ByteArray
+typealias Names = Array with ByteArray
 
 typealias Counts = Map with (ByteArray, ElementIndex)
 
@@ -2614,14 +2593,12 @@ end 'main'
 <!-- test: a-constant-name-handed-through-a-plain-parameter-into-a-map-is-not-copied -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `record` takes its name and identity as plain parameters and files them under a `Map` key and an `immutable` value.
 Every caller passes constants, so the parameters are read-only, and the key and the value are the image records
 themselves: the map is cloned into a shared cell, whose freeze finds no record with an owner outside it.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias NominalMap = Map with (ByteArray, immutable ByteArray)
+typealias NominalMap = Map with (ByteArray, ByteArray)
 
 let HashName = b"HashValue"
 

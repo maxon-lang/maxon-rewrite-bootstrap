@@ -35,6 +35,25 @@ var primTypes = []primType{
 	{"Float", "b.anonFloatTy"},
 }
 
+// stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and
+// so is declared before them: its name, the Builtins field that holds it, and the Maxon expressions of its bounds.
+type stdAlias struct {
+	Name, Field, Lo, Hi string
+	// Float is an alias of a range of floats rather than of integers.
+	Float bool
+}
+
+var stdAliases = []stdAlias{
+	{Name: "ExitCode", Field: "exitCodeTy", Lo: "I128.zero()", Hi: "I128.fromCount(4294967295 as Count)"},
+	{Name: "Count", Field: "countTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	{Name: "ElementIndex", Field: "elementIndexTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	{Name: "FullRangeInt", Field: "fullRangeIntTy", Lo: "I128.i64Min()", Hi: "I128.i64Max()"},
+	{Name: "Byte", Field: "byteTy", Lo: "I128.zero()", Hi: "I128.fromCount(255 as Count)"},
+	{Name: "FullRangeFloat", Field: "fullRangeFloatTy", Lo: "floatNegate(floatMaxBits)", Hi: "floatMaxBits", Float: true},
+	{Name: "Codepoint", Field: "codepointTy", Lo: "I128.zero()", Hi: "I128.fromCount(1114111 as Count)"},
+	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
+}
+
 // extraField is a field of self's Builtins record that no row of the table gives it: a type that initBuiltins registers
 // by hand because it is no row of the table (the types of an unsuffixed literal, never, FullRangeFloat), and the maps of
 // the stdlib's declarations that it fills last. Zero is the value Builtins.empty() holds until it does.

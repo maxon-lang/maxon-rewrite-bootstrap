@@ -420,7 +420,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-container-accepts-a-constant -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 ⭐ **AN `immutable` ELEMENT TYPE TAKES A FROZEN VALUE.** Nothing can write through the container's elements,
 so the image is never written and the store the case above refuses is accepted: the container holds the
 constant and reads it back.
@@ -429,8 +428,7 @@ typealias Num = int(0 to 1000)
 
 typealias NumArray = Array with Num
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Holder = Array with immutable NumArray
+typealias Holder = Array with NumArray
 
 let Anchor = NumArray.create(0)
 
@@ -446,7 +444,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-container-keeps-the-constants-identity -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 ⭐ **AN `immutable` ELEMENT NEEDS NO PRIVATE COPY OF AN IMMORTAL IMAGE.** The container shares the constant's own
 record, so the element read back IS the constant: `stored is Anchor`, where a container of writable elements
 holds a private copy and `is` answers false (`a-durable-store-of-a-cloned-constant-is-its-own-object`).
@@ -455,8 +452,7 @@ typealias Num = int(0 to 1000)
 
 typealias NumArray = Array with Num
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Holder = Array with immutable NumArray
+typealias Holder = Array with NumArray
 
 let Anchor = NumArray.create(0)
 

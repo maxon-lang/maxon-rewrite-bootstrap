@@ -14,15 +14,13 @@ category: collections
 ## Tests
 
 <!-- test: bytearray-array-contains -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 Check that ByteArrayArray.contains() uses content equality, not pointer identity.
 ```maxon
 typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias ByteArrayArray = Array with immutable ByteArray
+typealias ByteArrayArray = Array with ByteArray
 
 function main() returns ExitCode
 	let names = ByteArrayArray.create(0)

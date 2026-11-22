@@ -63,13 +63,11 @@ end 'main'
 <!-- test: a-immutable-element-read-through-a-method-is-kept-by-a-let-field -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `nameOf` returns an element of a `immutable` array, which nothing can write. A `let` field keeps the read-only
 element itself, and the record that holds it is read-only too.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Names = Array with immutable ByteArray
+typealias Names = Array with ByteArray
 
 type Label
 	export let text as ByteArray
@@ -113,12 +111,10 @@ end 'main'
 <!-- test: a-immutable-element-read-through-a-method-is-kept-by-a-let-field-as-a-clone -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The same program keeping a clone of the element: the `let` field holds data of its own.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Names = Array with immutable ByteArray
+typealias Names = Array with ByteArray
 
 type Label
 	export let text as ByteArray
@@ -162,12 +158,10 @@ end 'main'
 <!-- test: a-immutable-element-read-through-a-method-is-pushed-into-a-immutable-container -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The same result is stored into another `immutable` container.
 
 ```maxon
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Names = Array with immutable ByteArray
+typealias Names = Array with ByteArray
 
 type Table
 	var names as Names
@@ -202,7 +196,6 @@ end 'main'
 ```
 
 <!-- test: error.a-writable-element-read-through-a-method-is-refused-by-a-immutable-container -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The twin of the case above with elements that are not `immutable`: `Table.nameOf` hands back a mutable
 element, so storing the result into a `immutable` container is refused until it is frozen.
@@ -210,20 +203,19 @@ element, so storing the result into a `immutable` container is refused until it 
 ```maxon
 typealias Names = Array with ByteArray
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable ByteArray
+typealias Roster = Array with ByteArray
 
 type Table
 	var names as Names
 
 	static function create() returns Self
-		let names = Names.create(0)
+		var names = Names.create(0)
 		names.push("alpha".toByteArray())
 		return Self{names: names}
 	end 'create'
 
-	function register(name ByteArray)
-		self.names.push(name)
+	function register(mutates self, name ByteArray)
+		self.names.push(name.clone())
 	end 'register'
 
 	function nameOf(index ElementIndex) returns ByteArray
@@ -232,11 +224,11 @@ type Table
 end 'Table'
 
 function main() returns ExitCode
-	let table = Table.create()
+	var table = Table.create()
 	table.register("gamma".toByteArray())
-	let roster = Roster.create(0)
+	var roster = Roster.create(0)
 	roster.push(table.nameOf(1))
-	return roster.count() as ExitCode
+	return try roster.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -415,7 +407,6 @@ end 'main'
 <!-- test: a-lookup-or-the-argument-is-read-only-when-the-argument-is -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `spell` returns a read-only lookup on one path and its own parameter on the other. Its result is read-only when
 the argument is, here an element of a `immutable` array, so the `let` field of the label keeps it and the label is
 read-only too.
@@ -423,11 +414,9 @@ read-only too.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias RenameMap = Map with (ByteArray, immutable ByteArray)
+typealias RenameMap = Map with (ByteArray, ByteArray)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias Roster = Array with immutable ByteArray
+typealias Roster = Array with ByteArray
 
 type Labelled
 	export let label as ByteArray
@@ -470,7 +459,6 @@ end 'main'
 <!-- test: error.a-lookup-or-the-argument-is-refused-when-the-argument-may-be-written -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same `spell` handed a mutable `var` that is read again is refused: `spell` takes an `immutable` name, and
 `scratch` is still writable.
@@ -478,8 +466,7 @@ The same `spell` handed a mutable `var` that is read again is refused: `spell` t
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: type argument capability 'immutable' is not supported in minimaxon
-typealias RenameMap = Map with (ByteArray, immutable ByteArray)
+typealias RenameMap = Map with (ByteArray, ByteArray)
 
 type Labelled
 	export let label as ByteArray

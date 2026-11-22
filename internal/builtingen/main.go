@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+	"go/format"
 	"os"
 	"slices"
 	"strings"
@@ -64,7 +65,11 @@ func generate() (outs []output, err error) {
 		}
 	}()
 	t := load()
-	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRecordFile, []byte(emitMaxonBuiltinsRecord(t))}, output{maxonRtFile, []byte(emitMaxonRt(t))}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))}, output{maxonInterpFile, []byte(emitMaxonInterp(t))}, output{interpTextOpsFile, []byte(emitTextOps())})
+	names, err := format.Source([]byte(emitConvert(t)))
+	if err != nil {
+		return nil, err
+	}
+	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRecordFile, []byte(emitMaxonBuiltinsRecord(t))}, output{maxonRtFile, []byte(emitMaxonRt(t))}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))}, output{maxonInterpFile, []byte(emitMaxonInterp(t))}, output{interpTextOpsFile, []byte(emitTextOps())}, output{convertFile, names})
 	return outs, nil
 }
 
