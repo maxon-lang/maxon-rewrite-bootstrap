@@ -93,8 +93,104 @@ let contextHeapOffset = 24 as Count
 // contextRandomOffset is where a thread's context holds the state of its random numbers, which pick the queue it steals from first.
 let contextRandomOffset = 32 as Count
 
+// contextProcOffset is where a thread's context holds the address of the processor (Go's P) whose queues it runs, 0 while it has none: its queue is that processor's, kept beside it.
+let contextProcOffset = 40 as Count
+
+// contextGreenOffset is where a thread's context holds the green thread it runs (Go's m.curg), 0 while it runs its scheduler or a behaviour.
+let contextGreenOffset = 48 as Count
+
+// contextSchedSwitchOffset is where a thread's context holds the address of the switch record of its scheduler (Go's g0), which a green thread switches back to.
+let contextSchedSwitchOffset = 56 as Count
+
+// contextSwitchFromOffset is where a thread's context holds the switch record that rt.stackSwitch saves the running stack's registers into.
+let contextSwitchFromOffset = 64 as Count
+
+// contextSwitchToOffset is where a thread's context holds the switch record that rt.stackSwitch loads the registers of the stack it goes on from: the word after contextSwitchFromOffset, so the pair is the switch's one argument.
+let contextSwitchToOffset = 72 as Count
+
+// contextIntentOffset is where a thread's context holds what the green thread that switched to its scheduler asks of it: to park it, requeue it, or finish it.
+let contextIntentOffset = 80 as Count
+
+// contextSyscallOffset is where a thread's context holds the state of its blocking call: bit 0 while it is in one, bit 1 once the monitor has taken its processor, and a generation above them that each call steps, so that one value names one call.
+let contextSyscallOffset = 88 as Count
+
+// contextSysmonWordOffset is where a thread's context holds the blocking call's state the monitor saw last, which only the monitor reads and writes.
+let contextSysmonWordOffset = 96 as Count
+
+// contextSysmonWhenOffset is where a thread's context holds when the monitor first saw that state, in nanoseconds.
+let contextSysmonWhenOffset = 104 as Count
+
+// contextSignalPendingOffset is where a thread's context holds 1 while a preemption the monitor sent it is not yet answered (Go's m.signalPending).
+let contextSignalPendingOffset = 112 as Count
+
+// contextThreadOffset is where a thread's context holds what the monitor stops the thread by: on Windows a handle that may suspend it and read and set its registers, on Linux its thread id.
+let contextThreadOffset = 120 as Count
+
+// contextPreemptCodeOffset is where a thread's context holds the address of the runtime's code that rt.asyncPreempt calls with the context once it has saved every register, which parks the green thread it stopped.
+let contextPreemptCodeOffset = 128 as Count
+
+// contextSignalCodeOffset is where a thread's context holds the address of the runtime's code that the Linux preemption signal's handler calls with the signal's context.
+let contextSignalCodeOffset = 136 as Count
+
+// contextNextProcOffset is where a thread's context holds the processor that the thread that woke it hands it (Go's m.nextp), 0 for none.
+let contextNextProcOffset = 144 as Count
+
+// contextStoppedOffset is where a thread's context holds 1 while it waits with no processor for one, the word a Linux thread waits on with a futex.
+let contextStoppedOffset = 152 as Count
+
+// contextIdleNextOffset is where a thread's context holds the next of the threads that wait with no processor, a list the scheduler's lock guards.
+let contextIdleNextOffset = 160 as Count
+
+// contextStartCodeOffset is where a thread's context holds the address of the code that the thread the runtime starts with it runs, called with the context: the monitor's loop, or 0 for a worker's.
+let contextStartCodeOffset = 168 as Count
+
 // contextBytes is the size of a thread's context.
-let contextBytes = 40 as Count
+let contextBytes = 176 as Count
+
+// switchSpOffset is where a switch record holds the stack pointer, at the word the stack goes on at: the return address of the switch that left it, or of rt.greenStart on a stack that has not run.
+let switchSpOffset = 0 as Count
+
+// switchRbxOffset is where a switch record holds rbx, which rt.greenStart passes to the code it calls.
+let switchRbxOffset = 8 as Count
+
+// switchRbpOffset is where a switch record holds rbp.
+let switchRbpOffset = 16 as Count
+
+// switchR12Offset is where a switch record holds r12, the address of the code that rt.greenStart calls; r13, r14 and r15 follow it.
+let switchR12Offset = 24 as Count
+
+// switchStackBaseOffset is where a switch record holds the top of its stack, the TEB's StackBase on Windows.
+let switchStackBaseOffset = 56 as Count
+
+// switchStackLimitOffset is where a switch record holds the lowest committed address of its stack, the TEB's StackLimit on Windows.
+let switchStackLimitOffset = 64 as Count
+
+// switchStackLowOffset is where a switch record holds the lowest address of its stack's reserve, the TEB's DeallocationStack on Windows.
+let switchStackLowOffset = 72 as Count
+
+// switchXmmOffset is where a switch record holds xmm6 to xmm15, two words each.
+let switchXmmOffset = 80 as Count
+
+// switchBytes is the size of a switch record.
+let switchBytes = 240 as Count
+
+// windowsContextFlagsOffset is where a CONTEXT holds which of its parts a call reads or writes (ContextFlags, 32 bits).
+let windowsContextFlagsOffset = 48 as Count
+
+// windowsContextRspOffset is where a CONTEXT holds Rsp.
+let windowsContextRspOffset = 152 as Count
+
+// windowsContextRipOffset is where a CONTEXT holds Rip.
+let windowsContextRipOffset = 248 as Count
+
+// windowsContextBytes is the size of a CONTEXT.
+let windowsContextBytes = 1232 as Count
+
+// windowsContextAlignment is the alignment that GetThreadContext asks of a CONTEXT.
+let windowsContextAlignment = 16 as Count
+
+// windowsContextControl is CONTEXT_AMD64 | CONTEXT_CONTROL: the part of a CONTEXT that holds the segments, the flags, Rsp and Rip.
+let windowsContextControl = 1048577 as Count
 
 // schedWorkersOffset is where the scheduler's record holds how many workers there are, the main thread among them.
 let schedWorkersOffset = 0 as Count
@@ -213,6 +309,9 @@ let linuxSysMprotect = 10 as Count
 // linuxSysMunmap is munmap(address, length).
 let linuxSysMunmap = 11 as Count
 
+// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
+let linuxSysRtSigaction = 13 as Count
+
 // linuxSysSchedYield is sched_yield().
 let linuxSysSchedYield = 24 as Count
 
@@ -278,6 +377,42 @@ let linuxSysDup3 = 292 as Count
 
 // linuxSysPipe2 is pipe2(fds, flags).
 let linuxSysPipe2 = 293 as Count
+
+// linuxSysGettid is gettid(): the calling thread's id, which a signal is sent to.
+let linuxSysGettid = 186 as Count
+
+// linuxSysTgkill is tgkill(process id, thread id, signal): a signal to one thread of a process.
+let linuxSysTgkill = 234 as Count
+
+// linuxSigactionHandlerOffset is where a struct sigaction holds the handler.
+let linuxSigactionHandlerOffset = 0 as Count
+
+// linuxSigactionFlagsOffset is where a struct sigaction holds the flags.
+let linuxSigactionFlagsOffset = 8 as Count
+
+// linuxSigactionRestorerOffset is where a struct sigaction holds the restorer, the code the handler returns through, which x86-64 requires.
+let linuxSigactionRestorerOffset = 16 as Count
+
+// linuxSigactionMaskOffset is where a struct sigaction holds the signals blocked while the handler runs.
+let linuxSigactionMaskOffset = 24 as Count
+
+// linuxSigactionBytes is the size of a struct sigaction.
+let linuxSigactionBytes = 32 as Count
+
+// linuxSignalMaskBytes is the size of the signal mask that rt_sigaction takes.
+let linuxSignalMaskBytes = 8 as Count
+
+// linuxPreemptActionFlags is SA_SIGINFO | SA_ONSTACK | SA_RESTORER | SA_RESTART: the flags of the preemption signal's action, which also has a system call that the signal broke off made again where it can be.
+let linuxPreemptActionFlags = 469762052 as Count
+
+// linuxSigurg is SIGURG, the signal the monitor stops a thread with, as Go's runtime does: no program of the runtime's asks for it.
+let linuxSigurg = 23 as Count
+
+// linuxUcontextRspOffset is where a ucontext_t holds the stopped code's rsp.
+let linuxUcontextRspOffset = 160 as Count
+
+// linuxUcontextRipOffset is where a ucontext_t holds the stopped code's rip.
+let linuxUcontextRipOffset = 168 as Count
 
 // linuxErrnoLimit is one past the largest errno: a result above the word -linuxErrnoLimit is a failure.
 let linuxErrnoLimit = 4096 as Count

@@ -15,6 +15,7 @@ enum LinkTargetKind
 	linkData
 	linkImageDataStart
 	linkImageDataEnd
+	linkPreemptibleCode
 end 'LinkTargetKind'
 
 // LinkTarget is where a symbol is defined: a section of code or a piece of data of a unit, and its offset in the unit,
@@ -105,7 +106,7 @@ end 'zeros'
 function newLinkUnit(u CodeUnit) returns LinkUnit
 	var sections = CodeSectionList.create(0)
 	if u.sections.count() == 0 'single'
-		sections.push(CodeSection.make(0, symbolFixups: 0, dataFixups: 0, importFixups: 0, alignment: functionAlignment))
+		sections.push(CodeSection.make(0, symbolFixups: 0, dataFixups: 0, importFixups: 0, alignment: functionAlignment, preemptible: false))
 	end 'single' else 'several'
 		if u.sections[0].code != 0 'before'
 			panic("link: a unit has code before its first section")
@@ -114,7 +115,7 @@ function newLinkUnit(u CodeUnit) returns LinkUnit
 			sections.push(u.sections[i].clone())
 		end 'copy'
 	end 'several'
-	sections.push(CodeSection.make(u.asm.code.count(), symbolFixups: u.asm.symbolFixups.count(), dataFixups: u.asm.dataFixups.count(), importFixups: u.asm.importFixups.count(), alignment: functionAlignment))
+	sections.push(CodeSection.make(u.asm.code.count(), symbolFixups: u.asm.symbolFixups.count(), dataFixups: u.asm.dataFixups.count(), importFixups: u.asm.importFixups.count(), alignment: functionAlignment, preemptible: false))
 	var sectionStarts = CountList.create(0)
 	for i in 0 upto sections.count() 'starts'
 		sectionStarts.push(sections[i].code)
@@ -195,15 +196,18 @@ export function link(units LinkUnits, entry String, system ast.TargetSystem, map
 	end 'ids'
 	let imageDataStart = next
 	let imageDataEnd = try next + 1 otherwise panic("link: more symbols than memory")
+	let preemptibleCode = try next + 2 otherwise panic("link: more symbols than memory")
 	var symbols = SymbolIds.new()
-	var defined = LinkTargetList.filled(try imageDataEnd + 1 otherwise panic("link: more symbols than memory"), value: LinkTarget.make(LinkTargetKind.linkUndefined, unit: 0, part: 0, offset: 0))
+	var defined = LinkTargetList.filled(try preemptibleCode + 1 otherwise panic("link: more symbols than memory"), value: LinkTarget.make(LinkTargetKind.linkUndefined, unit: 0, part: 0, offset: 0))
 	for i in 0 upto links.count() 'define'
 		defineSymbols(links[i], u: units.at(i), index: i, symbols: symbols, defined: defined)
 	end 'define'
 	defined[imageDataStart] = LinkTarget.make(LinkTargetKind.linkImageDataStart, unit: 0, part: 0, offset: 0)
 	defined[imageDataEnd] = LinkTarget.make(LinkTargetKind.linkImageDataEnd, unit: 0, part: 0, offset: 0)
+	defined[preemptibleCode] = LinkTarget.make(LinkTargetKind.linkPreemptibleCode, unit: 0, part: 0, offset: 0)
 	defineSymbol(symbols, id: imageDataStart, symbol: ir.rtSymbol(ir.Rt.rtImageDataStart), repeatable: false)
 	defineSymbol(symbols, id: imageDataEnd, symbol: ir.rtSymbol(ir.Rt.rtImageDataEnd), repeatable: false)
+	defineSymbol(symbols, id: preemptibleCode, symbol: ir.rtSymbol(ir.Rt.rtPreemptibleCode), repeatable: false)
 	let startId = lookupSymbol(symbols, symbol: entry)
 	let start = defined[startId].clone()
 	if start.kind != LinkTargetKind.linkCode 'entry'
@@ -211,21 +215,25 @@ export function link(units LinkUnits, entry String, system ast.TargetSystem, map
 	end 'entry'
 	markLive(links, units: units, symbols: symbols, defined: defined, start: start)
 	let sizes = layOut(links)
+	let table = PreemptibleTable.of(links, wanted: namedByLiveCode(links, id: preemptibleCode))
+	let tableAt = alignUp(sizes.data, alignment: linkDataAlignment)
+	let dataSize = try tableAt + table.bytes() otherwise panic("link: data past memory")
 	let pointers = livePointers(links, units: units)
 	var relocated = CountList.create(0)
 	for i in 0 upto pointers.count() 'relocated'
 		relocated.push(pointers[i].pos)
 	end 'relocated'
-	var image = buildImage(system, layout: ImageLayout.make(sizes.code, dataSize: sizes.data, entryOffset: finalOffset(links, t: start), relocated: relocated))
+	var image = buildImage(system, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), relocated: relocated))
 	var symbolMap = ""
 	if mapsSymbols 'map'
 		symbolMap = symbolMapText(links, units: units, symbols: symbols, defined: defined, textRva: image.textRva, codeSize: sizes.code)
 	end 'map'
 	var code = ByteArray.create(0)
-	var data = ByteArray.create(sizes.data)
+	var data = ByteArray.create(dataSize)
 	for i in 0 upto links.count() 'copy'
-		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image)
+		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image, tableAt: tableAt)
 	end 'copy'
+	table.write(data, at: tableAt, image: image)
 	for i in 0 upto pointers.count() 'pointers'
 		let address = try image.base + image.dataRva + pointers[i].target otherwise panic("link: an address past the image")
 		patch64(data, at: pointers[i].pos, value: address)
@@ -437,7 +445,7 @@ function markSection(mutates links LinkUnitList, u CodeUnit, symbols SymbolIds, 
 				links[target.unit].liveCode[target.part] = true
 				work.push(LiveSection.make(target.unit, index: target.part))
 			end 'fresh'
-		end 'codeTarget' else if target.kind != LinkTargetKind.linkImageDataStart and target.kind != LinkTargetKind.linkImageDataEnd 'unknown'
+		end 'codeTarget' else if target.kind != LinkTargetKind.linkImageDataStart and target.kind != LinkTargetKind.linkImageDataEnd and target.kind != LinkTargetKind.linkPreemptibleCode 'unknown'
 			panic("link: unknown target kind {target.kind.name}")
 		end 'unknown'
 	end 'symbols'
@@ -539,7 +547,7 @@ end 'linkPatch'
 // copyAndPatch puts the live sections and pieces of a unit, u at place unit of the layout, into the code and the data of the
 // image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it. The units
 // come in the order of their places, so the code is written in that order, with traps in the gaps that align a section.
-function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image)
+function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, tableAt Count)
 	let l = links[unit].clone()
 	for p in 0 upto l.liveData.count() 'data'
 		if l.liveData[p] 'live'
@@ -577,7 +585,9 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 				address = image.dataRva
 			end 'start' else if target.kind == LinkTargetKind.linkImageDataEnd 'end'
 				address = try image.dataRva + data.count() otherwise panic("link: an address past the image")
-			end 'end' else if target.kind == LinkTargetKind.linkData 'dataTarget'
+			end 'end' else if target.kind == LinkTargetKind.linkPreemptibleCode 'table'
+				address = try image.dataRva + tableAt otherwise panic("link: an address past the image")
+			end 'table' else if target.kind == LinkTargetKind.linkData 'dataTarget'
 				address = try image.dataRva + finalOffset(links, t: target) otherwise panic("link: an address past the image")
 			end 'dataTarget' else if target.kind == LinkTargetKind.linkCode 'codeTarget'
 				address = try image.textRva + finalOffset(links, t: target) otherwise panic("link: an address past the image")
@@ -595,3 +605,86 @@ function movedPos(at Count, fixupPos Count, sectionStart Count) returns Count
 	let inSection = try fixupPos - sectionStart otherwise panic("link: a fixup before its section")
 	return try at + inSection otherwise panic("link: code past memory")
 end 'movedPos'
+
+// namedByLiveCode is whether a live section refers to the symbol of an id: the mark gave the target of each fixup of a
+// live section, and left every other one 0, which is no symbol's.
+function namedByLiveCode(links LinkUnitList, id Count) returns bool
+	for u in 0 upto links.count() 'units'
+		for j in 0 upto links[u].targets.count() 'fixups'
+			if links[u].targets[j] == id 'named'
+				return true
+			end 'named'
+		end 'fixups'
+	end 'units'
+	return false
+end 'namedByLiveCode'
+
+// PreemptibleTable is the table of the code that the monitor may stop a green thread in (g.preemptibleCode), which the
+// runtime searches with the address a thread was stopped at: the live preemptible sections (CodeSection), those that
+// follow each other in the layout as one range, in the order of the code. The link puts it after the data of every
+// unit, and only when live code names it, so a program with no green thread has none. Its words are the count of the
+// ranges, then each range's start and end as how far below the table they are, since the code comes before the data in
+// both images and the distance is the same wherever the image is loaded.
+type PreemptibleTable
+	var wanted as bool
+	// starts and ends are where each range begins and ends in the image's code.
+	var starts as CountList
+	var ends as CountList
+
+	static function of(links LinkUnitList, wanted bool) returns PreemptibleTable
+		var starts = CountList.create(0)
+		var ends = CountList.create(0)
+		if wanted 'wanted'
+			var open = false
+			for u in 0 upto links.count() 'units'
+				for s in 0 upto links[u].liveCode.count() 'sections'
+					if not links[u].liveCode[s] 'dropped'
+						continue 'sections'
+					end 'dropped'
+					if not links[u].sections[s].preemptible 'closed'
+						open = false
+						continue 'sections'
+					end 'closed'
+					let at = try links[u].codeBase + links[u].codeAt[s] otherwise panic("link: code past memory")
+					let length = try links[u].sections[s + 1].code - links[u].sections[s].code otherwise panic("link: a section that ends before it starts")
+					let finish = try at + length otherwise panic("link: code past memory")
+					if open 'extend'
+						ends[ir.pred(ends.count())] = finish
+					end 'extend' else 'begin'
+						starts.push(at)
+						ends.push(finish)
+						open = true
+					end 'begin'
+				end 'sections'
+			end 'units'
+		end 'wanted'
+		return PreemptibleTable{wanted: wanted, starts: starts, ends: ends}
+	end 'of'
+
+	// bytes is the room the table takes in the data: none when no code names it.
+	function bytes() returns Count
+		if not wanted 'none'
+			return 0
+		end 'none'
+		return try (1 + starts.count() * 2) * wordBytes otherwise panic("link: data past memory")
+	end 'bytes'
+
+	// write puts the table at an offset of the image's data.
+	function write(mutates data ByteArray, at Count, image Image)
+		if not wanted 'none'
+			return
+		end 'none'
+		let table = try image.dataRva + at otherwise panic("link: an address past the image")
+		patch64(data, at: at, value: starts.count())
+		for i in 0 upto starts.count() 'ranges'
+			let slot = try at + (1 + i * 2) * wordBytes otherwise panic("link: data past memory")
+			patch64(data, at: slot, value: belowTable(try image.textRva + starts[i] otherwise panic("link: an address past the image"), table: table))
+			patch64(data, at: try slot + wordBytes otherwise panic("link: data past memory"), value: belowTable(try image.textRva + ends[i] otherwise panic("link: an address past the image"), table: table))
+		end 'ranges'
+	end 'write'
+end 'PreemptibleTable'
+
+// belowTable is how far an address of the code is below the table of preemptible code.
+function belowTable(address Count, table Count) returns Count
+	return try table - address otherwise panic("link: the image's code is not below its data")
+end 'belowTable'

@@ -73,6 +73,19 @@ var importNames = []string{
 	"InitializeProcThreadAttributeList",
 	"UpdateProcThreadAttribute",
 	"DeleteProcThreadAttributeList",
+	"VirtualAlloc",
+	"VirtualFree",
+	"GetCurrentThread",
+	"GetCurrentProcess",
+	"DuplicateHandle",
+	"SuspendThread",
+	"ResumeThread",
+	"GetThreadContext",
+	"SetThreadContext",
+	"Sleep",
+	"CreateIoCompletionPort",
+	"GetQueuedCompletionStatusEx",
+	"PostQueuedCompletionStatus",
 }
 
 // importsMaxon is self/backend/imports_gen.maxon: the library, the slot of each import as a constant (imp followed by

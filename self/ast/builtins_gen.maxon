@@ -328,10 +328,16 @@ export enum Intrinsic
 	intrRawThreadContext
 	intrRawCallCode
 	intrRawThreadStartAddress
+	intrRawStackSwitchAddress
+	intrRawGreenStartAddress
+	intrRawAsyncPreemptAddress
+	intrRawPreemptibleCodeAddress
 	intrRawCodeAddress
 	intrRawCallImport
 	intrRawSyscall
 	intrRawProcessStartAddress
+	intrRawPreemptHandlerAddress
+	intrRawSignalReturnAddress
 end 'Intrinsic'
 
 // intrinsicRuntimeOnly is whether only the runtime module may call the intrinsic (E3152).
@@ -405,6 +411,18 @@ export function intrinsicRuntimeOnly(op Intrinsic) returns bool
 	if op == Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
 		return true
 	end 'intrRawThreadStartAddress'
+	if op == Intrinsic.intrRawStackSwitchAddress 'intrRawStackSwitchAddress'
+		return true
+	end 'intrRawStackSwitchAddress'
+	if op == Intrinsic.intrRawGreenStartAddress 'intrRawGreenStartAddress'
+		return true
+	end 'intrRawGreenStartAddress'
+	if op == Intrinsic.intrRawAsyncPreemptAddress 'intrRawAsyncPreemptAddress'
+		return true
+	end 'intrRawAsyncPreemptAddress'
+	if op == Intrinsic.intrRawPreemptibleCodeAddress 'intrRawPreemptibleCodeAddress'
+		return true
+	end 'intrRawPreemptibleCodeAddress'
 	if op == Intrinsic.intrRawCodeAddress 'intrRawCodeAddress'
 		return true
 	end 'intrRawCodeAddress'
@@ -417,6 +435,12 @@ export function intrinsicRuntimeOnly(op Intrinsic) returns bool
 	if op == Intrinsic.intrRawProcessStartAddress 'intrRawProcessStartAddress'
 		return true
 	end 'intrRawProcessStartAddress'
+	if op == Intrinsic.intrRawPreemptHandlerAddress 'intrRawPreemptHandlerAddress'
+		return true
+	end 'intrRawPreemptHandlerAddress'
+	if op == Intrinsic.intrRawSignalReturnAddress 'intrRawSignalReturnAddress'
+		return true
+	end 'intrRawSignalReturnAddress'
 	return false
 end 'intrinsicRuntimeOnly'
 
@@ -1434,6 +1458,10 @@ function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Func
 	ps17.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallCode, name: "callCode1", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps17, listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawThreadStartAddress, name: "threadStartAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawStackSwitchAddress, name: "stackSwitchAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawGreenStartAddress, name: "greenStartAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawAsyncPreemptAddress, name: "asyncPreemptAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawPreemptibleCodeAddress, name: "preemptibleCodeAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	var ps18 = ParamSpecList.create(0)
 	ps18.push(ParamSpec.make("name", ty: b.stringTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawCodeAddress, name: "codeAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps18, listed: true)
@@ -1568,4 +1596,6 @@ function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Func
 	ps36.push(ParamSpec.make("arg6", ty: b.countTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSyscall, name: "syscall6", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps36, listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawProcessStartAddress, name: "processStartAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawPreemptHandlerAddress, name: "preemptHandlerAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSignalReturnAddress, name: "signalReturnAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareRawMethods'

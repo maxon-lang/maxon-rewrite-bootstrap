@@ -14,7 +14,7 @@ var linuxABI = []layoutConst{
 	{"linuxSysMmap", 9, true, toRuntime | toSelfBack, "mmap(address, length, protection, flags, fd, offset)."},
 	{"linuxSysMprotect", 10, true, toRuntime | toSelfBack, "mprotect(address, length, protection)."},
 	{"linuxSysMunmap", 11, true, toRuntime, "munmap(address, length)."},
-	{"linuxSysRtSigaction", 13, true, toSelfBack, "rt_sigaction(signal, action, old action, size of the signal mask)."},
+	{"linuxSysRtSigaction", 13, true, toRuntime | toSelfBack, "rt_sigaction(signal, action, old action, size of the signal mask)."},
 	{"linuxSysRtSigreturn", 15, true, toSelfBack, "rt_sigreturn(), which a signal handler's restorer calls."},
 	{"linuxSysSchedYield", 24, true, toRuntime, "sched_yield()."},
 	{"linuxSysGetpid", 39, true, toRuntime, "getpid()."},
@@ -40,6 +40,22 @@ var linuxABI = []layoutConst{
 	{"linuxSysReadlinkat", 267, true, toRuntime, "readlinkat(directory fd, path, buffer, size)."},
 	{"linuxSysDup3", 292, true, toRuntime, "dup3(old fd, new fd, flags)."},
 	{"linuxSysPipe2", 293, true, toRuntime, "pipe2(fds, flags)."},
+	{"linuxSysGettid", 186, true, toRuntime, "gettid(): the calling thread's id, which a signal is sent to."},
+	{"linuxSysTgkill", 234, true, toRuntime, "tgkill(process id, thread id, signal): a signal to one thread of a process."},
+
+	// The kernel's struct sigaction: the handler, the flags, the restorer and the mask, a word each.
+	{"linuxSigactionHandlerOffset", 0, true, toRuntime | toSelfBack, "where a struct sigaction holds the handler."},
+	{"linuxSigactionFlagsOffset", 8, true, toRuntime | toSelfBack, "where a struct sigaction holds the flags."},
+	{"linuxSigactionRestorerOffset", 16, true, toRuntime | toSelfBack, "where a struct sigaction holds the restorer, the code the handler returns through, which x86-64 requires."},
+	{"linuxSigactionMaskOffset", 24, true, toRuntime | toSelfBack, "where a struct sigaction holds the signals blocked while the handler runs."},
+	{"linuxSigactionBytes", 32, true, toRuntime | toSelfBack, "the size of a struct sigaction."},
+	{"linuxSignalMaskBytes", 8, true, toRuntime | toSelfBack, "the size of the signal mask that rt_sigaction takes."},
+	{"linuxFaultActionFlags", 0x0C000004, true, toSelfBack, "SA_SIGINFO | SA_ONSTACK | SA_RESTORER: the flags of the fault handler's action, which runs on the thread's signal stack and is handed the siginfo and the context."},
+	{"linuxPreemptActionFlags", 0x1C000004, true, toRuntime, "SA_SIGINFO | SA_ONSTACK | SA_RESTORER | SA_RESTART: the flags of the preemption signal's action, which also has a system call that the signal broke off made again where it can be."},
+	{"linuxSigurg", 23, true, toRuntime, "SIGURG, the signal the monitor stops a thread with, as Go's runtime does: no program of the runtime's asks for it."},
+	// The ucontext_t that a handler is given holds the registers of the code the signal stopped.
+	{"linuxUcontextRspOffset", 160, true, toRuntime | toSelfBack, "where a ucontext_t holds the stopped code's rsp."},
+	{"linuxUcontextRipOffset", 168, true, toRuntime | toSelfBack, "where a ucontext_t holds the stopped code's rip."},
 
 	// A system call that fails returns -errno, a word in the last page of the address space.
 	{"linuxErrnoLimit", 4096, true, toRuntime | toSelfBack, "one past the largest errno: a result above the word -linuxErrnoLimit is a failure."},

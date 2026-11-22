@@ -130,7 +130,9 @@ var layouts = []layoutConst{
 		"the size of a request slot."},
 
 	// A thread's context is what the thread-local slot holds: the main thread's is a global of the entry, a worker's the
-	// runtime's. It stays five words while the seed's entry reserves that many for the main thread's.
+	// runtime's. It is Go's M, the machine: the fields of the OS thread whatever processor (P) it holds. The main thread's
+	// is reserved by the entry of the compiler that built the program, so a field the runtime writes is in the layout
+	// from the seed that compiles the runtime on.
 	{"contextSchedulerOffset", 0, false, toRuntime,
 		"where a thread's context holds the address of the scheduler's record, 0 on the main thread until the first behaviour is scheduled."},
 	{"contextQueueOffset", 1, false, toRuntime,
@@ -141,8 +143,93 @@ var layouts = []layoutConst{
 		"where a thread's context holds the address of its heap's record, 0 until the thread's first alloc makes it."},
 	{"contextRandomOffset", 4, false, toRuntime,
 		"where a thread's context holds the state of its random numbers, which pick the queue it steals from first."},
-	{"contextBytes", 5, false, toRuntime | toSelfBack,
+	{"contextProcOffset", 5, false, toRuntime,
+		"where a thread's context holds the address of the processor (Go's P) whose queues it runs, 0 while it has none: its queue is that processor's, kept beside it."},
+	{"contextGreenOffset", 6, false, toRuntime,
+		"where a thread's context holds the green thread it runs (Go's m.curg), 0 while it runs its scheduler or a behaviour."},
+	{"contextSchedSwitchOffset", 7, false, toRuntime,
+		"where a thread's context holds the address of the switch record of its scheduler (Go's g0), which a green thread switches back to."},
+	{"contextSwitchFromOffset", 8, false, toRuntime | toSelfBack,
+		"where a thread's context holds the switch record that rt.stackSwitch saves the running stack's registers into."},
+	{"contextSwitchToOffset", 9, false, toRuntime | toSelfBack,
+		"where a thread's context holds the switch record that rt.stackSwitch loads the registers of the stack it goes on from: the word after contextSwitchFromOffset, so the pair is the switch's one argument."},
+	{"contextIntentOffset", 10, false, toRuntime,
+		"where a thread's context holds what the green thread that switched to its scheduler asks of it: to park it, requeue it, or finish it."},
+	{"contextSyscallOffset", 11, false, toRuntime,
+		"where a thread's context holds the state of its blocking call: bit 0 while it is in one, bit 1 once the monitor has taken its processor, and a generation above them that each call steps, so that one value names one call."},
+	{"contextSysmonWordOffset", 12, false, toRuntime,
+		"where a thread's context holds the blocking call's state the monitor saw last, which only the monitor reads and writes."},
+	{"contextSysmonWhenOffset", 13, false, toRuntime,
+		"where a thread's context holds when the monitor first saw that state, in nanoseconds."},
+	{"contextSignalPendingOffset", 14, false, toRuntime,
+		"where a thread's context holds 1 while a preemption the monitor sent it is not yet answered (Go's m.signalPending)."},
+	{"contextThreadOffset", 15, false, toRuntime,
+		"where a thread's context holds what the monitor stops the thread by: on Windows a handle that may suspend it and read and set its registers, on Linux its thread id."},
+	{"contextPreemptCodeOffset", 16, false, toRuntime | toSelfBack,
+		"where a thread's context holds the address of the runtime's code that rt.asyncPreempt calls with the context once it has saved every register, which parks the green thread it stopped."},
+	{"contextSignalCodeOffset", 17, false, toRuntime | toSelfBack,
+		"where a thread's context holds the address of the runtime's code that the Linux preemption signal's handler calls with the signal's context."},
+	{"contextNextProcOffset", 18, false, toRuntime,
+		"where a thread's context holds the processor that the thread that woke it hands it (Go's m.nextp), 0 for none."},
+	{"contextStoppedOffset", 19, false, toRuntime,
+		"where a thread's context holds 1 while it waits with no processor for one, the word a Linux thread waits on with a futex."},
+	{"contextIdleNextOffset", 20, false, toRuntime,
+		"where a thread's context holds the next of the threads that wait with no processor, a list the scheduler's lock guards."},
+	{"contextStartCodeOffset", 21, false, toRuntime,
+		"where a thread's context holds the address of the code that the thread the runtime starts with it runs, called with the context: the monitor's loop, or 0 for a worker's."},
+	{"contextBytes", 22, false, toRuntime | toSelfBack,
 		"the size of a thread's context."},
+
+	// A switch record: the registers of a stack that is not running, which rt.stackSwitch saves when it leaves the stack
+	// and loads when it goes back on it. The registers are those the internal convention keeps across a call, which is
+	// what the switch is to the code that calls it, and the frame pointer; on Windows also the stack's bounds in the TEB,
+	// which the kernel reads to grow a stack and to raise its overflow.
+	{"switchSpOffset", 0, false, toRuntime | toSelfBack,
+		"where a switch record holds the stack pointer, at the word the stack goes on at: the return address of the switch that left it, or of rt.greenStart on a stack that has not run."},
+	{"switchRbxOffset", 1, false, toRuntime | toSelfBack,
+		"where a switch record holds rbx, which rt.greenStart passes to the code it calls."},
+	{"switchRbpOffset", 2, false, toRuntime | toSelfBack,
+		"where a switch record holds rbp."},
+	{"switchR12Offset", 3, false, toRuntime | toSelfBack,
+		"where a switch record holds r12, the address of the code that rt.greenStart calls; r13, r14 and r15 follow it."},
+	{"switchStackBaseOffset", 7, false, toRuntime | toSelfBack,
+		"where a switch record holds the top of its stack, the TEB's StackBase on Windows."},
+	{"switchStackLimitOffset", 8, false, toRuntime | toSelfBack,
+		"where a switch record holds the lowest committed address of its stack, the TEB's StackLimit on Windows."},
+	{"switchStackLowOffset", 9, false, toRuntime | toSelfBack,
+		"where a switch record holds the lowest address of its stack's reserve, the TEB's DeallocationStack on Windows."},
+	{"switchXmmOffset", 10, false, toRuntime | toSelfBack,
+		"where a switch record holds xmm6 to xmm15, two words each."},
+	{"switchBytes", 30, false, toRuntime | toSelfBack,
+		"the size of a switch record."},
+	{"switchKeptGprs", 6, true, toSelfBack,
+		"how many general registers a switch record holds: those the internal convention keeps and the frame pointer."},
+	{"switchKeptXmms", 10, true, toSelfBack,
+		"how many xmm registers a switch record holds, those the internal convention keeps."},
+
+	// The words of a Windows thread's TEB that bound the stack it runs on, which the kernel reads to grow the stack a page
+	// at a time and to raise a stack overflow, and which a switch to another stack therefore moves with it.
+	{"tebStackBaseOffset", 1, false, toSelfBack,
+		"where the TEB holds the top of the running stack (NT_TIB.StackBase)."},
+	{"tebStackLimitOffset", 2, false, toSelfBack,
+		"where the TEB holds the lowest committed address of the running stack (NT_TIB.StackLimit)."},
+	{"tebDeallocationStackOffset", 0x28F, false, toSelfBack,
+		"where the TEB holds the lowest address of the running stack's reserve (DeallocationStack, 0x1478)."},
+
+	// The Windows CONTEXT that GetThreadContext and SetThreadContext read and write, of which the monitor moves the stack
+	// pointer and the instruction pointer of a thread it stops; the record is aligned to 16 bytes.
+	{"windowsContextFlagsOffset", 0x30, true, toRuntime,
+		"where a CONTEXT holds which of its parts a call reads or writes (ContextFlags, 32 bits)."},
+	{"windowsContextRspOffset", 0x98, true, toRuntime,
+		"where a CONTEXT holds Rsp."},
+	{"windowsContextRipOffset", 0xF8, true, toRuntime,
+		"where a CONTEXT holds Rip."},
+	{"windowsContextBytes", 0x4D0, true, toRuntime,
+		"the size of a CONTEXT."},
+	{"windowsContextAlignment", 16, true, toRuntime,
+		"the alignment that GetThreadContext asks of a CONTEXT."},
+	{"windowsContextControl", 0x100001, true, toRuntime,
+		"CONTEXT_AMD64 | CONTEXT_CONTROL: the part of a CONTEXT that holds the segments, the flags, Rsp and Rip."},
 
 	// The scheduler's record, made when the first behaviour is scheduled or an exit code set: the counts every worker
 	// reads, the exit code, then the address of each worker's context, the main thread's first.

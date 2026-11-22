@@ -1829,6 +1829,9 @@ are a `Count`:
 | `__Raw.callCode1(code, arg1: a)` | calls the code at the address `code` with one word by the internal convention, as a behaviour's thunk is called with its record, and gives what it returns |
 | `__Raw.threadStartAddress()` | the address of `rt.threadStart`: on Windows the code a thread that `CreateThread` makes starts at, and on Linux the routine that clones the worker's thread (see "Threads") |
 | `__Raw.codeAddress(name)` | the address of the code of the function of the module that `name`, a string literal, names (`E2004` otherwise, and `E3004` when there is none): what a `callCode1` calls, as a test of the scheduler builds a behaviour's `run` |
+| `__Raw.stackSwitchAddress()`, `greenStartAddress()`, `asyncPreemptAddress()` | the address of the entry stub's `rt.stackSwitch`, `rt.greenStart` and `rt.asyncPreempt` (see "Green threads") |
+| `__Raw.preemptHandlerAddress()`, `signalReturnAddress()` | on Linux, the address of the stub's handler of the preemption signal, `rt.preemptHandler`, and of the restorer it returns through, `rt.sigreturn` |
+| `__Raw.preemptibleCodeAddress()` | the address of the link's table of the code a green thread may be stopped in, `g.preemptibleCode` (see "Green threads") |
 
 Only the runtime module may call them: a call anywhere else is `E3152` (maxon's `rawIntrinsicOutsideRuntimeTier`, with
 its message), which `callFunction` in `self/check/calls.maxon` raises from the rows' runtime-only flag
@@ -1889,6 +1892,43 @@ word as both its stack and its thread pointer; the new thread starts after the `
 event (`FUTEX_WAIT_PRIVATE` while the flag is 1, and a waker's `FUTEX_WAKE_PRIVATE` after its compare-exchange takes the flag
 to 0, so a wake before the wait makes the wait return at once, as a set event does), yields with `sched_yield`, and counts the
 processors by its affinity mask (`sched_getaffinity`), as maxon's does. The process ends with `exit_group`.
+
+**Green threads.** The compiler holds what green threads need of it; the runtime that schedules them on the workers
+(`phase4/concurrency-design.md`, task 2) is written on it once the seed compiles these intrinsics. A thread's context is
+Go's M, the OS thread: beside its scheduler, queue, event, heap and random state it has the processor it runs (Go's P),
+the green thread it runs, the switch record of its scheduler (Go's g0), the pair of switch records a switch is given,
+the state of a blocking call with its generation, the monitor's notes, the pending preemption, what stops the thread
+(a handle on Windows, the thread id on Linux), the code `rt.asyncPreempt` and the preemption signal call, the processor
+it is handed, the idle list's link, and the code a thread the runtime starts runs (`contextStartCodeOffset`, which
+`workerMain` calls with the context in place of a worker's loop when it is set). `contextBytes` is 22 words, which the
+entry reserves for the main thread. The entry stub of either system has three routines for them, each a section that the
+link keeps only when the runtime's code names it (`self/backend/green.maxon`):
+
+- `rt.stackSwitch`, called by the internal convention with the address of the context's pair of switch records, saves
+  the registers the internal convention keeps (rbx, r12 to r15, xmm6 to xmm15) and rbp and rsp into the first, on Windows
+  also the TEB's bounds of the running stack (StackBase, StackLimit and DeallocationStack, which the kernel grows a stack
+  and raises its overflow by), loads the second's, and returns on its stack with the first record: to the switch that
+  left it, or to `rt.greenStart` on a stack that has not run. A switch is a call to the code that makes it, so it keeps
+  what a call keeps and no more, as maxon's `__gt_context_switch` does; the switch record's layout (`switch*Offset`) is
+  held to the convention's kept registers when the stub is written.
+- `rt.greenStart` calls the code in r12 with the word in rbx, which the runtime seeds a new stack's record with.
+- `rt.asyncPreempt` is where the monitor makes a green thread it stops return to, with the address it stopped at pushed
+  as the return address (Go's `asyncPreempt`): it saves the flags and every register, xmm0 to xmm15 whole, calls the code
+  at `contextPreemptCodeOffset` with the thread's context, and returns with every register as it was. No code writes
+  below the stack pointer, so the pushed address overwrites nothing. On Linux the stub also has `rt.preemptHandler`, the
+  handler of the preemption signal (SIGURG, as Go's), which calls the code at `contextSignalCodeOffset` with the signal's
+  context, which may rewrite its rsp and rip to return into `rt.asyncPreempt`; on Windows the monitor suspends the thread
+  and sets its registers (`SuspendThread`, `GetThreadContext`, `SetThreadContext`, `ResumeThread`, kernel32 imports).
+
+The monitor may stop a green thread only in code that holds nothing of the OS thread it runs on, which is maxon's and
+Go's rule that the runtime's own functions are not asynchronously preemptible: a section of code is preemptible when it
+is a function of a program's module, or of a test of the runtime, and not when it is of the runtime's own source, a
+drop or copy routine, or the stub (`CodeSection.preemptible`, set by `preemptibleFunction` and kept in the build cache).
+Code outside the image, a DLL's, never is. When live code names `g.preemptibleCode`, the link writes after the data of
+every unit the table of the preemptible code: the count of ranges, then each range's start and end as how far below the
+table they are, sections next to each other in the layout as one range, which the monitor searches with the address it
+stopped a thread at. `tests/runtime/stack-switch.maxon` switches between two stacks by hand, reads the table, and stops
+the main thread from another thread on both systems.
 
 **The scheduler** (`runtime/sched.maxon`) runs behaviours to completion on worker threads, Verona's model with no green
 thread and no stack switch. The main thread is worker 0; the first behaviour scheduled (`schedEnter`) starts the other

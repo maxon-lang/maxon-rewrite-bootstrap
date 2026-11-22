@@ -1,0 +1,239 @@
+// The entry stub's code for green threads, used by hand: two stacks that rt.stackSwitch switches between, the second
+// started at rt.greenStart, the link's table of the code a green thread may be stopped in, and the main thread stopped
+// where it spins by another thread and made to return into rt.asyncPreempt, by SuspendThread and SetThreadContext on
+// Windows and by the preemption signal, whose handler rewrites the signal's context, on Linux. The code the
+// trampoline calls acknowledges the stop by clearing the context's pending preemption, which ends the spin.
+//> switched 1000 times, sum 500500
+//> preemptible: the test's code yes, the runtime's alloc no
+//> stopped where it spun, and went on
+
+let testRounds = 1000 as Count
+
+let testStackBytes = 1048576 as Count
+
+// The record the two stacks share: the green stack's count and sum, and the two stacks' switch records.
+let testCountOffset = 0 as Count
+
+let testSumOffset = 8 as Count
+
+let testMainSwitchOffset = 16 as Count
+
+let testGreenSwitchOffset = 24 as Count
+
+let testRecordBytes = 32 as Count
+
+// The record of a stop: 1 once the main thread spins, and what it is stopped by, its handle or its thread id; past the
+// stopping thread's context, where that thread finds it.
+let testSpinningOffset = 0 as Count
+
+let testTargetOffset = 8 as Count
+
+let testStopBytes = 16 as Count
+
+let testPending = 1 as Count
+
+#if os(Windows)
+	let testCommitReserve = 0x3000 as Count
+
+	let testReadWrite = 4 as Count
+
+	let testSameAccess = 2 as Count
+
+	let testSuspendFailed = 0xFFFFFFFF as Count
+#endif
+
+function main() returns ExitCode
+	testSwitching()
+	testTable()
+	testStopping()
+	return 0
+end 'main'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
+
+// testSwitching switches to the green stack and back testRounds times; each time on it, the green stack counts and adds.
+function testSwitching()
+	let record = alloc(testRecordBytes)
+	let mainSwitch = alloc(switchBytes)
+	let greenSwitch = alloc(switchBytes)
+	__Raw.storeWord(record, offset: testMainSwitchOffset, value: mainSwitch)
+	__Raw.storeWord(record, offset: testGreenSwitchOffset, value: greenSwitch)
+	let low = testStack()
+	let top = __Raw.wrappingAdd(low, right: testStackBytes)
+	let sp = __Raw.wrappingSub(top, right: __Raw.wrappingAdd(wordBytes, right: wordBytes))
+	__Raw.storeWord(sp, offset: 0, value: __Raw.greenStartAddress())
+	__Raw.storeWord(greenSwitch, offset: switchSpOffset, value: sp)
+	__Raw.storeWord(greenSwitch, offset: switchRbxOffset, value: record)
+	__Raw.storeWord(greenSwitch, offset: switchR12Offset, value: __Raw.codeAddress("testGreenBody"))
+	__Raw.storeWord(greenSwitch, offset: switchStackBaseOffset, value: top)
+	__Raw.storeWord(greenSwitch, offset: switchStackLimitOffset, value: low)
+	__Raw.storeWord(greenSwitch, offset: switchStackLowOffset, value: low)
+	for i in 0 upto testRounds 'rounds'
+		testSwitch(mainSwitch, onto: greenSwitch)
+		if __Raw.loadWord(record, offset: testCountOffset) != __Raw.wrappingAdd(i, right: 1) 'count'
+			panic("the green stack did not run once for each switch to it")
+		end 'count'
+	end 'rounds'
+	testWrite("switched ")
+	testWrite(itoa(__Raw.loadWord(record, offset: testCountOffset), unsigned: true))
+	testWrite(" times, sum ")
+	testWrite(itoa(__Raw.loadWord(record, offset: testSumOffset), unsigned: true))
+	testWrite("\n")
+	free(greenSwitch)
+	free(mainSwitch)
+	free(record)
+end 'testSwitching'
+
+// testGreenBody runs on the green stack, which rt.greenStart started with the shared record, and never returns.
+function testGreenBody(record Count)
+	while true 'rounds'
+		let count = __Raw.wrappingAdd(__Raw.loadWord(record, offset: testCountOffset), right: 1)
+		__Raw.storeWord(record, offset: testCountOffset, value: count)
+		__Raw.storeWord(record, offset: testSumOffset, value: __Raw.wrappingAdd(__Raw.loadWord(record, offset: testSumOffset), right: count))
+		testSwitch(__Raw.loadWord(record, offset: testGreenSwitchOffset), onto: __Raw.loadWord(record, offset: testMainSwitchOffset))
+	end 'rounds'
+end 'testGreenBody'
+
+// testSwitch leaves the running stack for the one of a switch record, through the pair of the thread's context.
+function testSwitch(from Count, onto Count)
+	let context = __Raw.threadContext()
+	__Raw.storeWord(context, offset: contextSwitchFromOffset, value: from)
+	__Raw.storeWord(context, offset: contextSwitchToOffset, value: onto)
+	_ = __Raw.callCode1(__Raw.stackSwitchAddress(), arg1: __Raw.wrappingAdd(context, right: contextSwitchFromOffset))
+end 'testSwitch'
+
+// testStack is the lowest address of testStackBytes of committed memory, which the process keeps.
+function testStack() returns Count
+	#if os(Windows)
+		let low = __Raw.callImport4("VirtualAlloc", arg1: 0, arg2: testStackBytes, arg3: testCommitReserve, arg4: testReadWrite)
+		if low == 0 'refused'
+			panic("cannot allocate the green stack")
+		end 'refused'
+		return low
+	#else
+		return mapPages(testStackBytes)
+	#endif
+end 'testStack'
+
+function testTable()
+	let table = __Raw.preemptibleCodeAddress()
+	testWrite("preemptible: the test's code ")
+	testWrite(testYesNo(testPreemptible(table, address: __Raw.codeAddress("testGreenBody"))))
+	testWrite(", the runtime's alloc ")
+	testWrite(testYesNo(testPreemptible(table, address: __Raw.codeAddress("alloc"))))
+	testWrite("\n")
+end 'testTable'
+
+function testYesNo(yes bool) returns String
+	if yes 'yes'
+		return "yes"
+	end 'yes'
+	return "no"
+end 'testYesNo'
+
+// testPreemptible is whether an address of the code is in a range of the table, whose words say how far below the table
+// each range starts and ends.
+function testPreemptible(table Count, address Count) returns bool
+	let below = __Raw.wrappingSub(table, right: address)
+	let ranges = __Raw.loadWord(table, offset: 0)
+	for i in 0 upto ranges 'ranges'
+		let slot = __Raw.wrappingAdd(table, right: try (i + i + 1) * wordBytes otherwise panic("the table is past memory"))
+		if below <= __Raw.loadWord(slot, offset: 0) and below > __Raw.loadWord(slot, offset: wordBytes) 'inside'
+			return true
+		end 'inside'
+	end 'ranges'
+	return false
+end 'testPreemptible'
+
+// testStopping has a thread of its own stop the main thread where it spins, until the code that rt.asyncPreempt calls
+// clears the pending preemption of the main thread's context.
+function testStopping()
+	let context = __Raw.threadContext()
+	__Raw.storeWord(context, offset: contextPreemptCodeOffset, value: __Raw.codeAddress("testPreempted"))
+	__Raw.storeWord(context, offset: contextSignalPendingOffset, value: testPending)
+	let stopper = keep(__Raw.wrappingAdd(contextBytes, right: testStopBytes))
+	let stop = __Raw.wrappingAdd(stopper, right: contextBytes)
+	__Raw.storeWord(stopper, offset: contextStartCodeOffset, value: __Raw.codeAddress("testStopper"))
+	#if os(Windows)
+		var handle = 0 as Count
+		let process = __Raw.callImport0("GetCurrentProcess")
+		if __Raw.callImport7("DuplicateHandle", arg1: process, arg2: __Raw.callImport0("GetCurrentThread"), arg3: process, arg4: __Raw.addressOf(handle), arg5: 0, arg6: 0, arg7: testSameAccess) == 0 'refused'
+			panic("cannot make a handle of the main thread")
+		end 'refused'
+		__Raw.storeWord(stop, offset: testTargetOffset, value: handle)
+	#else
+		testPreemptAction()
+		__Raw.storeWord(context, offset: contextSignalCodeOffset, value: __Raw.codeAddress("testSignal"))
+		__Raw.storeWord(stop, offset: testTargetOffset, value: __Raw.syscall0(linuxSysGettid))
+	#endif
+	startThread(stopper)
+	__Raw.storeWord(stop, offset: testSpinningOffset, value: 1)
+	while __Raw.loadWord(context, offset: contextSignalPendingOffset) != 0 'spin'
+		__Raw.spinPause()
+	end 'spin'
+	#if os(Windows)
+		closeHandle(handle)
+	#endif
+	testWrite("stopped where it spun, and went on\n")
+end 'testStopping'
+
+// testStopper is the stopping thread: once the main thread spins, it stops it and has it return into rt.asyncPreempt.
+function testStopper(context Count)
+	let stop = __Raw.wrappingAdd(context, right: contextBytes)
+	while __Raw.loadWord(stop, offset: testSpinningOffset) == 0 'wait'
+		__Raw.spinPause()
+	end 'wait'
+	let target = __Raw.loadWord(stop, offset: testTargetOffset)
+	#if os(Windows)
+		if dword(__Raw.callImport1("SuspendThread", arg1: target)) == testSuspendFailed 'suspend'
+			panic("cannot suspend the main thread")
+		end 'suspend'
+		let buffer = alloc(__Raw.wrappingAdd(windowsContextBytes, right: windowsContextAlignment))
+		let registers = __Raw.wrappingAdd(buffer, right: __Raw.wrappingSub(windowsContextAlignment, right: buffer mod windowsContextAlignment))
+		__Raw.storeWord32(registers, offset: windowsContextFlagsOffset, value: windowsContextControl)
+		if __Raw.callImport2("GetThreadContext", arg1: target, arg2: registers) == 0 'read'
+			panic("cannot read the main thread's registers")
+		end 'read'
+		let sp = __Raw.wrappingSub(__Raw.loadWord(registers, offset: windowsContextRspOffset), right: wordBytes)
+		__Raw.storeWord(sp, offset: 0, value: __Raw.loadWord(registers, offset: windowsContextRipOffset))
+		__Raw.storeWord(registers, offset: windowsContextRspOffset, value: sp)
+		__Raw.storeWord(registers, offset: windowsContextRipOffset, value: __Raw.asyncPreemptAddress())
+		if __Raw.callImport2("SetThreadContext", arg1: target, arg2: registers) == 0 'write'
+			panic("cannot set the main thread's registers")
+		end 'write'
+		_ = __Raw.callImport1("ResumeThread", arg1: target)
+		free(buffer)
+	#else
+		_ = __Raw.syscall3(linuxSysTgkill, arg1: __Raw.syscall0(linuxSysGetpid), arg2: target, arg3: linuxSigurg)
+	#endif
+end 'testStopper'
+
+// testPreempted is what rt.asyncPreempt calls on the stopped thread, with its context: it acknowledges the stop.
+function testPreempted(context Count)
+	__Raw.storeWord(context, offset: contextSignalPendingOffset, value: 0)
+end 'testPreempted'
+
+#if os(Linux)
+	// testPreemptAction makes rt.preemptHandler the action of the preemption signal.
+	function testPreemptAction()
+		let action = alloc(linuxSigactionBytes)
+		__Raw.storeWord(action, offset: linuxSigactionHandlerOffset, value: __Raw.preemptHandlerAddress())
+		__Raw.storeWord(action, offset: linuxSigactionFlagsOffset, value: linuxPreemptActionFlags)
+		__Raw.storeWord(action, offset: linuxSigactionRestorerOffset, value: __Raw.signalReturnAddress())
+		if failed(__Raw.syscall4(linuxSysRtSigaction, arg1: linuxSigurg, arg2: action, arg3: 0, arg4: linuxSignalMaskBytes)) 'refused'
+			panic("cannot set the preemption signal's action")
+		end 'refused'
+		free(action)
+	end 'testPreemptAction'
+
+	// testSignal is what rt.preemptHandler calls with the signal's context: it makes the stopped code return into
+	// rt.asyncPreempt, with the address it was stopped at as the return address.
+	function testSignal(signalContext Count)
+		let sp = __Raw.wrappingSub(__Raw.loadWord(signalContext, offset: linuxUcontextRspOffset), right: wordBytes)
+		__Raw.storeWord(sp, offset: 0, value: __Raw.loadWord(signalContext, offset: linuxUcontextRipOffset))
+		__Raw.storeWord(signalContext, offset: linuxUcontextRspOffset, value: sp)
+		__Raw.storeWord(signalContext, offset: linuxUcontextRipOffset, value: __Raw.asyncPreemptAddress())
+	end 'testSignal'
+#endif

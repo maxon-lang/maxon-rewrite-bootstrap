@@ -309,6 +309,10 @@ var literal = []struct {
 	{"LoadRegGsBaseDisp", []int64{9, 0, 0}, []byte{0x65, 0x4C, 0x8B, 0x08}},
 	{"LoadRegFsBaseDisp", []int64{0, 1, 0}, []byte{0x64, 0x48, 0x8B, 0x01}},
 	{"LoadRegFsBaseDisp", []int64{9, 0, 8}, []byte{0x64, 0x4C, 0x8B, 0x48, 0x08}},
+	{"StoreGsBaseDispReg", []int64{11, 8, 0}, []byte{0x65, 0x49, 0x89, 0x43, 0x08}},
+	{"StoreGsBaseDispReg", []int64{11, 0x1478, 0}, []byte{0x65, 0x49, 0x89, 0x83, 0x78, 0x14, 0x00, 0x00}},
+	{"Pushfq", nil, []byte{0x9C}},
+	{"Popfq", nil, []byte{0x9D}},
 	{"Syscall", nil, []byte{0x0F, 0x05}},
 	// The indexed forms, as LLVM's assembler encodes them: an index, a base whose low bits are rbp's or rsp's, extended
 	// registers and the three lengths of displacement.

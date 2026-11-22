@@ -173,6 +173,32 @@ function lowerRawThreadStartAddress(mutates l Lowerer, p ast.Project, ms ast.Mod
 	return globalAddress(l, symbol: Rt.rtThreadStart)
 end 'lowerRawThreadStartAddress'
 
+// The addresses of the entry stub's code that green threads switch stacks and are stopped through, and of the table
+// of preemptible code that the link writes.
+function lowerRawStackSwitchAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtStackSwitch)
+end 'lowerRawStackSwitchAddress'
+
+function lowerRawGreenStartAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtGreenStart)
+end 'lowerRawGreenStartAddress'
+
+function lowerRawAsyncPreemptAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtAsyncPreempt)
+end 'lowerRawAsyncPreemptAddress'
+
+function lowerRawPreemptibleCodeAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtPreemptibleCode)
+end 'lowerRawPreemptibleCodeAddress'
+
+function lowerRawPreemptHandlerAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtPreemptHandler)
+end 'lowerRawPreemptHandlerAddress'
+
+function lowerRawSignalReturnAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtSigreturn)
+end 'lowerRawSignalReturnAddress'
+
 // lowerRawSyscall calls the kernel with the number and the words, all of them values.
 function lowerRawSyscall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)

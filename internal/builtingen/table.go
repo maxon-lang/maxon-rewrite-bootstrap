@@ -361,6 +361,12 @@ func rawFunctions() []function {
 		// callCode1 calls the code at an address with one word, as a behaviour's thunk is called with its record.
 		raw("callCode1", []string{"code Count", "arg1 Count"}, "Count", "RawCallCode"),
 		raw("threadStartAddress", nil, "Count", "RawThreadStartAddress"),
+		// The addresses of the code of the entry stub that green threads switch and are stopped through, which only a
+		// callCode1 or the registers of a stack the runtime seeds reach, and of the link's table of preemptible code.
+		raw("stackSwitchAddress", nil, "Count", "RawStackSwitchAddress"),
+		raw("greenStartAddress", nil, "Count", "RawGreenStartAddress"),
+		raw("asyncPreemptAddress", nil, "Count", "RawAsyncPreemptAddress"),
+		raw("preemptibleCodeAddress", nil, "Count", "RawPreemptibleCodeAddress"),
 		// codeAddress is the address of the code of the function of the runtime that a string literal names, which takes
 		// one word: the run of a behaviour's record that a test of the scheduler builds by hand.
 		checked(own(raw("codeAddress", []string{"name String"}, "Count", "RawCodeAddress"))),
@@ -386,6 +392,10 @@ func rawFunctions() []function {
 	// processStartAddress is the address of the global where the entry of a Linux executable keeps the stack pointer the
 	// kernel started the process with, which points at the argument count, the arguments and the environment.
 	fs = append(fs, raw("processStartAddress", nil, "Count", "RawProcessStartAddress"))
+	// preemptHandlerAddress and signalReturnAddress are the handler of the Linux preemption signal and the restorer it
+	// returns through, which the runtime's rt_sigaction names.
+	fs = append(fs, raw("preemptHandlerAddress", nil, "Count", "RawPreemptHandlerAddress"))
+	fs = append(fs, raw("signalReturnAddress", nil, "Count", "RawSignalReturnAddress"))
 	return fs
 }
 
@@ -661,6 +671,12 @@ var entries = []entry{
 	{"MainContext", "g.mainContext", "Runtime", roleGlobal, "the context of the main thread, which the entry stores in the thread-local slot"},
 	{"ProcessStart", "g.processStart", "Runtime", roleGlobal, "the stack pointer a Linux process starts with, at the argument count, then the arguments and the environment, which the entry keeps"},
 	{"ThreadStart", "rt.threadStart", "Runtime", roleInternal, "(context) by Win64: the start of a thread the runtime makes, which keeps stack for the fault handler, stores the context in the thread-local slot and calls workerMain"},
+	{"StackSwitch", "rt.stackSwitch", "Runtime", roleInternal, "(pair) -> the record it left: saves the registers of the running stack into the switch record at the pair's first word and goes on the stack of the record at its second, by the internal convention (README, \"Green threads\")"},
+	{"GreenStart", "rt.greenStart", "Runtime", roleInternal, "the code a green thread's stack starts at, which a switch onto a stack that has not run returns to: it calls the code in r12 with the word in rbx"},
+	{"AsyncPreempt", "rt.asyncPreempt", "Runtime", roleInternal, "the code the monitor makes a green thread it stops return into, at the address it stopped at: it saves every register and the flags, calls the code at contextPreemptCodeOffset of the thread's context with the context, and gives them back"},
+	{"PreemptHandler", "rt.preemptHandler", "Runtime", roleInternal, "(signal, siginfo, context) by System V: the handler of the Linux preemption signal, which calls the code at contextSignalCodeOffset of the thread's context with the signal's context"},
+	{"Sigreturn", "rt.sigreturn", "Runtime", roleInternal, "the restorer that a Linux signal's handler returns through, which calls rt_sigreturn"},
+	{"PreemptibleCode", "g.preemptibleCode", "Linker", roleGlobal, "the table of the code that the monitor may stop a green thread in: how many ranges, then each range's start and end as how far below the table they are, in the order of the code (README, \"Green threads\")"},
 	{"SchedDrain", "rt.schedDrain", "Source", roleInternal, "(exit code) -> exit code: what the entry calls after main, which runs behaviours until none is left"},
 	{"WorkerMain", "rt.workerMain", "Source", roleInternal, "(context): what a thread the runtime makes runs"},
 	{"CownAcquire", "rt.cown.acquire", "Source", roleInternal, "(behaviour record): what a when calls with the record it made, which queues the behaviour on each cown it names and makes it runnable once it holds them all"},

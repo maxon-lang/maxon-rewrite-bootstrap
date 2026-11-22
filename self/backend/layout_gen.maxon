@@ -108,8 +108,62 @@ export let requestOwnerOffset = 24
 // requestSlotBytes is the size of a request slot.
 export let requestSlotBytes = 32
 
+// contextSwitchFromOffset is where a thread's context holds the switch record that rt.stackSwitch saves the running stack's registers into.
+export let contextSwitchFromOffset = 64
+
+// contextSwitchToOffset is where a thread's context holds the switch record that rt.stackSwitch loads the registers of the stack it goes on from: the word after contextSwitchFromOffset, so the pair is the switch's one argument.
+export let contextSwitchToOffset = 72
+
+// contextPreemptCodeOffset is where a thread's context holds the address of the runtime's code that rt.asyncPreempt calls with the context once it has saved every register, which parks the green thread it stopped.
+export let contextPreemptCodeOffset = 128
+
+// contextSignalCodeOffset is where a thread's context holds the address of the runtime's code that the Linux preemption signal's handler calls with the signal's context.
+export let contextSignalCodeOffset = 136
+
 // contextBytes is the size of a thread's context.
-export let contextBytes = 40
+export let contextBytes = 176
+
+// switchSpOffset is where a switch record holds the stack pointer, at the word the stack goes on at: the return address of the switch that left it, or of rt.greenStart on a stack that has not run.
+export let switchSpOffset = 0
+
+// switchRbxOffset is where a switch record holds rbx, which rt.greenStart passes to the code it calls.
+export let switchRbxOffset = 8
+
+// switchRbpOffset is where a switch record holds rbp.
+export let switchRbpOffset = 16
+
+// switchR12Offset is where a switch record holds r12, the address of the code that rt.greenStart calls; r13, r14 and r15 follow it.
+export let switchR12Offset = 24
+
+// switchStackBaseOffset is where a switch record holds the top of its stack, the TEB's StackBase on Windows.
+export let switchStackBaseOffset = 56
+
+// switchStackLimitOffset is where a switch record holds the lowest committed address of its stack, the TEB's StackLimit on Windows.
+export let switchStackLimitOffset = 64
+
+// switchStackLowOffset is where a switch record holds the lowest address of its stack's reserve, the TEB's DeallocationStack on Windows.
+export let switchStackLowOffset = 72
+
+// switchXmmOffset is where a switch record holds xmm6 to xmm15, two words each.
+export let switchXmmOffset = 80
+
+// switchBytes is the size of a switch record.
+export let switchBytes = 240
+
+// switchKeptGprs is how many general registers a switch record holds: those the internal convention keeps and the frame pointer.
+export let switchKeptGprs = 6
+
+// switchKeptXmms is how many xmm registers a switch record holds, those the internal convention keeps.
+export let switchKeptXmms = 10
+
+// tebStackBaseOffset is where the TEB holds the top of the running stack (NT_TIB.StackBase).
+export let tebStackBaseOffset = 8
+
+// tebStackLimitOffset is where the TEB holds the lowest committed address of the running stack (NT_TIB.StackLimit).
+export let tebStackLimitOffset = 16
+
+// tebDeallocationStackOffset is where the TEB holds the lowest address of the running stack's reserve (DeallocationStack, 0x1478).
+export let tebDeallocationStackOffset = 5240
 
 // stackReserveBytes is the stack each thread reserves, the main thread's in the executable's header and a worker's when the runtime starts it, so a behaviour has the same stack on every thread. The compiler's passes recurse once per level of an expression, and a left-leaning chain of operators is as deep as it is long: a sum of 4,000 names takes about 22 MB. A reserve is only address space, committed a page at a time as the stack grows, so it costs a program nothing that it does not use.
 export let stackReserveBytes = 268435456
@@ -146,6 +200,33 @@ export let linuxSysArchPrctl = 158
 
 // linuxSysExitGroup is exit_group(code), which ends every thread of the process.
 export let linuxSysExitGroup = 231
+
+// linuxSigactionHandlerOffset is where a struct sigaction holds the handler.
+export let linuxSigactionHandlerOffset = 0
+
+// linuxSigactionFlagsOffset is where a struct sigaction holds the flags.
+export let linuxSigactionFlagsOffset = 8
+
+// linuxSigactionRestorerOffset is where a struct sigaction holds the restorer, the code the handler returns through, which x86-64 requires.
+export let linuxSigactionRestorerOffset = 16
+
+// linuxSigactionMaskOffset is where a struct sigaction holds the signals blocked while the handler runs.
+export let linuxSigactionMaskOffset = 24
+
+// linuxSigactionBytes is the size of a struct sigaction.
+export let linuxSigactionBytes = 32
+
+// linuxSignalMaskBytes is the size of the signal mask that rt_sigaction takes.
+export let linuxSignalMaskBytes = 8
+
+// linuxFaultActionFlags is SA_SIGINFO | SA_ONSTACK | SA_RESTORER: the flags of the fault handler's action, which runs on the thread's signal stack and is handed the siginfo and the context.
+export let linuxFaultActionFlags = 201326596
+
+// linuxUcontextRspOffset is where a ucontext_t holds the stopped code's rsp.
+export let linuxUcontextRspOffset = 160
+
+// linuxUcontextRipOffset is where a ucontext_t holds the stopped code's rip.
+export let linuxUcontextRipOffset = 168
 
 // linuxErrnoLimit is one past the largest errno: a result above the word -linuxErrnoLimit is a failure.
 export let linuxErrnoLimit = 4096

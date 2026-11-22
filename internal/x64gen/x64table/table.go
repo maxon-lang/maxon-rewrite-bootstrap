@@ -585,6 +585,14 @@ func buildForms() []form {
 			name: "LoadRegFsBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			prefix: []byte{fsSegmentPrefix}, rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
 		},
+		// The stub's switch between stacks moves the TEB's bounds of the running stack with it, and the code a stopped
+		// green thread is made to return into keeps the flags: forms that only the entry stub writes.
+		form{
+			name: "StoreGsBaseDispReg", mnemonic: "mov", operands: []operand{mem(), reg("src", fieldReg, read)},
+			prefix: []byte{gsSegmentPrefix}, rexW: true, opcode: []byte{0x89}, modrm: modOperands, effects: writes,
+		},
+		form{name: "Pushfq", mnemonic: "pushfq", opcode: []byte{0x9C}, readsFlags: true, writesMemory: true},
+		form{name: "Popfq", mnemonic: "popfq", opcode: []byte{0x9D}, setsFlags: true, readsMemory: true},
 		// A system call is a call of the system call convention, which says what it reads and clobbers: rcx and r11,
 		// which the instruction itself overwrites, among them.
 		form{

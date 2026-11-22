@@ -144,10 +144,19 @@ function schedDrain(code Count) returns Count
 end 'schedDrain'
 
 // workerMain is what a thread the runtime makes runs, with its context, which rt.threadStart has stored in the
-// thread-local slot. It never returns: the process ends with ExitProcess, which ends the workers wherever they are.
+// thread-local slot: the code the context names, after which the thread ends, or else a worker's loop, which never
+// returns, since the process ends with ExitProcess, which ends the workers wherever they are.
 function workerMain(context Count)
+	let code = __Raw.loadWord(context, offset: contextStartCodeOffset)
+	if code != workerLoop 'own'
+		_ = __Raw.callCode1(code, arg1: context)
+		return
+	end 'own'
 	runWorker(context, watchesEnd: false)
 end 'workerMain'
+
+// workerLoop is the start code of a worker's context: none of its own.
+let workerLoop = 0 as Count
 
 // runWorker runs behaviours until the program ends: on a worker the runtime made, for good, and on the main thread
 // (watchesEnd) until no behaviour is left.

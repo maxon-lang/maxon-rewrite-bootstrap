@@ -115,16 +115,19 @@ export typealias SymbolDefList = Array with SymbolDef
 
 // CodeSection is where a part of a unit's code begins, and where its fixups of each kind begin, which are in the order of
 // their positions, and the boundary the link starts it on: the code in it is aligned from its start, so it is aligned in
-// the image only on that boundary.
+// the image only on that boundary. preemptible says that the monitor may stop a green thread anywhere in it: it is the
+// program's code, which holds nothing of the thread it runs on, and not the runtime's or the compiler's own (README,
+// "Green threads").
 export type CodeSection
 	export var code as Count
 	export var symbolFixups as Count
 	export var dataFixups as Count
 	export var importFixups as Count
 	export var alignment as Count
+	export var preemptible as bool
 
-	export static function make(code Count, symbolFixups Count, dataFixups Count, importFixups Count, alignment Count) returns CodeSection
-		return CodeSection{code: code, symbolFixups: symbolFixups, dataFixups: dataFixups, importFixups: importFixups, alignment: alignment}
+	export static function make(code Count, symbolFixups Count, dataFixups Count, importFixups Count, alignment Count, preemptible bool) returns CodeSection
+		return CodeSection{code: code, symbolFixups: symbolFixups, dataFixups: dataFixups, importFixups: importFixups, alignment: alignment, preemptible: preemptible}
 	end 'make'
 end 'CodeSection'
 
@@ -344,6 +347,34 @@ export type Asm
 	export function loadGs(mutates self, dst X64Register, base X64Register, disp Imm32)
 		encodeLoadRegGsBaseDisp(code, dest: dst, base: base, disp: disp)
 	end 'loadGs'
+
+	// storeGs writes a word at base + disp from the start of the running thread's TEB.
+	export function storeGs(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreGsBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'storeGs'
+
+	// loadFs reads the word at base + disp from the thread pointer of a Linux thread.
+	export function loadFs(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLoadRegFsBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadFs'
+
+	// pushFlags and popFlags push the flags register and pop it back.
+	export function pushFlags(mutates self)
+		encodePushfq(code)
+	end 'pushFlags'
+
+	export function popFlags(mutates self)
+		encodePopfq(code)
+	end 'popFlags'
+
+	// storeVector and loadVector move all 128 bits of xmm register n, which need not be aligned.
+	export function storeVector(mutates self, base X64Register, disp Imm32, n Count)
+		encodeMovupsBaseDispReg(code, base: base, disp: disp, src: x64RegisterOf(try n as RegNum otherwise panic("backend: an xmm register past the register file")))
+	end 'storeVector'
+
+	export function loadVector(mutates self, n Count, base X64Register, disp Imm32)
+		encodeMovupsRegBaseDisp(code, dest: x64RegisterOf(try n as RegNum otherwise panic("backend: an xmm register past the register file")), base: base, disp: disp)
+	end 'loadVector'
 
 	// leaData, loadData and storeData reference an offset of the data section, which the link makes an address.
 	export function leaData(mutates self, dst X64Register, dataOffset Count)
@@ -565,9 +596,12 @@ export type CodeUnit
 	export var sections as CodeSectionList
 	// needed are the drop and copy routines this unit's code calls, in the order its code first does.
 	export var needed as RoutineSet
+	// preemptible is whether the sections it begins from now on are (CodeSection): none is until the unit's maker says
+	// that what it writes next is the program's own code.
+	export var preemptible as bool
 
 	export static function new() returns CodeUnit
-		return CodeUnit{asm: Asm.new(), data: DataSection.new(), codeSymbols: SymbolDefList.create(0), dataSymbols: SymbolDefList.create(0), sections: CodeSectionList.create(0), needed: RoutineSet.new()}
+		return CodeUnit{asm: Asm.new(), data: DataSection.new(), codeSymbols: SymbolDefList.create(0), dataSymbols: SymbolDefList.create(0), sections: CodeSectionList.create(0), needed: RoutineSet.new(), preemptible: false}
 	end 'new'
 
 	export function defineCode(mutates self, symbol String)
@@ -583,7 +617,7 @@ export type CodeUnit
 	// sections only through symbols.
 	export function beginSection(mutates self)
 		asm.endLabels()
-		sections.push(CodeSection.make(asm.pos(), symbolFixups: asm.symbolFixups.count(), dataFixups: asm.dataFixups.count(), importFixups: asm.importFixups.count(), alignment: functionAlignment))
+		sections.push(CodeSection.make(asm.pos(), symbolFixups: asm.symbolFixups.count(), dataFixups: asm.dataFixups.count(), importFixups: asm.importFixups.count(), alignment: functionAlignment, preemptible: preemptible))
 	end 'beginSection'
 
 	// sectionOffset is how far the code written next is from the start of the section begun last.

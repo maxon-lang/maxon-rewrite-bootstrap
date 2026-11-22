@@ -68,14 +68,24 @@ function emitWindowsRuntime(calls EntryCalls, options RuntimeOptions) returns Co
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsSlot), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsOffset), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtMainContext), size: contextBytes)
+	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
 	emitEntry(u, calls: calls, count: options.countAllocations)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
 	emitThreadStart(u)
 	u.defineCode(faultSymbol)
 	emitFaultHandler(u)
+	emitGreenRoutines(u, system: ast.TargetSystem.windows)
 	return u
 end 'emitWindowsRuntime'
+
+// emitGreenRoutines writes the stub's code of green threads, each a section that the link keeps only when the runtime's
+// code that names it is kept (green.maxon).
+function emitGreenRoutines(mutates u CodeUnit, system ast.TargetSystem)
+	emitStackSwitch(u, system: system)
+	emitGreenStart(u)
+	emitAsyncPreempt(u, system: system)
+end 'emitGreenRoutines'
 
 // callRuntime calls an entry of the runtime by the internal convention with the word a register holds as its one
 // argument. The entries the stub calls take one word each: main's exit code, the thread's context or the message.

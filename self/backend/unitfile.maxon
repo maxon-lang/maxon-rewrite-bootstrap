@@ -42,6 +42,7 @@ export function writeUnit(u CodeUnit, mutates w table.ByteWriter)
 		w.count(u.sections[i].dataFixups)
 		w.count(u.sections[i].importFixups)
 		w.count(u.sections[i].alignment)
+		w.flag(u.sections[i].preemptible)
 	end 'sections'
 end 'writeUnit'
 
@@ -85,7 +86,8 @@ export function readUnit(mutates r table.ByteReader) returns CodeUnit
 		let symbols = r.count()
 		let data = r.count()
 		let imports = r.count()
-		u.sections.push(CodeSection.make(code, symbolFixups: symbols, dataFixups: data, importFixups: imports, alignment: r.count()))
+		let alignment = r.count()
+		u.sections.push(CodeSection.make(code, symbolFixups: symbols, dataFixups: data, importFixups: imports, alignment: alignment, preemptible: r.flag()))
 	end 'sections'
 	return u
 end 'readUnit'

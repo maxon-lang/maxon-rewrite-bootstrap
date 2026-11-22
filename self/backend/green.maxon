@@ -1,0 +1,269 @@
+// The entry stub's code for green threads, the same on both systems but for what the system asks of a stack: the switch
+// from one stack to another, the start of a stack that has not run, and the code a green thread that the monitor stops
+// is made to return into, which keeps every register (README, "Green threads"). Each is a section of its own, so an
+// executable has it only when the runtime's code that names it is linked.
+
+// preemptibleFunction is whether the monitor may stop a green thread anywhere in the code of a function: in the program's
+// code, which holds nothing of the OS thread it runs on, it may; in the runtime's own source, which works on the thread's
+// heap, queues and scheduler, calls the system and switches stacks, it may not (Go's and maxon's rule: a function of the
+// runtime is not asynchronously preemptible). A test of the runtime is compiled into the runtime's module but is not of
+// its source, so its own functions are the program's.
+function preemptibleFunction(p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns bool
+	let mi = ast.modIndex(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module)
+	if not p.modules[mi].isRuntime 'program'
+		return true
+	end 'program'
+	let offset = p.modules[mi].tree.startOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).nodeID)
+	for i in 0 upto p.modules[mi].files.count() 'files'
+		if p.modules[mi].files[i].start <= offset and offset < p.modules[mi].files[i].endOff 'holds'
+			return not directoryHolds(p.modules[mi].dir, path: p.modules[mi].files[i].path)
+		end 'holds'
+	end 'files'
+	panic("backend: a function of the runtime in none of its files")
+end 'preemptibleFunction'
+
+// directoryHolds is whether a path is of a file directly or deeper under a directory.
+function directoryHolds(dir String, path String) returns bool
+	let n = dir.byteLength()
+	if path.byteLength() <= n or path.sliceBytes(0, endPos: n) != dir 'outside'
+		return false
+	end 'outside'
+	let separator = path.byteAt(n)
+	return separator == slashByte or separator == backslashByte
+end 'directoryHolds'
+
+let slashByte = 0x2F as Byte
+
+let backslashByte = 0x5C as Byte
+
+// switchedStackRegisters are the general registers a switch record holds, in the order of its slots from
+// switchRbxOffset: those the internal convention keeps, which the code that calls the switch expects back as from any
+// call, and the frame pointer.
+function switchedStackRegister(slot Count) returns X64Register
+	if slot == 0 'rbx'
+		return X64Register.rbx
+	end 'rbx'
+	if slot == 1 'rbp'
+		return X64Register.rbp
+	end 'rbp'
+	if slot == 2 'r12'
+		return X64Register.r12
+	end 'r12'
+	if slot == 3 'r13'
+		return X64Register.r13
+	end 'r13'
+	if slot == 4 'r14'
+		return X64Register.r14
+	end 'r14'
+	if slot == 5 'r15'
+		return X64Register.r15
+	end 'r15'
+	panic("backend: a switch record has no slot {slot} for a general register")
+end 'switchedStackRegister'
+
+// switchSlotOffset is where a switch record holds the general register of a slot.
+function switchSlotOffset(slot Count) returns Imm32
+	return imm32Of(try switchRbxOffset + slot * wordBytes otherwise panic("backend: a switch record past 2 GiB"))
+end 'switchSlotOffset'
+
+// requireSwitchLayout holds the switch record of the layouts table to the convention: its slots are the general
+// registers the internal convention keeps and the frame pointer, in the order switchedStackRegister gives, and its xmm
+// slots as many as the xmm registers the convention keeps. A register the convention comes to keep, or one it stops
+// keeping, would otherwise be lost across a switch without a word.
+function requireSwitchLayout()
+	let kept = x64InternalCalleeSaved()
+	var gprs = 0 as Count
+	var xmms = 0 as Count
+	for r in 0 upto x64RegisterFileSize 'registers'
+		if maskHas(kept, number: regNumOfCount(r)) 'kept'
+			if r < x64FirstVector 'general'
+				gprs = nextCount(gprs)
+			end 'general' else 'vector'
+				xmms = nextCount(xmms)
+			end 'vector'
+		end 'kept'
+	end 'registers'
+	if nextCount(gprs) != switchKeptGprs or xmms != switchKeptXmms 'counts'
+		panic("backend: the switch record does not hold the registers the internal convention keeps")
+	end 'counts'
+	for slot in 0 upto switchKeptGprs 'slots'
+		let r = switchedStackRegister(slot)
+		if r != X64Register.rbp and not maskHas(kept, number: regNumOf(r)) 'unkept'
+			panic("backend: the switch record holds a register the internal convention does not keep")
+		end 'unkept'
+	end 'slots'
+	if switchSlotOffset(1) != imm32Of(switchRbpOffset) or switchSlotOffset(2) != imm32Of(switchR12Offset) 'order'
+		panic("backend: the switch record's slots are not in the order of switchedStackRegister")
+	end 'order'
+end 'requireSwitchLayout'
+
+// The scratch registers of the switch, which the internal convention lets a call change: the record it leaves and the
+// one it goes to, apart from the argument that names them and from every register it saves.
+let switchFrom = X64Register.rax
+
+let switchTo = X64Register.r11
+
+// tebScratch reads and writes the TEB's bounds of the stack, and tebBase holds 0, the base the TEB's words are addressed
+// from.
+let tebScratch = X64Register.r10
+
+let tebBase = X64Register.rdx
+
+// xmmSlotBytes is the room of an xmm register in a switch record and in rt.asyncPreempt's frame.
+let xmmSlotBytes = 16
+
+// emitStackSwitch writes rt.stackSwitch: given the address of a pair of switch records, it saves the registers of the
+// running stack into the first, goes on the stack of the second with its registers, and returns there, on that stack,
+// with the first record. A stack that has not run returns to rt.greenStart.
+function emitStackSwitch(mutates u CodeUnit, system ast.TargetSystem)
+	requireSwitchLayout()
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtStackSwitch))
+	if argWord() == switchFrom or argWord() == switchTo 'scratch'
+		panic("backend: the switch's scratch registers hold its argument")
+	end 'scratch'
+	u.asm.load(switchFrom, base: argWord(), disp: 0)
+	u.asm.load(switchTo, base: argWord(), disp: imm32Of(wordBytes))
+	for slot in 0 upto switchKeptGprs 'saveGprs'
+		u.asm.store(switchFrom, disp: switchSlotOffset(slot), src: switchedStackRegister(slot))
+	end 'saveGprs'
+	emitSwitchVectors(u, record: switchFrom, saves: true)
+	u.asm.store(switchFrom, disp: imm32Of(switchSpOffset), src: X64Register.rsp)
+	emitSwitchStackBounds(u, system: system, record: switchFrom, saves: true)
+	u.asm.load(X64Register.rsp, base: switchTo, disp: imm32Of(switchSpOffset))
+	emitSwitchStackBounds(u, system: system, record: switchTo, saves: false)
+	emitSwitchVectors(u, record: switchTo, saves: false)
+	for slot in 0 upto switchKeptGprs 'loadGprs'
+		u.asm.load(switchedStackRegister(slot), base: switchTo, disp: switchSlotOffset(slot))
+	end 'loadGprs'
+	u.asm.mov(resultWord(), src: switchFrom)
+	u.asm.ret()
+end 'emitStackSwitch'
+
+// emitSwitchVectors saves the xmm registers the internal convention keeps into a switch record, or loads them from it.
+function emitSwitchVectors(mutates u CodeUnit, record X64Register, saves bool)
+	let kept = x64InternalCalleeSaved()
+	var nth = 0 as Count
+	for r in x64FirstVector upto x64RegisterFileSize 'vectors'
+		if maskHas(kept, number: regNumOfCount(r)) 'kept'
+			let disp = imm32Of(try switchXmmOffset + nth * xmmSlotBytes otherwise panic("backend: a switch record past 2 GiB"))
+			let n = try r - x64FirstVector otherwise panic("backend: an xmm register before the first")
+			if saves 'save'
+				u.asm.storeVector(record, disp: disp, n: n)
+			end 'save' else 'load'
+				u.asm.loadVector(n, base: record, disp: disp)
+			end 'load'
+			nth = nextCount(nth)
+		end 'kept'
+	end 'vectors'
+end 'emitSwitchVectors'
+
+// emitSwitchStackBounds moves the TEB's bounds of the running stack into a switch record, or from it into the TEB, on
+// Windows, whose kernel grows a stack and raises its overflow by them; Linux's kernel reads no bounds of a stack.
+function emitSwitchStackBounds(mutates u CodeUnit, system ast.TargetSystem, record X64Register, saves bool)
+	match system 'system'
+		windows then emitWindowsStackBounds(u, record: record, saves: saves)
+		linux then return
+	end 'system'
+end 'emitSwitchStackBounds'
+
+function emitWindowsStackBounds(mutates u CodeUnit, record X64Register, saves bool)
+	u.asm.movImm(tebBase, imm: 0)
+	emitSwitchStackBound(u, record: record, slot: switchStackBaseOffset, teb: tebStackBaseOffset, saves: saves)
+	emitSwitchStackBound(u, record: record, slot: switchStackLimitOffset, teb: tebStackLimitOffset, saves: saves)
+	emitSwitchStackBound(u, record: record, slot: switchStackLowOffset, teb: tebDeallocationStackOffset, saves: saves)
+end 'emitWindowsStackBounds'
+
+function emitSwitchStackBound(mutates u CodeUnit, record X64Register, slot Count, teb Count, saves bool)
+	if saves 'save'
+		u.asm.loadGs(tebScratch, base: tebBase, disp: imm32Of(teb))
+		u.asm.store(record, disp: imm32Of(slot), src: tebScratch)
+	end 'save' else 'load'
+		u.asm.load(tebScratch, base: record, disp: imm32Of(slot))
+		u.asm.storeGs(tebBase, disp: imm32Of(teb), src: tebScratch)
+	end 'load'
+end 'emitSwitchStackBound'
+
+// emitGreenStart writes rt.greenStart, where a switch onto a stack that has not run returns to: the runtime seeded the
+// record's rbx with the word to pass and its r12 with the code to call, which never returns, since a green thread ends
+// by switching away for good.
+function emitGreenStart(mutates u CodeUnit)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtGreenStart))
+	u.asm.mov(argWord(), src: X64Register.rbx)
+	u.asm.callRegister(X64Register.r12)
+	u.asm.ud2()
+end 'emitGreenStart'
+
+// vectorRegisters is how many xmm registers there are, all of which rt.asyncPreempt saves.
+let vectorRegisters = 16
+
+// emitAsyncPreempt writes rt.asyncPreempt, which a green thread the monitor stops returns into: the monitor has pushed
+// the address it stopped at as the return address. The stopped code is in the middle of whatever it was doing and may be
+// using any register, so this saves the flags and every register but the stack pointer, calls the code that
+// contextPreemptCodeOffset of the thread's context names with the context, which parks the green thread and comes back when it runs
+// again, perhaps on another thread, and returns to where it was stopped with every register as it was. Nothing writes
+// below the stack pointer, so the return address pushed there overwrites nothing.
+function emitAsyncPreempt(mutates u CodeUnit, system ast.TargetSystem)
+	let vectorFile = try x64RegisterFileSize - x64FirstVector otherwise panic("backend: a register file of no xmm register")
+	if vectorFile != vectorRegisters 'files'
+		panic("backend: rt.asyncPreempt does not save every xmm register")
+	end 'files'
+	let vectorBytes = imm32Of(try vectorRegisters * xmmSlotBytes otherwise panic("backend: a frame past 2 GiB"))
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtAsyncPreempt))
+	u.asm.pushFlags()
+	for r in 0 upto x64FirstVector 'push'
+		if x64RegisterOf(regNumOfCount(r)) != X64Register.rsp 'saved'
+			u.asm.push(x64RegisterOf(regNumOfCount(r)))
+		end 'saved'
+	end 'push'
+	u.asm.subImm(X64Register.rsp, imm: vectorBytes)
+	for n in 0 upto vectorRegisters 'saveVectors'
+		u.asm.storeVector(X64Register.rsp, disp: imm32Of(try n * xmmSlotBytes otherwise panic("backend: a frame past 2 GiB")), n: n)
+	end 'saveVectors'
+	emitLoadContext(u, system: system, dst: X64Register.rax)
+	u.asm.mov(argWord(), src: X64Register.rax)
+	u.asm.load(X64Register.rax, base: X64Register.rax, disp: imm32Of(contextPreemptCodeOffset))
+	u.asm.callRegister(X64Register.rax)
+	for n in 0 upto vectorRegisters 'loadVectors'
+		u.asm.loadVector(n, base: X64Register.rsp, disp: imm32Of(try n * xmmSlotBytes otherwise panic("backend: a frame past 2 GiB")))
+	end 'loadVectors'
+	u.asm.addImm(X64Register.rsp, imm: vectorBytes)
+	var r = x64FirstVector as Count
+	while r > 0 'pop'
+		r = prevCount(r)
+		if x64RegisterOf(regNumOfCount(r)) != X64Register.rsp 'saved'
+			u.asm.pop(x64RegisterOf(regNumOfCount(r)))
+		end 'saved'
+	end 'pop'
+	u.asm.popFlags()
+	u.asm.ret()
+end 'emitAsyncPreempt'
+
+// emitLoadContext reads the running thread's context into a register, as a read of __Raw.threadContext does
+// (x64.rules).
+function emitLoadContext(mutates u CodeUnit, system ast.TargetSystem, dst X64Register)
+	match system 'system'
+		windows then u.asm.loadSymbol(dst, symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
+		linux then u.asm.movImm(dst, imm: 0)
+	end 'system'
+	match system 'system'
+		windows then u.asm.loadGs(dst, base: dst, disp: imm32Of(tebTlsSlotsOffset))
+		linux then u.asm.loadFs(dst, base: dst, disp: 0)
+	end 'system'
+end 'emitLoadContext'
+
+// emitPreemptHandler writes rt.preemptHandler, the handler of the Linux preemption signal, which the kernel calls by
+// System V with the signal's context in rdx, on the thread's signal stack: it calls the code that contextSignalCodeOffset
+// of the thread's context names with that context, which may make the stopped code return into rt.asyncPreempt, and
+// returns to the restorer. The code it calls keeps what System V has a handler keep, rbx, rbp and r12 to r15.
+function emitPreemptHandler(mutates u CodeUnit)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtPreemptHandler))
+	u.asm.mov(argWord(), src: X64Register.rdx)
+	emitLoadContext(u, system: ast.TargetSystem.linux, dst: X64Register.rax)
+	u.asm.load(X64Register.rax, base: X64Register.rax, disp: imm32Of(contextSignalCodeOffset))
+	u.asm.callRegister(X64Register.rax)
+	u.asm.ret()
+end 'emitPreemptHandler'

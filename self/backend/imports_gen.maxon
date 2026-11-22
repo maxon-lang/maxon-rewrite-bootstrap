@@ -118,6 +118,32 @@ export let impUpdateProcThreadAttribute = 55 as Count
 
 export let impDeleteProcThreadAttributeList = 56 as Count
 
+export let impVirtualAlloc = 57 as Count
+
+export let impVirtualFree = 58 as Count
+
+export let impGetCurrentThread = 59 as Count
+
+export let impGetCurrentProcess = 60 as Count
+
+export let impDuplicateHandle = 61 as Count
+
+export let impSuspendThread = 62 as Count
+
+export let impResumeThread = 63 as Count
+
+export let impGetThreadContext = 64 as Count
+
+export let impSetThreadContext = 65 as Count
+
+export let impSleep = 66 as Count
+
+export let impCreateIoCompletionPort = 67 as Count
+
+export let impGetQueuedCompletionStatusEx = 68 as Count
+
+export let impPostQueuedCompletionStatus = 69 as Count
+
 export function rtImports() returns NameList
 	var names = NameList.create(0)
 	names.push("GetProcessHeap")
@@ -177,5 +203,18 @@ export function rtImports() returns NameList
 	names.push("InitializeProcThreadAttributeList")
 	names.push("UpdateProcThreadAttribute")
 	names.push("DeleteProcThreadAttributeList")
+	names.push("VirtualAlloc")
+	names.push("VirtualFree")
+	names.push("GetCurrentThread")
+	names.push("GetCurrentProcess")
+	names.push("DuplicateHandle")
+	names.push("SuspendThread")
+	names.push("ResumeThread")
+	names.push("GetThreadContext")
+	names.push("SetThreadContext")
+	names.push("Sleep")
+	names.push("CreateIoCompletionPort")
+	names.push("GetQueuedCompletionStatusEx")
+	names.push("PostQueuedCompletionStatus")
 	return names
 end 'rtImports'

@@ -36,14 +36,17 @@ function emitLinuxRuntime(calls EntryCalls, options RuntimeOptions) returns Code
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsSlot), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtMainContext), size: contextBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtProcessStart), size: wordBytes)
+	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
 	emitLinuxEntry(u, calls: calls, count: options.countAllocations)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
 	emitLinuxThreadStart(u)
 	u.defineCode(faultSymbol)
 	emitLinuxFaultHandler(u)
-	u.defineCode(sigreturnSymbol)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtSigreturn))
 	emitSigreturn(u)
+	emitGreenRoutines(u, system: ast.TargetSystem.linux)
+	emitPreemptHandler(u)
 	return u
 end 'emitLinuxRuntime'
 
@@ -157,24 +160,6 @@ let linuxSigfpe = 8
 // zero, which is what the processor's divide fault is.
 let fpeIntegerOverflow = 2
 
-// The kernel's struct sigaction: the handler, the flags, the restorer and the mask, a word each. SA_SIGINFO hands the
-// handler the siginfo and the context, SA_ONSTACK runs it on the thread's signal stack, and SA_RESTORER, which x86-64
-// requires, names the code it returns through.
-let sigactionHandlerOffset = 0
-
-let sigactionFlagsOffset = 8
-
-let sigactionRestorerOffset = 16
-
-let sigactionMaskOffset = 24
-
-let sigactionBytes = 32
-
-let sigactionFlags = 0x0C000004
-
-// signalMaskBytes is the size of the signal mask that rt_sigaction takes.
-let signalMaskBytes = 8
-
 let noOldAction = 0
 
 // A stack_t: the stack, its flags, 0 for one in use, and its size, a word each.
@@ -194,17 +179,10 @@ let siginfoCodeOffset = 8
 
 let siginfoAddressOffset = 16
 
-let contextRspOffset = 160
-
-let contextRipOffset = 168
-
 // stackFaultReach is how far from the faulting stack pointer, on either side, a fault is a stack overflow, maxon's
 // StackFaultReachBytes: a frame's first touch is within a page of it, and the probe of a large frame at it, while a nil
 // or a wild address is nowhere near a live stack.
 let stackFaultReach = 0x10000
-
-// sigreturnSymbol is the restorer that the fault handler's signals return through, which they never do.
-let sigreturnSymbol = "rt.sigreturn"
 
 // emitSignalStack gives the running thread a stack of faultStackGuarantee bytes that its signals run on, so the handler
 // runs after the thread's stack is spent. A thread whose stack the kernel does not map gets none, as maxon's runtime
@@ -235,26 +213,26 @@ end 'emitSignalStack'
 
 // emitFaultActions makes the fault handler the action of each signal of a hardware fault, for every thread.
 function emitFaultActions(mutates u CodeUnit)
-	u.asm.subImm(rsp, imm: sigactionBytes)
+	u.asm.subImm(rsp, imm: linuxSigactionBytes)
 	u.asm.leaSymbol(rax, symbol: faultSymbol)
-	u.asm.store(rsp, disp: sigactionHandlerOffset, src: rax)
-	u.asm.movImm(rax, imm: sigactionFlags)
-	u.asm.store(rsp, disp: sigactionFlagsOffset, src: rax)
-	u.asm.leaSymbol(rax, symbol: sigreturnSymbol)
-	u.asm.store(rsp, disp: sigactionRestorerOffset, src: rax)
+	u.asm.store(rsp, disp: linuxSigactionHandlerOffset, src: rax)
+	u.asm.movImm(rax, imm: linuxFaultActionFlags)
+	u.asm.store(rsp, disp: linuxSigactionFlagsOffset, src: rax)
+	u.asm.leaSymbol(rax, symbol: ir.rtSymbol(ir.Rt.rtSigreturn))
+	u.asm.store(rsp, disp: linuxSigactionRestorerOffset, src: rax)
 	u.asm.movImm(rax, imm: 0)
-	u.asm.store(rsp, disp: sigactionMaskOffset, src: rax)
+	u.asm.store(rsp, disp: linuxSigactionMaskOffset, src: rax)
 	emitFaultAction(u, signal: linuxSigsegv)
 	emitFaultAction(u, signal: linuxSigbus)
 	emitFaultAction(u, signal: linuxSigfpe)
-	u.asm.addImm(rsp, imm: sigactionBytes)
+	u.asm.addImm(rsp, imm: linuxSigactionBytes)
 end 'emitFaultActions'
 
 function emitFaultAction(mutates u CodeUnit, signal FullRangeInt)
 	u.asm.movImm(rdi, imm: signal)
 	u.asm.mov(rsi, src: rsp)
 	u.asm.movImm(rdx, imm: noOldAction)
-	u.asm.movImm(r10, imm: signalMaskBytes)
+	u.asm.movImm(r10, imm: linuxSignalMaskBytes)
 	stubSyscall(u, number: linuxSysRtSigaction)
 end 'emitFaultAction'
 
@@ -267,7 +245,7 @@ function emitLinuxFaultHandler(mutates u CodeUnit)
 	let wild = u.asm.newLabel()
 	let overflowed = u.asm.newLabel()
 	u.asm.subImm(rsp, imm: faultFrameSize)
-	u.asm.load(r11, base: rdx, disp: contextRipOffset)
+	u.asm.load(r11, base: rdx, disp: linuxUcontextRipOffset)
 	u.asm.store(rsp, disp: faultAddressSlot, src: r11)
 	u.asm.cmpImm(rdi, imm: linuxSigfpe)
 	u.asm.jcc(X64CondCode.notEqual, label: memory)
@@ -281,7 +259,7 @@ function emitLinuxFaultHandler(mutates u CodeUnit)
 	u.asm.jmp(report)
 	u.asm.bind(memory)
 	u.asm.load(rax, base: rsi, disp: siginfoAddressOffset)
-	u.asm.load(rcx, base: rdx, disp: contextRspOffset)
+	u.asm.load(rcx, base: rdx, disp: linuxUcontextRspOffset)
 	u.asm.sub(rax, src: rcx)
 	u.asm.addImm(rax, imm: stackFaultReach)
 	u.asm.cmpImm(rax, imm: 2 * stackFaultReach)
