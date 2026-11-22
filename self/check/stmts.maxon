@@ -753,6 +753,9 @@ function checkReturn(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		end 'shape'
 		return
 	end 'function'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).result == ast.ResultConv.resultBorrowed and lendsContents(p, ms: ms, t: t, want: ret) 'contents'
+		return
+	end 'contents'
 	_ = coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, ms: ms, node: s), src: t, target: ret, wrong: Mismatch.returned, errs: errs)
 end 'checkReturn'
 

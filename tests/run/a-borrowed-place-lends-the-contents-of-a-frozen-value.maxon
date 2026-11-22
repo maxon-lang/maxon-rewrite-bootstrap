@@ -1,0 +1,63 @@
+// A function that returns a borrowed place may return the contents of a frozen value that lies in what it borrows: a
+// holder of a tree that it owns or shares, a frozen element of an array, and a chain of two such functions.
+type Tree
+	export var records as Array with Count
+
+	static function make(consumes records Array with Count) returns Tree
+		return Tree{records: records}
+	end 'make'
+end 'Tree'
+
+type Holder
+	var isShared as bool
+	var owned as Tree
+	var shared as frozen with Tree
+
+	static function ofOwned(consumes t Tree) returns Holder
+		return Holder{isShared: false, owned: t, shared: freeze(Tree.make(Array.create(0)))}
+	end 'ofOwned'
+
+	static function ofShared(consumes f frozen with Tree) returns Holder
+		return Holder{isShared: true, owned: Tree.make(Array.create(0)), shared: f}
+	end 'ofShared'
+
+	function tree() returns borrowed Tree
+		if isShared 'shared'
+			return shared
+		end 'shared'
+		return owned
+	end 'tree'
+end 'Holder'
+
+typealias Lists = Array with frozen with Tree
+
+function listAt(lists Lists, i Count) returns borrowed Tree
+	return lists[i]
+end 'listAt'
+
+function firstRecords(lists Lists) returns borrowed Array with Count
+	return listAt(lists, i: 0).records
+end 'firstRecords'
+
+function total(t Tree) returns Count
+	var n = 0 as Count
+	for i in 0 upto t.records.count() 'each'
+		n = try n + t.records[i] otherwise 0 as Count
+	end 'each'
+	return n
+end 'total'
+
+function main() returns ExitCode
+	let frozenTree = freeze(Tree.make([2, 3]))
+	let shared = Holder.ofShared(share(frozenTree))
+	let owned = Holder.ofOwned(Tree.make([7]))
+	print("{total(shared.tree())} {total(owned.tree())} {shared.tree().records[1]}\n")
+	var lists = Lists.create(0)
+	lists.push(share(frozenTree))
+	lists.push(freeze(Tree.make([5, 6, 7])))
+	print("{total(listAt(lists, i: 1))} {firstRecords(lists).count()} {firstRecords(lists)[0]}\n")
+	return 0
+end 'main'
+
+//> 5 7 3
+//> 18 2 2

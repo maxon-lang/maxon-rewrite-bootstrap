@@ -1,0 +1,18 @@
+type Tree
+	export var label as String
+
+	static function make(consumes label String) returns Tree
+		return Tree{label: label}
+	end 'make'
+end 'Tree'
+
+function made() returns borrowed Tree
+	let f = freeze(Tree.make("x"))
+	return f
+end 'made'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3926 at 11:9

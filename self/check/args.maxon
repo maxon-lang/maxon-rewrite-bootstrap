@@ -199,7 +199,7 @@ function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		end 'different'
 		return true
 	end 'byAddress'
-	if isFrozenType(p, ms: ms, t: t) and ast.contentType(ms.types, reads: p.types, t: t) == spec.ty 'frozen'
+	if lendsContents(p, ms: ms, t: t, want: spec.ty) 'frozen'
 		if spec.conv != ast.Convention.convLet 'keeps'
 			failAt(c, p: p, ms: ms, node: value, code: diag.errFrozenChange, msg: "the {spec.conv.keyword()} parameter '{spec.name}' of '{callee}' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", errs: errs)
 			return false

@@ -125,6 +125,13 @@ function isFrozenType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns b
 	return t != ast.noType and ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.builtinFrozen
 end 'isFrozenType'
 
+// lendsContents is whether a value of type t, where a let place of type want reads it, lends the contents of the frozen
+// values it nests, which are want: a let argument or receiver, and the place a function that returns a borrowed place
+// returns, read them where they stand, as the lower does (ir.contentsLent).
+function lendsContents(p ast.Project, ms ast.ModuleState, t ast.TypeID, want ast.TypeID) returns bool
+	return isFrozenType(p, ms: ms, t: t) and ast.contentType(ms.types, reads: p.types, t: t) == want
+end 'lendsContents'
+
 // checkMatch types a match and gives the type of its value, which is void for a statement and never where no arm gives
 // one.
 function checkMatch(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, core ast.NodeID, isExpr bool, mutates errs diag.ErrorList) returns ast.TypeID

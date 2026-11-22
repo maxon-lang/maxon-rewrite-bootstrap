@@ -2,15 +2,24 @@
 // method, the object of a field, the collection of a subscript, a subject and a part of an interpolated string. A value
 // that is not frozen is read as it is.
 function lowerRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
-	var v = lowerExpr(l, p: p, ms: ms, e: e)
-	var t = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
-	while ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.builtinFrozen 'frozen'
+	let v = lowerExpr(l, p: p, ms: ms, e: e)
+	let t = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
+	return contentsLent(l, p: p, ms: ms, e: e, v: v, have: t, want: ast.contentType(ms.types, reads: p.types, t: t))
+end 'lowerRead'
+
+// contentsLent is what the value v of e, of type have, lends where a let place of type want reads it: the contents of each
+// frozen value it nests, down to want, which a read takes where they stand (rt.frozen.get, a load), as a let argument, a
+// receiver and a returned borrowed place do (check.lendsContents).
+function contentsLent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, v Reg, have ast.TypeID, want ast.TypeID) returns Reg
+	var r = v
+	var t = have
+	while ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.builtinFrozen and t != want 'frozen'
 		let held = heldType(p, ms: ms, t: t)
-		v = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, ms: ms, t: held), args: argsOf1(v))
+		r = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, ms: ms, t: held), args: argsOf1(r))
 		t = held
 	end 'frozen'
-	return v
-end 'lowerRead'
+	return r
+end 'contentsLent'
 
 // visitWhenStmt schedules the body of a behaviour, which becomes a function of its own. The cowns it names are read, and
 // what it captures moves in: the ownership pass marked each capture consumed, so reading it takes it out of its owner.

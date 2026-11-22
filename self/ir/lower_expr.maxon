@@ -298,15 +298,11 @@ function storeConverted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 end 'storeConverted'
 
 function lowerConverted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, target ast.TypeID) returns Reg
-	var v = lowerExpr(l, p: p, ms: ms, e: e)
+	let lowered = lowerExpr(l, p: p, ms: ms, e: e)
 	// A frozen value given to a let parameter of the type it holds lends its contents.
-	var have = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
+	let have = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
 	let want = applyType(l, p: p, ms: ms, t: target)
-	while ast.typeKind(ms.types, reads: p.types, t: have) == ast.TypeKind.builtinFrozen and have != want 'frozen'
-		let held = heldType(p, ms: ms, t: have)
-		v = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, ms: ms, t: held), args: argsOf1(v))
-		have = held
-	end 'frozen'
+	let v = contentsLent(l, p: p, ms: ms, e: e, v: lowered, have: have, want: want)
 	if ast.isFloatType(ms.types, reads: p.types, t: want) and ast.isIntType(ms.types, reads: p.types, t: have) 'toFloat'
 		return floatOf(l, p: p, ms: ms, v: v, e: e)
 	end 'toFloat'

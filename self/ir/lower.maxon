@@ -331,6 +331,12 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		v = konst(l, value: 0 as Word)
 	end 'none' else 'some'
 		v = lowerExpr(l, p: p, ms: ms, e: value)
+		if l.b.f.lendsResult 'lent'
+			let have = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: value))
+			let declared = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).retTy
+			let want = applyType(l, p: p, ms: ms, t: declared)
+			v = contentsLent(l, p: p, ms: ms, e: value, v: v, have: have, want: want)
+		end 'lent'
 		if convertsAtReturn(p, module: l.module, node: s) 'converts'
 			v = convertReturned(l, p: p, ms: ms, s: s, value: value, v: v)
 		end 'converts'

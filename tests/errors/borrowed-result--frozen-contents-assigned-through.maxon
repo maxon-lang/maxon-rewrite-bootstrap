@@ -1,0 +1,19 @@
+type Tree
+	export var label as String
+
+	static function make(consumes label String) returns Tree
+		return Tree{label: label}
+	end 'make'
+end 'Tree'
+
+function contents(f frozen with Tree) returns borrowed Tree
+	return f
+end 'contents'
+
+function main() returns ExitCode
+	let f = freeze(Tree.make("x"))
+	contents(f).label = "y"
+	return 0
+end 'main'
+
+// expect-error: E2013 at 15:2
