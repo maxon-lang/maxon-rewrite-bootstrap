@@ -14,7 +14,6 @@ A call that opens an isolated value or an acquired state and answers mutable dat
 
 <!-- test: a-value-read-from-an-opening-calls-result-outlives-its-statement -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `t.peekR()` opens `t` and answers its own record, and `.b` reads a number out of it: the statement hands back a value, so it may be kept.
 
 ```maxon
@@ -34,8 +33,7 @@ end 'Cell'
 
 type Ledger
 	export var r as Cell
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var i as isolated Cell
+	export var i as Cell
 	export var total as Tally
 
 	static function create() returns Self
@@ -81,7 +79,6 @@ end 'main'
 
 <!-- test: a-writer-takes-the-view-a-call-opens-an-isolated-field-for -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `t.i.me()` opens the isolated field and answers a view of it; the writer takes the view inside the statement and nothing keeps it.
 
 ```maxon
@@ -101,8 +98,7 @@ end 'Cell'
 
 type Ledger
 	export var r as Cell
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var i as isolated Cell
+	export var i as Cell
 	export var total as Tally
 
 	static function create() returns Self
@@ -148,7 +144,6 @@ end 'main'
 
 <!-- test: error.an-opening-calls-result-bound-to-a-let-is-refused-at-the-binding -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `t.peekR()` answers the state's own record, so a `let` that keeps it would name data a later write through `t` invalidates.
 
@@ -169,8 +164,7 @@ end 'Cell'
 
 type Ledger
 	export var r as Cell
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var i as isolated Cell
+	export var i as Cell
 	export var total as Tally
 
 	static function create() returns Self
@@ -212,7 +206,6 @@ error E3202: <fragment>:39:14: 't.peekR()' is mutable and cannot leave the state
 
 <!-- test: error.an-opening-calls-result-returned-from-an-acquire-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A result that views the state's record cannot leave the acquire block by `return`.
 
@@ -233,8 +226,7 @@ end 'Cell'
 
 type Ledger
 	export var r as Cell
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var i as isolated Cell
+	export var i as Cell
 	export var total as Tally
 
 	static function create() returns Self
@@ -274,7 +266,6 @@ error E3202: <fragment>:39:10: 't.peekR()' is mutable and cannot leave the state
 ```
 
 <!-- test: error.a-view-bound-through-a-try-with-a-handler-is-refused-at-the-binding -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The handler's statements are parsed inside the `let`, and the `let` is still judged as the statement that opened the isolated value.
 
@@ -294,8 +285,7 @@ type Holder
 end 'Holder'
 
 function viaHandler() returns Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let j = Holder.create() as isolated Holder
+	let j = Holder.create() as Holder
 	let it = try j.items.createIterator() otherwise return 0
 	return it.current()
 end 'viaHandler'
@@ -310,7 +300,6 @@ error E3202: <fragment>:17:11: 'try j.items.createIterator() otherwise return 0'
 ```
 
 <!-- test: error.a-throwing-view-bound-through-a-try-with-a-handler-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A user view wrapper that can throw is judged the same way with or without a handler.
 
@@ -330,7 +319,7 @@ type View
 		if items.isEmpty() 'none'
 			throw ViewError.empty
 		end 'none'
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'over'
 
 	function first() returns Num
@@ -342,15 +331,14 @@ type Holder
 	export var items as NumArray
 
 	static function create() returns Self
-		let items = NumArray.create(0)
+		var items = NumArray.create(0)
 		items.push(1)
 		return Self{items: items}
 	end 'create'
 end 'Holder'
 
 function work() returns Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let j = Holder.create() as isolated Holder
+	let j = Holder.create() as Holder
 	let v = try View.over(j.items) otherwise return 0
 	return v.first()
 end 'work'
@@ -365,7 +353,6 @@ error E3202: <fragment>:37:10: 'try View.over(j.items) otherwise return 0' is mu
 ```
 
 <!-- test: a-value-bound-through-a-try-with-a-handler-is-accepted -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A number read through the open leaves the statement, handler or not.
 
 ```maxon
@@ -377,15 +364,14 @@ type Holder
 	export var items as NumArray
 
 	static function create() returns Self
-		let items = NumArray.create(0)
+		var items = NumArray.create(0)
 		items.push(1)
 		return Self{items: items}
 	end 'create'
 end 'Holder'
 
 function work() returns Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let j = Holder.create() as isolated Holder
+	let j = Holder.create() as Holder
 	let n = try j.items.get(0) otherwise return 0
 	return n
 end 'work'
@@ -404,7 +390,6 @@ end 'main'
 
 <!-- test: error.a-state-bound-to-a-local-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `let again = s` would give the state a second name.
 
@@ -428,8 +413,7 @@ end 'Cell'
 type Ledger
 	export var cell as Cell
 	export var total as Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var spare as isolated Cell
+	export var spare as Cell
 	export var cells as CellArray
 
 	static function create(total Tally) returns Self
@@ -454,8 +438,7 @@ function touch(l Ledger) returns Tally
 end 'touch'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var kept as isolated Ledger
+	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
@@ -488,7 +471,6 @@ error E3202: <fragment>:64:15: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-passed-to-an-isolated-parameter-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An isolated parameter takes its argument by move, and the service keeps its state.
 
@@ -512,8 +494,7 @@ end 'Cell'
 type Ledger
 	export var cell as Cell
 	export var total as Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var spare as isolated Cell
+	export var spare as Cell
 	export var cells as CellArray
 
 	static function create(total Tally) returns Self
@@ -538,8 +519,7 @@ function touch(l Ledger) returns Tally
 end 'touch'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var kept as isolated Ledger
+	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
@@ -576,7 +556,6 @@ error E3202: <fragment>:68:20: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-sent-through-async-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` coroutine would wait while the block holds the service.
 
@@ -600,8 +579,7 @@ end 'Cell'
 type Ledger
 	export var cell as Cell
 	export var total as Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var spare as isolated Cell
+	export var spare as Cell
 	export var cells as CellArray
 
 	static function create(total Tally) returns Self
@@ -626,8 +604,7 @@ function touch(l Ledger) returns Tally
 end 'touch'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var kept as isolated Ledger
+	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
@@ -660,7 +637,6 @@ error E3205: <fragment>:64:11: cannot wait inside 'held'; an acquire block holds
 
 <!-- test: error.a-state-handed-to-a-spawn-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A spawn factory takes an isolated parameter by move.
 
@@ -684,8 +660,7 @@ end 'Cell'
 type Ledger
 	export var cell as Cell
 	export var total as Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var spare as isolated Cell
+	export var spare as Cell
 	export var cells as CellArray
 
 	static function create(total Tally) returns Self
@@ -710,8 +685,7 @@ function touch(l Ledger) returns Tally
 end 'touch'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var kept as isolated Ledger
+	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
@@ -744,7 +718,6 @@ error E3202: <fragment>:64:31: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-returned-from-its-acquire-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `return s` would move the state out of the service.
 
@@ -768,8 +741,7 @@ end 'Cell'
 type Ledger
 	export var cell as Cell
 	export var total as Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var spare as isolated Cell
+	export var spare as Cell
 	export var cells as CellArray
 
 	static function create(total Tally) returns Self
@@ -794,8 +766,7 @@ function touch(l Ledger) returns Tally
 end 'touch'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var kept as isolated Ledger
+	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
@@ -831,7 +802,6 @@ error E3202: <fragment>:64:10: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-pushed-into-a-container-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `push` stores its argument in the array.
 
@@ -855,8 +825,7 @@ end 'Cell'
 type Ledger
 	export var cell as Cell
 	export var total as Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var spare as isolated Cell
+	export var spare as Cell
 	export var cells as CellArray
 
 	static function create(total Tally) returns Self
@@ -881,8 +850,7 @@ function touch(l Ledger) returns Tally
 end 'touch'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var kept as isolated Ledger
+	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
@@ -918,7 +886,6 @@ error E3202: <fragment>:68:12: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-in-a-tuple-literal-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple literal stores the state as an item.
 
@@ -942,8 +909,7 @@ end 'Cell'
 type Ledger
 	export var cell as Cell
 	export var total as Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var spare as isolated Cell
+	export var spare as Cell
 	export var cells as CellArray
 
 	static function create(total Tally) returns Self
@@ -968,8 +934,7 @@ function touch(l Ledger) returns Tally
 end 'touch'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var kept as isolated Ledger
+	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}
@@ -1002,7 +967,6 @@ error E3202: <fragment>:64:15: 's' is the state of an acquired service and canno
 
 <!-- test: error.a-state-written-into-a-record-field-outside-the-block-is-refused -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The record outside the block is read-only while the block is open, so the store is refused before the state is judged.
 
@@ -1026,8 +990,7 @@ end 'Cell'
 type Ledger
 	export var cell as Cell
 	export var total as Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var spare as isolated Cell
+	export var spare as Cell
 	export var cells as CellArray
 
 	static function create(total Tally) returns Self
@@ -1052,8 +1015,7 @@ function touch(l Ledger) returns Tally
 end 'touch'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var kept as isolated Ledger
+	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
 		return Self{kept: kept}

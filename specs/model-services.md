@@ -314,7 +314,6 @@ end 'main'
 ```
 
 <!-- test: model-finding-aa-send-iso-slot-then-write -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R3-SEND`; the compiler refuses it with E3217. Model program `send-iso-slot-then-write` of redteamAA/p3.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
@@ -330,8 +329,7 @@ type Bt
 end 'Bt'
 
 type Hh
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var i as isolated Bt
+	var i as Bt
 
 	static function create(consumes i Bt) returns Self
 		return Self{i: i}
@@ -364,7 +362,6 @@ error E3217: <fragment>:35:10: parameter `bV` of the message `Rcv.take` is a `Bt
 ```
 
 <!-- test: model-finding-aa-spawn-iso-slot-then-write -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R3-SEND`; the compiler refuses it with E3217. Model program `spawn-iso-slot-then-write` of redteamAA/p3.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
@@ -380,8 +377,7 @@ type Bt
 end 'Bt'
 
 type Hh
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var i as isolated Bt
+	var i as Bt
 
 	static function create(consumes i Bt) returns Self
 		return Self{i: i}
@@ -560,7 +556,6 @@ error E3214: <fragment>:34:12: cannot hand 'h.tk' to argument `tV` of the messag
 ```
 
 <!-- test: model-finding-ad-swap-field-self-state -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ISOREAD`; the compiler refuses it with E3198. Model program `swap-field-self-state` of redteamAD/t3.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -577,15 +572,14 @@ end 'Box'
 
 type S
 	var k as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 
 	static function create(k Num, consumes b Box) returns Self
 		return Self{k: k, b: b}
 	end 'create'
 
-	export function go()
-		_ = exchange(self.b, value: self.b)
+	export function go(mutates self)
+		_ = exchange(self.b, value: self.b.clone())
 	end 'go'
 end 'S'
 
@@ -600,7 +594,6 @@ error E3198: <fragment>:21:28: 'self.b' is isolated and cannot be read outside a
 ```
 
 <!-- test: model-finding-ae-frozen-field-iso-recv-call-waits -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `frozen-field-iso-recv-call-waits` of redteamAE/p19.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -619,8 +612,7 @@ type Bx
 end 'Bx'
 
 type Hd
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(consumes item Bx) returns Self
 		return Self{item: item}
@@ -646,8 +638,7 @@ end 'waitIt'
 
 function main() returns ExitCode
 	let sv = spawn S.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let h = Hd.create(Bx.create(1)) as isolated Hd
+	let h = Hd.create(Bx.create(1)) as Hd
 	let fh = freeze(h)
 	_ = fh.item.touch(sv)
 	return 0
@@ -696,7 +687,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-k-send-iso-via-fn -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-send-iso-via-fn` of redteamAD.hand_ad3, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -713,8 +704,7 @@ end 'Tok'
 
 type Hr2
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var t as isolated Tok
+	var t as Tok
 
 	static function create(n Num, consumes t Tok) returns Self
 		return Self{n: n, t: t}
@@ -736,8 +726,7 @@ end 'give'
 
 function main() returns ExitCode
 	let h = spawn Hr2.create(0, t: Tok.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let tV = Tok.create(1) as isolated Tok
+	let tV = Tok.create(1) as Tok
 	give(h, tV: tV)
 	give(h, tV: tV)
 	return 0
@@ -1060,8 +1049,7 @@ error E3221: <fragment>:23:18: the message 'go' may wait (it awaits a reply from
 ```
 
 <!-- test: model-hand-af-h5-owned-payload-carries-handle -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `h5-owned-payload-carries-handle` of redteamAF.hand_af7, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -1070,8 +1058,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Hu
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	has(h isolated Hx)
+	has(h Hx)
 end 'Hu'
 
 type Hx
@@ -1084,8 +1071,7 @@ end 'Hx'
 
 type Fx
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var h as isolated Hx
+	var h as Hx
 
 	static function create(n Num, consumes h Hx) returns Self
 		return Self{n: n, h: h}
@@ -1112,7 +1098,6 @@ error E3197: <fragment>:30:16: cannot write 'h' through 'self', which is read-on
 ```
 
 <!-- test: model-hand-ag-u1-none -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1127,8 +1112,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -1148,7 +1132,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1156,7 +1140,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1189,7 +1173,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1215,7 +1199,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-none -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1230,8 +1213,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -1251,7 +1233,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1259,7 +1241,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1292,7 +1274,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1324,7 +1306,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u3-none -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u3-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1339,8 +1320,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -1360,7 +1340,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1368,7 +1348,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1401,7 +1381,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1426,7 +1406,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u1-copy -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1441,8 +1420,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -1462,7 +1440,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1470,7 +1448,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1503,7 +1481,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1529,7 +1507,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-copy -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1544,8 +1521,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -1565,7 +1541,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1573,7 +1549,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1606,7 +1582,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1638,7 +1614,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u3-copy -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `u3-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -1654,8 +1630,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -1741,7 +1716,6 @@ error E3214: <fragment>:88:17: cannot bind '_' to a unique value read out of a f
 ```
 
 <!-- test: model-hand-ag-u1-call -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1756,8 +1730,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -1777,7 +1750,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1785,7 +1758,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1818,7 +1791,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1851,7 +1824,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-call -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1866,8 +1838,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -1887,7 +1858,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1895,7 +1866,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1928,7 +1899,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1967,7 +1938,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u3-call -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u3-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1982,8 +1952,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -2003,7 +1972,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -2011,7 +1980,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -2044,7 +2013,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -2076,7 +2045,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-none -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2089,8 +2057,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -2110,7 +2077,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -2143,7 +2110,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -2167,7 +2134,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-inner-read -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-inner-read` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2180,8 +2146,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -2201,7 +2166,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -2234,7 +2199,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -2258,7 +2223,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-inner-write -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-inner-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2271,8 +2235,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -2292,7 +2255,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -2325,7 +2288,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(tV Tk)
+	export function takeK(mutates tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -2349,7 +2312,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-inner-move -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `j1-inner-move` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2363,8 +2326,7 @@ end 'UT'
 
 union UI
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(t isolated Tk)
+	have(t Tk)
 end 'UI'
 
 union UJ
@@ -3280,7 +3242,6 @@ error E3197: <fragment>:40:3: cannot write 'xs' through 'h', which is read-only 
 ```
 
 <!-- test: model-hand-ah-i3-fresh-into-send -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-fresh-into-send` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -3296,11 +3257,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -3332,7 +3292,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-b-local-let-then-send -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b-local-let-then-send` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -3348,11 +3307,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -3373,7 +3331,7 @@ type Sk
 end 'Sk'
 
 function main() returns ExitCode
-	let w = Bx.create(1)
+	var w = Bx.create(1)
 	w.n = 4
 	let k = spawn Sk.create(0)
 	try k.take(w) otherwise ignore
@@ -3607,7 +3565,6 @@ error E3214: <fragment>:29:41: cannot hand 'tV' to argument `x` of `spawn Sq.cre
 ```
 
 <!-- test: model-hand-ai-p-none-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-none-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3630,11 +3587,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -3667,8 +3623,7 @@ function main() returns ExitCode
 	_ = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1 then _ = 1 as Num
@@ -3681,7 +3636,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-none-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-none-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3704,11 +3658,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -3738,11 +3691,10 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1 then _ = 1 as Num
@@ -3756,7 +3708,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-none-none-fr -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-none-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3779,11 +3730,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -3814,10 +3764,9 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1 then _ = 1 as Num
@@ -3831,7 +3780,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3854,11 +3802,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -3891,8 +3838,7 @@ function main() returns ExitCode
 	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = fb
@@ -3905,7 +3851,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3928,11 +3873,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -3962,11 +3906,10 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = fb
@@ -3980,7 +3923,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-none-fr -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4003,11 +3945,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4038,10 +3979,9 @@ end 'Sv3'
 
 function main() returns ExitCode
 	let fb = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = fb
@@ -4055,7 +3995,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-fr-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-fr-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4078,11 +4017,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4115,8 +4053,7 @@ function main() returns ExitCode
 	_ = Bx.create(7)
 	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = fr.keep
@@ -4129,7 +4066,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-fr-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-fr-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4152,11 +4088,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4186,11 +4121,10 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = fr.keep
@@ -4204,7 +4138,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-fr-none-fr -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-fr-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4227,11 +4160,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4262,10 +4194,9 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = fr.keep
@@ -4279,7 +4210,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4302,11 +4232,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4339,8 +4268,7 @@ function main() returns ExitCode
 	_ = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then _ = o.keep
@@ -4353,7 +4281,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4376,11 +4303,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4410,11 +4336,10 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then _ = o.keep
@@ -4428,7 +4353,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-none-fr -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4451,11 +4375,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4486,10 +4409,9 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then _ = o.keep
@@ -4503,7 +4425,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-fr-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-fr-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4526,11 +4447,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4561,13 +4481,12 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then fr.keep = o.keep
+		q1(o) then fr.keep = o.keep.clone()
 	end 'x1'
 	return 0
 end 'main'
@@ -4577,7 +4496,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-fr-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-fr-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4600,11 +4518,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4634,14 +4551,13 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fb = Bx.create(7)
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then fr.keep = o.keep
+		q1(o) then fr.keep = o.keep.clone()
 	end 'x1'
 	fb.n = 2
 	return 0
@@ -4652,7 +4568,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-fr-none-fr -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-fr-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4675,11 +4590,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4710,13 +4624,12 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then fr.keep = o.keep
+		q1(o) then fr.keep = o.keep.clone()
 	end 'x1'
 	fr.keep.n = 4
 	return 0
@@ -4727,7 +4640,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-newin-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-newin-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4750,11 +4662,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4787,8 +4698,7 @@ function main() returns ExitCode
 	_ = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = Bx.create(5)
@@ -4801,7 +4711,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-newin-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-newin-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4824,11 +4733,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4858,11 +4766,10 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = Bx.create(5)
@@ -4876,7 +4783,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-newin-none-fr -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-newin-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4899,11 +4805,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -4934,10 +4839,9 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep = Bx.create(5)
@@ -4951,7 +4855,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-fieldint-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-fieldint-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4974,11 +4877,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5011,8 +4913,7 @@ function main() returns ExitCode
 	_ = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep.n = 6
@@ -5025,7 +4926,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-fieldint-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-fieldint-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5048,11 +4948,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5082,11 +4981,10 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep.n = 6
@@ -5100,7 +4998,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-fieldint-none-fr -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-fieldint-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5123,11 +5020,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5158,10 +5054,9 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
 		q1(o) then o.keep.n = 6
@@ -5175,8 +5070,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i-none-none-none -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-none-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5191,8 +5084,7 @@ end 'Pq'
 
 union Iq
 	i0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	i1(w isolated Wo)
+	i1(w Wo)
 end 'Iq'
 
 type Bx
@@ -5205,11 +5097,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5242,8 +5133,7 @@ function main() returns ExitCode
 	_ = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Iq
+	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
 		i1 then _ = 1 as Num
@@ -5256,8 +5146,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i-none-none-fb -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-none-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5272,8 +5160,7 @@ end 'Pq'
 
 union Iq
 	i0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	i1(w isolated Wo)
+	i1(w Wo)
 end 'Iq'
 
 type Bx
@@ -5286,11 +5173,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5320,11 +5206,10 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Iq
+	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
 		i1 then _ = 1 as Num
@@ -5338,8 +5223,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i-none-none-fr -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-none-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5354,8 +5237,7 @@ end 'Pq'
 
 union Iq
 	i0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	i1(w isolated Wo)
+	i1(w Wo)
 end 'Iq'
 
 type Bx
@@ -5368,11 +5250,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5403,10 +5284,9 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Iq
+	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
 		i1 then _ = 1 as Num
@@ -5420,8 +5300,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i-swap-item-fb-none-none -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i-swap-item-fb-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -5437,8 +5316,7 @@ end 'Pq'
 
 union Iq
 	i0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	i1(w isolated Wo)
+	i1(w Wo)
 end 'Iq'
 
 type Bx
@@ -5451,8 +5329,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -5488,8 +5365,7 @@ function main() returns ExitCode
 	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Iq
+	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
 		i1(o) then _ = exchange(o.item, value: fb)
@@ -5502,8 +5378,7 @@ error E3200: <fragment>:64:39: 'fb' is not isolated: only a clean call, a `swap`
 ```
 
 <!-- test: model-hand-ai-i-swap-item-fb-none-fb -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i-swap-item-fb-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -5519,8 +5394,7 @@ end 'Pq'
 
 union Iq
 	i0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	i1(w isolated Wo)
+	i1(w Wo)
 end 'Iq'
 
 type Bx
@@ -5533,8 +5407,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -5570,8 +5443,7 @@ function main() returns ExitCode
 	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Iq
+	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
 		i1(o) then _ = exchange(o.item, value: fb)
@@ -5585,8 +5457,7 @@ error E3200: <fragment>:64:39: 'fb' is not isolated: only a clean call, a `swap`
 ```
 
 <!-- test: model-hand-ai-i-swap-item-fb-none-fr -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i-swap-item-fb-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -5602,8 +5473,7 @@ end 'Pq'
 
 union Iq
 	i0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	i1(w isolated Wo)
+	i1(w Wo)
 end 'Iq'
 
 type Bx
@@ -5616,8 +5486,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -5653,8 +5522,7 @@ function main() returns ExitCode
 	let fb = Bx.create(7)
 	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Iq
+	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
 		i1(o) then _ = exchange(o.item, value: fb)
@@ -5668,7 +5536,6 @@ error E3200: <fragment>:64:39: 'fb' is not isolated: only a clean call, a `swap`
 ```
 
 <!-- test: model-hand-ai-a-none-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-none-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5696,11 +5563,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5734,8 +5600,7 @@ function main() returns ExitCode
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Aq.a1(BxArray.create(0)) as isolated Aq
+	let u = Aq.a1(BxArray.create(0)) as Aq
 	match u 'x1'
 		a0 then break
 		a1 then _ = 1 as Num
@@ -5748,7 +5613,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-none-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-none-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5776,11 +5640,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5810,12 +5673,11 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Aq.a1(BxArray.create(0)) as isolated Aq
+	let u = Aq.a1(BxArray.create(0)) as Aq
 	match u 'x1'
 		a0 then break
 		a1 then _ = 1 as Num
@@ -5829,7 +5691,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-push-fb-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-push-fb-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5857,11 +5718,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5895,8 +5755,7 @@ function main() returns ExitCode
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Aq.a1(BxArray.create(0)) as isolated Aq
+	let u = Aq.a1(BxArray.create(0)) as Aq
 	match u 'x1'
 		a0 then break
 		a1(o) then o.push(fb)
@@ -5909,7 +5768,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-push-fb-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-push-fb-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5937,11 +5795,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -5971,12 +5828,11 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Aq.a1(BxArray.create(0)) as isolated Aq
+	let u = Aq.a1(BxArray.create(0)) as Aq
 	match u 'x1'
 		a0 then break
 		a1(o) then o.push(fb)
@@ -5990,7 +5846,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-push-new-none-none -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-push-new-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -6018,11 +5873,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -6056,8 +5910,7 @@ function main() returns ExitCode
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Aq.a1(BxArray.create(0)) as isolated Aq
+	let u = Aq.a1(BxArray.create(0)) as Aq
 	match u 'x1'
 		a0 then break
 		a1(o) then o.push(Bx.create(1))
@@ -6070,7 +5923,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-push-new-none-fb -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-push-new-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -6098,11 +5950,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -6132,12 +5983,11 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Aq.a1(BxArray.create(0)) as isolated Aq
+	let u = Aq.a1(BxArray.create(0)) as Aq
 	match u 'x1'
 		a0 then break
 		a1(o) then o.push(Bx.create(1))
@@ -6151,8 +6001,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-ia-none-none-none -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ia-none-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -6167,8 +6015,7 @@ end 'Pq'
 
 union Ia
 	j0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	j1(xs isolated BxArray)
+	j1(xs BxArray)
 end 'Ia'
 
 type Bx
@@ -6181,11 +6028,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -6219,8 +6065,7 @@ function main() returns ExitCode
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ia.j1(BxArray.create(0)) as isolated Ia
+	let u = Ia.j1(BxArray.create(0)) as Ia
 	match u 'x1'
 		j0 then break
 		j1 then _ = 1 as Num
@@ -6233,8 +6078,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-ia-none-none-fb -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ia-none-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -6249,8 +6092,7 @@ end 'Pq'
 
 union Ia
 	j0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	j1(xs isolated BxArray)
+	j1(xs BxArray)
 end 'Ia'
 
 type Bx
@@ -6263,11 +6105,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -6297,12 +6138,11 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	let fb = Bx.create(7)
+	var fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ia.j1(BxArray.create(0)) as isolated Ia
+	let u = Ia.j1(BxArray.create(0)) as Ia
 	match u 'x1'
 		j0 then break
 		j1 then _ = 1 as Num
@@ -6316,7 +6156,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-loop-carry-out -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-loop-carry-out` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -6339,11 +6178,10 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep, item: item}
+		return Self{keep: keep.clone(), item: item}
 	end 'create'
 end 'Wo'
 
@@ -6385,14 +6223,13 @@ function main() returns ExitCode
 	_ = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	let keepc = Bx.create(1)
+	var keepc = Bx.create(1)
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as isolated Pq
+		let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 		match u 'x2'
 			q0 then break
-			q1(o) then takeWo(o)
+			q1(o) then takeWo(o.clone())
 		end 'x2'
 		keepc.n = 3
 		i = lg(0)
@@ -6971,7 +6808,6 @@ error E3214: <fragment>:47:24: cannot hand 'h' to the service it is sent to: 'h'
 <!-- test: model-hand-an-p1-swap-state-plain-payload -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-swap-state-plain-payload` of redteamAN.hand_an3, in capmodel `reggio/REPORTRTAN.txt`.
 
 ```maxon
@@ -6991,8 +6827,7 @@ type Pb
 end 'Pb'
 
 type Ks2
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated UP
+	var u as UP
 	var pk as Pb
 
 	static function create(consumes u UP, consumes pk Pb) returns Self
@@ -7790,7 +7625,6 @@ error E3200: <fragment>:49:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-ap-g1-union-closed-iso-case -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `g1-union-closed-iso-case` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
 ```maxon
@@ -7798,8 +7632,7 @@ typealias Num = int(i64.min to i64.max)
 
 union UQi
 	a0(t Tk)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	a1(b isolated Bx)
+	a1(b Bx)
 end 'UQi'
 
 type Bx
@@ -10118,7 +9951,7 @@ error E3102: <fragment>:45:17: use of moved value 'u': its ownership moved to an
 ```
 
 <!-- test: model-hand-ar-i5-iso-payload-bind-send -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `i5-iso-payload-bind-send` of redteamAR.hand_ar3, in capmodel `reggio/REPORTRTAR.txt`.
 
@@ -10127,8 +9960,7 @@ typealias Num = int(i64.min to i64.max)
 
 union UIq
 	qnone
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	qhave(t isolated Tk)
+	qhave(t Tk)
 end 'UIq'
 
 type Tk is noncopyable
@@ -10175,7 +10007,6 @@ error E3214: <fragment>:42:26: cannot hand 'p' to argument `t` of the message `S
 
 <!-- test: model-hand-fa14-m-isolated-bx-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `m-isolated-bx-store` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -10205,8 +10036,7 @@ end 'Zm'
 
 function main() returns ExitCode
 	let r = spawn Zm.create(Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bV = Bx.create(1) as isolated Bx
+	let bV = Bx.create(1) as Bx
 	try r.put(bV) otherwise ignore
 	return 0
 end 'main'
@@ -10249,7 +10079,6 @@ error E3196: <fragment>:16:18: cannot store an isolated 'Bx' into 'Zm3.b', which
 
 <!-- test: model-hand-fa14-m-store-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `m-store-twice` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -10281,8 +10110,7 @@ end 'Zm2'
 
 function main() returns ExitCode
 	let r = spawn Zm2.create(Bx.create(0), c: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bV = Bx.create(1) as isolated Bx
+	let bV = Bx.create(1) as Bx
 	try r.put(bV) otherwise ignore
 	return 0
 end 'main'
@@ -10336,7 +10164,6 @@ error E3196: <fragment>:20:12: cannot store an isolated 'Bx' into 'b', which hol
 
 <!-- test: model-hand-fa14-m-lent-payload -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `m-lent-payload` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -10345,8 +10172,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Bx
@@ -10598,7 +10424,6 @@ error E3196: <fragment>:20:12: cannot store an isolated 'Bx' into 'b', which hol
 
 <!-- test: model-hand-fa15-d8-message-param -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `d8-message-param` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -10606,8 +10431,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -10617,8 +10441,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -10688,7 +10511,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa15-e10-message-twice -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `e10-message-twice` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -10697,8 +10520,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Bx
@@ -10749,8 +10571,6 @@ error E3102: <fragment>:29:9: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-hand-fa15-e12-send-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `e12-send-after` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -10759,8 +10579,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -10770,8 +10589,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -10827,8 +10645,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let k = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	match u 'x1'
 		u0 then break
 		u1(o) then takeB(o)
@@ -10848,8 +10665,6 @@ error E3102: <fragment>:76:12: use of moved value 'u': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-ub-let-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -10857,8 +10672,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -10868,8 +10682,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -10883,8 +10696,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -10923,8 +10735,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	match u 'x1'
 		u0 then break
 		u1(o) then _ = o.n
@@ -10938,8 +10749,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-let-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -10947,8 +10756,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -10958,8 +10766,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -10973,8 +10780,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11017,8 +10823,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	match u 'x1'
 		u0 then break
 		u1(o) then takeB(o)
@@ -11032,8 +10837,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-let-top-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-ub-let-top-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -11042,8 +10845,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11053,8 +10855,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11068,8 +10869,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11113,8 +10913,7 @@ end 'takeTwo'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	match u 'x1'
 		u0 then break
 		u1(o) then takeTwo(o, b: o)
@@ -11128,8 +10927,6 @@ error E3102: <fragment>:76:25: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-ub-let-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -11137,8 +10934,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11148,8 +10944,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11163,8 +10958,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11203,8 +10997,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	match u 'x1'
 		u0 then break
 		u1(o) then o.n = 3
@@ -11218,8 +11011,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-let-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -11227,8 +11018,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11238,8 +11028,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11253,8 +11042,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11297,8 +11085,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -11314,8 +11101,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-let-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -11323,8 +11108,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11334,8 +11118,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11349,8 +11132,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11397,8 +11179,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -11414,8 +11195,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-let-iffy-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-ub-let-iffy-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -11424,8 +11203,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11435,8 +11213,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11450,8 +11227,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11499,8 +11275,7 @@ end 'takeTwo'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -11516,8 +11291,6 @@ error E3102: <fragment>:81:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-ub-let-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -11525,8 +11298,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11536,8 +11308,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11551,8 +11322,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11595,8 +11365,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -11612,8 +11381,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-let-loopfresh-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-loopfresh-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -11621,8 +11388,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11632,8 +11398,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11647,8 +11412,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11693,8 +11457,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Ub.u1(Bx.create(5)) as isolated Ub
+		let w = Ub.u1(Bx.create(5)) as Ub
 		match w 'x2'
 			u0 then break
 			u1(o) then _ = o.n
@@ -11710,8 +11473,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-let-loopfresh-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-loopfresh-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -11719,8 +11480,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11730,8 +11490,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11745,8 +11504,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11795,8 +11553,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Ub.u1(Bx.create(5)) as isolated Ub
+		let w = Ub.u1(Bx.create(5)) as Ub
 		match w 'x2'
 			u0 then break
 			u1(o) then takeB(o)
@@ -11812,8 +11569,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-let-loopfresh-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-ub-let-loopfresh-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -11822,8 +11577,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11833,8 +11587,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11848,8 +11601,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11899,8 +11651,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Ub.u1(Bx.create(5)) as isolated Ub
+		let w = Ub.u1(Bx.create(5)) as Ub
 		match w 'x2'
 			u0 then break
 			u1(o) then takeTwo(o, b: o)
@@ -11916,8 +11667,6 @@ error E3102: <fragment>:82:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-ub-let-loopfresh-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-let-loopfresh-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -11925,8 +11674,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -11936,8 +11684,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -11951,8 +11698,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11997,8 +11743,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Ub.u1(Bx.create(5)) as isolated Ub
+		let w = Ub.u1(Bx.create(5)) as Ub
 		match w 'x2'
 			u0 then break
 			u1(o) then o.n = 3
@@ -12014,8 +11759,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-param-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-param-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -12023,8 +11766,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12034,8 +11776,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12049,8 +11790,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12106,8 +11846,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-param-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-param-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -12115,8 +11853,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12126,8 +11863,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12141,8 +11877,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12202,8 +11937,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-param-top-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-ub-param-top-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -12212,8 +11945,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12223,8 +11955,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12238,8 +11969,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12300,8 +12030,6 @@ error E3102: <fragment>:75:25: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-ub-param-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-param-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -12309,8 +12037,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12320,8 +12047,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12335,8 +12061,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12392,8 +12117,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-param-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-param-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -12401,8 +12124,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12412,8 +12134,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12427,8 +12148,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12490,8 +12210,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-param-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-param-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -12499,8 +12217,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12510,8 +12227,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12525,8 +12241,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12592,8 +12307,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ub-param-iffy-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-ub-param-iffy-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -12602,8 +12315,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12613,8 +12325,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12628,8 +12339,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12696,8 +12406,6 @@ error E3102: <fragment>:80:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-ub-param-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ub-param-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -12705,8 +12413,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12716,8 +12423,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12731,8 +12437,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12794,8 +12499,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -12803,8 +12506,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12814,8 +12516,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12829,8 +12530,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12869,8 +12569,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mq.q1(Bx.create(5)) as isolated Mq
+	let u = Mq.q1(Bx.create(5)) as Mq
 	match u 'x1'
 		q0(xa) then xa.n = 1
 		q1(o) then _ = o.n
@@ -12884,8 +12583,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -12893,8 +12590,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12904,8 +12600,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12919,8 +12614,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12963,8 +12657,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mq.q1(Bx.create(5)) as isolated Mq
+	let u = Mq.q1(Bx.create(5)) as Mq
 	match u 'x1'
 		q0(xa) then xa.n = 1
 		q1(o) then takeB(o)
@@ -12978,8 +12671,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-top-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-mq-let-top-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -12988,8 +12679,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12999,8 +12689,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13014,8 +12703,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13059,8 +12747,7 @@ end 'takeTwo'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mq.q1(Bx.create(5)) as isolated Mq
+	let u = Mq.q1(Bx.create(5)) as Mq
 	match u 'x1'
 		q0(xa) then xa.n = 1
 		q1(o) then takeTwo(o, b: o)
@@ -13074,8 +12761,6 @@ error E3102: <fragment>:76:25: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-mq-let-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13083,8 +12768,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13094,8 +12778,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13109,8 +12792,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13149,8 +12831,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mq.q1(Bx.create(5)) as isolated Mq
+	let u = Mq.q1(Bx.create(5)) as Mq
 	match u 'x1'
 		q0(xa) then xa.n = 1
 		q1(o) then o.n = 3
@@ -13164,8 +12845,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13173,8 +12852,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13184,8 +12862,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13199,8 +12876,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13243,8 +12919,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mq.q1(Bx.create(5)) as isolated Mq
+	let u = Mq.q1(Bx.create(5)) as Mq
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			q0(xa) then xa.n = 1
@@ -13260,8 +12935,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13269,8 +12942,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13280,8 +12952,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13295,8 +12966,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13343,8 +13013,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mq.q1(Bx.create(5)) as isolated Mq
+	let u = Mq.q1(Bx.create(5)) as Mq
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			q0(xa) then xa.n = 1
@@ -13360,8 +13029,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-iffy-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-mq-let-iffy-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -13370,8 +13037,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13381,8 +13047,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13396,8 +13061,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13445,8 +13109,7 @@ end 'takeTwo'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mq.q1(Bx.create(5)) as isolated Mq
+	let u = Mq.q1(Bx.create(5)) as Mq
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			q0(xa) then xa.n = 1
@@ -13462,8 +13125,6 @@ error E3102: <fragment>:81:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-mq-let-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13471,8 +13132,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13482,8 +13142,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13497,8 +13156,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13541,8 +13199,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mq.q1(Bx.create(5)) as isolated Mq
+	let u = Mq.q1(Bx.create(5)) as Mq
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			q0(xa) then xa.n = 1
@@ -13558,8 +13215,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-loopfresh-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-loopfresh-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13567,8 +13222,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13578,8 +13232,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13593,8 +13246,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13639,8 +13291,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Mq.q1(Bx.create(5)) as isolated Mq
+		let w = Mq.q1(Bx.create(5)) as Mq
 		match w 'x2'
 			q0(xa) then xa.n = 1
 			q1(o) then _ = o.n
@@ -13656,8 +13307,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-loopfresh-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-loopfresh-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13665,8 +13314,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13676,8 +13324,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13691,8 +13338,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13741,8 +13387,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Mq.q1(Bx.create(5)) as isolated Mq
+		let w = Mq.q1(Bx.create(5)) as Mq
 		match w 'x2'
 			q0(xa) then xa.n = 1
 			q1(o) then takeB(o)
@@ -13758,8 +13403,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-let-loopfresh-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-mq-let-loopfresh-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -13768,8 +13411,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13779,8 +13421,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13794,8 +13435,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13845,8 +13485,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Mq.q1(Bx.create(5)) as isolated Mq
+		let w = Mq.q1(Bx.create(5)) as Mq
 		match w 'x2'
 			q0(xa) then xa.n = 1
 			q1(o) then takeTwo(o, b: o)
@@ -13862,8 +13501,6 @@ error E3102: <fragment>:82:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-mq-let-loopfresh-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-let-loopfresh-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13871,8 +13508,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13882,8 +13518,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13897,8 +13532,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -13943,8 +13577,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Mq.q1(Bx.create(5)) as isolated Mq
+		let w = Mq.q1(Bx.create(5)) as Mq
 		match w 'x2'
 			q0(xa) then xa.n = 1
 			q1(o) then o.n = 3
@@ -13960,8 +13593,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-param-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-param-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13969,8 +13600,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13980,8 +13610,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13995,8 +13624,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14052,8 +13680,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-param-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-param-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -14061,8 +13687,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14072,8 +13697,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14087,8 +13711,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14148,8 +13771,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-param-top-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-mq-param-top-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -14158,8 +13779,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14169,8 +13789,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14184,8 +13803,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14246,8 +13864,6 @@ error E3102: <fragment>:75:25: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-mq-param-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-param-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -14255,8 +13871,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14266,8 +13881,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14281,8 +13895,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14338,8 +13951,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-param-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-param-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -14347,8 +13958,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14358,8 +13968,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14373,8 +13982,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14436,8 +14044,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-param-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-param-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -14445,8 +14051,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14456,8 +14061,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14471,8 +14075,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14538,8 +14141,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-mq-param-iffy-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-mq-param-iffy-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -14548,8 +14149,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14559,8 +14159,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14574,8 +14173,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14642,8 +14240,6 @@ error E3102: <fragment>:80:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-mq-param-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-mq-param-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -14651,8 +14247,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14662,8 +14257,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14677,8 +14271,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14740,8 +14333,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -14749,8 +14340,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14760,8 +14350,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14775,8 +14364,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14815,8 +14403,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	match u 'x1'
 		u0 then break
 		u1(o) then _ = o.n
@@ -14830,8 +14417,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -14839,8 +14424,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14850,8 +14434,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14865,8 +14448,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14905,8 +14487,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	match u 'x1'
 		u0 then break
 		u1(o) then o.n = 3
@@ -14920,8 +14501,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -14929,8 +14508,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -14940,8 +14518,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -14955,8 +14532,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -14999,8 +14575,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	match u 'x1'
 		u0 then break
 		u1(o) then takeB(o)
@@ -15014,8 +14589,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-top-readfn -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-top-readfn` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -15023,8 +14596,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15034,8 +14606,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15049,8 +14620,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15093,8 +14663,7 @@ end 'readB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	match u 'x1'
 		u0 then break
 		u1(o) then readB(o)
@@ -15108,8 +14677,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-top-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `m-pc-let-top-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -15118,8 +14685,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15129,8 +14695,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15144,8 +14709,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15189,8 +14753,7 @@ end 'takeTwo'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	match u 'x1'
 		u0 then break
 		u1(o) then takeTwo(o, b: o)
@@ -15204,8 +14767,6 @@ error E3200: <fragment>:76:22: 'o' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa15-m-pc-let-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -15213,8 +14774,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15224,8 +14784,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15239,8 +14798,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15283,8 +14841,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -15300,8 +14857,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -15309,8 +14864,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15320,8 +14874,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15335,8 +14888,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15379,8 +14931,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -15396,8 +14947,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -15405,8 +14954,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15416,8 +14964,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15431,8 +14978,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15479,8 +15025,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -15496,8 +15041,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-iffy-readfn -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-iffy-readfn` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -15505,8 +15048,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15516,8 +15058,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15531,8 +15072,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15579,8 +15119,7 @@ end 'readB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -15596,8 +15135,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-iffy-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `m-pc-let-iffy-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -15606,8 +15143,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15617,8 +15153,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15632,8 +15167,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15681,8 +15215,7 @@ end 'takeTwo'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(5)) as isolated Pc
+	let u = Pc.u1(Bx.create(5)) as Pc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -15698,8 +15231,6 @@ error E3200: <fragment>:81:23: 'o' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa15-m-pc-let-loopfresh-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-loopfresh-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -15707,8 +15238,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15718,8 +15248,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15733,8 +15262,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15779,8 +15307,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Pc.u1(Bx.create(5)) as isolated Pc
+		let w = Pc.u1(Bx.create(5)) as Pc
 		match w 'x2'
 			u0 then break
 			u1(o) then _ = o.n
@@ -15796,8 +15323,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-loopfresh-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-loopfresh-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -15805,8 +15330,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15816,8 +15340,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15831,8 +15354,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15877,8 +15399,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Pc.u1(Bx.create(5)) as isolated Pc
+		let w = Pc.u1(Bx.create(5)) as Pc
 		match w 'x2'
 			u0 then break
 			u1(o) then o.n = 3
@@ -15894,8 +15415,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-loopfresh-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-loopfresh-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -15903,8 +15422,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -15914,8 +15432,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -15929,8 +15446,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -15979,8 +15495,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Pc.u1(Bx.create(5)) as isolated Pc
+		let w = Pc.u1(Bx.create(5)) as Pc
 		match w 'x2'
 			u0 then break
 			u1(o) then takeB(o)
@@ -15996,8 +15511,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-loopfresh-readfn -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-let-loopfresh-readfn` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16005,8 +15518,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16016,8 +15528,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16031,8 +15542,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16081,8 +15591,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Pc.u1(Bx.create(5)) as isolated Pc
+		let w = Pc.u1(Bx.create(5)) as Pc
 		match w 'x2'
 			u0 then break
 			u1(o) then readB(o)
@@ -16098,8 +15607,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-let-loopfresh-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `m-pc-let-loopfresh-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -16108,8 +15615,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16119,8 +15625,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16134,8 +15639,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16185,8 +15689,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Pc.u1(Bx.create(5)) as isolated Pc
+		let w = Pc.u1(Bx.create(5)) as Pc
 		match w 'x2'
 			u0 then break
 			u1(o) then takeTwo(o, b: o)
@@ -16202,8 +15705,6 @@ error E3200: <fragment>:82:23: 'o' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa15-m-pc-param-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-param-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16211,8 +15712,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16222,8 +15722,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16237,8 +15736,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16294,8 +15792,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-param-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-param-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16303,8 +15799,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16314,8 +15809,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16329,8 +15823,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16386,8 +15879,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-param-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-param-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16395,8 +15886,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16406,8 +15896,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16421,8 +15910,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16482,8 +15970,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-param-top-readfn -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-param-top-readfn` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16491,8 +15977,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16502,8 +15987,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16517,8 +16001,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16578,8 +16061,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-param-top-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `m-pc-param-top-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -16588,8 +16069,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16599,8 +16079,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16614,8 +16093,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16676,8 +16154,6 @@ error E3200: <fragment>:75:22: 'o' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa15-m-pc-param-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-param-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16685,8 +16161,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16696,8 +16171,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16711,8 +16185,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16774,8 +16247,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-param-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-param-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16783,8 +16254,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16794,8 +16264,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16809,8 +16278,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16872,8 +16340,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-param-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-param-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16881,8 +16347,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16892,8 +16357,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -16907,8 +16371,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -16974,8 +16437,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-param-iffy-readfn -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-pc-param-iffy-readfn` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -16983,8 +16444,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -16994,8 +16454,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17009,8 +16468,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17076,8 +16534,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-pc-param-iffy-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `m-pc-param-iffy-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -17086,8 +16542,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17097,8 +16552,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17112,8 +16566,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17180,8 +16633,6 @@ error E3200: <fragment>:80:23: 'o' is not isolated: only a clean call, a `swap` 
 
 <!-- test: model-hand-fa15-m-ut-let-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -17189,8 +16640,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17205,8 +16655,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17228,8 +16677,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17268,8 +16716,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = UT.have(Tk.create(5)) as isolated UT
+	let u = UT.have(Tk.create(5)) as UT
 	match u 'x1'
 		none then break
 		have(o) then _ = o.n
@@ -17283,8 +16730,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-let-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -17292,8 +16737,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17308,8 +16752,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17331,8 +16774,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17371,8 +16813,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = UT.have(Tk.create(5)) as isolated UT
+	let u = UT.have(Tk.create(5)) as UT
 	match u 'x1'
 		none then break
 		have(o) then o.n = 3
@@ -17386,8 +16827,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-let-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -17395,8 +16834,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17411,8 +16849,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17434,8 +16871,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17478,8 +16914,7 @@ end 'takeT'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = UT.have(Tk.create(5)) as isolated UT
+	let u = UT.have(Tk.create(5)) as UT
 	match u 'x1'
 		none then break
 		have(o) then takeT(o)
@@ -17493,8 +16928,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-let-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -17502,8 +16935,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17518,8 +16950,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17541,8 +16972,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17585,8 +17015,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = UT.have(Tk.create(5)) as isolated UT
+	let u = UT.have(Tk.create(5)) as UT
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			none then break
@@ -17602,8 +17031,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-let-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -17611,8 +17038,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17627,8 +17053,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17650,8 +17075,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17694,8 +17118,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = UT.have(Tk.create(5)) as isolated UT
+	let u = UT.have(Tk.create(5)) as UT
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			none then break
@@ -17711,8 +17134,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-let-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -17720,8 +17141,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17736,8 +17156,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17759,8 +17178,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17807,8 +17225,7 @@ end 'takeT'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = UT.have(Tk.create(5)) as isolated UT
+	let u = UT.have(Tk.create(5)) as UT
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			none then break
@@ -17824,8 +17241,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-let-loopfresh-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-loopfresh-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -17833,8 +17248,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17849,8 +17263,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17872,8 +17285,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -17918,8 +17330,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = UT.have(Tk.create(5)) as isolated UT
+		let w = UT.have(Tk.create(5)) as UT
 		match w 'x2'
 			none then break
 			have(o) then _ = o.n
@@ -17935,8 +17346,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-let-loopfresh-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-loopfresh-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -17944,8 +17353,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -17960,8 +17368,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -17983,8 +17390,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18029,8 +17435,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = UT.have(Tk.create(5)) as isolated UT
+		let w = UT.have(Tk.create(5)) as UT
 		match w 'x2'
 			none then break
 			have(o) then o.n = 3
@@ -18046,8 +17451,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-let-loopfresh-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-let-loopfresh-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18055,8 +17458,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -18071,8 +17473,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18094,8 +17495,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18144,8 +17544,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = UT.have(Tk.create(5)) as isolated UT
+		let w = UT.have(Tk.create(5)) as UT
 		match w 'x2'
 			none then break
 			have(o) then takeT(o)
@@ -18161,8 +17560,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-param-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-param-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18170,8 +17567,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -18186,8 +17582,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18209,8 +17604,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18266,8 +17660,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-param-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-param-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18275,8 +17667,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -18291,8 +17682,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18314,8 +17704,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18371,8 +17760,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-param-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-param-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18380,8 +17767,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -18396,8 +17782,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18419,8 +17804,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18480,8 +17864,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-param-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-param-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18489,8 +17871,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -18505,8 +17886,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18528,8 +17908,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18591,8 +17970,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-param-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-param-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18600,8 +17977,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -18616,8 +17992,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18639,8 +18014,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18702,8 +18076,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-ut-param-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-ut-param-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18711,8 +18083,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -18727,8 +18098,7 @@ end 'UT'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18750,8 +18120,7 @@ end 'Tk'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18817,8 +18186,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18826,14 +18193,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -18843,8 +18208,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18858,8 +18222,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18898,8 +18261,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Vc.u1(Bx.create(5)) as isolated Vc
+	let u = Vc.u1(Bx.create(5)) as Vc
 	match u 'x1'
 		u0 then break
 		u1(o) then _ = o.n
@@ -18913,8 +18275,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -18922,14 +18282,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -18939,8 +18297,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -18954,8 +18311,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -18998,8 +18354,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Vc.u1(Bx.create(5)) as isolated Vc
+	let u = Vc.u1(Bx.create(5)) as Vc
 	match u 'x1'
 		u0 then break
 		u1(o) then takeB(o)
@@ -19013,8 +18368,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-top-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-vc-let-top-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -19023,14 +18376,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19040,8 +18391,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19055,8 +18405,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19100,8 +18449,7 @@ end 'takeTwo'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Vc.u1(Bx.create(5)) as isolated Vc
+	let u = Vc.u1(Bx.create(5)) as Vc
 	match u 'x1'
 		u0 then break
 		u1(o) then takeTwo(o, b: o)
@@ -19115,8 +18463,6 @@ error E3102: <fragment>:81:25: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-vc-let-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -19124,14 +18470,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19141,8 +18485,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19156,8 +18499,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19196,8 +18538,7 @@ end 'Kw'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Vc.u1(Bx.create(5)) as isolated Vc
+	let u = Vc.u1(Bx.create(5)) as Vc
 	match u 'x1'
 		u0 then break
 		u1(o) then o.n = 3
@@ -19211,8 +18552,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -19220,14 +18559,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19237,8 +18574,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19252,8 +18588,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19296,8 +18631,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Vc.u1(Bx.create(5)) as isolated Vc
+	let u = Vc.u1(Bx.create(5)) as Vc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -19313,8 +18647,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -19322,14 +18654,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19339,8 +18669,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19354,8 +18683,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19402,8 +18730,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Vc.u1(Bx.create(5)) as isolated Vc
+	let u = Vc.u1(Bx.create(5)) as Vc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -19419,8 +18746,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-iffy-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-vc-let-iffy-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -19429,14 +18754,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19446,8 +18769,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19461,8 +18783,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19510,8 +18831,7 @@ end 'takeTwo'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Vc.u1(Bx.create(5)) as isolated Vc
+	let u = Vc.u1(Bx.create(5)) as Vc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -19527,8 +18847,6 @@ error E3102: <fragment>:86:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-vc-let-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -19536,14 +18854,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19553,8 +18869,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19568,8 +18883,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19612,8 +18926,7 @@ end 'lg'
 
 function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Vc.u1(Bx.create(5)) as isolated Vc
+	let u = Vc.u1(Bx.create(5)) as Vc
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
@@ -19629,8 +18942,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-loopfresh-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-loopfresh-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -19638,14 +18949,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19655,8 +18964,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19670,8 +18978,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19716,8 +19023,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Vc.u1(Bx.create(5)) as isolated Vc
+		let w = Vc.u1(Bx.create(5)) as Vc
 		match w 'x2'
 			u0 then break
 			u1(o) then _ = o.n
@@ -19733,8 +19039,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-loopfresh-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-loopfresh-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -19742,14 +19046,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19759,8 +19061,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19774,8 +19075,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19824,8 +19124,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Vc.u1(Bx.create(5)) as isolated Vc
+		let w = Vc.u1(Bx.create(5)) as Vc
 		match w 'x2'
 			u0 then break
 			u1(o) then takeB(o)
@@ -19841,8 +19140,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-let-loopfresh-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-vc-let-loopfresh-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -19851,14 +19148,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19868,8 +19163,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19883,8 +19177,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -19934,8 +19227,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Vc.u1(Bx.create(5)) as isolated Vc
+		let w = Vc.u1(Bx.create(5)) as Vc
 		match w 'x2'
 			u0 then break
 			u1(o) then takeTwo(o, b: o)
@@ -19951,8 +19243,6 @@ error E3102: <fragment>:87:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-vc-let-loopfresh-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-let-loopfresh-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -19960,14 +19250,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -19977,8 +19265,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -19992,8 +19279,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20038,8 +19324,7 @@ function main() returns ExitCode
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let w = Vc.u1(Bx.create(5)) as isolated Vc
+		let w = Vc.u1(Bx.create(5)) as Vc
 		match w 'x2'
 			u0 then break
 			u1(o) then o.n = 3
@@ -20055,8 +19340,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-param-top-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-param-top-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -20064,14 +19347,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -20081,8 +19362,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20096,8 +19376,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20153,8 +19432,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-param-top-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-param-top-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -20162,14 +19439,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -20179,8 +19454,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20194,8 +19468,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20255,8 +19528,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-param-top-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-vc-param-top-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -20265,14 +19536,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -20282,8 +19551,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20297,8 +19565,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20359,8 +19626,6 @@ error E3102: <fragment>:80:25: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-vc-param-top-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-param-top-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -20368,14 +19633,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -20385,8 +19648,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20400,8 +19662,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20457,8 +19718,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-param-iffy-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-param-iffy-use` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -20466,14 +19725,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -20483,8 +19740,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20498,8 +19754,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20561,8 +19816,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-param-iffy-take -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-param-iffy-take` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -20570,14 +19823,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -20587,8 +19838,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20602,8 +19852,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20669,8 +19918,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-m-vc-param-iffy-twice -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-vc-param-iffy-twice` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -20679,14 +19926,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -20696,8 +19941,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20711,8 +19955,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20779,8 +20022,6 @@ error E3102: <fragment>:85:26: use of moved value 'o': its ownership moved to an
 
 <!-- test: model-hand-fa15-m-vc-param-iffy-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-vc-param-iffy-write` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -20788,14 +20029,12 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Vc
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Vc'
 
 union Pc
@@ -20805,8 +20044,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20820,8 +20058,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20883,8 +20120,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-b-ub-state -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b-ub-state` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -20892,8 +20127,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -20903,8 +20137,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -20918,8 +20151,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -20973,8 +20205,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-b-pc-state -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b-pc-state` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -20982,8 +20212,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -20993,8 +20222,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -21008,8 +20236,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -21063,8 +20290,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-b-mq-state -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b-mq-state` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -21072,8 +20297,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -21083,8 +20307,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -21098,8 +20321,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -21158,7 +20380,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa15-c21-unique-spawn -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `c21-unique-spawn` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -21180,14 +20401,13 @@ end 'Tk'
 type Sk
 	var t as Tk
 
-	static function create(x Tk) returns Self
+	static function create(consumes x Tk) returns Self
 		return Self{t: x}
 	end 'create'
 end 'Sk'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = UT.have(Tk.create(1)) as isolated UT
+	let u = UT.have(Tk.create(1)) as UT
 	match u 'x1'
 		none then break
 		have(tV) then _ = spawn Sk.create(tV)
@@ -21383,7 +20603,6 @@ error E3214: <fragment>:29:38: cannot hand 'uV' to the service the `spawn` start
 
 <!-- test: model-hand-fa17-i-msg-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `i-msg-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -21409,8 +20628,7 @@ end 'Tk'
 type Kq
 	var keep as Bx
 	var kt as Tk
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(consumes keep Bx, consumes kt Tk, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -21447,7 +20665,6 @@ error E3196: <fragment>:30:15: cannot store an isolated 'Bx' into 'keep', which 
 
 <!-- test: model-hand-fa17-i-msg-merge -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-msg-merge` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -21472,8 +20689,7 @@ end 'Tk'
 type Kq
 	var keep as Bx
 	var kt as Tk
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(consumes keep Bx, consumes kt Tk, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -21506,7 +20722,6 @@ end 'main'
 
 <!-- test: model-hand-fa17-i-msg-unique-noword -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-msg-unique-noword` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -21531,8 +20746,7 @@ end 'Tk'
 type Kq
 	var keep as Bx
 	var kt as Tk
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(consumes keep Bx, consumes kt Tk, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -21565,7 +20779,6 @@ end 'main'
 
 <!-- test: model-hand-fa17-i-msg-iso-slot -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-msg-iso-slot` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -21590,8 +20803,7 @@ end 'Tk'
 type Kq
 	var keep as Bx
 	var kt as Tk
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(consumes keep Bx, consumes kt Tk, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -23913,8 +23125,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p2-call-stored-state -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-call-stored-state` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -23922,8 +23132,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Bx
@@ -23936,17 +23145,16 @@ end 'Bx'
 
 type Kq
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes item Bx) returns Self
 		return Self{n: n, item: item}
 	end 'create'
 
-	export function go()
+	export function go(mutates self)
 		match mkUb() 'x1'
 			u0 then break
-			u1(o) then self.item = o
+			u1(o) then self.item = o.clone()
 		end 'x1'
 	end 'go'
 end 'Kq'

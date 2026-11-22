@@ -956,7 +956,6 @@ lines=1000 last=line 999
 ```
 
 <!-- test: a-reader-named-only-as-an-element-type-reads-through-its-source -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The user's program names `StreamReader with ZBytes` only as an array's element type: the readers come from a library factory and the source's `readSome` is reached only through `readLine` on each element. Each reader answers its one line, then `ended`.
 ```maxon
 // --- stdlib-overlay: Stream.maxon
@@ -968,8 +967,7 @@ public type ZBytes implements ByteSource
 	end 'create'
 
 	public function readSome(most ReadCapacity) returns ByteArray throws StreamError
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let out = ByteArray.create(0) as isolated ByteArray
+		let out = ByteArray.create(0) as ByteArray
 		if self.left == 0 'drained'
 			return out
 		end 'drained'

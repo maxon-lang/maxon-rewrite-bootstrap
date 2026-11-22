@@ -20,7 +20,6 @@ mutable-only.
 
 <!-- test: freezing-an-enclosing-windows-root-inside-a-nested-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `lines` is open in `'outer'`, so inside `'inner'` it is outside the open block and read-only, and `freeze` needs a writable holder.
 
@@ -30,8 +29,7 @@ typealias LineArray = Array with String
 function f(consumes lines LineArray)
 	// TODO: modify blocks are not supported in minimaxon
 	modify lines 'outer'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let other = LineArray.create(0) as isolated LineArray
+		let other = LineArray.create(0) as LineArray
 		// TODO: modify blocks are not supported in minimaxon
 		modify other 'inner'
 			_ = freeze(lines)
@@ -49,7 +47,6 @@ error E3200: <fragment>:8:15: 'lines' is used as mutable; freeze a copy: `freeze
 
 <!-- test: writing-an-enclosing-windows-root-inside-a-nested-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `lines` is open in `'outer'`, so a push through it inside `'inner'` writes data outside the open block.
 
@@ -59,8 +56,7 @@ typealias LineArray = Array with String
 function f(consumes lines LineArray)
 	// TODO: modify blocks are not supported in minimaxon
 	modify lines 'outer'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let other = LineArray.create(0) as isolated LineArray
+		let other = LineArray.create(0) as LineArray
 		// TODO: modify blocks are not supported in minimaxon
 		modify other 'inner'
 			lines.push("x")
@@ -124,7 +120,6 @@ error E3207: <fragment>:35:7: 'poke' writes 'h' (line 30: `p.n = 1`); 's' is imm
 
 <!-- test: a-direct-send-that-waits-without-end-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `h.fill(sendTimeout: ForeverMs)` waits for room in a full mailbox, so it may wait while `batch` is open.
 
@@ -147,8 +142,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn(capacity: 1) Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
 		try h.fill(sendTimeout: ForeverMs) otherwise panic("a send that waits without end returns only when it is delivered or the service stops")
@@ -191,7 +185,6 @@ error E3207: <fragment>:18:15: 'look' takes `immutable` '_'; 'row' is mutable. F
 ```
 
 <!-- test: a-spawn-argument-that-is-mutable-to-an-immutable-factory-parameter-is-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Sorter.create` declares its parameter `immutable`, so `spawn` refuses a mutable record, as a call does.
 
@@ -207,8 +200,7 @@ type Settings
 end 'Settings'
 
 type Sorter
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	var settings as immutable Settings
+	var settings as Settings
 
 	static function create(settings frozen with Settings) returns Self
 		return Self{settings: settings}
@@ -265,7 +257,6 @@ error E3207: <fragment>:19:18: 'wrap' writes 'r' (line 14: `return function() gi
 
 <!-- test: a-direct-send-with-a-finite-timeout-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Any nonzero `sendTimeout:` waits on another party for room in the mailbox, so a direct send with a finite one is refused inside the window too.
 
@@ -288,8 +279,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn(capacity: 1) Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
 		try h.fill(sendTimeout: 50) otherwise panic("a send that waits for room returns when it is delivered or the timeout passes")
@@ -304,7 +294,6 @@ error E3205: <fragment>:22:7: cannot wait inside 'edit'; another coroutine could
 
 <!-- test: a-call-through-a-function-value-that-yields-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `run` is a closure whose body calls a function that sleeps, so calling it inside the block lets a sibling coroutine run while `batch` is open.
 
@@ -324,8 +313,7 @@ function pause() returns Tally
 end 'pause'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	let run = function() gives pause()
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'

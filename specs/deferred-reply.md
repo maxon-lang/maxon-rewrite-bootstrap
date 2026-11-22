@@ -1458,7 +1458,6 @@ error E3102: <fragment>:21:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: error.a-reply-cannot-be-bound-as-isolated -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Reply` is unique and stays in the code that holds it, so it is never an `isolated` value a function could borrow.
@@ -1479,8 +1478,7 @@ type Gate
 	export function ask() returns Tally throws ReplyStopped
 		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let held = pending as isolated TallyReply
+		let held = pending as TallyReply
 		answerNow(held)
 		return
 	end 'ask'
@@ -1605,7 +1603,6 @@ error E3102: <fragment>:12:3: use of moved value 'pending': its ownership moved 
 
 <!-- test: error.an-outer-union-holding-a-reply-matched-in-a-modify-block-cannot-store-the-reply-into-the-open-region -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 `pe` is declared outside `modify bx`, so the `Reply` its `match` binds is read-only there, and building `Pe.waiting(q)` into the open `Hold` would store it.
@@ -1638,8 +1635,7 @@ type Gate
 		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let pe = Pe.waiting(pending)
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let bx = Hold.create() as isolated Hold
+		let bx = Hold.create() as Hold
 		// TODO: modify blocks are not supported in minimaxon
 		modify bx 'w'
 			match pe 'm'

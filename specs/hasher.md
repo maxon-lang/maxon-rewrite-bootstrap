@@ -119,7 +119,7 @@ pure face started from `KeyedHasher.empty(seed)`. A seed that did not reach the 
 state from outside it, would let the two disagree.
 ```maxon
 function objectFold(seed HashSeed) returns HashDigest
-	let hasher = KeyedHasher.create(seed)
+	var hasher = KeyedHasher.create(seed)
 	hasher.combineBytes("hello".toByteArray())
 	hasher.combine(42)
 	return hasher.finalize()
@@ -196,9 +196,9 @@ function main() returns ExitCode
 	print("same bytes: {back.toBytes().equals(bytes)}\n")
 	print("same empty state: {KeyedHasher.empty(back) == KeyedHasher.empty(seed)}\n")
 	print("same digest: {KeyedHasher.combinedBytes(KeyedHasher.empty(back), bytes: message) == KeyedHasher.combinedBytes(KeyedHasher.empty(seed), bytes: message)}\n")
-	let seven = bytes.clone()
+	var seven = bytes.clone()
 	_ = try seven.pop() otherwise panic("8 bytes have a last")
-	let nine = bytes.clone()
+	var nine = bytes.clone()
 	nine.push(0)
 	print("0 refused: {refused(ByteArray.create(0))}\n")
 	print("7 refused: {refused(seven)}\n")
@@ -227,7 +227,7 @@ both faces of `KeyedHasher`. A fold over a flat byte stream reaches one digest f
 typealias PartArray = Array with String
 
 function objectFold(parts PartArray, seed HashSeed) returns HashDigest
-	let hasher = KeyedHasher.create(seed)
+	var hasher = KeyedHasher.create(seed)
 	for part in parts 'each'
 		hasher.combineBytes(part.toByteArray())
 	end 'each'
@@ -279,9 +279,9 @@ message has no bit to flip, so the lengths start at 1.
 typealias LengthList = Array with Count
 
 function bytesFor(length Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto length 'eachByte'
-		let mixed = ((index + length * 977 + 1) * 2654435761 + 12345) mod 4294967296
+		let mixed = try ((index + length * 977 + 1) * 2654435761 + 12345) mod 4294967296 otherwise panic("out of range")
 		bytes.push(((mixed shr 11) and 0xFF) as Byte)
 	end 'eachByte'
 	return bytes
@@ -291,7 +291,7 @@ function bitsSet(pattern HashDigest) returns Count
 	var rest = pattern
 	var count = 0 as Count
 	while rest != 0 'eachBit'
-		count = count + ((rest and 1) as Count)
+		count = try count + ((rest and 1) as Count) otherwise panic("out of range")
 		rest = rest shr 1
 	end 'eachBit'
 	return count
@@ -310,17 +310,17 @@ function main() returns ExitCode
 		for index in 0 upto length 'eachByte'
 			let original = try bytes.get(index) otherwise panic("the index is inside the message")
 			for mask in masks 'eachMask'
-				let flipped = bytes.clone()
+				var flipped = bytes.clone()
 				try flipped.set(index, value: original xor mask) otherwise panic("the index is inside the message")
 				let distance = bitsSet(digest xor KeyedHasher.combinedBytes(KeyedHasher.empty(seed), bytes: flipped))
-				moved = moved + distance
-				flips = flips + 1
+				moved = try moved + distance otherwise panic("out of range")
+				flips = try flips + 1 otherwise panic("out of range")
 				if distance == 0 'unchanged'
-					unmoved = unmoved + 1
+					unmoved = try unmoved + 1 otherwise panic("out of range")
 				end 'unchanged'
 			end 'eachMask'
 		end 'eachByte'
-		print("{length} mean>=16: {moved >= flips * 16} never 0: {unmoved == 0}\n")
+		print("{length} mean>=16: {moved >= (try flips * 16 otherwise panic("out of range"))} never 0: {unmoved == 0}\n")
 	end 'eachLength'
 	return 0
 end 'main'
@@ -742,7 +742,7 @@ function main() returns ExitCode
 	print("empty is not the seed word: {KeyedHasher.empty(seed) != word}\n")
 	print("created is not the seed word: {carried != word}\n")
 	print("the faces agree: {carried == KeyedHasher.empty(seed)}\n")
-	let resumed = KeyedHasher.resume(carried)
+	var resumed = KeyedHasher.resume(carried)
 	resumed.combineBytes("lo".toByteArray())
 	resumed.combine(7)
 	let pure = KeyedHasher.combined(KeyedHasher.combinedBytes(KeyedHasher.empty(seed), bytes: "lo".toByteArray()), value: 7)
@@ -911,10 +911,10 @@ carried value. Without that pair a caller that threads the running value through
 need a second copy of the fold.
 ```maxon
 function main() returns ExitCode
-	let first = KeyedHasher.create(HashSeed.random())
+	var first = KeyedHasher.create(HashSeed.random())
 	first.combineBytes("hel".toByteArray())
 	let carried = first.finalize()
-	let second = KeyedHasher.resume(carried)
+	var second = KeyedHasher.resume(carried)
 	second.combineBytes("lo".toByteArray())
 	print("resumed is the pure step: {second.finalize() == KeyedHasher.combinedBytes(carried, bytes: "lo".toByteArray())}\n")
 	print("resumed moved the state: {KeyedHasher.combinedBytes(carried, bytes: "lo".toByteArray()) != carried}\n")
@@ -936,7 +936,7 @@ with themselves forever and only disagree with each other, which is why the pin 
 ```maxon
 function main() returns ExitCode
 	let seed = HashSeed.random()
-	let byObject = KeyedHasher.create(seed)
+	var byObject = KeyedHasher.create(seed)
 	byObject.combineBytes("hello".toByteArray())
 	byObject.combine(42)
 	let byValue = KeyedHasher.combined(KeyedHasher.combinedBytes(KeyedHasher.empty(seed), bytes: "hello".toByteArray()), value: 42)
@@ -962,7 +962,7 @@ typealias PartArray = Array with String
 
 function taggedFold(state HashDigest, text String) returns HashDigest
 	let bytes = text.toByteArray()
-	let hasher = KeyedHasher.resume(state)
+	var hasher = KeyedHasher.resume(state)
 	hasher.combineBytes(bytes)
 	hasher.combine(bytes.count() as HashDigest)
 	return hasher.finalize()
@@ -1015,7 +1015,7 @@ function pureParts(parts PartArray, seed HashSeed) returns HashDigest
 end 'pureParts'
 
 function objectParts(parts PartArray, seed HashSeed) returns HashDigest
-	let hasher = KeyedHasher.create(seed)
+	var hasher = KeyedHasher.create(seed)
 	for part in parts 'each'
 		let bytes = part.toByteArray()
 		hasher.combineBytes(bytes)
@@ -1256,7 +1256,7 @@ boundary. The state is not readable, so the 32-bit answer is the whole observabl
 that all agreed would be a chance of about 2^-96.
 ```maxon
 function fold(first String, second String) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes(first.toByteArray())
 	hasher.combine(42)
 	hasher.combineBytes(second.toByteArray())

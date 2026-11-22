@@ -4971,7 +4971,7 @@ error E3207: <fragment>:26:20: the closure at <fragment>:21:15 writes 'b' (it ca
 A closure that hands its parameter to a `Holder` keeps it in an `immutable` field. A call that lands on such a closure and hands it a mutable value is refused, and the message names the closure the call reaches that keeps the argument, in the lifted closure's own name: the first closure in source order that keeps it when several do. A closure that only reads the argument is not named.
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-local-closure-call-names-that-closure -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `reader(v)` reaches only `reader`, which keeps nothing. `keeper(v)` reaches only `keeper`, the second closure literal of `main`, which keeps `b` in an `immutable` field of a `Holder`, so only it is refused and the refusal names it.
 ```maxon
@@ -4986,8 +4986,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let held as immutable Box
+	let held as Box
 
 	static function create(held Box) returns Self
 		return Self{held: held}
@@ -5015,7 +5014,7 @@ error E3207: <fragment>:30:16: the closure at <fragment>:27:15 needs 'b' frozen 
 ```
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-merged-closure-call-names-the-closure-that-keeps-it -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `f` names `reader` or `keeper`. Only `keeper` keeps `b`, so the refusal names `keeper`, the second closure literal, though `reader` is the first member of the shape.
 ```maxon
@@ -5030,8 +5029,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let held as immutable Box
+	let held as Box
 
 	static function create(held Box) returns Self
 		return Self{held: held}
@@ -5062,7 +5060,6 @@ error E3207: <fragment>:33:11: the closure at <fragment>:27:15 needs 'b' frozen 
 ```
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-merged-closure-call-names-the-first-closure-that-keeps-it -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `f` names `reader`, `keeperA` or `keeperB`. Both keepers keep `b`, and the refusal names the first of them in source order.
 ```maxon
@@ -5077,8 +5074,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let held as immutable Box
+	let held as Box
 
 	static function create(held Box) returns Self
 		return Self{held: held}

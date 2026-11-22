@@ -407,7 +407,6 @@ error E3217: <fragment>:29:19: parameter `point` of the message `Polite.greet` i
 ```
 
 <!-- test: marked-parameters-replies-and-factories-run -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `isolated` gives the argument away and `immutable` shares it; the same two words on a reply and on the factory's parameter.
 
 ```maxon
@@ -429,14 +428,14 @@ type Plotter
 		return Self{total: origin.x}
 	end 'create'
 
-	export function plot(consumes point Point) returns Integer
-		let added = point.x + point.y
-		self.total = self.total + added
+	export function plot(mutates self, consumes point Point) returns Integer
+		let added = try point.x + point.y otherwise panic("out of range")
+		self.total = try self.total + added otherwise panic("out of range")
 		return self.total
 	end 'plot'
 
 	export function shifted(delta frozen with Point) returns Integer
-		return self.total + delta.x + delta.y
+		return try self.total + delta.x + delta.y otherwise panic("out of range")
 	end 'shifted'
 
 	export function next() returns Point
@@ -451,8 +450,7 @@ end 'Plotter'
 function main() returns ExitCode
 	let origin = freeze(Point.create(10, y: 0))
 	let plotter = spawn Plotter.create(origin)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shape = Point.create(3, y: 4) as isolated Point
+	let shape = Point.create(3, y: 4) as Point
 	let delta = freeze(Point.create(100, y: 200))
 	let total = try await plotter.plot(shape) otherwise panic("main: a fresh plotter answers plot")
 	let moved = try await plotter.shifted(delta) otherwise panic("main: a fresh plotter answers shifted")
@@ -471,7 +469,6 @@ end 'main'
 ```
 
 <!-- test: marked-union-parameters-replies-and-factories-run -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A union that carries a `ByteArray` takes the same two words on a message parameter, a reply and the factory's parameter.
 
 ```maxon
@@ -491,18 +488,18 @@ type Finder
 
 	static function weighed(outcome Outcome) returns Integer
 		return match outcome 'weight'
-			found(name) gives name.count() as Integer
+			found(name) gives try name.count() as Integer otherwise panic("out of range")
 			missing gives 0 as Integer
 		end 'weight'
 	end 'weighed'
 
-	export function record(consumes outcome Outcome) returns Integer
-		self.weight = self.weight + Self.weighed(outcome)
+	export function record(mutates self, consumes outcome Outcome) returns Integer
+		self.weight = try self.weight + Self.weighed(outcome) otherwise panic("out of range")
 		return self.weight
 	end 'record'
 
 	export function compare(outcome frozen with Outcome) returns Integer
-		return self.weight + Self.weighed(outcome)
+		return try self.weight + Self.weighed(outcome) otherwise panic("out of range")
 	end 'compare'
 
 	export function latest() returns Outcome
@@ -515,11 +512,9 @@ type Finder
 end 'Finder'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let first = Outcome.found("ab".toByteArray()) as isolated Outcome
+	let first = Outcome.found("ab".toByteArray()) as Outcome
 	let finder = spawn Finder.create(first)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let second = Outcome.found("cde".toByteArray()) as isolated Outcome
+	let second = Outcome.found("cde".toByteArray()) as Outcome
 	let shared = freeze(Outcome.found("fghij".toByteArray()))
 	let total = try await finder.record(second) otherwise panic("main: a fresh finder answers record")
 	let compared = try await finder.compare(shared) otherwise panic("main: a fresh finder answers compare")
@@ -1083,7 +1078,6 @@ end 'main'
 
 <!-- test: an-isolated-parameter-is-sent-on-as-an-isolated-argument -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A function that receives an `isolated` value hands it to a message's `isolated` parameter, which moves it: the value
 is the function's to give away, and no other name reaches it afterwards.
 
@@ -1123,8 +1117,7 @@ end 'forward'
 
 function main() returns ExitCode
 	let sink = spawn Sink.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let chunk = Chunk.create() as isolated Chunk
+	let chunk = Chunk.create() as Chunk
 	// TODO: modify blocks are not supported in minimaxon
 	modify chunk 'fill'
 		chunk.cells.push(1)
@@ -1172,7 +1165,6 @@ error E3005: <fragment>:11:30: Cannot use bare 'int' as a type. Define a typeali
 ```
 
 <!-- test: an-isolated-parameters-number-is-read-in-the-statement-that-writes-self -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A number read out of an `isolated` parameter leaves the open freely, so one statement reads it and writes the service's own field.
 
 ```maxon
@@ -1194,16 +1186,15 @@ type Plotter
 		return Self{total: 0}
 	end 'create'
 
-	export function plot(consumes point Point) returns Integer
-		self.total = self.total + point.x + point.y
+	export function plot(mutates self, consumes point Point) returns Integer
+		self.total = try self.total + point.x + point.y otherwise panic("out of range")
 		return self.total
 	end 'plot'
 end 'Plotter'
 
 function main() returns ExitCode
 	let plotter = spawn Plotter.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shape = Point.create(3, y: 4) as isolated Point
+	let shape = Point.create(3, y: 4) as Point
 	let total = try await plotter.plot(shape) otherwise panic("main: a fresh plotter answers plot")
 	plotter.shutdown()
 	print("{total}\n")
@@ -1218,7 +1209,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-read-from-an-isolated-parameter-keeps-self-read-only-in-its-statement -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A record read out of an `isolated` parameter is data its region still holds, so the statement that reads through it may not write the service's own field.
 
@@ -1256,8 +1247,7 @@ end 'Plotter'
 
 function main() returns ExitCode
 	let plotter = spawn Plotter.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shape = Point.create(3) as isolated Point
+	let shape = Point.create(3) as Point
 	let total = try await plotter.plot(shape) otherwise panic("main: a fresh plotter answers plot")
 	plotter.shutdown()
 	print("{total}\n")

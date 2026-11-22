@@ -13,7 +13,7 @@ A value wanted isolated that is not gets advice for its position: a plain local 
 ## Tests
 
 <!-- test: error.a-call-result-returned-as-isolated-names-the-clean-ways -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `source.view()` hands back the source's own cell, so a `returns isolated` return cannot be fixed by declaring anything: the advice names the values that are isolated.
 
@@ -41,8 +41,7 @@ type Source
 end 'Source'
 
 type Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Cell
+	export var held as Cell
 
 	static function create() returns Self
 		return Self{held: Cell.create(0)}
@@ -65,7 +64,7 @@ error E3200: <fragment>:32:9: 'source.view()' is not isolated: only a clean call
 ```
 
 <!-- test: error.a-plain-local-returned-as-isolated-is-asked-to-declare-itself -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `held` is a local that a declaration can make isolated, so the advice names the declaration.
 
@@ -93,8 +92,7 @@ type Source
 end 'Source'
 
 type Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Cell
+	export var held as Cell
 
 	static function create() returns Self
 		return Self{held: Cell.create(0)}
@@ -119,7 +117,7 @@ error E3200: <fragment>:35:9: 'held' is not isolated: only a clean call, a `swap
 ```
 
 <!-- test: error.an-isolated-binding-initialised-from-a-view-is-asked-for-a-clean-value -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `kept` is already declared isolated, so the advice is about what initializes it.
 
@@ -147,8 +145,7 @@ type Source
 end 'Source'
 
 type Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Cell
+	export var held as Cell
 
 	static function create() returns Self
 		return Self{held: Cell.create(0)}
@@ -156,8 +153,7 @@ type Slot
 end 'Slot'
 
 function viaBinding(source Source) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let kept = source.view() as isolated Cell
+	let kept = source.view() as Cell
 	return kept.n
 end 'viaBinding'
 
@@ -172,7 +168,7 @@ error E3200: <fragment>:32:13: 'source.view() as isolated Cell' is not isolated:
 ```
 
 <!-- test: error.a-swap-of-a-call-result-names-the-clean-ways -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The replacement of a `swap` is wanted isolated: a call result that views another record is not.
 
@@ -200,8 +196,7 @@ type Source
 end 'Source'
 
 type Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Cell
+	export var held as Cell
 
 	static function create() returns Self
 		return Self{held: Cell.create(0)}
@@ -225,7 +220,7 @@ error E3200: <fragment>:32:29: 'source.view()' is not isolated: only a clean cal
 ```
 
 <!-- test: error.a-swap-of-a-plain-local-is-asked-to-declare-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `spare` is a local the swap wants isolated, so the advice names the declaration.
 
@@ -253,8 +248,7 @@ type Source
 end 'Source'
 
 type Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Cell
+	export var held as Cell
 
 	static function create() returns Self
 		return Self{held: Cell.create(0)}

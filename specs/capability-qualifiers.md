@@ -111,15 +111,13 @@ end 'main'
 ```
 
 <!-- test: capability-qualifiers.error.a-function-value-whose-result-is-not-declared-isolated-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Make` promises an isolated result, and `build` does not declare one, so a caller could not rely on it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: region capability 'isolated' is not supported in minimaxon
-typealias Make = function() returns isolated Box
+typealias Make = function() returns Box
 
 type Box
 	var n as Tally
@@ -153,14 +151,12 @@ error E3210: <fragment>:27:14: function value for 'Make' does not declare `retur
 ```
 
 <!-- test: capability-qualifiers.a-function-value-declaring-an-isolated-result-converts-to-an-isolated-alias -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `fresh` declares `returns isolated`, so it converts to `Make`, and the region it returns is read by a one-call open.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: region capability 'isolated' is not supported in minimaxon
-typealias Make = function() returns isolated Box
+typealias Make = function() returns Box
 
 type Box
 	var n as Tally
@@ -197,15 +193,13 @@ end 'main'
 ```
 
 <!-- test: capability-qualifiers.error.a-function-value-whose-result-is-not-declared-immutable-is-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Frozen` promises an immutable result, and `current` hands back a mutable field.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: region capability 'immutable' is not supported in minimaxon
-typealias Frozen = function() returns immutable Box
+typealias Frozen = function() returns Box
 
 type Box
 	export var n as Tally
@@ -235,13 +229,11 @@ error E3210: <fragment>:23:14: function value for 'Frozen' does not declare `ret
 ```
 
 <!-- test: capability-qualifiers.error.a-capability-alias-of-a-value-type-is-refused -->
-<!-- skip: capability typealias 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A capability alias qualifies a record, and an `int` belongs to no region, so `immutable` on it is refused as it is on a result.
 
 ```maxon
-// TODO: capability typealias 'immutable' is not supported in minimaxon
-typealias A = immutable int
+typealias A = int
 
 function main() returns ExitCode
 	return 0
@@ -252,7 +244,6 @@ error E2010: <fragment>:2:15: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: capability-qualifiers.a-tuple-element-qualifier-in-a-parameter-a-field-and-a-result-runs -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 `(immutable Box, Box)` qualifies its first element wherever a tuple type is written: a parameter, a field and a result all read the frozen element and write the live one.
 
 ```maxon
@@ -267,7 +258,7 @@ type Box
 end 'Box'
 
 type Holder
-	var pair as (immutable Box, Box)
+	var pair as (Box, Box)
 
 	static function create(first frozen with Box, second Box) returns Self
 		return Self{pair: (first, second)}
@@ -279,12 +270,11 @@ type Holder
 	end 'weigh'
 end 'Holder'
 
-function pairOf(first frozen with Box, second Box) returns (immutable Box, Box)
+function pairOf(first frozen with Box, second Box) returns (Box, Box)
 	return (first, second)
 end 'pairOf'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function total(pair(immutable Box, Box)) returns Tally
+function total(pair (Box, Box)) returns Tally
 	return pair.0.n + pair.1.n
 end 'total'
 

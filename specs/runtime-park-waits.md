@@ -134,7 +134,6 @@ error E3221: <fragment>:15:18: the message 'relay' may wait (it calls 'drain', w
 
 <!-- test: runtime-park-waits.error.a-quiesce-inside-a-modify-block-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 Another coroutine could run while the park waits, so `batch` may not stay open across it.
@@ -151,8 +150,7 @@ type Batch
 end 'Batch'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = Batch.create() as isolated Batch
+	let batch = Batch.create() as Batch
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
 		batch.done = __Builtins.gtQuiesce() as Tally

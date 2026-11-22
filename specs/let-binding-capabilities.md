@@ -2301,7 +2301,6 @@ end 'main'
 
 <!-- test: let-binding-capabilities.a-merged-isolated-parameter-kept-by-a-let-field-is-accepted -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `merge attrs` turns the `isolated` parameter back into ordinary data the `let` field owns alone, so the store reads through `merge` to the parameter exactly as `parseMerge` does and takes it like a moved parameter.
 
 ```maxon
@@ -2329,8 +2328,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fresh = Attrs.create(5) as isolated Attrs
+	let fresh = Attrs.create(5) as Attrs
 	let holder = Holder.create(fresh)
 	return holder.read() as ExitCode
 end 'main'

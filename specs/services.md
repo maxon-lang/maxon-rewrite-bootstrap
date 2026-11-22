@@ -5268,7 +5268,6 @@ error E3200: <fragment>:28:26: 'p' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: error.a-var-read-again-is-not-handed-to-a-function-that-sends-it-shared -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `forward` sends its parameter to the service, which owns it afterwards, so a binding the caller reads again is a
 moved value.
@@ -5288,8 +5287,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(consumes p Payload) returns Integer
-		self.seen = self.seen + 1
+	export function keep(mutates self, consumes p Payload) returns Integer
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.n
 	end 'keep'
 end 'Store'
@@ -5300,10 +5299,9 @@ end 'forward'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let p = Payload.create(7) as isolated Payload
+	let p = Payload.create(7) as Payload
 	let total = forward(h, p: p)
-	return (total + p.n) as ExitCode
+	return try (total + p.n) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -5356,7 +5354,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-let-field-record-is-shared-with-the-service -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 A `let` field has no other writer for the record's whole life, so the record read out of one is a read-only root the
 sender does not own, and a message shares it exactly as it shares a module-level `let`.
 ```maxon
@@ -5369,8 +5366,7 @@ type Payload
 end 'Payload'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let payload as immutable Payload
+	export let payload as Payload
 
 	static function create(n Integer) returns Self
 		return Self{payload: freeze(Payload.create(n))}
@@ -5683,7 +5679,6 @@ literal heap 7 2
 
 <!-- test: deepmove.a-reply-carries-a-container-back -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The reply road runs the same walk in the other direction, and a container whose whole graph is fresh
 crosses: the handler mints the array in its own frame and every element is a scalar, so the walk finds
 nothing to refuse and the awaiter takes the container whole.
@@ -5698,8 +5693,7 @@ type Source
 	end 'create'
 
 	export function values() returns IntegerArray
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let xs = IntegerArray.create(0) as isolated IntegerArray
+		let xs = IntegerArray.create(0) as IntegerArray
 		// TODO: modify blocks are not supported in minimaxon
 		modify xs 'fill'
 			xs.push(1)
@@ -5813,7 +5807,6 @@ error E3200: <fragment>:26:10: 'out' is not isolated: only a clean call, a `swap
 
 <!-- test: deepmove.a-container-crosses-with-its-elements -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A container crosses WHOLE. `push` increfs what it is handed, so an element's count says nothing the type can
 promise about the frame that filled the array — which is why soleness is proved at the SEND, by a walk over
 the value's graph, rather than declared from the type. Each `Cell` here has the array as its only owner, the
@@ -5848,8 +5841,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let cs = CellArray.create(0) as isolated CellArray
+	let cs = CellArray.create(0) as CellArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify cs 'fill'
 		cs.push(Cell.create())
@@ -5914,7 +5906,6 @@ error E3200: <fragment>:29:13: 'cs' is not isolated: only a clean call, a `swap`
 ```
 
 <!-- test: deepmove.a-cloned-array-detaches-its-shared-buffer-at-the-send -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A shared BUFFER is not a shared record. `a.clone()` yields a second array RECORD viewing `a`'s buffer until
 one of them writes. The send moves `b`, and its walk detaches the shared buffer
 as a write would — copying the elements out of `a`'s buffer into `b`'s own, exactly as `b.push(…)` would
@@ -5934,17 +5925,16 @@ type Svc
 		for x in xs 'each'
 			print("svc {x}\n")
 		end 'each'
-		return xs.count()
+		return try xs.count() as Integer otherwise panic("out of range")
 	end 'take'
 end 'Svc'
 
 function main() returns ExitCode
-	let a = IntegerArray.create(0)
+	var a = IntegerArray.create(0)
 	a.push(1)
 	a.push(2)
 	a.push(3)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = a.clone() as isolated IntegerArray
+	let b = a.clone() as IntegerArray
 	let h = spawn Svc.create()
 	let n = try await h.take(b) otherwise 0
 	for x in a 'each'
@@ -6211,7 +6201,6 @@ total 900000 kept 900000
 
 <!-- test: deepmove.a-chain-crosses-with-its-elements -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The SECOND element-bearing record crosses too, and it is a different walk: a chain owns its record, a node
 per element and each node's element, so `__list_sole` proves all three where the buffer's walk proves the
 record and its slots. Every `String` here is minted at the append, so each node and each element has one
@@ -6234,8 +6223,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let xs = Texts.create() as isolated Texts
+	let xs = Texts.create() as Texts
 	// TODO: modify blocks are not supported in minimaxon
 	modify xs 'fill'
 		xs.append("a {1}")
@@ -6301,7 +6289,6 @@ error E3200: <fragment>:29:13: 'xs' is not isolated: only a clean call, a `swap`
 
 <!-- test: deepmove.a-map-crosses-with-its-keys-and-values -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `Map` is a declared record over two element-bearing containers, so it crosses through the ordinary field
 cascade and its keys and values are proved by the containers' own element walks. Nothing here is a special
 case for `Map`, which is the point: a record that holds containers is a record.
@@ -6323,8 +6310,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let m = Names.create() as isolated Names
+	let m = Names.create() as Names
 	// TODO: modify blocks are not supported in minimaxon
 	modify m 'fill'
 		m.upsert("a {1}", value: "x {2}")
@@ -6389,7 +6375,6 @@ error E3200: <fragment>:29:13: 'm' is not isolated: only a clean call, a `swap` 
 
 <!-- test: deepmove.a-map-releases-a-removed-entry-so-the-map-crosses -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `remove` releases the key and the value it takes out, so the map no longer owns them. `main` still holds both
 records, but the map's slot is empty, and the map crosses. A tombstone that kept its occupants would share `key`
 and `text` between `main` and the service while `main` owns them outside the map, and the service's release of the
@@ -6410,8 +6395,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let m = Texts.create() as isolated Texts
+	let m = Texts.create() as Texts
 	let key = "gone {1}"
 	let text = "value {7}"
 	var removed = false
@@ -6438,7 +6422,6 @@ removed true, the service holds 1, main still reads gone 1 and value 7
 
 <!-- test: deepmove.a-set-releases-a-removed-member-so-the-set-crosses -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `Set.remove` releases the member it takes out, exactly as `Map.remove` does, so the set crosses while `main`
 keeps reading the record it removed.
 ```maxon
@@ -6473,8 +6456,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let s = Cells.create() as isolated Cells
+	let s = Cells.create() as Cells
 	let cell = Cell.create(1)
 	var removed = false
 	// TODO: modify blocks are not supported in minimaxon
@@ -6500,7 +6482,6 @@ removed true, the service holds 0, main still reads 1
 <!-- test: deepmove.a-map-releases-a-removed-record-value-so-the-map-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same release for a record value: `main` keeps `key` and `cell` after `remove`, and the map crosses holding
 only the entry it still owns.
 ```maxon
@@ -6530,8 +6511,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let m = Cells.create() as isolated Cells
+	let m = Cells.create() as Cells
 	let key = "gone {1}"
 	let cell = Cell.create(7)
 	var removed = false
@@ -6559,7 +6539,6 @@ removed true, the service read 9, main still reads gone 1 and 8
 
 <!-- test: deepmove.a-set-releases-one-of-two-members-so-the-set-crosses -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A set that keeps a member after `remove` crosses with that member, and `main` keeps reading the one it removed.
 ```maxon
 typealias Names = Set with String
@@ -6580,8 +6559,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let s = Names.create() as isolated Names
+	let s = Names.create() as Names
 	let gone = "gone {1}"
 	var removed = false
 	// TODO: modify blocks are not supported in minimaxon
@@ -6608,7 +6586,6 @@ removed true, the service holds 1, main still reads gone 1
 <!-- test: deepmove.a-map-whose-value-was-built-inside-the-upsert-crosses -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A record built as the `value:` argument has no owner but the map, so the map crosses with it.
 ```maxon
 type Cell
@@ -6637,8 +6614,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let m = Cells.create() as isolated Cells
+	let m = Cells.create() as Cells
 	// TODO: modify blocks are not supported in minimaxon
 	modify m 'fill'
 		m.upsert("kept {2}", value: Cell.create())
@@ -7676,7 +7652,6 @@ error E3200: <fragment>:48:13: 'Pair.around(bag)' is not isolated: only a clean 
 ```
 
 <!-- test: deepmove.dag.a-string-and-its-bytes-cross-together -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A move meets a view's reference to the String record its bytes live in before it detaches the view, so a moved
 `Holder` owning `text` and a view of it crosses: both of the record's owners are inside the graph.
 ```maxon
@@ -7703,8 +7678,7 @@ end 'Reader'
 
 function main() returns ExitCode
 	let r = spawn Reader.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let holder = Holder.around("payload {42}") as isolated Holder
+	let holder = Holder.around("payload {42}") as Holder
 	let n = try await r.read(holder) otherwise 0
 	print("n={n}\n")
 	return 0
@@ -8007,7 +7981,6 @@ service read 10 bytes, sender wrote payload 42!
 
 <!-- test: borrow.a-record-clone-bound-to-a-let-or-a-var-is-sent-while-the-sender-keeps-its-source -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `.clone()` of a record holding an array of records and a map, bound to a `let` or a `var` before the send,
 is a graph of its own exactly as the same clone written inside the call is, so the send moves it. The second
 copy's map is empty.
@@ -8071,14 +8044,12 @@ end 'shelf'
 
 function main() returns ExitCode
 	let original = shelf(true)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let copy = original.clone() as isolated Shelf
+	let copy = original.clone() as Shelf
 	let first = spawn Keeper.create(copy)
 	let firstSaw = try await first.weight() otherwise 0
 	print("let copy: service {firstSaw}, sender {original.weight()}\n")
 	let unindexed = shelf(false)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let moved = unindexed.clone() as isolated Shelf
+	let moved = unindexed.clone() as Shelf
 	let second = spawn Keeper.create(moved)
 	let secondSaw = try await second.weight() otherwise 0
 	print("var copy: service {secondSaw}, sender {unindexed.weight()}\n")
@@ -8290,7 +8261,6 @@ sender still reads tree 4 with 4 leaves
 
 <!-- test: borrow.the-sender-releases-first-and-the-service-frees-the-graph -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `sendAndReturn` sends its graph and returns while the message is still queued, so the queued message is the
@@ -8341,8 +8311,7 @@ type Keeper
 end 'Keeper'
 
 function sendAndReturn(h Keeper.handle)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let tree = Tree.create(3) as isolated Tree
+	let tree = Tree.create(3) as Tree
 	print("sender read {tree.name}\n")
 	try h.take(tree) otherwise panic("an open mailbox with room takes the send")
 end 'sendAndReturn'
@@ -8366,7 +8335,6 @@ service read tree 3 starting with leaf 1
 ```
 
 <!-- test: borrow.a-handler-may-write-a-copy-of-a-record-inside-its-sent-parameter-through-a-self-writing-method -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `copy` is the handler's own record, so `bump` writes it whatever the send moved.
 ```maxon
 type Box
@@ -8376,8 +8344,8 @@ type Box
 		return Self{n: 1}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Box'
 
@@ -8397,7 +8365,7 @@ type Svc
 	end 'create'
 
 	export function poke(consumes target Holder)
-		let copy = target.inner.clone()
+		var copy = target.inner.clone()
 		copy.bump()
 		print("{copy.n}\n")
 	end 'poke'
@@ -8405,8 +8373,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Holder.create() as isolated Holder
+	let b = Holder.create() as Holder
 	try h.poke(b) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -8421,7 +8388,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.dag.a-graph-reaching-one-record-twice-is-sent -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A sent graph may reach one record through two fields: the second owner is inside the graph the service
 owns, not outside it, so the send's walk admits it.
 ```maxon
@@ -8440,7 +8406,7 @@ type Bag
 	export var cells as CellArray
 
 	static function create() returns Self
-		let cells = CellArray.create(0)
+		var cells = CellArray.create(0)
 		cells.push(Cell.create())
 		cells.push(Cell.create())
 		return Self{n: 3, cells: cells}
@@ -8466,14 +8432,13 @@ type Svc
 
 	export function look(consumes target Pair) returns Integer
 		print("service reads {target.right.n}\n")
-		return target.right.cells.count() as Integer
+		return try target.right.cells.count() as Integer otherwise panic("out of range")
 	end 'look'
 end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let p = Pair.create() as isolated Pair
+	let p = Pair.create() as Pair
 	let cells = try await h.look(p) otherwise 0
 	print("service counted {cells} cells\n")
 	return 0
@@ -8490,7 +8455,6 @@ service counted 2 cells
 ```
 
 <!-- test: borrow.dag.a-graph-reaching-one-record-twice-is-sent-twice -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A clone of that graph is sent first and the graph itself second; each send's walk admits what it meets.
 ```maxon
 type Cell
@@ -8508,7 +8472,7 @@ type Bag
 	export var cells as CellArray
 
 	static function create() returns Self
-		let cells = CellArray.create(0)
+		var cells = CellArray.create(0)
 		cells.push(Cell.create())
 		cells.push(Cell.create())
 		return Self{n: 3, cells: cells}
@@ -8534,17 +8498,16 @@ type Svc
 
 	export function look(consumes target Pair) returns Integer
 		print("service reads {target.right.n}\n")
-		return target.right.cells.count() as Integer
+		return try target.right.cells.count() as Integer otherwise panic("out of range")
 	end 'look'
 end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let p = Pair.create() as isolated Pair
+	let p = Pair.create() as Pair
 	let first = try await h.look(p.clone()) otherwise 0
 	let second = try await h.look(p) otherwise 0
-	print("service counted {first + second} cells\n")
+	print("service counted {try first + second otherwise panic("out of range")} cells\n")
 	return 0
 end 'main'
 
@@ -8561,7 +8524,6 @@ service counted 4 cells
 
 <!-- test: borrow.dag.an-array-holding-one-record-twice-is-sent -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The container's walk meets the one `Cell` in both slots and counts the second slot against its owners.
 ```maxon
 type Cell
@@ -8603,8 +8565,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Shelf.create() as isolated Shelf
+	let shelf = Shelf.create() as Shelf
 	let n = try await h.look(shelf) otherwise 0
 	print("service read {n}\n")
 	return 0
@@ -8683,7 +8644,6 @@ error E3200: <fragment>:48:27: 'p' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: borrow.dag.bytes-and-their-string-are-sent-together -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 An owned `String` keeps its bytes inline, so a `toByteArray()` view holds a reference to the String's own record.
 `Holder` declares the view before `text`, so the walk meets the record through the view before it meets it
 through `text`, and counts both references: both owners are inside the sent graph, and the graph crosses.
@@ -8711,8 +8671,7 @@ end 'Reader'
 
 function main() returns ExitCode
 	let r = spawn Reader.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let holder = Holder.around("payload {42}") as isolated Holder
+	let holder = Holder.around("payload {42}") as Holder
 	let n = try await r.read(holder) otherwise 0
 	print("n={n}\n")
 	return 0
@@ -8880,7 +8839,6 @@ direct 7
 
 <!-- test: borrow.a-door-on-a-sibling-arm-does-not-follow-the-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A door on the OTHER arm of the `match` whose arm sent the graph does not follow the send: no path runs both, so
 `route` may hand `b` to `stash`, which keeps it, on the arm that did not send it.
 ```maxon
@@ -8922,8 +8880,7 @@ function stash(xs Boxes, item Box)
 end 'stash'
 
 function route(h Svc.handle, xs Boxes, n Integer, way Route)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(n) as isolated Box
+	let b = Box.create(n) as Box
 	match way 'send'
 		toService then try h.take(b) otherwise panic("an open mailbox with room takes the send")
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -8955,7 +8912,6 @@ kept 1 holding 5
 
 <!-- test: borrow.error.a-door-after-the-branch-that-sent-follows-the-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A door after the `match` follows the send on the arm that sent: a path runs the send and then `stash`, which
 reads `b` after it moved.
@@ -8994,8 +8950,7 @@ function stash(xs Boxes, item Box)
 end 'stash'
 
 function route(h Svc.handle, xs Boxes, n Integer, way Route)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(n) as isolated Box
+	let b = Box.create(n) as Box
 	match way 'send'
 		toService then try h.take(b) otherwise panic("an open mailbox with room takes the send")
 		toArray then print("kept, not sent\n")
@@ -9019,7 +8974,6 @@ error E3102: <fragment>:41:24: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-door-on-a-sibling-arm-inside-a-loop-follows-the-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Inside a loop a door on the sibling arm of the send follows it, though the text places it first: the next trip
 takes the other arm while `b`, bound before the loop, has already moved.
@@ -9064,8 +9018,7 @@ end 'routeFor'
 function main() returns ExitCode
 	let h = spawn Svc.create()
 	var xs = Boxes.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(3) as isolated Box
+	let b = Box.create(3) as Box
 	var trip = 0 as Integer
 	while trip < 2 'twice'
 		match routeFor(trip) 'send'
@@ -9086,7 +9039,6 @@ error E3102: <fragment>:46:39: use of moved value 'b': it was moved in an earlie
 
 <!-- test: borrow.a-let-rebound-each-trip-is-sent-afresh -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The loop case above with `b` bound INSIDE the loop: the next trip binds a fresh record, so the door the back edge
 reaches is not the binding the send moved and `stash` may keep it.
 ```maxon
@@ -9136,8 +9088,7 @@ function main() returns ExitCode
 	let xs = Boxes.create(0)
 	var trip = 0 as Integer
 	while trip < 4 'eachTrip'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let b = Box.create(trip + 1) as isolated Box
+		let b = Box.create(trip + 1) as Box
 		match routeFor(trip) 'send'
 			// TODO: 'merge' region expressions are not supported in minimaxon
 			toArray then stash(xs, item: merge b)
@@ -9167,7 +9118,6 @@ kept 2 totalling 6
 
 <!-- test: borrow.error.a-sent-let-may-not-be-bound-to-a-var -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 From the send on, a sent `let` is gone: binding it to a `var` reads a moved value.
 ```maxon
@@ -9195,8 +9145,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("an open mailbox with room takes the send")
 	var m = b
 	m.n = 2
@@ -9211,7 +9160,6 @@ error E3102: <fragment>:28:10: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-assigned-to-a-var -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Assigning a sent `let` to an existing `var` reads it after the move, as binding one does.
 ```maxon
@@ -9240,8 +9188,7 @@ end 'Svc'
 function main() returns ExitCode
 	let h = spawn Svc.create()
 	var m = Box.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("an open mailbox with room takes the send")
 	m = b
 	m.n = 2
@@ -9256,7 +9203,6 @@ error E3102: <fragment>:29:6: use of moved value 'b': its ownership moved to ano
 
 <!-- test: borrow.error.a-value-read-out-of-a-sent-let-is-use-after-move -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Reading a field out of a sent binding reads the moved binding: `p.inner` names `p`, which the send took.
 ```maxon
@@ -9292,8 +9238,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let p = Pair.create(Box.create()) as isolated Pair
+	let p = Pair.create(Box.create()) as Pair
 	try h.take(p) otherwise panic("an open mailbox with room takes the send")
 	var y = p.inner
 	y.n = 2
@@ -9308,7 +9253,6 @@ error E3102: <fragment>:36:10: use of moved value 'p': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-stored-in-a-field -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Storing a sent value in a field of a mutable record reads it after the move.
 ```maxon
@@ -9345,8 +9289,7 @@ end 'Svc'
 function main() returns ExitCode
 	let h = spawn Svc.create()
 	var holder = Holder.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("an open mailbox with room takes the send")
 	holder.item = b
 	return holder.item.n as ExitCode
@@ -9360,7 +9303,6 @@ error E3102: <fragment>:37:16: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-wrapped-in-a-new-record -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Constructing a record around a sent value reads it after the move, exactly as a field assignment does. The
 record here is a union payload, because a struct literal is legal only inside its own type.
@@ -9394,8 +9336,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("an open mailbox with room takes the send")
 	let w = Wrap.held(b)
 	print("{w.name}\n")
@@ -9410,7 +9351,6 @@ error E3102: <fragment>:33:20: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-stored-in-a-container -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Pushing a sent value into a container reads it after the move.
 ```maxon
@@ -9441,8 +9381,7 @@ end 'Svc'
 function main() returns ExitCode
 	let h = spawn Svc.create()
 	var xs = Boxes.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("an open mailbox with room takes the send")
 	xs.push(b)
 	return xs.count() as ExitCode
@@ -9456,7 +9395,6 @@ error E3102: <fragment>:31:10: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.error.a-sent-let-may-not-be-returned -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Returning a sent value hands back a binding the send already took.
 ```maxon
@@ -9484,8 +9422,7 @@ end 'Svc'
 
 function sendAndKeep() returns Box
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("an open mailbox with room takes the send")
 	return b
 end 'sendAndKeep'
@@ -9503,7 +9440,6 @@ error E3102: <fragment>:28:9: use of moved value 'b': its ownership moved to ano
 
 <!-- test: borrow.error.a-sent-let-may-not-be-captured-by-a-closure -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures a sent value reads it after the move.
 ```maxon
@@ -9531,8 +9467,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("an open mailbox with room takes the send")
 	let peek = function() gives b.n
 	return peek() as ExitCode
@@ -9546,7 +9481,6 @@ error E3102: <fragment>:28:30: use of moved value 'b': its ownership moved to an
 
 <!-- test: borrow.a-handler-may-keep-a-sent-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The service owns what a send moves to it, so `keep` may push its parameter into the service's state.
 ```maxon
 type Box
@@ -9574,8 +9508,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.keep(b) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -9588,7 +9521,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: borrow.a-handler-may-keep-what-it-reads-out-of-a-sent-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 What a handler reads out of a sent parameter is part of the graph it owns, so it may keep `p.inner`.
 ```maxon
 type Box
@@ -9625,8 +9557,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let pair = Pair.create(Box.create()) as isolated Pair
+	let pair = Pair.create(Box.create()) as Pair
 	try h.keep(pair) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -9638,7 +9569,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-let-sent-to-a-handler-that-writes-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A handler may write a parameter a send moved to it: the sender's binding is gone, so nothing else sees the
 record.
 ```maxon
@@ -9658,14 +9588,13 @@ type Svc
 	end 'create'
 
 	export function bump(consumes target Box)
-		target.n = target.n + 1
+		target.n = try target.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.bump(b) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -9677,7 +9606,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-its-sent-parameter-through-a-self-writing-method -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A method that writes its own receiver may write a parameter the send moved to the handler.
 ```maxon
 type Box
@@ -9687,8 +9615,8 @@ type Box
 		return Self{n: 1}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Box'
 
@@ -9706,8 +9634,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.poke(b) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -9719,7 +9646,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-a-record-inside-its-sent-parameter-through-a-self-writing-method -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The moved graph is everything the parameter reaches, so the handler may write `target.inner` too.
 ```maxon
 type Box
@@ -9729,8 +9655,8 @@ type Box
 		return Self{n: 1}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Box'
 
@@ -9756,8 +9682,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Holder.create() as isolated Holder
+	let b = Holder.create() as Holder
 	try h.poke(b) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -9769,7 +9694,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-a-record-inside-its-sent-parameter-one-frame-down-through-a-self-writing-method -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same write one frame down: `nudge` writes what the handler was sent.
 ```maxon
 type Box
@@ -9779,8 +9703,8 @@ type Box
 		return Self{n: 1}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Box'
 
@@ -9792,7 +9716,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function nudge(t Holder)
+function nudge(mutates t Holder)
 	t.inner.bump()
 end 'nudge'
 
@@ -9810,8 +9734,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Holder.create() as isolated Holder
+	let b = Holder.create() as Holder
 	try h.poke(b) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -9824,7 +9747,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: borrow.a-handler-may-push-into-a-container-a-call-hands-back-from-inside-its-sent-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `pick` hands back the array `target` holds, and the handler may push into it: the send moved the whole graph.
 ```maxon
 typealias Counts = Array with Integer
@@ -9857,8 +9779,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Holder.create() as isolated Holder
+	let b = Holder.create() as Holder
 	try h.poke(b) otherwise panic("an open mailbox with room takes the send")
 	return 0
 end 'main'
@@ -10154,7 +10075,6 @@ error E3209: <fragment>:10:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: a-reply-swapped-out-of-a-field-is-sole -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The swap idiom: `let old = self.items` followed by `self.items = Items.create()` moves the record out of the
 field. The replacement is fresh and every store to the field is fresh, so `old` is the record's only holder and
 the reply crosses without a `.clone()`.
@@ -10165,18 +10085,17 @@ typealias Integer = int(i64.min to i64.max)
 typealias Items = Array with Integer
 
 type Store
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var items as isolated Items
+	var items as Items
 
 	static function create() returns Self
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	export function put(n Integer)
+	export function put(mutates self, n Integer)
 		self.items.push(n)
 	end 'put'
 
-	export function take() returns Items
+	export function take(mutates self) returns Items
 		return exchange(self.items, value: Items.create(0))
 	end 'take'
 end 'Store'
@@ -13534,7 +13453,6 @@ error E3209: <fragment>:24:3: a return does not fit the declared result: the ret
 
 <!-- test: error.spawn-factory-delegating-to-a-factory-that-returns-its-parameter-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `create` delegates to `adopt`, which builds nothing: it returns the `Worker` it was handed. The `spawn` moves that
 argument to the service's thread, so `main` may not read `seed` afterwards.
@@ -13564,8 +13482,7 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let seed = Worker.make(2) as isolated Worker
+	let seed = Worker.make(2) as Worker
 	let worker = spawn Worker.create(seed)
 	let total = try await worker.measure(21) otherwise panic("the worker is running")
 	print("{total} {seed.scale}\n")
@@ -13914,7 +13831,6 @@ no answer
 <!-- test: services.a-reply-built-from-a-local-var-crosses-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A message that fills a local `var` and returns a record built around it hands the caller the only owner of
 that record: the local was moved into the record, so nothing on the service's green thread still names it.
 ```maxon
@@ -13940,8 +13856,7 @@ type Worker
 
 	export function report() returns Cell
 		self.calls = self.calls + 1
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let flags = Flags.create(0) as isolated Flags
+		let flags = Flags.create(0) as Flags
 		// TODO: modify blocks are not supported in minimaxon
 		modify flags 'fill'
 			flags.push(false)
@@ -13969,7 +13884,6 @@ end 'main'
 <!-- test: services.a-reply-built-over-a-message-parameter-crosses-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A reply may hold a message parameter: the loop releases the message's reference to the argument before the
 reply is handed to the caller, so the caller becomes the only owner of everything the reply reaches.
 ```maxon
@@ -14001,8 +13915,7 @@ end 'Worker'
 
 function main() returns ExitCode
 	let worker = spawn Worker.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let flags = Flags.create(0) as isolated Flags
+	let flags = Flags.create(0) as Flags
 	// TODO: modify blocks are not supported in minimaxon
 	modify flags 'fill'
 		flags.push(true)
@@ -14053,7 +13966,6 @@ error E3217: <fragment>:19:10: the message `Box.peek` returns a `Flags` with no 
 
 <!-- test: services.a-reply-of-records-holding-an-interface-field-crosses -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A reply typed `List with Holder`, whose elements are records holding a value at an interface type, crosses and
 dispatches: the loop walks each element's `Shape` field through the witness beside it, and the caller reads
 the conformer's answer back out of the element it now owns alone.
@@ -14091,12 +14003,10 @@ end 'Holder'
 typealias Holders = List with Holder
 
 type Maker
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var items as isolated Holders
+	var items as Holders
 
 	static function create(side Integer) returns Self
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let items = Holders.create() as isolated Holders
+		let items = Holders.create() as Holders
 		// TODO: modify blocks are not supported in minimaxon
 		modify items 'fill'
 			items.append(Holder.create(Square.create(side)))
@@ -14160,7 +14070,6 @@ error E3217: <fragment>:21:10: parameter `seed` of the factory `Maker.create` is
 ```
 
 <!-- test: services.a-reply-a-sibling-builds-in-a-local-is-fresh -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A sibling that builds its record in a local, fills it, and returns the local hands back a record nothing
 else names: the local is the only reference and the `return` moves it out.
 ```maxon
@@ -14186,8 +14095,7 @@ type Worker
 	end 'measure'
 
 	function summarize(n Tally) returns Report
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let report = Report.create(n * self.scale) as isolated Report
+		let report = Report.create(try n * self.scale otherwise panic("out of range")) as Report
 		return report
 	end 'summarize'
 end 'Worker'
@@ -14206,7 +14114,6 @@ end 'main'
 
 <!-- test: services.a-reply-a-sibling-fills-in-a-var-is-fresh -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same with a `var` the sibling fills before returning it — pushing into the record's own array field
 and assigning a scalar field keep the record the local's alone.
 ```maxon
@@ -14236,8 +14143,7 @@ type Worker
 
 	function summarize(n Tally) returns Report
 		let scaled = n * self.scale
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let report = Report.create() as isolated Report
+		let report = Report.create() as Report
 		// TODO: modify blocks are not supported in minimaxon
 		modify report 'fill'
 			report.lines.push("scaled")
@@ -14606,7 +14512,6 @@ end 'main'
 ```
 
 <!-- test: services.a-sent-interface-argument-crosses-through-its-witness -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `let` binding held at an interface type is moved by the send, exactly as a `let` record is: the send walks it
 through its witness, and the service dispatches through it.
 ```maxon
@@ -14650,8 +14555,7 @@ end 'Calc'
 
 function main() returns ExitCode
 	let h = spawn Calc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shape = squareOf(3) as isolated Shape
+	let shape = squareOf(3) as Shape
 	let mine = shape.area()
 	try h.measure(shape) otherwise panic("a running service with room takes the send")
 	let total = try await h.total() otherwise panic("the service is running")
@@ -14728,7 +14632,6 @@ error E3200: <fragment>:52:13: 'shape' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: services.a-conformer-holding-a-string-crosses -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A conformer whose record holds a `String` is walked into that record as a field of it is, and crosses whole.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -14771,8 +14674,7 @@ end 'Calc'
 
 function main() returns ExitCode
 	let h = spawn Calc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shape = labelOf(1234) as isolated Shape
+	let shape = labelOf(1234) as Shape
 	try h.measure(shape) otherwise panic("a running service with room takes the send")
 	let total = try await h.total() otherwise panic("the service is running")
 	print("{total}\n")
@@ -14993,7 +14895,6 @@ end 'main'
 ```
 
 <!-- test: services.interface-arguments-each-take-their-own-payload-slot -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Each interface-typed parameter of a message takes its witness half in the payload slot after its own, so a
 scalar parameter between two of them still reads its own slot, and a moved binding and a moved temporary cross in
 one send.
@@ -15051,8 +14952,7 @@ end 'Calc'
 
 function main() returns ExitCode
 	let h = spawn Calc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let sent = squareOf(2) as isolated Shape
+	let sent = squareOf(2) as Shape
 	let sentArea = sent.area()
 	let n = try await h.combine(sent, scale: 10, b: labelOf(123)) otherwise panic("the calc is running")
 	print("{n} {sentArea}\n")
@@ -15065,7 +14965,6 @@ end 'main'
 ```
 
 <!-- test: borrow.a-handler-may-write-a-sent-interface-argument -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A handler may write an interface-typed parameter through its witness: the send moved the conformer to it.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -15109,8 +15008,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let c = counterOf() as isolated Counter
+	let c = counterOf() as Counter
 	try h.poke(c) otherwise panic("a running service with room takes the send")
 	return 0
 end 'main'
@@ -15121,7 +15019,6 @@ end 'main'
 
 <!-- test: borrow.a-handler-may-keep-a-sent-interface-argument -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A handler may store an interface-typed parameter in its state: the send moved the conformer to it.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -15161,8 +15058,7 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let h = spawn Keeper.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let s = squareOf(2) as isolated Shape
+	let s = squareOf(2) as Shape
 	try h.keep(s) otherwise panic("a running service with room takes the send")
 	return 0
 end 'main'
@@ -15930,7 +15826,6 @@ error E3102: <fragment>:30:31: use of moved value 'word': its ownership moved to
 
 <!-- test: services.error.one-let-sent-twice-in-one-message-is-use-after-move -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The first argument moves `b` into the message, so the second reads a moved value.
 ```maxon
@@ -15960,8 +15855,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take2(b, other: b) otherwise panic("a running service with room takes the send")
 	return 0
 end 'main'
@@ -15974,7 +15868,6 @@ error E3102: <fragment>:28:24: use of moved value 'b': its ownership moved to an
 
 <!-- test: services.error.a-let-and-its-alias-sent-in-one-message-are-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `c` names the record `b` holds, so moving `b` into the message leaves `c` a second owner of it.
 ```maxon
@@ -16004,8 +15897,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	let c = b
 	try h.take2(b, other: c) otherwise panic("a running service with room takes the send")
 	return 0
@@ -16019,7 +15911,6 @@ error E3102: <fragment>:29:14: use of moved value 'b': its ownership moved to an
 
 <!-- test: services.error.a-sent-let-used-as-a-method-receiver-is-use-after-move -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A sent `let` is gone from the send on, so calling a method on it reads a moved value.
 ```maxon
@@ -16051,8 +15942,7 @@ end 'Svc'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("a running service with room takes the send")
 	return b.doubled() as ExitCode
 end 'main'
@@ -16065,7 +15955,6 @@ error E3102: <fragment>:32:9: use of moved value 'b': its ownership moved to ano
 
 <!-- test: services.error.a-sent-let-passed-to-an-async-call-is-use-after-move -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A sent `let` is gone from the send on, so handing it to a coroutine reads a moved value.
 ```maxon
@@ -16098,8 +15987,7 @@ end 'readIt'
 
 function main() returns ExitCode
 	let h = spawn Svc.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create() as isolated Box
+	let b = Box.create() as Box
 	try h.take(b) otherwise panic("a running service with room takes the send")
 	let p = async readIt(b)
 	return (await p) as ExitCode
@@ -16156,7 +16044,6 @@ error E3200: <fragment>:28:27: 'items' is not isolated: only a clean call, a `sw
 
 <!-- test: error.an-isolated-local-the-loop-iterates-is-not-sent-inside-the-loop -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The `for` opens `items` for the whole loop, so the `break` after the send does not help: the send would hand the service a region the loop still reads, and `x` is read from it afterwards.
 ```maxon
@@ -16181,8 +16068,7 @@ end 'Summer'
 
 function main() returns ExitCode
 	let h = spawn Summer.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let items = Words.create(0) as isolated Words
+	let items = Words.create(0) as Words
 	// TODO: modify blocks are not supported in minimaxon
 	modify items 'fill'
 		items.push("first padded out long enough to heap allocate {1}")
@@ -16202,7 +16088,6 @@ error E3200: <fragment>:31:27: 'items' is iterated by an enclosing `for`, which 
 
 <!-- test: error.an-isolated-local-the-loop-iterates-with-an-iterator-is-not-sent-inside-the-loop -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `items.withIterator()` makes the loop read `items` the same way, so the send is refused the same way.
 ```maxon
@@ -16227,8 +16112,7 @@ end 'Summer'
 
 function main() returns ExitCode
 	let h = spawn Summer.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let items = Words.create(0) as isolated Words
+	let items = Words.create(0) as Words
 	// TODO: modify blocks are not supported in minimaxon
 	modify items 'fill'
 		items.push("first padded out long enough to heap allocate {1}")
@@ -16248,7 +16132,6 @@ error E3200: <fragment>:31:27: 'items' is iterated by an enclosing `for`, which 
 
 <!-- test: services.a-var-the-loop-iterated-is-sent-after-the-loop -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Once the loop has ended it holds nothing, so the `var` is the record's only owner again and the send moves it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -16272,8 +16155,7 @@ end 'Summer'
 
 function main() returns ExitCode
 	let h = spawn Summer.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let items = Words.create(0) as isolated Words
+	let items = Words.create(0) as Words
 	// TODO: modify blocks are not supported in minimaxon
 	modify items 'fill'
 		items.push("first padded out long enough to heap allocate {1}")
@@ -16297,7 +16179,6 @@ end 'main'
 
 <!-- test: services.a-value-whose-field-a-closure-holds-is-refused-at-the-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -16337,8 +16218,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = spawn Holder.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Outer.create() as isolated Outer
+	let b = Outer.create() as Outer
 	let inner = b.inner
 	let peek = function() gives inner.n
 	let r = try await h.take(b) otherwise 0
@@ -16558,7 +16438,6 @@ end 'main'
 
 <!-- test: services.error.a-var-sent-after-it-has-been-viewed-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `let w = b` moves `b` into `w`, as `let w = b` does, so `b` cannot be sent afterwards, even though `w` is not read again.
 
@@ -16588,8 +16467,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'fill'
 		b.n = 2
@@ -16608,7 +16486,6 @@ error E3102: <fragment>:35:27: use of moved value 'b': its ownership moved to an
 <!-- test: services.error.a-var-sent-after-it-has-been-viewed-and-read-afterwards-is-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `let w = b` moves `b` into `w`, which is read after the send, so the send of `b` is refused rather than leaving `w` reading a record the service now owns and writes.
 
@@ -16640,8 +16517,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'fill'
 		b.n = 2
@@ -16704,7 +16580,6 @@ hello ada 3
 <!-- test: services.error.a-var-sent-after-a-field-of-it-has-been-viewed-is-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `w` views a field of `b`, so its reference co-owns part of `b`'s graph for the rest of the function, and `b` cannot be moved to the service.
 
@@ -16743,8 +16618,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'fill'
 		b.child.n = 2
@@ -16761,7 +16635,6 @@ error E3202: <fragment>:41:10: 'b.child' is mutable and cannot leave the stateme
 
 <!-- test: services.error.a-var-a-ternary-view-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `w` names `b` or `c` depending on the comparison, so its reference may co-own `c`'s record, and `c` cannot be moved to the service.
 
@@ -16791,10 +16664,8 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var c = Box.create(2) as isolated Box
+	var b = Box.create(1) as Box
+	var c = Box.create(2) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'fillB'
 		b.n = 3
@@ -16815,7 +16686,6 @@ error E3202: <fragment>:38:10: 'b if b.n > c.n else c' is mutable and cannot lea
 
 <!-- test: services.error.a-var-an-otherwise-view-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `w` names `spare` when the array has no element 0, so its reference may co-own `spare`'s record.
 
@@ -16847,14 +16717,12 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var boxes = Boxes.create(0) as isolated Boxes
+	var boxes = Boxes.create(0) as Boxes
 	// TODO: modify blocks are not supported in minimaxon
 	modify boxes 'fill'
 		boxes.push(Box.create(1))
 	end 'fill'
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var spare = Box.create(0) as isolated Box
+	var spare = Box.create(0) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify spare 'fill'
 		spare.n = 2
@@ -16871,7 +16739,6 @@ error E3200: <fragment>:40:10: a join of an isolated value with data that is not
 
 <!-- test: services.error.a-var-a-view-of-a-calls-result-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` hands back its argument, so the record `w` views is `b`'s.
 
@@ -16905,8 +16772,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'fill'
 		b.n = 2
@@ -16923,7 +16789,6 @@ error E3201: <fragment>:37:10: 'pick' hands back mutable data of the isolated re
 
 <!-- test: services.error.a-var-a-view-of-a-methods-result-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same through a method: `c.pick(b)` hands back `b`, not something of `c`'s.
 
@@ -16966,8 +16831,7 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let c = Picker.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'fill'
 		b.n = 2
@@ -16984,7 +16848,6 @@ error E3201: <fragment>:46:12: 'pick' hands back mutable data of the isolated re
 
 <!-- test: services.error.a-var-a-match-view-may-name-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 One arm of the `match` gives `b`, so the record `w` views may be `b`'s.
 
@@ -17020,10 +16883,8 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let side = Side.left
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var c = Box.create(2) as isolated Box
+	var b = Box.create(1) as Box
+	var c = Box.create(2) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'fillB'
 		b.n = 3
@@ -17047,7 +16908,6 @@ error E3102: <fragment>:49:27: use of moved value 'b': its ownership moved to an
 
 <!-- test: services.error.an-array-an-element-view-reaches-sent-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `e` binds an element of the isolated `boxes` outside a `modify` block, which is an isolated read without a block, so it is refused before the array is sent to the service.
 
@@ -17079,8 +16939,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var boxes = Boxes.create(0) as isolated Boxes
+	var boxes = Boxes.create(0) as Boxes
 	// TODO: modify blocks are not supported in minimaxon
 	modify boxes 'fill'
 		boxes.push(Box.create(1))
@@ -17097,7 +16956,6 @@ error E3198: <fragment>:34:10: 'try boxes.get(0) otherwise return 1' is isolated
 
 <!-- test: services.an-array-an-if-view-dead-before-the-send-is-sent -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The `if let` binder views an element of `boxes` only inside the `if`, and it is not read after the `if`, so the send after it is accepted.
 
 ```maxon
@@ -17128,8 +16986,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let boxes = Boxes.create(0) as isolated Boxes
+	let boxes = Boxes.create(0) as Boxes
 	// TODO: modify blocks are not supported in minimaxon
 	modify boxes 'fill'
 		boxes.push(Box.create(1))
@@ -17152,7 +17009,6 @@ end 'main'
 
 <!-- test: services.error.a-var-viewed-earlier-in-a-loop-body-sent-later-in-it-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Inside one trip of the loop, `let w = b` moves `b` before the send, so the send is refused on every trip.
 
@@ -17183,8 +17039,7 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	for _ in 1 to 2 'each'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		var b = Box.create(1) as isolated Box
+		var b = Box.create(1) as Box
 		// TODO: modify blocks are not supported in minimaxon
 		modify b 'fill'
 			b.n = 2
@@ -17204,7 +17059,6 @@ error E3102: <fragment>:37:28: use of moved value 'b': its ownership moved to an
 <!-- test: services.error.a-var-viewed-then-handed-to-spawn-as-state-is-refused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The state `spawn` starts the service with is moved into it, so a `var` that `let w = b` has already moved cannot be that state.
 
@@ -17234,8 +17088,7 @@ type Worker
 end 'Worker'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'fill'
 		b.n = 2
@@ -17297,7 +17150,6 @@ end 'main'
 
 <!-- test: services.error.a-ternary-arm-sent-inside-a-view-initializer-moves -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The send inside `w`'s initializer moves whichever arm the ternary picks, exactly as it would inside a `let` initializer, so writing `a` afterwards is a use of a moved value.
 
@@ -17331,14 +17183,12 @@ end 'boxed'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify a 'fill'
 		a.n = 2
 	end 'fill'
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var other = Box.create(3) as isolated Box
+	var other = Box.create(3) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify other 'fill'
 		other.n = 4
@@ -17449,7 +17299,6 @@ end 'main'
 ```
 
 <!-- test: services.error.a-viewed-var-sent-and-read-afterwards-reports-the-send -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `w` views the array that holds `b`'s record, so the send is refused; the read of `b` after it is not reported as a use of a moved value, because a refused send moves nothing.
 
@@ -17482,8 +17331,7 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	var boxes = Boxes.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	boxes.push(b)
 	let w = boxes
 	let r = try await h.keep(b) otherwise 0
@@ -17628,7 +17476,6 @@ error E3008: <fragment>:4:10: function 'Box.create' is not exported
 
 <!-- test: a-message-parameter-spelled-through-its-directory-keeps-its-brand -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- process: own -->
 A message parameter spelled `lib.Names`, an alias of `Array with String` declared in `lib/`, carries the same brand as the value the sender builds from `lib.Names`, so the request's payload accepts it and the reply comes back.
 ```maxon
@@ -17652,8 +17499,7 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let tags = lib.Names.create(0) as isolated lib.Names
+	let tags = lib.Names.create(0) as lib.Names
 	// TODO: modify blocks are not supported in minimaxon
 	modify tags 'fill'
 		tags.push("a")
@@ -19122,7 +18968,6 @@ end 'main'
 
 <!-- test: services.a-failed-factory-releases-its-arguments -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A factory that throws leaves the arguments the spawn handed it where the start record held them, and the service's
 thread releases them: a managed argument the factory only reads and one it keeps both end with the program's last
 reference gone, and the leak gate reads zero.
@@ -19152,15 +18997,13 @@ type Ledger
 end 'Ledger'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let ids = WholeArray.create(0) as isolated WholeArray
+	let ids = WholeArray.create(0) as WholeArray
 	try spawn Ledger.create("a label long enough to be a heap string", ids: ids) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
 		end 'which'
 	end 'failed'
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let more = WholeArray.create(0) as isolated WholeArray
+	let more = WholeArray.create(0) as WholeArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify more 'fill'
 		more.push(1)

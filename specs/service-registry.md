@@ -2887,7 +2887,6 @@ note: <fragment>:54:9: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.a-field-store-through-a-shared-value-read -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 **A READ IS A READ-ONLY VIEW.** `around` builds a record of its own around the `Inner` the shared value
 holds, so the field store through `w.inner` would change the value under every other reader; the field is declared `immutable` because the read is.
@@ -2911,8 +2910,7 @@ end 'Config'
 typealias ConfigCell = SharedValue with Config
 
 type Wrap
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var inner as immutable Inner
+	export var inner as Inner
 
 	static function around(cell ConfigCell) returns Self
 		return Self{inner: cell.current().inner}
@@ -2933,7 +2931,6 @@ error E3197: <fragment>:31:2: cannot write 'x' through 'w.inner', which is immut
 ```
 
 <!-- test: error.a-field-store-through-a-value-default-read -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: top-level default declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -2957,8 +2954,7 @@ end 'Config'
 default Config = Config.create(1)
 
 type Wrap
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var inner as immutable Inner
+	export var inner as Inner
 
 	static function around() returns Self
 		return Self{inner: Config.current().inner}

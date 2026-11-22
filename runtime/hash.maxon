@@ -1,10 +1,156 @@
-// The hash entries, which run the fold of hashfold.maxon, and the ordered words of maxon's library.
+// The hash entries, which run the fold of hashfold.maxon, and the ordered words of maxon's library. The process's hash
+// state, its secret and the fold of no bytes under it, is made by the first hash of the process that needs it, as maxon's
+// __hash_init is: the secret is the one MAXON_HASH_SEED pins, 16 hexadecimal digits, or 8 bytes of the system's entropy.
+// A pin that is not 16 hexadecimal digits ends the process with maxon's message and exit code 1. The state hangs off the
+// main thread's context, which every thread reaches, so every thread hashes alike, and a program that never asks for the
+// seed never reads the environment or the system's entropy.
 
 // HashInput is a span the fold reads (hashfold.maxon): the address of its first byte.
 typealias HashInput = int(0 to u64.max)
 
 // arrayIndexOutOfBounds is the case of ArrayError that a read of an ordered word past the end fails with.
 let arrayIndexOutOfBounds = 0 as Count
+
+let hashSeedVariable = "MAXON_HASH_SEED"
+
+let hashSeedRefusalPrefix = "MAXON_HASH_SEED="
+
+let hashSeedRefusalTail = " is not a hash seed: expected 16 hexadecimal digits\n"
+
+// hashSeedShownBytes is the most of a refused pin that the message shows, as maxon's buffer of 32 bytes, one its end, does.
+let hashSeedShownBytes = 31 as Count
+
+let hashSeedRefusalExitCode = 1 as Count
+
+// hashSecretBytes is the size of a secret drawn from the system.
+let hashSecretBytes = 8 as Count
+
+let hashPinned = 1 as Count
+
+#if os(Windows)
+	// The system's entropy is ProcessPrng's, as maxon's runtime draws it, in a library that the import table does not
+	// name, so that a program that never draws loads no more than it did.
+	let entropyLibrary = "bcryptprimitives.dll"
+
+	let entropyFunction = "ProcessPrng"
+#endif
+
+// hashSeed is __Builtins.hashSeed: the fold of no bytes under the process's secret.
+function hashSeed() returns Count
+	return __Raw.loadWord(processHashState(), offset: hashSeedOffset)
+end 'hashSeed'
+
+// drawHashSeed is __Builtins.drawHashSeed: 8 fresh bytes of the system's entropy, or in a process whose secret is pinned
+// the next of the seeds the secret draws, so that a pinned run draws the same ones.
+function drawHashSeed() returns Count
+	let state = processHashState()
+	if __Raw.loadWord(state, offset: hashPinnedOffset) == hashPinned 'pinned'
+		let index = __Raw.atomicAdd(state, offset: hashDrawsOffset, value: 1)
+		return hashDrawn(index as HashWord, secret: __Raw.loadWord(state, offset: hashSecretOffset) as HashWord) as Count
+	end 'pinned'
+	return drawEntropy()
+end 'drawHashSeed'
+
+// processHashState is the process's hash state, which the first call makes. Two threads may make it at once: the first
+// to publish it wins, and the other gives its own back.
+function processHashState() returns Count
+	let main = mainContext(__Raw.threadContext())
+	let state = __Raw.loadWord(main, offset: contextHashOffset)
+	if state != noBox 'made'
+		return state
+	end 'made'
+	let made = makeHashState()
+	let found = __Raw.compareExchange(main, offset: contextHashOffset, expected: noBox, desired: made)
+	if found != noBox 'lost'
+		unkeep(made, bytes: hashStateBytes)
+		return found
+	end 'lost'
+	return made
+end 'processHashState'
+
+// mainContext is the main thread's context: a thread's own while the scheduler is not made, since only the main thread
+// runs then.
+function mainContext(context Count) returns Count
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler == noBox 'main'
+		return context
+	end 'main'
+	return __Raw.loadWord(scheduler, offset: schedMainThreadOffset)
+end 'mainContext'
+
+// makeHashState is a new hash state, of the pinned secret or a drawn one. An empty pin is no pin, as in maxon.
+function makeHashState() returns Count
+	let state = keep(hashStateBytes)
+	var unset = 0 as Count
+	let pin = osEnvironmentVariable(hashSeedVariable, errorAddress: __Raw.addressOf(unset))
+	var secret = 0 as Count
+	if unset == 0 and pin.byteLength() > 0 'pinned'
+		if not hashIsSecretText(pin) 'malformed'
+			refuseHashSeed(pin)
+		end 'malformed'
+		secret = hashSecretOfText(pin) as Count
+		__Raw.storeWord(state, offset: hashPinnedOffset, value: hashPinned)
+	end 'pinned' else 'drawn'
+		secret = drawEntropy()
+	end 'drawn'
+	__Raw.storeWord(state, offset: hashSecretOffset, value: secret)
+	__Raw.storeWord(state, offset: hashSeedOffset, value: hashEmptyFold(secret as HashWord) as Count)
+	return state
+end 'makeHashState'
+
+// refuseHashSeed ends the process over a pin that is not a secret, with maxon's message.
+function refuseHashSeed(pin String)
+	let handle = standardError()
+	writeHandle(handle, text: hashSeedRefusalPrefix)
+	var shown = pin.byteLength()
+	if shown > hashSeedShownBytes 'long'
+		shown = hashSeedShownBytes
+	end 'long'
+	writeHandle(handle, text: pin.sliceBytes(0, endPos: shown))
+	writeHandle(handle, text: hashSeedRefusalTail)
+	exitProcess(hashSeedRefusalExitCode)
+end 'refuseHashSeed'
+
+#if os(Windows)
+	// drawEntropy is 8 bytes of the system's entropy, from ProcessPrng, which is found by name.
+	function drawEntropy() returns Count
+		let library = cStringOf(entropyLibrary)
+		let module = __Raw.callImport1("LoadLibraryA", arg1: library)
+		free(library)
+		if module == 0 'noLibrary'
+			panic("the operating system refused to supply the entropy for a hash seed")
+		end 'noLibrary'
+		let name = cStringOf(entropyFunction)
+		let prng = __Raw.callImport2("GetProcAddress", arg1: module, arg2: name)
+		free(name)
+		if prng == 0 'noFunction'
+			panic("the operating system refused to supply the entropy for a hash seed")
+		end 'noFunction'
+		var word = 0 as Count
+		if dword(__Raw.callHost2(prng, arg1: __Raw.addressOf(word), arg2: hashSecretBytes)) == 0 'refused'
+			panic("the operating system refused to supply the entropy for a hash seed")
+		end 'refused'
+		return word
+	end 'drawEntropy'
+#else
+	// drawEntropy is 8 bytes of the system's entropy, from getrandom, made again when a signal breaks it off.
+	function drawEntropy() returns Count
+		var word = 0 as Count
+		let at = __Raw.addressOf(word)
+		var filled = 0 as Count
+		while filled < hashSecretBytes 'fill'
+			let got = __Raw.syscall3(linuxSysGetrandom, arg1: __Raw.wrappingAdd(at, right: filled), arg2: __Raw.wrappingSub(hashSecretBytes, right: filled), arg3: 0)
+			if failed(got) 'failed'
+				if errnoOf(got) != linuxEintr 'refused'
+					panic("the operating system refused to supply the entropy for a hash seed")
+				end 'refused'
+			end 'failed' else 'got'
+				filled = __Raw.wrappingAdd(filled, right: got)
+			end 'got'
+		end 'fill'
+		return word
+	end 'drawEntropy'
+#endif
 
 // hashWord is __Builtins.hashWord: the fold of a word under a seed.
 function hashWord(word Count, seed Count) returns Count

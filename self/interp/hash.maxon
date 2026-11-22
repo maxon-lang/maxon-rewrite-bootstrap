@@ -1,4 +1,71 @@
-// The interpreter's hash entries and ordered words, which run the runtime's fold (hashfold_gen.maxon).
+// The interpreter's hash entries and ordered words, which run the runtime's fold (hashfold_gen.maxon). Its secret is the
+// one MAXON_HASH_SEED pins, as a compiled program's is, or else a word of the run's own random numbers, so that a run is
+// deterministic, as its clock is.
+
+// HashState is the run's hash state, made by its first hash that needs the seed: the secret, the fold of no bytes under
+// it, whether it is pinned, how many seeds a pinned run has drawn, and the numbers an unpinned run draws its secrets from,
+// apart from the scheduler's so that a hash never changes an interleaving.
+type HashState
+	var made as bool
+	var secret as HashWord
+	var seed as HashWord
+	var pinned as bool
+	var draws as HashWord
+	var rng as Rng
+
+	static function new(seed ir.Word) returns HashState
+		return HashState{made: false, secret: 0, seed: 0, pinned: false, draws: 0, rng: Rng.new(seed)}
+	end 'new'
+end 'HashState'
+
+let hashSeedVariable = "MAXON_HASH_SEED"
+
+// hashSeedShownBytes is the most of a refused pin that the message shows, as the runtime's does.
+let hashSeedShownBytes = 31 as Count
+
+let hashSeedRefusalExitCode = 1 as ir.Word
+
+// makeHash makes the run's hash state at its first hash that needs the seed: a pin that is not a secret ends the run as
+// it ends a compiled program.
+function makeHash(mutates vm Vm) throws Halt
+	if vm.hash.made 'made'
+		return
+	end 'made'
+	let pin = try Process.environmentVariable(hashSeedVariable) otherwise ""
+	if pin.byteLength() > 0 'pinned'
+		if not hashIsSecretText(pin) 'malformed'
+			var shown = pin.byteLength()
+			if shown > hashSeedShownBytes 'long'
+				shown = hashSeedShownBytes
+			end 'long'
+			vm.stderr.append("MAXON_HASH_SEED={pin.sliceBytes(0, endPos: shown)} is not a hash seed: expected 16 hexadecimal digits\n".toByteArray())
+			throw exitWith(vm, code: hashSeedRefusalExitCode)
+		end 'malformed'
+		vm.hash.secret = hashSecretOfText(pin)
+		vm.hash.pinned = true
+	end 'pinned' else 'drawn'
+		vm.hash.secret = vm.hash.rng.uint64() as HashWord
+	end 'drawn'
+	vm.hash.seed = hashEmptyFold(vm.hash.secret)
+	vm.hash.made = true
+end 'makeHash'
+
+function entryHashSeed(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try makeHash(vm)
+	giveNum(vm, x: x, n: ir.wordOfBits(vm.hash.seed as Count))
+end 'entryHashSeed'
+
+function entryHashSeedDraw(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try makeHash(vm)
+	if vm.hash.pinned 'pinned'
+		let index = vm.hash.draws
+		vm.hash.draws = index + 1
+		giveNum(vm, x: x, n: ir.wordOfBits(hashDrawn(index, secret: vm.hash.secret) as Count))
+		return
+	end 'pinned'
+	let drawn = ir.wordOfBits(vm.hash.rng.uint64())
+	giveNum(vm, x: x, n: drawn)
+end 'entryHashSeedDraw'
 
 // HashInput is a span the fold reads: its bytes.
 type HashInput

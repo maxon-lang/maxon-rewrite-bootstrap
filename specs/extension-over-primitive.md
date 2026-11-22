@@ -69,11 +69,9 @@ end 'main'
 ```
 
 <!-- test: an-extension-adds-a-method-to-float -->
-<!-- skip: extensions of 'float' are not supported in minimaxon -->
 `trunc` rather than `as Integer`: a float→int CAST is `E3009 Cannot cast from float to int` in the compiler with no
 extension anywhere in sight, so the cast form would have tested that rule instead of this one.
 ```maxon
-// TODO: extensions of 'float' are not supported in minimaxon
 extension float
 	function tripled() returns Real
 		return self * 3.0
@@ -82,7 +80,7 @@ end 'float'
 
 function main() returns ExitCode
 	let x = 4.0
-	return trunc(x.tripled()) as ExitCode
+	return try trunc(x.tripled()) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Real = float(f64.min to f64.max)

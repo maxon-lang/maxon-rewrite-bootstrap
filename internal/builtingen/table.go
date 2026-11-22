@@ -724,8 +724,14 @@ var tableFunctions = []function{
 
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
 	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
-	// The seeded hash of maxon's runtime, its software fold: hashWord and hashBytes fold a word or the bytes of a span of
-	// an array under a seed.
+	// floatToBits is the 64 bits of a double read as an integer, as maxon's is: a reinterpretation, which the library's
+	// float hash folds.
+	{Owner: "Builtins", Name: "floatToBits", Static: true, Params: []string{"_ Float"}, Result: "FullRangeInt", Intrinsic: "FloatToBits", Instead: "the float's own operations"},
+	// The seeded hash of maxon's runtime, its software fold: hashSeed is the fold of no bytes under the process's secret,
+	// which a Hasher starts from; hashWord and hashBytes fold a word or the bytes of a span of an array under a seed;
+	// drawHashSeed draws a fresh secret from the system, or the next of the pinned process's sequence.
+	{Owner: "Builtins", Name: "hashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeed", Instead: "Hasher.create()"},
+	{Owner: "Builtins", Name: "drawHashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeedDraw", Instead: "HashSeed.random()"},
 	{Owner: "Builtins", Name: "hashWord", Static: true, Params: []string{"_ HashDigest", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashWord", Instead: "a Hasher's combine(value)"},
 	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashBytes", Instead: "a Hasher's combineBytes(bytes)"},
 	// The ordered words of maxon's library: a read of the 2, 4 or 8 bytes at an index of an array, the first the most
@@ -846,6 +852,8 @@ var entries = []entry{
 	{"AsyncTake", "rt.async.take", "Source", roleCall, "(promise) -> value: what the function of a coroutine that rt.async.wait waited for returned, which frees the coroutine"},
 	{"Sleep", "rt.sleep", "Source", roleCall, "(milliseconds): parks the running green thread for at least that long"},
 	{"Yield", "rt.yield", "Source", roleCall, "(): lets the members of the strand that wait, else the runnable green threads, run first"},
+	{"HashSeed", "rt.hash.seed", "Source", roleCall, "() -> the fold of no bytes under the process's secret, which the first hash of the process draws or reads from MAXON_HASH_SEED"},
+	{"HashSeedDraw", "rt.hash.draw", "Source", roleCall, "() -> a fresh secret from the system, or the next of the sequence a pinned process draws"},
 	{"HashWord", "rt.hash.word", "Source", roleCall, "(word, seed) -> the fold of the word's 8 bytes under the seed"},
 	{"HashBytes", "rt.hash.bytes", "Source", roleCall, "(ByteArray, at, count, seed) -> the fold of the count bytes from at under the seed; a span past the end panics"},
 	{"BytesReadWord", "rt.bytes.readWord", "Source", roleCall, "(ByteArray, at, width, bigEndian, error) -> the width bytes from at as a word, the first the most significant where bigEndian; past the end sets the error to indexOutOfBounds"},
@@ -998,6 +1006,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"AsyncTake", "asyncTake(promise Count) Count"},
 	{"Sleep", "sleepMs(milliseconds Count)"},
 	{"Yield", "schedYield()"},
+	{"HashSeed", "hashSeed() Count"},
+	{"HashSeedDraw", "drawHashSeed() Count"},
 	{"HashWord", "hashWord(word Count, seed Count) Count"},
 	{"HashBytes", "hashBytes(array Count, at Count, count Count, seed Count) Count"},
 	{"BytesReadWord", "bytesReadWord(array Count, at Count, width Count, bigEndian Bool, errorAddress Count) Count"},

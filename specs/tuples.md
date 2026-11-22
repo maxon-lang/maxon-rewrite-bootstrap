@@ -3546,7 +3546,6 @@ end 'main'
 ```
 
 <!-- test: a-message-parameter-of-a-generic-alias-names-its-own-modules-alias-beside-a-sibling-of-the-same-name -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Two sibling directories each declare their own `Num` and `Nums`. `Tally.take`'s message carries the second
 directory's `Nums`, so the array sent is the one the message holds. Returns 46.
 ```maxon
@@ -3575,7 +3574,7 @@ type Tally
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(consumes items Nums)
+	export function take(mutates self, consumes items Nums)
 		self.sum = try items.get(0) otherwise 0
 	end 'take'
 
@@ -3586,8 +3585,7 @@ end 'Tally'
 
 export function second() returns ExitCode
 	let t = spawn Tally.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let items = Nums.create(0) as isolated Nums
+	var items = Nums.create(0) as Nums
 	items.push(43 as Num)
 	try t.take(items) otherwise panic("an open mailbox with room takes the send")
 	let sum = try await t.total() otherwise panic("the tally is running")
@@ -3597,7 +3595,7 @@ end 'second'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return first() + second()
+	return try first.first() + second.second() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -5139,7 +5137,6 @@ error E3009: <fragment>:10:12: Cannot cast from a tuple of 2 elements to a tuple
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-an-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 <!-- positions: moved -->
 A tuple cast keeps each element's capability: changing one would let a write through the other name reach a frozen element, or a frozen element be written.
 ```maxon
@@ -5155,7 +5152,7 @@ end 'Box'
 
 typealias Plain = (Box, Wide)
 
-typealias Frozen = (immutable Box, Wide)
+typealias Frozen = (Box, Wide)
 
 function plainOf(n Wide) returns Plain
 	return (Box.create(n), n)
@@ -5173,7 +5170,6 @@ error E3226: <fragment>:16:22: Cannot cast element 0 of a tuple from 'Box' to 'i
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-thaw-an-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5188,7 +5184,7 @@ end 'Box'
 
 typealias Plain = (Box, Wide)
 
-typealias Frozen = (immutable Box, Wide)
+typealias Frozen = (Box, Wide)
 
 function frozenOf(n Wide) returns Frozen
 	return (freeze(Box.create(n)), n)
@@ -5206,7 +5202,6 @@ error E3226: <fragment>:16:22: Cannot cast element 0 of a tuple from 'immutable 
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-an-element-of-a-nested-tuple -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'Box' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5221,7 +5216,7 @@ end 'Box'
 
 typealias PlainNest = ((Wide, Box), Wide)
 
-typealias FrozenNest = ((Wide, immutable Box), Wide)
+typealias FrozenNest = ((Wide, Box), Wide)
 
 function nestOf(n Wide) returns PlainNest
 	return ((n, Box.create(n)), n)
@@ -5239,7 +5234,6 @@ error E3226: <fragment>:16:22: Cannot cast element 0.1 of a tuple from 'Box' to 
 ```
 
 <!-- test: error.a-tuple-literal-cast-refuses-to-freeze-a-mutable-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5252,7 +5246,7 @@ type Box
 	end 'create'
 end 'Box'
 
-typealias Frozen = (immutable Box, Wide)
+typealias Frozen = (Box, Wide)
 
 function main() returns ExitCode
 	let b = Box.create(1)
@@ -5266,7 +5260,6 @@ error E3226: <fragment>:12:17: Cannot cast element 0 of a tuple from 'Box' to 'i
 ```
 
 <!-- test: a-tuple-literal-cast-of-a-frozen-element-to-the-immutable-column-is-accepted -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 ```maxon
 typealias Wide = int(0 to 1000)
 
@@ -5278,7 +5271,7 @@ type Box
 	end 'create'
 end 'Box'
 
-typealias Frozen = (immutable Box, Wide)
+typealias Frozen = (Box, Wide)
 
 function main() returns ExitCode
 	let f = freeze(Box.create(1))
@@ -5292,7 +5285,6 @@ end 'main'
 ```
 
 <!-- test: a-capability-on-a-value-type-tuple-element-names-the-same-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'P' -->
 A capability word on a tuple element whose type is a value means the type itself: `(immutable P, Wide)` is the type `(P, Wide)`, so a cast between them keeps its values and the two pass for each other.
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5307,10 +5299,10 @@ end 'P'
 
 typealias PlainP = (P, Wide)
 
-typealias FrozenP = (immutable P, Wide)
+typealias FrozenP = (P, Wide)
 
 function total(pair PlainP) returns Wide
-	return pair.0.n + pair.1
+	return try pair.0.n + pair.1 otherwise panic("out of range")
 end 'total'
 
 function frozenOf(n Wide) returns FrozenP
@@ -5331,7 +5323,6 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-literal-cast-refuses-to-freeze-a-freshly-built-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5344,7 +5335,7 @@ type Box
 	end 'create'
 end 'Box'
 
-typealias Frozen = (immutable Box, Wide)
+typealias Frozen = (Box, Wide)
 
 function main() returns ExitCode
 	let t = (Box.create(1), 2) as Frozen
@@ -5357,7 +5348,6 @@ error E3226: <fragment>:11:29: Cannot cast element 0 of a tuple from 'Box' to 'i
 ```
 
 <!-- test: a-capability-on-a-payload-union-element-with-immutable-payloads-names-the-same-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'U' -->
 A union with a payload whose payloads are all immutable is a value, so a capability word on its tuple element names the same type.
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5369,7 +5359,7 @@ end 'U'
 
 typealias PlainU = (U, Wide)
 
-typealias FrozenU = (immutable U, Wide)
+typealias FrozenU = (U, Wide)
 
 function show(u U) returns Wide
 	return match u 'm'
@@ -5379,7 +5369,7 @@ function show(u U) returns Wide
 end 'show'
 
 function total(pair PlainU) returns Wide
-	return show(pair.0) + pair.1
+	return try show(pair.0) + pair.1 otherwise panic("out of range")
 end 'total'
 
 function frozenOf(n Wide) returns FrozenU
@@ -5400,7 +5390,6 @@ end 'main'
 ```
 
 <!-- test: a-capability-on-a-record-element-holding-only-an-immutable-field-names-the-same-type -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 A record whose only field is an immutable `Box` is a value, so a capability word on its tuple element names the same type.
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5414,8 +5403,7 @@ type Box
 end 'Box'
 
 type R
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let f as immutable Box
+	export let f as Box
 
 	static function create(n Wide) returns Self
 		return Self{f: freeze(Box.create(n))}
@@ -5424,7 +5412,7 @@ end 'R'
 
 typealias PlainR = (R, Wide)
 
-typealias FrozenR = (immutable R, Wide)
+typealias FrozenR = (R, Wide)
 
 function total(pair PlainR) returns Wide
 	return pair.0.f.n + pair.1
@@ -5448,7 +5436,6 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-a-generic-service-handle-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'WideBoxHandle' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5469,7 +5456,7 @@ typealias WideBoxHandle = Box.handle with Wide
 
 typealias Plain = (WideBoxHandle, Wide)
 
-typealias Frozen = (immutable WideBoxHandle, Wide)
+typealias Frozen = (WideBoxHandle, Wide)
 
 function plainOf(n Wide) returns Plain
 	return (spawn Box.create(n), n)
@@ -5487,7 +5474,6 @@ error E3226: <fragment>:20:22: Cannot cast element 0 of a tuple from 'WideBoxHan
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-a-shared-value-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'FlagCell' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5496,7 +5482,7 @@ typealias FlagCell = SharedValue with Wide
 
 typealias Plain = (FlagCell, Wide)
 
-typealias Frozen = (immutable FlagCell, Wide)
+typealias Frozen = (FlagCell, Wide)
 
 function plainOf(n Wide) returns Plain
 	return (FlagCell.create(n), n)

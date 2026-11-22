@@ -2884,8 +2884,8 @@ typealias Integer = int(i64.min to i64.max)
 type Holder uses T where T implements Hashable and Equatable
 	var v as T
 
-	static function of(v T) returns Self
-		let built = Self{v: v}
+	static function of(v T) returns Self where T implements Copyable
+		let built = Self{v: v.clone()}
 		if built.matches(v) 'sameValue'
 			return built
 		end 'sameValue'
@@ -2928,8 +2928,8 @@ type Holder uses T where T implements Hashable and Equatable
 		return v.hash()
 	end 'digest'
 
-	static function digestOf(v T) returns HashValue
-		let h = Self{v: v}
+	static function digestOf(v T) returns HashValue where T implements Copyable
+		let h = Self{v: v.clone()}
 		return h.digest()
 	end 'digestOf'
 end 'Holder'
@@ -3031,8 +3031,8 @@ type Holder uses T where T implements Hashable and Equatable
 		return f(x)
 	end 'viaClosure'
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 end 'Holder'
 
@@ -3127,8 +3127,8 @@ typealias Val = int(i64.min to i64.max)
 type Box uses Item
 	export var item as Item
 
-	static function create(item Item) returns Self
-		return Self{item: item}
+	static function create(item Item) returns Self where Item implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -3140,7 +3140,7 @@ end 'Box'
 
 extension Box where Item implements Hashable
 	function describe(salt HashValue) returns HashValue
-		return item.hash() + salt
+		return try item.hash() + salt otherwise panic("out of range")
 	end 'describe'
 end 'Box'
 
@@ -3271,15 +3271,15 @@ type Outer uses E where E implements Hashable and Equatable
 	export typealias Items = Array with E
 	var e as E
 
-	static function create(e E) returns Self
-		return Self{e: e}
+	static function create(e E) returns Self where E implements Copyable
+		return Self{e: e.clone()}
 	end 'create'
 
-	function tally() returns HashValue
-		let items = Items.create(0)
-		items.push(e)
+	function tally() returns HashValue where E implements Copyable
+		var items = Items.create(0)
+		items.push(e.clone())
 		if items.count() == 1 'one'
-			return e.hash() + 1
+			return try e.hash() + 1 otherwise panic("out of range")
 		end 'one'
 		return 0
 	end 'tally'
@@ -3289,7 +3289,7 @@ type Runner uses D where D implements Hashable and Equatable
 	export typealias OuterD = Outer with D
 	var d as D
 
-	static function run(o OuterD) returns HashValue
+	static function run(o OuterD) returns HashValue where D implements Copyable
 		return o.tally()
 	end 'run'
 end 'Runner'
@@ -3979,8 +3979,8 @@ type Holder uses T where T implements Hashable and Equatable
 	export typealias Items = Array with T
 	var items as Items
 
-	static function create(items Items) returns Self
-		return Self{items: items}
+	static function create(items Items) returns Self where T implements Copyable
+		return Self{items: items.clone()}
 	end 'create'
 
 	static function same(a Val, b Val) returns bool
@@ -4023,19 +4023,19 @@ type Ticks uses T where T implements Hashable and Equatable
 	var items as Items
 	var at = 0 as Count
 
-	static function create(items Items) returns Self throws IterationError
+	static function create(items Items) returns Self throws IterationError where T implements Copyable
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function current() returns T where T implements Copyable
 		return try items.get(at) otherwise panic("Ticks.current: the positioning invariant holds")
 	end 'current'
 
-	function advance() throws IterationError
-		at = at + 1
+	function advance(mutates self) throws IterationError
+		at = try at + 1 otherwise panic("out of range")
 		if at >= items.count() 'done'
 			throw IterationError.exhausted
 		end 'done'
@@ -4043,7 +4043,7 @@ type Ticks uses T where T implements Hashable and Equatable
 end 'Ticks'
 
 extension Ticks
-	function skip(n Step) throws IterationError
+	function skip(mutates self, n Step) throws IterationError
 		var i = 0 as Step
 		while i < n 'loop'
 			try self.advance()
@@ -4057,13 +4057,13 @@ typealias IntArray = Array with Integer
 typealias IntTicks = Ticks with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(5)
 	a.push(6)
 	a.push(7)
-	let t = try IntTicks.create(a) otherwise panic("non-empty")
+	var t = try IntTicks.create(a) otherwise panic("non-empty")
 	try t.skip(2) otherwise panic("three elements")
-	return t.current()
+	return try t.current() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4409,7 +4409,7 @@ type Holder uses T where T implements Hashable and Equatable
 	var v as T
 
 	static function sum(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count) returns Count
-		return p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32 + p33 + p34 + p35 + p36 + p37 + p38 + p39 + p40 + p41 + p42 + p43 + p44 + p45 + p46 + p47 + p48 + p49 + p50 + p51 + p52 + p53 + p54 + p55 + p56 + p57 + p58 + p59 + p60 + p61
+		return try p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32 + p33 + p34 + p35 + p36 + p37 + p38 + p39 + p40 + p41 + p42 + p43 + p44 + p45 + p46 + p47 + p48 + p49 + p50 + p51 + p52 + p53 + p54 + p55 + p56 + p57 + p58 + p59 + p60 + p61 otherwise panic("out of range")
 	end 'sum'
 end 'Holder'
 
@@ -4436,8 +4436,8 @@ typealias Integer = int(i64.min to i64.max)
 type Holder uses T where T implements Hashable and Equatable
 	var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
 	static function hashOf(v T) returns HashValue
@@ -4498,7 +4498,7 @@ type Holder uses T where T implements Hashable and Equatable
 	var v as T
 
 	static function sum(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count) returns Count
-		return sizeof(T) + p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32 + p33 + p34 + p35 + p36 + p37 + p38 + p39 + p40 + p41 + p42 + p43 + p44 + p45 + p46 + p47 + p48 + p49 + p50 + p51 + p52 + p53 + p54 + p55 + p56 + p57 + p58 + p59 + p60 + p61
+		return try sizeof(T) + p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32 + p33 + p34 + p35 + p36 + p37 + p38 + p39 + p40 + p41 + p42 + p43 + p44 + p45 + p46 + p47 + p48 + p49 + p50 + p51 + p52 + p53 + p54 + p55 + p56 + p57 + p58 + p59 + p60 + p61 otherwise panic("out of range")
 	end 'sum'
 end 'Holder'
 

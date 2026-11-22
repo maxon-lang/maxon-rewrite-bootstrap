@@ -1,0 +1,22 @@
+// maxon's PrimitiveExtensions: an integer hashes to its low 32 bits on [-2^32, 2^32) and folds a wider one, a float folds
+// the halves of its bits, -0.0 hashes as 0.0 does, and a bound of Hashable is met by both.
+function keyOf(x T) uses T returns HashValue where T implements Hashable
+	return x.hash()
+end 'keyOf'
+
+function main() returns ExitCode
+	let small = 5 as Count
+	let wide = 9000000000 as Count
+	let negative = -3 as FullRangeInt
+	let half = 1.5 as FullRangeFloat
+	let zero = 0.0 as FullRangeFloat
+	let negativeZero = -0.0 as FullRangeFloat
+	print("{small.hash()} {wide.hash()} {negative.hash()}\n")
+	print("{__Builtins.floatToBits(half)} {half.hash()} {zero.hash()} {negativeZero.hash()}\n")
+	print("{keyOf(wide)} {keyOf(half)} {half.equals(1.5)} {small.compare(3)}\n")
+	return 0
+end 'main'
+
+//> 5 606071138 4294967293
+//> 4609434218613702656 1073217536 0 0
+//> 606071138 1073217536 true greaterThan

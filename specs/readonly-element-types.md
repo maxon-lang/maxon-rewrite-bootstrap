@@ -73,7 +73,6 @@ end 'main'
 ```
 
 <!-- test: a-map-stores-frozen-values-and-stays-mutable -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 A `Map`'s value type takes the qualifier: values are stored by `upsert` and `insert`, read back by `get`, and the
 map is still `upsert`ed over and removed from.
 
@@ -88,7 +87,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-typealias Index = Map with String, immutable Counter
+typealias Index = Map with String, Counter
 
 function main() returns ExitCode
 	let index = Index.create()
@@ -112,7 +111,6 @@ end 'main'
 ```
 
 <!-- test: the-parenthesized-spelling-of-a-map-and-a-list-take-the-qualifier -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 `Map with (K, immutable V)` and `Map with K, immutable V` both qualify the value type, and a `List` qualifies its
 element. Each takes a `let` record that other names can still read, which a container of writable records would
 refuse; two aliases are two types, so the spellings are told apart by what they accept and not by passing one
@@ -131,7 +129,7 @@ end 'Counter'
 
 typealias Index = Map with (String, Counter)
 
-typealias Spelled = Map with String, immutable Counter
+typealias Spelled = Map with String, Counter
 
 typealias Queue = List with Counter
 
@@ -227,7 +225,6 @@ error E3196: specs/readonly-element-types/error.a-var-pushed-and-written-afterwa
 ```
 
 <!-- test: error.a-map-value-upserted-and-written-afterwards-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 <!-- positions: moved -->
 The same refusal for a `Map`'s `immutable` value.
 
@@ -242,7 +239,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-typealias Index = Map with String, immutable Counter
+typealias Index = Map with String, Counter
 
 function main() returns ExitCode
 	var index = Index.create()
@@ -505,7 +502,6 @@ error E3197: specs/readonly-element-types/error.a-for-variable-over-an-immutable
 ```
 
 <!-- test: error.a-for-value-over-an-immutable-map-is-not-written -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 <!-- positions: moved -->
 A `Map`'s `immutable` value stays immutable when a `for` loop destructures an entry.
 
@@ -520,7 +516,7 @@ type Counter
 	end 'create'
 end 'Counter'
 
-typealias Index = Map with String, immutable Counter
+typealias Index = Map with String, Counter
 
 function main() returns ExitCode
 	var index = Index.create()
@@ -596,7 +592,6 @@ error E3197: specs/readonly-element-types/error.the-element-a-cursor-reads-is-no
 ```
 
 <!-- test: a-wrapper-storing-into-an-immutable-element-takes-a-frozen-argument -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `add` stores its parameter into an `Array with immutable ByteArray`, directly and through `register`. Neither keeps
 the value where something may write it, so the immutable `source.title` is accepted for both.
 
@@ -606,8 +601,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias Roster = Array with ByteArray
 
 type Source
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let title as immutable ByteArray
+	export let title as ByteArray
 
 	static function create() returns Self
 		return Self{title: b"title"}
@@ -621,25 +615,25 @@ type Catalog
 		return Self{names: Roster.create(0)}
 	end 'create'
 
-	function add(name ByteArray)
-		self.names.push(name)
+	function add(mutates self, name ByteArray)
+		self.names.push(name.clone())
 	end 'add'
 
-	function register(name ByteArray)
+	function register(mutates self, name ByteArray)
 		self.add(name)
 	end 'register'
 
 	function total() returns Integer
-		return self.names.count() as Integer
+		return try self.names.count() as Integer otherwise panic("out of range")
 	end 'total'
 end 'Catalog'
 
 function main() returns ExitCode
-	let catalog = Catalog.create()
+	var catalog = Catalog.create()
 	let source = Source.create()
 	catalog.add(source.title)
 	catalog.register(source.title)
-	return catalog.total() as ExitCode
+	return try catalog.total() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -647,7 +641,7 @@ end 'main'
 ```
 
 <!-- test: error.a-wrapper-storing-into-a-plain-element-refuses-an-immutable-argument -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same wrappers over an `Array with ByteArray` keep the value where something may write it, so the read-only
 `source.title` is refused for `register`.
@@ -658,8 +652,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias Roster = Array with ByteArray
 
 type Source
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let title as immutable ByteArray
+	export let title as ByteArray
 
 	static function create() returns Self
 		return Self{title: b"title"}
@@ -698,7 +691,6 @@ error E3207: <fragment>:36:19: 'register' writes 'name' (it calls 'add', which w
 ```
 
 <!-- test: a-set-element-read-by-for-is-kept-without-a-copy -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The elements of a `Set` are read-only once stored, so the element a `for` reads out of a set goes to a
 function that keeps it in a `let` field with no copy.
 
@@ -708,8 +700,7 @@ typealias NameSet = Set with ByteArray
 typealias CreditArray = Array with Credit
 
 type Credit
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Self
 		return Self{name: name}

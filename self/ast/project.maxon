@@ -1086,6 +1086,57 @@ export function isVisibleFrom(p Project, v Visibility, owner diag.ModuleID, from
 	return isVisible(v, owner: owner, ownerPath: modulePath(p, modID: owner), from: from, fromPath: modulePath(p, modID: from))
 end 'isVisibleFrom'
 
+// internalSegment is the name of a directory whose modules only the tree rooted at its parent may name, as Go's internal/.
+let internalSegment = "internal"
+
+// internalTreeOf is the tree that may name the module at path, when a directory of the path is named internal: the tree
+// rooted at the parent of the last of them, which is the narrowest. A path with none may be named from anywhere.
+function internalTreeOf(path String) returns table.Option with String
+	var tree as table.Option with String
+	tree = table.Option.none
+	var start = 0 as Count
+	let n = path.byteLength()
+	for i in 0 upto n 'segments'
+		if path.byteAt(i) == 46 'cut'
+			if path.sliceBytes(start, endPos: i) == internalSegment 'internal'
+				tree = table.Option.some(parentPath(path.sliceBytes(0 as Count, endPos: i)))
+			end 'internal'
+			start = i + 1
+		end 'cut'
+	end 'segments'
+	if path.sliceBytes(start, endPos: n) == internalSegment 'last'
+		tree = table.Option.some(parentPath(path))
+	end 'last'
+	return tree
+end 'internalTreeOf'
+
+// isNameableFrom is whether the module from may name the module owner at all, whatever its declarations' visibility: a
+// module under a directory named internal is named only from the tree rooted at that directory's parent. A program staged
+// in the library tier is library code, so it names the library's internal modules as the library does.
+export function isNameableFrom(p Project, owner diag.ModuleID, from diag.ModuleID) returns bool
+	if owner == diag.stdlibID or owner == from 'own'
+		return true
+	end 'own'
+	return match consumes internalTreeOf(modulePath(p, modID: owner)) 'internal'
+		some(tree) gives isWithin(modulePath(p, modID: from), under: tree) or (p.modules[modIndex(owner)].isLibrary and from != diag.stdlibID and p.modules[modIndex(from)].stagedInLibrary)
+		none gives true
+	end 'internal'
+end 'isNameableFrom'
+
+// notNameable is the message for naming, from the module from, something named name in the module owner, which
+// isNameableFrom refused.
+export function notNameable(p Project, name String, owner diag.ModuleID, from diag.ModuleID) returns String
+	let tree = match consumes internalTreeOf(modulePath(p, modID: owner)) 'tree'
+		some(t) gives t
+		none gives panic("notNameable: the module is not internal")
+	end 'tree'
+	var reach = "module {tree} and the modules under it"
+	if tree == "" 'root'
+		reach = "the project root and the modules under it"
+	end 'root'
+	return "'{name}' is in {describeModule(p, modID: owner)}, which is under a directory named 'internal': only {reach} may name it; move the module out of 'internal' to use it from {describeModule(p, modID: from)}"
+end 'notNameable'
+
 // libraryTreeOf is the tree that an export of the library module at path reaches: the tree rooted at its parent, which for
 // the library's root and its top-level modules is the whole library and never the program.
 function libraryTreeOf(path String) returns String

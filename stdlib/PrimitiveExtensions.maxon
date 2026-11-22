@@ -1,0 +1,112 @@
+// `HashValue` is 32 bits wide, so every hash here ends by keeping the low 32 bits.
+let hashLow32Mask = 0xFFFFFFFF
+
+// How far a hash shifts a 64-bit pattern to bring its high half down onto its low half.
+let hashHalfShift = 32
+
+let intHashSignShift = 63
+
+// Odd, so `wide * M` is injective mod 2^32; below 2^32, so with `wide` under 2^31 in magnitude the
+// product cannot overflow.
+let intHashHighHalfMultiplier = 0x9E3779B1
+
+// `-0.0`'s IEEE-754 pattern: the sign bit alone.
+let floatNegativeZeroBits = i64.min
+
+/// Extension methods for primitive types implementing core interfaces.
+extension int implements Hashable, Equatable, Comparable, Stringable, Cloneable
+	public function hash() returns HashValue
+		// `wide` is 0 exactly on [-2^32, 2^32), so those values hash to their low 32 bits, and
+		// `emitIntHashTerm` spells this body op for op.
+		// `self xor (self shr 63)` in place of the subtraction would collide every wide key with
+		// `self xor 0xFFFFFFFF00000000`.
+		let wide = ((self shr hashHalfShift) - (self shr intHashSignShift)) as FullRangeInt
+		return (self xor (wide * intHashHighHalfMultiplier)) and hashLow32Mask
+	end 'hash'
+
+	public function equals(other Self) returns bool
+		return self == other
+	end 'equals'
+
+	public function compare(other Self) returns Ordering
+		if self < other 'lt'
+			return Ordering.lessThan
+		end 'lt'
+		if self > other 'gt'
+			return Ordering.greaterThan
+		end 'gt'
+		return Ordering.equalTo
+	end 'compare'
+
+	public function toString() returns String
+		return "{self}"
+	end 'toString'
+end 'int'
+
+extension float implements Hashable, Equatable, Comparable, Stringable, Cloneable
+	// Folds the whole IEEE-754 pattern so the sign, the exponent and the top of the mantissa all reach the
+	// hash. `-0.0 == 0.0`, so `-0.0` must answer `+0.0`'s hash — and the fold would carry its sign bit down
+	// to bit 31. `BuiltinConformanceRuntime.buildFloatHash` is the compiler's twin of this body.
+	public function hash() returns HashValue
+		let bits = __Builtins.floatToBits(self)
+		if bits == floatNegativeZeroBits 'negzero'
+			return 0
+		end 'negzero'
+		return try ((bits xor (bits shr hashHalfShift)) and hashLow32Mask) as HashValue otherwise panic("out of range")
+	end 'hash'
+
+	public function equals(other Self) returns bool
+		return self == other
+	end 'equals'
+
+	// Total-ordering compare: NaN compares equal to NaN and less than any
+	// non-NaN value (matches the spec-test "NaN-is-bottom" semantics).
+	// `x != x` is the canonical IEEE 754 NaN test — it's true only when
+	// the operand is unordered with itself, i.e. NaN.
+	public function compare(other Self) returns Ordering
+		if self != self 'self_nan'
+			if other != other 'both_nan'
+				return Ordering.equalTo
+			end 'both_nan'
+			return Ordering.lessThan
+		end 'self_nan'
+		if other != other 'other_nan'
+			return Ordering.greaterThan
+		end 'other_nan'
+		if self < other 'lt'
+			return Ordering.lessThan
+		end 'lt'
+		if self > other 'gt'
+			return Ordering.greaterThan
+		end 'gt'
+		return Ordering.equalTo
+	end 'compare'
+
+	public function toString() returns String
+		return "{self}"
+	end 'toString'
+end 'float'
+
+extension bool implements Comparable, Stringable, Cloneable
+	public function compare(other Self) returns Ordering
+		var a = 0 as Count
+		var b = 0 as Count
+		if self 's'
+			a = 1
+		end 's'
+		if other 'o'
+			b = 1
+		end 'o'
+		if a < b 'lt'
+			return Ordering.lessThan
+		end 'lt'
+		if a > b 'gt'
+			return Ordering.greaterThan
+		end 'gt'
+		return Ordering.equalTo
+	end 'compare'
+
+	public function toString() returns String
+		return "{self}"
+	end 'toString'
+end 'bool'

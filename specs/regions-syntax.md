@@ -242,7 +242,6 @@ end 'main'
 ```
 
 <!-- test: capability-word-on-a-value-type-field-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A field of a value type names no region, so a capability word before its type is not a type.
 
@@ -250,8 +249,7 @@ A field of a value type names no region, so a capability word before its type is
 typealias Tally = int(0 to 9)
 
 type Gauge
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	var reading as immutable Tally
+	var reading as Tally
 
 	static function create() returns Self
 		return Self{reading: 1}
@@ -267,15 +265,13 @@ error E2010: <fragment>:5:17: Expected 'a type' but got 'immutable'
 ```
 
 <!-- test: capability-word-on-a-function-type-parameter-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function type's parameter of a value type takes `mutable` and no other capability word.
 
 ```maxon
 typealias Tally = int(0 to 9)
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-typealias Visit = function(immutable Tally)
+typealias Visit = function(Tally)
 
 function main() returns ExitCode
 	return 0
@@ -428,7 +424,6 @@ error E2010: <fragment>:14:15: Expected 'a type' but got 'mutable'
 ```
 
 <!-- test: as-isolated-on-a-value-type-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `as isolated` qualifies a record, and a `Tally` is a number.
 
@@ -436,8 +431,7 @@ error E2010: <fragment>:14:15: Expected 'a type' but got 'mutable'
 typealias Tally = int(0 to 9)
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let n = 5 as isolated Tally
+	let n = 5 as Tally
 	print("{n}\n")
 	return 0
 end 'main'
@@ -447,7 +441,6 @@ error E2010: <fragment>:5:15: Expected 'a type' but got 'isolated'
 ```
 
 <!-- test: as-isolated-outside-an-initializer-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `as isolated` ends a `let` or `var` initializer; as a call argument it qualifies nothing.
 
@@ -468,8 +461,7 @@ end 'eat'
 
 function main() returns ExitCode
 	let a = Box.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	eat(a as isolated Box)
+	eat(a as Box)
 	return 0
 end 'main'
 ```
@@ -478,7 +470,6 @@ error E2010: <fragment>:18:2: Expected newline but got 'eat'
 ```
 
 <!-- test: as-isolated-inside-a-call-argument-of-an-initializer-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `as isolated` ends a `let` or `var` initializer; inside the call argument of one, with a `let` around it, it is refused as it is in a call statement.
 
@@ -498,8 +489,7 @@ function take(consumes p Payload) returns Tally
 end 'take'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let k = take(Payload.create(1) as isolated Payload)
+	let k = take(Payload.create(1) as Payload)
 	print("{k}\n")
 	return 0
 end 'main'
@@ -533,7 +523,6 @@ error E2010: <fragment>:12:19: Expected 'a type' but got 'mutable'
 ```
 
 <!-- test: isolated-alias-tuple-item-refused -->
-<!-- skip: capability typealias 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An alias of an `isolated` record cannot be a tuple item either.
 
@@ -548,8 +537,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: capability typealias 'isolated' is not supported in minimaxon
-typealias Own = isolated Box
+typealias Own = Box
 
 typealias Pair = (Own, Tally)
 

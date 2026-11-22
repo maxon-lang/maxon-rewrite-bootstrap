@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("{net.fetch()} {net.http.get()}\n")
+	return 0
+end 'main'
+
+//> fetch wire get wire

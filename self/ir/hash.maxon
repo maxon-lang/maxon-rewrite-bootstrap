@@ -1,6 +1,14 @@
 // The seeded hash and the ordered words of maxon's library (__Builtins): each is a call of its runtime entry, whose source
 // is runtime/hash.maxon.
 
+function lowerHashSeed(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashSeed, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHashSeed'
+
+function lowerHashSeedDraw(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashSeedDraw, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHashSeedDraw'
+
 function lowerHashWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashWord, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
 end 'lowerHashWord'

@@ -14,7 +14,6 @@ A call that passes an `isolated` value in an unmarked position, as receiver or a
 ## Tests
 
 <!-- test: error.a-one-call-open-around-a-method-that-awaits-a-coroutine-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `spin` awaits its helper coroutine, which could not run while `slot` is open.
 
@@ -46,8 +45,7 @@ function runSlot(consumes slot Slot) returns Tally
 end 'runSlot'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let slot = Slot.create() as isolated Slot
+	let slot = Slot.create() as Slot
 	let work = async runSlot(slot)
 	let laps = await work
 	print("laps={laps}\n")
@@ -59,7 +57,6 @@ error E3205: <fragment>:27:14: cannot call 'spin' inside 'slot'; it may yield (i
 ```
 
 <!-- test: error.a-one-call-open-reaches-an-await-through-a-helper -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The await is one call down: `spin` calls `relay`, which awaits.
 
@@ -93,8 +90,7 @@ function runSlot(consumes slot Slot) returns Tally
 end 'runSlot'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let slot = Slot.create() as isolated Slot
+	let slot = Slot.create() as Slot
 	let work = async runSlot(slot)
 	let laps = await work
 	print("laps={laps}\n")
@@ -106,7 +102,6 @@ error E3205: <fragment>:29:14: cannot call 'spin' inside 'slot'; it may yield (i
 ```
 
 <!-- test: a-one-call-open-around-a-method-that-only-sleeps-runs -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Sleeping blocks the strand for the call and switches to no sibling, so it is not a yield.
 
 ```maxon
@@ -119,9 +114,9 @@ type Slot
 		return Self{count: 0}
 	end 'create'
 
-	function quiet() returns Tally
+	function quiet(mutates self) returns Tally
 		sleep(5)
-		self.count = self.count + 3
+		self.count = try self.count + 3 otherwise panic("out of range")
 		return self.count
 	end 'quiet'
 end 'Slot'
@@ -131,8 +126,7 @@ function runSlot(consumes slot Slot) returns Tally
 end 'runSlot'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let slot = Slot.create() as isolated Slot
+	let slot = Slot.create() as Slot
 	let work = async runSlot(slot)
 	let laps = await work
 	print("laps={laps}\n")

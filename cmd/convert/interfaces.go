@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // interfaceWheres are the relations between the associated types of maxon's library interfaces that maxon's source does
@@ -110,6 +111,47 @@ func dropReplacedMembers(lines []sourceLine) {
 		}
 		i = last
 	}
+}
+
+// dropSelfClones leaves out a `clone()` method whose body is `return self`, with the comment above it: every Copyable type
+// has that clone built in (README, "Where it differs from Maxon"), which no declaration may declare again.
+func dropSelfClones(lines []sourceLine) {
+	for i := 0; i < len(lines); i++ {
+		l := &lines[i]
+		if l.removed || l.indent == "" || len(l.code) == 0 {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+3 >= len(l.code) || l.code[declIdx].text != "function" || l.code[declIdx+1].text != "clone" || l.code[declIdx+2].text != "(" || l.code[declIdx+3].text != ")" {
+			continue
+		}
+		last := memberEnd(lines, i)
+		body := []string(nil)
+		for k := i + 1; k < last; k++ {
+			if len(lines[k].code) > 0 {
+				body = append(body, tokenText(lines[k].code))
+			}
+		}
+		if !slices.Equal(body, []string{"return self"}) {
+			continue
+		}
+		for k := i - 1; k >= 0 && len(lines[k].code) == 0 && lines[k].comment != ""; k-- {
+			lines[k].removed = true
+		}
+		for k := i; k <= last; k++ {
+			lines[k].removed = true
+		}
+		i = last
+	}
+}
+
+// tokenText is the tokens of a line joined by single spaces.
+func tokenText(toks []token) string {
+	words := make([]string, len(toks))
+	for i, t := range toks {
+		words[i] = t.text
+	}
+	return strings.Join(words, " ")
 }
 
 // memberEnd is the line of the `end` that closes the member that line start opens, at its indentation.

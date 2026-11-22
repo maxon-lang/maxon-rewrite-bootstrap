@@ -67,7 +67,6 @@ error E3221: <fragment>:24:18: the message 'select' may wait (it selects over pr
 
 <!-- test: await-any-waits.error.a-select-inside-a-modify-block-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Another coroutine could run while the select parks, so `batch` may not stay open across it.
 
@@ -92,8 +91,7 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = Batch.create() as isolated Batch
+	let batch = Batch.create() as Batch
 	let ps = Jobs.create(0)
 	ps.push(async work(1))
 	// TODO: modify blocks are not supported in minimaxon
@@ -111,7 +109,6 @@ error E3205: <fragment>:24:18: cannot wait inside 'edit'; another coroutine coul
 ```
 
 <!-- test: await-any-waits.error.a-one-call-open-around-a-method-that-selects-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `spin` selects over its helper coroutines, which could not run while `slot` is open for the call.
 
@@ -148,8 +145,7 @@ function runSlot(consumes slot Slot) returns Tally
 end 'runSlot'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let slot = Slot.create() as isolated Slot
+	let slot = Slot.create() as Slot
 	let work = async runSlot(slot)
 	let laps = await work
 	print("laps={laps}\n")

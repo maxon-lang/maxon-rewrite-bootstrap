@@ -337,6 +337,9 @@ export enum Intrinsic
 	intrSubprocessRunWithDeadline
 	intrCollectedOutputExitCode
 	intrCollectedOutputSucceeded
+	intrFloatToBits
+	intrHashSeed
+	intrHashSeedDraw
 	intrHashWord
 	intrHashBytes
 	intrReadBigEndian
@@ -540,6 +543,15 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "currentTimeNanos" 'currentTimeNanos'
 			return table.Option.some("Clock.nowNanos()")
 		end 'currentTimeNanos'
+		if name == "floatToBits" 'floatToBits'
+			return table.Option.some("the float's own operations")
+		end 'floatToBits'
+		if name == "hashSeed" 'hashSeed'
+			return table.Option.some("Hasher.create()")
+		end 'hashSeed'
+		if name == "drawHashSeed" 'drawHashSeed'
+			return table.Option.some("HashSeed.random()")
+		end 'drawHashSeed'
 		if name == "hashWord" 'hashWord'
 			return table.Option.some("a Hasher's combine(value)")
 		end 'hashWord'
@@ -1622,42 +1634,47 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrProcessId, name: "currentProcessId", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockNowNanos, name: "currentTimeNanos", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	var ps1 = ParamSpecList.create(0)
-	ps1.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
-	ps1.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashWord, name: "hashWord", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps1, listed: true)
-	let ty2 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps3 = ParamSpecList.create(0)
-	ps3.push(ParamSpec.make("_", ty: ty2, conv: Convention.convLet))
-	ps3.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps3.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps3.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashBytes, name: "hashBytes", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps3, listed: true)
-	let ty4 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps5 = ParamSpecList.create(0)
-	ps5.push(ParamSpec.make("_", ty: ty4, conv: Convention.convLet))
-	ps5.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps5.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f6 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadBigEndian, name: "readBigEndian", isStatic: true, selfConv: Convention.convLet, ret: b.orderedWordTy, params: ps5, listed: true)
-	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].errTy = b.arrayErrorTy
-	let ty7 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps8 = ParamSpecList.create(0)
-	ps8.push(ParamSpec.make("_", ty: ty7, conv: Convention.convLet))
-	ps8.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps8.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadLittleEndian, name: "readLittleEndian", isStatic: true, selfConv: Convention.convLet, ret: b.orderedWordTy, params: ps8, listed: true)
-	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].errTy = b.arrayErrorTy
-	let ty10 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps11 = ParamSpecList.create(0)
-	ps11.push(ParamSpec.make("_", ty: ty10, conv: Convention.convMutates))
-	ps11.push(ParamSpec.make("_", ty: b.orderedWordTy, conv: Convention.convLet))
-	ps11.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrAppendBigEndian, name: "appendBigEndian", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps11, listed: true)
-	let ty12 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps13 = ParamSpecList.create(0)
-	ps13.push(ParamSpec.make("_", ty: ty12, conv: Convention.convMutates))
-	ps13.push(ParamSpec.make("_", ty: b.orderedWordTy, conv: Convention.convLet))
-	ps13.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrAppendLittleEndian, name: "appendLittleEndian", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps13, listed: true)
+	ps1.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrFloatToBits, name: "floatToBits", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps1, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashSeed, name: "hashSeed", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashSeedDraw, name: "drawHashSeed", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ParamSpecList.create(0), listed: true)
+	var ps2 = ParamSpecList.create(0)
+	ps2.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
+	ps2.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashWord, name: "hashWord", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps2, listed: true)
+	let ty3 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps4 = ParamSpecList.create(0)
+	ps4.push(ParamSpec.make("_", ty: ty3, conv: Convention.convLet))
+	ps4.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps4.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps4.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashBytes, name: "hashBytes", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps4, listed: true)
+	let ty5 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps6 = ParamSpecList.create(0)
+	ps6.push(ParamSpec.make("_", ty: ty5, conv: Convention.convLet))
+	ps6.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps6.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f7 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadBigEndian, name: "readBigEndian", isStatic: true, selfConv: Convention.convLet, ret: b.orderedWordTy, params: ps6, listed: true)
+	ft.lists[funcList(ft, f: f7)][funcIndex(ft, f: f7)].errTy = b.arrayErrorTy
+	let ty8 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps9 = ParamSpecList.create(0)
+	ps9.push(ParamSpec.make("_", ty: ty8, conv: Convention.convLet))
+	ps9.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps9.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f10 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadLittleEndian, name: "readLittleEndian", isStatic: true, selfConv: Convention.convLet, ret: b.orderedWordTy, params: ps9, listed: true)
+	ft.lists[funcList(ft, f: f10)][funcIndex(ft, f: f10)].errTy = b.arrayErrorTy
+	let ty11 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps12 = ParamSpecList.create(0)
+	ps12.push(ParamSpec.make("_", ty: ty11, conv: Convention.convMutates))
+	ps12.push(ParamSpec.make("_", ty: b.orderedWordTy, conv: Convention.convLet))
+	ps12.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrAppendBigEndian, name: "appendBigEndian", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps12, listed: true)
+	let ty13 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps14 = ParamSpecList.create(0)
+	ps14.push(ParamSpec.make("_", ty: ty13, conv: Convention.convMutates))
+	ps14.push(ParamSpec.make("_", ty: b.orderedWordTy, conv: Convention.convLet))
+	ps14.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrAppendLittleEndian, name: "appendLittleEndian", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps14, listed: true)
 end 'declareBuiltinsMethods'
 
 function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

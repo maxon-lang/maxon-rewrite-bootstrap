@@ -29,7 +29,6 @@ or return a `.clone()` of the frozen path when the caller must write.
 ## Tests
 
 <!-- test: a-result-handed-to-a-keeping-callee-is-writable -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `declare` clones what it files and returns what it built; `Candidate.create` keeps `binding` in a field, so the
 caller must be able to write `binding`.
 
@@ -41,8 +40,7 @@ typealias InfoArray = Array with Info
 typealias CandidateArray = Array with Candidate
 
 type Info
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 	export var kind as Slot
 
 	static function create(name frozen with ByteArray, kind Slot) returns Info
@@ -102,7 +100,6 @@ end 'main'
 ```
 
 <!-- test: a-result-the-callee-also-stored-is-writable-to-its-keeper -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The callee files `made` itself and returns it too; the caller still keeps the result in a field.
 
 ```maxon
@@ -113,8 +110,7 @@ typealias InfoArray = Array with Info
 typealias CandidateArray = Array with Candidate
 
 type Info
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 	export var kind as Slot
 
 	static function create(name frozen with ByteArray, kind Slot) returns Info
@@ -174,7 +170,6 @@ end 'main'
 ```
 
 <!-- test: a-binding-rebound-beside-a-parameter-is-writable-through-a-callee -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `current` is the parameter `head` on the way in and a fresh block on each pass; `append` writes it either way.
 
 ```maxon
@@ -184,8 +179,7 @@ typealias BlockArray = Array with Block
 
 type Block
 	export let id as Count
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let label as immutable ByteArray
+	export let label as ByteArray
 	export var hits as Count
 
 	static function create(id Count, label frozen with ByteArray) returns Block
@@ -252,7 +246,6 @@ end 'main'
 ```
 
 <!-- test: a-field-is-written-through-a-binding-rebound-beside-a-parameter -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The same rebinding, written through directly rather than handed to a callee.
 
 ```maxon
@@ -262,8 +255,7 @@ typealias BlockArray = Array with Block
 
 type Block
 	export let id as Count
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let label as immutable ByteArray
+	export let label as ByteArray
 	export var hits as Count
 
 	static function create(id Count, label frozen with ByteArray) returns Block
@@ -322,14 +314,12 @@ end 'main'
 ```
 
 <!-- test: a-ternary-beside-an-immutable-field-read-does-not-freeze-its-holder -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `joined.alias` is read out of an `immutable` slot, so choosing it beside another frozen value asks nothing of
 `joined` itself, and a `var` holding a fresh `Join` can be handed to `step` on every pass.
 
 ```maxon
 type Join
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let alias as immutable ByteArray
+	export let alias as ByteArray
 
 	static function create(alias frozen with ByteArray) returns Self
 		return Self{alias: alias}
@@ -475,7 +465,6 @@ end 'main'
 ```
 
 <!-- test: a-getter-beside-its-own-frozen-data-is-read-only-for-its-caller -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `pick` hands back the frozen `shared` box on one path and the writable `own` box on the other, so its result is read-only to every caller: reading it is accepted, writing through it is refused.
 
 ```maxon
@@ -490,8 +479,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 	var own as Box
 
 	static function create() returns Self
@@ -525,7 +513,6 @@ end 'main'
 ```
 
 <!-- test: a-getter-beside-its-own-frozen-data-is-not-writable-for-its-caller -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -539,8 +526,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 	var own as Box
 
 	static function create() returns Self
@@ -571,7 +557,6 @@ error E3197: <fragment>:31:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-getter-returning-only-its-own-frozen-data-must-declare-the-result-immutable -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -585,8 +570,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 
 	static function create() returns Self
 		return Self{shared: freeze(Box.create(7))}
@@ -608,7 +592,6 @@ error E3209: <fragment>:20:10: a return does not fit the declared result: 'self.
 ```
 
 <!-- test: a-getter-beside-its-own-frozen-data-is-not-writable-through-a-local-var -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The caller's receiver is a local `var`, not a parameter, and the mixed getter's result is still read-only.
 
@@ -624,8 +607,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 	var own as Box
 
 	static function create() returns Self
@@ -652,7 +634,6 @@ error E3197: <fragment>:32:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-getter-beside-its-own-frozen-data-is-readable-through-a-local-var -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -665,8 +646,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 	var own as Box
 
 	static function create() returns Self
@@ -735,7 +715,6 @@ end 'main'
 ```
 
 <!-- test: a-mixed-getter-result-is-refused-for-a-mutable-parameter-through-a-local-var -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -749,8 +728,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 	var own as Box
 
 	static function create() returns Self
@@ -780,7 +758,6 @@ error E3207: <fragment>:35:8: 'reset' takes `mutable` 'box' (line 30: `box.n = 0
 ```
 
 <!-- test: a-ternary-of-frozen-and-writable-data-is-not-writable-for-its-caller -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A single `return` whose ternary gives frozen data on one arm and writable data on the other.
 
@@ -796,8 +773,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 	var own as Box
 
 	static function create() returns Self
@@ -825,7 +801,6 @@ error E3197: <fragment>:27:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-match-of-frozen-and-writable-data-is-not-writable-for-its-caller -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -839,8 +814,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 	var own as Box
 
 	static function create() returns Self
@@ -871,7 +845,6 @@ error E3197: <fragment>:30:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-ternary-of-frozen-and-writable-data-is-not-writable-through-a-local-var -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -885,8 +858,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Box
+	let shared as Box
 	var own as Box
 
 	static function create() returns Self
@@ -1115,7 +1087,6 @@ error E3197: <fragment>:21:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-method-forwarding-a-mixed-getter-is-not-writable-for-its-caller -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1123,8 +1094,7 @@ typealias Digit = int(0 to 9)
 typealias Digits = Array with Digit
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Digits
+	let shared as Digits
 	var own as Digits
 
 	static function create() returns Self
@@ -1206,7 +1176,7 @@ error E3197: <fragment>:13:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-is-not-isolated -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A fresh clean call may become `isolated`; the result of `get` may be image data, so it may not.
 
@@ -1218,8 +1188,7 @@ typealias Digits = Array with Digit
 let Primes = Digits from [2, 3, 5, 7]
 
 type Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Digits
+	export var part as Digits
 
 	static function holding(consumes part Digits) returns Self
 		return Self{part: part}
@@ -1277,7 +1246,6 @@ end 'main'
 
 <!-- test: a-clean-call-building-its-own-array-stays-writable-and-isolated -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `build` takes only values and hands back an array it built, so the caller writes it and may move it into an `isolated` field.
 
 ```maxon
@@ -1286,8 +1254,7 @@ typealias Digit = int(0 to 9)
 typealias Digits = Array with Digit
 
 type Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Digits
+	export var part as Digits
 
 	static function holding(consumes part Digits) returns Self
 		return Self{part: part}
@@ -1615,7 +1582,6 @@ error E3197: <fragment>:32:4: cannot write through a read-only value, as it join
 ```
 
 <!-- test: a-method-relaying-a-mixed-getter-with-fixed-arguments-is-not-writable-for-its-caller -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `relay` names no flag of its own, so nothing about its call tells the caller that `pick` may hand back the frozen `shared` array.
 
@@ -1625,8 +1591,7 @@ typealias Digit = int(0 to 9)
 typealias Digits = Array with Digit
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Digits
+	let shared as Digits
 	var own as Digits
 
 	static function create() returns Self
@@ -1657,7 +1622,6 @@ error E3197: <fragment>:29:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-getter-called-on-a-fresh-receiver-is-not-writable-for-its-caller -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Holder.create()` is a clean call, so nothing it was handed is read-only, and the result of `pick` is read-only because `pick` itself may return the frozen `shared` array.
 
@@ -1667,8 +1631,7 @@ typealias Digit = int(0 to 9)
 typealias Digits = Array with Digit
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let shared as immutable Digits
+	let shared as Digits
 	var own as Digits
 
 	static function create() returns Self

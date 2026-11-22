@@ -1,0 +1,3 @@
+public function encode() returns String
+	return "wire"
+end 'encode'

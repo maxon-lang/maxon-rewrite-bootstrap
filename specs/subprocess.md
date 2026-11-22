@@ -3855,7 +3855,6 @@ end 'main'
 ```
 
 <!-- test: a-reader-moved-into-a-coroutine-comes-back-with-its-line-and-its-promise-is-storable -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken reader moves into its read coroutine through an `isolated` parameter and comes back in an `isolated` field of the coroutine's `returns isolated` result with the line it read, so the promise is untied and storable, and the reader handed back reads the next line where the coroutine left off.
 ```maxon
@@ -3864,8 +3863,7 @@ typealias CarriedPromise = Promise with (Carried, StreamError)
 typealias CarriedPromises = Array with CarriedPromise
 
 type Carried
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export let reader as isolated ChildOutputReader
+	export let reader as ChildOutputReader
 	export let text as String
 
 	static function create(consumes reader ChildOutputReader, text String) returns Carried

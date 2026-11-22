@@ -2423,7 +2423,6 @@ end 'main'
 
 <!-- test: model-finding-y-y1-ctl-isolated-slot-store -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `Y1-ctl-isolated-slot-store` of redteamY/min1.txt, in capmodel `reggio/REPORTRTY.txt`.
 
 ```maxon
@@ -2438,8 +2437,7 @@ type Bt
 end 'Bt'
 
 type Hs
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var i as isolated Bt
+	var i as Bt
 
 	static function create(consumes i Bt) returns Self
 		return Self{i: i}
@@ -2645,7 +2643,6 @@ error E3200: <fragment>:32:33: 's.r' is not isolated: only a clean call, a `swap
 <!-- test: model-finding-z-cp-store-iso-local -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `cp-store-iso-local` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2679,8 +2676,7 @@ end 'Acc'
 function mix(first Acc.handle, second Acc.handle) returns Num
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire first, second 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let c = second.entries().clone() as isolated BtArray
+		let c = second.entries().clone() as BtArray
 		first.hist = c
 	end 'a1' otherwise 's2'
 		return 0
@@ -2703,7 +2699,6 @@ error E3196: <fragment>:29:16: cannot store an isolated 'BtArray' into 'hist', w
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `cp-modify-store-iso-local` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2737,8 +2732,7 @@ end 'Acc'
 function mix(first Acc.handle, second Acc.handle) returns Num
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire first, second 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let c = second.entries().clone() as isolated BtArray
+		let c = second.entries().clone() as BtArray
 		// TODO: modify blocks are not supported in minimaxon
 		modify first 'm3'
 			first.hist = c
@@ -2763,7 +2757,6 @@ error E3196: <fragment>:30:17: cannot store an isolated 'BtArray' into 'hist', w
 <!-- test: model-finding-z-cp-merge -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `cp-merge` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
 ```maxon
@@ -2796,8 +2789,7 @@ end 'Acc'
 function mix(first Acc.handle, second Acc.handle) returns Num
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire first, second 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let c = second.entries().clone() as isolated BtArray
+		let c = second.entries().clone() as BtArray
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		first.hist = merge c
 	end 'a1' otherwise 's2'
@@ -2965,7 +2957,6 @@ error E3201: <fragment>:24:13: 'c' is mutable outside 'first'; a store into an i
 <!-- test: model-finding-z-cp-record-slot-clone-iso-two-lets -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `cp-record-slot-clone-iso-two-lets` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2993,8 +2984,7 @@ end 'Acc'
 function mix(first Acc.handle, second Acc.handle) returns Num
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire first, second 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let c = second.r.clone() as isolated Bt
+		let c = second.r.clone() as Bt
 		first.r = c
 	end 'a1' otherwise 's2'
 		return 0
@@ -3063,7 +3053,6 @@ end 'main'
 <!-- test: model-finding-z-modify-iso-swap-then-read-other-state-view -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3199. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `modify-iso-swap-then-read-other-state-view` of redteamZ/p9.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -3080,8 +3069,7 @@ end 'Bt'
 
 type Sv
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var i as isolated Bt
+	var i as Bt
 
 	static function create(n Num, consumes i Bt) returns Self
 		return Self{n: n, i: i}
@@ -3129,7 +3117,6 @@ error E3199: <fragment>:36:12: 's.i' cannot be swapped: the value that holds it 
 <!-- test: model-finding-z-modify-iso-read-view-first-then-swap-other -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3199. Model program `modify-iso-read-view-first-then-swap-other` of redteamZ/p9.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -3146,8 +3133,7 @@ end 'Bt'
 
 type Sv
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var i as isolated Bt
+	var i as Bt
 
 	static function create(n Num, consumes i Bt) returns Self
 		return Self{n: n, i: i}
@@ -3194,7 +3180,6 @@ error E3199: <fragment>:36:12: 's.i' cannot be swapped: the value that holds it 
 
 <!-- test: model-finding-aa-send-state-swap-iso -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `send-state-swap-iso` of redteamAA/p10.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
 ```maxon
@@ -3209,8 +3194,7 @@ type Bt
 end 'Bt'
 
 type Rc
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var t as isolated Bt
+	var t as Bt
 
 	static function create(consumes t Bt) returns Self
 		return Self{t: t}
@@ -3222,8 +3206,7 @@ type Rc
 end 'Rc'
 
 type Sv
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var t as isolated Bt
+	var t as Bt
 	var k as Num
 
 	static function create(consumes t Bt, k Num) returns Self
@@ -3690,7 +3673,6 @@ error E3201: <fragment>:33:18: 'r' is mutable outside 'a'; a call into an isolat
 
 <!-- test: model-finding-ad-acq-state-method-pass-through-iso -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-state-method-pass-through-iso` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3725,8 +3707,7 @@ function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Rl.create(0) as isolated Rl
+		let r = Rl.create(0) as Rl
 		let q = a.pass(r)
 		q.fin(1)
 	end 'a1' otherwise 's2'
@@ -3741,7 +3722,6 @@ error E3201: <fragment>:33:18: one statement reaches through two isolated values
 
 <!-- test: model-finding-ad-acq-state-method-pass-through-iso-then -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-state-method-pass-through-iso-then` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3776,8 +3756,7 @@ function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Rl.create(0) as isolated Rl
+		let r = Rl.create(0) as Rl
 		let q = a.pass(r)
 		q.fin(1)
 		r.fin(2)
@@ -3793,7 +3772,6 @@ error E3201: <fragment>:33:18: one statement reaches through two isolated values
 
 <!-- test: model-finding-ad-acq-two-states-linear -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-two-states-linear` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3829,8 +3807,7 @@ function main() returns ExitCode
 	let b = spawn Ck.create(1)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a, b 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Rl.create(0) as isolated Rl
+		let r = Rl.create(0) as Rl
 		a.eat(r)
 	end 'a1' otherwise 's2'
 		_ = 0 as Num
@@ -3844,7 +3821,6 @@ error E3201: <fragment>:34:9: one statement reaches through two isolated values,
 
 <!-- test: model-finding-ad-acq-two-states-linear-two -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-two-states-linear-two` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3880,10 +3856,8 @@ function main() returns ExitCode
 	let b = spawn Ck.create(1)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a, b 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Rl.create(0) as isolated Rl
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let s = Rl.create(1) as isolated Rl
+		let r = Rl.create(0) as Rl
+		let s = Rl.create(1) as Rl
 		a.eat(r)
 		b.eat(s)
 	end 'a1' otherwise 's2'
@@ -3898,7 +3872,6 @@ error E3201: <fragment>:35:9: one statement reaches through two isolated values,
 
 <!-- test: model-finding-ad-acq-two-states-same-twice -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-two-states-same-twice` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3933,8 +3906,7 @@ function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a, a 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Rl.create(0) as isolated Rl
+		let r = Rl.create(0) as Rl
 		a.eat(r)
 	end 'a1' otherwise 's2'
 		_ = 0 as Num
@@ -3948,7 +3920,6 @@ error E3201: <fragment>:33:9: one statement reaches through two isolated values,
 
 <!-- test: model-finding-ad-acq-two-states-same-twice-eat-twice -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-two-states-same-twice-eat-twice` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3983,8 +3954,7 @@ function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a, a 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Rl.create(0) as isolated Rl
+		let r = Rl.create(0) as Rl
 		a.eat(r)
 		a.eat(r)
 	end 'a1' otherwise 's2'
@@ -4000,7 +3970,6 @@ error E3201: <fragment>:33:9: one statement reaches through two isolated values,
 <!-- test: model-finding-ad-recv-wrap-in-acquire-modify -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `recv-wrap-in-acquire-modify` of redteamAD/t12.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -4038,8 +4007,7 @@ end 'Bx'
 
 type S
 	var k as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Bx
+	var b as Bx
 
 	static function create(k Num, consumes b Bx) returns Self
 		return Self{k: k, b: b}
@@ -4057,8 +4025,7 @@ function main() returns ExitCode
 	let s = spawn S.create(0, b: Bx.create(0))
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let v = Rl.create(0) as isolated Rl
+		let v = Rl.create(0) as Rl
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.b 'm3'
 			useS(v.wrap())
@@ -4075,7 +4042,6 @@ error E3201: <fragment>:55:9: an isolated value from outside 'm3' cannot be move
 
 <!-- test: model-finding-ad-l-state-method-acquire-window -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `l-state-method-acquire-window` of redteamAD/t6.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -4126,8 +4092,7 @@ function main() returns ExitCode
 	let s = spawn S.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let v = Rl.create(0) as isolated Rl
+		let v = Rl.create(0) as Rl
 		s.go(v)
 	end 'a1' otherwise 's2'
 		_ = 0 as Num
@@ -4142,7 +4107,6 @@ error E3201: <fragment>:49:8: one statement reaches through two isolated values,
 <!-- test: model-finding-ad-l-state-method-acquire-window-modify -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `l-state-method-acquire-window-modify` of redteamAD/t6.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -4176,8 +4140,7 @@ end 'Bx'
 
 type S
 	var k as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Bx
+	var b as Bx
 
 	static function create(k Num, consumes b Bx) returns Self
 		return Self{k: k, b: b}
@@ -4199,8 +4162,7 @@ function main() returns ExitCode
 	let s = spawn S.create(0, b: Bx.create(0))
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let v = Rl.create(0) as isolated Rl
+		let v = Rl.create(0) as Rl
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.b 'm3'
 			useS(giveS(v))
@@ -4357,7 +4319,6 @@ error E3207: <fragment>:49:3: this linear value comes from outside 'a1', where i
 <!-- test: model-finding-ae-state-union-iso-arm-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `state-union-iso-arm-write` of redteamAE/p16.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -4365,8 +4326,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Bx
@@ -4421,7 +4381,6 @@ end 'main'
 <!-- test: model-finding-ae-acquire-union-iso-arm-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acquire-union-iso-arm-write` of redteamAE/p16.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -4430,8 +4389,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Bx
@@ -4484,7 +4442,6 @@ end 'main'
 
 <!-- test: model-hand-ab-w-acq-moves-outer -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-moves-outer` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -4517,8 +4474,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -4540,8 +4496,7 @@ end 'Kp'
 
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
+	let r = Resp.create(0) as Resp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
 		r.fin(1)
@@ -4557,7 +4512,6 @@ error E3223: <fragment>:53:2: the linear value 'r' is live across this wait: a w
 
 <!-- test: model-hand-ab-w-acq-two-values -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-two-values` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -4590,8 +4544,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -4613,8 +4566,7 @@ end 'Kp'
 
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
+	let r = Resp.create(0) as Resp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
 		_ = 0 as Num
@@ -4631,7 +4583,6 @@ error E3223: <fragment>:53:2: the linear value 'r' is live across this wait: a w
 
 <!-- test: model-hand-ab-w-acq-return-in-body -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-return-in-body` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -4664,8 +4615,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -4707,7 +4657,6 @@ error E3223: <fragment>:54:3: this drops '_', a linear value that was never cons
 
 <!-- test: model-hand-ab-w-acq-return-after-consume -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-return-after-consume` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4738,8 +4687,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -4782,7 +4730,6 @@ end 'main'
 
 <!-- test: model-hand-ab-w-acq-body-consumes-outer-refill -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-body-consumes-outer-refill` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -4815,8 +4762,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -4838,8 +4784,7 @@ end 'Kp'
 
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var r = Resp.create(0) as isolated Resp
+	var r = Resp.create(0) as Resp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
 		r.fin(1)
@@ -4858,7 +4803,6 @@ error E3223: <fragment>:53:2: the linear value 'r' is live across this wait: a w
 
 <!-- test: model-hand-ab-w-acq-handback-send-in-block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-handback-send-in-block` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4889,8 +4833,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -4915,8 +4858,7 @@ function main() returns ExitCode
 	let bV = spawn(capacity: 1) Kp.create(Box.create(0), n: 0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Resp.create(0) as isolated Resp
+		let r = Resp.create(0) as Resp
 		try bV.take(r) otherwise (sendFailure) 'h3'
 			match sendFailure 'x4'
 				mailboxFull(q) then q.fin(1)
@@ -4935,7 +4877,6 @@ end 'main'
 
 <!-- test: model-hand-ab-w-acq-state-method-open1 -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-acq-state-method-open1` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4967,8 +4908,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -4990,8 +4930,7 @@ end 'Kp'
 
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
+	let r = Resp.create(0) as Resp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
 		a.open1(r)
@@ -5007,7 +4946,6 @@ error E3201: <fragment>:54:11: one statement reaches through two isolated values
 
 <!-- test: model-hand-ab-w-acq-state-method-open1-both -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-acq-state-method-open1-both` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5039,8 +4977,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -5062,8 +4999,7 @@ end 'Kp'
 
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
+	let r = Resp.create(0) as Resp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
 		a.open1(r)
@@ -5079,7 +5015,6 @@ error E3201: <fragment>:54:11: one statement reaches through two isolated values
 
 <!-- test: model-hand-ab-w-acq-two-names-one-service -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-acq-two-names-one-service` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5111,8 +5046,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -5150,7 +5084,6 @@ error E3207: <fragment>:54:5: this linear value comes from outside 'a1', where i
 
 <!-- test: model-hand-ab-w-acq-nested -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R13-NESTED`; the compiler refuses it with E3205. Model program `w-acq-nested` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5182,8 +5115,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -5227,7 +5159,6 @@ error E3205: <fragment>:55:3: cannot wait inside 'a1'; an acquire block holds it
 
 <!-- test: model-hand-ab-w-acq-loop-consume -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-loop-consume` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -5258,8 +5189,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -5305,7 +5235,6 @@ end 'main'
 
 <!-- test: model-hand-ab-w-acq-yield -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-yield` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -5338,8 +5267,7 @@ type Box
 end 'Box'
 
 type Kp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 	var n as Num
 
 	static function create(consumes b Box, n Num) returns Self
@@ -6048,7 +5976,6 @@ end 'main'
 
 <!-- test: model-hand-ac-li-state-method -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `li-state-method` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6085,8 +6012,7 @@ end 'Kp'
 
 function main() returns ExitCode
 	let a = spawn Kp.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
+	let r = Resp.create(0) as Resp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
 		a.open1(r)
@@ -6103,7 +6029,6 @@ error E3201: <fragment>:37:11: one statement reaches through two isolated values
 
 <!-- test: model-hand-ac-li-state-method-twice -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `li-state-method-twice` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6140,8 +6065,7 @@ end 'Kp'
 
 function main() returns ExitCode
 	let a = spawn Kp.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
+	let r = Resp.create(0) as Resp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire a 'a1'
 		a.open1(r)
@@ -6158,7 +6082,6 @@ error E3201: <fragment>:37:11: one statement reaches through two isolated values
 
 <!-- test: model-hand-ac-min-h1-acquire -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-acquire` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6197,8 +6120,7 @@ function main() returns ExitCode
 	let k = spawn Kq.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire k 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Resp.create(0) as isolated Resp
+		let r = Resp.create(0) as Resp
 		useR(r)
 		r.fin(2)
 	end 'a1' otherwise 's2'
@@ -6213,7 +6135,6 @@ error E3102: <fragment>:38:3: use of moved value 'r': its ownership moved to ano
 
 <!-- test: model-hand-ac-ld-acquire-lend -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `ld-acquire-lend` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6250,8 +6171,7 @@ end 'useR'
 
 function main() returns ExitCode
 	let k = spawn Kq.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
+	let r = Resp.create(0) as Resp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire k 'a1'
 		useR(r)
@@ -6297,7 +6217,6 @@ end 'main'
 
 <!-- test: model-hand-ac-sm-acquire-local-iso -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `sm-acquire-local-iso` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6336,8 +6255,7 @@ function main() returns ExitCode
 	let k = spawn Kq.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire k 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Resp.create(0) as isolated Resp
+		let r = Resp.create(0) as Resp
 		k.eatM(r)
 		r.fin(2)
 	end 'a1' otherwise 's2'
@@ -6352,7 +6270,6 @@ error E3201: <fragment>:37:10: one statement reaches through two isolated values
 
 <!-- test: model-hand-ac-sm-acquire-local-iso-fn -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-acquire-local-iso-fn` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6395,8 +6312,7 @@ function main() returns ExitCode
 	let k = spawn Kq.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire k 'a1'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Resp.create(0) as isolated Resp
+		let r = Resp.create(0) as Resp
 		useR(r)
 		r.fin(2)
 	end 'a1' otherwise 's2'
@@ -7975,7 +7891,6 @@ error E3201: <fragment>:39:9: 'y' is mutable outside 'a'; a store into an isolat
 
 <!-- test: model-hand-af-m6-param-union-state-method -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m6-param-union-state-method` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -7988,8 +7903,7 @@ end 'Sn'
 
 union Sh
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(r isolated Rl)
+	held(r Rl)
 end 'Sh'
 
 type Rl
@@ -8049,8 +7963,6 @@ end 'main'
 <!-- test: model-hand-ag-t11-payload-into-acquire-state-iso -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `t11-payload-into-acquire-state-iso` of redteamAG.hand_ag1, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -8063,8 +7975,7 @@ end 'Sn'
 
 union Mx
 	m0(x Rl)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx)
+	m1(y Bx)
 end 'Mx'
 
 type Rl
@@ -8101,8 +8012,7 @@ end 'Bx'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 
 	static function create(n Num, consumes item Bx, consumes plain Bx) returns Self
@@ -8129,8 +8039,7 @@ end 'Ac'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mx.m1(Bx.create(1)) as isolated Mx
+	let u = Mx.m1(Bx.create(1)) as Mx
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -8151,7 +8060,6 @@ end 'main'
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ac-modify-slot-keep` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -8201,8 +8109,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -8220,8 +8127,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -8237,8 +8143,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -8264,7 +8169,6 @@ end 'main'
 <!-- test: model-hand-ag-ac-body-keep -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `ac-body-keep` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8315,8 +8219,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -8334,8 +8237,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -8351,8 +8253,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -8376,7 +8277,6 @@ error E3201: <fragment>:86:29: 'y' is mutable outside 's.item'; a store into an 
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `ac-modify-slot-plain` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8427,8 +8327,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -8446,8 +8345,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -8463,8 +8361,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -8490,7 +8387,6 @@ error E3197: <fragment>:87:16: cannot write 'plain' through 's', which is read-o
 <!-- test: model-hand-ag-ac-body-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `ac-body-plain` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8541,8 +8437,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -8560,8 +8455,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -8577,8 +8471,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -8602,7 +8495,6 @@ error E3201: <fragment>:86:25: 'y' is mutable outside 's'; a store into an isola
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ac-modify-slot-iso-slot` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -8652,8 +8544,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -8671,8 +8562,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -8688,8 +8578,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -8715,7 +8604,6 @@ end 'main'
 <!-- test: model-hand-ag-ac-body-iso-slot -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `ac-body-iso-slot` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8766,8 +8654,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -8785,8 +8672,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -8802,8 +8688,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -8827,7 +8712,6 @@ error E3201: <fragment>:86:29: 'y' is mutable outside 's.item'; a store into an 
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ac-modify-slot-none` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -8877,8 +8761,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -8896,8 +8779,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -8913,8 +8795,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -8940,7 +8821,6 @@ end 'main'
 <!-- test: model-hand-ag-ac-body-none -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ac-body-none` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -8990,8 +8870,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -9009,8 +8888,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -9026,8 +8904,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -9051,7 +8928,6 @@ end 'main'
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acr-modify-slot-keep-p` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -9101,8 +8977,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -9120,8 +8995,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -9137,8 +9011,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as isolated Mr
+	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -9165,7 +9038,6 @@ end 'main'
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `acr-modify-slot-plain-p` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9216,8 +9088,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -9235,8 +9106,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -9252,8 +9122,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as isolated Mr
+	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -9280,7 +9149,6 @@ error E3197: <fragment>:87:16: cannot write 'plain' through 's', which is read-o
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `acr-modify-slot-hq` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9331,8 +9199,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -9350,8 +9217,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -9367,8 +9233,7 @@ end 'Ab'
 
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as isolated Mr
+	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -9394,7 +9259,6 @@ error E3197: <fragment>:87:16: cannot write 'hq' through 's', which is read-only
 <!-- test: model-hand-ag-bm-acquire-other -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R13-NESTED`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `bm-acquire-other` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9445,8 +9309,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -9464,8 +9327,7 @@ end 'Hq'
 
 type Ab
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Wo
+	var item as Wo
 	var plain as Bx
 	var hq as Hq
 
@@ -9528,7 +9390,6 @@ error E3207: <fragment>:89:4: this linear value comes from outside 'a1', where i
 <!-- test: model-hand-ag-f1-control-acquire -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `f1-control-acquire` of redteamAG.hand_ag16, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9592,8 +9453,7 @@ end 'eatMp'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, plain: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -9613,7 +9473,6 @@ error E3201: <fragment>:65:23: 'y' is mutable outside 's'; a call into an isolat
 <!-- test: model-hand-ag-acq-mp-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `acq-mp-store` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9673,8 +9532,7 @@ end 'Hq'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 	var hq as Hq
 
@@ -9702,8 +9560,7 @@ end 'Ac'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -9726,7 +9583,6 @@ error E3201: <fragment>:89:25: 'y' is mutable outside 's'; a store into an isola
 <!-- test: model-hand-ag-acq-mp-keepp -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `acq-mp-keepP` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9786,8 +9642,7 @@ end 'Hq'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 	var hq as Hq
 
@@ -9815,8 +9670,7 @@ end 'Ac'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -9839,7 +9693,6 @@ error E3201: <fragment>:89:23: 'y' is mutable outside 's'; a call into an isolat
 <!-- test: model-hand-ag-acq-mp-keepi -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acq-mp-keepI` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -9898,8 +9751,7 @@ end 'Hq'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 	var hq as Hq
 
@@ -9927,8 +9779,7 @@ end 'Ac'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -9951,7 +9802,6 @@ end 'main'
 <!-- test: model-hand-ag-acq-mr-store-hq -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `acq-mr-store-hq` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -10011,8 +9861,7 @@ end 'Hq'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 	var hq as Hq
 
@@ -10040,8 +9889,7 @@ end 'Ac'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as isolated Mr
+	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -10064,7 +9912,6 @@ error E3201: <fragment>:89:22: 'y' is mutable outside 's'; a store into an isola
 <!-- test: model-hand-ag-acq-mr-store-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `acq-mr-store-part` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -10124,8 +9971,7 @@ end 'Hq'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 	var hq as Hq
 
@@ -10153,8 +9999,7 @@ end 'Ac'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as isolated Mr
+	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -10177,7 +10022,6 @@ error E3201: <fragment>:89:25: 'y.p' is mutable outside 's'; a store into an iso
 <!-- test: model-hand-ag-acq-mr-keeph -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `acq-mr-keepH` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -10237,8 +10081,7 @@ end 'Hq'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 	var hq as Hq
 
@@ -10266,8 +10109,7 @@ end 'Ac'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as isolated Mr
+	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -10290,7 +10132,6 @@ error E3201: <fragment>:89:23: 'y' is mutable outside 's'; a call into an isolat
 <!-- test: model-hand-ag-acq-mr-keepp-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `acq-mr-keepP-part` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -10350,8 +10191,7 @@ end 'Hq'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 	var hq as Hq
 
@@ -10379,8 +10219,7 @@ end 'Ac'
 
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as isolated Mr
+	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -10403,7 +10242,6 @@ error E3201: <fragment>:89:23: 'y.p' is mutable outside 's'; a call into an isol
 <!-- test: model-hand-ag-c7-acquire-nested-inner-calls-method -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `c7-acquire-nested-inner-calls-method` of redteamAG.hand_ag5, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -10411,8 +10249,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Bx
@@ -10913,7 +10750,6 @@ end 'main'
 <!-- test: model-hand-ah-m-acq-keepp -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `m-acq-keepP` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -10964,8 +10800,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -10975,10 +10810,8 @@ end 'Wo'
 type Hld
 	var n as Num
 	var plain as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
+	var item as Bx
+	var w as Wo
 
 	static function create(n Num, consumes plain Bx, consumes item Bx, consumes w Wo) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11010,8 +10843,7 @@ end 'eatMp'
 
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -11032,7 +10864,6 @@ error E3201: <fragment>:95:23: 'y' is mutable outside 's'; a call into an isolat
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-acq-mod-keepP` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -11082,8 +10913,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -11093,10 +10923,8 @@ end 'Wo'
 type Hld
 	var n as Num
 	var plain as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
+	var item as Bx
+	var w as Wo
 
 	static function create(n Num, consumes plain Bx, consumes item Bx, consumes w Wo) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11128,8 +10956,7 @@ end 'eatMp'
 
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -11153,7 +10980,6 @@ end 'main'
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-acq-mod-item` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -11203,8 +11029,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -11214,10 +11039,8 @@ end 'Wo'
 type Hld
 	var n as Num
 	var plain as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
+	var item as Bx
+	var w as Wo
 
 	static function create(n Num, consumes plain Bx, consumes item Bx, consumes w Wo) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11249,8 +11072,7 @@ end 'eatMp'
 
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -11273,7 +11095,6 @@ end 'main'
 <!-- test: model-hand-ah-m-acq-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `m-acq-plain` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11324,8 +11145,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -11335,10 +11155,8 @@ end 'Wo'
 type Hld
 	var n as Num
 	var plain as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
+	var item as Bx
+	var w as Wo
 
 	static function create(n Num, consumes plain Bx, consumes item Bx, consumes w Wo) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11370,8 +11188,7 @@ end 'eatMp'
 
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -11392,7 +11209,6 @@ error E3201: <fragment>:95:25: 'y' is mutable outside 's'; a store into an isola
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-acq-mod-plain` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -11442,8 +11258,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -11453,10 +11268,8 @@ end 'Wo'
 type Hld
 	var n as Num
 	var plain as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
+	var item as Bx
+	var w as Wo
 
 	static function create(n Num, consumes plain Bx, consumes item Bx, consumes w Wo) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -11488,8 +11301,7 @@ end 'eatMp'
 
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -11512,7 +11324,6 @@ end 'main'
 <!-- test: model-hand-ah-w-acq-slot-store -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-slot-store` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -11562,8 +11373,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -11597,10 +11407,8 @@ end 'Sk'
 
 type Sw
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var h as isolated Hq
+	var w as Wo
+	var h as Hq
 
 	static function create(n Num, consumes w Wo, consumes h Hq) returns Self
 		return Self{n: n, w: w, h: h}
@@ -11621,8 +11429,7 @@ end 'eatMp'
 function main() returns ExitCode
 	let s = spawn Sw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)), h: Hq.create(Bx.create(1), q: Bx.create(2)))
 	_ = spawn Sk.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -11645,7 +11452,6 @@ end 'main'
 <!-- test: model-hand-ah-w-acq-slot-keepfn -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-slot-keepfn` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -11695,8 +11501,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -11730,10 +11535,8 @@ end 'Sk'
 
 type Sw
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var h as isolated Hq
+	var w as Wo
+	var h as Hq
 
 	static function create(n Num, consumes w Wo, consumes h Hq) returns Self
 		return Self{n: n, w: w, h: h}
@@ -11758,8 +11561,7 @@ end 'keepIn'
 function main() returns ExitCode
 	let s = spawn Sw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)), h: Hq.create(Bx.create(1), q: Bx.create(2)))
 	_ = spawn Sk.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -11782,7 +11584,6 @@ end 'main'
 <!-- test: model-hand-ah-w-acq-slot-store-iso-slot -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-slot-store-iso-slot` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -11832,8 +11633,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -11867,10 +11667,8 @@ end 'Sk'
 
 type Sw
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var h as isolated Hq
+	var w as Wo
+	var h as Hq
 
 	static function create(n Num, consumes w Wo, consumes h Hq) returns Self
 		return Self{n: n, w: w, h: h}
@@ -11891,8 +11689,7 @@ end 'eatMp'
 function main() returns ExitCode
 	let s = spawn Sw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)), h: Hq.create(Bx.create(1), q: Bx.create(2)))
 	_ = spawn Sk.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -11915,7 +11712,6 @@ end 'main'
 <!-- test: model-hand-ah-w-acq-slot-take -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-slot-take` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -11965,8 +11761,7 @@ end 'Bx'
 
 type Wo
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
 		return Self{keep: keep, item: item}
@@ -12000,10 +11795,8 @@ end 'Sk'
 
 type Sw
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var h as isolated Hq
+	var w as Wo
+	var h as Hq
 
 	static function create(n Num, consumes w Wo, consumes h Hq) returns Self
 		return Self{n: n, w: w, h: h}
@@ -12028,8 +11821,7 @@ end 'takeBx'
 function main() returns ExitCode
 	let s = spawn Sw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)), h: Hq.create(Bx.create(1), q: Bx.create(2)))
 	_ = spawn Sk.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mp.m1(Bx.create(1)) as isolated Mp
+	let u = Mp.m1(Bx.create(1)) as Mp
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
@@ -12052,7 +11844,6 @@ end 'main'
 <!-- test: model-hand-ah-wg-recover-outer-in-acquire -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `wg-recover-outer-in-acquire` of redteamAH.hand_ah6, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -12078,8 +11869,7 @@ end 'Hq'
 
 type Ac
 	var n as Num
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 	var plain as Bx
 	var hq as Hq
 
@@ -12124,8 +11914,6 @@ error E3201: <fragment>:52:11: 'w' is mutable outside 's'; a call into an isolat
 <!-- test: model-hand-ai-q1-acquire-consume-outer -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `q1-acquire-consume-outer` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12134,8 +11922,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12145,8 +11932,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12202,8 +11988,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(1)) as isolated Ub
+	let u = Ub.u1(Bx.create(1)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -12223,8 +12008,6 @@ error E3196: <fragment>:75:21: cannot store an isolated 'Bx' into 'b', which hol
 <!-- test: model-hand-ai-q3-acquire-handler-reads-var -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `q3-acquire-handler-reads-var` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -12232,8 +12015,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12243,8 +12025,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12307,8 +12088,7 @@ end 'eatUb'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(1)) as isolated Ub
+	let u = Ub.u1(Bx.create(1)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -12328,7 +12108,6 @@ end 'main'
 <!-- test: model-hand-ai-q4-acquire-state-match -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `q4-acquire-state-match` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12337,8 +12116,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Bx
@@ -12384,8 +12162,6 @@ error E3198: <fragment>:35:21: 'o' is isolated and cannot be read outside a bloc
 <!-- test: model-hand-ai-q5-acquire-payload-frame-ref -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `q5-acquire-payload-frame-ref` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12394,8 +12170,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12405,8 +12180,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12420,8 +12194,7 @@ end 'Bx'
 type Kw
 	var n as Num
 	var keep as Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx
+	var item as Bx
 
 	static function create(n Num, consumes keep Bx, consumes item Bx) returns Self
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -12461,8 +12234,7 @@ end 'Kw'
 function main() returns ExitCode
 	let s = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	let fb = Bx.create(5)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Pc.u1(Bx.create(1)) as isolated Pc
+	let u = Pc.u1(Bx.create(1)) as Pc
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -12483,8 +12255,6 @@ error E3201: <fragment>:73:24: 'o' is mutable outside 's'; a store into an isola
 <!-- test: model-hand-ai-a3-body-consumes-handler-consumes -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a3-body-consumes-handler-consumes` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -12492,8 +12262,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12503,8 +12272,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12560,8 +12328,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -12584,8 +12351,6 @@ end 'main'
 <!-- test: model-hand-ai-a4-body-consumes-after-read-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a4-body-consumes-after-read-after` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12594,8 +12359,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12605,8 +12369,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12669,8 +12432,7 @@ end 'eatUb'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -12691,8 +12453,6 @@ error E3102: <fragment>:87:8: use of moved value 'u': its ownership moved to ano
 <!-- test: model-hand-ai-a5-handler-only-consumes-read-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a5-handler-only-consumes-read-after` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12701,8 +12461,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12712,8 +12471,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12776,8 +12534,7 @@ end 'eatUb'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		_ = 1 as Num
@@ -12798,8 +12555,6 @@ error E3102: <fragment>:87:8: use of moved value 'u': its ownership moved to ano
 <!-- test: model-hand-ai-a6-handler-consumes-var-refill -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a6-handler-consumes-var-refill` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -12807,8 +12562,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12818,8 +12572,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12875,8 +12628,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		_ = 1 as Num
@@ -12901,8 +12653,6 @@ end 'main'
 <!-- test: model-hand-ai-a7-body-consumes-var-handler-refills -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a7-body-consumes-var-handler-refills` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12911,8 +12661,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -12922,8 +12671,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -12979,8 +12727,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -13004,8 +12751,6 @@ error E3102: <fragment>:80:8: use of moved value 'u': its ownership moved to ano
 <!-- test: model-hand-ai-a8-body-consumes-and-refills -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-OUTER`; the compiler refuses it with E3204. Model program `a8-body-consumes-and-refills` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -13014,8 +12759,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13025,8 +12769,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13082,8 +12825,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u = Ub.u1(Bx.create(5)) as isolated Ub
+	var u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'
@@ -13108,8 +12850,6 @@ error E3204: <fragment>:77:3: 'u' holds an isolated value from outside 'a1' and 
 <!-- test: model-hand-ai-a9-two-vars-acquire -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a9-two-vars-acquire` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -13117,8 +12857,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13128,8 +12867,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13186,8 +12924,7 @@ end 'takeB'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	let t = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(5)) as isolated Ub
+	let u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s, t 'a1'
 		match u 'x3'
@@ -13207,7 +12944,6 @@ end 'main'
 <!-- test: model-hand-aj-acquire-state-slot -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3199. Model program `acquire-state-slot` of redteamAJ.hand_aj2, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -13224,8 +12960,7 @@ end 'Bx6'
 
 type Wo6
 	var keep as Bx6
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Bx6
+	var item as Bx6
 
 	static function create(keep Bx6, consumes item Bx6) returns Self
 		return Self{keep: keep, item: item}
@@ -13233,8 +12968,7 @@ type Wo6
 end 'Wo6'
 
 type Sw6
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var w as isolated Wo6
+	var w as Wo6
 	var n as Num
 
 	static function create(consumes w Wo6, n Num) returns Self
@@ -13252,8 +12986,7 @@ function takeWo(consumes wV Wo6)
 end 'takeWo'
 
 function scn(s Sw6.handle)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let h = Wo6.create(Bx6.create(0), item: Bx6.create(1)) as isolated Wo6
+	let h = Wo6.create(Bx6.create(0), item: Bx6.create(1)) as Wo6
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		let p = exchange(s.w, value: Wo6.create(Bx6.create(0), item: Bx6.create(1)))
@@ -13595,7 +13328,6 @@ end 'main'
 <!-- test: model-hand-fa14-m-state-method-param -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `m-state-method-param` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -13625,8 +13357,7 @@ end 'Zm4'
 
 function main() returns ExitCode
 	let r = spawn Zm4.create(Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bV = Bx.create(1) as isolated Bx
+	let bV = Bx.create(1) as Bx
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire r 'a1'
 		r.keep(bV)
@@ -13643,8 +13374,6 @@ error E3196: <fragment>:20:12: cannot store an isolated 'Bx' into 'b', which hol
 <!-- test: model-hand-fa15-n-acquire-body -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-acquire-body` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13652,8 +13381,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 union Pc
@@ -13663,8 +13391,7 @@ end 'Pc'
 
 union Mq
 	q0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	q1(y isolated Bx)
+	q1(y Bx)
 end 'Mq'
 
 type Bx
@@ -13720,8 +13447,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Ub.u1(Bx.create(1)) as isolated Ub
+	let u = Ub.u1(Bx.create(1)) as Ub
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'a1'
 		match u 'x3'

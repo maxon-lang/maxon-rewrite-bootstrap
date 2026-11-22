@@ -147,6 +147,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryYield(vm, f: f, x: x)
 		return
 	end 'rtYield'
+	if symbol == ir.Rt.rtHashSeed 'rtHashSeed'
+		try entryHashSeed(vm, f: f, x: x)
+		return
+	end 'rtHashSeed'
+	if symbol == ir.Rt.rtHashSeedDraw 'rtHashSeedDraw'
+		try entryHashSeedDraw(vm, f: f, x: x)
+		return
+	end 'rtHashSeedDraw'
 	if symbol == ir.Rt.rtHashWord 'rtHashWord'
 		try entryHashWord(vm, f: f, x: x)
 		return

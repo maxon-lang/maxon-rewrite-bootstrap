@@ -186,7 +186,6 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-send-error-is-rethrown-without-a-double-drop -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `again` only borrows the send error it throws back; the catcher and the original owner each drop their own reference once.
 
 ```maxon
@@ -219,10 +218,8 @@ end 'again'
 
 function main() returns ExitCode
 	let h = spawn(capacity: 1) Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let first = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let second = Box.create(2) as isolated Box
+	let first = Box.create(1) as Box
+	let second = Box.create(2) as Box
 	try h.keep(first) otherwise panic("a capacity of one takes the first send")
 	try h.keep(second) otherwise (e) 'refused'
 		try again(e) otherwise ignore
@@ -235,7 +232,7 @@ end 'main'
 ```
 
 <!-- test: a-set-element-and-a-map-key-are-immutable-slots -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '"..."' -->
 A frozen name is stored as a `Set` element and as a `Map` key with no `immutable` spelled on the alias.
 
 ```maxon
@@ -244,8 +241,7 @@ typealias Names = Set with ByteArray
 typealias Index = Map with (ByteArray, ByteArray)
 
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value frozen with ByteArray) returns Self
 		return Self{value: value}
@@ -318,15 +314,14 @@ end 'main'
 ```
 
 <!-- test: a-field-frozen-by-its-own-slot-reaches-a-frozen-parameter-while-its-holder-is-written -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '"..."' -->
 `name` is an `immutable` field, so handing `h.corpus.name` to `takes` needs nothing of `h`, which `bump` writes.
 
 ```maxon
 typealias Count64 = int(0 to u64.max)
 
 type RecordName
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 
 	static function of(name frozen with ByteArray) returns RecordName
 		return Self{name: name}

@@ -258,8 +258,8 @@ type Pair uses T where T implements Equatable
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function bothEqual() returns bool

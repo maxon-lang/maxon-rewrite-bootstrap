@@ -484,7 +484,6 @@ error E2015: <fragment>:2:6: Unsupported: a declaration of the type name 'Charac
 ### A `CharacterSet` an aggregate OWNS is dropped by that aggregate's cascade
 
 <!-- test: characterset-at-a-struct-field -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ### A `CharacterSet` at a struct field
 
 ⭐⭐ **WHAT A DESTRUCTOR CASCADE CALLS IS INVISIBLE TO THE MODULE SCAN.** `scanRuntimeUsage` walks the Maxon
@@ -501,8 +500,7 @@ bit reopens it.**
 (The source-side statement of the same fact lives at `MmRuntime.noteDestructorUsage`'s header.)
 ```maxon
 type Trimmer
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	var chars as immutable CharacterSet
+	var chars as CharacterSet
 
 	static function init(cs frozen with CharacterSet) returns Self
 		return Self{chars: cs}
@@ -520,7 +518,6 @@ end 'main'
 ```
 
 <!-- test: characterset-at-a-union-payload -->
-<!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 ### A `CharacterSet` at a union payload
 
 The union arm of the same declaration. Both arms read the drop CALLEE the cascade will emit and route it
@@ -530,8 +527,7 @@ all.
 ```maxon
 union Slot
 	empty
-	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
-	filled(chars immutable CharacterSet)
+	filled(chars CharacterSet)
 end 'Slot'
 
 function main() returns ExitCode

@@ -1707,7 +1707,6 @@ end 'main'
 ```
 
 <!-- test: a-binding-moved-out-of-an-isolated-local-is-readable-after-an-alias -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `let a = r` makes `a` a second name for `r`'s record. `let z = h` then moves `h` into `z`: `h` is moved-from and `z`
 owns the record and reads it.
 
@@ -1723,8 +1722,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let h = Box.create(1) as isolated Box
+	let h = Box.create(1) as Box
 	let r = Box.create(2)
 	let a = r
 	let z = h
@@ -1771,7 +1769,6 @@ end 'main'
 ```
 
 <!-- test: a-discard-moved-out-of-an-isolated-local-after-an-alias-releases-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `let _ = h` moves `h` into the discard, which releases the record, in a function that also made an alias.
 
 ```maxon
@@ -1786,8 +1783,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let h = Box.create(1) as isolated Box
+	let h = Box.create(1) as Box
 	let r = Box.create(2)
 	let a = r
 	_ = h

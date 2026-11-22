@@ -312,9 +312,12 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   `Project.library` names the root. A program names the public declarations of every library module bare
   (`Unicode.isWhitespace(32)`), after its own names and the built-ins, so the layering is the library's own; a public name
   is declared by one library module only (`E3006` at the later one). A library module names the library's other modules
-  qualified from the library's root (`helpers.hashtable.X`, `export.X` for the root's), as any module names another, and its `export` reaches the tree rooted at its parent within the
+  qualified from the library's root (`internal.hashtable.X`, `export.X` for the root's), as any module names another, and its `export` reaches the tree rooted at its parent within the
   library, which for the root and a top-level module is the whole library and never a program. A program sees nothing of
-  the library short of `public`. Only the library modules a program names, directly or through others, are compiled past
+  the library short of `public`, and nothing at all of a module under `stdlib/internal/`, where maxon's `stdlib/helpers/`
+  files go (`stdlib/files.txt` maps each to its module; one that the root names and that names the root, `Hash.maxon`,
+  is a file of the root): the internal rule below holds for the library as for any project,
+  so only the library, and a program the spec runner stages in it, names them. Only the library modules a program names, directly or through others, are compiled past
   their resolve (`reachedModules`), so a program pays for no other; each is a module of the build cache like any other,
   with its own key, and is compiled for the compile's target. A project that is the runtime's source or `stdlib/` itself is
   compiled without a second library, and the compiler's own source, `self/` (found as `runtime/` is,
@@ -338,6 +341,15 @@ is that of its module (`app::main`), and a project with no `main` in any module 
 
   Naming a declaration from a module its visibility does not reach is `E3008` (`E3014` for a field), and the message
   says which modifier would reach.
+- **A directory named `internal` scopes a whole module**, as Go's `internal/` does: a module whose path has a directory
+  named `internal` may be named only by the modules of the tree rooted at that directory's parent (the last such
+  directory, if there are several). `app/net/internal/wire` is named from `app/net`, `app/net/http` and anything under
+  `app/net`, not from `app` or `app/ui`; a top-level `internal/x` from the whole project. Naming it from elsewhere, by a
+  qualified name or by a library name that would otherwise be bare, is `E3008`, whatever its declarations' visibility,
+  and the message names the tree that may. `export` scopes one declaration and `internal/` every declaration of the
+  module: a `public` declaration of an internal module is visible wherever the module may be named, and never becomes a
+  bare library name to a program. A value of an internal module's type that a function outside it returns is used as any
+  value is; only naming the module is refused.
 - **A signature may not name a less visible type** (`E3167`): each type that the parameters, return type, `throws`
   clause, `where` clause or `implements` clause of an `export` or `public` declaration name, the type of a field (at the
   narrower of the field's and its type's visibility), a payload (at its union's) and a typealias's target must be at
@@ -2999,8 +3011,9 @@ end 'int'
 ```
 
 An `extension` adds the methods it declares, and the interfaces it `implements`, to the type it names: a `type`, an `enum`
-or a `union` of any module (`extension shapes.Counter`), the built-in `Array`, `Map` and `List`, `String`, `bool`, and `int`,
-which stands for every integer type (`self` has the range of `FullRangeInt`). The end label is the extended type's name.
+or a `union` of any module (`extension shapes.Counter`), the built-in `Array`, `Map` and `List`, `String`, `bool`, `int`,
+which stands for every integer type (`self` has the range of `FullRangeInt`), and `float`, which stands for every float type
+(`self` is a `FullRangeFloat`), as maxon's `PrimitiveExtensions.maxon` extends them. The end label is the extended type's name.
 Inside, `self` and the bare names of the type's fields and type parameters mean what they do in its body, and `Self` is
 the type. A static function is allowed only in an extension of a `type` or of a built-in generic type. An extension
 declares no field or destructor. Its typealiases are scoped as its methods are (see "Typealiases of an extension" under "Generics"). A method of an extension is called as one of
@@ -3101,7 +3114,7 @@ one anywhere.
 | `Pool with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `Handle with T`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `dropEmpty()` |
 | `Handle with T` | no operations; `==` and `!=` |
 | `__ManagedMemory with T` | maxon's raw buffer, which only the library tiers name (`E3185`): the box of an array, seen through maxon's buffer operations, each the array operation that does the same, so there is one implementation of each on either target. `length()`; `get(i)`, a copy of the element, where `T` is `Copyable`, throwing `__ManagedMemoryError.indexOutOfBounds` past the end and `emptySlot` at an empty slot (see `Array.clearSlot`). `xs.managed` is the buffer of an array: the array itself seen as one, so it is borrowed, moved and dropped as `xs` is (`let m = xs.managed` moves `xs`) |
-| `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` and `drawHashSeed()`, the process's seed, are not there yet |
+| `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`; `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The test runners pin `MAXON_HASH_SEED` for every program they start (`hashseed.ps1`), as maxon's harness hands its programs the run's seed |
 | `__ManagedMemoryCursor with T` | maxon's position in a raw buffer, which only the library tiers name (`E3185`), made by a buffer's `createCursor()` at its first element, which fails with `__ManagedMemoryError.indexOutOfBounds` on an empty buffer. It holds a borrow of the buffer (see "Borrowing values"), so the buffer cannot change while it lives and it always names an element: `current()` lends it, `index()` is its index, `advance()`, `retreat()` and `seek(index)` move it (`mutates self`) and fail, leaving it where it was, past either end, and `peek(ahead)` is a copy of the element so many places on, where `T` is `Copyable` |
 | `ArrayError`, `MapError`, `IterationError`, `__ManagedMemoryError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists`; `exhausted` and `atStart`, which the iteration protocol throws; a buffer's, whose first two cases are an array's |
 | `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
@@ -3730,7 +3743,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   gives a value meets a requirement that lends only where the value is a scalar that is not a float (`E3016` otherwise).
 - maxon's `Cloneable`, `clone() returns Self`, is met by the `clone()` every Copyable type has (see "Generics"): the
   interface extends `Copyable`, so a type that implements it and cannot be copied is `E3918` where maxon would refuse its
-  generated `clone()`, and no type declares a `clone()` of its own.
+  generated `clone()`, and no type declares a `clone()` of its own: `cmd/convert` leaves out a library `clone()` whose body
+  is `return self` (`PrimitiveExtensions.maxon`'s), which is that built-in clone.
 - `interface Sub extends Base`, where `Base` has associated types, gives `Sub` those it does not declare itself (see
   "Generics"), so `implements Sub with X` binds `Base`'s `Element` too, where maxon counts only `Sub`'s own and compares an
   inherited requirement as written unless the clause binds `Base` beside it (which minimaxon also reads). maxon's
@@ -3890,12 +3904,15 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   too), as an integer's do, where maxon traps. Float division by 0 is IEEE's (an infinity or NaN), where maxon's throws
   `divisionByZero` and refuses a constant zero divisor (`E3103`). The float functions take a float or an integer constant,
   not a value of an integer alias, which is cast first.
-  There is no float `match` pattern, map key or interface conformance, no `float.fromString`, no `Math`, no format
+  There is no float `match` pattern or map key, no `float.fromString`, no `Math`, no format
   specifier for a float, and no `f32` storage. `trunc` of a NaN or of a double past the word gives `i64.min`, as x64's
   `cvttsd2si` does.
-- A type argument takes no capability word: `cmd/convert` leaves out maxon's `immutable` (or `isolated`) before one, as in
-  `Array with immutable Key`, since an element here has the one owner its container gives it, so nothing else changes a key
-  that a map holds.
+- A type takes no capability word in a nested position: `cmd/convert` leaves out maxon's `immutable` (or `isolated`)
+  before a type argument (`Array with immutable Key`), a tuple's element (`(immutable Key, Value)`), a field's or a
+  variable's type, the target of a cast or a typealias and a function type's parts, since an element here has the one
+  owner its container gives it, so nothing else changes a key that a map holds. A receiver's `immutable self` and a
+  region bound of a `where` are not types, and the converter still marks them unsupported. A function's own parameter
+  and result are not nested, and the next item maps their words.
 - Services (see "Services") cross by ownership, not by capability word: a message's, a reply's and a factory's values
   move in, or are a `frozen with T` that both sides share, and nothing borrowed crosses. `cmd/convert` turns maxon's
   parameter `x isolated T` into `consumes x T` and `x immutable T` into `x frozen with T`, and `returns isolated T` and
@@ -3952,7 +3969,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   names are always qualified; names need no `__` prefix for the same reason.
 - Generics are checked once against their bounds, never per instantiation; maxon checks a generic function per inferred
   type. Interfaces are bounds only: no default method, no existential
-  value; a type implements one by saying so, and `int` aliases, `String` and `bool` implement none.
+  value; a type implements one by saying so, and an integer, a float, `String` and `bool` implement what an extension declares (the
+  library's `PrimitiveExtensions.maxon`) and nothing else.
 - A generic interface's associated types are bound as type arguments are: one bare, several in parentheses (`implements
   Duo with (Score, Weight)`), where maxon also takes a bare list as long as the interface's arity and ignores a surplus
   in it; a parenthesized list against an interface with one associated type is that many arguments (`E2056`), not a
@@ -3989,10 +4007,15 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - Modules are Go's, not Maxon's. Another module's names are always qualified by its path (`net.http.parse()`, and
   `export.X` for the root's), where Maxon also finds a bare name in the root or as the one exported declaration
   anywhere (`E3095`, `E3063` for two, which minimaxon does not have). `export` reaches the tree rooted at the declaring
-  module's parent, as Go's `internal/`, and `public` everyone. Import cycles are refused. The standard library follows
+  module's parent, as Go's `internal/`, and `public` everyone; a directory named `internal` scopes its modules to the
+  tree of its parent, as in Go. Import cycles are refused. The standard library follows
   the same rules within `stdlib/` (see "Modules"): a library file names another library module's declaration by its path
   from the library's root, where maxon's stdlib names any declaration of the library bare; a program names the public
-  declarations of every library module bare, as in maxon, and nothing else of the library. The built-ins are public, so a public
+  declarations of every library module bare, as in maxon, and nothing else of the library. maxon's `stdlib/helpers/`
+  is `stdlib/internal/` here, so a program names none of it, where maxon's programs see the helpers' exported names bare
+  (`readOrderedWord`, `TableCapacity`); the spec tests that name one outside the library tier are skipped with that
+  reason. `helpers/hash/Hash.maxon` is the exception: it names the root's `HashValue` and the root's `Hasher` names it,
+  so it is a file of the root. The built-ins are public, so a public
   declaration of the library may name `Count` or `ByteArray` (E3167 holds only for a type less visible than public).
 - It checks only the rules that the generated code depends on. The style rules are left out: an unused
   name (`E3012`) or typealias (`E3062`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),

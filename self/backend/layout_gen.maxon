@@ -124,7 +124,7 @@ export let contextPreemptCodeOffset = 128
 export let contextSignalCodeOffset = 136
 
 // contextBytes is the size of a thread's context.
-export let contextBytes = 176
+export let contextBytes = 184
 
 // switchSpOffset is where a switch record holds the stack pointer, at the word the stack goes on at: the return address of the switch that left it, or of rt.greenStart on a stack that has not run.
 export let switchSpOffset = 0

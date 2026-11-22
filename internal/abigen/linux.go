@@ -43,6 +43,7 @@ var linuxABI = []layoutConst{
 	{"linuxSysGettid", 186, true, toRuntime, "gettid(): the calling thread's id, which a signal is sent to."},
 	{"linuxSysTgkill", 234, true, toRuntime, "tgkill(process id, thread id, signal): a signal to one thread of a process."},
 	{"linuxSysNanosleep", 35, true, toRuntime, "nanosleep(timespec, remaining)."},
+	{"linuxSysGetrandom", 318, true, toRuntime, "getrandom(buffer, count, flags): bytes of the system's entropy, which a hash secret is drawn from."},
 	{"linuxSysEpollCreate1", 291, true, toRuntime, "epoll_create1(flags): the poller."},
 	{"linuxSysEpollCtl", 233, true, toRuntime, "epoll_ctl(epoll fd, operation, fd, event)."},
 	{"linuxSysEpollWait", 232, true, toRuntime, "epoll_wait(epoll fd, events, most events, timeout in milliseconds)."},

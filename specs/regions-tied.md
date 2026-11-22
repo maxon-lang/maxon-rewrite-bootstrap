@@ -132,7 +132,6 @@ error E3212: <fragment>:29:21: the promise of this `async` call is tied to the m
 ```
 
 <!-- test: a-mutable-isolated-parameter-moved-out-of-the-callee-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is by reference, so the callee may not move it out: the caller's variable would name a region another owner holds.
 
@@ -148,12 +147,11 @@ type Box
 end 'Box'
 
 function takeOut(mutates box Box) returns Box
-	return box
+	return box.clone()
 end 'takeOut'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var box = Box.create(1) as isolated Box
+	var box = Box.create(1) as Box
 	let taken = takeOut(box)
 	_ = taken
 	return 0
@@ -468,7 +466,6 @@ error E3207: <fragment>:16:3: 'clear' needs a writable receiver at line 306; 'pe
 ```
 
 <!-- test: a-mutable-isolated-parameter-aliased-by-a-let-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is by reference, so binding it to a second name aliases a region the caller still owns.
 
@@ -484,13 +481,12 @@ type Box
 end 'Box'
 
 function alias(mutates box Box) returns Tally
-	let other = box
+	let other = box.clone()
 	return other.n
 end 'alias'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var box = Box.create(1) as isolated Box
+	var box = Box.create(1) as Box
 	print("{alias(box)}\n")
 	return 0
 end 'main'
@@ -500,7 +496,6 @@ error E3202: <fragment>:13:14: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-pushed-into-an-array-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Pushing the `mutable isolated` parameter into an array moves it out of the caller's variable.
 
@@ -517,13 +512,12 @@ end 'Box'
 
 typealias BoxArray = Array with Box
 
-function stash(mutates box Box, all BoxArray)
-	all.push(box)
+function stash(mutates box Box, mutates all BoxArray)
+	all.push(box.clone())
 end 'stash'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var box = Box.create(1) as isolated Box
+	var box = Box.create(1) as Box
 	var all = BoxArray.create(0)
 	stash(box, all: all)
 	return 0
@@ -534,7 +528,6 @@ error E3202: <fragment>:15:11: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-passed-to-a-keeping-parameter-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `adopt` takes its `isolated` parameter by move, so handing it the caller's by-reference region would give two owners.
 
@@ -554,12 +547,11 @@ function adopt(consumes box Box) returns Tally
 end 'adopt'
 
 function relay(mutates box Box) returns Tally
-	return adopt(box)
+	return adopt(box.clone())
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var box = Box.create(1) as isolated Box
+	var box = Box.create(1) as Box
 	print("{relay(box)}\n")
 	return 0
 end 'main'
@@ -569,7 +561,6 @@ error E3202: <fragment>:17:15: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-stored-in-a-field-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Storing the `mutable isolated` parameter in a field leaves the caller's variable naming a region the field now owns.
 
@@ -585,22 +576,20 @@ type Box
 end 'Box'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Box
+	export var held as Box
 
 	static function create() returns Self
 		return Self{held: Box.create(0)}
 	end 'create'
 
-	function keep(mutates box Box)
-		self.held = box
+	function keep(mutates self, mutates box Box)
+		self.held = box.clone()
 	end 'keep'
 end 'Shelf'
 
 function main() returns ExitCode
 	var shelf = Shelf.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var box = Box.create(1) as isolated Box
+	var box = Box.create(1) as Box
 	shelf.keep(box)
 	return 0
 end 'main'
@@ -642,7 +631,6 @@ error E3197: <fragment>:19:11: cannot write through a read-only value while 'dra
 ```
 
 <!-- test: a-mutable-isolated-parameter-relayed-to-a-mutable-isolated-parameter-is-accepted -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Passing the by-reference region on to another `mutable isolated` parameter lends it again; nothing is moved out, aliased or kept.
 
 ```maxon
@@ -665,8 +653,7 @@ function relay(mutates box Box) returns Tally
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var box = Box.create(1) as isolated Box
+	var box = Box.create(1) as Box
 	print("{relay(box)}\n")
 	return 0
 end 'main'
@@ -679,7 +666,6 @@ end 'main'
 ```
 
 <!-- test: a-mutable-isolated-method-parameter-relayed-to-the-same-method-is-accepted -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A method's `mutable isolated` parameter lends the caller's region again to the next call, including its own recursion; nothing is moved out, aliased or kept.
 
 ```maxon
@@ -695,7 +681,7 @@ type Ledger
 	end 'create'
 
 	function record(mutates rows TallyArray, depth Tally)
-		rows.push(self.floor + depth)
+		rows.push(try self.floor + depth otherwise panic("out of range"))
 		if depth > 0 'deeper'
 			self.record(rows, depth: depth - 1)
 		end 'deeper'
@@ -704,8 +690,7 @@ end 'Ledger'
 
 function main() returns ExitCode
 	let ledger = Ledger.create(10)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var rows = TallyArray.create(0) as isolated TallyArray
+	var rows = TallyArray.create(0) as TallyArray
 	ledger.record(rows, depth: 2)
 	let frozen = freeze(rows)
 	print("{frozen.count()}\n")
@@ -720,7 +705,6 @@ end 'main'
 ```
 
 <!-- test: a-mutable-isolated-method-parameter-passed-to-an-isolated-method-parameter-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A method parameter that is not by reference takes the region, so the caller's variable would then name a region another owner holds.
 
@@ -743,18 +727,17 @@ type Desk
 	end 'create'
 
 	function adopt(consumes box Box) returns Tally
-		return box.n + self.floor
+		return try box.n + self.floor otherwise panic("out of range")
 	end 'adopt'
 
 	function relay(mutates box Box) returns Tally
-		return self.adopt(box)
+		return self.adopt(box.clone())
 	end 'relay'
 end 'Desk'
 
 function main() returns ExitCode
 	let desk = Desk.create(1)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var box = Box.create(1) as isolated Box
+	var box = Box.create(1) as Box
 	print("{desk.relay(box)}\n")
 	return 0
 end 'main'
@@ -1360,7 +1343,6 @@ error E3212: <fragment>:46:8: the promise of this `async` call is tied to the mu
 
 <!-- test: cancelling-a-joined-tied-promise-reports-the-borrow-alone -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `settle` cancels the join of two tied promises, which is refused as a borrow of a promise no frame owns. The refused body is unknown, so no wait is reported about the call to `settle` inside the window.
@@ -1377,8 +1359,7 @@ type Row
 end 'Row'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var row as isolated Row
+	export var row as Row
 
 	static function create() returns Self
 		return Self{row: Row.create(0)}
@@ -1413,7 +1394,6 @@ error E3141: <fragment>:31:9: a promise cannot be borrowed through 'cancel': it 
 
 <!-- test: a-function-with-an-abandoned-body-called-inside-a-modify-window-reports-only-the-syntax-error -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `settle` is abandoned at its syntax error, so whether it waits is unknown: the call to it inside the window is not
 reported as one that may wait. `other` is an independent error and stays reported.
@@ -1433,8 +1413,7 @@ function other(n Tally) returns Tally
 end 'other'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'window'
 		let n = settle(3)

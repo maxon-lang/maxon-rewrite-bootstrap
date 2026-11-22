@@ -11,6 +11,7 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 	$env:PATH += ';C:\Program Files\Go\bin'
 }
 Set-Location $PSScriptRoot
+. "$PSScriptRoot\hashseed.ps1"
 $compiler = (Resolve-Path $Compiler).Path
 
 # Every spec test runs, and the step fails when a test that specs/passed.txt lists does not pass (the line "LOST file.md:

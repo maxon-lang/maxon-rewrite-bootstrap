@@ -2108,7 +2108,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create(7)
-	return h.size as ExitCode
+	return try h.size as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

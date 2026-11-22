@@ -111,7 +111,6 @@ end 'main'
 <!-- test: a-slot-is-a-field-of-an-isolated-record -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A slot is an ordinary record, so it lives in an `isolated` region and is filled and emptied in a `modify` block.
 ```maxon
 typealias Tally = int(0 to 1024)
@@ -127,8 +126,7 @@ type Mailbox
 end 'Mailbox'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let box = Mailbox.create() as isolated Mailbox
+	let box = Mailbox.create() as Mailbox
 	// TODO: modify blocks are not supported in minimaxon
 	modify box 'fill'
 		box.letter.fill(9)

@@ -312,7 +312,6 @@ error E3200: <fragment>:12:6: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: alias-capability-reaches-the-call-whichever-declaration-comes-first -->
-<!-- skip: capability typealias 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `IsoBox` is declared after `consume` and names an `isolated` box, so `consume(spare)` with a mutable local is refused as if the parameter were written `isolated Box`.
 
@@ -331,8 +330,7 @@ function consume(box IsoBox) returns Tally
 	return box.n
 end 'consume'
 
-// TODO: capability typealias 'isolated' is not supported in minimaxon
-typealias IsoBox = isolated Box
+typealias IsoBox = Box
 
 function main() returns ExitCode
 	let spare = Box.create(1)

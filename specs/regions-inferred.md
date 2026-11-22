@@ -344,7 +344,6 @@ error E3207: <fragment>:23:10: 'reported' is declared `immutable self`; 'live' i
 
 <!-- test: may-yield-call-inside-modify-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `settle` awaits a coroutine, so it may yield, and a yield inside the block could run a sibling that reaches `batch`.
 
@@ -364,8 +363,7 @@ function settle() returns Tally
 end 'settle'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = settle()
@@ -380,7 +378,6 @@ error E3205: <fragment>:19:11: cannot call 'settle' inside 'fill'; it may yield 
 
 <!-- test: may-wait-call-inside-modify-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `ask` awaits a message reply, so it may wait on another party, which no call inside the block may do.
 
@@ -405,8 +402,7 @@ end 'ask'
 
 function main() returns ExitCode
 	let oracle = spawn Oracle.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = ask(oracle)
@@ -553,7 +549,6 @@ error E3207: <fragment>:23:7: 'edit' writes 'b'; 'pinned' is immutable
 
 <!-- test: call-that-only-spawns-a-waiting-factory-reports-the-chain -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `start` waits only through the factory it spawns, and no call that may wait runs inside the block. The factory
 is also refused where it is declared, because a factory never waits.
@@ -592,8 +587,7 @@ function start() returns Relay.handle
 end 'start'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		_ = start()
@@ -853,7 +847,6 @@ error E3197: <fragment>:15:2: cannot write 'n' through 'e', which is immutable
 ```
 
 <!-- test: ternary-joining-isolated-data-with-mutable-data-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `a` is isolated and `b` is mutable data of this region, so a ternary over them has no one capability.
 
@@ -875,8 +868,7 @@ function pick(consumes a Box, flag bool) returns Tally
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let x = Box.create(1) as isolated Box
+	let x = Box.create(1) as Box
 	print("{pick(x, flag: true)}\n")
 	return 0
 end 'main'
@@ -886,7 +878,6 @@ error E3200: <fragment>:14:12: a join of an isolated value with data that is not
 ```
 
 <!-- test: ternary-joining-two-isolated-values-is-isolated -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Both arms are isolated, so the ternary is isolated and its count is read through a one-statement open.
 
 ```maxon
@@ -906,10 +897,8 @@ function pick(consumes a Box, consumes b Box, flag bool) returns Tally
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let x = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let y = Box.create(2) as isolated Box
+	let x = Box.create(1) as Box
+	let y = Box.create(2) as Box
 	print("{pick(x, b: y, flag: false)}\n")
 	return 0
 end 'main'
@@ -922,7 +911,6 @@ end 'main'
 ```
 
 <!-- test: ternary-over-two-isolated-locals-yields-one-isolated-result -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `a` and `b` are isolated locals, so the ternary is isolated and `c.n` is read through a one-statement open; the arm not taken is released with the function.
 
 ```maxon
@@ -937,10 +925,8 @@ type Box
 end 'Box'
 
 function pick(flag bool) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(2) as isolated Box
+	let a = Box.create(1) as Box
+	let b = Box.create(2) as Box
 	let c = a if flag else b
 	return c.n
 end 'pick'
@@ -958,7 +944,6 @@ end 'main'
 ```
 
 <!-- test: ternary-over-isolated-locals-in-a-loop-moves-the-selected-one-and-leaks-nothing -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Inside a loop the ternary moves its isolated local into the result on every trip, taking the arm it selects, and the program ends with no allocation held.
 
 ```maxon
@@ -973,8 +958,7 @@ type Box
 end 'Box'
 
 function pick(flag bool) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	let c = a if flag else Box.create(2)
 	return c.n
 end 'pick'
@@ -982,12 +966,10 @@ end 'pick'
 function loopy() returns Tally
 	var total = 0 as Tally
 	for round in 0 upto 3 'each'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let a = Box.create(round) as isolated Box
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let b = Box.create(10) as isolated Box
+		let a = Box.create(round) as Box
+		let b = Box.create(10) as Box
 		let c = a if round == 1 else b
-		total = total + c.n
+		total = try total + c.n otherwise panic("out of range")
 	end 'each'
 	return total
 end 'loopy'
@@ -1005,7 +987,6 @@ end 'main'
 ```
 
 <!-- test: ternary-over-two-isolated-locals-consumes-the-true-arm -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `let c = a if flag else b` moves both isolated locals into the result, exactly as `let c = a` moves `a`, so the read of `a` afterwards is a use of a moved value.
 
@@ -1021,13 +1002,11 @@ type Box
 end 'Box'
 
 function pick(flag bool) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(2) as isolated Box
+	let a = Box.create(1) as Box
+	let b = Box.create(2) as Box
 	let c = a if flag else b
 	let again = a.n
-	return c.n + again
+	return try c.n + again otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
@@ -1040,7 +1019,6 @@ error E3102: <fragment>:16:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: ternary-over-two-isolated-locals-consumes-the-false-arm -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The arm that is not selected is moved as well, so the read of `b` afterwards is a use of a moved value.
 
@@ -1056,13 +1034,11 @@ type Box
 end 'Box'
 
 function pick(flag bool) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(2) as isolated Box
+	let a = Box.create(1) as Box
+	let b = Box.create(2) as Box
 	let c = a if flag else b
 	let again = b.n
-	return c.n + again
+	return try c.n + again otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
@@ -1075,7 +1051,6 @@ error E3102: <fragment>:16:14: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: match-over-two-isolated-locals-consumes-both -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` expression whose arms give isolated locals moves each of them into the result, so the read of `a` afterwards is a use of a moved value.
 
@@ -1091,16 +1066,14 @@ type Box
 end 'Box'
 
 function pick(flag bool) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(2) as isolated Box
+	let a = Box.create(1) as Box
+	let b = Box.create(2) as Box
 	let c = match flag 'which'
 		true gives a
 		default gives b
 	end 'which'
 	let again = a.n
-	return c.n + again
+	return try c.n + again otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
@@ -1456,7 +1429,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-to-an-isolated-parameter-is-moved -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `consume` declares `box` isolated, so the call takes the region from `a` and the read of `a` afterwards is a use of a moved value.
 
@@ -1476,11 +1448,10 @@ function consume(consumes box Box) returns Tally
 end 'consume'
 
 function passed() returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	let taken = consume(a)
 	let again = a.n
-	return taken + again
+	return try taken + again otherwise panic("out of range")
 end 'passed'
 
 function main() returns ExitCode
@@ -1493,7 +1464,6 @@ error E3102: <fragment>:19:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-parameter-owns-its-region-and-drops-it-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The callee owns an `isolated` parameter and releases it exactly once: an isolated local, a fresh call result, a forwarded parameter and a returned parameter each reach one owner, so the program ends with no allocation held.
 
 ```maxon
@@ -1520,14 +1490,11 @@ function identity(consumes box Box) returns Box
 end 'identity'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let first = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let second = Box.create(10) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let third = Box.create(100) as isolated Box
+	let first = Box.create(1) as Box
+	let second = Box.create(10) as Box
+	let third = Box.create(100) as Box
 	let handed = identity(third)
-	let total = consume(first) + forward(second) + consume(Box.create(1000)) + forward(handed)
+	let total = try consume(first) + forward(second) + consume(Box.create(1000)) + forward(handed) otherwise panic("out of range")
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1540,7 +1507,6 @@ end 'main'
 ```
 
 <!-- test: isolated-parameter-never-read-is-still-dropped-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A parameter named `_` is never read, yet the callee still owns the region it was handed and releases it, so nothing leaks.
 
 ```maxon
@@ -1559,8 +1525,7 @@ function discard(consumes _ Box) returns Tally
 end 'discard'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	print("{discard(a)} {discard(Box.create(2))}\n")
 	return 0
 end 'main'
@@ -1574,7 +1539,6 @@ end 'main'
 
 <!-- test: mutable-isolated-parameter-leaves-the-callers-variable-usable -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `mutable isolated` parameter is by reference and is re-isolated after the call, so the caller keeps its region and reads it after both calls.
 
 ```maxon
@@ -1596,8 +1560,7 @@ function bump(mutates box Box)
 end 'bump'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	bump(a)
 	bump(a)
 	print("{a.n}\n")
@@ -1612,7 +1575,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-twice-in-one-call-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The first position takes the region out of `a`, so naming `a` again in the same call is a use of a moved value.
 
@@ -1628,12 +1590,11 @@ type Box
 end 'Box'
 
 function both(consumes first Box, consumes second Box) returns Tally
-	return first.n + second.n
+	return try first.n + second.n otherwise panic("out of range")
 end 'both'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	print("{both(a, second: a)}\n")
 	return 0
 end 'main'
@@ -1643,7 +1604,6 @@ error E3102: <fragment>:18:18: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-local-stored-by-a-factory-parameter-is-moved -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Holder.create` keeps its isolated parameter in a field, so the call takes the region from `a`.
 
@@ -1659,8 +1619,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var item as isolated Box
+	export var item as Box
 
 	static function create(consumes item Box) returns Self
 		return Self{item: item}
@@ -1672,8 +1631,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	let holder = Holder.create(a)
 	let again = a.n
 	print("{holder.size()} {again}\n")
@@ -1685,7 +1643,6 @@ error E3102: <fragment>:27:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-local-stored-by-a-factory-parameter-runs -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The holder owns the region it was handed and releases it with the holder, once.
 
 ```maxon
@@ -1700,8 +1657,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var item as isolated Box
+	export var item as Box
 
 	static function create(consumes item Box) returns Self
 		return Self{item: item}
@@ -1713,8 +1669,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(3) as isolated Box
+	let a = Box.create(3) as Box
 	let holder = Holder.create(a)
 	let other = Holder.create(Box.create(4))
 	print("{holder.size()} {other.size()}\n")
@@ -1729,7 +1684,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-through-a-function-type-is-moved -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Take` declares its parameter isolated, so calling it with `a` takes the region from `a` whichever function it names.
 
@@ -1751,8 +1705,7 @@ function consume(consumes box Box) returns Tally
 end 'consume'
 
 function feed(take Take) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(4) as isolated Box
+	var a = Box.create(4) as Box
 	let taken = take(a)
 	let again = a.n
 	return taken + again
@@ -1768,7 +1721,6 @@ error E3102: <fragment>:21:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-argument-through-a-function-type-is-dropped-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Whichever declared function the function value names takes the isolated region it is called with, from a local and from a fresh call result alike, and releases it once.
 
 ```maxon
@@ -1793,8 +1745,7 @@ function bumped(consumes box Box) returns Tally
 end 'bumped'
 
 function feed(take Take, n Tally) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(n) as isolated Box
+	let a = Box.create(n) as Box
 	return take(a) + take(Box.create(n + 1))
 end 'feed'
 
@@ -1811,7 +1762,6 @@ end 'main'
 ```
 
 <!-- test: let-of-an-isolated-parameter-moves-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` parameter is owned by the function, so `let b = a` hands its region to `b` and the read of `a` afterwards is a use of a moved value.
 
@@ -1829,12 +1779,11 @@ end 'Box'
 function moveOnly(consumes a Box) returns Tally
 	let b = a
 	let reread = a.n
-	return b.n + reread
+	return try b.n + reread otherwise panic("out of range")
 end 'moveOnly'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let x = Box.create(1) as isolated Box
+	let x = Box.create(1) as Box
 	print("{moveOnly(x)}\n")
 	return 0
 end 'main'
@@ -1844,7 +1793,6 @@ error E3102: <fragment>:14:15: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: freeze-of-an-isolated-parameter-moves-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `freeze a` consumes the parameter exactly as it consumes a local, so the read of `a` afterwards is a use of a moved value.
 
@@ -1862,12 +1810,11 @@ end 'Box'
 function useParam(consumes a Box) returns Tally
 	let frozen = freeze(a)
 	let reread = a.n
-	return frozen.n + reread
+	return try frozen.n + reread otherwise panic("out of range")
 end 'useParam'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let x = Box.create(1) as isolated Box
+	let x = Box.create(1) as Box
 	print("{useParam(x)}\n")
 	return 0
 end 'main'
@@ -1877,7 +1824,6 @@ error E3102: <fragment>:14:15: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: ternary-over-two-isolated-parameters-consumes-the-false-arm -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Both parameters are owned isolated regions, so the ternary moves each of them into its result and the read of `b` afterwards is a use of a moved value.
 
@@ -1895,14 +1841,12 @@ end 'Box'
 function pick(consumes a Box, consumes b Box, flag bool) returns Tally
 	let c = a if flag else b
 	let again = b.n
-	return c.n + again
+	return try c.n + again otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let x = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let y = Box.create(2) as isolated Box
+	let x = Box.create(1) as Box
+	let y = Box.create(2) as Box
 	print("{pick(x, b: y, flag: true)}\n")
 	return 0
 end 'main'
@@ -1912,7 +1856,6 @@ error E3102: <fragment>:14:14: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: match-over-two-isolated-parameters-consumes-both -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` expression whose arms give isolated parameters moves each of them into the result, so the read of `a` afterwards is a use of a moved value.
 
@@ -1933,14 +1876,12 @@ function pick(consumes a Box, consumes b Box, flag bool) returns Tally
 		default gives b
 	end 'which'
 	let again = a.n
-	return c.n + again
+	return try c.n + again otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let x = Box.create(1) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let y = Box.create(2) as isolated Box
+	let x = Box.create(1) as Box
+	let y = Box.create(2) as Box
 	print("{pick(x, b: y, flag: true)}\n")
 	return 0
 end 'main'
@@ -1998,7 +1939,6 @@ end 'main'
 ```
 
 <!-- test: try-otherwise-an-isolated-local-moves-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The `otherwise` fallback names `spare`, an isolated local, so the result takes the region from `spare` and the read of `spare` afterwards is a use of a moved value.
 
@@ -2025,11 +1965,10 @@ function build(n Tally) returns Box throws BuildError
 end 'build'
 
 function pick(n Tally) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let spare = Box.create(7) as isolated Box
+	let spare = Box.create(7) as Box
 	let chosen = try build(n) otherwise spare
 	let again = spare.n
-	return chosen.n + again
+	return try chosen.n + again otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
@@ -2042,7 +1981,6 @@ error E3102: <fragment>:27:14: use of moved value 'spare': its ownership moved t
 ```
 
 <!-- test: try-otherwise-an-isolated-local-runs-and-leaks-nothing -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The fallback region is moved into the result when the call fails and released with the function when it succeeds, so both paths end with no allocation held.
 
 ```maxon
@@ -2068,8 +2006,7 @@ function build(n Tally) returns Box throws BuildError
 end 'build'
 
 function pick(n Tally) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let spare = Box.create(7) as isolated Box
+	let spare = Box.create(7) as Box
 	let chosen = try build(n) otherwise spare
 	return chosen.n
 end 'pick'
@@ -2088,7 +2025,6 @@ end 'main'
 
 <!-- test: loop-merge-of-an-isolated-variable-the-back-edge-assigns-data -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The first trip merges the isolated region out of `e`, but `e = fresh` assigns mutable data of this region to a variable that holds an isolated region, which is refused where it is assigned.
 
@@ -2108,8 +2044,7 @@ function size(box Box) returns Tally
 end 'size'
 
 function drain(rounds Tally) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var e = Box.create(0) as isolated Box
+	var e = Box.create(0) as Box
 	var sum = 0 as Tally
 	var i = 0 as Tally
 	while i < rounds 'again'
@@ -2133,7 +2068,6 @@ error E3200: <fragment>:25:7: 'fresh' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: loop-freeze-of-an-isolated-variable-the-back-edge-assigns-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `freeze e` needs an isolated region on every trip, but `e = fresh` assigns mutable data of this region to a variable that holds an isolated region, which is refused where it is assigned.
 
@@ -2153,12 +2087,11 @@ function read(box frozen with Box) returns Tally
 end 'read'
 
 function drain(rounds Tally) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var e = Box.create(0) as isolated Box
+	var e = Box.create(0) as Box
 	var sum = 0 as Tally
 	var i = 0 as Tally
 	while i < rounds 'again'
-		sum = sum + read(freeze(e))
+		sum = try sum + read(freeze(e)) otherwise panic("out of range")
 		let fresh = Box.create(i)
 		print("{fresh.n}\n")
 		e = fresh
@@ -2178,7 +2111,6 @@ error E3200: <fragment>:25:7: 'fresh' is not isolated: only a clean call, a `swa
 
 <!-- test: loop-modify-of-an-isolated-variable-the-back-edge-assigns-data -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `modify e` opens an isolated region on every trip, but `e = fresh` assigns mutable data of this region to a variable that holds an isolated region, which is refused where it is assigned.
 
@@ -2194,8 +2126,7 @@ type Box
 end 'Box'
 
 function drain(rounds Tally) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var e = Box.create(0) as isolated Box
+	var e = Box.create(0) as Box
 	var i = 0 as Tally
 	while i < rounds 'again'
 		// TODO: modify blocks are not supported in minimaxon
@@ -2220,7 +2151,6 @@ error E3200: <fragment>:23:7: 'fresh' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: branch-assigning-data-to-an-isolated-variable-is-refused-at-the-assignment -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `var e = a` holds an isolated region, and one branch assigns mutable data to it, which is refused where it is assigned.
 
@@ -2236,8 +2166,7 @@ type Box
 end 'Box'
 
 function pick(flag bool) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	let spare = Box.create(5)
 	print("{spare.n}\n")
 	var e = a
@@ -2257,7 +2186,6 @@ error E3200: <fragment>:19:7: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: loop-reassigning-an-isolated-variable-a-fresh-call-stays-isolated -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `e = Box.create(i + 1)` hands the next trip a clean call result, which an isolated variable takes, so the loop is accepted and releases every region it makes once.
 
 ```maxon
@@ -2272,16 +2200,15 @@ type Box
 end 'Box'
 
 function total(rounds Tally) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var e = Box.create(0) as isolated Box
+	var e = Box.create(0) as Box
 	var sum = 0 as Tally
 	var i = 0 as Tally
 	while i < rounds 'again'
-		sum = sum + e.n
+		sum = try sum + e.n otherwise panic("out of range")
 		e = Box.create(i + 1)
 		i = i + 1
 	end 'again'
-	return sum + e.n
+	return try sum + e.n otherwise panic("out of range")
 end 'total'
 
 function main() returns ExitCode
@@ -2297,7 +2224,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture-of-an-isolated-local-moves-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure owns the region it captures, so the read of `a` afterwards is a use of a moved value.
 
@@ -2313,8 +2239,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	let f = function() gives a.n
 	let k = a.n
 	print("{f()} {k}\n")
@@ -2326,7 +2251,6 @@ error E3102: <fragment>:15:10: use of moved value 'a': its ownership moved to th
 ```
 
 <!-- test: returned-isolated-local-runs-and-leaks-nothing -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `return a` hands the region to the caller, which owns and releases it, and nothing in the callee releases it again.
 
 ```maxon
@@ -2341,8 +2265,7 @@ type Box
 end 'Box'
 
 function make() returns Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	return a
 end 'make'
 
@@ -2360,7 +2283,6 @@ end 'main'
 ```
 
 <!-- test: returning-an-isolated-parameter-as-a-plain-result-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pass` declares no `isolated` result, so `return box` would hand a closed region to the caller as ordinary mutable data; it is merged where it is returned.
 
@@ -2380,8 +2302,7 @@ function pass(consumes box Box) returns Box
 end 'pass'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	var plain = pass(a)
 	plain.n = 4
 	print("{plain.n}\n")
@@ -2393,7 +2314,6 @@ error E3209: <fragment>:13:9: a return does not fit the declared result: 'box' i
 ```
 
 <!-- test: returning-an-isolated-local-as-a-plain-result-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same for an `isolated` local: the result is ordinary data of the caller's region, so the region is merged first.
 
@@ -2409,8 +2329,7 @@ type Box
 end 'Box'
 
 function make() returns Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	return a
 end 'make'
 
@@ -2427,7 +2346,6 @@ error E3209: <fragment>:14:9: a return does not fit the declared result: 'a' is 
 
 <!-- test: returning-a-merged-isolated-parameter-as-a-plain-result-runs -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `return merge box` moves the region into the caller's, where the result is ordinary mutable data.
 
 ```maxon
@@ -2447,8 +2365,7 @@ function pass(consumes box Box) returns Box
 end 'pass'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	let plain = pass(a)
 	plain.n = 4
 	print("{plain.n}\n")
@@ -2463,7 +2380,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-through-an-interface-requirement-is-moved -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Sink.take` declares its parameter isolated, so a call through the requirement takes the region from `a` whichever conformer is behind it.
 
@@ -2507,8 +2423,7 @@ type Feeder
 	end 'create'
 
 	function feed() returns Tally
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		var a = Box.create(3) as isolated Box
+		var a = Box.create(3) as Box
 		self.sink.take(a)
 		return a.n
 	end 'feed'
@@ -2526,7 +2441,6 @@ error E3102: <fragment>:43:10: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-argument-through-an-interface-requirement-is-dropped-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A conformer takes the isolated region it is called with, from a local and from a fresh call result alike, whether the call names the interface-typed parameter or a stored interface value, and releases it once.
 
 ```maxon
@@ -2569,16 +2483,14 @@ type Feeder
 	end 'create'
 
 	function feed()
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let a = Box.create(3) as isolated Box
+		let a = Box.create(3) as Box
 		self.sink.take(a)
 		self.sink.take(Box.create(4))
 	end 'feed'
 end 'Feeder'
 
 function feedDirect(sink Sink)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(30) as isolated Box
+	let a = Box.create(30) as Box
 	sink.take(a)
 	sink.take(Box.create(40))
 end 'feedDirect'
@@ -2600,7 +2512,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-to-an-async-call-is-moved -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `work` declares its parameter isolated, so spawning it with `a` takes the region from `a` and the read of `a` afterwards is a use of a moved value.
 
@@ -2621,8 +2532,7 @@ function work(consumes box Box) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(7) as isolated Box
+	let a = Box.create(7) as Box
 	let pending = async work(a)
 	let again = a.n
 	let got = await pending
@@ -2635,7 +2545,6 @@ error E3102: <fragment>:20:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-argument-of-an-async-call-is-dropped-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The spawned coroutine owns the isolated region it was handed, from a local and from a fresh call result alike, and releases it once when it finishes.
 
 ```maxon
@@ -2655,8 +2564,7 @@ function work(consumes box Box) returns Tally
 end 'work'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(7) as isolated Box
+	let a = Box.create(7) as Box
 	let first = async work(a)
 	let second = async work(Box.create(8))
 	let one = await first
@@ -2673,7 +2581,6 @@ end 'main'
 ```
 
 <!-- test: isolated-parameter-of-a-throwing-callee-is-dropped-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The callee owns the isolated region it was handed whether it returns or throws, so both calls end with no allocation held.
 
 ```maxon
@@ -2699,10 +2606,8 @@ function check(consumes box Box, limit Tally) returns Tally throws LimitError
 end 'check'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let small = Box.create(5) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let large = Box.create(50) as isolated Box
+	let small = Box.create(5) as Box
+	let large = Box.create(50) as Box
 	let one = try check(small, limit: 10) otherwise 0
 	let two = try check(large, limit: 10) otherwise 99
 	print("{one} {two}\n")
@@ -2717,7 +2622,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-made-in-each-loop-trip-is-moved-and-dropped-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Each trip makes its own isolated region and hands it to `consume`, which releases it, so the loop ends with no allocation held.
 
 ```maxon
@@ -2738,9 +2642,8 @@ end 'consume'
 function main() returns ExitCode
 	var total = 0 as Tally
 	for i in 1 to 3 'eachTrip'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let made = Box.create(i) as isolated Box
-		total = total + consume(made)
+		let made = Box.create(i) as Box
+		total = try total + consume(made) otherwise panic("out of range")
 	end 'eachTrip'
 	print("{total}\n")
 	return 0
@@ -2754,7 +2657,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture-of-an-isolated-parameter-moves-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure owns the region it captures from the parameter, so the read of `a` afterwards is a use of a moved value.
 
@@ -2772,12 +2674,11 @@ end 'Box'
 function capture(consumes a Box) returns Tally
 	let f = function() gives a.n
 	let k = a.n
-	return f() + k
+	return try f() + k otherwise panic("out of range")
 end 'capture'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let x = Box.create(1) as isolated Box
+	let x = Box.create(1) as Box
 	print("{capture(x)}\n")
 	return 0
 end 'main'
@@ -2788,7 +2689,6 @@ error E3102: <fragment>:14:10: use of moved value 'a': its ownership moved to th
 
 <!-- test: mutable-isolated-requirement-parameter-leaves-the-callers-variable-usable -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `Sink.grow` declares its parameter `mutable isolated`, so a call through the requirement borrows the caller's region exactly as a call to a function does, and the caller reads it afterwards.
 
 ```maxon
@@ -2827,8 +2727,7 @@ type Counter implements Sink
 end 'Counter'
 
 function feed(sink Sink) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	sink.grow(a)
 	sink.grow(a)
 	return a.n
@@ -2848,7 +2747,6 @@ end 'main'
 ```
 
 <!-- test: isolated-argument-of-a-message-is-moved-and-dropped-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A message handler takes its `isolated` parameter, so the sender gives up the region it sends and the service releases it once.
 
 ```maxon
@@ -2869,9 +2767,9 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	export function take(consumes box Box)
+	export function take(mutates self, consumes box Box)
 		let added = box.n
-		self.total = self.total + added
+		self.total = try self.total + added otherwise panic("out of range")
 	end 'take'
 
 	export function size() returns Tally
@@ -2881,8 +2779,7 @@ end 'Sink'
 
 function main() returns ExitCode
 	let sink = spawn Sink.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(3) as isolated Box
+	let a = Box.create(3) as Box
 	try sink.take(a) otherwise panic("an open mailbox with room takes the send")
 	let total = try await sink.size() otherwise 0
 	sink.shutdown()
@@ -2898,7 +2795,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-sent-in-a-message-is-moved -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The handler's `isolated` parameter takes the region out of `a`, so reading `a` after the send is a use of a moved value.
 
@@ -2920,16 +2816,15 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	export function take(consumes box Box)
+	export function take(mutates self, consumes box Box)
 		let added = box.n
-		self.total = self.total + added
+		self.total = try self.total + added otherwise panic("out of range")
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
 	let sink = spawn Sink.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(3) as isolated Box
+	let a = Box.create(3) as Box
 	try sink.take(a) otherwise panic("an open mailbox with room takes the send")
 	let k = a.n
 	sink.shutdown()
@@ -2943,15 +2838,12 @@ error E3102: <fragment>:29:10: use of moved value 'a': its ownership moved to an
 
 <!-- test: mutable-isolated-function-type-parameter-leaves-the-callers-variable-usable -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `Grow` declares its parameter `mutable isolated`, so a call through the function value borrows the caller's region exactly as a call to the function does, and the caller reads it afterwards.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-typealias Grow = function(mutates isolated Box)
+typealias Grow = function(mutates Box)
 
 type Box
 	export var n as Tally
@@ -2969,8 +2861,7 @@ function bump(mutates box Box)
 end 'bump'
 
 function feed(grow Grow) returns Tally
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	grow(a)
 	grow(a)
 	return a.n
@@ -2989,7 +2880,6 @@ end 'main'
 ```
 
 <!-- test: frozen-local-handed-to-a-factory-parameter-that-stores-it-runs -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `Holder.build` declares `item` `immutable` and keeps it in a frozen field. The factory takes its own reference to what it keeps, and that reference is the frozen data `pinned` names, so a frozen local is accepted.
 
 ```maxon
@@ -3004,8 +2894,7 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var held as immutable Box
+	export var held as Box
 
 	static function build(item frozen with Box) returns Self
 		return Self{held: item}
@@ -3213,7 +3102,7 @@ error E3207: <fragment>:20:15: 'stash' writes 'item' (line 14: `items.push(item)
 ```
 
 <!-- test: mutable-argument-to-a-parameter-stored-in-an-immutable-field-is-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Shelf.build` keeps `item` in an `immutable` field, which makes `item` immutable only: a mutable record another name may still write cannot be handed to it.
 
@@ -3229,8 +3118,7 @@ type Box
 end 'Box'
 
 type Shelf
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var held as immutable Box
+	export var held as Box
 
 	static function build(item Box) returns Self
 		return Self{held: item}
@@ -3250,7 +3138,6 @@ error E3207: <fragment>:22:22: 'build' needs 'item' frozen (line 16: `return Sel
 ```
 
 <!-- test: frozen-argument-to-a-parameter-stored-in-an-immutable-field-runs -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 Both stores of `item` into an `immutable` field, the literal and the assignment, make it immutable only, and a frozen record meets that.
 
 ```maxon
@@ -3265,21 +3152,20 @@ type Box
 end 'Box'
 
 type Shelf
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var held as immutable Box
+	export var held as Box
 
 	static function build(item Box) returns Self
-		return Self{held: item}
+		return Self{held: item.clone()}
 	end 'build'
 
-	function put(item Box)
-		self.held = item
+	function put(mutates self, item Box)
+		self.held = item.clone()
 	end 'put'
 end 'Shelf'
 
 function main() returns ExitCode
 	let pinned = freeze(Box.create(1))
-	let s = Shelf.build(pinned)
+	var s = Shelf.build(pinned)
 	s.put(pinned)
 	print("{s.held.n}\n")
 	return 0
@@ -3376,7 +3262,6 @@ error E3207: <fragment>:20:21: 'bump' writes 'item' (line 14: `item.n = item.n +
 ```
 
 <!-- test: struct-literal-storing-a-mutable-value-into-an-immutable-field-is-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A struct literal judges each field against its slot as an assignment does: `local` is mutable and `held` is `immutable`.
 
@@ -3392,8 +3277,7 @@ type Box
 end 'Box'
 
 type Wrong
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var held as immutable Box
+	export var held as Box
 
 	static function build() returns Self
 		var local = Box.create(1)
@@ -3413,7 +3297,7 @@ error E3196: <fragment>:18:21: cannot store a mutable 'Box' into 'Wrong.held', w
 ```
 
 <!-- test: struct-literal-storing-a-parameter-into-an-isolated-field-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A parameter is outer data, which an `isolated` field takes only as a value, immutable data or a moved `isolated` one.
 
@@ -3429,8 +3313,7 @@ type Box
 end 'Box'
 
 type Vault
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Box
+	export var held as Box
 
 	static function build(item Box) returns Self
 		return Self{held: item}
@@ -4804,7 +4687,6 @@ error E3207: <fragment>:42:2: 'run' writes its receiver (it calls 'bump', which 
 
 <!-- test: a-generic-call-that-may-yield-inside-modify-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `settle` is generic and awaits a coroutine, so the call is to an instance that may yield, and no call inside the block may.
@@ -4825,8 +4707,7 @@ function settle(_ T) uses T returns Tally
 end 'settle'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = settle(1)

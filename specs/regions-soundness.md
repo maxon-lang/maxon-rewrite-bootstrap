@@ -116,7 +116,6 @@ error E3207: <fragment>:31:11: 'viaParam' writes 'q'; 'frozen' is immutable
 ```
 
 <!-- test: a-mixed-result-given-a-frozen-argument-is-not-immutable-for-an-immutable-field -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `choose` hands back `p` or a box it also pushed into `spare`, so given a frozen `p` its result is read-only, not immutable, and cannot enter an `immutable` field.
 
@@ -144,8 +143,7 @@ function choose(p Box, spare BoxArray, useP bool) returns Box
 end 'choose'
 
 type Pinned
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	var box as immutable Box
+	var box as Box
 
 	static function build(first frozen with Box) returns Self
 		return Self{box: first}
@@ -176,7 +174,6 @@ error E3196: <fragment>:32:14: cannot store a mutable 'Box' into 'box', which ho
 ```
 
 <!-- test: a-mixed-join-stored-into-an-immutable-field-is-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A join of a parameter with fresh data is mutable data, so it cannot enter an `immutable` field, and the caller's mutable box stays unaliased by the field.
 
@@ -192,8 +189,7 @@ type Box
 end 'Box'
 
 type Shelf
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	var held as immutable Box
+	var held as Box
 
 	static function build(item frozen with Box) returns Self
 		return Self{held: item}
@@ -223,7 +219,6 @@ error E3196: <fragment>:20:15: cannot store a mutable 'Box' into 'held', which h
 ```
 
 <!-- test: data-of-an-immutable-slot-returned-by-a-plain-result-stays-immutable -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `part` returns data of an `immutable` slot; the result stays immutable whatever the receiver, so writing through it is refused.
 
@@ -239,8 +234,7 @@ type Box
 end 'Box'
 
 type Shelf
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	var held as immutable Box
+	var held as Box
 
 	static function build(item frozen with Box) returns Self
 		return Self{held: item}
@@ -309,7 +303,6 @@ error E3212: <fragment>:24:2: the promise of this `async` call is tied to the mu
 
 <!-- test: a-nested-modify-over-another-field-demotes-the-enclosing-field-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Inside `'inner'` the enclosing `self.left` is read-only.
 
@@ -325,10 +318,8 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var left as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var right as isolated Box
+	var left as Box
+	var right as Box
 
 	static function create() returns Self
 		return Self{left: Box.create(0), right: Box.create(0)}
@@ -337,8 +328,7 @@ type Pair
 	function both()
 		// TODO: modify blocks are not supported in minimaxon
 		modify self.left 'outer'
-			// TODO: region capability 'isolated' is not supported in minimaxon
-			let spare = Box.create(0) as isolated Box
+			let spare = Box.create(0) as Box
 			// TODO: modify blocks are not supported in minimaxon
 			modify spare 'inner'
 				self.left.n = 5
@@ -393,7 +383,6 @@ error E3102: <fragment>:22:10: use of moved value 'ticket': its ownership moved 
 
 <!-- test: starting-an-async-call-inside-a-modify-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` start inside `'window'` is refused where it is written, whatever the callee does: a coroutine started there could run while `box` is open.
 
@@ -416,8 +405,7 @@ function spin() returns Tally
 end 'spin'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var box = Box.create(0) as isolated Box
+	var box = Box.create(0) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify box 'window'
 		let later = async spin()
@@ -680,7 +668,6 @@ error E3196: <fragment>:14:15: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-function-value-result-stored-into-an-immutable-field-is-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `getPart()` may hand back a record a mutable closure holds, so it cannot enter `Pinned`'s `immutable` field, and the closure over mutable `held` is refused.
 
@@ -698,8 +685,7 @@ type Part
 end 'Part'
 
 type Pinned
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	var part as immutable Part
+	var part as Part
 
 	static function create(part frozen with Part) returns Self
 		return Self{part: part}
@@ -955,7 +941,6 @@ end 'main'
 
 <!-- test: an-isolated-sibling-of-an-open-field-window-is-read-only-inside-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `modify self.left` opens one isolated field; `self.right` is another region the window does not hold, so writing it inside the window is refused.
 
@@ -971,10 +956,8 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var left as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var right as isolated Box
+	var left as Box
+	var right as Box
 
 	static function create() returns Self
 		return Self{left: Box.create(0), right: Box.create(0)}
@@ -1000,7 +983,6 @@ error E3199: <fragment>:22:4: 'right' cannot be opened: the value that holds it 
 
 <!-- test: a-call-open-of-a-sibling-isolated-field-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `modify self.left` opens one isolated field; calling a mutating method on `self.right` would open a second region the window does not hold, so it is refused.
 
@@ -1020,10 +1002,8 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var left as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var right as isolated Box
+	var left as Box
+	var right as Box
 
 	static function create() returns Self
 		return Self{left: Box.create(0), right: Box.create(0)}
@@ -1049,7 +1029,6 @@ error E3207: <fragment>:26:14: 'bump' needs a writable receiver at line 12; the 
 
 <!-- test: a-field-path-window-of-two-levels-is-written-through-its-own-path -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `modify self.holder.part` opens a path two fields deep; the write inside names the same path again, so it is the opened region and is accepted.
 
 ```maxon
@@ -1064,8 +1043,7 @@ type Part
 end 'Part'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create(0)}
@@ -1334,7 +1312,6 @@ end 'main'
 
 <!-- test: a-write-two-fields-deep-below-a-sibling-isolated-field-is-refused-inside-a-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `self.right.inner.n` reaches through the isolated `right`, which the window on `left` does not hold, so the write is refused although `inner` is a plain record.
 
@@ -1362,10 +1339,8 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var left as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var right as isolated Box
+	var left as Box
+	var right as Box
 
 	static function create() returns Self
 		return Self{left: Box.create(), right: Box.create()}
@@ -1391,7 +1366,6 @@ error E3199: <fragment>:34:4: 'right' cannot be opened: the value that holds it 
 
 <!-- test: a-call-two-fields-deep-below-a-sibling-isolated-field-is-refused-inside-a-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `self.right.inner.bump()` writes through the isolated `right`, which the window on `left` does not hold, so the call is refused.
 
@@ -1419,10 +1393,8 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var left as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var right as isolated Box
+	var left as Box
+	var right as Box
 
 	static function create() returns Self
 		return Self{left: Box.create(), right: Box.create()}
@@ -1535,7 +1507,6 @@ end 'main'
 
 <!-- test: a-swap-two-fields-deep-below-a-sibling-isolated-field-is-refused-inside-a-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `swap` takes `self.right.inner.slot` out of a record reached through the isolated `right`, which the window on `left` does not hold, so the swap is refused.
 
@@ -1551,8 +1522,7 @@ type Box
 end 'Box'
 
 type Inner
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var slot as isolated Box
+	export var slot as Box
 
 	static function create() returns Self
 		return Self{slot: Box.create(0)}
@@ -1568,10 +1538,8 @@ type Mid
 end 'Mid'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var left as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var right as isolated Mid
+	var left as Box
+	var right as Mid
 
 	static function create() returns Self
 		return Self{left: Box.create(0), right: Mid.create()}
@@ -1598,7 +1566,6 @@ error E3199: <fragment>:38:14: 'right' cannot be opened: the value that holds it
 
 <!-- test: a-modify-two-fields-deep-below-a-sibling-isolated-field-is-refused-inside-a-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `modify self.right.inner.slot` opens a region through the isolated `right`, which the window on `left` does not hold, so the inner window is refused.
 
@@ -1614,8 +1581,7 @@ type Box
 end 'Box'
 
 type Inner
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var slot as isolated Box
+	export var slot as Box
 
 	static function create() returns Self
 		return Self{slot: Box.create(0)}
@@ -1631,10 +1597,8 @@ type Mid
 end 'Mid'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var left as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var right as isolated Mid
+	var left as Box
+	var right as Mid
 
 	static function create() returns Self
 		return Self{left: Box.create(0), right: Mid.create()}
@@ -1704,7 +1668,6 @@ end 'main'
 
 <!-- test: paused-data-and-a-fresh-argument-give-a-read-only-result -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Inside the window `other` is read-only, so `pick(other, b: Box.create(0))` joins read-only data with a fresh value and answers read-only data, which the block reads.
 
 ```maxon
@@ -1725,8 +1688,7 @@ function pick(a Box, b Box) returns Box
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	let other = Box.create(1)
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
@@ -1776,7 +1738,6 @@ end 'main'
 
 <!-- test: a-result-joining-a-merged-isolated-parameter-with-a-frozen-one-is-read-only -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `pick` may hand back the merged region of `a` or the frozen `b`, so its result is read-only and reading it is accepted.
 
 ```maxon
@@ -1796,8 +1757,7 @@ function pick(consumes a Box, b Box, flag bool) returns Box
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let iso = Box.create(1) as isolated Box
+	let iso = Box.create(1) as Box
 	let frozen = freeze(Box.create(2))
 	let r = pick(iso, b: frozen, flag: true)
 	print("{r.n}\n")
@@ -1813,7 +1773,6 @@ end 'main'
 
 <!-- test: a-result-joining-a-merged-isolated-parameter-with-a-frozen-one-refuses-a-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same result is not written through: the frozen `b` may be what came back.
 
@@ -1834,8 +1793,7 @@ function pick(consumes a Box, b Box, flag bool) returns Box
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let iso = Box.create(1) as isolated Box
+	let iso = Box.create(1) as Box
 	let frozen = freeze(Box.create(2))
 	var r = pick(iso, b: frozen, flag: true)
 	r.n = 9
@@ -1848,7 +1806,6 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: error.a-refused-constructor-body-does-not-refuse-its-callers-writes -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The literal in `Tracer.create` stores a mutable `Cols` into an `immutable` slot, which refuses the body. `build` writes through the record it gets back; that write is judged against a body that never finished, so it is not refused as well. Only the store is reported.
 
@@ -1868,22 +1825,21 @@ type Deps
 		return Self{rows: 0}
 	end 'create'
 
-	function record()
-		self.rows = self.rows + 1
+	function record(mutates self)
+		self.rows = try self.rows + 1 otherwise panic("out of range")
 	end 'record'
 end 'Deps'
 
 type Tracer
 	export var deps as Deps
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var cols as immutable Cols
+	export var cols as Cols
 
 	static function create(deps Deps) returns Self
-		return Self{deps: deps, cols: Cols.create()}
+		return Self{deps: deps.clone(), cols: Cols.create()}
 	end 'create'
 end 'Tracer'
 
-function settle(deps Deps)
+function settle(mutates deps Deps)
 	deps.record()
 end 'settle'
 
@@ -1895,7 +1851,7 @@ end 'build'
 
 function main() returns ExitCode
 	let tracer = build()
-	return tracer.deps.rows as ExitCode
+	return try tracer.deps.rows as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1904,7 +1860,6 @@ error E3196: <fragment>:27:33: cannot store a mutable 'Cols' into 'Tracer.cols',
 
 <!-- test: a-fresh-runtime-buffer-recovers-as-isolated -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 `__ManagedMemory.create` hands back a buffer nothing else reaches, so `ByteArray.init` over it is built from clean inputs and is returned as `isolated`: it fills an `isolated` field and is passed to an `isolated` parameter.
 
@@ -1914,8 +1869,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -1951,7 +1905,6 @@ end 'main'
 ```
 
 <!-- test: a-runtime-buffer-bound-as-isolated-moves-into-a-fresh-array -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 A fresh buffer bound `as isolated` is written through one-call opens and then moved into `ByteArray.init`, so the array is returned as `isolated` without a copy.
 
@@ -1961,8 +1914,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function stamped(n Count) returns ByteArray
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let raw = (try __ManagedMemory.create(n, 1) otherwise panic("stamped: create")) as isolated __ManagedMemory
+	let raw = (try __ManagedMemory.create(n, 1) otherwise panic("stamped: create")) as __ManagedMemory
 	try raw.setLength(n) otherwise panic("stamped: setLength")
 	try raw.setByte(0, value: 5) otherwise panic("stamped: setByte")
 	return ByteArray.init(raw)
@@ -2032,7 +1984,6 @@ error E3200: <fragment>:7:9: 'ByteArray.init(managed)' is not isolated: only a c
 
 <!-- test: error.array-init-over-an-isolated-local-moves-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `ByteArray.init(src)` builds the array over `src`'s storage, so `src` is moved into the clean call and the array it answers fills the `isolated` field. A later use of `src` is refused exactly as after `Shelf.holding(src)`: otherwise `src.push` would write into the shelf's isolated region from outside it.
 
@@ -2042,8 +1993,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2051,8 +2001,7 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let src = ByteArray.create(0) as isolated ByteArray
+	let src = ByteArray.create(0) as ByteArray
 	src.push(1)
 	let shelf = Shelf.holding(ByteArray.init(src))
 	src.push(2)
@@ -2071,7 +2020,6 @@ error E3102: <fragment>:17:2: use of moved value 'src': its ownership moved to a
 ```
 
 <!-- test: array-init-over-an-isolated-local-is-then-pushed -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The move leaves the array `ByteArray.init(src)` answers as the one owner of the storage, so the new name is an ordinary array that takes its own `push` and counts the bytes that were in `src`.
 
 ```maxon
@@ -2080,8 +2028,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let src = ByteArray.create(0) as isolated ByteArray
+	let src = ByteArray.create(0) as ByteArray
 	src.push(7)
 	src.push(8)
 	let grown = ByteArray.init(src)
@@ -2100,7 +2047,6 @@ end 'main'
 
 <!-- test: array-init-over-an-isolated-local-then-pushed-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same array handed to an `isolated` field is pushed from inside `modify`, the one place the shelf's region may be written, and the bytes that were in `src` are still there.
 
 ```maxon
@@ -2109,8 +2055,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2118,8 +2063,7 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let src = ByteArray.create(0) as isolated ByteArray
+	let src = ByteArray.create(0) as ByteArray
 	src.push(7)
 	src.push(8)
 	let shelf = Shelf.holding(ByteArray.init(src))
@@ -2144,7 +2088,6 @@ end 'main'
 
 <!-- test: error.array-init-over-an-isolated-parameter-moves-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A parameter declared `isolated` is moved by `ByteArray.init` exactly as an `isolated` local is, so the function's own later `push` through the parameter is refused: otherwise it would write into the shelf's region from outside it.
 
@@ -2154,8 +2097,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2183,7 +2125,6 @@ error E3102: <fragment>:15:2: use of moved value 'src': its ownership moved to a
 ```
 
 <!-- test: error.array-init-over-an-isolated-local-sent-to-a-service-moves-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same array sent as an `isolated` message argument crosses to the service's thread, so `src` is moved by the send and a later push from the sender is refused rather than racing the handler.
 
@@ -2207,8 +2148,7 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let keeper = spawn Keeper.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let src = ByteArray.create(0) as isolated ByteArray
+	let src = ByteArray.create(0) as ByteArray
 	src.push(1)
 	let kept = try await keeper.keep(ByteArray.init(src)) otherwise 0
 	src.push(2)
@@ -2222,7 +2162,6 @@ error E3102: <fragment>:23:2: use of moved value 'src': its ownership moved to a
 
 <!-- test: error.array-init-over-an-isolated-runtime-buffer-moves-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A fresh buffer bound `as isolated` is moved into `ByteArray.init`, so after the array fills the shelf's `isolated` field the buffer cannot be written again: `raw.setByte` would reach the shelf's region from outside it.
@@ -2233,8 +2172,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2242,8 +2180,7 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let raw = (try __ManagedMemory.create(4, 1) otherwise panic("main: create")) as isolated __ManagedMemory
+	let raw = (try __ManagedMemory.create(4, 1) otherwise panic("main: create")) as __ManagedMemory
 	try raw.setLength(4) otherwise panic("main: setLength")
 	try raw.setByte(0, value: 5) otherwise panic("main: setByte")
 	let shelf = Shelf.holding(ByteArray.init(raw))
@@ -2262,7 +2199,6 @@ error E3102: <fragment>:18:6: use of moved value 'raw': its ownership moved to a
 ```
 
 <!-- test: error.array-init-cannot-read-an-isolated-field-outside-a-block -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An argument to `ByteArray.init` is a read like any other, so an `isolated` field handed to it outside a `modify` or `swap` is refused as the bare read `shelf.bytes` is, inside a method as well as from the field's owner.
 
@@ -2272,8 +2208,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2299,15 +2234,13 @@ error E3198: <fragment>:19:31: 'shelf.bytes' is isolated and cannot be read outs
 
 <!-- test: error.array-init-over-a-string-view-is-not-fresh -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `addressableBytes` hands back the string's own buffer, not a copy, so an array over it is not a fresh region and is refused as an `isolated` argument: otherwise a write through `shelf.bytes` would change the immutable `text`.
 
 ```maxon
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2353,9 +2286,7 @@ error E3200: <fragment>:9:22: 'text.addressableBytes()' is not isolated: only a 
 ```
 
 <!-- test: error.array-init-cannot-read-an-isolated-payload-through-a-field -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A match over `holder.slot` does not move the union out of the field, so its `bytes` binding is a read of the field's `isolated` payload and `ByteArray.init(bytes)` is refused as the bare read is: otherwise the shelf and the holder would own one region, and the push through the second match would grow the shelf's array.
 
@@ -2365,8 +2296,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -2379,8 +2309,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2412,9 +2341,7 @@ error E3198: <fragment>:31:57: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-isolated-payload-read-through-a-field-is-not-a-second-owner -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same binding passed straight to an `isolated` parameter is the same read of the field's payload, and is refused for the same reason.
 
@@ -2424,8 +2351,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -2438,8 +2364,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2472,15 +2397,12 @@ error E3198: <fragment>:31:42: 'bytes' is isolated and cannot be read outside a 
 
 <!-- test: a-local-union-bound-from-an-awaited-call-moves-its-isolated-payload -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A union whose case carries an `isolated` payload comes back from an awaited service message into a local, and the match arm that binds the payload merges it into the caller's result. The local holds the union the call produced, so the payload it binds is the call's own isolated value and `merge` moves it.
 
 ```maxon
 union Drain
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	lines(lines isolated StringArray)
+	lines(lines StringArray)
 	unreadable(reason String)
 end 'Drain'
 
@@ -2492,8 +2414,7 @@ type Collector
 	end 'create'
 
 	export function drain() returns Drain
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let collected = StringArray.create(0) as isolated StringArray
+		let collected = StringArray.create(0) as StringArray
 		// TODO: modify blocks are not supported in minimaxon
 		modify collected 'fill'
 			collected.push("alpha")
@@ -2531,21 +2452,17 @@ end 'main'
 
 <!-- test: a-local-union-bound-from-a-plain-call-moves-its-isolated-payload -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same union bound from a plain call, with no await between the call and the match, merges its payload the same way.
 
 ```maxon
 union Drain
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	lines(lines isolated StringArray)
+	lines(lines StringArray)
 	unreadable(reason String)
 end 'Drain'
 
 function drain() returns Drain
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let collected = StringArray.create(0) as isolated StringArray
+	let collected = StringArray.create(0) as StringArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify collected 'fill'
 		collected.push("alpha")
@@ -2579,22 +2496,18 @@ end 'main'
 ```
 
 <!-- test: error.a-local-union-matched-twice-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Matching the isolated payload out of a local union moves the payload and partially moves the local, so a second `match` over the same local would bind a second owner of one payload and is refused.
 
 ```maxon
 union Drain
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	lines(lines isolated StringArray)
+	lines(lines StringArray)
 	unreadable(reason String)
 end 'Drain'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var lines as isolated StringArray
+	export var lines as StringArray
 
 	static function holding(consumes lines StringArray) returns Self
 		return Self{lines: lines}
@@ -2602,8 +2515,7 @@ type Shelf
 end 'Shelf'
 
 function drain() returns Drain
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let collected = StringArray.create(0) as isolated StringArray
+	let collected = StringArray.create(0) as StringArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify collected 'fill'
 		collected.push("alpha")
@@ -2637,22 +2549,18 @@ error E3102: <fragment>:35:8: use of moved value 'drained': its ownership moved 
 ```
 
 <!-- test: error.an-awaited-local-union-matched-twice-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same union bound from an awaited service message is refused the same way: the second `match` over the local would give the payload a second owner.
 
 ```maxon
 union Drain
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	lines(lines isolated StringArray)
+	lines(lines StringArray)
 	unreadable(reason String)
 end 'Drain'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var lines as isolated StringArray
+	export var lines as StringArray
 
 	static function holding(consumes lines StringArray) returns Self
 		return Self{lines: lines}
@@ -2667,8 +2575,7 @@ type Collector
 	end 'create'
 
 	export function drain() returns Drain
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let collected = StringArray.create(0) as isolated StringArray
+		let collected = StringArray.create(0) as StringArray
 		// TODO: modify blocks are not supported in minimaxon
 		modify collected 'fill'
 			collected.push("alpha")
@@ -2711,9 +2618,7 @@ error E3102: <fragment>:45:8: use of moved value 'drained': its ownership moved 
 ```
 
 <!-- test: error.a-local-alias-of-a-field-union-cannot-give-its-isolated-payload-a-second-owner -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `let` bound from `holder.slot` holds the same union the field does, so the payload its match binds is still a part of the holder's field and handing it to an `isolated` parameter is refused as the read through the field is: otherwise the shelf and the holder would own one region, and the push through the shelf would grow the array the holder still reaches.
 
@@ -2723,8 +2628,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -2737,8 +2641,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2771,9 +2674,7 @@ error E3198: <fragment>:32:42: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.a-parenthesized-field-union-cannot-give-its-isolated-payload-a-second-owner -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Parentheses around `holder.slot` read the same field, so the payload the match binds is the field's and is refused where an `isolated` value is wanted exactly as it is without them.
 
@@ -2783,8 +2684,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -2797,8 +2697,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2830,9 +2729,7 @@ error E3198: <fragment>:31:42: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.a-field-union-returned-by-a-helper-cannot-give-its-isolated-payload-a-second-owner -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that returns `holder.slot` hands back the union the field still holds, not a fresh one, so the payload a match over its result binds is the field's and is refused where an `isolated` value is wanted.
 
@@ -2842,8 +2739,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -2856,8 +2752,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2893,9 +2788,7 @@ error E3198: <fragment>:35:42: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.a-nested-field-union-bound-to-a-local-cannot-give-its-isolated-payload-a-second-owner -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A union bound out of a field's union payload is still part of that field, so a `let` holding it does not own the `isolated` payload its match binds, and handing that payload to an `isolated` parameter is refused: otherwise the shelf and the nest would own one region.
 
@@ -2905,8 +2798,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -2924,8 +2816,7 @@ type Nest
 end 'Nest'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -2965,9 +2856,7 @@ error E3198: <fragment>:41:42: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.a-local-union-matched-in-a-loop-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` over a local union inside a loop runs once per iteration, so the payload the first iteration moved out would be bound again by the second, and the second trip is refused as a second `match` after the first is.
 
@@ -2977,14 +2866,12 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3020,9 +2907,7 @@ error E3102: <fragment>:28:9: use of moved value 'made': it was moved in an earl
 ```
 
 <!-- test: error.an-isolated-payload-given-out-of-a-match-over-a-field-is-not-a-second-owner -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `gives` arm that hands back the payload a `match` over `holder.slot` binds yields the field's own region, so the value the match expression produces is a read of an isolated part the holder still reaches and is refused where an `isolated` value is wanted, as the payload is when passed directly: otherwise the shelf and the holder would own one region.
 
@@ -3032,8 +2917,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3046,8 +2930,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3079,9 +2962,7 @@ error E3198: <fragment>:30:21: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-isolated-payload-given-out-of-a-match-over-a-parameter-field-is-not-returned-isolated -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that returns `isolated` the payload a `match` over its parameter's field gives does not hand back a fresh region: the caller's holder still reaches it, so the read is refused as it is outside a block.
 
@@ -3091,8 +2972,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3105,8 +2985,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3163,7 +3042,6 @@ error E3200: <fragment>:13:22: 'a' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: error.a-send-error-union-matched-twice-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A refused send hands its `isolated` argument back as the payload of the send error, and the first `match e` moves that payload into `adopt`. The union still names it, so a second `match e` that reads the payload would give one region two owners and is refused as a use of a moved value.
 
@@ -3197,11 +3075,9 @@ end 'adopt'
 
 function main() returns ExitCode
 	let h = spawn(capacity: 1) Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let accepted = Payload.create(1) as isolated Payload
+	let accepted = Payload.create(1) as Payload
 	try h.keep(accepted) otherwise panic("a capacity of one takes the first send")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let second = Payload.create(2) as isolated Payload
+	let second = Payload.create(2) as Payload
 	var total = 0 as Integer
 	try h.keep(second) otherwise (e) 'refused'
 		match e 'first'
@@ -3223,7 +3099,6 @@ error E3102: <fragment>:45:9: use of moved value 'e': its ownership moved to ano
 
 <!-- test: a-send-error-union-hands-its-isolated-payload-back-once -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 With one processor the service does not run between the two sends, so a mailbox of capacity one refuses the second and the send error hands its `isolated` payload back. One `match e` moves that payload into an `isolated` field, which then holds the very record the sender built.
@@ -3240,8 +3115,7 @@ type Payload
 end 'Payload'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Payload
+	export var held as Payload
 
 	static function holding(consumes held Payload) returns Self
 		return Self{held: held}
@@ -3263,14 +3137,11 @@ end 'Store'
 
 function main() returns ExitCode
 	let h = spawn(capacity: 1) Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let empty = Payload.create(0) as isolated Payload
+	let empty = Payload.create(0) as Payload
 	var shelf = Shelf.holding(empty)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let accepted = Payload.create(1) as isolated Payload
+	let accepted = Payload.create(1) as Payload
 	try h.keep(accepted) otherwise panic("a capacity of one takes the first send")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let second = Payload.create(2) as isolated Payload
+	let second = Payload.create(2) as Payload
 	try h.keep(second) otherwise (e) 'refused'
 		match e 'first'
 			mailboxFull(back) then shelf = Shelf.holding(back)
@@ -3293,7 +3164,6 @@ kept 1
 ```
 
 <!-- test: error.a-local-alias-of-a-send-error-union-cannot-give-its-isolated-payload-a-second-owner -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `let` bound from the send error `e` takes the union and the `isolated` payload it owns, as a `let` bound from any owned local union does. A later `match e` that moves the payload into `adopt` would leave `other` naming the same payload for a second `adopt`, so the read of `e` is refused as a use of a moved value.
 
@@ -3327,11 +3197,9 @@ end 'adopt'
 
 function main() returns ExitCode
 	let h = spawn(capacity: 1) Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let accepted = Payload.create(1) as isolated Payload
+	let accepted = Payload.create(1) as Payload
 	try h.keep(accepted) otherwise panic("a capacity of one takes the first send")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let second = Payload.create(2) as isolated Payload
+	let second = Payload.create(2) as Payload
 	var total = 0 as Integer
 	try h.keep(second) otherwise (e) 'refused'
 		let other = e
@@ -3353,9 +3221,7 @@ error E3102: <fragment>:41:9: use of moved value 'e': its ownership moved to ano
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-a-constructor-field -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` part of a holder that a join hands to a field declared `isolated` is a read of a region the holder still reaches, however the read arrives: through a conditional expression, through a `match` expression's `gives` arms, as the payload bound directly, or as the holder's own `isolated` field. Each reaches the constructor as the bare read does, so each is refused: otherwise the new shelf and the holder would own one region.
 
@@ -3365,8 +3231,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3379,8 +3244,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3443,9 +3307,7 @@ error E3198: <fragment>:53:22: 'shelf.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-a-constructor-field -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so the same three joins hand it to an `isolated` field without a refusal, and the shelf owns it.
 
 ```maxon
@@ -3454,8 +3316,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3464,8 +3325,7 @@ function make() returns Slot
 end 'make'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function viaTernary(flag bool) returns Self
 		let made = make()
@@ -3515,9 +3375,7 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-field-store -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A store into an `isolated` field takes an `isolated` value, so an `isolated` part of a holder that reaches it through a `match` expression's `gives` arms or the holder's own `isolated` field is refused as the bare read is, outside a `modify` block.
 
@@ -3527,8 +3385,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3541,8 +3398,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3588,9 +3444,7 @@ error E3198: <fragment>:40:16: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-field-store-inside-modify -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Opening the destination with `modify` does not make the source a value: the `isolated` part the store reads still belongs to the holder, so the same five reads are refused where the destination is a field of a `modify` root.
 
@@ -3600,8 +3454,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3614,8 +3467,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3663,9 +3515,7 @@ error E3198: <fragment>:45:17: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-an-isolated-field-store -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is a fresh region, so the three joins store it into an `isolated` field outside a block and inside a `modify` root alike.
 
 ```maxon
@@ -3674,8 +3524,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3684,8 +3533,7 @@ function make() returns Slot
 end 'make'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3734,8 +3582,7 @@ end 'storeDirect'
 
 function insideTernary(flag bool) returns Count
 	let made = make()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let boxed = Shelf.holding(ByteArray.create(0)) as isolated Shelf
+	let boxed = Shelf.holding(ByteArray.create(0)) as Shelf
 	// TODO: modify blocks are not supported in minimaxon
 	modify boxed 'open'
 		match made 'take'
@@ -3759,8 +3606,6 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-argument -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An argument to an `isolated` parameter moves its value into the callee, so an `isolated` part of a holder that a join hands to one is refused as the bare read is: otherwise the callee and the holder would own one region.
 
@@ -3770,8 +3615,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3784,8 +3628,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3798,14 +3641,14 @@ end 'weigh'
 
 function argTernary(holder Holder, flag bool) returns Count
 	match holder.slot 'take'
-		full(bytes) then return weigh(bytes if flag else ByteArray.create(0))
+		full(bytes) then return weigh(bytes.clone() if flag else ByteArray.create(0))
 		empty then return 0
 	end 'take'
 end 'argTernary'
 
 function argGives(holder Holder) returns Count
 	let got = match holder.slot 'take'
-		full(bytes) gives bytes
+		full(bytes) gives bytes.clone()
 		empty gives ByteArray.create(0)
 	end 'take'
 	return weigh(got)
@@ -3813,17 +3656,17 @@ end 'argGives'
 
 function argDirect(holder Holder) returns Count
 	match holder.slot 'take'
-		full(bytes) then return weigh(bytes)
+		full(bytes) then return weigh(bytes.clone())
 		empty then return 0
 	end 'take'
 end 'argDirect'
 
 function argFieldTernary(shelf Shelf, flag bool) returns Count
-	return weigh(shelf.bytes if flag else ByteArray.create(0))
+	return weigh(shelf.bytes.clone() if flag else ByteArray.create(0))
 end 'argFieldTernary'
 
 function argFieldDirect(shelf Shelf) returns Count
-	return weigh(shelf.bytes)
+	return weigh(shelf.bytes.clone())
 end 'argFieldDirect'
 
 function main() returns ExitCode
@@ -3843,7 +3686,6 @@ error E3198: <fragment>:58:15: 'shelf.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-an-isolated-argument -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is a fresh region, so the three joins hand it to an `isolated` parameter without a refusal.
 
 ```maxon
@@ -3852,8 +3694,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3868,7 +3709,7 @@ end 'weigh'
 function argTernary(flag bool) returns Count
 	let made = make()
 	match made 'take'
-		full(bytes) then return weigh(bytes if flag else ByteArray.create(2))
+		full(bytes) then return weigh(bytes.clone() if flag else ByteArray.create(2))
 		empty then return 0
 	end 'take'
 end 'argTernary'
@@ -3876,7 +3717,7 @@ end 'argTernary'
 function argGives() returns Count
 	let made = make()
 	let got = match made 'take'
-		full(bytes) gives bytes
+		full(bytes) gives bytes.clone()
 		empty gives ByteArray.create(0)
 	end 'take'
 	return weigh(got)
@@ -3885,7 +3726,7 @@ end 'argGives'
 function argDirect() returns Count
 	let made = make()
 	match made 'take'
-		full(bytes) then return weigh(bytes)
+		full(bytes) then return weigh(bytes.clone())
 		empty then return 0
 	end 'take'
 end 'argDirect'
@@ -3904,8 +3745,6 @@ end 'main'
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-merge -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `merge` moves an `isolated` region into the current one, so an `isolated` part of a holder that a join hands to it is refused as the bare read is: otherwise the result and the holder would share one region as ordinary mutable data.
 
@@ -3915,8 +3754,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -3929,8 +3767,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -3988,7 +3825,6 @@ error E3198: <fragment>:54:9: 'shelf.bytes' is isolated and cannot be read outsi
 
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-merge -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is a fresh region, so `merge` of it through the three joins is ordinary mutable data the caller owns.
 
 ```maxon
@@ -3997,8 +3833,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4046,8 +3881,6 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-return -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that returns `isolated` hands its caller a region of its own, so an `isolated` part of a holder that a join returns is refused as the bare read is: otherwise the caller and the holder would own one region.
 
@@ -4057,8 +3890,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4071,8 +3903,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -4085,14 +3916,14 @@ end 'weigh'
 
 function returnTernary(holder Holder, flag bool) returns ByteArray
 	match holder.slot 'take'
-		full(bytes) then return bytes if flag else ByteArray.create(0)
+		full(bytes) then return bytes.clone() if flag else ByteArray.create(0)
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnTernary'
 
 function returnGives(holder Holder) returns ByteArray
 	let got = match holder.slot 'take'
-		full(bytes) gives bytes
+		full(bytes) gives bytes.clone()
 		empty gives ByteArray.create(0)
 	end 'take'
 	return got
@@ -4100,17 +3931,17 @@ end 'returnGives'
 
 function returnDirect(holder Holder) returns ByteArray
 	match holder.slot 'take'
-		full(bytes) then return bytes
+		full(bytes) then return bytes.clone()
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnDirect'
 
 function returnFieldTernary(shelf Shelf, flag bool) returns ByteArray
-	return shelf.bytes if flag else ByteArray.create(0)
+	return shelf.bytes.clone() if flag else ByteArray.create(0)
 end 'returnFieldTernary'
 
 function returnFieldDirect(shelf Shelf) returns ByteArray
-	return shelf.bytes
+	return shelf.bytes.clone()
 end 'returnFieldDirect'
 
 function main() returns ExitCode
@@ -4130,7 +3961,6 @@ error E3198: <fragment>:58:9: 'shelf.bytes' is isolated and cannot be read outsi
 ```
 
 <!-- test: a-fresh-isolated-value-through-a-join-reaches-an-isolated-return -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is a fresh region, so a function that returns `isolated` hands it back through the three joins.
 
 ```maxon
@@ -4139,8 +3969,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4155,7 +3984,7 @@ end 'weigh'
 function returnTernary(flag bool) returns ByteArray
 	let made = make()
 	match made 'take'
-		full(bytes) then return bytes if flag else ByteArray.create(2)
+		full(bytes) then return bytes.clone() if flag else ByteArray.create(2)
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnTernary'
@@ -4163,7 +3992,7 @@ end 'returnTernary'
 function returnGives() returns ByteArray
 	let made = make()
 	let got = match made 'take'
-		full(bytes) gives bytes
+		full(bytes) gives bytes.clone()
 		empty gives ByteArray.create(0)
 	end 'take'
 	return got
@@ -4172,7 +4001,7 @@ end 'returnGives'
 function returnDirect() returns ByteArray
 	let made = make()
 	match made 'take'
-		full(bytes) then return bytes
+		full(bytes) then return bytes.clone()
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnDirect'
@@ -4190,8 +4019,6 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-an-async-isolated-argument -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call to an `isolated` parameter moves its argument into the coroutine as a plain call does, so an `isolated` part of a holder, bare or through a join, is refused there as it is at a plain call: otherwise the coroutine and the holder would own one region.
 
@@ -4201,8 +4028,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4215,8 +4041,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -4266,7 +4091,6 @@ error E3198: <fragment>:49:27: 'shelf.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-async-call-cannot-move-a-callers-mutable-data-into-an-isolated-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` parameter takes only a fresh region, and an `async` call is no exception: the caller's mutable data handed to one would be kept by the callee while the caller still reaches it, so it is refused as at a plain call.
 
@@ -4276,8 +4100,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -4312,7 +4135,6 @@ error E3200: <fragment>:24:27: 'p' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: error.an-isolated-part-read-captured-by-a-closure-is-not-a-clean-input -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures an `isolated` part of a holder hands that region back from every call, so it is no clean input: the result of a call over it cannot go where an isolated value is wanted, bare or through a join.
 
@@ -4322,8 +4144,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4347,14 +4168,14 @@ end 'apply'
 
 function captured(holder Holder) returns Count
 	match holder.slot 'take'
-		full(bytes) then return weigh(apply(function() gives bytes))
+		full(bytes) then return weigh(apply(function() gives bytes.clone()))
 		empty then return 0
 	end 'take'
 end 'captured'
 
 function capturedTernary(holder Holder, flag bool) returns Count
 	match holder.slot 'take'
-		full(bytes) then return weigh(apply(function() gives bytes if flag else ByteArray.create(0)))
+		full(bytes) then return weigh(apply(function() gives bytes.clone() if flag else ByteArray.create(0)))
 		empty then return 0
 	end 'take'
 end 'capturedTernary'
@@ -4371,7 +4192,6 @@ error E3198: <fragment>:37:56: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-with-a-parameter-arm-cannot-reach-an-isolated-field-store -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A join that has an `isolated` parameter as one arm, or a call result whose capability is settled by its arguments, is still a join: an `isolated` part of a holder on its other arm is refused at a store into an `isolated` field, whichever arm it is on.
 
@@ -4381,8 +4201,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated ByteArray
+	export var part as ByteArray
 
 	static function holding(consumes part ByteArray) returns Self
 		return Self{part: part}
@@ -4390,28 +4209,28 @@ type Box
 end 'Box'
 
 function echo(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'echo'
 
-function storeParameterSecond(a Box, b Box, consumes n ByteArray, c bool)
-	b.part = a.part if c else n
+function storeParameterSecond(a Box, mutates b Box, consumes n ByteArray, c bool)
+	b.part = a.part.clone() if c else n
 end 'storeParameterSecond'
 
-function storeParameterFirst(a Box, b Box, consumes n ByteArray, c bool)
-	b.part = n if c else a.part
+function storeParameterFirst(a Box, mutates b Box, consumes n ByteArray, c bool)
+	b.part = n if c else a.part.clone()
 end 'storeParameterFirst'
 
-function storeSettledSecond(a Box, b Box, c bool)
-	b.part = a.part if c else echo(ByteArray.create(0))
+function storeSettledSecond(a Box, mutates b Box, c bool)
+	b.part = a.part.clone() if c else echo(ByteArray.create(0))
 end 'storeSettledSecond'
 
-function storeSettledFirst(a Box, b Box, c bool)
-	b.part = echo(ByteArray.create(0)) if c else a.part
+function storeSettledFirst(a Box, mutates b Box, c bool)
+	b.part = echo(ByteArray.create(0)) if c else a.part.clone()
 end 'storeSettledFirst'
 
 function main() returns ExitCode
 	let a = Box.holding(ByteArray.create(0))
-	let b = Box.holding(ByteArray.create(0))
+	var b = Box.holding(ByteArray.create(0))
 	storeParameterSecond(a, b: b, n: ByteArray.create(0), c: true)
 	storeParameterFirst(a, b: b, n: ByteArray.create(0), c: true)
 	storeSettledSecond(a, b: b, c: true)
@@ -4428,7 +4247,6 @@ error E3198: <fragment>:30:47: 'a.part' is isolated and cannot be read outside a
 
 <!-- test: a-fresh-isolated-value-through-a-join-with-a-parameter-arm-reaches-an-isolated-field-store -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 With a fresh `isolated` value on the other arm, the same joins reach an `isolated` field: a parameter arm and a settled call result add no holder to the region the field receives.
 
 ```maxon
@@ -4437,8 +4255,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated ByteArray
+	export var part as ByteArray
 
 	static function holding(consumes part ByteArray) returns Self
 		return Self{part: part}
@@ -4504,8 +4321,6 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-union-constructors-isolated-payload -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A union case whose payload is `isolated` takes an `isolated` value, so an `isolated` part of a holder handed to its constructor, bare, as a field or through a join, is refused as the bare read is: otherwise the new union and the holder would own one region.
 
@@ -4515,8 +4330,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4529,32 +4343,31 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
 	end 'holding'
 end 'Shelf'
 
-function rewrap(holder Holder, other Holder)
+function rewrap(holder Holder, mutates other Holder)
 	match holder.slot 'take'
-		full(bytes) then other.slot = Slot.full(bytes)
+		full(bytes) then other.slot = Slot.full(bytes.clone())
 		empty then print("empty\n")
 	end 'take'
 end 'rewrap'
 
 function wrapField(shelf Shelf) returns Slot
-	return Slot.full(shelf.bytes)
+	return Slot.full(shelf.bytes.clone())
 end 'wrapField'
 
 function wrapTernary(shelf Shelf, flag bool) returns Slot
-	return Slot.full(shelf.bytes if flag else ByteArray.create(0))
+	return Slot.full(shelf.bytes.clone() if flag else ByteArray.create(0))
 end 'wrapTernary'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	let other = Holder.create()
+	var other = Holder.create()
 	let shelf = Shelf.holding(ByteArray.create(0))
 	rewrap(holder, other: other)
 	_ = wrapField(shelf)
@@ -4570,7 +4383,6 @@ error E3198: <fragment>:38:19: 'shelf.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-through-an-otherwise-arm-cannot-reach-an-isolated-slot -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The fallback of `try … otherwise` is a second arm of the value, so an `isolated` part of a holder given as the fallback is refused at an `isolated` field store and an `isolated` parameter as the bare read is.
 
@@ -4584,8 +4396,7 @@ enum MakeError implements Error
 end 'MakeError'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -4603,17 +4414,17 @@ function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
-function storeOtherwiseField(donor Shelf, shelf Shelf, flag bool)
-	shelf.bytes = try makeOrFail(flag) otherwise donor.bytes
+function storeOtherwiseField(donor Shelf, mutates shelf Shelf, flag bool)
+	shelf.bytes = try makeOrFail(flag) otherwise donor.bytes.clone()
 end 'storeOtherwiseField'
 
 function argOtherwiseField(donor Shelf, flag bool) returns Count
-	return weigh(try makeOrFail(flag) otherwise donor.bytes)
+	return weigh(try makeOrFail(flag) otherwise donor.bytes.clone())
 end 'argOtherwiseField'
 
 function main() returns ExitCode
 	let donor = Shelf.holding(ByteArray.create(0))
-	let shelf = Shelf.holding(ByteArray.create(0))
+	var shelf = Shelf.holding(ByteArray.create(0))
 	storeOtherwiseField(donor, shelf: shelf, flag: true)
 	print("{argOtherwiseField(donor, flag: true)}\n")
 	return 0
@@ -4626,7 +4437,6 @@ error E3198: <fragment>:34:46: 'donor.bytes' is isolated and cannot be read outs
 
 <!-- test: error.an-isolated-part-read-in-the-middle-arm-of-a-match-expression-cannot-reach-an-isolated-slot -->
 <!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` expression joins all its arms, so an `isolated` part of a holder on its middle arm alone, between two fresh arms, is refused at an `isolated` field store, an `isolated` parameter and an `isolated` return.
 
@@ -4642,8 +4452,7 @@ enum Mode
 end 'Mode'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -4694,7 +4503,6 @@ error E3198: <fragment>:42:16: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-captured-by-a-nested-closure-is-not-a-clean-input -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that builds another closure over an `isolated` part of a holder captures that part too, so the result of a call over the outer closure is no clean input to an `isolated` parameter.
 
@@ -4704,8 +4512,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4729,7 +4536,7 @@ end 'apply'
 
 function nested(holder Holder) returns Count
 	match holder.slot 'take'
-		full(bytes) then return weigh(apply(function() gives apply(function() gives bytes)))
+		full(bytes) then return weigh(apply(function() gives apply(function() gives bytes.clone())))
 		empty then return 0
 	end 'take'
 end 'nested'
@@ -4745,7 +4552,6 @@ error E3198: <fragment>:30:79: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-awaited-result-over-an-isolated-part-read-is-not-a-clean-input -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A coroutine is never given an `isolated` part of a holder through a plain parameter, directly or captured by a closure: the spawn is refused (E3207) before its awaited result could reach an `isolated` parameter.
 
@@ -4755,8 +4561,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4808,7 +4613,6 @@ error E3207: <fragment>:41:50: 'echo' is spawned with `async`, and 'bytes' is is
 ```
 
 <!-- test: error.an-isolated-local-moved-by-an-async-call-in-a-loop-is-used-after-move -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call moves its `isolated` argument into the coroutine, so the same `isolated` local handed to it again on a later lap, or read after the call, is a use of a moved value.
 
@@ -4822,8 +4626,7 @@ function weigh(consumes bytes ByteArray) returns Count
 end 'weigh'
 
 function inLoop(rounds Count) returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let mine = ByteArray.create(2) as isolated ByteArray
+	let mine = ByteArray.create(2) as ByteArray
 	var total = 0 as Count
 	var lap = 0 as Count
 	while lap < rounds 'each'
@@ -4834,8 +4637,7 @@ function inLoop(rounds Count) returns Count
 end 'inLoop'
 
 function afterCall() returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let mine = ByteArray.create(2) as isolated ByteArray
+	let mine = ByteArray.create(2) as ByteArray
 	let total = await async weigh(mine)
 	return total + mine.count()
 end 'afterCall'
@@ -4851,8 +4653,6 @@ error E3102: <fragment>:25:17: use of moved value 'mine': its ownership moved to
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-service-message-argument -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A service message's `isolated` argument crosses to the service's thread, so an `isolated` part of a holder sent as one, bare, parenthesized or through a join, is refused as the bare read is.
 
@@ -4862,8 +4662,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4876,8 +4675,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -4891,25 +4689,25 @@ type Keeper
 		return Self{held: 0}
 	end 'create'
 
-	export function keep(consumes bytes ByteArray) returns Count
-		self.held = self.held + bytes.count()
+	export function keep(mutates self, consumes bytes ByteArray) returns Count
+		self.held = try self.held + bytes.count() otherwise panic("out of range")
 		return self.held
 	end 'keep'
 end 'Keeper'
 
 function sendPayload(keeper Keeper.handle, holder Holder) returns Count
 	match holder.slot 'take'
-		full(bytes) then return try await keeper.keep((bytes)) otherwise 0
+		full(bytes) then return try await keeper.keep((bytes.clone())) otherwise 0
 		empty then return 0
 	end 'take'
 end 'sendPayload'
 
 function sendField(keeper Keeper.handle, donor Shelf) returns Count
-	return try await keeper.keep(donor.bytes) otherwise 0
+	return try await keeper.keep(donor.bytes.clone()) otherwise 0
 end 'sendField'
 
 function sendTernary(keeper Keeper.handle, donor Shelf, flag bool) returns Count
-	return try await keeper.keep(donor.bytes if flag else ByteArray.create(0)) otherwise 0
+	return try await keeper.keep(donor.bytes.clone() if flag else ByteArray.create(0)) otherwise 0
 end 'sendTernary'
 
 function main() returns ExitCode
@@ -4927,7 +4725,6 @@ error E3198: <fragment>:51:31: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-replace-an-isolated-field-by-swap -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The replacement `swap` stores into an `isolated` field takes an `isolated` value, so an `isolated` part of a holder given as the replacement, bare, as a field or through a join, is refused as the bare read is.
 
@@ -4937,8 +4734,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -4949,17 +4745,17 @@ function weigh(consumes bytes ByteArray) returns Count
 	return bytes.count()
 end 'weigh'
 
-function swapField(donor Shelf, shelf Shelf) returns Count
-	return weigh(exchange(shelf.bytes, value: donor.bytes))
+function swapField(donor Shelf, mutates shelf Shelf) returns Count
+	return weigh(exchange(shelf.bytes, value: donor.bytes.clone()))
 end 'swapField'
 
-function swapTernary(donor Shelf, shelf Shelf, flag bool) returns Count
-	return weigh(exchange(shelf.bytes, value: (donor.bytes if flag else ByteArray.create(0))))
+function swapTernary(donor Shelf, mutates shelf Shelf, flag bool) returns Count
+	return weigh(exchange(shelf.bytes, value: (donor.bytes.clone() if flag else ByteArray.create(0))))
 end 'swapTernary'
 
 function main() returns ExitCode
 	let donor = Shelf.holding(ByteArray.create(0))
-	let shelf = Shelf.holding(ByteArray.create(0))
+	var shelf = Shelf.holding(ByteArray.create(0))
 	print("{swapField(donor, shelf: shelf)} {swapTernary(donor, shelf: shelf, flag: true)}\n")
 	return 0
 end 'main'
@@ -4970,8 +4766,6 @@ error E3198: <fragment>:22:38: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-be-frozen -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `freeze` makes its operand's region immutable for good, so an `isolated` part of a holder, bare, as a field or through a join, cannot be frozen while the holder still writes it.
 
@@ -4981,8 +4775,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -4995,8 +4788,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -5005,17 +4797,17 @@ end 'Shelf'
 
 function freezePayload(holder Holder) returns frozen with ByteArray
 	match holder.slot 'take'
-		full(bytes) then return freeze(bytes)
+		full(bytes) then return freeze(bytes.clone())
 		empty then return freeze(ByteArray.create(0))
 	end 'take'
 end 'freezePayload'
 
 function freezeField(donor Shelf) returns frozen with ByteArray
-	return freeze(donor.bytes)
+	return freeze(donor.bytes.clone())
 end 'freezeField'
 
 function freezeTernary(donor Shelf, flag bool) returns frozen with ByteArray
-	return freeze(donor.bytes if flag else ByteArray.create(0))
+	return freeze(donor.bytes.clone() if flag else ByteArray.create(0))
 end 'freezeTernary'
 
 function main() returns ExitCode
@@ -5032,7 +4824,6 @@ error E3198: <fragment>:38:17: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-enter-a-tuple -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple element is a second path to what it holds, so an `isolated` part of a holder placed in a tuple literal, kept whole or destructured, does not become a clean input to an `isolated` parameter.
 
@@ -5042,8 +4833,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -5055,12 +4845,12 @@ function weigh(consumes bytes ByteArray) returns Count
 end 'weigh'
 
 function viaTuple(donor Shelf) returns Count
-	let pair = (donor.bytes, true)
+	let pair = (donor.bytes.clone(), true)
 	return weigh(pair.0)
 end 'viaTuple'
 
 function viaDestructure(donor Shelf) returns Count
-	let (got, _) = (donor.bytes, true)
+	let (got, _) = (donor.bytes.clone(), true)
 	return weigh(got)
 end 'viaDestructure'
 
@@ -5076,8 +4866,6 @@ error E3198: <fragment>:23:18: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-be-cast-as-isolated -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `as isolated` claims a fresh region, so an `isolated` part of a holder, bare or through a join, cast to one is refused as the bare read is.
 
@@ -5087,8 +4875,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -5101,8 +4888,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -5115,15 +4901,13 @@ end 'weigh'
 
 function castPayload(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		full(bytes) then return weigh(bytes as isolated ByteArray)
+		full(bytes) then return weigh(bytes.clone() as ByteArray)
 		empty then return 0
 	end 'take'
 end 'castPayload'
 
 function castTernary(donor Shelf, flag bool) returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	return weigh((donor.bytes if flag else ByteArray.create(0)) as isolated ByteArray)
+	return weigh((donor.bytes.clone() if flag else ByteArray.create(0)) as ByteArray)
 end 'castTernary'
 
 function main() returns ExitCode
@@ -5139,7 +4923,6 @@ error E3198: <fragment>:38:16: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-assigned-to-an-isolated-var-in-a-loop-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` local reassigned on a loop's back edge carries every value assigned to it into the next lap, so an `isolated` part of a holder assigned to it, bare or through a join, is refused where it is assigned.
 
@@ -5149,8 +4932,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -5162,26 +4944,24 @@ function weigh(consumes bytes ByteArray) returns Count
 end 'weigh'
 
 function loopBare(donor Shelf, rounds Count) returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var cur = ByteArray.create(0) as isolated ByteArray
+	var cur = ByteArray.create(0) as ByteArray
 	var total = 0 as Count
 	var lap = 0 as Count
 	while lap < rounds 'each'
-		total = total + weigh(cur)
-		cur = donor.bytes
+		total = try total + weigh(cur) otherwise panic("out of range")
+		cur = donor.bytes.clone()
 		lap = lap + 1
 	end 'each'
 	return total
 end 'loopBare'
 
 function loopTernary(donor Shelf, rounds Count) returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var cur = ByteArray.create(0) as isolated ByteArray
+	var cur = ByteArray.create(0) as ByteArray
 	var total = 0 as Count
 	var lap = 0 as Count
 	while lap < rounds 'each'
-		total = total + weigh(cur)
-		cur = donor.bytes if lap > 0 else ByteArray.create(1)
+		total = try total + weigh(cur) otherwise panic("out of range")
+		cur = donor.bytes.clone() if lap > 0 else ByteArray.create(1)
 		lap = lap + 1
 	end 'each'
 	return total
@@ -5199,8 +4979,6 @@ error E3198: <fragment>:38:9: 'donor.bytes' is isolated and cannot be read outsi
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-plain-parameter-that-keeps-it -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A plain parameter whose callee keeps it in a record or hands it back gives the caller a writable path into the region the holder still owns, so an `isolated` part of a holder passed to one is refused as the bare read is.
 
@@ -5210,8 +4988,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -5224,8 +5001,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -5276,8 +5052,6 @@ error E3201: <fragment>:50:9: 'echo' hands back mutable data of the isolated reg
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-generic-identity-cannot-reach-an-isolated-slot -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A generic function that hands back its argument hands back the region it was given, so an `isolated` part of a holder passed through one is still that part: it is refused at an `isolated` parameter and at an `isolated` field store.
 
@@ -5293,8 +5067,7 @@ type Blob
 end 'Blob'
 
 union Crate
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(blob isolated Blob)
+	full(blob Blob)
 	empty
 end 'Crate'
 
@@ -5307,16 +5080,15 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function holding(consumes blob Blob) returns Self
 		return Self{blob: blob}
 	end 'holding'
 end 'Shelf'
 
-function ident(x T) uses T returns T
-	return x
+function ident(x T) uses T returns T where T implements Copyable
+	return x.clone()
 end 'ident'
 
 function weigh(consumes blob Blob) returns Tally
@@ -5330,14 +5102,14 @@ function viaGeneric(holder Holder) returns Tally
 	end 'take'
 end 'viaGeneric'
 
-function viaGenericField(donor Shelf, shelf Shelf)
+function viaGenericField(donor Shelf, mutates shelf Shelf)
 	shelf.blob = ident(donor.blob)
 end 'viaGenericField'
 
 function main() returns ExitCode
 	let holder = Holder.create()
 	let donor = Shelf.holding(Blob.create(2))
-	let shelf = Shelf.holding(Blob.create(3))
+	var shelf = Shelf.holding(Blob.create(3))
 	print("{viaGeneric(holder)}\n")
 	viaGenericField(donor, shelf: shelf)
 	return 0
@@ -5349,7 +5121,6 @@ error E3201: <fragment>:49:15: 'ident' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-function-value-or-interface-result-is-not-a-clean-input -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A function value can hand back what it captured and a `mutable self` requirement can hand back its receiver's data, so a call through a function-typed parameter or an interface value is no clean call: its result is refused at an `isolated` field store.
 
@@ -5383,8 +5154,7 @@ type Pantry implements Source
 end 'Pantry'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function holding(consumes blob Blob) returns Self
 		return Self{blob: blob}
@@ -5415,8 +5185,6 @@ error E3200: <fragment>:43:15: 'source.make()' is not isolated: only a clean cal
 ```
 
 <!-- test: error.an-isolated-part-read-reaches-a-callee-declared-later-as-one-declared-earlier -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Whether a callee is declared before or after its caller does not change what its `isolated` parameter takes: an `isolated` part of a holder given to one declared later, by a plain or an `async` call, directly or through a helper that hands its argument back, is refused exactly as for one declared earlier.
 
@@ -5426,8 +5194,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -5440,8 +5207,7 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -5518,7 +5284,6 @@ error E3201: <fragment>:65:49: 'echoLate' hands back mutable data of the isolate
 ```
 
 <!-- test: error.a-field-read-through-an-isolated-field-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A field of the record an `isolated` field holds lives in that field's region, so reading one through the holder outside a `modify` block, to bind it, store it in a plain field or return it, lets it outlive the statement that opens the part, and each is refused.
 
@@ -5536,8 +5301,7 @@ type Blob
 end 'Blob'
 
 type Crate
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function holding(consumes blob Blob) returns Self
 		return Self{blob: blob}
@@ -5548,27 +5312,27 @@ type Pair
 	export var a as ByteArray
 
 	static function holding(a ByteArray) returns Self
-		return Self{a: a}
+		return Self{a: a.clone()}
 	end 'holding'
 end 'Pair'
 
 function bindDeep(crate Crate) returns Count
-	let d = crate.blob.data
+	var d = crate.blob.data.clone()
 	d.push(1)
 	return d.count()
 end 'bindDeep'
 
-function storeDeep(crate Crate, pair Pair)
-	pair.a = crate.blob.data
+function storeDeep(crate Crate, mutates pair Pair)
+	pair.a = crate.blob.data.clone()
 end 'storeDeep'
 
 function returnDeep(crate Crate) returns ByteArray
-	return crate.blob.data
+	return crate.blob.data.clone()
 end 'returnDeep'
 
 function main() returns ExitCode
 	let crate = Crate.holding(Blob.create())
-	let pair = Pair.holding(ByteArray.create(0))
+	var pair = Pair.holding(ByteArray.create(0))
 	storeDeep(crate, pair: pair)
 	print("{bindDeep(crate)} {returnDeep(crate).count()} {pair.a.count()}\n")
 	return 0
@@ -5581,7 +5345,6 @@ error E3202: <fragment>:40:9: 'crate.blob.data' is mutable and cannot leave the 
 ```
 
 <!-- test: error.an-element-got-from-an-isolated-array-field-cannot-be-returned-as-plain-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element of an array an `isolated` field holds lives in that field's region, so returning one that `get` read through the field outside a `modify` block as plain data is a read of the `isolated` part.
 
@@ -5601,8 +5364,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -5624,7 +5386,6 @@ error E3198: <fragment>:23:9: 'try bin.blobs.get(0) otherwise Blob.create()' is 
 ```
 
 <!-- test: error.an-isolated-part-read-handed-back-by-a-closure-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that hands back an `isolated` field of a holder makes the part readable wherever the closure is called, so the closure's body reading the field outside a `modify` block is refused as a direct read is.
 
@@ -5636,8 +5397,7 @@ typealias ByteArray = Array with Byte
 typealias Maker = function() returns ByteArray
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -5649,11 +5409,11 @@ function apply(make Maker) returns ByteArray
 end 'apply'
 
 function leakField(donor Shelf) returns ByteArray
-	return apply(function() gives donor.bytes)
+	return apply(function() gives donor.bytes.clone())
 end 'leakField'
 
 function bindField(donor Shelf) returns Count
-	let got = apply(function() gives donor.bytes)
+	var got = apply(function() gives donor.bytes.clone())
 	got.push(1)
 	return got.count()
 end 'bindField'
@@ -5672,7 +5432,6 @@ error E3198: <fragment>:24:35: 'donor.bytes' is isolated and cannot be read outs
 <!-- test: error.a-nested-isolated-field-read-inside-an-outer-window-is-a-part-read -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Opening an `isolated` local with `modify` opens its own region, not the `isolated` regions its records hold: a nested `isolated` field read inside the window and handed to an `isolated` parameter, to `merge` or to a binding is still a part read.
 
@@ -5682,8 +5441,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function holding(consumes bytes ByteArray) returns Self
 		return Self{bytes: bytes}
@@ -5703,8 +5461,7 @@ function weigh(consumes bytes ByteArray) returns Count
 end 'weigh'
 
 function moveNested() returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rack = Rack.create() as isolated Rack
+	let rack = Rack.create() as Rack
 	var total = 0 as Count
 	// TODO: modify blocks are not supported in minimaxon
 	modify rack 'open'
@@ -5714,8 +5471,7 @@ function moveNested() returns Count
 end 'moveNested'
 
 function mergeNested() returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rack = Rack.create() as isolated Rack
+	let rack = Rack.create() as Rack
 	var total = 0 as Count
 	// TODO: modify blocks are not supported in minimaxon
 	modify rack 'open'
@@ -5726,8 +5482,7 @@ function mergeNested() returns Count
 end 'mergeNested'
 
 function bindNested() returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rack = Rack.create() as isolated Rack
+	let rack = Rack.create() as Rack
 	var total = 0 as Count
 	// TODO: modify blocks are not supported in minimaxon
 	modify rack 'open'
@@ -5749,7 +5504,7 @@ error E3198: <fragment>:52:13: 'rack.shelf.bytes' is isolated and cannot be read
 ```
 
 <!-- test: error.a-call-result-of-a-parameters-data-is-judged-alike-whichever-order-the-callee-is-declared -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A call result whose callee hands back its parameter's plain field is that parameter's data, so it is refused at an `isolated` field store, an `isolated` parameter and an `isolated` return, whether the callee is declared before its caller or after.
 
@@ -5760,8 +5515,7 @@ typealias ByteArray = Array with Byte
 
 type Box
 	export var plain as ByteArray
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated ByteArray
+	export var part as ByteArray
 
 	static function create() returns Self
 		return Self{plain: ByteArray.create(0), part: ByteArray.create(0)}
@@ -5823,7 +5577,6 @@ error E3200: <fragment>:43:9: 'takeLate(src)' is not isolated: only a clean call
 ```
 
 <!-- test: error.an-element-of-an-isolated-array-field-cannot-leave-a-for-loop-into-outside-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` array field outside a `modify` block reads the field's region, so an element it hands to data outside the region, a plain array or a parameter's plain field, is a second path into that region and is refused.
 
@@ -5843,8 +5596,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -5859,25 +5611,24 @@ type Pocket
 	end 'create'
 end 'Pocket'
 
-function keepByFor(bin Bin, keep BlobArray)
+function keepByFor(bin Bin, mutates keep BlobArray)
 	for blob in bin.blobs 'each'
-		keep.push(blob)
+		keep.push(blob.clone())
 	end 'each'
 end 'keepByFor'
 
-function storeByFor(bin Bin, pocket Pocket)
+function storeByFor(bin Bin, mutates pocket Pocket)
 	for blob in bin.blobs 'each'
-		pocket.blob = blob
+		pocket.blob = blob.clone()
 	end 'each'
 end 'storeByFor'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	var blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
-	let keep = BlobArray.create(0)
-	let pocket = Pocket.create()
+	var keep = BlobArray.create(0)
+	var pocket = Pocket.create()
 	keepByFor(bin, keep: keep)
 	storeByFor(bin, pocket: pocket)
 	print("{keep.count()} {pocket.blob.data.count()}\n")
@@ -5890,7 +5641,6 @@ error E3198: <fragment>:37:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: a-for-loop-over-an-isolated-array-field-hands-out-copies-and-values -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy or a value: a `.clone()` of each element pushed into a plain array or stored into a plain field, and a count summed into a local.
 
 ```maxon
@@ -5909,8 +5659,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -5925,13 +5674,13 @@ type Pocket
 	end 'create'
 end 'Pocket'
 
-function keepByFor(bin Bin, keep BlobArray)
+function keepByFor(bin Bin, mutates keep BlobArray)
 	for blob in bin.blobs 'each'
 		keep.push(blob.clone())
 	end 'each'
 end 'keepByFor'
 
-function storeByFor(bin Bin, pocket Pocket)
+function storeByFor(bin Bin, mutates pocket Pocket)
 	for blob in bin.blobs 'each'
 		pocket.blob = blob.clone()
 	end 'each'
@@ -5940,18 +5689,17 @@ end 'storeByFor'
 function weighByFor(bin Bin) returns Count
 	var total = 0 as Count
 	for blob in bin.blobs 'each'
-		total = total + 1 + blob.data.count()
+		total = try total + 1 + blob.data.count() otherwise panic("out of range")
 	end 'each'
 	return total
 end 'weighByFor'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	var blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
-	let keep = BlobArray.create(0)
-	let pocket = Pocket.create()
+	var keep = BlobArray.create(0)
+	var pocket = Pocket.create()
 	keepByFor(bin, keep: keep)
 	storeByFor(bin, pocket: pocket)
 	print("{keep.count()} {pocket.blob.data.count()} {weighByFor(bin)}\n")
@@ -5966,7 +5714,6 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-over-an-isolated-payload-cannot-hand-it-out-as-plain-data -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures an `isolated` payload of a holder's union hands that region back from every call, so returning the call's result as plain data or returning the closure itself gives a second path into the region the holder still owns, and each is refused.
 
@@ -5976,8 +5723,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -6023,7 +5769,7 @@ error E3198: <fragment>:33:44: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: a-closure-over-a-fresh-isolated-payload-hands-it-out-as-plain-data -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so the same closures over it hand it out as plain data without a refusal.
 
 ```maxon
@@ -6032,8 +5778,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -6111,7 +5856,6 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-be-stored-into-a-plain-field-or-a-plain-variable -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A part of a holder read outside a `modify` block is a second path into the region the holder still owns, so storing it into a plain field or reassigning a plain variable with it is refused as a part read, as a store into an `isolated` slot is.
 
@@ -6121,8 +5865,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated ByteArray
+	export var part as ByteArray
 	export var plain as ByteArray
 
 	static function create() returns Self
@@ -6130,18 +5873,18 @@ type Shelf
 	end 'create'
 end 'Shelf'
 
-function storeIntoField(shelf Shelf)
-	shelf.plain = shelf.part
+function storeIntoField(mutates shelf Shelf)
+	shelf.plain = shelf.part.clone()
 end 'storeIntoField'
 
 function reassignVariable(shelf Shelf) returns Count
 	var held = ByteArray.create(0)
-	held = shelf.part
+	held = shelf.part.clone()
 	return held.count()
 end 'reassignVariable'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
+	var shelf = Shelf.create()
 	storeIntoField(shelf)
 	print("{reassignVariable(shelf)}\n")
 	return 0
@@ -6154,7 +5897,6 @@ error E3198: <fragment>:20:9: 'shelf.part' is isolated and cannot be read outsid
 
 <!-- test: a-part-of-a-holder-taken-out-by-swap-reaches-a-plain-field-and-a-plain-variable -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same two doors take the region once it is taken out of the holder by `swap` and merged.
 
 ```maxon
@@ -6163,8 +5905,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated ByteArray
+	export var part as ByteArray
 	export var plain as ByteArray
 
 	static function create() returns Self
@@ -6201,9 +5942,7 @@ end 'main'
 ```
 
 <!-- test: a-payload-part-read-inside-an-open-window-is-used-in-place -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A payload of a union held by an `isolated` field, matched inside the `modify` block that opens the field, is read and written in place without leaving the block.
 
 ```maxon
@@ -6212,14 +5951,12 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var slot as isolated Slot
+	export var slot as Slot
 
 	static function holding(consumes slot Slot) returns Self
 		return Self{slot: slot}
@@ -6265,7 +6002,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-reached-by-an-iterator-over-an-isolated-array-field-cannot-leave-into-outside-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An iterator made over an `isolated` array field outside a `modify` block reads the field's region, so an element it hands out, by `current` or by a `withIterator` loop, pushed into an array outside the region is a second path into it.
 
@@ -6285,8 +6021,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -6305,8 +6040,7 @@ function keepByPairs(bin Bin, keep BlobArray)
 end 'keepByPairs'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	let blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
 	let keep = BlobArray.create(0)
@@ -6322,7 +6056,6 @@ error E3201: <fragment>:28:29: 'withIterator' hands back mutable data of the iso
 ```
 
 <!-- test: error.an-element-of-an-isolated-list-or-map-field-cannot-leave-into-outside-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` `List` or `Map` field, and a `get` from the map, read the field's region outside a `modify` block, so an element pushed into an outside array or returned as plain data is refused.
 
@@ -6346,10 +6079,8 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var list as isolated BlobList
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var index as isolated BlobMap
+	export var list as BlobList
+	export var index as BlobMap
 
 	static function create() returns Self
 		return Self{list: BlobList.create(), index: BlobMap.create()}
@@ -6380,7 +6111,6 @@ error E3201: <fragment>:32:23: 'get' hands back mutable data of the isolated reg
 ```
 
 <!-- test: error.a-value-of-an-isolated-map-field-cannot-leave-a-for-loop-into-outside-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` `Map` field outside a `modify` block reads the field's region as a loop over an `isolated` array or `List` field does, so a value it hands out pushed into an outside array, stored into a plain field or returned from inside the loop is a second path into that region and is refused.
 
@@ -6402,8 +6132,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var index as isolated BlobMap
+	export var index as BlobMap
 
 	static function create() returns Self
 		return Self{index: BlobMap.create()}
@@ -6418,29 +6147,29 @@ type Pocket
 	end 'create'
 end 'Pocket'
 
-function keepFromMap(bin Bin, keep BlobArray)
+function keepFromMap(bin Bin, mutates keep BlobArray)
 	for (_, blob) in bin.index 'each'
-		keep.push(blob)
+		keep.push(blob.clone())
 	end 'each'
 end 'keepFromMap'
 
-function storeFromMap(bin Bin, pocket Pocket)
+function storeFromMap(bin Bin, mutates pocket Pocket)
 	for (_, blob) in bin.index 'each'
-		pocket.blob = blob
+		pocket.blob = blob.clone()
 	end 'each'
 end 'storeFromMap'
 
 function firstFromMap(bin Bin) returns Blob
 	for (_, blob) in bin.index 'each'
-		return blob
+		return blob.clone()
 	end 'each'
 	return Blob.create()
 end 'firstFromMap'
 
 function main() returns ExitCode
 	let bin = Bin.create()
-	let keep = BlobArray.create(0)
-	let pocket = Pocket.create()
+	var keep = BlobArray.create(0)
+	var pocket = Pocket.create()
 	keepFromMap(bin, keep: keep)
 	storeFromMap(bin, pocket: pocket)
 	print("{keep.count()} {pocket.blob.data.count()} {firstFromMap(bin).data.count()}\n")
@@ -6454,7 +6183,6 @@ error E3198: <fragment>:44:19: 'bin.index' is isolated and cannot be read outsid
 ```
 
 <!-- test: an-isolated-list-or-map-field-hands-out-copies-and-values -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy or a value.
 
 ```maxon
@@ -6477,10 +6205,8 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var list as isolated BlobList
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var index as isolated BlobMap
+	export var list as BlobList
+	export var index as BlobMap
 
 	static function create() returns Self
 		return Self{list: BlobList.create(), index: BlobMap.create()}
@@ -6517,8 +6243,6 @@ end 'main'
 ```
 
 <!-- test: error.a-method-of-an-isolated-part-that-hands-back-its-own-data-is-a-read-of-the-part -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A method that hands back data of its receiver, called on an `isolated` field or payload of a holder outside a `modify` block, hands back that part's region, so returning its result as plain data or storing it into a plain field is refused.
 
@@ -6535,20 +6259,18 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 union Crate
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(blob isolated Blob)
+	full(blob Blob)
 	empty
 end 'Crate'
 
 type Holder
 	export var crate as Crate
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{crate: Crate.full(Blob.create()), blob: Blob.create()}
@@ -6567,7 +6289,7 @@ function returnFieldInner(holder Holder) returns ByteArray
 	return holder.blob.inner()
 end 'returnFieldInner'
 
-function storeFieldInner(holder Holder, pair Pair)
+function storeFieldInner(holder Holder, mutates pair Pair)
 	pair.a = holder.blob.inner()
 end 'storeFieldInner'
 
@@ -6580,7 +6302,7 @@ end 'returnPayloadInner'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	let pair = Pair.create()
+	var pair = Pair.create()
 	storeFieldInner(holder, pair: pair)
 	print("{returnFieldInner(holder).count()} {returnPayloadInner(holder).count()} {pair.a.count()}\n")
 	return 0
@@ -6593,8 +6315,6 @@ error E3201: <fragment>:49:31: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: values-read-from-an-isolated-part-leave-freely -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 What leaves an `isolated` field or payload read outside a `modify` block as a value is no second path into its region: a scalar field, a count, a read-only helper's count, a comparison and a printed value are each accepted, bound, assigned to a plain variable or returned.
 
 ```maxon
@@ -6612,15 +6332,13 @@ type Blob
 end 'Blob'
 
 union Crate
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(blob isolated Blob)
+	full(blob Blob)
 	empty
 end 'Crate'
 
 type Holder
 	export var crate as Crate
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{crate: Crate.full(Blob.create(3)), blob: Blob.create(4)}
@@ -6639,12 +6357,12 @@ function fieldValues(holder Holder) returns Count
 	if holder.blob.data.count() == viaHelper 'same'
 		print("{holder.blob.n} {holder.blob.data.count()}\n")
 	end 'same'
-	return n + total + viaHelper
+	return try n + total + viaHelper otherwise panic("out of range")
 end 'fieldValues'
 
 function payloadValue(holder Holder) returns Count
 	match holder.crate 'take'
-		full(blob) then return blob.n + blob.data.count() + countOf(blob.data)
+		full(blob) then return try blob.n + blob.data.count() + countOf(blob.data) otherwise panic("out of range")
 		empty then return 0
 	end 'take'
 end 'payloadValue'
@@ -6664,8 +6382,6 @@ end 'main'
 ```
 
 <!-- test: a-count-of-what-a-method-of-an-isolated-part-hands-back-is-a-value -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A method that hands back its receiver's data, called on an `isolated` field or payload outside a `modify` block, hands back mutable data of the part, but a count of that data taken in the same statement is a value and leaves no path into the region: assigning it to a plain variable, binding a read-only helper's count of it, and returning it are each accepted.
 
 ```maxon
@@ -6682,20 +6398,18 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 union Crate
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(blob isolated Blob)
+	full(blob Blob)
 	empty
 end 'Crate'
 
 type Holder
 	export var crate as Crate
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{crate: Crate.full(Blob.create(3)), blob: Blob.create(4)}
@@ -6719,7 +6433,7 @@ end 'helperCount'
 
 function payloadCount(holder Holder) returns Count
 	match holder.crate 'take'
-		full(blob) then return blob.n + countOf(blob.inner())
+		full(blob) then return try blob.n + countOf(blob.inner()) otherwise panic("out of range")
 		empty then return 0
 	end 'take'
 end 'payloadCount'
@@ -6738,7 +6452,6 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-payload-read-through-two-nested-helpers-is-a-read-of-the-part -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A helper that may hand back its argument hands back the part it was given however many times it is applied, so an `isolated` payload passed through two nested ones is refused at a plain return and an `isolated` parameter.
 
@@ -6748,8 +6461,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -6770,7 +6482,7 @@ type Pair
 end 'Pair'
 
 function echo(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'echo'
 
 function weigh(consumes bytes ByteArray) returns Count
@@ -6804,8 +6516,6 @@ error E3201: <fragment>:43:38: 'echo' hands back mutable data of the isolated re
 ```
 
 <!-- test: a-clone-of-an-isolated-part-read-is-a-clean-value -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `.clone()` of an `isolated` field or payload read outside a `modify` block, or of a value `get` reads from an `isolated` map field, hands back a region of its own, so the copy reaches an `isolated` parameter, an `isolated` field, a plain field and a plain return.
 
 ```maxon
@@ -6816,18 +6526,15 @@ typealias ByteArray = Array with Byte
 typealias BytesMap = Map with (String, ByteArray)
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
 type Holder
 	export var slot as Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 	export var plain as ByteArray
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var index as isolated BytesMap
+	export var index as BytesMap
 
 	static function create() returns Self
 		return Self{slot: Slot.full(ByteArray.create(2)), bytes: ByteArray.create(3), plain: ByteArray.create(0), index: BytesMap.create()}
@@ -6879,8 +6586,6 @@ end 'main'
 
 <!-- test: a-returns-isolated-call-over-an-isolated-part-read-is-a-clean-value -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A function declared `returns isolated` hands back a region of its own whatever it reads, so its result over an `isolated` field or payload reaches an `isolated` parameter, an `isolated` field, a plain field once merged, and a plain return once merged.
 
 ```maxon
@@ -6889,15 +6594,13 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
 type Holder
 	export var slot as Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 	export var plain as ByteArray
 
 	static function create() returns Self
@@ -6950,7 +6653,6 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-over-an-isolated-payload-given-by-a-match-expression-cannot-be-bound -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that a `match` expression's arm builds over an `isolated` payload of a holder is that payload at every exit, so binding it to a local, for another closure to capture and a call to hand on, is refused at the payload's read.
 
@@ -6960,8 +6662,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7019,8 +6720,6 @@ error E3198: <fragment>:43:38: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: a-closure-over-an-isolated-part-that-hands-back-a-count-is-accepted -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A closure that captures an `isolated` field or payload but hands back only a count of it gives no path into the region, so a call over it is accepted.
 
 ```maxon
@@ -7029,8 +6728,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7038,8 +6736,7 @@ typealias Counter = function() returns Count
 
 type Holder
 	export var slot as Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function create() returns Self
 		return Self{slot: Slot.full(ByteArray.create(2)), bytes: ByteArray.create(3)}
@@ -7076,7 +6773,6 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-payload-given-by-a-match-expression-in-a-loop-cannot-reach-a-plain-variable -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` expression whose arm gives an `isolated` payload of a holder, assigned to a plain variable on each lap of a loop and returned after it, hands the part out as plain data.
 
@@ -7086,8 +6782,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7103,7 +6798,7 @@ function lastPayload(holder Holder, rounds Count) returns ByteArray
 	var got = ByteArray.create(0)
 	for _ in 0 upto rounds 'each'
 		got = match holder.slot 'take'
-			full(bytes) gives bytes
+			full(bytes) gives bytes.clone()
 			empty gives ByteArray.create(0)
 		end 'take'
 	end 'each'
@@ -7121,7 +6816,7 @@ error E3198: <fragment>:23:22: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-unclean-argument-is-quoted-whole-across-nested-parens-strings-and-named-arguments -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A refused argument is quoted from its first token to the comma or parenthesis that ends it at its own depth, so nested calls, string literals holding commas and parentheses, a closure with two parameters and named arguments neither cut it short nor run it on.
 
@@ -7133,8 +6828,7 @@ typealias ByteArray = Array with Byte
 typealias Adder = function(Count, Count) returns Count
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function create() returns Self
 		return Self{bytes: ByteArray.create(0)}
@@ -7179,8 +6873,6 @@ error E3198: <fragment>:40:33: 'shelf.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-generic-helpers-second-parameter-is-a-read-of-the-part -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A generic helper that may hand back either argument hands back the part given at its second parameter, so an `isolated` payload or field given there is refused at an `isolated` parameter and an `isolated` field store.
 
@@ -7196,8 +6888,7 @@ type Blob
 end 'Blob'
 
 union Crate
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(blob isolated Blob)
+	full(blob Blob)
 	empty
 end 'Crate'
 
@@ -7210,16 +6901,15 @@ type Holder
 end 'Holder'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function holding(consumes blob Blob) returns Self
 		return Self{blob: blob}
 	end 'holding'
 end 'Shelf'
 
-function either(a T, b T, first bool) uses T returns T
-	return a if first else b
+function either(a T, b T, first bool) uses T returns T where T implements Copyable
+	return a.clone() if first else b.clone()
 end 'either'
 
 function weigh(consumes blob Blob) returns Tally
@@ -7233,14 +6923,14 @@ function viaPayload(holder Holder) returns Tally
 	end 'take'
 end 'viaPayload'
 
-function viaField(donor Shelf, shelf Shelf)
+function viaField(donor Shelf, mutates shelf Shelf)
 	shelf.blob = either(Blob.create(0), b: donor.blob, first: false)
 end 'viaField'
 
 function main() returns ExitCode
 	let holder = Holder.create()
 	let donor = Shelf.holding(Blob.create(2))
-	let shelf = Shelf.holding(Blob.create(3))
+	var shelf = Shelf.holding(Blob.create(3))
 	print("{viaPayload(holder)}\n")
 	viaField(donor, shelf: shelf)
 	return 0
@@ -7252,7 +6942,6 @@ error E3201: <fragment>:49:15: 'either' hands back mutable data of the isolated 
 ```
 
 <!-- test: error.an-isolated-payload-read-through-a-try-otherwise-call-is-a-read-of-the-part -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A throwing helper that may hand back its argument, called under `try … otherwise` with an `isolated` payload of a holder, hands back the part, so returning the result as plain data is refused.
 
@@ -7266,8 +6955,7 @@ enum EchoError implements Error
 end 'EchoError'
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7283,7 +6971,7 @@ function echoOrFail(bytes ByteArray, fail bool) returns ByteArray throws EchoErr
 	if fail 'refuse'
 		throw EchoError.empty
 	end 'refuse'
-	return bytes
+	return bytes.clone()
 end 'echoOrFail'
 
 function returnEcho(holder Holder) returns ByteArray
@@ -7305,7 +6993,6 @@ error E3201: <fragment>:32:31: 'echoOrFail' hands back mutable data of the isola
 
 
 <!-- test: error.a-field-of-an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-leave -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` array field outside a `modify` block is in the field's region, and so is a field of that element, so pushing the field into an outside array, storing it into a plain field or returning it from inside the loop is a second path into the region and is refused, as the element itself is.
 
@@ -7327,8 +7014,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -7343,32 +7029,31 @@ type Pocket
 	end 'create'
 end 'Pocket'
 
-function keepData(bin Bin, keep DataArray)
+function keepData(bin Bin, mutates keep DataArray)
 	for blob in bin.blobs 'each'
-		keep.push(blob.data)
+		keep.push(blob.data.clone())
 	end 'each'
 end 'keepData'
 
-function storeData(bin Bin, pocket Pocket)
+function storeData(bin Bin, mutates pocket Pocket)
 	for blob in bin.blobs 'each'
-		pocket.bytes = blob.data
+		pocket.bytes = blob.data.clone()
 	end 'each'
 end 'storeData'
 
 function firstData(bin Bin) returns ByteArray
 	for blob in bin.blobs 'each'
-		return blob.data
+		return blob.data.clone()
 	end 'each'
 	return ByteArray.create(0)
 end 'firstData'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	var blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
-	let keep = DataArray.create(0)
-	let pocket = Pocket.create()
+	var keep = DataArray.create(0)
+	var pocket = Pocket.create()
 	keepData(bin, keep: keep)
 	storeData(bin, pocket: pocket)
 	print("{keep.count()} {pocket.bytes.count()} {firstData(bin).count()}\n")
@@ -7382,7 +7067,6 @@ error E3198: <fragment>:44:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: a-for-loop-over-an-isolated-array-field-hands-out-copies-of-element-fields -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same loops compile when what leaves the region is a copy of the element's field or its count.
 
 ```maxon
@@ -7403,8 +7087,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -7419,13 +7102,13 @@ type Pocket
 	end 'create'
 end 'Pocket'
 
-function keepData(bin Bin, keep DataArray)
+function keepData(bin Bin, mutates keep DataArray)
 	for blob in bin.blobs 'each'
 		keep.push(blob.data.clone())
 	end 'each'
 end 'keepData'
 
-function storeData(bin Bin, pocket Pocket)
+function storeData(bin Bin, mutates pocket Pocket)
 	for blob in bin.blobs 'each'
 		pocket.bytes = blob.data.clone()
 	end 'each'
@@ -7439,12 +7122,11 @@ function firstCount(bin Bin) returns Count
 end 'firstCount'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	var blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
-	let keep = DataArray.create(0)
-	let pocket = Pocket.create()
+	var keep = DataArray.create(0)
+	var pocket = Pocket.create()
 	keepData(bin, keep: keep)
 	storeData(bin, pocket: pocket)
 	print("{keep.count()} {pocket.bytes.count()} {firstCount(bin)}\n")
@@ -7459,7 +7141,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-returned-from-inside-a-for-loop-over-an-isolated-array-field-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Returning an element from inside a `for` loop over an `isolated` array field outside a `modify` block hands the field's region out as plain data.
 
@@ -7479,8 +7160,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -7489,14 +7169,13 @@ end 'Bin'
 
 function firstBlob(bin Bin) returns Blob
 	for blob in bin.blobs 'each'
-		return blob
+		return blob.clone()
 	end 'each'
 	return Blob.create()
 end 'firstBlob'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	var blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
 	print("{firstBlob(bin).data.count()}\n")
@@ -7508,7 +7187,6 @@ error E3198: <fragment>:23:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: error.an-isolated-field-read-in-parentheses-cannot-be-iterated-into-outside-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` array field written in parentheses reads the field as the bare spelling does, so an element it pushes into an outside array is refused.
 
@@ -7528,26 +7206,24 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
 	end 'holding'
 end 'Bin'
 
-function keepByFor(bin Bin, keep BlobArray)
+function keepByFor(bin Bin, mutates keep BlobArray)
 	for blob in (bin.blobs) 'each'
-		keep.push(blob)
+		keep.push(blob.clone())
 	end 'each'
 end 'keepByFor'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	var blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
-	let keep = BlobArray.create(0)
+	var keep = BlobArray.create(0)
 	keepByFor(bin, keep: keep)
 	print("{keep.count()}\n")
 	return 0
@@ -7558,7 +7234,6 @@ error E3198: <fragment>:23:14: '(bin.blobs)' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-element-of-an-isolated-array-field-captured-by-a-closure-in-a-for-loop-cannot-leave -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure built inside a `for` loop over an `isolated` array field captures the element the loop hands out, so the closure stored into a plain field, or what a call over it hands back pushed into an outside array, is a second path into the region.
 
@@ -7580,8 +7255,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -7613,8 +7287,7 @@ function storeClosure(bin Bin, pocket Pocket)
 end 'storeClosure'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	let blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
 	let keep = BlobArray.create(0)
@@ -7631,7 +7304,6 @@ error E3198: <fragment>:44:34: 'blob' is isolated and cannot be read outside a b
 ```
 
 <!-- test: error.an-isolated-payload-read-through-a-helper-cannot-enter-a-tuple-or-a-union -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A helper that may hand back its argument hands back an `isolated` payload it is given, so its result placed in a tuple bound to a local or in a plain union payload returned is a read of the part.
 
@@ -7641,8 +7313,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7660,7 +7331,7 @@ type Holder
 end 'Holder'
 
 function echo(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'echo'
 
 function wrapLoose(holder Holder) returns Loose
@@ -7694,8 +7365,6 @@ error E3201: <fragment>:36:28: 'echo' hands back mutable data of the isolated re
 ```
 
 <!-- test: error.a-closure-over-an-isolated-payload-given-to-an-async-call-is-a-read-of-the-part -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call is no door out of the part rule: a closure over an `isolated` payload of a holder, the payload itself and an `isolated` field are each refused at the spawn (E3207) when they reach a plain parameter, because an `async` call takes an isolated value only in an `isolated` parameter, which moves it.
 
@@ -7705,8 +7374,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7714,8 +7382,7 @@ typealias Maker = function() returns ByteArray
 
 type Holder
 	export var slot as Slot
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var bytes as isolated ByteArray
+	export var bytes as ByteArray
 
 	static function create() returns Self
 		return Self{slot: Slot.full(ByteArray.create(0)), bytes: ByteArray.create(0)}
@@ -7761,7 +7428,6 @@ error E3207: <fragment>:44:26: 'echo' is spawned with `async`, and 'holder' is i
 ```
 
 <!-- test: a-coroutine-over-a-fresh-isolated-payload-hands-it-out-as-plain-data -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so what a coroutine hands back from a closure over it is returned as plain data without a refusal.
 
 ```maxon
@@ -7770,8 +7436,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7788,7 +7453,7 @@ end 'apply'
 function returnFromCoroutine() returns ByteArray
 	let made = makeSlot()
 	match made 'take'
-		full(bytes) then return await async apply(function() gives bytes)
+		full(bytes) then return await async apply(function() gives bytes.clone())
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnFromCoroutine'
@@ -7806,7 +7471,6 @@ end 'main'
 ```
 
 <!-- test: error.a-mutable-receiver-beside-an-isolated-payload-argument-is-named-whole-when-chained -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A method call given an `isolated` payload of a holder opens that payload, so a mutable outside record as its receiver is refused beside it, and the refusal names the receiver as written, a chained call included.
 
@@ -7816,8 +7480,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7837,11 +7500,11 @@ type Relay
 	end 'create'
 
 	function pass(bytes ByteArray) returns ByteArray
-		return bytes
+		return bytes.clone()
 	end 'pass'
 
 	function me() returns Relay
-		return self
+		return self.clone()
 	end 'me'
 end 'Relay'
 
@@ -7852,7 +7515,7 @@ function returnViaMethod(holder Holder, relay Relay) returns ByteArray
 	end 'take'
 end 'returnViaMethod'
 
-function storeViaMethod(holder Holder, relay Relay)
+function storeViaMethod(holder Holder, mutates relay Relay)
 	match holder.slot 'take'
 		full(bytes) then relay.last = relay.pass(bytes)
 		empty then print("empty\n")
@@ -7861,7 +7524,7 @@ end 'storeViaMethod'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	let relay = Relay.create()
+	var relay = Relay.create()
 	storeViaMethod(holder, relay: relay)
 	print("{returnViaMethod(holder, relay: relay).count()} {relay.last.count()}\n")
 	return 0
@@ -7873,7 +7536,6 @@ error E3201: <fragment>:43:33: 'relay' is mutable outside 'bytes'; a call into a
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-of-two-helper-calls-is-a-read-of-the-part -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 A conditional whose arms are two helpers that may hand back their arguments, one given an `isolated` payload and one given fresh data, is a read of the part at a plain return.
 
@@ -7883,8 +7545,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 union Slot
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	full(bytes isolated ByteArray)
+	full(bytes ByteArray)
 	empty
 end 'Slot'
 
@@ -7897,7 +7558,7 @@ type Holder
 end 'Holder'
 
 function echo(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'echo'
 
 function returnJoin(holder Holder, flag bool) returns ByteArray
@@ -7918,7 +7579,6 @@ error E3201: <fragment>:24:66: 'echo' hands back mutable data of the isolated re
 ```
 
 <!-- test: error.an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-be-kept-by-a-call -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` array field outside a `modify` block is data of the field's region, so it is no more an ordinary argument than the field itself: given to a parameter that keeps it, to a constructor that stores it in the record it builds, or to an `async` call, it is refused.
 
@@ -7940,8 +7600,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -7984,8 +7643,7 @@ function weighFirstAsync(bin Bin) returns Count
 end 'weighFirstAsync'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	let blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
 	let pockets = PocketArray.create(0)
@@ -8002,7 +7660,6 @@ error E3207: <fragment>:53:28: 'weigh' is spawned with `async`, and 'blob' is is
 ```
 
 <!-- test: a-copy-of-an-element-a-for-loop-hands-out-over-an-isolated-array-field-is-an-ordinary-argument -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same calls compile when what they are given is a copy of the element, and a count of the element read in place leaves the loop as a value.
 
 ```maxon
@@ -8023,8 +7680,7 @@ type Blob
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -8035,11 +7691,11 @@ type Pocket
 	export var blob as Blob
 
 	static function holding(blob Blob) returns Self
-		return Self{blob: blob}
+		return Self{blob: blob.clone()}
 	end 'holding'
 end 'Pocket'
 
-function keep(blob Blob, into PocketArray)
+function keep(blob Blob, mutates into PocketArray)
 	into.push(Pocket.holding(blob))
 end 'keep'
 
@@ -8047,7 +7703,7 @@ function weigh(blob Blob) returns Count
 	return blob.data.count()
 end 'weigh'
 
-function keepCopies(bin Bin, pockets PocketArray)
+function keepCopies(bin Bin, mutates pockets PocketArray)
 	for blob in bin.blobs 'each'
 		keep(blob.clone(), into: pockets)
 		pockets.push(Pocket.holding(blob.clone()))
@@ -8057,17 +7713,16 @@ end 'keepCopies'
 function weighEach(bin Bin) returns Count
 	var total = 0 as Count
 	for blob in bin.blobs 'each'
-		total = total + weigh(blob)
+		total = try total + weigh(blob) otherwise panic("out of range")
 	end 'each'
 	return total
 end 'weighEach'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	var blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
-	let pockets = PocketArray.create(0)
+	var pockets = PocketArray.create(0)
 	keepCopies(bin, pockets: pockets)
 	print("{pockets.count()} {weighEach(bin)}\n")
 	return 0
@@ -8081,7 +7736,6 @@ end 'main'
 ```
 
 <!-- test: error.a-call-given-two-handed-back-results-cannot-store-one-region-into-the-other -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A call whose result is a clean count, given what methods of two `isolated` fields hand back so that it may store the first field's data into the second field's region, reaches through two isolated values in one statement and is refused.
 
@@ -8117,10 +7771,8 @@ type Rack
 end 'Rack'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var rack as isolated Rack
+	export var blob as Blob
+	export var rack as Rack
 
 	static function create() returns Self
 		return Self{blob: Blob.create(), rack: Rack.create()}
@@ -8144,7 +7796,6 @@ error E3201: <fragment>:46:42: one statement reaches through two isolated values
 ```
 
 <!-- test: error.a-handed-back-result-given-to-an-async-call-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call whose argument is what a method of an `isolated` field hands back would run beside the caller with the field's data, so it is refused although its promise answers a count.
 
@@ -8166,8 +7817,7 @@ type Blob
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8190,7 +7840,6 @@ error E3207: <fragment>:31:30: 'countOf' is spawned with `async`, and 'holder' i
 ```
 
 <!-- test: error.a-handed-back-result-joined-with-fresh-data-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A conditional whose one arm is what a method of an `isolated` field hands back and whose other arm is fresh data is the field's data in the arm that hands it back, so binding the join is refused.
 
@@ -8207,13 +7856,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8236,7 +7884,6 @@ error E3201: <fragment>:26:57: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-handed-back-result-given-by-a-closure-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that gives what a method of an `isolated` field hands back carries the field's data out of the statement it is read in, so its body is refused.
 
@@ -8255,13 +7902,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8287,7 +7933,6 @@ error E3201: <fragment>:32:44: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: values-of-a-handed-back-result-taken-in-the-same-statement-leave-freely -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 What a method of an `isolated` field hands back is consumed in its own statement by a sum of two counts and by an interpolation of its count.
 
 ```maxon
@@ -8303,13 +7948,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8317,7 +7961,7 @@ type Holder
 end 'Holder'
 
 function sum(holder Holder) returns Count
-	return holder.blob.inner().count() + holder.blob.inner().count()
+	return try holder.blob.inner().count() + holder.blob.inner().count() otherwise panic("out of range")
 end 'sum'
 
 function shown(holder Holder) returns String
@@ -8338,7 +7982,6 @@ end 'main'
 ```
 
 <!-- test: a-comparison-of-a-handed-back-result-is-a-value -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 What a method of an `isolated` field hands back, compared with `==` in its own statement against fresh data or a parameter, leaves only a `bool`, so the comparison is accepted.
 
 ```maxon
@@ -8359,8 +8002,7 @@ type Blob
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8389,7 +8031,6 @@ true false
 ```
 
 <!-- test: error.a-slice-of-a-handed-back-result-bound-by-try-otherwise-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A slice of what a method of an `isolated` field hands back may view the field's data, so binding it through `try … otherwise` is refused.
 
@@ -8406,13 +8047,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8435,7 +8075,6 @@ error E3201: <fragment>:26:28: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-handed-back-result-through-three-nested-helpers-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 What a method of an `isolated` field hands back, passed through three helpers that may each hand back their argument, is still the field's data at a plain return.
 
@@ -8452,13 +8091,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8466,7 +8104,7 @@ type Holder
 end 'Holder'
 
 function echo(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'echo'
 
 function leak(holder Holder) returns ByteArray
@@ -8484,7 +8122,6 @@ error E3201: <fragment>:30:36: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: a-count-of-a-handed-back-result-through-three-nested-helpers-is-a-value -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A count taken in the same statement of what a method of an `isolated` field hands back, passed through three helpers that may each hand back their argument, is a value and is accepted.
 
 ```maxon
@@ -8500,13 +8137,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8514,7 +8150,7 @@ type Holder
 end 'Holder'
 
 function echo(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'echo'
 
 function countOf(bytes ByteArray) returns Count
@@ -8543,7 +8179,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-of-an-elements-own-array-field-cannot-leave-a-nested-for-loop -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A nested `for` loop over the array field of an element an outer loop hands out over an `isolated` array field iterates data of that field's region, so its element returned as plain data is refused.
 
@@ -8560,15 +8195,14 @@ type Blob
 	export var chunks as ChunkArray
 
 	static function create() returns Self
-		let chunks = ChunkArray.create(0)
+		var chunks = ChunkArray.create(0)
 		chunks.push(ByteArray.create(1))
 		return Self{chunks: chunks}
 	end 'create'
 end 'Blob'
 
 type Bin
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blobs as isolated BlobArray
+	export var blobs as BlobArray
 
 	static function holding(consumes blobs BlobArray) returns Self
 		return Self{blobs: blobs}
@@ -8578,15 +8212,14 @@ end 'Bin'
 function firstChunk(bin Bin) returns ByteArray
 	for blob in bin.blobs 'outer'
 		for chunk in blob.chunks 'inner'
-			return chunk
+			return chunk.clone()
 		end 'inner'
 	end 'outer'
 	return ByteArray.create(0)
 end 'firstChunk'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let blobs = BlobArray.create(0) as isolated BlobArray
+	var blobs = BlobArray.create(0) as BlobArray
 	blobs.push(Blob.create())
 	let bin = Bin.holding(blobs)
 	print("{firstChunk(bin).count()}\n")
@@ -8598,7 +8231,6 @@ error E3198: <fragment>:26:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: the-key-of-a-pair-a-for-loop-hands-out-over-an-isolated-map-field-leaves-freely -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `for` loop destructuring the pairs of an `isolated` map field outside a `modify` block hands out keys that are values, so a key returned or stored in a plain variable leaves freely while the value is read in place.
 
 ```maxon
@@ -8609,8 +8241,7 @@ typealias ByteArray = Array with Byte
 typealias Index = Map with Count, ByteArray
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var index as isolated Index
+	export var index as Index
 
 	static function holding(consumes index Index) returns Self
 		return Self{index: index}
@@ -8628,8 +8259,7 @@ function largestKey(holder Holder) returns Count
 end 'largestKey'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let index = Index.create() as isolated Index
+	var index = Index.create() as Index
 	index.upsert(3, value: ByteArray.create(1))
 	index.upsert(5, value: ByteArray.create(2))
 	let holder = Holder.holding(index)
@@ -8645,7 +8275,6 @@ end 'main'
 ```
 
 <!-- test: a-fresh-constructor-given-a-copy-or-a-value-field-of-an-isolated-part-is-clean -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A fresh constructor given a copy of an `isolated` field's data, or a value-type field of the part, builds a record that holds nothing of the region, so the record leaves freely.
 
 ```maxon
@@ -8663,8 +8292,7 @@ type Blob
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8676,7 +8304,7 @@ type Pocket
 	export var n as Count
 
 	static function holding(bytes ByteArray, n Count) returns Self
-		return Self{bytes: bytes, n: n}
+		return Self{bytes: bytes.clone(), n: n}
 	end 'holding'
 end 'Pocket'
 
@@ -8699,7 +8327,6 @@ end 'main'
 ```
 
 <!-- test: error.a-method-of-an-isolated-part-reached-by-an-index-or-parentheses-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A method that hands back its receiver's data, called on an `isolated` field of a holder reached by an index into an array of holders or by a parenthesised holder, hands back the part's data, so returning it as plain data is refused.
 
@@ -8718,13 +8345,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8741,7 +8367,7 @@ end 'byParens'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	let holders = HolderArray.create(0)
+	var holders = HolderArray.create(0)
 	holders.push(Holder.create())
 	print("{byIndex(holders, at: 0).count()} {byParens(holder).count()}\n")
 	return 0
@@ -8753,7 +8379,6 @@ error E3201: <fragment>:31:23: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: a-count-of-a-slice-of-an-isolated-part-is-a-value -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A slice of an `isolated` field's data, or of what a method of the field hands back, counted in the same statement leaves only a value, so the count is accepted.
 
 ```maxon
@@ -8769,13 +8394,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8804,7 +8428,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-a-user-defined-cursor-hands-out-over-an-isolated-field-cannot-leave-a-for-loop -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out through a user-defined `Iterable` held by an `isolated` field outside a `modify` block is data of the field's region, so returning it as plain data is refused.
 
@@ -8858,8 +8481,7 @@ type Rack implements Iterable with (Blob, RackCursor)
 end 'Rack'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var rack as isolated Rack
+	export var rack as Rack
 
 	static function create() returns Self
 		return Self{rack: Rack.create()}
@@ -8884,7 +8506,6 @@ error E3198: <fragment>:58:14: 'holder.rack' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-element-of-an-isolated-fixed-array-field-cannot-leave-a-for-loop -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` `FixedArray` field outside a `modify` block is data of the field's region, so returning it as plain data is refused.
 
@@ -8904,8 +8525,7 @@ type Blob
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var trio as isolated Trio
+	export var trio as Trio
 
 	static function create() returns Self
 		return Self{trio: Trio.create(value: Blob.create())}
@@ -8914,7 +8534,7 @@ end 'Holder'
 
 function firstBlob(holder Holder) returns Blob
 	for blob in holder.trio 'each'
-		return blob
+		return blob.clone()
 	end 'each'
 	return Blob.create()
 end 'firstBlob'
@@ -8930,7 +8550,6 @@ error E3198: <fragment>:23:14: 'holder.trio' is isolated and cannot be read outs
 ```
 
 <!-- test: error.a-handed-back-result-kept-by-a-fresh-local-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A method of a fresh local that keeps its argument and answers a count, given what a method of an `isolated` field hands back, would leave the local holding the field's data: the local is mutable data outside the region the call opens, so the call is refused.
 
@@ -8947,13 +8566,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -8967,14 +8585,14 @@ type Keeper
 		return Self{kept: ByteArray.create(0)}
 	end 'create'
 
-	function keep(bytes ByteArray) returns Count
-		self.kept = bytes
+	function keep(mutates self, bytes ByteArray) returns Count
+		self.kept = bytes.clone()
 		return bytes.count()
 	end 'keep'
 end 'Keeper'
 
 function keepInLocal(holder Holder) returns Keeper
-	let keeper = Keeper.create()
+	var keeper = Keeper.create()
 	_ = keeper.keep(holder.blob.inner())
 	return keeper
 end 'keepInLocal'
@@ -8990,7 +8608,6 @@ error E3201: <fragment>:40:6: 'keeper' is mutable outside 'holder'; a call into 
 ```
 
 <!-- test: error.a-handed-back-result-kept-by-a-helper-into-a-fresh-local-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A helper that answers a count and stores what a method of an `isolated` field hands back into a fresh local it is also given would leave the local holding the field's data: the local is mutable data outside the region the call opens, so the call is refused.
 
@@ -9007,13 +8624,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9028,13 +8644,13 @@ type Keeper
 	end 'create'
 end 'Keeper'
 
-function keepInto(keeper Keeper, bytes ByteArray) returns Count
-	keeper.kept = bytes
+function keepInto(mutates keeper Keeper, bytes ByteArray) returns Count
+	keeper.kept = bytes.clone()
 	return bytes.count()
 end 'keepInto'
 
 function keepInLocal(holder Holder) returns Keeper
-	let keeper = Keeper.create()
+	var keeper = Keeper.create()
 	_ = keepInto(keeper, bytes: holder.blob.inner())
 	return keeper
 end 'keepInLocal'
@@ -9050,7 +8666,6 @@ error E3201: <fragment>:40:15: 'keeper' is mutable outside 'holder'; a call into
 ```
 
 <!-- test: error.a-handed-back-result-given-by-a-match-expression-arm-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match` expression whose arm gives what a method of an `isolated` field hands back is the field's data, so binding it is refused.
 
@@ -9072,13 +8687,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9104,7 +8718,6 @@ error E3201: <fragment>:32:26: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: a-for-loop-over-a-handed-back-result-reads-its-bytes-in-place -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `for` loop whose source is what a method of an `isolated` field hands back, and whose body reads only the bytes it hands out, leaves only values, so it is accepted as a loop over the field's data is.
 
 ```maxon
@@ -9120,13 +8733,12 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9136,7 +8748,7 @@ end 'Holder'
 function total(holder Holder) returns Count
 	var acc = 0 as Count
 	for byte in holder.blob.inner() 'each'
-		acc = acc + (byte as Count) + 1
+		acc = try acc + (byte as Count) + 1 otherwise panic("out of range")
 	end 'each'
 	return acc
 end 'total'
@@ -9155,7 +8767,6 @@ end 'main'
 ```
 
 <!-- test: error.a-handed-back-result-in-a-tuple-or-a-union-a-helper-builds-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A helper that puts its argument into a tuple or a union payload hands back what a method of an `isolated` field hands back inside it, so binding either result is refused.
 
@@ -9182,8 +8793,7 @@ type Blob
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9224,7 +8834,6 @@ error E3201: <fragment>:45:32: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-handed-back-result-is-refused-alike-when-its-types-are-declared-after-their-use -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The handed-back refusal does not depend on declaration order: with the holder, the part and its method declared after the functions that call it, a plain return and a binding of what the method hands back are refused at the same sites.
 
@@ -9238,7 +8847,7 @@ function leak(holder Holder) returns ByteArray
 end 'leak'
 
 function bind(holder Holder) returns Count
-	let got = holder.blob.inner()
+	var got = holder.blob.inner()
 	got.push(1)
 	return got.count()
 end 'bind'
@@ -9254,8 +8863,7 @@ function main() returns ExitCode
 end 'main'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9270,7 +8878,7 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 ```
@@ -9281,7 +8889,6 @@ error E3201: <fragment>:10:24: 'inner' hands back mutable data of the isolated r
 
 <!-- test: a-handed-back-result-is-clean-when-copied-counted-in-a-ternary-or-used-inside-a-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 What a method of an `isolated` field hands back leaves freely as a copy, as a count chosen by a conditional, as a count a closure takes when called, and as a count of a fresh record built over a copy; inside a `modify` block that opens the field it is bound and written in place.
 
 ```maxon
@@ -9302,8 +8909,7 @@ type Blob
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9363,7 +8969,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-a-for-loop-hands-out-over-a-handed-back-result-cannot-leave -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `for` loop whose source is what a method of an `isolated` field hands back hands out elements of the field's data, so returning one as plain data is refused.
 
@@ -9378,19 +8983,18 @@ type Blob
 	export var chunks as ChunkArray
 
 	static function create() returns Self
-		let chunks = ChunkArray.create(0)
+		var chunks = ChunkArray.create(0)
 		chunks.push(ByteArray.create(1))
 		return Self{chunks: chunks}
 	end 'create'
 
 	function inner() returns ChunkArray
-		return self.chunks
+		return self.chunks.clone()
 	end 'inner'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9399,7 +9003,7 @@ end 'Holder'
 
 function firstChunk(holder Holder) returns ByteArray
 	for chunk in holder.blob.inner() 'each'
-		return chunk
+		return chunk.clone()
 	end 'each'
 	return ByteArray.create(0)
 end 'firstChunk'
@@ -9415,7 +9019,6 @@ error E3201: <fragment>:29:27: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-part-handed-back-through-a-chain-of-three-receiver-methods-is-a-read-of-the-part -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Three chained methods that each hand back their receiver, called on an `isolated` field, hand back the part itself, so returning the chain's result as plain data is refused while a count read through the same chain leaves as a value.
 
@@ -9432,13 +9035,12 @@ type Blob
 	end 'create'
 
 	function me() returns Blob
-		return self
+		return self.clone()
 	end 'me'
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9464,7 +9066,6 @@ error E3201: <fragment>:26:21: 'me' hands back mutable data of the isolated regi
 ```
 
 <!-- test: error.a-user-equals-reached-by-an-operator-cannot-keep-what-it-is-given -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `==` that dispatches a type's own `equals` hands it the handed-back result by value, and the only way the method could keep it is to write its receiver through a field, which the comparison-method rule refuses.
 
@@ -9500,8 +9101,7 @@ type Blob
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9524,7 +9124,6 @@ error E3187: <fragment>:25:11: 'Blob.equals' writes its receiver, but a method b
 ```
 
 <!-- test: a-user-equals-reached-by-an-operator-takes-a-handed-back-result-beside-clean-operands -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 What a method of an `isolated` field hands back, compared with `==` against fresh data through the type's own `equals`, leaves only a `bool`: nothing in the comparison can keep the region, so the comparison is accepted.
 
 ```maxon
@@ -9549,8 +9148,7 @@ type Blob
 end 'Blob'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var blob as isolated Blob
+	export var blob as Blob
 
 	static function create() returns Self
 		return Self{blob: Blob.create()}
@@ -9579,9 +9177,7 @@ true false
 ```
 
 <!-- test: error.a-match-over-a-union-parameter-with-an-isolated-payload-leaves-the-modify-root-read-only -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `u` is lent to the function, so the `match` over it opens the payload's region for the whole statement and the arm cannot write the root of the enclosing `modify bx`.
 ```maxon
@@ -9597,8 +9193,7 @@ end 'Bx'
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 function viaParam(consumes bx Bx, u Ub)
@@ -9612,8 +9207,7 @@ function viaParam(consumes bx Bx, u Ub)
 end 'viaParam'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bx.create(0) as isolated Bx
+	let bx = Bx.create(0) as Bx
 	viaParam(bx, u: Ub.u1(Bx.create(1)))
 	return 0
 end 'main'
@@ -9623,9 +9217,7 @@ error E3197: <fragment>:21:15: cannot write 'n' through 'bx', which is read-only
 ```
 
 <!-- test: error.a-match-over-a-field-with-an-isolated-payload-leaves-the-modify-root-read-only -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `h` is outer data inside `modify bx`, so `h.slot` is read-only there, and the `match` over it still opens the payload's region: the arm cannot write the root.
 ```maxon
@@ -9641,8 +9233,7 @@ end 'Bx'
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Hd
@@ -9654,8 +9245,7 @@ type Hd
 end 'Hd'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bx.create(0) as isolated Bx
+	let bx = Bx.create(0) as Bx
 	let h = Hd.create()
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
@@ -9672,7 +9262,6 @@ error E3197: <fragment>:32:15: cannot write 'n' through 'bx', which is read-only
 ```
 
 <!-- test: error.a-match-arm-over-a-union-with-an-isolated-payload-cannot-wait-once-it-has-read-the-payload -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 Reading `b.n` opens the payload's region for the statement, and `waits(s)` in the same statement may park the coroutine while it is open.
 ```maxon
@@ -9688,8 +9277,7 @@ end 'Bx'
 
 union Ub
 	u0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	u1(b isolated Bx)
+	u1(b Bx)
 end 'Ub'
 
 type Hd
@@ -9719,7 +9307,7 @@ end 'waits'
 function fieldReadFirst(h Hd, s S.handle) returns Code
 	return match h.slot 'm'
 		u0 gives 0
-		u1(b) gives b.n + waits(s)
+		u1(b) gives try b.n + waits(s) otherwise panic("out of range")
 	end 'm'
 end 'fieldReadFirst'
 
@@ -9736,7 +9324,6 @@ error E3205: <fragment>:44:21: cannot call 'waits' inside 'the isolated value'; 
 ```
 
 <!-- test: an-isolated-local-rebound-as-isolated-is-read-through-the-new-name -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `let a = r as isolated Box` hands the region `r` holds to `a`, as `let a = r` does.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -9752,10 +9339,8 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Box.create() as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = r as isolated Box
+	let r = Box.create() as Box
+	let a = r as Box
 	print("{a.items.count()}\n")
 	return 0
 end 'main'
@@ -9768,7 +9353,6 @@ end 'main'
 ```
 
 <!-- test: an-isolated-local-read-through-its-source-after-an-isolated-rebind-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The source of the rebind no longer holds the region.
 ```maxon
@@ -9785,10 +9369,8 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Box.create() as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = r as isolated Box
+	let r = Box.create() as Box
+	let a = r as Box
 	print("{a.items.count()} {r.items.count()}\n")
 	return 0
 end 'main'

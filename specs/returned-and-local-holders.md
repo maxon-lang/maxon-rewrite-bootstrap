@@ -329,7 +329,6 @@ end 'main'
 
 <!-- test: error.read-only-data-into-a-function-that-builds-a-record-from-it-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Holder.make` builds a record that holds `box`, and `row` is outer data that `'fill'` pauses, so passing it inside the block is refused.
 
@@ -354,8 +353,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let row = Row.create("a")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let h = Holder.make(row)
@@ -370,7 +368,6 @@ error E3207: <fragment>:25:23: 'make' builds a record that holds 'row', so it ta
 
 <!-- test: error.read-only-data-into-a-function-value-inside-modify-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team Q1: the oracle sees a record built inside the block holding outer data, a non-entry edge between regions. `Probe` is a function value whose body cannot be seen, so it may build a record from `row`, and `row` is read-only while `'fill'` is open.
 
@@ -401,8 +398,7 @@ typealias Probe = function(Row) returns Count
 
 function run(probe Probe)
 	let row = Row.create(1)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = probe(row)
@@ -421,7 +417,6 @@ error E3207: <fragment>:31:16: 'Probe' needs a parameter it may build a record f
 
 <!-- test: error.read-only-data-into-an-interface-requirement-inside-modify-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team Q1: the same through an interface requirement. `scan` is dispatched to a conformer that builds a record from its argument, and the call site cannot see it.
 
@@ -466,8 +461,7 @@ end 'Scan'
 
 function run(scanner Scanner)
 	let row = Row.create(1)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = scanner.scan(row)
@@ -486,7 +480,6 @@ error E3207: <fragment>:45:19: 'Scanner.scan' needs a parameter it may build a r
 
 <!-- test: error.a-ring-of-three-functions-building-a-record-refuses-read-only-data-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team Q2: a record built three calls down a cycle. The fixpoint must learn that `f0`'s `row` builds one, so the call inside the block is refused.
 
@@ -531,8 +524,7 @@ end 'f2'
 
 function main() returns ExitCode
 	let row = Row.create(7)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		batch.push("{f0(row, j: 0)}")
@@ -546,7 +538,6 @@ error E3207: <fragment>:47:19: 'f0' builds a record that holds 'row', so it take
 
 <!-- test: error.a-closure-returning-a-record-built-from-its-parameter-refuses-read-only-data-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team Q3: a closure returns a record holding its parameter. The result is reached from the parameter, so the call inside the block that hands it read-only data is refused.
 
@@ -577,8 +568,7 @@ typealias Maker = function(Row) returns Reader
 
 function run(make Maker)
 	let row = Row.create(1)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let reader = make(row)
@@ -598,7 +588,6 @@ error E3210: <fragment>:37:6: function value for 'Maker' returns data reached fr
 
 <!-- test: error.a-closure-building-a-record-from-its-capture-is-refused-when-called-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team R1: `g` builds a `Reader` from the `row` it captured. `row` is outer data that `'fill'` pauses, and a closure's captures are not arguments, so the call `g()` inside the block is refused for the closure itself.
 
@@ -628,8 +617,7 @@ end 'Reader'
 function main() returns ExitCode
 	let row = Row.create(1)
 	let g = function() gives Reader.over(row).size()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = g()
@@ -644,7 +632,6 @@ error E3207: <fragment>:30:12: the function value builds a record from data it c
 
 <!-- test: error.a-closure-building-a-record-from-its-capture-is-refused-when-handed-to-a-callee-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team R1: the same closure handed to `runIt`, which invokes it. The callee is judged by its parameter, which says nothing about the closure's captures, so the closure operand is judged for what it builds.
 
@@ -680,8 +667,7 @@ end 'runIt'
 function main() returns ExitCode
 	let row = Row.create(1)
 	let g = function() gives Reader.over(row).size()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = runIt(g)
@@ -697,7 +683,6 @@ error E3207: <fragment>:36:11: 'g' builds a record from data it captured, and th
 
 <!-- test: error.a-wrapper-lending-read-only-data-to-a-generic-method-that-calls-a-function-value-is-refused-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team R2: `App.run` hands its `T` argument to a function value whose body is not visible, and `h` lends its parameter `p` to `run`. `x` is a `T` parameter of `App with Row`, whose element slot is writable, so `h` needs `p` writable and the read-only `row` is refused at the call to `h`.
 
@@ -746,8 +731,7 @@ end 'h'
 function main() returns ExitCode
 	let row = Row.create(1)
 	let a = RowApp.make(function(r Row) gives Reader.over(r).size())
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = h(a, p: row)
@@ -762,7 +746,6 @@ error E3207: <fragment>:50:16: 'h' needs a writable parameter 'p' (line 41: 'App
 
 <!-- test: error.a-wrapper-lending-read-only-data-to-a-generic-method-whose-parameter-is-not-a-type-parameter-is-refused-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team R2: `App.run` takes a `Row`, not a `T`, so no element slot is involved. It hands the `Row` to a function value whose body is not visible, and `h` lends its parameter `p` to `run`. The function value may build a record from `p`, so `h` takes no read-only data and the read-only `row` is refused at the call to `h`.
 
@@ -812,8 +795,7 @@ end 'h'
 function main() returns ExitCode
 	let row = Row.create(1)
 	let a = RowApp.make(function(r Row) gives Reader.over(r).size(), tag: Row.create(2))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = h(a, p: row)
@@ -828,7 +810,6 @@ error E3207: <fragment>:51:16: 'h' builds a record that holds 'p', so it takes n
 
 <!-- test: error.a-generic-method-calling-a-function-value-with-its-own-item-refuses-a-paused-receiver-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team R2: no `T` argument at all. `go` calls the function value with `self.item`, so the receiver `a` carries the data the closure builds from, and `h2` passes its paused receiver two wrappers down.
 
@@ -882,8 +863,7 @@ end 'h2'
 function main() returns ExitCode
 	let row = Row.create(1)
 	let a = RowApp.make(function(r Row) gives Reader.over(r).size(), item: row)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = h2(a)
@@ -1249,7 +1229,6 @@ error E3210: <fragment>:30:10: function value for 'Probe' builds a record from d
 
 <!-- test: error.a-mutable-function-returned-from-a-function-is-refused-when-called-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 M3V: `makeProbe` returns the closure under a `mutates captures` type. The caller's `g` holds data from outside `'fill'`, which the block pauses, so calling it inside the block is refused.
 
@@ -1285,8 +1264,7 @@ end 'makeProbe'
 function main() returns ExitCode
 	let row = Row.create(1)
 	let g = makeProbe(row)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = g()
@@ -1301,7 +1279,6 @@ error E3211: <fragment>:35:12: 'Probe' mutates captures and cannot be called thr
 
 <!-- test: error.a-mutable-function-held-in-a-field-is-refused-when-called-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 M3V: the closure is held in a field of an outer record under a `mutates captures` type. The record is paused inside `'fill'`, so calling the function value read out of it is refused.
 
@@ -1341,8 +1318,7 @@ end 'Holder'
 function main() returns ExitCode
 	let row = Row.create(1)
 	let holder = Holder.over(function() gives Reader.over(row).size())
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = holder.probe()
@@ -1357,7 +1333,6 @@ error E3211: <fragment>:39:23: 'Probe' mutates captures and cannot be called thr
 
 <!-- test: error.a-mutable-function-held-in-an-array-is-refused-when-called-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 M3V: the closure is an element of an outer array whose element type is a `mutates captures` function type. The element read inside `'fill'` is paused data, so calling it is refused.
 
@@ -1392,8 +1367,7 @@ function main() returns ExitCode
 	let row = Row.create(1)
 	let probes = ProbeArray.create(0)
 	probes.push(function() gives Reader.over(row).size())
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let g = try probes.get(0) otherwise panic("no probe")
@@ -1436,7 +1410,6 @@ error E3211: <fragment>:13:21: 'Probe' mutates captures and cannot be called thr
 
 <!-- test: error.a-closure-writing-its-capture-is-refused-when-called-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 M3V: a closure that writes data it captured needs a mutable `self` as well. `g` writes `counter`, which `'fill'` pauses, so the call inside the block is refused for the closure itself.
 
@@ -1459,8 +1432,7 @@ end 'bump'
 function main() returns ExitCode
 	let counter = Counter.create()
 	let g = function() gives bump(counter)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = g()
@@ -1514,7 +1486,6 @@ end 'main'
 
 <!-- test: error.a-closure-writing-its-capture-returned-under-a-mutates-captures-type-is-refused-when-called-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 M3V: `makeBump` returns the capture-writing closure under a `mutates captures` type. `g` holds data from outside `'fill'`, which the block pauses, so calling it inside the block is refused.
 
@@ -1543,8 +1514,7 @@ end 'makeBump'
 function main() returns ExitCode
 	let counter = Counter.create()
 	let g = makeBump(counter)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var batch = LineArray.create(0) as isolated LineArray
+	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = g()

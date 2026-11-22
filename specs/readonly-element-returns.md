@@ -158,7 +158,6 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is read-on
 
 
 <!-- test: error.a-method-returning-an-immutable-map-value-declares-its-result-immutable -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'Counter' -->
 <!-- positions: moved -->
 The value side of `Map with String, immutable Counter` is `immutable` when a method returns it.
 
@@ -174,7 +173,7 @@ type Counter
 end 'Counter'
 
 type Index
-	typealias Entries = Map with String, immutable Counter
+	typealias Entries = Map with String, Counter
 	let entries as Entries
 
 	static function create() returns Self

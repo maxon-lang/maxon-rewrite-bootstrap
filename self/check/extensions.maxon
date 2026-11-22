@@ -36,6 +36,9 @@ function extendedType(mutates c Checker, p ast.Project, ms ast.ModuleState, xd a
 	if unqualified and name == "String" 'string'
 		return p.builtins.stringTy
 	end 'string'
+	if unqualified and name == "float" 'float'
+		return p.builtins.anonFloatTy
+	end 'float'
 	failUnknownType(c, p: p, ms: ms, tr: xd.target, errs: errs)
 	return ast.noType
 end 'extendedType'

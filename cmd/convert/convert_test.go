@@ -484,9 +484,19 @@ end 'f'
 			want: "public interface Iterator uses Element\n\tfunction current() returns borrowed Element\n\tfunction advance(mutates self) throws IterationError\nend 'Iterator'\n",
 		},
 		{
-			name: "a capability word before a type argument is left out",
-			in:   "typealias Keys = Array with immutable Key\n\ntype Table uses Key, Value\n\tvar slots as Map with (immutable Key, Array with isolated Value)\nend 'Table'\n",
-			want: "typealias Keys = Array with Key\n\ntype Table uses Key, Value\n\tvar slots as Map with (Key, Array with Value)\nend 'Table'\n",
+			name: "a capability word before a type is left out",
+			in:   "typealias Keys = Array with immutable Key\n\ntype Table uses Key, Value\n\ttypealias Entry = (immutable Key, Value)\n\tvar slots as Map with (immutable Key, Array with isolated Value)\n\n\tfunction put(key immutable Key, _ isolated Key) returns immutable Key\n\t\treturn key as isolated Key\n\tend 'put'\nend 'Table'\n",
+			want: "typealias Keys = Array with Key\n\ntype Table uses Key, Value\n\ttypealias Entry = (Key, Value)\n\tvar slots as Map with (Key, Array with Value)\n\n\tfunction put(key frozen with Key, consumes _ Key) returns frozen with Key\n\t\treturn key as Key\n\tend 'put'\nend 'Table'\n",
+		},
+		{
+			name: "a capability word on a parameter's or a result's own type maps, a nested one is left out",
+			in:   "function f(a isolated Box, b mutable immutable Box, c Array with immutable Key) returns isolated (immutable Key, Value)\n\tdo()\nend 'f'\n",
+			want: "function f(consumes a Box, mutates b frozen with Box, c Array with Key) returns (Key, Value)\n\tdo()\nend 'f'\n",
+		},
+		{
+			name: "a capability word that names a function or a variable is kept",
+			in:   "function isolated(x Count) returns bool\n\tlet immutable = x == 4\n\treturn not immutable (x) and isolated (x)\nend 'isolated'\n",
+			want: "function isolated(x Count) returns bool\n\tlet immutable = x == 4\n\treturn not immutable(x) and isolated(x)\nend 'isolated'\n",
 		},
 	}
 

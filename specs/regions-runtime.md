@@ -20,7 +20,6 @@ across every later operand that may yield, so a coroutine that replaces the fiel
 
 <!-- test: strand-guard-holds-sibling-during-park -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `editor` parks in `sleep(150)` inside `modify`, and `sibling` sleeps only 10 ms; without the guard the scheduler would run `sibling` during the park and print it between `before` and `inside`. The pinned order proves no sibling ran while the block was open.
 
 ```maxon
@@ -34,8 +33,7 @@ end 'sibling'
 
 function editor() returns Count
 	print("before\n")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		batch.push("x")
@@ -188,7 +186,6 @@ end 'main'
 ```
 
 <!-- test: hold-across-may-yield-call -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `describe` reads `shelf.cell` as its first operand, then `settle` awaits a coroutine that replaces the field with another frozen cell; the first operand is held across that call, so it still reads `old 7` and the leak gate is clean.
 
 ```maxon
@@ -203,8 +200,7 @@ type Cell
 end 'Cell'
 
 type Shelf
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var cell as immutable Cell
+	export var cell as Cell
 
 	static function create(label Tally) returns Self
 		return Self{cell: freeze(Cell.create("old {label}"))}
@@ -240,7 +236,6 @@ old 7 1 new
 ```
 
 <!-- test: strand-guard-holds-sibling-during-a-one-call-open -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `h.part.park()` opens the isolated `part` for that one call, and `park` sleeps 150 ms inside it while `sibling` sleeps only 10 ms; the pinned order proves no sibling ran while the region was open.
 
 ```maxon
@@ -261,8 +256,7 @@ type Part
 end 'Part'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -302,7 +296,6 @@ sibling
 ```
 
 <!-- test: strand-guard-holds-sibling-during-a-one-statement-open -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `h.part.lines.push(pause())` reads through the isolated `part`, which the statement opens for itself, and `pause` sleeps 150 ms in the middle of it while `sibling` sleeps only 10 ms; the pinned order proves no sibling ran while the region was open.
 
 ```maxon
@@ -317,8 +310,7 @@ type Part
 end 'Part'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -339,7 +331,7 @@ end 'sibling'
 
 function editor() returns Count
 	print("before\n")
-	let h = Holder.create()
+	var h = Holder.create()
 	h.part.lines.push(pause())
 	print("after\n")
 	return 2
@@ -364,7 +356,6 @@ sibling
 ```
 
 <!-- test: strand-guard-is-released-when-a-one-call-open-throws -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `h.part.refuse()` throws out of its one-call open into `otherwise 0`, so the guard it took is released on the throw edge too: `sibling` then runs during the 60 ms sleep after it, and the program does not end holding a guard.
 
 ```maxon
@@ -390,8 +381,7 @@ type Part
 end 'Part'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -431,7 +421,6 @@ after 0
 ```
 
 <!-- test: strand-guard-holds-sibling-during-an-argument-one-call-open -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `park(part)` passes the isolated `part` in an unmarked position, which opens it for that one call, and `park` sleeps 150 ms inside it while `sibling` sleeps only 10 ms; the pinned order proves no sibling ran while the region was open.
 
 ```maxon
@@ -459,8 +448,7 @@ end 'sibling'
 
 function editor() returns Count
 	print("before\n")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let part = Part.create() as isolated Part
+	let part = Part.create() as Part
 	let n = park(part)
 	print("after {n}\n")
 	return 2

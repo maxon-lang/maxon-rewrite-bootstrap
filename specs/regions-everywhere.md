@@ -906,7 +906,6 @@ end 'main'
 <!-- test: a-merged-isolated-parameter-fills-a-let-field -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `let` field takes `merge` of an isolated parameter as it takes the parameter itself: the merge moves the region in, so
 no other name may still write it.
 
@@ -926,8 +925,7 @@ type Row
 end 'Row'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let cells = IntArray.create(0) as isolated IntArray
+	let cells = IntArray.create(0) as IntArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify cells 'fill'
 		cells.push(7)

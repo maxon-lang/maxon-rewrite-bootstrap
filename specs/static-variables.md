@@ -1307,7 +1307,7 @@ error E3220: <fragment>:21:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.a-let-global-held-by-a-record-a-callee-builds-is-not-written-by-writing-that-record -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Guards.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1327,8 +1327,7 @@ let Shared = Guards.make()
 
 type Blocks
 	export var subst as CountArray
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var guards as immutable Guards
+	export var guards as Guards
 
 	static function create(guards frozen with Guards) returns Blocks
 		return Blocks{subst: CountArray.create(0), guards: guards}

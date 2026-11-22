@@ -21,8 +21,6 @@ over as an owned value, which goes anywhere an `isolated` value goes.
 ## Tests
 
 <!-- test: error.a-plain-union-lends-its-isolated-payload-where-an-isolated-value-is-wanted -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `u` is a plain union built from an `isolated` value, and the arm hands the payload to an `isolated` parameter.
 
@@ -31,8 +29,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx)
+	m1(y Bx)
 end 'Mx'
 
 type Bx
@@ -48,12 +45,11 @@ function takeB(consumes b Bx)
 end 'takeB'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
+	let rb = Bx.create(5) as Bx
 	let u = Mx.m1(rb)
 	match u 'x'
 		m0(xa) then print("m0 {xa.n}\n")
-		m1(o) then takeB(o)
+		m1(o) then takeB(o.clone())
 	end 'x'
 	return 0
 end 'main'
@@ -63,8 +59,6 @@ error E3198: <fragment>:27:20: 'o' is isolated and cannot be read outside a bloc
 ```
 
 <!-- test: error.two-names-for-a-plain-union-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `v` is a second name for the union `u` holds, so each `match` would hand the one payload to its own owner.
 
@@ -73,8 +67,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx)
+	m1(y Bx)
 end 'Mx'
 
 type Bx
@@ -90,8 +83,7 @@ function takeB(consumes b Bx)
 end 'takeB'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
+	let rb = Bx.create(5) as Bx
 	let u = Mx.m1(rb)
 	let v = u
 	match u 'a'
@@ -110,8 +102,6 @@ error E3198: <fragment>:28:21: 'oa' is isolated and cannot be read outside a blo
 ```
 
 <!-- test: error.an-alias-of-a-plain-union-read-after-a-hand-over-is-refused-at-the-hand-over -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The second `match` only reads the payload, and the first still hands it over, which is where the refusal is.
 
@@ -120,8 +110,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx)
+	m1(y Bx)
 end 'Mx'
 
 type Bx
@@ -137,8 +126,7 @@ function takeB(consumes b Bx)
 end 'takeB'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
+	let rb = Bx.create(5) as Bx
 	let u = Mx.m1(rb)
 	let v = u
 	match u 'a'
@@ -157,8 +145,6 @@ error E3198: <fragment>:28:21: 'oa' is isolated and cannot be read outside a blo
 ```
 
 <!-- test: error.a-call-that-keeps-a-plain-union-leaves-its-isolated-payload-lent -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `keepU` stores the union in a holder, which then names the payload the `match` over `u` would hand away.
 
@@ -167,8 +153,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx)
+	m1(y Bx)
 end 'Mx'
 
 type Bx
@@ -183,7 +168,7 @@ type Hs
 	var k as Mx
 
 	static function create(k Mx) returns Self
-		return Self{k: k}
+		return Self{k: k.clone()}
 	end 'create'
 end 'Hs'
 
@@ -191,19 +176,18 @@ function takeB(consumes b Bx)
 	print("took {b.n}\n")
 end 'takeB'
 
-function keepU(u Mx, h Hs)
-	h.k = u
+function keepU(u Mx, mutates h Hs)
+	h.k = u.clone()
 end 'keepU'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
+	let rb = Bx.create(5) as Bx
 	let u = Mx.m1(rb)
-	let h = Hs.create(Mx.m0(Bx.create(0)))
+	var h = Hs.create(Mx.m0(Bx.create(0)))
 	keepU(u, h: h)
 	match u 'a'
 		m0(xa) then print("m0 {xa.n}\n")
-		m1(oa) then takeB(oa)
+		m1(oa) then takeB(oa.clone())
 	end 'a'
 	match h.k 'b'
 		m0(xb) then print("m0 {xb.n}\n")
@@ -217,8 +201,6 @@ error E3198: <fragment>:42:21: 'oa' is isolated and cannot be read outside a blo
 ```
 
 <!-- test: error.a-call-that-returns-a-plain-union-leaves-its-isolated-payload-lent -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `idU` answers the union it was given, so `v` and `u` name one union.
 
@@ -227,8 +209,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx)
+	m1(y Bx)
 end 'Mx'
 
 type Bx
@@ -244,17 +225,16 @@ function takeB(consumes b Bx)
 end 'takeB'
 
 function idU(u Mx) returns Mx
-	return u
+	return u.clone()
 end 'idU'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
+	let rb = Bx.create(5) as Bx
 	let u = Mx.m1(rb)
 	let v = idU(u)
 	match u 'a'
 		m0(xa) then print("m0 {xa.n}\n")
-		m1(oa) then takeB(oa)
+		m1(oa) then takeB(oa.clone())
 	end 'a'
 	match v 'b'
 		m0(xb) then print("m0 {xb.n}\n")
@@ -268,8 +248,6 @@ error E3198: <fragment>:32:21: 'oa' is isolated and cannot be read outside a blo
 ```
 
 <!-- test: an-arm-opens-the-payload-a-plain-union-lends -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A write through the payload and a call that only reads it open the payload in the arm, for a `let` union and for a parameter matched twice.
 
 ```maxon
@@ -277,8 +255,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx)
+	m1(y Bx)
 end 'Mx'
 
 type Bx
@@ -305,8 +282,7 @@ function bump(u Mx)
 end 'bump'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
+	let rb = Bx.create(5) as Bx
 	let u = Mx.m1(rb)
 	match u 'c'
 		m0(xc) then show(xc)
@@ -324,7 +300,6 @@ show 3
 ```
 
 <!-- test: a-linear-union-hands-its-isolated-payload-over-as-an-owned-value -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 `Mx` holds a linear case, so the `match` consumes it and the `isolated` payload of its other case goes to an `isolated` parameter.
 
 ```maxon
@@ -332,8 +307,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Rl)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bk)
+	m1(y Bk)
 end 'Mx'
 
 type Rl
@@ -364,7 +338,7 @@ function main() returns ExitCode
 	let u = Mx.m1(Bk.create(1))
 	match u 'x1'
 		m0(x) then x.fin(1)
-		m1(y) then takeI(y)
+		m1(y) then takeI(y.clone())
 	end 'x1'
 	return 0
 end 'main'
@@ -377,8 +351,7 @@ took 1
 ```
 
 <!-- test: error.a-payload-of-an-isolated-union-goes-to-one-isolated-parameter-once -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `u` is held in an `isolated` local, so the `match` hands `o` over as an owned value, and the first argument moves it.
 
@@ -387,8 +360,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx)
+	m1(y Bx)
 end 'Mx'
 
 type Bx
@@ -404,10 +376,8 @@ function takeTwo(consumes a Bx, consumes b Bx)
 end 'takeTwo'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mx.m1(rb) as isolated Mx
+	let rb = Bx.create(5) as Bx
+	let u = Mx.m1(rb) as Mx
 	match u 'x'
 		m0(xa) then print("m0 {xa.n}\n")
 		m1(o) then takeTwo(o, b: o)
@@ -420,8 +390,6 @@ error E3102: <fragment>:27:25: use of moved value 'o': its ownership moved to an
 ```
 
 <!-- test: error.a-box-union-lends-its-isolated-payload-where-an-isolated-value-is-wanted -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A case with a second payload makes the union a heap box rather than one word, and the payload is lent all the same.
 
@@ -430,8 +398,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx, tag Tally)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx, tag Tally)
+	m1(y Bx, tag Tally)
 end 'Mx'
 
 type Bx
@@ -447,12 +414,11 @@ function takeB(consumes b Bx)
 end 'takeB'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
+	let rb = Bx.create(5) as Bx
 	let u = Mx.m1(rb, tag: 1)
 	match u 'x'
 		m0(xa, _) then print("m0 {xa.n}\n")
-		m1(o, _) then takeB(o)
+		m1(o, _) then takeB(o.clone())
 	end 'x'
 	return 0
 end 'main'
@@ -462,8 +428,7 @@ error E3198: <fragment>:27:23: 'o' is isolated and cannot be read outside a bloc
 ```
 
 <!-- test: error.a-payload-of-a-box-union-held-in-an-isolated-variable-goes-to-one-isolated-parameter-once -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same refusal for a union that is a heap box.
 
@@ -472,8 +437,7 @@ typealias Tally = int(0 to 1000)
 
 union Mx
 	m0(x Bx, tag Tally)
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	m1(y isolated Bx, tag Tally)
+	m1(y Bx, tag Tally)
 end 'Mx'
 
 type Bx
@@ -489,10 +453,8 @@ function takeTwo(consumes a Bx, consumes b Bx)
 end 'takeTwo'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let rb = Bx.create(5) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Mx.m1(rb, tag: 1) as isolated Mx
+	let rb = Bx.create(5) as Bx
+	let u = Mx.m1(rb, tag: 1) as Mx
 	match u 'x'
 		m0(xa, _) then print("m0 {xa.n}\n")
 		m1(o, _) then takeTwo(o, b: o)
@@ -1047,9 +1009,7 @@ error E3207: <fragment>:35:21: 'bump' needs a writable parameter 'h' at line 27;
 ```
 
 <!-- test: a-discard-bound-from-an-isolated-local-after-a-linear-union-match-releases-it -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Inside a block, a bare `match` of an outer `isolated` linear union consumes it and its arm sinks the payload. The
 later `let _ = h` moves `h` into the discard, which releases it.
 
@@ -1058,8 +1018,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Iq7
 	i0
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	i1(w isolated Lw7)
+	i1(w Lw7)
 end 'Iq7'
 
 type Bx7
@@ -1091,10 +1050,8 @@ function sink(consumes o Lw7)
 end 'sink'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let h = Bx7.create(0) as isolated Bx7
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let u = Iq7.i1(mk()) as isolated Iq7
+	let h = Bx7.create(0) as Bx7
+	let u = Iq7.i1(mk()) as Iq7
 	// TODO: modify blocks are not supported in minimaxon
 	modify h 'mh'
 		match u 'x1'
@@ -1114,7 +1071,6 @@ fin 4
 ```
 
 <!-- test: an-arm-that-binds-no-isolated-payload-writes-outer-data -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The `have` arm covers a case with an `isolated` payload and binds nothing, so it opens no window and `o` stays writable.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1129,8 +1085,7 @@ end 'Bx'
 
 union Iu
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(b isolated Bx)
+	have(b Bx)
 end 'Iu'
 
 type Holder
@@ -1144,7 +1099,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create()
-	let o = Bx.create(0)
+	var o = Bx.create(0)
 	match h.u 'm'
 		none then o.n = 1
 		have then o.n = 5
@@ -1161,7 +1116,6 @@ end 'main'
 ```
 
 <!-- test: an-arm-that-binds-no-isolated-payload-writes-the-root-it-matches-through -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 `match h.u` lends nothing to an arm that binds no payload, so `h` stays writable there.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1176,8 +1130,7 @@ end 'Bx'
 
 union Iu
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(b isolated Bx)
+	have(b Bx)
 end 'Iu'
 
 type Holder
@@ -1190,7 +1143,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	match h.u 'r'
 		none then h.n = 1
 		have then h.n = 7
@@ -1207,7 +1160,7 @@ end 'main'
 ```
 
 <!-- test: an-arm-that-binds-an-isolated-payload-refuses-a-write-to-outer-data -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `have(b)` arm binds the `isolated` payload, so it is a window and `o` is read-only in it.
 ```maxon
@@ -1223,8 +1176,7 @@ end 'Bx'
 
 union Iu
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	have(b isolated Bx)
+	have(b Bx)
 end 'Iu'
 
 type Holder
@@ -1252,8 +1204,7 @@ error E3197: <fragment>:32:16: cannot write 'n' through 'o', which is read-only 
 ```
 
 <!-- test: a-match-on-a-field-of-an-isolated-variable-opens-it-for-the-whole-statement -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `job` is `isolated` and not open, so `match job.state` opens it for the whole statement, and every arm sees `o` as outer data whether or not it binds a payload.
 ```maxon
@@ -1269,8 +1220,7 @@ end 'Bx'
 
 union St
 	idle
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	busy(b isolated Bx)
+	busy(b Bx)
 end 'St'
 
 type Job
@@ -1283,8 +1233,7 @@ type Job
 end 'Job'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let job = Job.create() as isolated Job
+	let job = Job.create() as Job
 	let o = Bx.create(0)
 	match job.state 'm'
 		idle then o.n = 1
@@ -1300,7 +1249,6 @@ error E3197: <fragment>:31:13: cannot write 'n' through 'o', which is read-only 
 
 <!-- test: a-consumed-isolated-union-hands-its-lone-payload-to-a-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `h` is an `isolated` `let` the `match` consumes, so its lone plain payload `d` is the whole of its region: the arm sends it, the service keeps and writes it, and no name in the sender reaches it again.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1339,8 +1287,7 @@ type Keeper
 end 'Keeper'
 
 function hand(svc Keeper.handle, n Integer) returns Integer
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let h = Holder.full(Data.create(n)) as isolated Holder
+	let h = Holder.full(Data.create(n)) as Holder
 	var got = 0 as Integer
 	match h 'k'
 		empty then got = 0
@@ -1652,7 +1599,6 @@ error E3102: <fragment>:29:16: cannot lend 's' to parameter 's' of 'clear', whic
 ```
 
 <!-- test: error.a-bare-match-on-an-isolated-variable-moves-it-at-the-head -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The `match` consumes the `isolated` variable as it begins, whether or not an arm binds, so the arm that binds nothing cannot read it (ruling 45).
 ```maxon
@@ -1679,8 +1625,7 @@ function peek(s Slot) returns Count
 end 'peek'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let s = Slot.held(Box.create(3)) as isolated Slot
+	let s = Slot.held(Box.create(3)) as Slot
 	match s 'which'
 		empty then break
 		held then print("{peek(s)}\n")
@@ -1734,7 +1679,6 @@ end 'main'
 
 <!-- test: a-match-inside-its-own-modify-leaves-the-isolated-variable-readable -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Inside its own `modify` the variable is open region data and the `match` lends; after the block the bare `match` consumes it and hands the payload over owned.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1757,8 +1701,7 @@ function take(consumes b Box) returns Count
 end 'take'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let s = Slot.held(Box.create(3)) as isolated Slot
+	let s = Slot.held(Box.create(3)) as Slot
 	// TODO: modify blocks are not supported in minimaxon
 	modify s 'open'
 		match s 'inner'
@@ -1781,7 +1724,6 @@ end 'main'
 ```
 
 <!-- test: a-consumed-isolated-unions-lone-unique-payload-goes-to-an-isolated-parameter -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The bare `match` consumes the `isolated` variable, so its lone unique payload is owned and goes to an `isolated` parameter.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1804,8 +1746,7 @@ function take(consumes t Token) returns Count
 end 'take'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let s = Slot.held(Token.create(5)) as isolated Slot
+	let s = Slot.held(Token.create(5)) as Slot
 	match s 'which'
 		empty then break
 		held(t) then print("{take(t)}\n")
@@ -1821,7 +1762,6 @@ end 'main'
 ```
 
 <!-- test: a-consumed-isolated-var-refilled-on-every-path-is-matched-again -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The first `match` consumes `s`; both branches refill it before the second `match` consumes it again (ruling 33's W2).
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1844,13 +1784,12 @@ function take(consumes b Box) returns Count
 end 'take'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var s = Slot.held(Box.create(3)) as isolated Slot
+	var s = Slot.held(Box.create(3)) as Slot
 	var total = 0 as Count
 	if total == 0 'refill'
 		match s 'first'
 			empty then break
-			held(b) then total = take(b)
+			held(b) then total = take(b.clone())
 		end 'first'
 		s = Slot.empty
 	end 'refill' else 'other'
@@ -1858,7 +1797,7 @@ function main() returns ExitCode
 	end 'other'
 	match s 'second'
 		empty then break
-		held(b) then total = total + take(b)
+		held(b) then total = try total + take(b.clone()) otherwise panic("out of range")
 	end 'second'
 	print("{total}\n")
 	return 0
@@ -1872,7 +1811,6 @@ end 'main'
 ```
 
 <!-- test: a-consumed-isolated-union-falls-through-into-a-payload-free-arm -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The bare `match` consumes `p` once: the `full` arm releases it and falls through, and the `empty` arm, entered either way, releases nothing more.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1891,23 +1829,21 @@ union Pack
 end 'Pack'
 
 function fromFull(n Count) returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let p = Pack.full(Box.create(n), label: "full") as isolated Pack
+	let p = Pack.full(Box.create(n), label: "full") as Pack
 	var total = 0 as Count
 	match p 'which'
 		full(b, _) then total = b.n and fallthrough
-		empty then total = total + 1
+		empty then total = try total + 1 otherwise panic("out of range")
 	end 'which'
 	return total
 end 'fromFull'
 
 function fromEmpty() returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let p = Pack.empty as isolated Pack
+	let p = Pack.empty as Pack
 	var total = 0 as Count
 	match p 'which'
 		full(b, _) then total = b.n and fallthrough
-		empty then total = total + 1
+		empty then total = try total + 1 otherwise panic("out of range")
 	end 'which'
 	return total
 end 'fromEmpty'
@@ -1967,7 +1903,6 @@ error E3102: <fragment>:31:17: cannot lend 's' to parameter 's' of 'bump', which
 ```
 
 <!-- test: a-consumed-isolated-union-from-a-co-owned-holder-releases-its-payloads-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Each bare `match` consumes an `isolated` union this frame may not own alone: a call's result, a word union from a call, and an `isolated` parameter. The payload is retained out of the box and the box is released at the arm's head, so the `_` payload goes with the box.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -2015,9 +1950,8 @@ function main() returns ExitCode
 		empty then break
 		held(b) then total = total + b.n
 	end 'aWord'
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let p = Pack.full(Box.create(4), label: "four") as isolated Pack
-	total = total + openPack(p)
+	let p = Pack.full(Box.create(4), label: "four") as Pack
+	total = try total + openPack(p) otherwise panic("out of range")
 	print("{total}\n")
 	return 0
 end 'main'
@@ -2665,7 +2599,7 @@ error E3200: <fragment>:45:36: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-swap-out-of-a-matched-self-field-is-not-sent -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `match h.u` holds `h`, the root of the path, so what `swap h.u with Slot.empty` takes out of the matched field is held and is not sent (ruling 50 points 1 and 2).
 ```maxon
@@ -2685,8 +2619,7 @@ union Slot
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}
@@ -2878,8 +2811,7 @@ error E3200: <fragment>:33:27: 'try a.pop() otherwise panic("one")' crosses to a
 ```
 
 <!-- test: error.a-held-swap-result-is-not-an-isolated-factory-argument -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so it is not an `isolated` factory parameter's argument (ruling 50 point 2).
 ```maxon
@@ -2895,13 +2827,11 @@ end 'Box'
 
 union Slot
 	empty
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(b isolated Box)
+	held(b Box)
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}
@@ -2909,8 +2839,7 @@ type Holder
 end 'Holder'
 
 type Keeper
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes x Slot) returns Self
 		return Self{u: x}
@@ -2940,8 +2869,7 @@ error E3200: <fragment>:46:37: 'swap h.u with Slot.empty' crosses to an `isolate
 ```
 
 <!-- test: error.a-held-swap-result-is-not-an-isolated-reply -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so a method that `returns isolated` does not return it from the arm (ruling 50 point 2).
 ```maxon
@@ -2957,13 +2885,11 @@ end 'Box'
 
 union Slot
 	empty
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(b isolated Box)
+	held(b Box)
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}
@@ -3004,8 +2930,7 @@ error E3200: <fragment>:38:21: 'swap h.u with Slot.empty' crosses to an `isolate
 ```
 
 <!-- test: error.a-held-swap-result-is-not-in-an-isolated-position -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so it is not an `isolated` parameter's argument (ruling 50 point 2).
 ```maxon
@@ -3021,13 +2946,11 @@ end 'Box'
 
 union Slot
 	empty
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(b isolated Box)
+	held(b Box)
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}
@@ -3764,8 +3687,6 @@ error E3214: <fragment>:45:24: cannot hand 'crate' to an `isolated` position: 'c
 ```
 
 <!-- test: a-swap-and-a-pop-in-an-arm-that-binds-nothing-are-accepted -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 In an arm that binds no payload, whether it names a payload case (`held then`) or not (`empty then`), `pop` and `swap` on the matched subject stay legal, and what they take out goes on after the `match` (ruling 45.1; ruling 50 point 2).
 ```maxon
 typealias Count = int(0 to 1000)
@@ -3795,13 +3716,11 @@ end 'Box'
 
 union Pod
 	empty
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(b isolated Box)
+	held(b Box)
 end 'Pod'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Pod
+	var u as Pod
 
 	static function create(consumes u Pod) returns Self
 		return Self{u: u}
@@ -3827,8 +3746,7 @@ function main() returns ExitCode
 	a.push(Slot.held(Token.create(2)))
 	let h = Holder.create(Pod.empty)
 	var popped = Slot.empty
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var moved = Pod.empty as isolated Pod
+	var moved = Pod.empty as Pod
 	match try a.get(0) otherwise panic("one") 'p'
 		empty then break
 		held then popped = try a.pop() otherwise panic("one")
@@ -3967,7 +3885,7 @@ error E3200: <fragment>:42:36: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-self-field -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `match self.u` in a method holds `self`, the root of the path, so what `swap self.u with Slot.empty` takes out of the matched field is not sent (ruling 48 point 1; ruling 50 point 2).
 ```maxon
@@ -4004,8 +3922,7 @@ type Taker
 end 'Taker'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes x Slot) returns Self
 		return Self{u: x}
@@ -4034,7 +3951,6 @@ error E3200: <fragment>:47:37: 'swap self.u with Slot.empty' crosses to the serv
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-local-inside-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A local declared inside a `modify` is held like any other: what `a.pop()` takes out of it is held by the `match` over `a.get(0)`, so it is not a `spawn` factory's argument (ruling 50 point 2).
 ```maxon
@@ -4080,8 +3996,7 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(1) as isolated Box
+	let b = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'open'
 		let a = Slots.create(0)
@@ -4170,7 +4085,6 @@ error E3200: <fragment>:52:42: 'try s.a.pop() otherwise panic("one")' crosses to
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-an-isolated-local-inside-its-own-modify -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Inside its own `modify` an `isolated` local is open region data and the `match` lends from it, so what `a.pop()` takes out of it is held by the `match` over `a.get(0)` and is not a `spawn` factory's argument (#235; ruling 50 point 2).
 ```maxon
@@ -4208,8 +4122,7 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Slots.create(0) as isolated Slots
+	let a = Slots.create(0) as Slots
 	// TODO: modify blocks are not supported in minimaxon
 	modify a 'open'
 		a.push(Slot.held(Token.create(2)))
@@ -4228,7 +4141,7 @@ error E3200: <fragment>:44:42: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-swap-result-is-not-a-spawn-argument -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A crossing door is chosen by the parameter's declaration, so a held `swap` result handed to an unmarked `spawn` factory parameter meets the `spawn` door, which refuses it because it may still name the holder the `match` holds (ruling 50 point 2). The case pins the order of two refusals: without the hold the same `swap` result is refused at the unmarked factory parameter as "'create' hands back mutable data of the isolated region it opens", as `error.an-unheld-swap-result-is-opened-by-an-unmarked-spawn-parameter` shows.
 ```maxon
@@ -4248,8 +4161,7 @@ union Slot
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}
@@ -4287,7 +4199,6 @@ error E3200: <fragment>:46:37: 'swap h.u with Slot.empty' crosses to the service
 ```
 
 <!-- test: error.an-unheld-swap-result-is-opened-by-an-unmarked-spawn-parameter -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A swap result is isolated, so an unmarked `spawn` factory parameter opens it rather than crossing it, and this pin goes red if a swap result ever slips through the unmarked spawn door.
 ```maxon
@@ -4307,8 +4218,7 @@ union Slot
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}
@@ -4318,7 +4228,7 @@ end 'Holder'
 type Keeper
 	var u as Slot
 
-	static function create(x Slot) returns Self
+	static function create(consumes x Slot) returns Self
 		return Self{u: x}
 	end 'create'
 
@@ -4331,7 +4241,7 @@ type Keeper
 end 'Keeper'
 
 function main() returns ExitCode
-	let h = Holder.create(Slot.held(Token.create(1)))
+	var h = Holder.create(Slot.held(Token.create(1)))
 	var k = spawn Keeper.create(Slot.empty)
 	k = spawn Keeper.create(exchange(h.u, value: Slot.empty))
 	print("{try await k.peek() otherwise 0}\n")
@@ -4343,7 +4253,7 @@ error E3201: <fragment>:44:19: 'create' hands back mutable data of the isolated 
 ```
 
 <!-- test: error.a-held-swap-result-is-not-a-reply -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so a service method does not return it to its sender from the arm through an unmarked return (ruling 50 point 2; #282). The case pins the order of two refusals: without the hold the same `return` is refused as "'swap h.u with Slot.empty' is isolated, the result is not `isolated`".
 ```maxon
@@ -4363,8 +4273,7 @@ union Slot
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}

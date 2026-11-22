@@ -21,7 +21,6 @@ immutable data is refused at, directly, through a call result, or through a merg
 ## Tests
 
 <!-- test: a-parameter-kept-only-in-a-let-field-of-a-pushed-record-takes-an-immutable-argument -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `Entry` keeps `name` in a `let` field and `weight` in a `var` field. The entry goes into a mutable array, and `source.title`, itself `immutable`, is accepted as the argument for `name`, a parameter declared `immutable`.
 
 ```maxon
@@ -30,8 +29,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias EntryArray = Array with Entry
 
 type Entry
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 	export var weight as Integer
 
 	static function create(name frozen with ByteArray) returns Self
@@ -40,8 +38,7 @@ type Entry
 end 'Entry'
 
 type Source
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let title as immutable ByteArray
+	export let title as ByteArray
 
 	static function create() returns Self
 		return Self{title: b"title"}
@@ -76,7 +73,7 @@ end 'main'
 ```
 
 <!-- test: error.a-parameter-kept-in-a-var-field-of-a-pushed-record-refuses-an-immutable-argument -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `name` is a `var` field here, so the pushed entry holds a mutable `ByteArray`, and the `immutable` `source.title` is refused for it.
 
@@ -95,8 +92,7 @@ type Entry
 end 'Entry'
 
 type Source
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let title as immutable ByteArray
+	export let title as ByteArray
 
 	static function create() returns Self
 		return Self{title: b"title"}

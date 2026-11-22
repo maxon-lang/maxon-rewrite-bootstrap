@@ -77,6 +77,7 @@ func Convert(file, src string, kind inputKind) Result {
 		addInterfaceWheres(lines)
 		lendRequirements(lines)
 		dropReplacedMembers(lines)
+		dropSelfClones(lines)
 	}
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines)
@@ -672,7 +673,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		if line.removed || len(line.code) == 0 {
 			continue
 		}
-		line.code = stripTypeArgCapabilities(line.code)
+		line.code = stripTypeCapabilities(line.code)
 
 		// Pop blocks closed by `end` at matching indentation.
 		if line.code[0].text == "end" && !namesACase(line.code, currentBlock() == blockEnum) {
@@ -864,7 +865,7 @@ func opensBlockInBrackets(toks []token) bool {
 
 // unsupportedExtensionTargets are the names an extension cannot extend in minimaxon although it may name them: library
 // types and interfaces that it has no counterpart of, or that it does not extend.
-var unsupportedExtensionTargets = []string{"Set", "Log", "Logger", "CivilDate", "ParseError", "byte", "float", "Character", "Error"}
+var unsupportedExtensionTargets = []string{"Set", "Log", "Logger", "CivilDate", "ParseError", "byte", "Character", "Error"}
 
 // builtinGenericTypes are the library types that an extension may name and that take type arguments.
 var builtinGenericTypes = []string{"Array", "Map", "List", "Pool", "Handle", "Frozen", "Cown", "FixedArray"}
@@ -1174,6 +1175,9 @@ func capabilityType(word string) []token {
 	return nil
 }
 
+// parameterModes are the words before a parameter's name that say how the function takes it.
+var parameterModes = []string{"mutates", "consumes", "sets"}
+
 func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, string)) []token {
 	if len(params) == 0 {
 		return params
@@ -1225,9 +1229,8 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 			g = rewritten
 		}
 
-		// Check for capability qualifiers in parameter type.
 		nameIdx := 0
-		if len(g) >= 3 && (g[0].text == "mutates" || g[0].text == "consumes" || g[0].text == "sets") {
+		if len(g) >= 3 && slices.Contains(parameterModes, g[0].text) {
 			nameIdx = 1
 		}
 		// `name isolated T` takes a value that moves in, and `name immutable T` shares a frozen one.
@@ -1260,44 +1263,106 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 	}
 	rhs := toks[eqIdx+1:]
 
-	// Check unsupported typealias RHS forms.
-	switch rhs[0].text {
-	case "function":
+	if rhs[0].text == "function" {
 		line.code = append(toks[:eqIdx+1:eqIdx+1], rewriteFunctionType(rhs, line, warn)...)
-		return
-	case "isolated", "immutable":
-		warn(line, fmt.Sprintf("capability typealias '%s' is not supported in minimaxon", rhs[0].text))
 	}
-
 }
 
-// stripTypeArgCapabilities leaves out the capability word before a type argument (`Array with immutable Key`,
-// `Map with (immutable K, V)`): an element here has the one owner its container gives it, so a key the map holds is
-// already one that nothing else changes (README, "Where it differs from Maxon").
-func stripTypeArgCapabilities(toks []token) []token {
+// stripTypeCapabilities leaves out the capability word before a type wherever one is written in a nested position: a type
+// argument (`Array with immutable Key`, `Map with (immutable K, V)`), a tuple's element (`(immutable Key, Value)`), a
+// field's or a variable's type, the target of a cast or a typealias and a function type's parts. A value here has one
+// owner, so one that nothing else changes is what every owned value already is (README, "Where it differs from Maxon").
+// The word on a function's parameter or result is kept, for capabilityType to map, since what a parameter takes and a
+// result gives decides what crosses between threads. A receiver's `immutable self` and a region bound of a `where` are no
+// type, and are left for their warnings, and a capability word that names a function or a variable (`isolated(x)`,
+// `not immutable`) is a name.
+func stripTypeCapabilities(toks []token) []token {
+	declIdx := skipModifiers(toks)
+	typealias := declIdx < len(toks) && toks[declIdx].text == "typealias"
+	kept := signatureCapabilities(toks)
 	out := toks[:0:0]
-	var argLists []bool // for each open parenthesis, whether it opens the type arguments after a `with`
 	for i, t := range toks {
-		prev := token{}
-		if len(out) > 0 {
-			prev = out[len(out)-1]
-		}
-		afterWith := prev.kind == tokIdent && prev.text == "with"
-		inArgList := len(argLists) > 0 && argLists[len(argLists)-1] && (prev.text == "(" || prev.text == ",")
-		if (afterWith || inArgList) && t.kind == tokIdent && isCapabilityWord(t.text) && i+1 < len(toks) && toks[i+1].kind == tokIdent {
+		if t.kind == tokIdent && isCapabilityWord(t.text) && !kept[i] && i+1 < len(toks) && len(out) > 0 && beforeType(out[len(out)-1], toks[i+1], typealias) {
 			continue
-		}
-		switch t.text {
-		case "(":
-			argLists = append(argLists, afterWith)
-		case ")":
-			if len(argLists) > 0 {
-				argLists = argLists[:len(argLists)-1]
-			}
 		}
 		out = append(out, t)
 	}
 	return out
+}
+
+// signatureCapabilities marks the capability words of a named function's header that qualify a parameter's own type
+// (`name isolated T`) or the type after `returns`: the positions transformFunctionHeader maps.
+func signatureCapabilities(toks []token) []bool {
+	kept := make([]bool, len(toks))
+	fnIdx := funcKeywordIndex(toks)
+	if fnIdx < 0 || isClosureLine(toks, fnIdx) {
+		return kept
+	}
+	lp := findToken(toks, fnIdx+1, "(")
+	if lp < 0 {
+		return kept
+	}
+	rp := findMatchingParen(toks, lp)
+	if rp < 0 {
+		return kept
+	}
+	markCapability := func(at int) {
+		if at+1 < len(toks) && toks[at].kind == tokIdent && isCapabilityWord(toks[at].text) {
+			kept[at] = true
+		}
+	}
+	groupStart := lp + 1
+	depth := 0
+	for i := lp + 1; i <= rp; i++ {
+		switch toks[i].text {
+		case "(":
+			depth++
+		case ")":
+			depth--
+		}
+		if i != rp && (depth != 0 || toks[i].text != ",") {
+			continue
+		}
+		typeAt := groupStart + 1
+		if toks[groupStart].kind == tokIdent && slices.Contains(parameterModes, toks[groupStart].text) ||
+			i-groupStart >= 3 && toks[groupStart+1].text == "mutable" {
+			typeAt++
+		}
+		if typeAt < i {
+			markCapability(typeAt)
+		}
+		groupStart = i + 1
+	}
+	for i := rp + 1; i+1 < len(toks); i++ {
+		if toks[i].kind == tokIdent && toks[i].text == "returns" {
+			markCapability(i + 1)
+		}
+	}
+	return kept
+}
+
+// beforeType is whether a capability word between prev and next qualifies a type: after a word that a type follows, or
+// between a parameter's name and its type, or first in a tuple's or a list's element, where a call's argument would be
+// a name rather than a type's.
+func beforeType(prev token, next token, typealias bool) bool {
+	switch prev.text {
+	case "with", "as", "returns":
+		return startsType(next)
+	case "=":
+		return typealias && startsType(next)
+	case "(", ",":
+		return next.kind == tokIdent && startsType(next)
+	}
+	return prev.kind == tokIdent && (prev.text == "_" || !reservedWords[prev.text]) && next.kind == tokIdent && startsType(next)
+}
+
+// startsType is whether a token can begin a type: a tuple's parenthesis, or a name, which a keyword is not unless it
+// names a type.
+func startsType(t token) bool {
+	if t.text == "(" {
+		return true
+	}
+	return t.kind == tokIdent && (t.text == "int" || t.text == "function" || !reservedWords[t.text])
 }
 
 func checkUnionCase(line *sourceLine, warn func(*sourceLine, string)) {
@@ -1392,10 +1457,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if i+3 < len(toks) && toks[i+1].text == "." && toks[i+2].text == "later" && toks[i+3].text == "(" {
 					warn(line, "reply.later() is not supported in minimaxon")
 				}
-			case "isolated", "immutable":
-				if i > 0 && toks[i-1].text == "as" {
-					warn(line, fmt.Sprintf("region capability '%s' is not supported in minimaxon", t.text))
-				}
 			case "min":
 				if i+1 < len(toks) && (toks[i+1].text == "to" || toks[i+1].text == "upto") && (i == 0 || toks[i-1].text != ".") {
 					warn(line, "open-ended 'min to/upto' match range patterns are not supported in minimaxon")
@@ -1453,21 +1514,10 @@ func rewriteFunctionType(rhs []token, line *sourceLine, warn func(*sourceLine, s
 		if len(g) >= 1 && g[0].text == "mutable" {
 			g = append([]token{{kind: tokIdent, text: "mutates"}}, g[1:]...)
 		}
-		for _, t := range g {
-			if t.kind == tokIdent && isCapabilityWord(t.text) {
-				warn(line, fmt.Sprintf("parameter capability '%s' is not supported in minimaxon", t.text))
-			}
-		}
 		params = append(params, g...)
 	}
-	tail := rhs[closeIdx:]
-	for _, t := range tail {
-		if t.text == "immutable" || t.text == "isolated" {
-			warn(line, fmt.Sprintf("region capability '%s' is not supported in minimaxon", t.text))
-		}
-	}
 	out := append(slices.Clone(rhs[:2]), params...)
-	return append(out, tail...)
+	return append(out, rhs[closeIdx:]...)
 }
 
 // splitTopLevel splits tokens at the commas outside brackets.

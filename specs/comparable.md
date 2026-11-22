@@ -91,8 +91,8 @@ type Pair uses T where T implements Comparable
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function order() returns Integer
@@ -112,7 +112,7 @@ function main() returns ExitCode
 	let less = IntPair.create(3, b: 9)
 	let same = IntPair.create(7, b: 7)
 	let more = IntPair.create(9, b: 3)
-	return less.order() * 100 + same.order() * 10 + more.order()
+	return try less.order() * 100 + same.order() * 10 + more.order() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -579,8 +579,8 @@ typealias Integer = int(0 to u32.max)
 type Box uses T where T implements Hashable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemHash() returns HashValue

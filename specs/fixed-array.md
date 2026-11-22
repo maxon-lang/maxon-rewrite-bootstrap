@@ -3766,7 +3766,6 @@ copy true false
 ```
 
 <!-- test: fixed-array.a-record-holding-fixed-arrays-crosses-to-a-service-and-back -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A service boundary walks a `FixedArray` as it walks an `Array`: a record holding one in a field and one in a union
 payload crosses at the `spawn` and as a call argument, and a record the handler builds comes back as the reply.
 ```maxon
@@ -3782,7 +3781,7 @@ type Cell
 	export var mask as Flags
 
 	static function create(content Content, mask Flags) returns Self
-		return Self{content: content, mask: mask}
+		return Self{content: content.clone(), mask: mask.clone()}
 	end 'create'
 
 	function describe() returns String
@@ -3796,8 +3795,7 @@ type Cell
 end 'Cell'
 
 type Svc
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var held as isolated Cell
+	var held as Cell
 
 	static function create(consumes held Cell) returns Self
 		return Self{held: held}
@@ -3811,7 +3809,7 @@ type Svc
 end 'Svc'
 
 function flagsOf(first bool, second bool) returns Flags
-	let flags = Flags.create()
+	var flags = Flags.create()
 	flags.set(0, value: first)
 	flags.set(1, value: second)
 	return flags

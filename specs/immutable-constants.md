@@ -229,7 +229,6 @@ error E3196: <fragment>:16:13: cannot store a read-only 'Tok' into 'an element o
 ```
 
 <!-- test: a-constant-module-let-is-stored-into-an-immutable-field -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `value` is declared `immutable ByteArray`, and `create` takes its parameter with no word: storing it into an
 `immutable` field is all `create` does, so the parameter takes immutable data.
 
@@ -237,11 +236,10 @@ error E3196: <fragment>:16:13: cannot store a read-only 'Tok' into 'an element o
 let Name = b"abc"
 
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
@@ -259,14 +257,12 @@ end 'main'
 ```
 
 <!-- test: a-constant-local-let-is-stored-into-an-immutable-field -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ```maxon
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
@@ -381,7 +377,7 @@ error E3207: <fragment>:6:7: 'push' needs a writable receiver; 'copy' is immutab
 ```
 
 <!-- test: error.a-write-through-a-constant-field-of-an-immutable-holder-is-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `value` is `immutable`, so what it holds is not writable through any name that reads it.
 
@@ -389,8 +385,7 @@ error E3207: <fragment>:6:7: 'push' needs a writable receiver; 'copy' is immutab
 let Name = b"abc"
 
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
 		return Self{value: value}
@@ -437,16 +432,14 @@ end 'main'
 ```
 
 <!-- test: a-fresh-frozen-name-is-stored-into-an-immutable-field -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `freeze` turns the fresh buffer into `immutable` data where it enters the holder.
 
 ```maxon
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
@@ -464,12 +457,11 @@ end 'main'
 ```
 
 <!-- test: error.a-fresh-name-is-refused-by-an-immutable-field-until-it-is-frozen -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
 		return Self{value: value}
@@ -487,15 +479,14 @@ error E3207: <fragment>:11:21: 'create' needs 'value' frozen (line 6: `return Se
 ```
 
 <!-- test: a-slice-of-an-immutable-source-is-frozen-into-an-immutable-field -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got ')' -->
 `src` is `immutable`, so a slice of it is a clean call and `freeze` takes it.
 
 ```maxon
 let Source = b"abcdef"
 
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
 		return Self{value: value}
@@ -521,14 +512,13 @@ end 'main'
 ```
 
 <!-- test: error.a-slice-of-a-mutable-source-cannot-be-frozen -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got ')' -->
 <!-- positions: moved -->
 `src` is ordinary mutable data, so its slice is part of its region.
 
 ```maxon
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
 		return Self{value: value}
@@ -615,7 +605,6 @@ error E3209: <fragment>:5:9: a return does not fit the declared result: 'Name' i
 ```
 
 <!-- test: an-immutable-result-returns-a-constant -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ```maxon
 let Name = b"abc"
 
@@ -624,8 +613,7 @@ function nameOf() returns frozen with ByteArray
 end 'nameOf'
 
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
 		return Self{value: value}
@@ -646,7 +634,6 @@ end 'main'
 ```
 
 <!-- test: inline-byte-literal-is-immutable -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 An inline literal is image data like a constant `let`: it is stored into an `immutable` field and into an
 `immutable` array element with no `freeze` and no copy.
 
@@ -654,17 +641,16 @@ An inline literal is image data like a constant `let`: it is stored into an `imm
 typealias NameArray = Array with ByteArray
 
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
 function main() returns ExitCode
 	let t = Tok.create(b"abc")
-	let names = NameArray.create(0)
+	var names = NameArray.create(0)
 	names.push(b"de")
 	print("{t.value.count()} {names.count()}\n")
 	return 0
@@ -791,7 +777,6 @@ error E3209: <fragment>:3:9: a return does not fit the declared result: a byte-s
 ```
 
 <!-- test: map-key-read-into-immutable-holder -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 A `Map` key slot is `immutable`: a literal is inserted as it is, and the key a `for` reads back is stored into an
 `immutable` field with no copy.
 
@@ -801,8 +786,7 @@ typealias CountMap = Map with (ByteArray, Count)
 typealias CreditArray = Array with Credit
 
 type Credit
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 
 	static function create(name ByteArray) returns Self
 		return Self{name: name}
@@ -833,7 +817,6 @@ end 'main'
 ```
 
 <!-- test: set-element-read-into-immutable-holder -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 A `Set` element slot is `immutable` as well: the element a `for` reads goes into an `immutable` field with no copy.
 
 ```maxon
@@ -842,8 +825,7 @@ typealias NameSet = Set with ByteArray
 typealias CreditArray = Array with Credit
 
 type Credit
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 
 	static function create(name ByteArray) returns Self
 		return Self{name: name}
@@ -1091,7 +1073,6 @@ error E3196: <fragment>:19:16: cannot store a read-only 'Credit' into 'an elemen
 ```
 
 <!-- test: immutable-names-share-across-a-service-send -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 A `Tok` holding a module `let` name is immutable already (every field is a `let` of an immutable type, so `freeze`
 would be E3200), and a send hands the `Tok` over by move. Two `Tok`s built from the same name are sent to a service:
 the name is image data, so the sends walk no counts and both read the same bytes.
@@ -1100,8 +1081,7 @@ the name is image data, so the sends walk no counts and both read the same bytes
 let Label = b"alpha"
 
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
 		return Self{value: value}
@@ -1154,14 +1134,12 @@ error E3207: <fragment>:4:9: 'push' needs a writable receiver; 'frozen' is immut
 ```
 
 <!-- test: error.a-write-through-an-immutable-field-of-a-var-is-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `data` is an `immutable` field, so no name that reads it may write it, whatever binds the holder.
 
 ```maxon
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var data as immutable ByteArray
+	export var data as ByteArray
 
 	static function create(data frozen with ByteArray) returns Self
 		return Self{data: data}
@@ -1196,7 +1174,6 @@ error E3207: <fragment>:3:7: 'push' needs a writable receiver; 'name' is immutab
 ```
 
 <!-- test: a-union-payload-declared-immutable-holds-a-constant-name -->
-<!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 A union payload takes a capability word like a field: `named` holds image data, and the `match` reads it back as
 `immutable`.
 
@@ -1204,8 +1181,7 @@ A union payload takes a capability word like a field: `named` holds image data, 
 let Alpha = b"alpha"
 
 union Label
-	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
-	named(text immutable ByteArray)
+	named(text ByteArray)
 	anonymous
 end 'Label'
 
@@ -1250,12 +1226,10 @@ error E3196: <fragment>:10:26: cannot store an immutable 'ByteArray' into 'Label
 ```
 
 <!-- test: error.a-write-through-an-immutable-union-payload-is-refused -->
-<!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 union Label
-	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
-	named(text immutable ByteArray)
+	named(text ByteArray)
 	anonymous
 end 'Label'
 
@@ -1412,15 +1386,13 @@ end 'main'
 ```
 
 <!-- test: a-read-of-an-immutable-field-passed-to-an-immutable-parameter-does-not-freeze-its-holder -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `label` is an `immutable` field, so `sigs.label` is frozen whoever holds it: `measure` hands it to a parameter that
 needs frozen data and still writes `sigs`, and `sigs` stays a mutable parameter.
 
 ```maxon
 type Sigs
 	export var hits as Count
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let label as immutable ByteArray
+	export let label as ByteArray
 
 	static function create() returns Self
 		return Self{hits: 0, label: b"abc"}
@@ -1451,16 +1423,13 @@ end 'main'
 ```
 
 <!-- test: an-immutable-payload-read-through-a-result-does-not-freeze-the-record-the-result-came-from -->
-<!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `name` is the `immutable` payload of the union `memberOf` hands back out of `sigs`. `Chain.create` keeps it in an
 `immutable` field, so it needs frozen data, and the payload already is: `sigs` is not asked to be frozen, and
 `outer` writes it.
 
 ```maxon
 export union Member
-	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
-	one(name immutable ByteArray)
+	one(name ByteArray)
 	none
 end 'Member'
 
@@ -1482,8 +1451,7 @@ type Sigs
 end 'Sigs'
 
 type Chain
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Self
 		return Self{name: name}
@@ -1566,15 +1534,13 @@ end 'main'
 ```
 
 <!-- test: a-method-returning-its-immutable-field-does-not-freeze-its-receiver -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `labelOf` writes `self` and returns its `immutable` field: the result is frozen data whatever holds the receiver, so
 `self` is not asked to be frozen, and `lookup` hands the result to a parameter that needs frozen data.
 
 ```maxon
 type Sigs
 	export var hits as Count
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let label as immutable ByteArray
+	export let label as ByteArray
 
 	static function create() returns Self
 		return Self{hits: 0, label: b"label"}
@@ -1587,8 +1553,7 @@ type Sigs
 end 'Sigs'
 
 type Chain
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Self
 		return Self{name: name}
@@ -1650,7 +1615,6 @@ error E3207: <fragment>:17:15: 'takes' takes `immutable` 'name'; 'sigs' is mutab
 ```
 
 <!-- test: an-immutable-element-fills-an-immutable-struct-field -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 An element of an `Array with immutable ByteArray` is frozen data, so it fills a field declared `immutable ByteArray`
 with nothing copied.
 
@@ -1658,8 +1622,7 @@ with nothing copied.
 typealias NameList = Array with ByteArray
 
 type Window
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let label as immutable ByteArray
+	export let label as ByteArray
 	export let depth as Count
 
 	static function create(label frozen with ByteArray, depth Count) returns Self
@@ -1684,7 +1647,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-element-fills-a-one-word-union-payload -->
-<!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 A union whose only payload case holds one `immutable` word takes an element of an `Array with immutable ByteArray`
 and is stored into a `var` field.
 
@@ -1693,8 +1655,7 @@ typealias NameList = Array with ByteArray
 
 union Source
 	file
-	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
-	body(name immutable ByteArray)
+	body(name ByteArray)
 end 'Source'
 
 type Holder
@@ -1734,7 +1695,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-element-fills-the-second-payload-case-of-a-boxed-union -->
-<!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
 A union with two payload cases is boxed, and its second case takes `immutable` elements of an
 `Array with immutable ByteArray` as well.
 
@@ -1742,21 +1702,19 @@ A union with two payload cases is boxed, and its second case takes `immutable` e
 typealias NameList = Array with ByteArray
 
 union Shape
-	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
-	named(name immutable ByteArray)
-	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
-	pair(left immutable ByteArray, right immutable ByteArray)
+	named(name ByteArray)
+	pair(left ByteArray, right ByteArray)
 end 'Shape'
 
 function weigh(shape Shape) returns Count
 	return match shape 'which'
 		named(name) gives name.count()
-		pair(left, right) gives left.count() + right.count()
+		pair(left, right) gives try left.count() + right.count() otherwise panic("out of range")
 	end 'which'
 end 'weigh'
 
 function main() returns ExitCode
-	let names = NameList.create(0)
+	var names = NameList.create(0)
 	names.push(b"ab")
 	names.push(b"cde")
 	let first = try names.get(0) otherwise panic("main: two names were pushed")
@@ -1774,7 +1732,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-field-read-off-a-parameter-arrays-element-goes-into-a-set -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `name` is an `immutable` field, so reading it off an element of an unmarked array parameter hands the set data nobody
 else can write: no clone, no `freeze`.
 
@@ -1786,8 +1743,7 @@ typealias NameMap = Map with (ByteArray, Count)
 typealias FuncArray = Array with Func
 
 type Func
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	let name as immutable ByteArray
+	let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Func
 		return Self{name: name}
@@ -1951,14 +1907,12 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-parameter-passed-to-an-immutable-parameter-is-inferred-frozen -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `wrap` marks nothing: passing `name` to the `immutable` parameter that keeps it makes `wrap` take frozen data, and
 a frozen argument is all it needs.
 
 ```maxon
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Holder
 		return Self{name: name}
@@ -1982,14 +1936,12 @@ end 'main'
 ```
 
 <!-- test: error.a-parameter-inferred-frozen-refuses-a-mutable-argument -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal is at the caller that passes mutable data, not inside `wrap`.
 
 ```maxon
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let name as immutable ByteArray
+	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Holder
 		return Self{name: name}
@@ -2216,7 +2168,6 @@ error E3217: <fragment>:27:14: parameter `readings` of the message `Meter.add` i
 ```
 
 <!-- test: a-lookup-with-an-immutable-key-and-a-fresh-fallback-is-written -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The key is `immutable`, but the value the lookup answers is read from the map's value slot, so `lines` is writable.
 
 ```maxon
@@ -2227,8 +2178,7 @@ typealias LinesMap = Map with (ByteArray, CountArray)
 typealias TokenArray = Array with Token
 
 type Token
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value frozen with ByteArray) returns Token
 		return Self{value: value}
@@ -2452,8 +2402,6 @@ end 'main'
 ```
 
 <!-- test: a-constant-name-kept-by-a-field-an-element-and-a-map-key-is-frozen-into-an-array -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A constant name stored in an `immutable` field, an `immutable` array element and a map key is the one image record, never a
 copy. Reading it back out of each holder and freezing the arrays that hold it neither copies it nor aborts the freeze.
 
@@ -2463,8 +2411,7 @@ typealias Names = Array with ByteArray
 typealias Counts = Map with (ByteArray, ElementIndex)
 
 type Token
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value frozen with ByteArray) returns Token
 		return Self{value: value}
@@ -2474,8 +2421,7 @@ end 'Token'
 typealias Tokens = Array with Token
 
 function frozenCopyOf(names Names) returns frozen with Names
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let frozen = Names.create(names.count(), zeroed: false) as isolated Names
+	let frozen = Names.create(names.count(), zeroed: false) as Names
 	for name in names 'eachName'
 		frozen.push(name)
 	end 'eachName'
@@ -2569,8 +2515,6 @@ end 'main'
 
 <!-- test: a-clone-of-a-record-holding-an-immutable-name-is-sent-to-an-async-worker -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Cloning a record shares the `immutable` name it holds instead of copying it, so the clone is sole and the send to an
 async worker finds no owner outside the graph it moves.
 
@@ -2578,8 +2522,7 @@ async worker finds no owner outside the graph it moves.
 let Label = b"alpha"
 
 type Tok
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let value as immutable ByteArray
+	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
 		return Self{value: value}
@@ -2591,8 +2534,7 @@ function measure(tok Tok) returns Count
 end 'measure'
 
 function built() returns frozen with ByteArray
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bytes = ByteArray.create(0) as isolated ByteArray
+	let bytes = ByteArray.create(0) as ByteArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify bytes 'fill'
 		bytes.push(1)

@@ -23,9 +23,7 @@ filled region into frozen data.
 ## Tests
 
 <!-- test: build-then-freeze-runs -->
-<!-- skip: capability typealias 'immutable' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The index fills a region of its own inside `modify`, is frozen on return, and `lineOf` reads the frozen result.
 
 ```maxon
@@ -60,12 +58,10 @@ type IndexBuilder
 	end 'lineOf'
 end 'IndexBuilder'
 
-// TODO: capability typealias 'immutable' is not supported in minimaxon
-typealias SettledIndex = immutable IndexBuilder
+typealias SettledIndex = IndexBuilder
 
 function buildIndex(declarations DeclarationArray) returns SettledIndex
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let builder = IndexBuilder.create() as isolated IndexBuilder
+	let builder = IndexBuilder.create() as IndexBuilder
 	// TODO: modify blocks are not supported in minimaxon
 	modify builder 'fill'
 		for declaration in declarations 'eachDeclaration'
@@ -94,9 +90,7 @@ end 'main'
 ```
 
 <!-- test: a-capability-typealias-over-a-generic-alias-resolves-through-the-alias -->
-<!-- skip: capability typealias 'immutable' is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A capability word written over the name of a generic alias denotes that alias's instance, so a parameter of the capability alias reads like the instance itself.
 
 ```maxon
@@ -112,16 +106,14 @@ end 'Node'
 
 typealias NodeArray = Array with Node
 
-// TODO: capability typealias 'immutable' is not supported in minimaxon
-typealias FrozenNodes = immutable NodeArray
+typealias FrozenNodes = NodeArray
 
 function total(items FrozenNodes) returns Count
 	return items.count()
 end 'total'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let nodes = NodeArray.create(0) as isolated NodeArray
+	let nodes = NodeArray.create(0) as NodeArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify nodes 'fill'
 		nodes.push(Node.create(1))
@@ -199,7 +191,6 @@ error E3198: <fragment>:23:9: 'counter' is not isolated; 'modify' opens an isola
 
 <!-- test: isolated-field-modify-one-call-swap-runs -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 An `isolated` field is filled inside `modify`, written by a one-call open, and taken out whole with `swap`; the replacement region is empty and `files` counts the one `modify`.
 
 ```maxon
@@ -227,8 +218,7 @@ type WordIndex
 end 'WordIndex'
 
 type Indexer
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var index as isolated WordIndex
+	var index as WordIndex
 	var filesSeen = 0 as Tally
 
 	static function create() returns Self
@@ -283,7 +273,6 @@ end 'main'
 ```
 
 <!-- test: call-into-isolated-with-mutable-argument-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `self.index.absorb(spare)` opens `index` for the call, and `spare` is a mutable `WordIndex` of this region, so the region would point out.
 
@@ -313,8 +302,7 @@ type WordIndex
 end 'WordIndex'
 
 type Indexer
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var index as isolated WordIndex
+	var index as WordIndex
 
 	static function create() returns Self
 		return Self{index: WordIndex.create()}
@@ -339,7 +327,6 @@ error E3201: <fragment>:35:21: 'spare' is mutable outside 'index'; a call into a
 
 <!-- test: writable-receiver-needed-inside-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Inside `'fill'` the rest of `self` is read-only, so a method that writes `self` cannot be called there.
 
@@ -364,8 +351,7 @@ type WordIndex
 end 'WordIndex'
 
 type Indexer
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var index as isolated WordIndex
+	var index as WordIndex
 	var filesSeen = 0 as Tally
 
 	static function create() returns Self
@@ -437,7 +423,6 @@ error E3202: <fragment>:14:10: 'rows.get(0)' is mutable and cannot leave 'read';
 
 <!-- test: returned-closure-literal-leaving-window-is-named-by-its-site -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure literal returned from the block captures the region's contents, so it cannot leave the window either. It is
 named as every other closure is, by where it is written.
@@ -450,8 +435,7 @@ typealias LineArray = Array with String
 typealias Thunk = function() returns Tally
 
 function make() returns Thunk
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		batch.push("a")
@@ -471,7 +455,6 @@ error E3202: <fragment>:11:10: the closure at <fragment>:11:10 is mutable and ca
 
 <!-- test: thrown-region-contents-leaving-window-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An error carries its payload out of the function, so a payload that holds the region's array leaves the block exactly as a returned view does.
 
@@ -508,8 +491,7 @@ function run(consumes bag Bag) throws BagFault
 end 'run'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bag = Bag.create("alpha") as isolated Bag
+	let bag = Bag.create("alpha") as Bag
 	try run(bag) otherwise (fault) 'failed'
 		match fault 'which'
 			named(names) then print("{names.count()}\n")
@@ -524,7 +506,6 @@ error E3202: <fragment>:29:9: 'BagFault.named(bag.names)' is mutable and cannot 
 
 <!-- test: thrown-record-read-inside-window-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A record an element read bound inside the block is region data too, and naming it in the payload does not make it a value.
 
@@ -571,8 +552,7 @@ function run(consumes table Table) throws RowFault
 end 'run'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let table = Table.create("alpha") as isolated Table
+	let table = Table.create("alpha") as Table
 	try run(table) otherwise (fault) 'failed'
 		match fault 'which'
 			named(row) then print("{row.text}\n")
@@ -588,7 +568,6 @@ error E3202: <fragment>:40:9: 'RowFault.named(first)' is mutable and cannot leav
 
 <!-- test: thrown-values-read-inside-window-run -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `String` is a value, so a payload built from the block's text, or from a string an element read produced, may leave through the error.
 
 ```maxon
@@ -635,10 +614,8 @@ function fromElement(consumes bag Bag) throws BagFault
 end 'fromElement'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let first = Bag.create("alpha") as isolated Bag
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let second = Bag.create("alpha") as isolated Bag
+	let first = Bag.create("alpha") as Bag
+	let second = Bag.create("alpha") as Bag
 	try fromName(first) otherwise (fault) 'nameFailed'
 		match fault 'nameWhich'
 			named(text) then print("{text}\n")
@@ -664,7 +641,6 @@ alpha
 
 <!-- test: thrown-region-contents-leaving-an-enclosing-try-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A block-form `try` around the `modify` carries the thrown payload out of the window to its handler.
 
@@ -693,8 +669,7 @@ union BagFault implements Error
 end 'BagFault'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bag = Bag.create("alpha") as isolated Bag
+	let bag = Bag.create("alpha") as Bag
 	try 'guard'
 		// TODO: modify blocks are not supported in minimaxon
 		modify bag 'open'
@@ -715,7 +690,6 @@ error E3202: <fragment>:32:10: 'BagFault.named(bag.names)' is mutable and cannot
 
 <!-- test: thrown-region-contents-caught-inside-the-window-runs -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A block-form `try` written inside the `modify` hands the payload to a handler that is still inside the window, so nothing leaves it.
 
 ```maxon
@@ -757,8 +731,7 @@ function run(consumes bag Bag)
 end 'run'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bag = Bag.create("alpha") as isolated Bag
+	let bag = Bag.create("alpha") as Bag
 	run(bag)
 	return 0
 end 'main'
@@ -771,7 +744,6 @@ end 'main'
 ```
 
 <!-- test: thrown-region-contents-leaving-the-statement-that-opens-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A payload built from the one-statement open's region data leaves with the error just as a returned one does.
 
@@ -787,8 +759,7 @@ type Page
 end 'Page'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var page as isolated Page
+	export var page as Page
 
 	static function create() returns Self
 		return Self{page: Page.create()}
@@ -800,7 +771,7 @@ union PageFault implements Error
 end 'PageFault'
 
 function check(holder Holder) throws PageFault
-	throw PageFault.named(holder.page.lines)
+	throw PageFault.named(holder.page.lines.clone())
 end 'check'
 
 function main() returns ExitCode
@@ -819,7 +790,6 @@ error E3202: <fragment>:25:8: 'PageFault.named(holder.page.lines)' is mutable an
 
 <!-- test: opened-slot-reassigned-inside-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Only the region's contents are writable inside its block, so the variable holding the opened region cannot be reassigned there.
 
@@ -843,8 +813,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var slot = Bag.create() as isolated Bag
+	var slot = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify slot 'edit'
 		slot.add(1)
@@ -861,7 +830,6 @@ error E3203: <fragment>:25:3: 'slot' is open in 'edit' and cannot be reassigned 
 
 <!-- test: outer-record-var-assigned-inside-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An outer `var` that holds a record is read-only inside the window, so assigning it a new record there is refused.
 
@@ -878,8 +846,7 @@ end 'Row'
 
 function main() returns ExitCode
 	var keep = Row.create("a")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		batch.push("x")
@@ -894,7 +861,7 @@ error E3204: <fragment>:18:3: 'keep' holds a record from outside 'fill' and cann
 ```
 
 <!-- test: a-match-arm-lending-an-isolated-payload-refuses-a-write-to-outer-data -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The arm of a `match` that binds an `isolated` payload is a window: data that existed before the arm is read-only in it, so `b.n = 5` is refused.
 
@@ -903,8 +870,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Sh
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(r isolated Bk)
+	held(r Bk)
 end 'Sh'
 
 type Bk
@@ -938,7 +904,7 @@ error E3197: <fragment>:30:16: cannot write 'n' through 'b', which is read-only 
 ```
 
 <!-- test: a-match-arm-lending-an-isolated-payload-refuses-a-write-through-a-parameter -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A parameter is outer data of the arm, so the function cannot write the record it was handed there.
 
@@ -947,8 +913,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Sh
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(r isolated Bk)
+	held(r Bk)
 end 'Sh'
 
 type Bk
@@ -985,7 +950,7 @@ error E3197: <fragment>:28:16: cannot write 'n' through 'c', which is read-only 
 ```
 
 <!-- test: a-match-arm-lending-an-isolated-payload-refuses-a-write-through-self -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `match self.u` lends the payload of the field, and `self` is outer data inside the arm.
 
@@ -994,8 +959,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Sh
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(r isolated Bk)
+	held(r Bk)
 end 'Sh'
 
 type Bk
@@ -1033,9 +997,7 @@ error E3197: <fragment>:28:17: cannot write 'n' through 'self', which is read-on
 ```
 
 <!-- test: a-match-arm-lending-an-isolated-payload-refuses-a-write-to-the-open-root -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Inside `modify h`, `h` is writable, but the arm of `match h.u` is a window within it, so the root is read-only there too.
 
@@ -1044,8 +1006,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Sh
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(r isolated Bk)
+	held(r Bk)
 end 'Sh'
 
 type Bk
@@ -1066,8 +1027,7 @@ type Hd
 end 'Hd'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let h = Hd.create(0, u: Sh.held(Bk.create(1))) as isolated Hd
+	let h = Hd.create(0, u: Sh.held(Bk.create(1))) as Hd
 	// TODO: modify blocks are not supported in minimaxon
 	modify h 'm1'
 		match h.u 'x2'
@@ -1083,7 +1043,7 @@ error E3197: <fragment>:31:17: cannot write 'n' through 'h', which is read-only 
 ```
 
 <!-- test: a-match-arm-lending-an-isolated-payload-refuses-a-call-that-writes-outer-data -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A call that needs a writable receiver is refused on outer data inside the arm.
 
@@ -1092,8 +1052,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Sh
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(r isolated Bk)
+	held(r Bk)
 end 'Sh'
 
 type Bk
@@ -1131,7 +1090,6 @@ error E3207: <fragment>:34:16: 'bump' needs a writable receiver at line 25; 'b' 
 ```
 
 <!-- test: a-match-arm-lending-an-isolated-payload-leaves-what-it-owns-writable -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 An arm of a case with no `isolated` payload writes outer data, the payload is writable through its binding, outer data is read, and a counter that holds a number is written, so none of them is the window's business.
 
 ```maxon
@@ -1139,8 +1097,7 @@ typealias Num = int(i64.min to i64.max)
 
 union Sh
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(r isolated Bk)
+	held(r Bk)
 end 'Sh'
 
 type Bk
@@ -1160,7 +1117,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	let b = Bx.create(0)
+	var b = Bx.create(0)
 	let u = Sh.held(Bk.create(1))
 	let v = Sh.none
 	var total = 0 as Num
@@ -1185,7 +1142,6 @@ end 'main'
 ```
 
 <!-- test: isolated-part-read-outside-block-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `self.part` is an `isolated` field, and binding it with `let` is neither a move, an open nor a `swap`.
 
@@ -1205,15 +1161,14 @@ type Bag
 end 'Bag'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var part as isolated Bag
+	var part as Bag
 
 	static function create() returns Self
 		return Self{part: Bag.create()}
 	end 'create'
 
 	function peek() returns Tally
-		let alias = self.part
+		let alias = self.part.clone()
 		return alias.size()
 	end 'peek'
 end 'Holder'
@@ -1257,7 +1212,6 @@ error E3197: <fragment>:15:2: cannot write 'numeric' through 'pinned', which is 
 ```
 
 <!-- test: capability-mismatch-at-store -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 Storing needs equal capabilities: `row` is mutable data of this region, and `pinned` holds frozen data.
 
@@ -1271,8 +1225,7 @@ type Row
 end 'Row'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	var pinned as immutable Row
+	var pinned as Row
 
 	static function create() returns Self
 		return Self{pinned: freeze(Row.create("a"))}
@@ -1302,7 +1255,6 @@ error E3196: <fragment>:20:17: cannot store a mutable 'Row' into 'pinned', which
 
 <!-- test: await-inside-modify-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A coroutine starts running at its caller's next wait, so an `await` inside the block could run it while `batch` is open.
 
@@ -1317,8 +1269,7 @@ function slow() returns Tally
 end 'slow'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	let later = async slow()
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
@@ -1334,7 +1285,6 @@ error E3205: <fragment>:15:11: cannot wait inside 'edit'; another coroutine coul
 
 <!-- test: break-leaves-window-lets-sibling-run -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `editor` leaves the block by `break`, then sleeps 150 ms; `sibling` sleeps 10 ms. The window's strand guard is released on the `break` path, so `sibling` runs during the sleep and prints between `left` and `done`.
 
 ```maxon
@@ -1347,8 +1297,7 @@ function sibling() returns Count
 end 'sibling'
 
 function editor() returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	for round in 0 upto 4 'eachRound'
 		// TODO: modify blocks are not supported in minimaxon
 		modify batch 'fill'
@@ -1382,7 +1331,6 @@ done
 ```
 
 <!-- test: declared-isolated-slot-is-checked-in-a-file-with-no-region-word -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `b.maxon` spells no region word, but `a.maxon` declares `part` isolated, so the store of a mutable local into it is refused there too.
 
@@ -1397,8 +1345,7 @@ export type Bag
 end 'Bag'
 
 export type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Bag
+	export var part as Bag
 
 	export static function create() returns Self
 		return Self{part: Bag.create()}
@@ -1454,7 +1401,6 @@ bag
 ```
 
 <!-- test: one-statement-open-refuses-outer-mutable-data-stored-into-the-region -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `holder.page.lines = outer` writes through the isolated `page`, which a statement opens for itself, and `outer` is mutable data of this region.
 
@@ -1470,8 +1416,7 @@ type Page
 end 'Page'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var page as isolated Page
+	export var page as Page
 
 	static function create() returns Self
 		return Self{page: Page.create()}
@@ -1491,7 +1436,6 @@ error E3201: <fragment>:24:22: 'outer' is mutable outside 'holder.page'; a store
 ```
 
 <!-- test: one-statement-open-refuses-region-data-bound-outside-the-statement -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `holder.page.lines` is mutable data of the isolated region, and a `var` binds outside the statement that opened it.
 
@@ -1507,8 +1451,7 @@ type Page
 end 'Page'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var page as isolated Page
+	export var page as Page
 
 	static function create() returns Self
 		return Self{page: Page.create()}
@@ -1527,7 +1470,6 @@ error E3202: <fragment>:22:16: 'holder.page.lines' is mutable and cannot leave t
 ```
 
 <!-- test: one-statement-open-takes-values-and-fresh-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Inside the one-statement open a store takes a fresh call's result, a call on the opened path takes values, and a count leaves as a value.
 
 ```maxon
@@ -1542,8 +1484,7 @@ type Page
 end 'Page'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var page as isolated Page
+	export var page as Page
 
 	static function create() returns Self
 		return Self{page: Page.create()}
@@ -1551,7 +1492,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	holder.page.lines = LineArray.create(0)
 	holder.page.lines.push("a")
 	holder.page.lines.push("b")
@@ -1569,7 +1510,6 @@ end 'main'
 
 <!-- test: witness-call-on-outer-data-inside-modify-needs-a-writable-receiver -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `g` is outer data, read-only while `'fill'` is open, and `Grows.grow` is declared `mutable self`.
 
@@ -1599,8 +1539,7 @@ type Bag implements Grows
 end 'Bag'
 
 function stretch(g Grows)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		g.grow(5)
@@ -1621,7 +1560,6 @@ error E3207: <fragment>:29:5: 'Grows.grow' needs a writable receiver; 'g' is rea
 
 <!-- test: function-value-call-on-outer-data-inside-modify-needs-a-writable-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `row` is outer data, read-only while `'fill'` is open, and `Edit` declares its parameter `mutable`.
 
@@ -1644,8 +1582,7 @@ end 'rename'
 
 function run(edit Edit)
 	var row = Row.create("a")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		edit(row)
@@ -1664,7 +1601,6 @@ error E3207: <fragment>:22:7: 'Edit' needs a writable parameter; 'row' is read-o
 
 <!-- test: closure-written-inside-modify-sees-outer-data-as-read-only -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The closure is built inside `'fill'` and writes `row`, outer data that is read-only while the block is open.
 
@@ -1694,8 +1630,7 @@ end 'consume'
 
 function main() returns ExitCode
 	var row = Row.create("a")
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		let n = consume(function() gives row.rename())
@@ -1709,7 +1644,6 @@ error E3207: <fragment>:28:11: the closure at <fragment>:28:19 writes data it ca
 ```
 
 <!-- test: one-statement-open-refuses-two-isolated-values-of-different-holders -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `a.part.n + b.part.n` reads through the isolated `part` of two holders, and one statement opens one isolated value, even though only numbers leave.
 
@@ -1725,8 +1659,7 @@ type Part
 end 'Part'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -1736,7 +1669,7 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create()
 	let b = Pair.create()
-	let total = a.part.n + b.part.n
+	let total = try a.part.n + b.part.n otherwise panic("out of range")
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1746,7 +1679,6 @@ error E3201: <fragment>:23:25: one statement reaches through two isolated values
 ```
 
 <!-- test: one-statement-open-refuses-two-isolated-fields-of-one-holder -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `a.left.n + a.right.n` reads through two isolated fields of one holder, which are two regions.
 
@@ -1762,10 +1694,8 @@ type Part
 end 'Part'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var left as isolated Part
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var right as isolated Part
+	export var left as Part
+	export var right as Part
 
 	static function create() returns Self
 		return Self{left: Part.create(), right: Part.create()}
@@ -1774,7 +1704,7 @@ end 'Pair'
 
 function main() returns ExitCode
 	let a = Pair.create()
-	let total = a.left.n + a.right.n
+	let total = try a.left.n + a.right.n otherwise panic("out of range")
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1784,7 +1714,6 @@ error E3201: <fragment>:23:25: one statement reaches through two isolated values
 ```
 
 <!-- test: one-statement-open-refuses-a-one-call-open-beside-a-read-through-another-region -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `a.part.twice()` opens `a.part` for the call, and `b.part.n` reads through a second region in the same statement.
 
@@ -1799,13 +1728,12 @@ type Part
 	end 'create'
 
 	function twice() returns Tally
-		return self.n + self.n
+		return try self.n + self.n otherwise panic("out of range")
 	end 'twice'
 end 'Part'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -1815,7 +1743,7 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create()
 	let b = Pair.create()
-	let total = a.part.twice() + b.part.n
+	let total = try a.part.twice() + b.part.n otherwise panic("out of range")
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1825,7 +1753,6 @@ error E3201: <fragment>:27:31: one statement reaches through two isolated values
 ```
 
 <!-- test: one-statement-open-refuses-a-read-through-a-region-beside-a-one-call-open-of-another -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `a.part.n` reads through a region, and `b.part.twice()` opens a second one for the call in the same statement.
 
@@ -1840,13 +1767,12 @@ type Part
 	end 'create'
 
 	function twice() returns Tally
-		return self.n + self.n
+		return try self.n + self.n otherwise panic("out of range")
 	end 'twice'
 end 'Part'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -1856,7 +1782,7 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create()
 	let b = Pair.create()
-	let total = a.part.n + b.part.twice()
+	let total = try a.part.n + b.part.twice() otherwise panic("out of range")
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1866,7 +1792,6 @@ error E3201: <fragment>:27:25: one statement reaches through two isolated values
 ```
 
 <!-- test: one-statement-takes-two-one-call-opens-and-one-region-twice -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Two one-call opens of different regions in one statement are accepted when only values leave, and one region read twice in a statement is one open.
 
 ```maxon
@@ -1880,13 +1805,12 @@ type Part
 	end 'create'
 
 	function twice() returns Tally
-		return self.n + self.n
+		return try self.n + self.n otherwise panic("out of range")
 	end 'twice'
 end 'Part'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -1896,9 +1820,9 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create()
 	let b = Pair.create()
-	let calls = a.part.twice() + b.part.twice()
-	let reads = a.part.n + a.part.n
-	let mixed = a.part.twice() + a.part.n
+	let calls = try a.part.twice() + b.part.twice() otherwise panic("out of range")
+	let reads = try a.part.n + a.part.n otherwise panic("out of range")
+	let mixed = try a.part.twice() + a.part.n otherwise panic("out of range")
 	print("{calls} {reads} {mixed}\n")
 	return 0
 end 'main'
@@ -1911,7 +1835,6 @@ end 'main'
 ```
 
 <!-- test: call-with-an-isolated-argument-refuses-mutable-data-beside-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `link(iso, b: outer)` passes the isolated `iso` in an unmarked position, which opens it for the call, so the mutable `outer` of this region may not ride along.
 
@@ -1926,13 +1849,12 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function link(a Bag, b Bag)
+function link(mutates a Bag, b Bag)
 	a.n = b.n
 end 'link'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var iso = Bag.create(1) as isolated Bag
+	var iso = Bag.create(1) as Bag
 	var outer = Bag.create(2)
 	link(iso, b: outer)
 	return 0
@@ -1943,7 +1865,6 @@ error E3201: <fragment>:19:15: 'outer' is mutable outside 'iso'; a call into an 
 ```
 
 <!-- test: call-with-two-isolated-arguments-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Both arguments of `link` are isolated and sit in unmarked positions, so the one call would open two regions.
 
@@ -1958,15 +1879,13 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function link(a Bag, b Bag)
+function link(mutates a Bag, b Bag)
 	a.n = b.n
 end 'link'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var left = Bag.create(1) as isolated Bag
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var right = Bag.create(2) as isolated Bag
+	var left = Bag.create(1) as Bag
+	var right = Bag.create(2) as Bag
 	link(left, b: right)
 	return 0
 end 'main'
@@ -1976,7 +1895,6 @@ error E3201: <fragment>:19:16: one statement reaches through two isolated values
 ```
 
 <!-- test: call-with-an-isolated-argument-takes-values-and-answers-a-value-runs -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `weigh(iso, factor: 3)` opens `iso` for the call, takes a value beside it and answers a value, and `iso` is still there for the next call.
 
 ```maxon
@@ -1991,12 +1909,11 @@ type Bag
 end 'Bag'
 
 function weigh(bag Bag, factor Tally) returns Tally
-	return bag.n * factor
+	return try bag.n * factor otherwise panic("out of range")
 end 'weigh'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let iso = Bag.create(7) as isolated Bag
+	let iso = Bag.create(7) as Bag
 	let first = weigh(iso, factor: 3)
 	let second = weigh(iso, factor: 2)
 	print("{first} {second}\n")
@@ -2011,7 +1928,6 @@ end 'main'
 ```
 
 <!-- test: call-with-an-isolated-field-as-an-argument-takes-values-and-answers-a-value-runs -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `count(h.part)` opens the isolated field `part` for the call, takes nothing beside it and answers a value.
 
 ```maxon
@@ -2026,8 +1942,7 @@ type Part
 end 'Part'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create(n Tally) returns Self
 		return Self{part: Part.create(n)}
@@ -2053,7 +1968,6 @@ end 'main'
 ```
 
 <!-- test: call-with-two-isolated-fields-as-arguments-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `link(h.part, second: g.part)` opens the isolated field of two holders in one call.
 
@@ -2069,15 +1983,14 @@ type Part
 end 'Part'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create(n Tally) returns Self
 		return Self{part: Part.create(n)}
 	end 'create'
 end 'Holder'
 
-function link(first Part, second Part)
+function link(mutates first Part, second Part)
 	first.n = second.n
 end 'link'
 
@@ -2093,7 +2006,6 @@ error E3201: <fragment>:27:23: one statement reaches through two isolated values
 ```
 
 <!-- test: loop-swap-out-of-a-holder-the-back-edge-assigns-frozen-data -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The first trip swaps the region out of a fresh holder, but `h = pinned` hands the next trip a frozen holder, so at the loop header `h` is read-only and the swap is refused.
 
@@ -2109,8 +2021,7 @@ type Part
 end 'Part'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create(n Tally) returns Self
 		return Self{part: Part.create(n)}
@@ -2139,7 +2050,6 @@ error E3199: <fragment>:25:13: 'h.part' cannot be swapped: the value that holds 
 
 <!-- test: loop-modify-of-a-holder-field-the-back-edge-assigns-frozen-data -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `modify h.part` opens a field of the carried `h`, and the next trip's `h` is the frozen holder, so the block is refused.
 
@@ -2155,8 +2065,7 @@ type Part
 end 'Part'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create(n Tally) returns Self
 		return Self{part: Part.create(n)}
@@ -2187,7 +2096,6 @@ error E3199: <fragment>:25:10: 'h.part' cannot be opened: the value that holds i
 ```
 
 <!-- test: async-call-with-an-isolated-argument-in-an-unmarked-position-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call keeps its arguments alive while another coroutine runs, so it takes an isolated value only in an `isolated` parameter, never as a one-call open.
 
@@ -2208,8 +2116,7 @@ function count(bag Bag) returns Tally
 end 'count'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let iso = Bag.create(7) as isolated Bag
+	let iso = Bag.create(7) as Bag
 	let pending = async count(iso)
 	let n = await pending
 	print("{n}\n")
@@ -2221,7 +2128,6 @@ error E3207: <fragment>:19:28: 'count' is spawned with `async`, and 'iso' is iso
 ```
 
 <!-- test: call-with-an-isolated-argument-refuses-a-record-result -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `pick(iso)` opens `iso` for the call and answers a `Bag` that may be the region's own, so the result may not leave the call.
 
@@ -2237,12 +2143,11 @@ type Bag
 end 'Bag'
 
 function pick(bag Bag) returns Bag
-	return bag
+	return bag.clone()
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let iso = Bag.create(1) as isolated Bag
+	let iso = Bag.create(1) as Bag
 	let same = pick(iso)
 	print("{same.n}\n")
 	return 0
@@ -2253,7 +2158,6 @@ error E3201: <fragment>:18:13: 'pick' hands back mutable data of the isolated re
 ```
 
 <!-- test: assignment-of-mutable-data-to-an-isolated-variable-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `e` took `a`'s region, so it is an isolated variable for good, and `spare` is mutable data of this region.
 
@@ -2269,8 +2173,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	var spare = Box.create(2)
 	print("{spare.n}\n")
 	var e = a
@@ -2284,7 +2187,6 @@ error E3200: <fragment>:17:6: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: assignment-of-isolated-data-to-a-mutable-variable-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `e` holds mutable data of this region, so an isolated region is merged into it, never assigned over it.
 
@@ -2300,8 +2202,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	var e = Box.create(0)
 	e.n = 2
 	e = a
@@ -2343,7 +2244,6 @@ error E3196: <fragment>:16:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: container-store-of-isolated-data-into-a-mutable-array-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `BoxArray` holds mutable `Box` elements, so an isolated region stored by `push` would be shared with the array while `a` still names it.
 
@@ -2361,8 +2261,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	var boxes = BoxArray.create(0)
 	boxes.push(a)
 	print("{a.n}\n")
@@ -2374,7 +2273,6 @@ error E3196: <fragment>:16:13: cannot store an isolated 'Box' into 'an element o
 ```
 
 <!-- test: array-literal-element-of-isolated-data-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The literal's elements are mutable `Box` slots of the new array, so an isolated region written into one would be shared with `a`.
 
@@ -2392,8 +2290,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	var boxes = BoxArray from [a]
 	print("{a.n} {boxes.count()}\n")
 	return 0
@@ -2405,7 +2302,6 @@ error E3196: <fragment>:15:29: cannot store an isolated 'Box' into 'an element o
 
 <!-- test: spawn-of-a-waiting-factory-inside-modify-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `spawn Relay.create()` runs the factory, which awaits a reply, while `batch` is open. The factory is also refused
 where it is declared, because a factory never waits, and the spawn inside the block is refused for the same wait.
@@ -2440,8 +2336,7 @@ type Relay
 end 'Relay'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'fill'
 		_ = spawn Relay.create()
@@ -2457,7 +2352,6 @@ error E3205: <fragment>:33:7: cannot spawn 'create' inside 'fill'; it may wait (
 
 <!-- test: a-call-that-sends-with-a-timeout-inside-modify-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `push` sends with `sendTimeout:`, which waits for room in a full mailbox, so it may wait while `batch` is open.
 
@@ -2484,8 +2378,7 @@ end 'push'
 
 function main() returns ExitCode
 	let h = spawn(capacity: 1) Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let batch = LineArray.create(0) as isolated LineArray
+	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
 		push(h)
@@ -2499,7 +2392,6 @@ error E3205: <fragment>:26:3: cannot call 'push' inside 'edit'; it may wait (it 
 ```
 
 <!-- test: a-one-call-open-of-an-isolated-argument-to-a-generic-callee-counts-as-a-region -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `count` is generic, so `count(1, part: a.part)` opens `a.part` for the call, and `b.part.n` reads through a second region in the same statement.
 
@@ -2515,8 +2407,7 @@ type Part
 end 'Part'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -2540,7 +2431,6 @@ error E3201: <fragment>:27:39: one statement reaches through two isolated values
 ```
 
 <!-- test: an-async-call-to-a-generic-callee-with-an-isolated-argument-in-an-unmarked-position-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `take` is generic, so the `async` call is to an instance of it, and the isolated `a.part` is refused in its unmarked `part` position as it is for a plain callee.
 
@@ -2556,8 +2446,7 @@ type Part
 end 'Part'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Part
+	export var part as Part
 
 	static function create() returns Self
 		return Self{part: Part.create()}
@@ -2582,7 +2471,6 @@ error E3207: <fragment>:27:36: 'take' is spawned with `async`, and 'a' is isolat
 ```
 
 <!-- test: a-swap-through-a-two-source-call-result-holder-is-judged-once-the-call-settles -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `either` may hand back `a` or `b`, so `swap` through its result is judged by what the call settles: both arguments are mutable locals, so the swap is accepted.
 
 ```maxon
@@ -2597,8 +2485,7 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Box
+	export var part as Box
 
 	static function create() returns Self
 		return Self{part: Box.create(0)}
@@ -2606,7 +2493,7 @@ type Pair
 end 'Pair'
 
 function either(a Pair, b Pair, flag bool) returns Pair
-	return a if flag else b
+	return a.clone() if flag else b.clone()
 end 'either'
 
 function main() returns ExitCode
@@ -2626,7 +2513,6 @@ end 'main'
 
 <!-- test: a-modify-through-a-two-source-call-result-holder-is-judged-once-the-call-settles -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `modify either(x, b: y, flag: true).part` opens the isolated field of a call result whose sources are both mutable locals, which the settled call allows.
 
 ```maxon
@@ -2641,8 +2527,7 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Box
+	export var part as Box
 
 	static function create() returns Self
 		return Self{part: Box.create(0)}
@@ -2673,7 +2558,7 @@ opened
 ```
 
 <!-- test: a-swap-through-a-two-source-call-result-holder-refuses-a-frozen-source -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same `swap` with a frozen second argument settles the call result to a mix of mutable and immutable data, and is refused.
 
@@ -2689,8 +2574,7 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Box
+	export var part as Box
 
 	static function create() returns Self
 		return Self{part: Box.create(0)}
@@ -2715,7 +2599,7 @@ error E3208: <fragment>:27:17: 'either' returns 'a' or 'b'; they must both be mu
 ```
 
 <!-- test: a-swap-through-a-call-result-holder-of-frozen-data-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `holder(frozen)` is the frozen local itself, so `swap` through its result is refused.
 
@@ -2731,8 +2615,7 @@ type Box
 end 'Box'
 
 type Pair
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var part as isolated Box
+	export var part as Box
 
 	static function create() returns Self
 		return Self{part: Box.create(0)}
@@ -2760,7 +2643,6 @@ error E3197: <fragment>:30:12: cannot write 'part' through 'holder(frozen).part'
 
 <!-- test: a-call-inside-a-modify-block-cannot-open-an-isolated-local-from-outside-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `outer` is `isolated` and lives outside `w`, so it is read-only there: handing it to `reset`, which writes its parameter, would open a second region while `shelf` is open.
 
@@ -2776,8 +2658,7 @@ type Gauge
 end 'Gauge'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Gauge
+	var item as Gauge
 	var spare as Gauge
 
 	static function create() returns Self
@@ -2790,10 +2671,8 @@ function reset(g Gauge)
 end 'reset'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Shelf.create() as isolated Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let outer = Gauge.create(5) as isolated Gauge
+	let shelf = Shelf.create() as Shelf
+	let outer = Gauge.create(5) as Gauge
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
 		reset(outer)
@@ -2807,7 +2686,6 @@ error E3199: <fragment>:30:9: 'outer' cannot be opened: the value that holds it 
 
 <!-- test: a-write-inside-a-modify-block-cannot-open-an-isolated-local-from-outside-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A store through an `isolated` local that lives outside the block opens that local, which the block does not allow.
 
@@ -2823,8 +2701,7 @@ type Gauge
 end 'Gauge'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Gauge
+	var item as Gauge
 	var spare as Gauge
 
 	static function create() returns Self
@@ -2833,10 +2710,8 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Shelf.create() as isolated Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let outer = Gauge.create(5) as isolated Gauge
+	let shelf = Shelf.create() as Shelf
+	let outer = Gauge.create(5) as Gauge
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
 		outer.n = 3
@@ -2850,7 +2725,6 @@ error E3199: <fragment>:26:3: 'outer' cannot be opened: the value that holds it 
 
 <!-- test: a-method-call-inside-a-modify-block-cannot-open-an-isolated-receiver-from-outside-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The receiver of a call is opened for the call, so an `isolated` local from outside the block is refused as a receiver too.
 
@@ -2870,8 +2744,7 @@ type Gauge
 end 'Gauge'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Gauge
+	var item as Gauge
 	var spare as Gauge
 
 	static function create() returns Self
@@ -2880,10 +2753,8 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Shelf.create() as isolated Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let outer = Gauge.create(5) as isolated Gauge
+	let shelf = Shelf.create() as Shelf
+	let outer = Gauge.create(5) as Gauge
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
 		outer.bump()
@@ -2897,7 +2768,6 @@ error E3199: <fragment>:30:3: 'outer' cannot be opened: the value that holds it 
 
 <!-- test: a-read-inside-a-modify-block-cannot-open-an-isolated-local-from-outside-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Reading a field through an `isolated` local from outside the block opens it for the statement, which the block does not allow.
 
@@ -2913,8 +2783,7 @@ type Gauge
 end 'Gauge'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Gauge
+	var item as Gauge
 	var spare as Gauge
 
 	static function create() returns Self
@@ -2923,10 +2792,8 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Shelf.create() as isolated Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let outer = Gauge.create(5) as isolated Gauge
+	let shelf = Shelf.create() as Shelf
+	let outer = Gauge.create(5) as Gauge
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
 		let seen = outer.n
@@ -2941,7 +2808,6 @@ error E3199: <fragment>:26:14: 'outer' cannot be opened: the value that holds it
 
 <!-- test: a-nested-modify-cannot-open-an-isolated-local-from-outside-the-enclosing-block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A nested `modify` leaves the root of every enclosing block read-only, and an `isolated` local declared outside the enclosing block is one more root it cannot open.
 
@@ -2957,8 +2823,7 @@ type Gauge
 end 'Gauge'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Gauge
+	var item as Gauge
 	var spare as Gauge
 
 	static function create() returns Self
@@ -2967,10 +2832,8 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let outer = Shelf.create() as isolated Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let inner = Shelf.create() as isolated Shelf
+	let outer = Shelf.create() as Shelf
+	let inner = Shelf.create() as Shelf
 	// TODO: modify blocks are not supported in minimaxon
 	modify outer 'w'
 		// TODO: modify blocks are not supported in minimaxon
@@ -2988,7 +2851,6 @@ error E3199: <fragment>:26:10: 'inner' cannot be opened: the value that holds it
 <!-- test: an-isolated-local-from-outside-a-modify-block-moves-into-an-isolated-parameter-and-block-locals-open -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 An outer `isolated` local goes where an `isolated` value goes (an `isolated` parameter, `merge`), and an `isolated` local the block creates is opened like any block local.
 
 ```maxon
@@ -3007,8 +2869,7 @@ type Gauge
 end 'Gauge'
 
 type Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var item as isolated Gauge
+	var item as Gauge
 	var spare as Gauge
 
 	static function create() returns Self
@@ -3021,17 +2882,13 @@ function adopt(consumes g Gauge) returns Code
 end 'adopt'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Shelf.create() as isolated Shelf
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let outer = Gauge.create(5) as isolated Gauge
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let merged = Gauge.create(6) as isolated Gauge
+	let shelf = Shelf.create() as Shelf
+	let outer = Gauge.create(5) as Gauge
+	let merged = Gauge.create(6) as Gauge
 	var total = 0 as Code
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let inside = Gauge.create(7) as isolated Gauge
+		let inside = Gauge.create(7) as Gauge
 		inside.bump()
 		total = total + inside.n
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -3051,7 +2908,6 @@ end 'main'
 
 <!-- test: a-nested-modify-cannot-open-a-mutable-isolated-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is the caller's variable, so it is outside every block the callee opens, like an `isolated` local declared before the block.
 
@@ -3067,8 +2923,7 @@ type Gauge
 end 'Gauge'
 
 function refill(mutates g Gauge)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Gauge.create(1) as isolated Gauge
+	let shelf = Gauge.create(1) as Gauge
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
 		// TODO: modify blocks are not supported in minimaxon
@@ -3079,8 +2934,7 @@ function refill(mutates g Gauge)
 end 'refill'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var g = Gauge.create(5) as isolated Gauge
+	var g = Gauge.create(5) as Gauge
 	refill(g)
 	return 0
 end 'main'
@@ -3091,7 +2945,6 @@ error E3199: <fragment>:16:10: 'g' cannot be opened: the value that holds it is 
 
 <!-- test: a-write-inside-a-modify-block-cannot-open-a-mutable-isolated-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A store through the parameter opens it for the statement, inside a block that opened another region.
 
@@ -3107,8 +2960,7 @@ type Gauge
 end 'Gauge'
 
 function refill(mutates g Gauge)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Gauge.create(1) as isolated Gauge
+	let shelf = Gauge.create(1) as Gauge
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
 		g.n = 9
@@ -3116,8 +2968,7 @@ function refill(mutates g Gauge)
 end 'refill'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var g = Gauge.create(5) as isolated Gauge
+	var g = Gauge.create(5) as Gauge
 	refill(g)
 	return 0
 end 'main'
@@ -3128,7 +2979,6 @@ error E3199: <fragment>:16:3: 'g' cannot be opened: the value that holds it is r
 
 <!-- test: a-method-call-inside-a-modify-block-cannot-open-a-mutable-isolated-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The receiver of a call is opened for the call, so the parameter is refused as a receiver inside the block too.
 
@@ -3148,8 +2998,7 @@ type Gauge
 end 'Gauge'
 
 function refill(mutates g Gauge)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Gauge.create(1) as isolated Gauge
+	let shelf = Gauge.create(1) as Gauge
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
 		g.bump()
@@ -3157,8 +3006,7 @@ function refill(mutates g Gauge)
 end 'refill'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var g = Gauge.create(5) as isolated Gauge
+	var g = Gauge.create(5) as Gauge
 	refill(g)
 	return 0
 end 'main'
@@ -3169,7 +3017,6 @@ error E3199: <fragment>:20:3: 'g' cannot be opened: the value that holds it is r
 
 <!-- test: a-read-inside-a-modify-block-cannot-open-a-mutable-isolated-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Reading a field through the parameter opens it for the statement, which the block does not allow.
 
@@ -3185,8 +3032,7 @@ type Gauge
 end 'Gauge'
 
 function refill(mutates g Gauge) returns Code
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let shelf = Gauge.create(1) as isolated Gauge
+	let shelf = Gauge.create(1) as Gauge
 	var seen = 0 as Code
 	// TODO: modify blocks are not supported in minimaxon
 	modify shelf 'w'
@@ -3196,8 +3042,7 @@ function refill(mutates g Gauge) returns Code
 end 'refill'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var g = Gauge.create(5) as isolated Gauge
+	var g = Gauge.create(5) as Gauge
 	print("{refill(g)}\n")
 	return 0
 end 'main'
@@ -3208,7 +3053,6 @@ error E3199: <fragment>:17:10: 'g' cannot be opened: the value that holds it is 
 
 <!-- test: a-mutable-isolated-parameter-is-opened-outside-every-block-and-inside-its-own -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Outside every block the parameter opens for a statement, a call or a block of its own, and inside its own block it is the opened root.
 
 ```maxon
@@ -3237,8 +3081,7 @@ function refill(mutates g Gauge)
 end 'refill'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var g = Gauge.create(5) as isolated Gauge
+	var g = Gauge.create(5) as Gauge
 	refill(g)
 	// TODO: modify blocks are not supported in minimaxon
 	modify g 'r'
@@ -3256,7 +3099,6 @@ end 'main'
 
 <!-- test: a-mutable-isolated-parameter-open-in-its-own-block-is-read-inside-a-nested-block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Inside a block nested in the parameter's own block, the parameter is the enclosing opened root, read-only as an `isolated` local opened there would be, and the nested block's region stays writable.
 
 ```maxon
@@ -3274,8 +3116,7 @@ function refill(mutates g Gauge)
 	// TODO: modify blocks are not supported in minimaxon
 	modify g 'v'
 		g.n = 3
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let shelf = Gauge.create(1) as isolated Gauge
+		let shelf = Gauge.create(1) as Gauge
 		// TODO: modify blocks are not supported in minimaxon
 		modify shelf 'w'
 			shelf.n = g.n
@@ -3286,8 +3127,7 @@ function refill(mutates g Gauge)
 end 'refill'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var g = Gauge.create(5) as isolated Gauge
+	var g = Gauge.create(5) as Gauge
 	refill(g)
 	// TODO: modify blocks are not supported in minimaxon
 	modify g 'r'
@@ -3306,7 +3146,6 @@ end 'main'
 
 <!-- test: an-outer-string-var-is-assigned-inside-a-window -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `String` is a value type, so an outer `var` holding one is assigned inside the window, from a literal, from an
 interpolation and from a field of the open region.
 
@@ -3323,8 +3162,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
+	let b = Bx.create(1) as Bx
 	var s = "a"
 	var t = "c"
 	var u = "e"
@@ -3350,7 +3188,6 @@ b d2 box
 <!-- test: an-outer-character-var-is-assigned-inside-a-window -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `Character` is a value type too.
 
 ```maxon
@@ -3365,8 +3202,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
+	let b = Bx.create(1) as Bx
 	// TODO: character literals are not supported in minimaxon
 	var c = 'a'
 	// TODO: modify blocks are not supported in minimaxon
@@ -3388,7 +3224,6 @@ b
 
 <!-- test: an-outer-immutable-var-assigned-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An outer `var` holding frozen data stays read-only inside the window.
 
@@ -3404,8 +3239,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
+	let b = Bx.create(1) as Bx
 	var f = freeze(Bx.create(5))
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'm'
@@ -3422,7 +3256,6 @@ error E3204: <fragment>:18:3: 'f' holds immutable data from outside 'm' and cann
 
 <!-- test: an-outer-union-var-assigned-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An outer `var` holding a union with a payload stays read-only inside the window.
 
@@ -3443,8 +3276,7 @@ union Held
 end 'Held'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
+	let b = Bx.create(1) as Bx
 	var h = Held.none
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'm'
@@ -3464,7 +3296,6 @@ error E3204: <fragment>:23:3: 'h' holds a union from outside 'm' and cannot be r
 
 <!-- test: an-outer-isolated-var-assigned-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An outer `var` holding an `isolated` value stays read-only inside the window.
 
@@ -3480,15 +3311,12 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var x = Bx.create(5) as isolated Bx
+	let b = Bx.create(1) as Bx
+	var x = Bx.create(5) as Bx
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'm'
 		b.n = 2
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		x = Bx.create(6) as isolated Bx
+		x = Bx.create(6) as Bx
 	end 'm'
 	// TODO: modify blocks are not supported in minimaxon
 	modify x 'read'
@@ -3503,7 +3331,6 @@ error E3204: <fragment>:18:3: 'x' holds an isolated value from outside 'm' and c
 
 <!-- test: an-outer-unique-var-assigned-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An outer `var` holding a `unique` value stays read-only inside the window.
 
@@ -3527,8 +3354,7 @@ type Ux is noncopyable
 end 'Ux'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
+	let b = Bx.create(1) as Bx
 	var x = Ux.create(5)
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'm'
@@ -3545,7 +3371,6 @@ error E3204: <fragment>:26:3: 'x' holds a unique value from outside 'm' and cann
 
 <!-- test: an-outer-linear-var-assigned-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An outer `var` holding a linear value stays read-only inside the window.
 
@@ -3572,8 +3397,7 @@ type Lx
 end 'Lx'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
+	let b = Bx.create(1) as Bx
 	var x = Lx.create(5)
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'm'
@@ -3590,7 +3414,6 @@ error E3204: <fragment>:30:3: 'x' holds a linear value from outside 'm' and cann
 
 <!-- test: an-outer-service-handle-var-assigned-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An outer `var` holding a service handle stays read-only inside the window.
 
@@ -3618,8 +3441,7 @@ type Svc
 end 'Svc'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
+	let b = Bx.create(1) as Bx
 	var x = spawn Svc.create()
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'm'
@@ -3637,7 +3459,6 @@ error E3204: <fragment>:30:3: 'x' holds a service handle from outside 'm' and ca
 
 <!-- test: error.the-root-consumed-inside-its-own-modify-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Only the region's contents are open inside `modify r`; the variable cannot be consumed there.
 ```maxon
@@ -3656,8 +3477,7 @@ type Reply
 end 'Reply'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Reply.create(0) as isolated Reply
+	let r = Reply.create(0) as Reply
 	// TODO: modify blocks are not supported in minimaxon
 	modify r 'open'
 		r.finish(1)
@@ -3702,7 +3522,6 @@ error E3199: <fragment>:17:9: no writable reference holds 'make()': `modify` ope
 
 <!-- test: error.outer-linear-data-consumed-inside-a-modify-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `o` is outer data of the open window, read-only there, so the `match` cannot consume it.
 ```maxon
@@ -3734,8 +3553,7 @@ union Outcome
 end 'Outcome'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Box.create(0) as isolated Box
+	let b = Box.create(0) as Box
 	let o = Outcome.pending(Reply.create(1))
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'open'
@@ -3752,9 +3570,7 @@ error E3207: <fragment>:35:3: this linear value comes from outside 'open', where
 ```
 
 <!-- test: error.standing-is-not-laundered-through-a-union-payload -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `u` is built inside `w` from `v`, which is older than `w`, so `u` and the payload `r` the consuming `match` hands over keep `v`'s standing: an outer isolated value there, which a plain parameter may not take (ruling 45).
 ```maxon
@@ -3778,8 +3594,7 @@ end 'Sn'
 
 union Sh
 	none
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	held(r isolated Rl)
+	held(r Rl)
 end 'Sh'
 
 type Bx
@@ -3802,14 +3617,11 @@ function useS(s Sn)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bx.create(0) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Rl.create(0) as isolated Rl
+	let bx = Bx.create(0) as Bx
+	let v = Rl.create(0) as Rl
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let u = Sh.held(v) as isolated Sh
+		let u = Sh.held(v) as Sh
 		match u 'x'
 			none then break
 			held(r) then useS(giveS(r))
@@ -3824,7 +3636,6 @@ error E3201: <fragment>:54:28: an isolated value from outside 'w' cannot be move
 
 <!-- test: error.standing-is-not-laundered-through-a-recovered-record -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `p` is built inside `w` from `v`, which is older than `w`, so `p` keeps `v`'s standing and is not opened there (ruling 45).
 ```maxon
@@ -3839,8 +3650,7 @@ type Box
 end 'Box'
 
 type Wrap
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 
 	static function create(consumes b Box) returns Self
 		return Self{b: b}
@@ -3848,14 +3658,11 @@ type Wrap
 end 'Wrap'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Box.create(0) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Box.create(1) as isolated Box
+	let bx = Box.create(0) as Box
+	let v = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let p = Wrap.create(v) as isolated Wrap
+		let p = Wrap.create(v) as Wrap
 		// TODO: modify blocks are not supported in minimaxon
 		modify p 'inner'
 			print("inner\n")
@@ -3870,7 +3677,6 @@ error E3199: <fragment>:27:10: 'p' cannot be opened: the value that holds it is 
 
 <!-- test: error.standing-is-not-laundered-through-an-isolated-call-result -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `wrapIt(v)` hands back a region that holds `v`, which is older than `w`, so `p` keeps `v`'s standing (ruling 45).
 ```maxon
@@ -3885,8 +3691,7 @@ type Box
 end 'Box'
 
 type Wrap
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b as isolated Box
+	var b as Box
 
 	static function create(consumes b Box) returns Self
 		return Self{b: b}
@@ -3898,10 +3703,8 @@ function wrapIt(consumes b Box) returns Wrap
 end 'wrapIt'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Box.create(0) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Box.create(1) as isolated Box
+	let bx = Box.create(0) as Box
+	let v = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		let p = wrapIt(v)
@@ -3919,7 +3722,6 @@ error E3199: <fragment>:31:10: 'p' cannot be opened: the value that holds it is 
 
 <!-- test: error.standing-is-not-laundered-through-a-rename -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `p` is `v` under a new name, declared inside `w`, so it keeps `v`'s standing (ruling 41).
 ```maxon
@@ -3934,10 +3736,8 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Box.create(0) as isolated Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Box.create(1) as isolated Box
+	let bx = Box.create(0) as Box
+	let v = Box.create(1) as Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		let p = v
@@ -3954,7 +3754,6 @@ error E3199: <fragment>:19:10: 'p' cannot be opened: the value that holds it is 
 ```
 
 <!-- test: a-swap-out-of-an-isolated-field-binds-with-let -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `swap` out of an `isolated` field whose union holds a unique payload binds with `let`, and the swapped-out value is used.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -3973,8 +3772,7 @@ union Slot
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}
@@ -3989,7 +3787,7 @@ function weigh(x Slot) returns Count
 end 'weigh'
 
 function main() returns ExitCode
-	let h = Holder.create(Slot.held(Token.create(4)))
+	var h = Holder.create(Slot.held(Token.create(4)))
 	let x = exchange(h.u, value: Slot.empty)
 	print("{weigh(x)} {weigh(h.u)}\n")
 	return 0
@@ -4003,7 +3801,6 @@ end 'main'
 ```
 
 <!-- test: a-swap-out-of-an-isolated-field-is-assigned -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `swap` out of an `isolated` field whose union holds a unique payload is assigned to a `var`, and the swapped-out value is used.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -4022,8 +3819,7 @@ union Slot
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}
@@ -4038,9 +3834,8 @@ function weigh(x Slot) returns Count
 end 'weigh'
 
 function main() returns ExitCode
-	let h = Holder.create(Slot.held(Token.create(5)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var x = Slot.empty as isolated Slot
+	var h = Holder.create(Slot.held(Token.create(5)))
+	var x = Slot.empty as Slot
 	x = exchange(h.u, value: Slot.empty)
 	print("{weigh(x)} {weigh(h.u)}\n")
 	return 0
@@ -4054,7 +3849,6 @@ end 'main'
 ```
 
 <!-- test: a-swap-out-of-an-isolated-field-is-returned -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `swap` out of an `isolated` field whose union holds a unique payload is returned from a function, and the caller uses it.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -4073,8 +3867,7 @@ union Slot
 end 'Slot'
 
 type Holder
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var u as isolated Slot
+	var u as Slot
 
 	static function create(consumes u Slot) returns Self
 		return Self{u: u}

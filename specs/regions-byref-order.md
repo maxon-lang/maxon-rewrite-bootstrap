@@ -6968,7 +6968,6 @@ error E3186: <fragment>:14:24: argument 's' is read by another operand of this s
 
 <!-- test: write-based-field-write-through-a-mutable-isolated-parameter-is-accepted -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A `mutable isolated` parameter whose callee only writes a field of the record never rebinds the caller's variable, so a sibling argument may read a field of the same variable.
 
 ```maxon
@@ -6991,8 +6990,7 @@ function bump(mutates box Box, seen Tally) returns Tally
 end 'bump'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	let k = bump(a, seen: a.n)
 	print("{k} {a.n}\n")
 	return 0
@@ -7380,7 +7378,6 @@ error E3186: <fragment>:14:15: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-isolated-occupant-at-a-send-beside-a-by-reference-hand-over-is-sent -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 An isolated record sent in the same call as a by-reference hand-over of its own variable is sent: the send moves the box, and the service reads it.
 
 ```maxon
@@ -7401,9 +7398,9 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(consumes box Box, n Tally) returns Tally
+	export function keep(mutates self, consumes box Box, n Tally) returns Tally
 		let touched = box.n
-		self.seen = self.seen + n + touched
+		self.seen = try self.seen + n + touched otherwise panic("out of range")
 		return 1
 	end 'keep'
 end 'Store'
@@ -7414,8 +7411,7 @@ end 'look'
 
 function main() returns ExitCode
 	let sink = spawn Store.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var a = Box.create(1) as isolated Box
+	var a = Box.create(1) as Box
 	let n = try await sink.keep(a, n: look(a)) otherwise 0
 	print("{n}\n")
 	return 0

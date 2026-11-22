@@ -185,8 +185,24 @@ var layouts = []layoutConst{
 		"where a thread's context holds the next of the threads that wait with no processor, a list the scheduler's lock guards."},
 	{"contextStartCodeOffset", 21, false, toRuntime,
 		"where a thread's context holds the address of the code that the thread the runtime starts with it runs, called with the context: the monitor's loop, or 0 for a worker's."},
-	{"contextBytes", 22, false, toRuntime | toSelfBack,
+	{"contextHashOffset", 22, false, toRuntime,
+		"where the main thread's context holds the address of the process's hash state (hashStateBytes), 0 until the first hash that needs the seed makes it; every other thread reaches it through the scheduler's main thread."},
+	{"contextBytes", 23, false, toRuntime | toSelfBack,
 		"the size of a thread's context."},
+
+	// The process's hash state (runtime/hash.maxon): the secret every seeded hash is keyed by, drawn from the system or
+	// pinned by MAXON_HASH_SEED, the fold of no bytes under it that a Hasher starts from, whether the secret is pinned,
+	// and how many seeds a pinned process has drawn.
+	{"hashSecretOffset", 0, false, toRuntime,
+		"where the hash state holds the process's secret."},
+	{"hashSeedOffset", 1, false, toRuntime,
+		"where the hash state holds the fold of no bytes under the secret, which __Builtins.hashSeed gives."},
+	{"hashPinnedOffset", 2, false, toRuntime,
+		"where the hash state holds 1 when MAXON_HASH_SEED pinned the secret."},
+	{"hashDrawsOffset", 3, false, toRuntime,
+		"where the hash state holds how many seeds __Builtins.drawHashSeed has drawn in a pinned process, stepped atomically."},
+	{"hashStateBytes", 4, false, toRuntime,
+		"the size of the hash state."},
 
 	// A switch record: the registers of a stack that is not running, which rt.stackSwitch saves when it leaves the stack
 	// and loads when it goes back on it. The registers are those the internal convention keeps across a call, which is

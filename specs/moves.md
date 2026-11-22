@@ -1163,8 +1163,6 @@ first padded out long enough to heap allocate 1 0
 
 <!-- test: moves.error.a-var-handed-in-parentheses-to-an-isolated-parameter-is-moved -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Parentheses around the argument change nothing: `sink((b))` consumes `b` exactly as `sink(b)` does, so reading `b` afterwards is a use of a moved value.
 
@@ -1173,8 +1171,7 @@ typealias Count = int(0 to 1000)
 
 typealias Boxes = Array with Box
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-typealias Sink = function(isolated Box)
+typealias Sink = function(Box)
 
 type Box
 	export var n as Count
@@ -1191,8 +1188,7 @@ function stash(consumes b Box)
 end 'stash'
 
 function feed(sink Sink) returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	sink((b))
 	return b.n
 end 'feed'
@@ -1209,8 +1205,6 @@ error E3102: <fragment>:22:9: use of moved value 'b': its ownership moved to ano
 
 <!-- test: moves.error.a-door-read-on-one-branch-is-reported-at-that-read-once -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A `var` handed to an `isolated` parameter is read first inside one branch only. The report points at that read, the read after the join is a second use of the same moved name and adds no report of its own, and the arm that never read the name does not hide the door from the join.
 
@@ -1219,8 +1213,7 @@ typealias Count = int(0 to 1000)
 
 typealias Boxes = Array with Box
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-typealias Sink = function(isolated Box)
+typealias Sink = function(Box)
 
 type Box
 	export var n as Count
@@ -1237,8 +1230,7 @@ function stash(consumes b Box)
 end 'stash'
 
 function feed(sink Sink, branch Count) returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	sink((b))
 	if branch == 0 'readHere'
 		print("{b.n}\n")
@@ -1258,8 +1250,6 @@ error E3102: <fragment>:24:11: use of moved value 'b': its ownership moved to an
 
 <!-- test: moves.error.a-door-on-one-branch-is-seen-by-the-read-after-the-join -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The door sits in one arm of an `if` and the other arm never touches the name, so the join carries the door from one edge and nothing from the other; the first read after the join is where the move is observed.
 
@@ -1268,8 +1258,7 @@ typealias Count = int(0 to 1000)
 
 typealias Boxes = Array with Box
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-typealias Sink = function(isolated Box)
+typealias Sink = function(Box)
 
 type Box
 	export var n as Count
@@ -1286,8 +1275,7 @@ function stash(consumes b Box)
 end 'stash'
 
 function feed(sink Sink, branch Count) returns Count
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var b = Box.create(1) as isolated Box
+	var b = Box.create(1) as Box
 	if branch == 0 'handOver'
 		sink((b))
 	end 'handOver'

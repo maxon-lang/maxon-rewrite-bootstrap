@@ -449,7 +449,6 @@ nothing
 ```
 
 <!-- test: an-isolated-linear-variable-is-moved-by-the-function-that-consumes-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 An `isolated` linear variable handed to a parameter that takes it is moved, exactly as a plain one is.
 ```maxon
 typealias Code = int(0 to 999)
@@ -470,13 +469,12 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-function use(r Resp)
+function use(consumes r Resp)
 	r.fin()
 end 'use'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(1) as isolated Resp
+	let r = Resp.create(1) as Resp
 	use(r)
 	return 0
 end 'main'
@@ -2121,7 +2119,7 @@ error E3224: <fragment>:30:2: `default` covers the case 'some', which carries th
 ```
 
 <!-- test: an-isolated-linear-variable-handed-to-a-consuming-callee-is-moved-not-lent -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2148,8 +2146,7 @@ function use(r Resp)
 end 'use'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(1) as isolated Resp
+	let r = Resp.create(1) as Resp
 	use(r)
 	r.fin()
 	return 0
@@ -2400,7 +2397,6 @@ error E3223: <fragment>:34:2: the linear value 'r' is live across this wait: a w
 <!-- test: an-isolated-linear-value-moves-into-an-isolated-parameter-inside-a-modify-block -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 An `isolated` parameter takes an outer isolated linear value inside an open window: that move is one of the destinations a window allows.
 ```maxon
 typealias Code = int(0 to 999)
@@ -2440,10 +2436,8 @@ function takeIso(consumes r Resp)
 end 'takeIso'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		bx.bump()
@@ -2461,7 +2455,6 @@ fin 1
 
 <!-- test: an-outer-isolated-linear-value-cannot-enter-a-modify-block-through-a-keeping-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `giveS` keeps its plain parameter, so moving `v` into it inside `modify bx` would put a value of another region into the open one.
 ```maxon
@@ -2500,10 +2493,8 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		useS(giveS(v))
@@ -2517,7 +2508,6 @@ error E3201: <fragment>:42:14: an isolated value from outside 'w' cannot be move
 
 <!-- test: an-outer-isolated-linear-value-cannot-enter-a-modify-block-through-a-consuming-receiver -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `wrap` takes `consuming self` and returns it, which moves `v` into the open region just as a keeping parameter does.
 ```maxon
@@ -2556,10 +2546,8 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		useS(v.wrap())
@@ -2573,7 +2561,6 @@ error E3201: <fragment>:42:8: an isolated value from outside 'w' cannot be moved
 
 <!-- test: an-outer-isolated-linear-value-cannot-enter-a-modify-block-through-the-isolated-result-of-a-call -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `idI` takes `v` into an `isolated` parameter and hands it back as an `isolated` result, which is still `v`'s own region. Moving that result into the keeping parameter of `giveS` puts the outer value into the open region as surely as moving `v` does.
 ```maxon
@@ -2616,10 +2603,8 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		let w = idI(v)
@@ -2634,7 +2619,6 @@ error E3201: <fragment>:47:14: an isolated value from outside 'w' cannot be move
 
 <!-- test: an-outer-isolated-linear-value-cannot-enter-a-modify-block-through-a-chain-of-isolated-results -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Each `idI` call hands the region on, so the value two calls down is still the outer one.
 ```maxon
@@ -2677,10 +2661,8 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		let first = idI(v)
@@ -2696,7 +2678,6 @@ error E3201: <fragment>:48:14: an isolated value from outside 'w' cannot be move
 
 <!-- test: a-fresh-isolated-value-passed-through-an-isolated-result-moves-freely-inside-a-modify-block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A value made inside the block has no outer region to leave, so the same two calls are accepted for it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -2738,12 +2719,10 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let made = Resp.create(2) as isolated Resp
+		let made = Resp.create(2) as Resp
 		let w = idI(made)
 		useS(giveS(w))
 	end 'w'
@@ -2760,7 +2739,6 @@ fin 2
 <!-- test: an-outer-isolated-linear-value-handed-back-by-a-failed-send-cannot-enter-a-modify-block-through-a-keeping-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A failed send hands the sent value back in `mailboxFull` or `serviceStopped`. `v` was outside `w` when it was sent, so what comes back is still the outer region and may not enter the open one.
 ```maxon
@@ -2815,10 +2793,8 @@ end 'useS'
 
 function main() returns ExitCode
 	let s = spawn Sink.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		try s.take(v) otherwise (e) 'refused'
@@ -2838,7 +2814,6 @@ error E3201: <fragment>:59:39: an isolated value from outside 'w' cannot be move
 <!-- test: an-outer-isolated-linear-value-handed-back-by-a-failed-send-in-a-try-block-cannot-enter-a-modify-block-through-a-keeping-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A bare send inside a block-form `try` routes its failure to the block's handler, and the box the handler binds carries the same hand-back as an explicit `try` does: `v` was outside `w` when it was sent, so what comes back may not enter the open region.
 ```maxon
@@ -2893,10 +2868,8 @@ end 'useS'
 
 function main() returns ExitCode
 	let s = spawn Sink.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		try 'send'
@@ -2919,7 +2892,6 @@ error E3201: <fragment>:62:39: an isolated value from outside 'w' cannot be move
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 A send that hands its argument back shares its handler with a second throwing call only if no outer value moves between the two edges, and an isolated value sent from outside `w` does move, so the union of the send error and another error never reaches a handler inside the open region.
 ```maxon
@@ -2985,10 +2957,8 @@ end 'mayFail'
 
 function main() returns ExitCode
 	let s = spawn Sink.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		try 'both'
@@ -3014,7 +2984,6 @@ error E2015: <fragment>:69:3: Unsupported: a block-form `try` whose body MOVES a
 <!-- test: an-await-of-a-send-that-hands-an-outer-isolated-value-back-cannot-run-inside-a-modify-block -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `try await` sends and then waits for the reply, and the wait is refused inside an open `modify`, so the reply leg's hand-back never reaches a handler inside the window.
 ```maxon
@@ -3070,10 +3039,8 @@ end 'useS'
 
 function main() returns ExitCode
 	let s = spawn Sink.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		try await s.take(v) otherwise (e) 'refused'
@@ -3092,7 +3059,6 @@ error E3205: <fragment>:58:7: cannot wait inside 'w'; another coroutine could ru
 
 <!-- test: a-finalizer-that-only-reads-its-receiver-is-accepted-inside-a-modify-block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `fin` reads `self.code` and ends in `destruct self`, so `self` goes nowhere and the outer value is destroyed without joining the open region.
 ```maxon
 typealias Code = int(0 to 999)
@@ -3126,10 +3092,8 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		bx.bump()
@@ -3147,7 +3111,6 @@ fin 1
 
 <!-- test: a-consuming-method-that-returns-a-field-and-destroys-its-receiver-is-accepted-inside-a-modify-block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `close` neither stores, returns nor passes `self`: it copies a number out of it and destroys it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -3181,10 +3144,8 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(7) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(7) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		print("{v.close()}\n")
@@ -3201,7 +3162,6 @@ end 'main'
 
 <!-- test: an-outer-isolated-linear-value-cannot-enter-a-modify-block-through-a-receiver-that-hands-itself-to-a-keeping-function -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `forward` neither returns nor stores `self` itself, but it moves it into `giveS`, which keeps it, so the receiver counts as kept.
 ```maxon
@@ -3244,10 +3204,8 @@ function useS(r Resp)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		useS(v.forward())
@@ -4598,7 +4556,6 @@ error E3223: <fragment>:32:2: this drops 'r', a linear value that was never cons
 
 <!-- test: an-outer-linear-union-matched-in-a-modify-block-cannot-hand-its-payload-to-a-keeping-parameter -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `u` is declared outside `modify bx`, so inside the block it and the payload its `match` binds are read-only, and `giveS` keeps its parameter: the payload would become part of a union built inside the open region.
 ```maxon
@@ -4641,8 +4598,7 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let bx = Bag.create() as Bag
 	let u = Sent.notSent(Resp.create(1))
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
@@ -4660,7 +4616,6 @@ error E3207: <fragment>:46:3: this linear value comes from outside 'w', where it
 
 <!-- test: an-outer-linear-union-matched-in-a-modify-block-cannot-hand-its-payload-to-a-consuming-receiver-that-keeps-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `wrap` takes `consuming self` and returns it inside a new union, so its receiver is a parameter it keeps, and the payload bound from the outer `u` is read-only inside `modify bx`.
 ```maxon
@@ -4703,8 +4658,7 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let bx = Bag.create() as Bag
 	let u = Sent.notSent(Resp.create(1))
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
@@ -4722,7 +4676,6 @@ error E3207: <fragment>:46:3: this linear value comes from outside 'w', where it
 
 <!-- test: an-outer-linear-union-matched-in-a-modify-block-cannot-build-a-union-around-its-payload -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Building `Sent.notSent(q)` inside `modify bx` stores the read-only payload into a value of the open region.
 ```maxon
@@ -4761,8 +4714,7 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let bx = Bag.create() as Bag
 	let u = Sent.notSent(Resp.create(1))
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
@@ -4780,7 +4732,6 @@ error E3207: <fragment>:42:3: this linear value comes from outside 'w', where it
 
 <!-- test: error.an-outer-linear-union-matched-in-a-modify-block-cannot-consume-its-payload -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The outer `u` is read-only inside `modify bx`, so the `match` cannot consume it, even for a finalizer that keeps nothing (ruling 45): consume it before or after the block.
 ```maxon
@@ -4812,8 +4763,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let bx = Bag.create() as Bag
 	let u = Sent.notSent(Resp.create(1))
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
@@ -5221,7 +5171,6 @@ error E3223: <fragment>:36:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: an-isolated-value-is-merged-into-a-variable-both-branches-leave-holding-a-case-without-a-linear-payload -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Both branches give `m` the case that carries nothing, so after the `if` it holds no linear value and the isolated `filled` is merged into it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -5261,8 +5210,7 @@ function main() returns ExitCode
 	end 'one' else 'other'
 		m = Maybe.nothing
 	end 'other'
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let filled = Maybe.some(Resp.create(1)) as isolated Maybe
+	let filled = Maybe.some(Resp.create(1)) as Maybe
 	m = filled
 	settle(m)
 	return 0
@@ -5276,7 +5224,6 @@ fin 1
 ```
 
 <!-- test: an-isolated-value-is-merged-into-a-variable-every-lap-leaves-holding-a-case-without-a-linear-payload -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `m` holds `nothing` when the loop is entered and at the end of every lap, so each lap's isolated `filled` is merged into it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -5308,8 +5255,7 @@ end 'settle'
 function main() returns ExitCode
 	var m = Maybe.nothing
 	for _ in 0 upto 2 'lap'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let filled = Maybe.some(Resp.create(1)) as isolated Maybe
+		let filled = Maybe.some(Resp.create(1)) as Maybe
 		m = filled
 		settle(m)
 		m = Maybe.nothing
@@ -5328,7 +5274,6 @@ nothing
 ```
 
 <!-- test: an-isolated-value-is-not-merged-into-a-variable-one-branch-leaves-holding-the-linear-case -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The `then` branch leaves `m` holding the linear case, so `m` may hold a linear value when `filled` is assigned to it.
 ```maxon
@@ -5369,8 +5314,7 @@ function main() returns ExitCode
 	end 'one' else 'other'
 		m = Maybe.nothing
 	end 'other'
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let filled = Maybe.some(Resp.create(2)) as isolated Maybe
+	let filled = Maybe.some(Resp.create(2)) as Maybe
 	m = filled
 	settle(m)
 	return 0
@@ -5381,7 +5325,6 @@ error E3196: <fragment>:43:6: cannot store an isolated 'Maybe' into 'm', which h
 ```
 
 <!-- test: an-isolated-value-is-not-merged-into-a-variable-the-previous-lap-left-holding-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The lap ends with `m` holding the `filled` it was given, so the next lap's `filled` is assigned to a variable that may hold a linear value.
 ```maxon
@@ -5414,8 +5357,7 @@ end 'settle'
 function main() returns ExitCode
 	var m = Maybe.nothing
 	for _ in 0 upto 2 'lap'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let filled = Maybe.some(Resp.create(1)) as isolated Maybe
+		let filled = Maybe.some(Resp.create(1)) as Maybe
 		m = filled
 	end 'lap'
 	settle(m)
@@ -6069,7 +6011,6 @@ error E3102: <fragment>:39:10: use of moved value 'm': it was moved in an earlie
 ```
 
 <!-- test: a-linear-value-rebound-as-isolated-is-consumed-through-the-new-name -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `as isolated` on a bare local hands the linear value to the new name, whose finalizer consumes it.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -6080,16 +6021,13 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = r as isolated Resp
+	let r = Resp.create(0) as Resp
+	let a = r as Resp
 	a.fin()
 	return 0
 end 'main'
@@ -6099,7 +6037,6 @@ end 'main'
 ```
 
 <!-- test: the-source-of-an-isolated-rebind-of-a-linear-value-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The rebind moved the value, so its source cannot be finalized too.
 ```maxon
@@ -6111,16 +6048,13 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = r as isolated Resp
+	let r = Resp.create(0) as Resp
+	let a = r as Resp
 	r.fin()
 	a.fin()
 	return 0
@@ -6131,7 +6065,6 @@ error E3102: <fragment>:19:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: a-union-holding-a-linear-value-rebound-as-isolated-is-consumed-by-its-match -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The rebound union is consumed by the `match` over it, in the arm that binds the linear payload.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -6142,7 +6075,6 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
@@ -6153,10 +6085,8 @@ union Wrapped
 end 'Wrapped'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Wrapped.filled(Resp.create(0)) as isolated Wrapped
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = r as isolated Wrapped
+	let r = Wrapped.filled(Resp.create(0)) as Wrapped
+	let a = r as Wrapped
 	match a 'which'
 		empty then print("empty\n")
 		filled(held) then held.fin()
@@ -6368,7 +6298,6 @@ error E3102: <fragment>:19:9: use of moved value 'self': it was moved in an earl
 ```
 
 <!-- test: a-linear-value-rebound-as-isolated-in-a-branch-and-a-loop-is-consumed -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The rebind is judged where it is written: on one arm of an `if`, and once per lap of a loop.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -6379,17 +6308,14 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
 
 function pick(flag bool)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Resp.create(0) as isolated Resp
+	let r = Resp.create(0) as Resp
 	if flag 'whether'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let a = r as isolated Resp
+		let a = r as Resp
 		a.fin()
 	end 'whether' else 'otherwise'
 		r.fin()
@@ -6399,12 +6325,10 @@ end 'pick'
 function laps()
 	var i = 0 as Num
 	while i != 2 'each'
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let r = Resp.create(i) as isolated Resp
-		// TODO: region capability 'isolated' is not supported in minimaxon
-		let a = r as isolated Resp
+		let r = Resp.create(i) as Resp
+		let a = r as Resp
 		a.fin()
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'each'
 end 'laps'
 
@@ -6667,7 +6591,6 @@ fin 2
 ```
 
 <!-- test: a-match-in-the-then-branch-leaves-the-union-to-the-else-branch -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The `then` branch consumes `m` by matching it, and the `else` branch is a different path that still owns it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -6686,8 +6609,7 @@ end 'Resp'
 
 union Maybe
 	nothing
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	some(r isolated Resp)
+	some(r Resp)
 end 'Maybe'
 
 function settle(m Maybe)
@@ -6722,7 +6644,6 @@ fin 1
 ```
 
 <!-- test: each-branch-of-an-if-may-match-the-same-linear-union -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 Neither branch sees the other's consumption of `m`.
 ```maxon
 typealias Code = int(0 to 999)
@@ -6741,8 +6662,7 @@ end 'Resp'
 
 union Maybe
 	nothing
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	some(r isolated Resp)
+	some(r Resp)
 end 'Maybe'
 
 function ready(n Code) returns bool
@@ -6773,7 +6693,7 @@ fin 2
 ```
 
 <!-- test: a-union-consumed-on-one-path-is-consumed-after-the-join -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 After the `if` joins, one path consumed `m`, so reading it again is a use after the move.
 ```maxon
@@ -6793,8 +6713,7 @@ end 'Resp'
 
 union Maybe
 	nothing
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	some(r isolated Resp)
+	some(r Resp)
 end 'Maybe'
 
 function settle(m Maybe)
@@ -6862,8 +6781,6 @@ first left
 ```
 
 <!-- test: a-linear-union-held-in-an-isolated-local-is-matched-where-it-stands -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `m` is an `isolated` local that holds a linear union, and the `match` consumes it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -6882,8 +6799,7 @@ end 'Resp'
 
 union Maybe
 	nothing
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	some(r isolated Resp)
+	some(r Resp)
 end 'Maybe'
 
 function ready(n Code) returns bool
@@ -6891,8 +6807,7 @@ function ready(n Code) returns bool
 end 'ready'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let m = Maybe.some(Resp.create(4)) as isolated Maybe
+	let m = Maybe.some(Resp.create(4)) as Maybe
 	if ready(1) 'pick'
 		match m 'direct'
 			nothing then break
@@ -6915,7 +6830,6 @@ fin 4
 ```
 
 <!-- test: a-behaviour-matches-its-own-linear-union-parameter-in-both-branches -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 The message parameter `m` is owned by the behaviour, which consumes it on whichever branch runs.
 ```maxon
 typealias Code = int(0 to 999)
@@ -6934,8 +6848,7 @@ end 'Resp'
 
 union Maybe
 	nothing
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	some(r isolated Resp)
+	some(r Resp)
 end 'Maybe'
 
 function settle(m Maybe)
@@ -6984,7 +6897,6 @@ fin 5
 ```
 
 <!-- test: a-handler-refills-the-union-the-body-refilled-before-it-threw -->
-<!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 `m` holds `Maybe.nothing` at the only point the body throws from, so the handler assigns it the linear case without dropping one.
 ```maxon
 typealias Code = int(0 to 999)
@@ -7003,8 +6915,7 @@ end 'Resp'
 
 union Maybe
 	nothing
-	// TODO: capability qualifier 'isolated' on union payload is not supported in minimaxon
-	some(r isolated Resp)
+	some(r Resp)
 end 'Maybe'
 
 enum Oops implements Error
@@ -7045,7 +6956,6 @@ fin 6
 
 <!-- test: an-outer-isolated-linear-value-cannot-enter-a-modify-block-through-a-consuming-receiver-that-builds-a-union-around-it -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `wrap` takes `consuming self` and builds a `Sent` around it, so the call moves `v` into the open region just as a keeping parameter does. A union with one payload is held in a word, and the word still keeps what it is built from.
 
@@ -7089,10 +6999,8 @@ function settle(s Sent)
 end 'settle'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Resp.create(1) as isolated Resp
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bag.create() as isolated Bag
+	let v = Resp.create(1) as Resp
+	let bx = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		settle(v.wrap())
@@ -7105,7 +7013,6 @@ error E3201: <fragment>:46:10: an isolated value from outside 'w' cannot be move
 ```
 
 <!-- test: an-isolated-linear-local-moves-into-a-method-of-an-opened-isolated-receiver -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `bx.eat(v)` opens `bx` for the call; `v` is an un-opened `isolated` local and `eat` owns its linear parameter, so `v` is moved, not opened, and its region joins the opened one.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7127,7 +7034,7 @@ union Sn
 	notSent(r Rl)
 end 'Sn'
 
-function giveS(r Rl) returns Sn
+function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
@@ -7145,17 +7052,15 @@ type Bx
 		return Self{n: n}
 	end 'create'
 
-	function eat(r Rl)
+	function eat(consumes r Rl)
 		r.fin(1)
 	end 'eat'
 end 'Bx'
 
 function main() returns ExitCode
 	useS(giveS(Rl.create(0)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bx.create(0) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Rl.create(0) as isolated Rl
+	let bx = Bx.create(0) as Bx
+	let v = Rl.create(0) as Rl
 	bx.eat(v)
 	return 0
 end 'main'
@@ -7165,7 +7070,6 @@ end 'main'
 ```
 
 <!-- test: an-isolated-linear-local-moves-into-a-method-that-builds-a-union-around-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The same move, with the method wrapping its parameter in a union it consumes.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7187,7 +7091,7 @@ union Sn
 	notSent(r Rl)
 end 'Sn'
 
-function giveS(r Rl) returns Sn
+function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
@@ -7205,16 +7109,14 @@ type Bx
 		return Self{n: n}
 	end 'create'
 
-	function eat(r Rl)
+	function eat(consumes r Rl)
 		useS(giveS(r))
 	end 'eat'
 end 'Bx'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bx.create(0) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Rl.create(0) as isolated Rl
+	let bx = Bx.create(0) as Bx
+	let v = Rl.create(0) as Rl
 	bx.eat(v)
 	return 0
 end 'main'
@@ -7224,7 +7126,6 @@ end 'main'
 ```
 
 <!-- test: a-non-linear-isolated-local-into-an-unmarked-parameter-beside-an-opened-receiver-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An unmarked parameter of a record type lends its argument, so `v` would be a second region opened by the call.
 ```maxon
@@ -7272,10 +7173,8 @@ end 'Bx'
 
 function main() returns ExitCode
 	useS(giveS(Rl.create(0)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bx.create(0) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Bx.create(0) as isolated Bx
+	let bx = Bx.create(0) as Bx
+	let v = Bx.create(0) as Bx
 	bx.eat(v)
 	return 0
 end 'main'
@@ -7285,7 +7184,6 @@ error E3201: <fragment>:49:9: one statement reaches through two isolated values,
 ```
 
 <!-- test: a-plain-linear-local-beside-an-opened-receiver-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `v` is ordinary data of the caller's region, which a call into `bx`'s region does not take.
 ```maxon
@@ -7333,8 +7231,7 @@ end 'Bx'
 
 function main() returns ExitCode
 	useS(giveS(Rl.create(0)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bx.create(0) as isolated Bx
+	let bx = Bx.create(0) as Bx
 	let v = Rl.create(0)
 	bx.eat(v)
 	return 0
@@ -7346,7 +7243,6 @@ error E3201: <fragment>:49:9: 'v' is mutable outside 'bx'; a call into an isolat
 
 <!-- test: a-move-into-a-method-of-an-outer-isolated-receiver-inside-a-window-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Inside 'mh' the receiver `bx` is outer data and cannot be opened.
 ```maxon
@@ -7394,12 +7290,9 @@ end 'Bx'
 
 function main() returns ExitCode
 	useS(giveS(Rl.create(0)))
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let h = Bx.create(0) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let bx = Bx.create(0) as isolated Bx
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let v = Rl.create(0) as isolated Rl
+	let h = Bx.create(0) as Bx
+	let bx = Bx.create(0) as Bx
+	let v = Rl.create(0) as Rl
 	// TODO: modify blocks are not supported in minimaxon
 	modify h 'mh'
 		bx.eat(v)
@@ -7899,7 +7792,6 @@ end 'main'
 ```
 
 <!-- test: a-vacant-linear-union-is-copied-into-a-callee-that-sends-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `s` holds the payload-free case on every path, so it owes nothing: each call takes a copy, and `relay` sends its parameter, whose type is closed.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7954,8 +7846,7 @@ end 'drain'
 
 function main() returns ExitCode
 	let a = spawn Hq.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let s = Sn.ok as isolated Sn
+	let s = Sn.ok as Sn
 	relay(a, s: s)
 	relay(a, s: s)
 	drain(Sn.notSent(Rl.create(1)))
@@ -8137,7 +8028,6 @@ settled
 
 <!-- test: error.an-open-linear-parameter-consumed-inside-a-modify-is-refused -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Resp` holds a plain `Note`, so its type is not closed and the parameter `r` is ordinary data of the caller's region (ruling 41): outer data, which `w` does not own and may not consume.
 ```maxon
@@ -8173,8 +8063,7 @@ type Bx
 end 'Bx'
 
 function consume(r Resp)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let b = Bx.create(1) as isolated Bx
+	let b = Bx.create(1) as Bx
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'w'
 		r.fin()

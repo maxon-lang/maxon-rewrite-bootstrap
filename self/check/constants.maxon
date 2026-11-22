@@ -376,7 +376,9 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	let owner = constOwner(c, p: p, ms: ms, name: cd.name)
 	enterContext(c, p: p, ms: ms, f: ast.noFunc, owner: owner, calls: false)
 	c.constName = cd.name.clone()
+	startUses(c, node: cd.value, inField: true)
 	let t = checkExpr(c, p: p, ms: ms, e: cd.value, errs: errs)
+	c.hasUses = false
 	if t == ast.noType 'failed'
 		return
 	end 'failed'

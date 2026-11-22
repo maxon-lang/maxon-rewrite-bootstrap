@@ -84,7 +84,6 @@ error E3200: <fragment>:16:22: 'cursor' is used as mutable at line 14; freeze a 
 
 <!-- test: use-after-freeze -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `freeze` consumes the isolated local, so the read of `bag` after it is a use of a moved value.
 
@@ -108,8 +107,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	var bag = Bag.create() as isolated Bag
+	var bag = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bag 'fill'
 		bag.add(3)
@@ -125,7 +123,6 @@ error E3102: <fragment>:28:14: use of moved value 'bag': its ownership moved to 
 ```
 
 <!-- test: let-of-an-isolated-local-moves-it -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `let b = a` hands the isolated region from `a` to `b`, so the read of `a` afterwards is a use of a moved value.
 
@@ -141,8 +138,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	let b = a
 	let again = a.n
 	print("{b.n} {again}\n")
@@ -154,7 +150,6 @@ error E3102: <fragment>:15:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: let-of-an-isolated-local-runs-through-the-new-name -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 After `let b = a` only `b` names the region, and it is read through a one-statement open and released once at the end of the function.
 
 ```maxon
@@ -169,8 +164,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(4) as isolated Box
+	let a = Box.create(4) as Box
 	let b = a
 	print("{b.n}\n")
 	return 0
@@ -186,7 +180,6 @@ end 'main'
 <!-- test: merge-isolated-into-region-runs -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `merge chunk` moves the filled region into the current one, where the result is ordinary mutable data that `add` writes.
 
 ```maxon
@@ -209,8 +202,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let chunk = Bag.create() as isolated Bag
+	let chunk = Bag.create() as Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify chunk 'fill'
 		chunk.add(5)

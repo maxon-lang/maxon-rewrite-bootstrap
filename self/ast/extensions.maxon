@@ -5,8 +5,8 @@
 // order of search settles between them.
 
 // extensionKey is the key under which the extensions of the type t are filed, or none for a type no extension can name:
-// the declaration of a type, an enum, a union or a built-in generic type, String, bool, and for every integer the one
-// anonymous integer type that `int` names.
+// the declaration of a type, an enum, a union or a built-in generic type, String, bool, for every integer the one
+// anonymous integer type that `int` names, and for every float the one that `float` names.
 export function extensionKey(p Project, ms ModuleState, t TypeID) returns table.Option with TypeID
 	return match typeKind(ms.types, reads: p.types, t: t) 'k'
 		record gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
@@ -31,8 +31,8 @@ export function extensionKey(p Project, ms ModuleState, t TypeID) returns table.
 		primNever gives table.Option.none
 		typeParam gives table.Option.none
 		interfaceTy gives table.Option.none
-		floatRange gives table.Option.none
-		constFloat gives table.Option.none
+		floatRange gives table.Option.some(p.builtins.anonFloatTy)
+		constFloat gives table.Option.some(p.builtins.anonFloatTy)
 		funcTy gives table.Option.none
 	end 'k'
 end 'extensionKey'

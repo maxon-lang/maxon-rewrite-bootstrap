@@ -989,7 +989,6 @@ error E3197: <fragment>:17:2: cannot write 'n' through 'pair.0', which is immuta
 ```
 
 <!-- test: a-tuple-parameter-with-an-immutable-item-takes-a-frozen-item-and-runs -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 `(immutable Box, Box)` spells the item capabilities; the first item reads, the second item is written.
 
 ```maxon
@@ -1003,8 +1002,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function weigh(pair(immutable Box, Box)) returns Tally
+function weigh(pair (Box, Box)) returns Tally
 	pair.1.n = pair.1.n + 1
 	return pair.0.n + pair.1.n
 end 'weigh'
@@ -1024,7 +1022,6 @@ end 'main'
 ```
 
 <!-- test: a-write-through-an-immutable-tuple-item-parameter-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 A parameter spelled `(immutable Box, Box)` reads its first item and cannot write through it.
 
@@ -1039,8 +1036,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function bump(pair(immutable Box, Box))
+function bump(pair (Box, Box))
 	pair.0.n = 9
 end 'bump'
 
@@ -1116,13 +1112,12 @@ end 'main'
 ```
 
 <!-- test: a-list-of-tuples-with-an-immutable-item-takes-a-matching-tuple-and-runs -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 `List with (immutable Box, Box)` stores a tuple whose first item is frozen and reads it back at the same capabilities.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-typealias Mixed = (immutable Box, Box)
+typealias Mixed = (Box, Box)
 
 typealias MixedList = List with Mixed
 
@@ -1218,7 +1213,6 @@ error E3005: <fragment>:19:8: argument type mismatch for 'value': expected '(Box
 ```
 
 <!-- test: a-tuple-with-another-item-capability-is-another-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 <!-- positions: moved -->
 `(immutable Box, Box)` and `(Box, Box)` are two types, so the parameter refuses the first.
 
@@ -1233,11 +1227,11 @@ type Box
 	end 'create'
 end 'Box'
 
-function weigh(pair(Box, Box)) returns Tally
+function weigh(pair (Box, Box)) returns Tally
 	return pair.0.n + pair.1.n
 end 'weigh'
 
-function pairOf(first frozen with Box, second Box) returns (immutable Box, Box)
+function pairOf(first frozen with Box, second Box) returns (Box, Box)
 	return (first, second)
 end 'pairOf'
 
@@ -1254,7 +1248,6 @@ error E3005: <fragment>:24:10: argument type mismatch for 'pair': expected '(Box
 ```
 
 <!-- test: a-tuple-result-type-carries-its-item-capabilities-and-runs -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 The result `(immutable Box, Box)` flows into a parameter of the same tuple type.
 
 ```maxon
@@ -1268,12 +1261,11 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function weigh(pair(immutable Box, Box)) returns Tally
+function weigh(pair (Box, Box)) returns Tally
 	return pair.0.n + pair.1.n
 end 'weigh'
 
-function pairOf(first frozen with Box, second Box) returns (immutable Box, Box)
+function pairOf(first frozen with Box, second Box) returns (Box, Box)
 	return (first, second)
 end 'pairOf'
 
@@ -1355,7 +1347,6 @@ error E3005: <fragment>:21:10: argument type mismatch for 'pair': expected '((Bo
 ```
 
 <!-- test: an-isolated-tuple-item-type-refused -->
-<!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An item is `immutable` or unmarked; an `isolated` value cannot be a tuple element.
 
@@ -1370,8 +1361,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'isolated' is not supported in minimaxon
-function weigh(pair(isolated Box, Box)) returns Tally
+function weigh(pair (Box, Box)) returns Tally
 	return pair.1.n
 end 'weigh'
 
@@ -1484,7 +1474,6 @@ end 'main'
 ```
 
 <!-- test: an-isolated-value-in-a-tuple-literal-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` value is merged before it joins a tuple.
 
@@ -1500,8 +1489,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	var b = Box.create(2)
 	var pair = (a, b)
 	pair.0.n = 5
@@ -1514,7 +1502,6 @@ error E3196: <fragment>:15:14: cannot store an isolated 'Box' into 'an item of t
 ```
 
 <!-- test: an-isolated-value-in-a-map-literal-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` value is merged before it becomes a map value.
 
@@ -1530,8 +1517,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = Box.create(1) as isolated Box
+	let a = Box.create(1) as Box
 	var m = ["k": a]
 	var found = try m.get("k") otherwise panic("missing")
 	found.n = 5
@@ -1910,7 +1896,6 @@ error E3196: <fragment>:37:12: cannot store an immutable 'Box' into 'Pairs.add.f
 ```
 
 <!-- test: an-item-handed-back-by-a-call-over-a-tuple-with-a-frozen-item-is-immutable -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `leak` returns `pair.0` as an ordinary `Box`; the tuple argument holds a frozen item, so the result is `immutable` and `got` cannot be written through.
 
@@ -1925,8 +1910,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function leak(pair(immutable Box, Box)) returns Box
+function leak(pair (Box, Box)) returns Box
 	return pair.0
 end 'leak'
 
@@ -1944,14 +1928,13 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'got', which is immutable
 ```
 
 <!-- test: an-item-handed-back-by-a-call-over-a-list-of-tuples-with-a-frozen-item-is-immutable -->
-<!-- skip: minimaxon does not parse the converted source: Expected ',' but got 'Box' -->
 <!-- positions: moved -->
 The frozen item reaches the result through the list, and the list's element type names it.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-typealias Mixed = (immutable Box, Box)
+typealias Mixed = (Box, Box)
 
 typealias MixedList = List with Mixed
 
@@ -1984,7 +1967,6 @@ error E3197: <fragment>:25:2: cannot write 'n' through 'got', which is immutable
 ```
 
 <!-- test: a-tuple-with-a-frozen-item-returned-as-a-plain-tuple-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The result `(Box, Box)` is a different type from the parameter's `(immutable Box, Box)`.
 
@@ -1999,8 +1981,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function widen(pair(immutable Box, Box)) returns (Box, Box)
+function widen(pair (Box, Box)) returns (Box, Box)
 	return pair
 end 'widen'
 
@@ -2017,7 +1998,6 @@ error E3005: <fragment>:13:2: Cannot return '(immutable Box, Box)' from function
 ```
 
 <!-- test: a-frozen-item-copied-into-a-plain-result-tuple-refused -->
-<!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 Building `(pair.0, pair.1)` for a `(Box, Box)` result stores the frozen first item into a mutable item.
 
@@ -2032,8 +2012,7 @@ type Box
 	end 'create'
 end 'Box'
 
-// TODO: parameter capability 'immutable' is not supported in minimaxon
-function widen(pair(immutable Box, Box)) returns (Box, Box)
+function widen(pair (Box, Box)) returns (Box, Box)
 	return (pair.0, pair.1)
 end 'widen'
 
@@ -2229,7 +2208,6 @@ error E3209: <fragment>:14:9: a return does not fit the declared result: 'fresh'
 ```
 
 <!-- test: a-fresh-value-in-an-immutable-field-initializer-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `immutable` field holds frozen data, so its initializer is frozen first.
 
@@ -2245,8 +2223,7 @@ type Box
 end 'Box'
 
 type Shelf
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var held as immutable Box
+	export var held as Box
 
 	static function create() returns Self
 		return Self{held: Box.create(1)}
@@ -2264,7 +2241,6 @@ error E3196: <fragment>:16:21: cannot store a mutable 'Box' into 'Shelf.held', w
 ```
 
 <!-- test: a-fresh-value-assigned-to-an-immutable-field-refused -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 So is a later assignment to it.
 
@@ -2280,8 +2256,7 @@ type Box
 end 'Box'
 
 type Shelf
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var held as immutable Box
+	export var held as Box
 
 	static function create() returns Self
 		return Self{held: freeze(Box.create(1))}
@@ -2524,7 +2499,6 @@ error E3207: <fragment>:23:15: 'bump' writes 'box' (line 18: `box.n = box.n + 1`
 ```
 
 <!-- test: a-generic-function-declared-to-return-isolated-hands-back-an-isolated-value -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `make` is generic and declares `returns isolated`, so the local that holds its result is an isolated value that `Vault.wrap` takes into its `isolated` parameter.
 
 ```maxon
@@ -2539,8 +2513,7 @@ type Box
 end 'Box'
 
 type Vault
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	export var held as isolated Box
+	export var held as Box
 
 	static function wrap(consumes box Box) returns Self
 		return Self{held: box}
@@ -2548,8 +2521,7 @@ type Vault
 end 'Vault'
 
 function make(_ T) uses T returns Box
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fresh = Box.create(1) as isolated Box
+	let fresh = Box.create(1) as Box
 	return fresh
 end 'make'
 

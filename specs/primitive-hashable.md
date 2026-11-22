@@ -418,8 +418,8 @@ so the refusal is pinned here rather than left resting on `generic-types.md` alo
 type Box uses T where T implements Hashable
 	export var value as T
 
-	static function create(v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 

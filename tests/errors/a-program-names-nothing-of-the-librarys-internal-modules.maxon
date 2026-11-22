@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	let width = 4 as ByteWordWidth
+	return 0
+end 'main'
+
+// expect-error: E3011 at 2:16

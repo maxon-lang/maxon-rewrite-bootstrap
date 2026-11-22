@@ -4006,7 +4006,6 @@ end 'main'
 ```
 
 <!-- test: a-service-send-interface-let-field-read-through-a-var-field-survives-a-later-argument-rebinding-it -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ### An interface-typed `let` field read through a `var` field as a service message's argument survives a later argument that rebinds the `var` field
 ```maxon
 interface Named
@@ -4036,8 +4035,7 @@ type Inner
 end 'Inner'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var inner as immutable Inner
+	export var inner as Inner
 
 	static function create(text String) returns Self
 		return Self{inner: freeze(Inner.create(text))}
@@ -4078,7 +4076,6 @@ end 'main'
 ```
 
 <!-- test: a-bound-read-only-interface-field-is-shared-with-a-service-as-its-struct-twin-is -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ### A `let` interface field bound through a `var` root is shared with a service, as the struct-typed twin below is
 ```maxon
 interface Named
@@ -4108,8 +4105,7 @@ type Inner
 end 'Inner'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var inner as immutable Inner
+	export var inner as Inner
 
 	static function create(text String) returns Self
 		return Self{inner: freeze(Inner.create(text))}
@@ -4150,7 +4146,6 @@ end 'main'
 ```
 
 <!-- test: a-bound-read-only-struct-field-is-shared-with-a-service -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 ### … the struct-typed twin
 ```maxon
 type Tag
@@ -4174,8 +4169,7 @@ type Inner
 end 'Inner'
 
 type Holder
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export var inner as immutable Inner
+	export var inner as Inner
 
 	static function create(text String) returns Self
 		return Self{inner: Inner.create(text)}

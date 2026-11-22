@@ -224,15 +224,13 @@ error E3196: <fragment>:27:14: cannot store a mutable 'ByteArray' into 'an eleme
 ```
 
 <!-- test: a-module-let-returned-by-a-function-is-kept-by-a-let-field -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `banner` returns a module-level `let`, which is `immutable`, so its result and the label's `let` field are declared `immutable`.
 
 ```maxon
 let Banner = b"banner"
 
 type Label
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let text as immutable ByteArray
+	export let text as ByteArray
 
 	static function create(text frozen with ByteArray) returns Self
 		return Self{text: text}

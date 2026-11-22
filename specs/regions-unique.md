@@ -2426,7 +2426,6 @@ error E3102: <fragment>:16:11: use of moved value 'a': it was moved in an earlie
 ```
 
 <!-- test: a-unique-value-rebound-as-isolated-reads-through-the-new-name -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `as isolated` on a bare local hands the value to the new name, as a plain rebind does.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -2440,10 +2439,8 @@ type Tk is noncopyable
 end 'Tk'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Tk.create(5) as isolated Tk
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = r as isolated Tk
+	let r = Tk.create(5) as Tk
+	let a = r as Tk
 	print("{a.n}\n")
 	return 0
 end 'main'
@@ -2456,7 +2453,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-value-read-through-its-source-after-an-isolated-rebind-is-refused -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The source of an `as isolated` rebind no longer holds the value.
 ```maxon
@@ -2471,10 +2467,8 @@ type Tk is noncopyable
 end 'Tk'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let r = Tk.create(5) as isolated Tk
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let a = r as isolated Tk
+	let r = Tk.create(5) as Tk
+	let a = r as Tk
 	print("{a.n} {r.n}\n")
 	return 0
 end 'main'

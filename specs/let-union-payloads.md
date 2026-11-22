@@ -33,22 +33,18 @@ such as a constant byte string is stored only into a payload declared `immutable
 ## Tests
 
 <!-- test: a-read-only-value-stored-into-a-let-payload -->
-<!-- skip: capability qualifier 'immutable' on union payload is not supported in minimaxon -->
-<!-- skip: region capability 'immutable' is not supported in minimaxon -->
 The immutable `source.title` is stored into the `let` payload `callee`, which is declared `immutable` to take it.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 union Op
-	// TODO: capability qualifier 'immutable' on union payload is not supported in minimaxon
-	call(callee immutable ByteArray, weight Integer)
+	call(callee ByteArray, weight Integer)
 	nop
 end 'Op'
 
 type Source
-	// TODO: region capability 'immutable' is not supported in minimaxon
-	export let title as immutable ByteArray
+	export let title as ByteArray
 
 	static function create() returns Self
 		return Self{title: b"title"}
@@ -57,7 +53,7 @@ end 'Source'
 
 function size(op Op) returns Integer
 	return match op 'shape'
-		call(callee, _) gives callee.count() as Integer
+		call(callee, _) gives try callee.count() as Integer otherwise panic("out of range")
 		nop gives 0
 	end 'shape'
 end 'size'
@@ -65,7 +61,7 @@ end 'size'
 function main() returns ExitCode
 	let source = Source.create()
 	let op = Op.call(source.title, weight: 1)
-	return size(op) as ExitCode
+	return try size(op) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

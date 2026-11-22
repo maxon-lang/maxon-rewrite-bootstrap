@@ -461,6 +461,15 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return lowerCollectedOutputSucceeded(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
+		return lowerFloatToBits(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrFloatToBits'
+	if op == ast.Intrinsic.intrHashSeed 'intrHashSeed'
+		return lowerHashSeed(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHashSeed'
+	if op == ast.Intrinsic.intrHashSeedDraw 'intrHashSeedDraw'
+		return lowerHashSeedDraw(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHashSeedDraw'
 	if op == ast.Intrinsic.intrHashWord 'intrHashWord'
 		return lowerHashWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHashWord'
@@ -1045,6 +1054,15 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return false
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
+		return false
+	end 'intrFloatToBits'
+	if op == ast.Intrinsic.intrHashSeed 'intrHashSeed'
+		return false
+	end 'intrHashSeed'
+	if op == ast.Intrinsic.intrHashSeedDraw 'intrHashSeedDraw'
+		return false
+	end 'intrHashSeedDraw'
 	if op == ast.Intrinsic.intrHashWord 'intrHashWord'
 		return false
 	end 'intrHashWord'

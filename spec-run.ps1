@@ -7,6 +7,7 @@ param(
 	[Parameter(ValueFromRemainingArguments)]$TestArgs
 )
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot\hashseed.ps1"
 $compiler = (Resolve-Path $Compiler).Path
 $specs = Join-Path $PSScriptRoot 'specs'
 $runDir = Join-Path $PSScriptRoot ".spec-run-$PID"

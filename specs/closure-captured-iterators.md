@@ -25,7 +25,6 @@ to an `immutable` parameter is refused, because the iterator's collection may be
 
 <!-- test: error.a-mutates-captures-closure-over-an-array-iterator-is-refused-for-a-frozen-array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `bumpFirst` captures an iterator over its parameter in a closure that writes the element it reads, so the frozen array is refused where `bumpFirst` is called.
 
@@ -58,8 +57,7 @@ function bumpFirst(boxes BoxArray) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxArray.create(0) as isolated BoxArray
+	let fill = BoxArray.create(0) as BoxArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.push(Box.create(1))
@@ -75,7 +73,6 @@ error E3207: <fragment>:37:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 
 <!-- test: error.a-returned-mutates-captures-closure-over-an-array-iterator-is-refused-for-a-frozen-array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `makeBump` returns the closure, so the write happens wherever the closure is called; the closure still holds the iterator over the parameter, so the frozen array is refused where `makeBump` is called.
 
@@ -107,8 +104,7 @@ function makeBump(boxes BoxArray) returns Bump
 end 'makeBump'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxArray.create(0) as isolated BoxArray
+	let fill = BoxArray.create(0) as BoxArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.push(Box.create(1))
@@ -125,7 +121,6 @@ error E3207: <fragment>:36:19: 'makeBump' writes 'boxes' (it calls the closure a
 
 <!-- test: error.a-mutates-captures-closure-over-a-list-iterator-is-refused-for-a-frozen-list -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same closure over a `List` iterator writes the list's elements, so the frozen list is refused.
 
@@ -158,8 +153,7 @@ function bumpFirst(boxes BoxList) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxList.create() as isolated BoxList
+	let fill = BoxList.create() as BoxList
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.append(Box.create(1))
@@ -175,7 +169,6 @@ error E3207: <fragment>:37:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 
 <!-- test: error.a-mutates-captures-closure-over-a-map-iterator-is-refused-for-a-frozen-map -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same closure over a `Map` iterator writes a value of the map, so the frozen map is refused.
 
@@ -208,8 +201,7 @@ function bumpFirst(boxes BoxMap) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxMap.create() as isolated BoxMap
+	let fill = BoxMap.create() as BoxMap
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.upsert("a", value: Box.create(1))
@@ -347,7 +339,6 @@ error E3207: <fragment>:54:19: 'makeBump' writes 'coll' (it calls the closure at
 
 <!-- test: error.a-mutates-captures-closure-inside-a-mutates-captures-closure-over-an-iterator-is-refused-for-a-frozen-array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The inner closure writes through the iterator the outer closure captured, so the outer closure writes the array too and the frozen array is refused.
 
@@ -379,8 +370,7 @@ function makeBump(boxes BoxArray) returns Bump
 end 'makeBump'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxArray.create(0) as isolated BoxArray
+	let fill = BoxArray.create(0) as BoxArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.push(Box.create(1))
@@ -397,7 +387,6 @@ error E3207: <fragment>:36:19: 'makeBump' writes 'boxes' (it calls the closure a
 
 <!-- test: error.a-mutates-captures-closure-over-a-user-iterator-is-refused-for-a-frozen-array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An iterator type of the program's own that holds the array is captured the same way: the closure writes through it and the frozen array is refused.
 
@@ -443,8 +432,7 @@ function bumpFirst(boxes BoxArray) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxArray.create(0) as isolated BoxArray
+	let fill = BoxArray.create(0) as BoxArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.push(Box.create(1))
@@ -503,7 +491,6 @@ error E3207: <fragment>:31:20: 'peekFirst' needs 'boxes' frozen (it calls the cl
 
 <!-- test: a-plain-closure-reads-elements-through-a-captured-iterator-over-a-frozen-array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A closure that only reads through its iterator leaves the array alone, so `peekFirst` takes the frozen array.
 
 ```maxon
@@ -530,8 +517,7 @@ function peekFirst(boxes BoxArray) returns Count
 end 'peekFirst'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxArray.create(0) as isolated BoxArray
+	let fill = BoxArray.create(0) as BoxArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.push(Box.create(1))
@@ -630,7 +616,6 @@ end 'main'
 <!-- test: error.a-mutates-captures-closure-over-a-with-iterator-pair-is-refused-for-a-frozen-array -->
 <!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator `for (it, _) in boxes.withIterator()` binds runs over `boxes`, so the closure that writes through it writes the array, and the frozen array is refused where `bumpAll` is called.
 
@@ -667,8 +652,7 @@ function bumpAll(boxes BoxArray) returns Count
 end 'bumpAll'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxArray.create(0) as isolated BoxArray
+	let fill = BoxArray.create(0) as BoxArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.push(Box.create(1))
@@ -684,7 +668,6 @@ error E3207: <fragment>:42:18: 'bumpAll' writes 'boxes' (it calls the closure at
 
 <!-- test: error.a-mutates-captures-closure-over-an-iterator-held-in-a-tuple-is-refused-for-a-frozen-array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator is held in a tuple (`(it, 1)`) and the closure writes through `pair.0`, so the closure still writes the array the iterator runs over and the frozen array is refused.
 
@@ -718,8 +701,7 @@ function bumpFirst(boxes BoxArray) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxArray.create(0) as isolated BoxArray
+	let fill = BoxArray.create(0) as BoxArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.push(Box.create(1))
@@ -864,7 +846,6 @@ end 'main'
 
 <!-- test: error.a-mutates-captures-closure-over-an-iterator-held-in-a-record-is-refused-for-a-frozen-array -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The iterator is held in a `Lens` record the closure captures, so the closure that writes through `lens.it` writes the array the iterator runs over, and the frozen array is refused.
 
@@ -907,8 +888,7 @@ function bumpFirst(boxes BoxArray) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let fill = BoxArray.create(0) as isolated BoxArray
+	let fill = BoxArray.create(0) as BoxArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify fill 'fill'
 		fill.push(Box.create(1))

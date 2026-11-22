@@ -830,7 +830,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-isolated-value-moves-into-an-async-isolated-parameter-and-is-released-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 An `isolated` parameter of an `async` callee takes the unique region by move, so the coroutine holds the one reference and the run ends with nothing left allocated.
 
@@ -851,12 +850,11 @@ end 'Token'
 
 function inspect(consumes token Token) returns Tally
 	sleep(1)
-	return token.peek() + 1
+	return try token.peek() + 1 otherwise panic("out of range")
 end 'inspect'
 
 function main() returns ExitCode
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let token = Token.create(5) as isolated Token
+	let token = Token.create(5) as Token
 	let promise = async inspect(token)
 	let answer = await promise
 	print("{answer}\n")
@@ -871,7 +869,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-isolated-value-moved-into-an-async-call-pushed-into-an-array-is-released-once -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The promise of the same call is pushed into an array and awaited in a loop.
 
@@ -896,13 +893,12 @@ end 'Token'
 
 function inspect(consumes token Token) returns Tally
 	sleep(1)
-	return token.peek() + 1
+	return try token.peek() + 1 otherwise panic("out of range")
 end 'inspect'
 
 function main() returns ExitCode
-	let inFlight = TallyPromises.create(0)
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let token = Token.create(5) as isolated Token
+	var inFlight = TallyPromises.create(0)
+	let token = Token.create(5) as Token
 	inFlight.push(async inspect(token))
 	for promise in inFlight 'eachPromise'
 		let answer = await promise

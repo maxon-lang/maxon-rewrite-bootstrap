@@ -59,8 +59,8 @@ typealias Integer = int(0 to u32.max)
 type Box uses T where T implements Hashable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemHash() returns HashValue
@@ -93,8 +93,8 @@ typealias Wide = int(i64.min to i64.max)
 type Box uses T where T implements Hashable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemHash() returns HashValue
@@ -136,8 +136,8 @@ typealias Integer = int(0 to u32.max)
 type Box uses T where T implements Equatable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function sameAs(other T) returns bool
@@ -171,8 +171,8 @@ typealias Integer = int(0 to u32.max)
 type Key uses T where T implements Hashable and Equatable
 	export var value as T
 
-	static function create(value T) returns Self
-		return Self{value: value}
+	static function create(value T) returns Self where T implements Copyable
+		return Self{value: value.clone()}
 	end 'create'
 
 	function digest() returns HashValue

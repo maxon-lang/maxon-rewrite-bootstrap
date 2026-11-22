@@ -300,7 +300,6 @@ end 'main'
 
 <!-- test: a-large-fixed-array-crosses-to-a-service-and-is-written-there -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A move proves the record sole, so a fixed array of 400 bytes or of 40000 crosses to a service with its elements, the
 service writes it in place, and it is released there once.
 ```maxon
@@ -325,8 +324,7 @@ end 'Keeper'
 
 function check(count ElementIndex) returns ExitCode
 	let keeper = spawn Keeper.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let cells = Cells.create(count) as isolated Cells
+	let cells = Cells.create(count) as Cells
 	try cells.set(1, value: 5) otherwise panic("set")
 	let total = try await keeper.adopt(cells, last: count - 1) otherwise 0
 	if total != 12 'total'
@@ -930,7 +928,6 @@ end 'main'
 ```
 
 <!-- test: a-co-allocated-array-crosses-to-a-service-and-is-released-there -->
-<!-- skip: region capability 'isolated' is not supported in minimaxon -->
 A move proves the record sole and detaches it; a co-allocated buffer is already private, so the record crosses with
 its elements and the service releases it once.
 ```maxon
@@ -942,7 +939,7 @@ type Holder
 	export let planes as Planes
 
 	static function around() returns Self
-		let planes = Planes.create()
+		var planes = Planes.create()
 		planes.set(1, value: 5)
 		planes.set(3, value: 9)
 		return Self{planes: planes}
@@ -963,8 +960,7 @@ end 'Reader'
 
 function main() returns ExitCode
 	let reader = spawn Reader.create()
-	// TODO: region capability 'isolated' is not supported in minimaxon
-	let holder = Holder.around() as isolated Holder
+	let holder = Holder.around() as Holder
 	let total = try await reader.read(holder) otherwise 0
 	if total != 14 'total'
 		return 1

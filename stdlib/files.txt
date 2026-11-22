@@ -1,5 +1,7 @@
 Unicode.maxon .
 Interfaces.maxon .
 helpers/hash/Hash.maxon .
-helpers/hashtable/slotScan.maxon helpers/hashtable
-helpers/crypto/ByteOrder.maxon helpers/crypto
+helpers/hashtable/slotScan.maxon internal/hashtable
+helpers/crypto/ByteOrder.maxon internal/crypto
+Hasher.maxon .
+PrimitiveExtensions.maxon .
