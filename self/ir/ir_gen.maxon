@@ -3006,6 +3006,332 @@ export function setInstrSlot(mutates x Instr, slot Count)
 	panic("ir: an instruction that names no slot is given one")
 end 'setInstrSlot'
 
+// relocateInstr makes an instruction of one function one of another, as at says: the registers it reads and writes
+// renamed, the block it fails to renumbered, and each index into a pool moved to where the other's pools hold the first's.
+export function relocateInstr(mutates x Instr, at Relocation)
+	if x.op == Opcode.opConst 'opConst'
+		x.dst = renamedReg(at.names, r: x.dst)
+		return
+	end 'opConst'
+	if x.op == Opcode.opStr 'opStr'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.c = shiftedIndex(x.c, by: at.strings)
+		return
+	end 'opStr'
+	if x.op == Opcode.opDatum 'opDatum'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.c = remappedIndex(at.datums, i: x.c)
+		return
+	end 'opDatum'
+	if x.op == Opcode.opLoadSlot 'opLoadSlot'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.imm = shiftedWord(x.imm, by: at.slots)
+		return
+	end 'opLoadSlot'
+	if x.op == Opcode.opStoreSlot 'opStoreSlot'
+		x.imm = shiftedWord(x.imm, by: at.slots)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opStoreSlot'
+	if x.op == Opcode.opSlotAddr 'opSlotAddr'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.imm = shiftedWord(x.imm, by: at.slots)
+		return
+	end 'opSlotAddr'
+	if x.op == Opcode.opLoadParam 'opLoadParam'
+		x.dst = renamedReg(at.names, r: x.dst)
+		return
+	end 'opLoadParam'
+	if x.op == Opcode.opLoadField 'opLoadField'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opLoadField'
+	if x.op == Opcode.opStoreField 'opStoreField'
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opStoreField'
+	if x.op == Opcode.opFieldAddr 'opFieldAddr'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opFieldAddr'
+	if x.op == Opcode.opLoadAt 'opLoadAt'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opLoadAt'
+	if x.op == Opcode.opStoreAt 'opStoreAt'
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opStoreAt'
+	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
+		x.dst = renamedReg(at.names, r: x.dst)
+		return
+	end 'opLoadGlobal'
+	if x.op == Opcode.opLoadRaw 'opLoadRaw'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opLoadRaw'
+	if x.op == Opcode.opStoreRaw 'opStoreRaw'
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opStoreRaw'
+	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
+		x.dst = renamedReg(at.names, r: x.dst)
+		return
+	end 'opGlobalAddr'
+	if x.op == Opcode.opCallImport 'opCallImport'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.c = shiftedIndex(x.c, by: at.strings)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opCallImport'
+	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opAtomicAdd'
+	if x.op == Opcode.opAtomicExchange 'opAtomicExchange'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opAtomicExchange'
+	if x.op == Opcode.opCompareExchange 'opCompareExchange'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opCompareExchange'
+	if x.op == Opcode.opSpinPause 'opSpinPause'
+		return
+	end 'opSpinPause'
+	if x.op == Opcode.opThreadContext 'opThreadContext'
+		x.dst = renamedReg(at.names, r: x.dst)
+		return
+	end 'opThreadContext'
+	if x.op == Opcode.opCallCode 'opCallCode'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opCallCode'
+	if x.op == Opcode.opCodeAddress 'opCodeAddress'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.c = shiftedIndex(x.c, by: at.callees)
+		return
+	end 'opCodeAddress'
+	if x.op == Opcode.opBin 'opBin'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		if (x.flags and flagChecked) != 0 'fail'
+			x.c = relocatedBlock(at.blocks, b: x.c as BlockID) as Index
+		end 'fail'
+		return
+	end 'opBin'
+	if x.op == Opcode.opCmp 'opCmp'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opCmp'
+	if x.op == Opcode.opFBin 'opFBin'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opFBin'
+	if x.op == Opcode.opFCmp 'opFCmp'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opFCmp'
+	if x.op == Opcode.opFUnary 'opFUnary'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opFUnary'
+	if x.op == Opcode.opIntToFloat 'opIntToFloat'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opIntToFloat'
+	if x.op == Opcode.opFloatToInt 'opFloatToInt'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opFloatToInt'
+	if x.op == Opcode.opNeg 'opNeg'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		if (x.flags and flagChecked) != 0 'fail'
+			x.c = relocatedBlock(at.blocks, b: x.c as BlockID) as Index
+		end 'fail'
+		return
+	end 'opNeg'
+	if x.op == Opcode.opNot 'opNot'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opNot'
+	if x.op == Opcode.opGuard 'opGuard'
+		x.a = renamedReg(at.names, r: x.a)
+		x.c = relocatedBlock(at.blocks, b: x.c as BlockID) as Index
+		return
+	end 'opGuard'
+	if x.op == Opcode.opAlloc 'opAlloc'
+		x.dst = renamedReg(at.names, r: x.dst)
+		return
+	end 'opAlloc'
+	if x.op == Opcode.opCall 'opCall'
+		if x.dst != noReg 'value'
+			x.dst = renamedReg(at.names, r: x.dst)
+		end 'value'
+		x.c = shiftedIndex(x.c, by: at.callees)
+		x.a = shiftedReg(x.a, by: at.args)
+		if (x.flags and flagThrows) != 0 'errReg'
+			x.imm = renamedReg(at.names, r: try x.imm as Reg otherwise panic("ir: call errReg is out of range")) as Word
+		end 'errReg'
+		return
+	end 'opCall'
+	if x.op == Opcode.opCallRuntime 'opCallRuntime'
+		if x.dst != noReg 'value'
+			x.dst = renamedReg(at.names, r: x.dst)
+		end 'value'
+		x.a = shiftedReg(x.a, by: at.args)
+		if x.c != noRoutine 'routine'
+			x.c = shiftedIndex(x.c, by: at.callees)
+		end 'routine'
+		return
+	end 'opCallRuntime'
+	if x.op == Opcode.opWhen 'opWhen'
+		x.imm = shiftedWord(x.imm, by: at.bodies)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opWhen'
+	if x.op == Opcode.opClosure 'opClosure'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.imm = shiftedWord(x.imm, by: at.bodies)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opClosure'
+	if x.op == Opcode.opFuncValue 'opFuncValue'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.c = shiftedIndex(x.c, by: at.callees)
+		return
+	end 'opFuncValue'
+	if x.op == Opcode.opCallValue 'opCallValue'
+		if x.dst != noReg 'value'
+			x.dst = renamedReg(at.names, r: x.dst)
+		end 'value'
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opCallValue'
+	if x.op == Opcode.opBox 'opBox'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.c = remappedIndex(at.tables, i: x.c)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opBox'
+	if x.op == Opcode.opFrameBox 'opFrameBox'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.c = remappedIndex(at.tables, i: x.c)
+		x.a = renamedReg(at.names, r: x.a)
+		x.imm = shiftedWord(x.imm, by: at.frameBoxes)
+		return
+	end 'opFrameBox'
+	if x.op == Opcode.opCallWitness 'opCallWitness'
+		if x.dst != noReg 'value'
+			x.dst = renamedReg(at.names, r: x.dst)
+		end 'value'
+		x.a = shiftedReg(x.a, by: at.args)
+		if (x.flags and flagThrows) != 0 'errReg'
+			x.imm = renamedReg(at.names, r: try x.imm as Reg otherwise panic("ir: callWitness errReg is out of range")) as Word
+		end 'errReg'
+		return
+	end 'opCallWitness'
+	if x.op == Opcode.opIsType 'opIsType'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.c = shiftedIndex(x.c, by: at.types)
+		return
+	end 'opIsType'
+	if x.op == Opcode.opDrop 'opDrop'
+		x.a = renamedReg(at.names, r: x.a)
+		x.c = shiftedIndex(x.c, by: at.types)
+		return
+	end 'opDrop'
+	if x.op == Opcode.opDropSlot 'opDropSlot'
+		x.imm = shiftedWord(x.imm, by: at.slots)
+		x.c = shiftedIndex(x.c, by: at.types)
+		return
+	end 'opDropSlot'
+	if x.op == Opcode.opDropAt 'opDropAt'
+		x.a = renamedReg(at.names, r: x.a)
+		x.c = shiftedIndex(x.c, by: at.types)
+		return
+	end 'opDropAt'
+	if x.op == Opcode.opMoveSlot 'opMoveSlot'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.imm = shiftedWord(x.imm, by: at.slots)
+		return
+	end 'opMoveSlot'
+	if x.op == Opcode.opMoveAt 'opMoveAt'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opMoveAt'
+	if x.op == Opcode.opCopy 'opCopy'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.c = shiftedIndex(x.c, by: at.types)
+		return
+	end 'opCopy'
+	panic("ir: an instruction has no opcode")
+end 'relocateInstr'
+
+// relocateTerm makes a terminator of one function one of another, as at says: the registers it reads renamed, the
+// blocks it goes to renumbered, and its edges' arguments and its cases moved to where the other's pools hold the first's.
+export function relocateTerm(mutates t Term, at Relocation)
+	if t.kind == TermKind.termJump 'termJump'
+		t.target = relocatedBlock(at.blocks, b: t.target)
+		t.args = shiftedIndex(t.args, by: at.args)
+		return
+	end 'termJump'
+	if t.kind == TermKind.termBranch 'termBranch'
+		t.value = renamedReg(at.names, r: t.value)
+		t.target = relocatedBlock(at.blocks, b: t.target)
+		t.args = shiftedIndex(t.args, by: at.args)
+		t.other = relocatedBlock(at.blocks, b: t.other)
+		return
+	end 'termBranch'
+	if t.kind == TermKind.termSwitch 'termSwitch'
+		t.value = renamedReg(at.names, r: t.value)
+		t.first = shiftedIndex(t.first, by: at.cases)
+		t.target = relocatedBlock(at.blocks, b: t.target)
+		t.args = shiftedIndex(t.args, by: at.args)
+		return
+	end 'termSwitch'
+	if t.kind == TermKind.termRet 'termRet'
+		t.value = renamedReg(at.names, r: t.value)
+		return
+	end 'termRet'
+	if t.kind == TermKind.termTrap 'termTrap'
+		return
+	end 'termTrap'
+	if t.kind == TermKind.termThrow 'termThrow'
+		t.value = renamedReg(at.names, r: t.value)
+		return
+	end 'termThrow'
+	panic("ir: a block has no terminator")
+end 'relocateTerm'
+
 // InstrVisitor has a method for every kind of instr, so one added to the table fails the build where it is not handled yet.
 export interface InstrVisitor
 	function visitConst(mutates self, f IrFunction, x Instr)

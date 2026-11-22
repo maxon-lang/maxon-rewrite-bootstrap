@@ -1,0 +1,21 @@
+// A function small enough to inline may hold a loop of its own, which runs inside the loop of its caller.
+function digits(n Count) returns Count
+	var count = 1 as Count
+	var v = n
+	while v >= 10 'each'
+		v = v / 10
+		count = try count + 1 otherwise panic("more digits than a word")
+	end 'each'
+	return count
+end 'digits'
+
+function main() returns ExitCode
+	var total = 0 as Count
+	for i in 0 upto 100000 'each'
+		total = try total + digits(i) otherwise panic("the total passes a word")
+	end 'each'
+	print("{total} {digits(0)} {digits(123456789)}\n")
+	return 0
+end 'main'
+
+//> 488890 1 9

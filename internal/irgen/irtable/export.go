@@ -41,6 +41,8 @@ const (
 	KRoutine      = kRoutine
 	KErrorReg     = kErrorReg
 	KBody         = kBody
+	KDatum        = kDatum
+	KFrameBox     = kFrameBox
 	KCases        = kCases
 	KTable        = kTable
 	KEdgeArgs     = kEdgeArgs

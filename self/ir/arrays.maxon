@@ -1,3 +1,11 @@
+// writtenInPlace is whether the backend writes the common case of a call of the runtime entry symbol in place, so that the
+// call costs no more than the instructions around it: reading the length of an array, a byte array or a string, or what a
+// frozen value holds, is a load, and reading, writing or pushing one element calls the entry only for an index out of range
+// or a buffer that has to grow.
+export function writtenInPlace(symbol Rt) returns bool
+	return symbol == Rt.rtArrayLen or symbol == Rt.rtBytesLen or symbol == Rt.rtStrLen or symbol == Rt.rtFrozenGet or symbol == Rt.rtArrayElem or symbol == Rt.rtBytesGet or symbol == Rt.rtStrByteAt or symbol == Rt.rtBytesSet or symbol == Rt.rtArrayInsert or symbol == Rt.rtBytesInsert
+end 'writtenInPlace'
+
 // arrayOf is the runtime of the array type t, read through the binding and through a frozen value.
 function arrayOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID) returns ArrayBox
 	let bt = builtinOf(l, p: p, ms: ms, collection: t)

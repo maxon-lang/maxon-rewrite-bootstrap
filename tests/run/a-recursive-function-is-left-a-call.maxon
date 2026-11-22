@@ -1,0 +1,15 @@
+// A function that calls itself is no leaf: each call stays a call, however small its body.
+function depth(n Count) returns Count
+	if n == 0 'base'
+		return 0
+	end 'base'
+	let below = try n - 1 otherwise panic("below 0")
+	return try depth(below) + 1 otherwise panic("deeper than a word")
+end 'depth'
+
+function main() returns ExitCode
+	print("{depth(50)} {depth(0)}\n")
+	return 0
+end 'main'
+
+//> 50 0

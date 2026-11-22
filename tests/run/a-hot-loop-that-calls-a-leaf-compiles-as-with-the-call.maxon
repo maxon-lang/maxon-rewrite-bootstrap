@@ -1,0 +1,43 @@
+// A hot loop that holds as many values as the target has registers and calls a leaf compiles as it did with the call:
+// with the call, the values live across it were in memory across it, and where the copies of the leaf would make the
+// loop need more registers than there are (E5001), the function is compiled as it was before inlining.
+function mix(a Count, b Count) returns Count
+	return ((a and 1023) * 31 + (b and 1023)) and 65535
+end 'mix'
+
+function main() returns ExitCode
+	var a0 = 0 as Count
+	var a1 = 1 as Count
+	var a2 = 2 as Count
+	var a3 = 3 as Count
+	var a4 = 4 as Count
+	var a5 = 5 as Count
+	var a6 = 6 as Count
+	var a7 = 7 as Count
+	var a8 = 8 as Count
+	var a9 = 9 as Count
+	var a10 = 10 as Count
+	var a11 = 11 as Count
+	var a12 = 12 as Count
+	var a13 = 13 as Count
+	for i in 0 upto 1000 'each'
+		a0 = mix(a0, b: i)
+		a1 = mix(a1, b: i)
+		a2 = mix(a2, b: i)
+		a3 = mix(a3, b: i)
+		a4 = mix(a4, b: i)
+		a5 = mix(a5, b: i)
+		a6 = mix(a6, b: i)
+		a7 = mix(a7, b: i)
+		a8 = mix(a8, b: i)
+		a9 = mix(a9, b: i)
+		a10 = mix(a10, b: i)
+		a11 = mix(a11, b: i)
+		a12 = mix(a12, b: i)
+		a13 = mix(a13, b: i)
+	end 'each'
+	print("{try a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 otherwise 0}\n")
+	return 0
+end 'main'
+
+//> 234675

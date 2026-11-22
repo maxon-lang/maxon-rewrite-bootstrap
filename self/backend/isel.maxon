@@ -789,8 +789,7 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		return
 	end 'cown'
 	let reads = symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
-	let inPlace = reads or symbol == ir.Rt.rtBytesSet or symbol == ir.Rt.rtArrayInsert or symbol == ir.Rt.rtBytesInsert
-	if not inPlace 'call'
+	if not ir.writtenInPlace(symbol) 'call'
 		sel.callWith(fn, symbol: ir.rtSymbol(symbol), start: start, count: ir.callRuntimeArgsCount(ins), dst: ins.dst)
 		return
 	end 'call'
@@ -1026,8 +1025,8 @@ end 'emitLoadParam'
 // selectFunction writes the code of one function into the unit: its machine IR, by the rules and the helpers, then
 // allocated and encoded. A prologue block of its own comes first, so that a branch to the IR's first block does not
 // run it again; it copies the parameters out of the argument registers before it clears the slots, which writes some
-// of them. A hot loop that needs more registers than the target has is E5001, reported at the function.
-function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, symbol String, instance bool, closure bool, mutates errs diag.ErrorList)
+// of them. It gives the hot loops that need more registers than the target has (E5001), and writes nothing then.
+function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, symbol String, instance bool, closure bool) returns PressureRefusalList
 	sel.prepare(p, ms: ms, f: f)
 	sel.fnSymbol = symbol.clone()
 	sel.closureBody = closure
@@ -1061,12 +1060,26 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)
 	let refusals = sel.allocator.allocate(mir)
 	if refusals.count() > 0 'refused'
-		reportRefusals(p, ms: ms, f: f, refusals: refusals, errs: errs)
-		return
+		return refusals
 	end 'refused'
 	encodeMachineFunction(sel.u, fn: mir, instance: instance)
 	sel.allocator.spiller.clock.lap(EmitPhase.encoding)
+	return refusals
 end 'selectFunction'
+
+// selectOrFallBack writes the code of f, or, where a hot loop of f needs more registers than the target has and the
+// function had other IR before leaf inlining (fallback), the code of that: a loop that compiled with the calls compiles
+// so, whatever inlining did to it (README, "Leaf inlining"). A hot loop refused all the same is E5001, reported at the
+// function.
+function selectOrFallBack(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, hasFallback bool, fallback ir.IrFunction, symbol String, instance bool, closure bool, mutates errs diag.ErrorList)
+	var refusals = selectFunction(sel, p: p, ms: ms, f: f, symbol: symbol, instance: instance, closure: closure)
+	if refusals.count() > 0 and hasFallback 'fallBack'
+		refusals = selectFunction(sel, p: p, ms: ms, f: fallback, symbol: symbol, instance: instance, closure: closure)
+	end 'fallBack'
+	if refusals.count() > 0 'refused'
+		reportRefusals(p, ms: ms, f: f, refusals: refusals, errs: errs)
+	end 'refused'
+end 'selectOrFallBack'
 
 // targetName is the target's name in a diagnostic.
 let targetName = "x64"
@@ -1141,16 +1154,22 @@ end 'ownsCaptures'
 
 // selectFunctionTree writes the code of a function with the link name symbol, and of the bodies of its closures and its
 // behaviours, each closure's with the routine that drops what the closure owns and each behaviour's with its thunk, and
-// the tables that they name and the unit does not have yet. closure says that f is the body of a closure.
-function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, symbol String, instance bool, closure bool, mutates errs diag.ErrorList)
-	selectFunction(sel, p: p, ms: ms, f: f, symbol: symbol, instance: instance, closure: closure, errs: errs)
+// the tables that they name and the unit does not have yet. closure says that f is the body of a closure. Where
+// hasFallback, fallback is the function as it was before leaf inlining, each of its bodies the fallback of the body in the
+// same place.
+function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, hasFallback bool, fallback ir.IrFunction, symbol String, instance bool, closure bool, mutates errs diag.ErrorList)
+	selectOrFallBack(sel, p: p, ms: ms, f: f, hasFallback: hasFallback, fallback: fallback, symbol: symbol, instance: instance, closure: closure, errs: errs)
 	let due = exchange(sel.due, value: ir.WitnessTableList.create(0))
 	for i in 0 upto due.count() 'tables'
 		emitTable(sel.u, p: p, ms: ms, t: due[i], typeSymbol: typeNameSymbol(p, ms: ms, t: due[i].concrete))
 	end 'tables'
 	for i in 0 upto f.bodies.count() 'bodies'
 		let body = bodySymbol(symbol, index: i)
-		selectFunctionTree(sel, p: p, ms: ms, f: f.bodies[i], symbol: body, instance: instance, closure: not isBehaviourBody(f.bodies[i]), errs: errs)
+		if hasFallback 'withFallback'
+			selectFunctionTree(sel, p: p, ms: ms, f: f.bodies[i], hasFallback: true, fallback: fallback.bodies[i], symbol: body, instance: instance, closure: not isBehaviourBody(f.bodies[i]), errs: errs)
+		end 'withFallback' else 'alone'
+			selectFunctionTree(sel, p: p, ms: ms, f: f.bodies[i], hasFallback: false, fallback: f.bodies[i], symbol: body, instance: instance, closure: not isBehaviourBody(f.bodies[i]), errs: errs)
+		end 'alone'
 		if isBehaviourBody(f.bodies[i]) 'behaviour'
 			emitBehaviourThunk(sel.u, p: p, ms: ms, symbol: thunkSymbol(body), body: f.bodies[i], bodySymbol: body, instance: instance)
 		end 'behaviour' else if ownsCaptures(f.bodies[i]) 'owns'
@@ -1159,14 +1178,21 @@ function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.
 	end 'bodies'
 end 'selectFunctionTree'
 
-// emitModule is the unit with the code of a module's functions, and the hot loops E5001 refuses in errs. With verifies,
-// register allocation holds each function to its invariants. clock is charged the time of each phase.
-export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) returns CodeUnit
+// emitModule is the unit with the code of a module's functions, and the hot loops E5001 refuses in errs. fallbacks are the
+// IR some of them had before leaf inlining. With verifies, register allocation holds each function to its invariants. clock
+// is charged the time of each phase.
+export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, fallbacks ir.Fallbacks, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) returns CodeUnit
 	var sel = Selector.new(verifies)
 	sel.allocator.spiller.clock = exchange(clock, value: EmitClock.off())
 	sel.allocator.spiller.clock.restart()
 	for i in 0 upto fns.count() 'each'
-		selectFunctionTree(sel, p: p, ms: ms, f: fns[i], symbol: ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fns[i].decl), instance: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl).genericOrigin != ast.noFunc, closure: false, errs: errs)
+		let symbol = ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fns[i].decl)
+		let instance = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl).genericOrigin != ast.noFunc
+		if fallbacks.has(i) 'withFallback'
+			selectFunctionTree(sel, p: p, ms: ms, f: fns[i], hasFallback: true, fallback: fallbacks.of(i), symbol: symbol, instance: instance, closure: false, errs: errs)
+		end 'withFallback' else 'alone'
+			selectFunctionTree(sel, p: p, ms: ms, f: fns[i], hasFallback: false, fallback: fns[i], symbol: symbol, instance: instance, closure: false, errs: errs)
+		end 'alone'
 	end 'each'
 	sel.u.asm.endLabels()
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)

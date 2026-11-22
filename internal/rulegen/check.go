@@ -231,7 +231,7 @@ var number = regexp.MustCompile(`^-?[0-9]+$`)
 // only bind.
 var (
 	numeric  = []irtable.Kind{irtable.KInt, irtable.KSlot, irtable.KWord}
-	bindable = []irtable.Kind{irtable.KInt, irtable.KSlot, irtable.KWord, irtable.KSymbol, irtable.KBody, irtable.KBlock, irtable.KFail,
+	bindable = []irtable.Kind{irtable.KInt, irtable.KSlot, irtable.KWord, irtable.KSymbol, irtable.KBody, irtable.KDatum, irtable.KFrameBox, irtable.KBlock, irtable.KFail,
 		irtable.KText, irtable.KType, irtable.KCallee, irtable.KTable}
 )
 

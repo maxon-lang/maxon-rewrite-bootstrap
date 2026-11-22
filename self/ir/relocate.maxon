@@ -1,0 +1,117 @@
+// Copying the code of one function into another, as the inliner does: relocationInto appends the first function's pools to
+// the second's and says where they landed, and the generated relocateInstr and relocateTerm move each operation's
+// registers, blocks and pool indexes by it.
+
+// Relocation is where the operations of one function land in another: names gives each of its registers the register that
+// stands for it there and blocks each of its blocks; the counts are the offsets at which the other's pools hold the first's,
+// and datums and tables, pools that hold each item once, give the index of each item there.
+export type Relocation
+	export var names as RegList
+	export var blocks as BlockIDList
+	export var args as Count
+	export var cases as Count
+	export var slots as Count
+	export var bodies as Count
+	export var frameBoxes as Count
+	export var strings as Count
+	export var types as Count
+	export var callees as Count
+	export var datums as Array with Index
+	export var tables as Array with Index
+
+	export static function make(consumes names RegList, consumes blocks BlockIDList, args Count, cases Count, slots Count, bodies Count, frameBoxes Count, strings Count, types Count, callees Count, consumes datums Array with Index, consumes tables Array with Index) returns Relocation
+		return Relocation{names: names, blocks: blocks, args: args, cases: cases, slots: slots, bodies: bodies, frameBoxes: frameBoxes, strings: strings, types: types, callees: callees, datums: datums, tables: tables}
+	end 'make'
+end 'Relocation'
+
+// relocationInto appends the pools of from to those of dest, with the registers of the arguments renamed by names and the
+// targets of the cases by blocks, and gives the relocation that moves from's operations into dest.
+export function relocationInto(mutates dest IrFunction, from IrFunction, consumes names RegList, consumes blocks BlockIDList) returns Relocation
+	let args = dest.args.count()
+	for i in 0 upto from.args.count() 'args'
+		dest.args.push(renamedReg(names, r: from.args[i]))
+	end 'args'
+	let cases = dest.cases.count()
+	let named = namedCases(from)
+	for i in 0 upto from.cases.count() 'cases'
+		// A pass that writes a switch again leaves the cases of the old one in the pool, which name blocks that may be gone.
+		var target = noBlock
+		if named[i] 'named'
+			target = relocatedBlock(blocks, b: from.cases[i].target)
+		end 'named'
+		dest.cases.push(SwitchCase.make(from.cases[i].value, target: target, args: shiftedIndex(from.cases[i].args, by: args), argCount: from.cases[i].argCount))
+	end 'cases'
+	let slots = dest.slots.count()
+	dest.slots.append(from.slots)
+	let frameBoxes = dest.frameBoxes
+	dest.frameBoxes = try frameBoxes + from.frameBoxes otherwise panic("ir: more frame boxes than memory")
+	let bodies = dest.bodies.count()
+	for i in 0 upto from.bodies.count() 'bodies'
+		dest.bodies.push(from.bodies[i].clone())
+	end 'bodies'
+	let strings = dest.strings.count()
+	for i in 0 upto from.strings.count() 'strings'
+		dest.strings.push(from.strings[i].clone())
+	end 'strings'
+	let types = dest.types.count()
+	dest.types.append(from.types)
+	let callees = dest.callees.count()
+	dest.callees.append(from.callees)
+	var datums as Array with Index
+	datums = Array.create(0)
+	for i in 0 upto from.datums.count() 'datums'
+		datums.push(indexOf(dest.datumIndex(from.datums[i].clone())))
+	end 'datums'
+	var tables as Array with Index
+	tables = Array.create(0)
+	for i in 0 upto from.tables.count() 'tables'
+		tables.push(indexOf(dest.tableIndex(from.tables[i].clone())))
+	end 'tables'
+	dest.usesArrays = dest.usesArrays or from.usesArrays
+	dest.usesBytes = dest.usesBytes or from.usesBytes
+	dest.usesOs = dest.usesOs or from.usesOs
+	return Relocation.make(names, blocks: blocks, args: args, cases: cases, slots: slots, bodies: bodies, frameBoxes: frameBoxes, strings: strings, types: types, callees: callees, datums: datums, tables: tables)
+end 'relocationInto'
+
+// namedCases is, for each case of f's pool, whether a switch of f names it.
+function namedCases(f IrFunction) returns Array with bool
+	var named as Array with bool
+	named = Array.create(0)
+	for _ in 0 upto f.cases.count() 'cases'
+		named.push(false)
+	end 'cases'
+	for b in 0 upto f.blocks.count() 'blocks'
+		if f.blocks[b].term.kind == TermKind.termSwitch 'switch'
+			let start = switchCasesStart(f.blocks[b].term)
+			for i in 0 upto switchCasesCount(f.blocks[b].term) 'cases'
+				named[try start + i otherwise panic("ir: a case past memory")] = true
+			end 'cases'
+		end 'switch'
+	end 'blocks'
+	return named
+end 'namedCases'
+
+export function shiftedReg(v Reg, by Count) returns Reg
+	let start = try v as Count otherwise panic("ir: a register list starts out of range")
+	let moved = try start + by otherwise panic("ir: a register list is moved past memory")
+	return try moved as Reg otherwise panic("ir: a register list is moved past the pool")
+end 'shiftedReg'
+
+export function shiftedIndex(v Index, by Count) returns Index
+	let start = try v as Count otherwise panic("ir: a pool index is out of range")
+	let moved = try start + by otherwise panic("ir: a pool index is moved past memory")
+	return try moved as Index otherwise panic("ir: a pool index is moved past the pool")
+end 'shiftedIndex'
+
+export function shiftedWord(v Word, by Count) returns Word
+	let offset = try by as Word otherwise panic("ir: an offset past the word")
+	return try v + offset otherwise panic("ir: an index is moved past the word")
+end 'shiftedWord'
+
+export function remappedIndex(map Array with Index, i Index) returns Index
+	return map[try i as Count otherwise panic("ir: a pool index is out of range")]
+end 'remappedIndex'
+
+export function relocatedBlock(blocks BlockIDList, b BlockID) returns BlockID
+	return blocks[blockIndex(b)]
+end 'relocatedBlock'

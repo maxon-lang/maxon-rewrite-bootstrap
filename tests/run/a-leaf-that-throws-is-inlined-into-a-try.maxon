@@ -1,0 +1,30 @@
+// A function small enough to inline that throws joins its caller's failure handling where the call did: a throw reaches
+// the caller's otherwise or its own throw, and a return gives its value.
+function checked(i Count, bound Count) returns Count throws ArrayError
+	if i >= bound 'out'
+		throw ArrayError.indexOutOfBounds
+	end 'out'
+	return i
+end 'checked'
+
+function relay(i Count, bound Count) returns Count throws ArrayError
+	return try checked(i, bound: bound)
+end 'relay'
+
+function sumWithin(bound Count) returns Count
+	var total = 0 as Count
+	for i in 0 upto 10 'each'
+		let v = try checked(i, bound: bound) otherwise 100
+		total = try total + v otherwise panic("the total passes a word")
+	end 'each'
+	return total
+end 'sumWithin'
+
+function main() returns ExitCode
+	print("{sumWithin(4)} {sumWithin(10)}\n")
+	print("{try relay(5, bound: 3) otherwise 77} {try relay(2, bound: 3) otherwise 77}\n")
+	return 0
+end 'main'
+
+//> 606 45
+//> 77 2

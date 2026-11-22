@@ -1,0 +1,518 @@
+// Leaf inlining, maxon's leaf rule (InlineLeaves): a call of a leaf is replaced by a copy of the leaf's body, so a small
+// helper or an accessor costs what its body does and not the protocol of a call around it (the moves of the arguments, the
+// frame, the values spilled across it).
+//
+// A leaf calls nothing on its hot path, its blocks that do not end in a trap: no call of any kind, allocation, box or copy,
+// but for a call of a runtime entry that the backend writes in place (ir.writtenInPlace) and a drop, which a body that is
+// given a value ends with and which stays a call in the copy. Its size is its instructions and terminators, a parameter's
+// read aside since it becomes the call's argument: at most maxLeafOps on the hot path, or maxColdArmLeafOps when it has
+// blocks that end in a trap, whose own are at most maxLeafColdOps. It keeps no slot after SSA construction (a frame zeroes
+// its slots once, so a copy in a loop would see what the last pass left), holds no closure or behaviour body, and has
+// nothing the backend refuses. Calling nothing, it is never recursive. As SSA construction leaves every function, no edge
+// enters its entry, so the copy's entry is entered only by the call it replaces.
+//
+// The leaves are decided on the bodies as the fold left them, and a call is replaced only outside a block that ends in a
+// trap, so no leaf is changed by the pass: every copy of one is the same body, and the order the functions are visited in
+// changes nothing. A copy of a function that throws joins the caller where the call did: its returns and its throws jump
+// to the block after the call with the value and the error the call would have given (0 for the one that is not there),
+// so the caller's test of the error and its failure handling stay as lowering wrote them. Its drops, traps and panics, with
+// their messages and the places in them, are the callee's own, copied. A function that returns a borrowed place returns
+// the word its `let` borrow is passed as, which the caller only reads, as it did the call's.
+//
+// A module's lower task waits for the lower of each module it names (README, "The modules phase"), and that task optimizes
+// the module and finds its leaves, so a call of a leaf of a named module is replaced as one of the module's own; an
+// instance a module needs is in its own list. After the copies, the fold runs again on each function that got one, so a
+// constant argument folds into the body.
+//
+// A copy must not make a loop fail to compile: a loop that needs more registers than the target has is E5001, and with the
+// call, the values live across it were in memory across it, which they need not be across the copy. So a function that
+// may hold a loop keeps the IR it had before its copies as its fallback (ir.Fallbacks), which the backend compiles in its
+// place where it refuses a hot loop of the inlined one: such a function compiles exactly as it would have without inlining.
+
+// maxLeafOps is the most instructions and terminators the hot path of a leaf with no cold block has: maxon's measured
+// budget, which admits accessors and small helpers and keeps the code a copy adds small.
+let maxLeafOps = 24 as Count
+
+// maxColdArmLeafOps is the most a leaf with cold blocks has on its hot path, so that the checked accessor whose slow arm
+// is cold still inlines, and maxLeafColdOps the most its cold blocks hold, so that what an admitted body copies is bounded.
+let maxColdArmLeafOps = 28 as Count
+
+let maxLeafColdOps = 12 as Count
+
+// noPlace is a function's place in Leaves.places when it is no leaf.
+let noPlace = 0 as Count
+
+// Leaves are the leaves of one module's lowered functions: by the index of a function's entry in the slot of the function
+// table that holds the module's entries, its place in the module's list plus 1, or noPlace.
+export type Leaves
+	var slot as Count
+	var places as Array with Count
+
+	export static function empty() returns Leaves
+		return Leaves{slot: 0, places: Array.create(0)}
+	end 'empty'
+
+	static function of(slot Count, consumes places Array with Count) returns Leaves
+		return Leaves{slot: slot, places: places}
+	end 'of'
+
+	// holds is whether the function f is one of the leaves.
+	export function holds(f ast.FuncID) returns bool
+		if ast.funcSlotOf(f) != slot 'otherSlot'
+			return false
+		end 'otherSlot'
+		let i = ast.funcPlaceOf(f)
+		return i < places.count() and places[i] != noPlace
+	end 'holds'
+
+	// placeOf is the place of the leaf f in its module's list.
+	export function placeOf(f ast.FuncID) returns Count
+		if not self.holds(f) 'none'
+			panic("opt: the place of a function that is no leaf")
+		end 'none'
+		return try places[ast.funcPlaceOf(f)] - 1 otherwise panic("opt: a leaf with no place")
+	end 'placeOf'
+end 'Leaves'
+
+export typealias LeavesList = Array with Leaves
+
+// findLeaves finds the leaves among fns, the functions of the module whose entries the slot slot of the function table
+// holds, once the optimizer has run on them.
+export function findLeaves(fns ir.IrFunctionList, slot Count) returns Leaves
+	var places as Array with Count
+	places = Array.create(0)
+	for i in 0 upto fns.count() 'functions'
+		if ast.funcSlotOf(fns[i].decl) == slot and isLeaf(fns[i]) 'leaf'
+			let at = ast.funcPlaceOf(fns[i].decl)
+			while places.count() <= at 'grow'
+				places.push(noPlace)
+			end 'grow'
+			places[at] = try i + 1 otherwise panic("opt: a module with more functions than memory")
+		end 'leaf'
+	end 'functions'
+	return Leaves.of(slot, places: places)
+end 'findLeaves'
+
+// isLeaf is whether f is a leaf (see the top of this file).
+function isLeaf(f ir.IrFunction) returns bool
+	if f.slots.count() > 0 or f.bodies.count() > 0 or f.refusals.count() > 0 'shape'
+		return false
+	end 'shape'
+	var hot = 0 as Count
+	var cold = 0 as Count
+	var hasCold = false
+	for b in 0 upto f.blocks.count() 'blocks'
+		let inCold = isColdBlock(f, b: b)
+		var ops = 1 as Count
+		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+			if f.instrs[k].op == ir.Opcode.opLoadParam 'param'
+				continue 'instrs'
+			end 'param'
+			if not inCold and callsOut(f.instrs[k]) 'calls'
+				return false
+			end 'calls'
+			ops = try ops + 1 otherwise panic("opt: a block with more instructions than memory")
+		end 'instrs'
+		if inCold 'cold'
+			hasCold = true
+			cold = try cold + ops otherwise panic("opt: a function with more instructions than memory")
+		end 'cold' else 'hot'
+			hot = try hot + ops otherwise panic("opt: a function with more instructions than memory")
+		end 'hot'
+		if hot > maxColdArmLeafOps or cold > maxLeafColdOps 'over'
+			return false
+		end 'over'
+	end 'blocks'
+	if hasCold 'coldArm'
+		return true
+	end 'coldArm'
+	return hot <= maxLeafOps
+end 'isLeaf'
+
+// isColdBlock is whether block b of f ends in a trap: the end of a panic or of a failed check, which a call of a leaf runs
+// only once.
+function isColdBlock(f ir.IrFunction, b Count) returns bool
+	return f.blocks[b].term.kind == ir.TermKind.termTrap
+end 'isColdBlock'
+
+// callsOut is whether an instruction calls code that a caller of the leaf would then call too.
+function callsOut(x ir.Instr) returns bool
+	if (ir.opEffects(x.op) and ir.effectCalls) == 0 'noCall'
+		return false
+	end 'noCall'
+	if x.op == ir.Opcode.opDrop or x.op == ir.Opcode.opDropAt 'drop'
+		return false
+	end 'drop'
+	return not (x.op == ir.Opcode.opCallRuntime and ir.writtenInPlace(ir.callRuntimeSymbol(x)))
+end 'callsOut'
+
+// Inliner is the state of the copies, kept from one function to the next so that its arrays keep their capacity: the
+// instructions of the function's own blocks (head) and of the blocks the copies add after them (tail), the blocks added,
+// and the block being written, one of the function's own or of those added.
+export type Inliner
+	// sites is how many calls the inliner has replaced, over every module it was given.
+	export var sites as Count
+	var head as ir.InstrList
+	var tail as ir.InstrList
+	var added as ir.BlockList
+	var writingAdded as bool
+	var writing as Count
+	var writingFirst as Count
+	var edge as ir.RegList
+
+	export static function new() returns Inliner
+		return Inliner{sites: 0, head: ir.InstrList.create(0), tail: ir.InstrList.create(0), added: ir.BlockList.create(0), writingAdded: false, writing: 0, writingFirst: 0, edge: ir.RegList.create(0)}
+	end 'new'
+
+	// push puts an instruction at the end of the block being written.
+	function push(mutates self, consumes x ir.Instr)
+		if writingAdded 'added'
+			tail.push(x)
+		end 'added' else 'own'
+			head.push(x)
+		end 'own'
+	end 'push'
+
+	// endBlock ends the block being written with the terminator t.
+	function endBlock(mutates self, mutates f ir.IrFunction, consumes t ir.Term)
+		if writingAdded 'added'
+			added[writing].endAt = tail.count()
+			added[writing].term = t
+		end 'added' else 'own'
+			f.blocks[writing].first = writingFirst
+			f.blocks[writing].endAt = head.count()
+			f.blocks[writing].term = t
+		end 'own'
+	end 'endBlock'
+
+	// rebuild lays f out again with every call of a leaf outside a cold block replaced by a copy of the leaf: the block of
+	// the call ends there with a jump to the copy, whose returns and throws jump to a block added after it that holds the
+	// rest. The function's own blocks keep their numbers; the added ones come after them.
+	function rebuild(mutates self, mutates f ir.IrFunction, own Leaves, ownFns ir.IrFunctionList, lowered Array with ir.IrFunctionList, leaves LeavesList, reads Array with bool, first Count)
+		head.clear()
+		tail.clear()
+		added.clear()
+		let ownBlocks = f.blocks.count()
+		for b in 0 upto ownBlocks 'blocks'
+			let start = f.blocks[b].first
+			let stop = f.blocks[b].endAt
+			let inCold = isColdBlock(f, b: b)
+			// A splice ends the block with a jump to the copy, and the block after the copy ends as this one did.
+			let term = f.blocks[b].term.clone()
+			writingAdded = false
+			writing = b
+			writingFirst = head.count()
+			for k in start upto stop 'instrs'
+				var fromOwn as bool
+				var list as Count
+				var place as Count
+				let leafCall = findLeaf(f.instrs[k], f: f, own: own, leaves: leaves, reads: reads, first: first, fromOwn: fromOwn, list: list, place: place)
+				if not inCold and leafCall 'leaf'
+					let call = f.instrs[k].clone()
+					if fromOwn 'own'
+						self.splice(f, call: call, callee: ownFns[place], ownBlocks: ownBlocks)
+					end 'own' else 'named'
+						self.splice(f, call: call, callee: lowered[list][place], ownBlocks: ownBlocks)
+					end 'named'
+					sites = try sites + 1 otherwise panic("opt: more calls inlined than memory")
+				end 'leaf' else 'kept'
+					self.push(f.instrs[k].clone())
+				end 'kept'
+			end 'instrs'
+			self.endBlock(f, t: term)
+		end 'blocks'
+		let offset = head.count()
+		for i in 0 upto added.count() 'added'
+			added[i].first = try added[i].first + offset otherwise panic("opt: a function with more instructions than memory")
+			added[i].endAt = try added[i].endAt + offset otherwise panic("opt: a function with more instructions than memory")
+		end 'added'
+		f.instrs = exchange(head, value: ir.InstrList.create(0))
+		f.instrs.append(tail)
+		f.blocks.append(added)
+	end 'rebuild'
+
+	// splice puts a copy of callee in place of call, which calls it. A callee of one block that returns a value it makes is
+	// copied into the block being written, its value made in the call's register. Any other ends the block being written
+	// with a jump to the copy and starts the block the copy returns to as the block being written. ownBlocks is how many
+	// blocks f had of its own, which the added ones are numbered after.
+	function splice(mutates self, mutates f ir.IrFunction, call ir.Instr, callee ir.IrFunction, ownBlocks Count)
+		let dst = call.dst
+		var err = ir.noReg
+		if ir.callHasErrReg(call) 'err'
+			err = ir.callErrReg(call).unwrap()
+		end 'err'
+		var names = paramNames(f, call: call, callee: callee)
+		if callee.blocks.count() == 1 and callee.blocks[0].term.kind == ir.TermKind.termRet 'straight'
+			let value = regIndex(ir.retValue(callee.blocks[0].term))
+			if names[value] == ir.noReg 'made'
+				if dst != ir.noReg 'result'
+					names[value] = dst
+				end 'result'
+				freshNames(f, callee: callee, names: names)
+				let at = ir.relocationInto(f, from: callee, names: names, blocks: ir.BlockIDList.create(0))
+				for k in callee.blocks[0].first upto callee.blocks[0].endAt 'instrs'
+					if callee.instrs[k].op != ir.Opcode.opLoadParam 'copied'
+						var x = callee.instrs[k].clone()
+						ir.relocateInstr(x, at: at)
+						self.push(x)
+					end 'copied'
+				end 'instrs'
+				if err != ir.noReg 'noError'
+					self.push(ir.newConst(err, value: 0))
+				end 'noError'
+				return
+			end 'made'
+		end 'straight'
+		let entry = try ownBlocks + added.count() otherwise panic("opt: a function with more blocks than memory")
+		let resume = try entry + callee.blocks.count() otherwise panic("opt: a function with more blocks than memory")
+		var anyRet = false
+		var anyThrow = false
+		for j in 0 upto callee.blocks.count() 'exits'
+			anyRet = anyRet or callee.blocks[j].term.kind == ir.TermKind.termRet
+			anyThrow = anyThrow or callee.blocks[j].term.kind == ir.TermKind.termThrow
+		end 'exits'
+		if anyThrow and err == ir.noReg 'unseen'
+			panic("opt: a function that throws is called with no register for its error")
+		end 'unseen'
+		// The value a throw passes for the result, and the error a return passes, which no path reads.
+		var noValue = ir.noReg
+		if anyThrow and dst != ir.noReg 'noValue'
+			let kind = f.regs[regIndex(dst)]
+			noValue = f.newReg(kind)
+			self.push(ir.newConst(noValue, value: 0))
+		end 'noValue'
+		var noError = ir.noReg
+		if anyRet and err != ir.noReg 'noError'
+			noError = f.newReg(ir.IrKind.kindScalar)
+			self.push(ir.newConst(noError, value: 0))
+		end 'noError'
+		self.endBlock(f, t: ir.newJump(ir.blockOf(entry)))
+		freshNames(f, callee: callee, names: names)
+		var blocks = ir.BlockIDList.create(0)
+		for j in 0 upto callee.blocks.count() 'blocks'
+			blocks.push(ir.blockOf(try entry + j otherwise panic("opt: a function with more blocks than memory")))
+		end 'blocks'
+		let at = ir.relocationInto(f, from: callee, names: names, blocks: blocks)
+		for j in 0 upto callee.blocks.count() 'copy'
+			let blockFirst = tail.count()
+			let params = f.blockParams.count()
+			for i in 0 upto callee.blocks[j].paramCount 'blockParams'
+				f.blockParams.push(ir.renamedReg(at.names, r: callee.blockParam(j, i: i)))
+			end 'blockParams'
+			for k in callee.blocks[j].first upto callee.blocks[j].endAt 'instrs'
+				if callee.instrs[k].op != ir.Opcode.opLoadParam 'copied'
+					var x = callee.instrs[k].clone()
+					ir.relocateInstr(x, at: at)
+					tail.push(x)
+				end 'copied'
+			end 'instrs'
+			var t = callee.blocks[j].term.clone()
+			ir.relocateTerm(t, at: at)
+			if t.kind == ir.TermKind.termRet 'ret'
+				t = self.resumeEdge(f, resume: resume, dst: dst, value: ir.retValue(t), err: err, error: noError)
+			end 'ret' else if t.kind == ir.TermKind.termThrow 'throw'
+				t = self.resumeEdge(f, resume: resume, dst: dst, value: noValue, err: err, error: ir.throwErr(t))
+			end 'throw'
+			added.push(ir.Block.make(blockFirst, endAt: tail.count(), params: params, paramCount: callee.blocks[j].paramCount, term: t))
+		end 'copy'
+		let params = f.blockParams.count()
+		if dst != ir.noReg 'value'
+			f.blockParams.push(dst)
+		end 'value'
+		if err != ir.noReg 'error'
+			f.blockParams.push(err)
+		end 'error'
+		let rest = ir.Block.make(tail.count(), endAt: tail.count(), params: params, paramCount: try f.blockParams.count() - params otherwise panic("opt: parameters out of order"), term: ir.newTrap())
+		writingAdded = true
+		writing = added.count()
+		added.push(rest)
+	end 'splice'
+
+	// resumeEdge is the jump from a copy's exit to the block resume after it, which passes value to the call's result dst and
+	// error to its error err, each where the call has one.
+	function resumeEdge(mutates self, mutates f ir.IrFunction, resume Count, dst ir.Reg, value ir.Reg, err ir.Reg, error ir.Reg) returns ir.Term
+		edge.clear()
+		if dst != ir.noReg 'value'
+			edge.push(value)
+		end 'value'
+		if err != ir.noReg 'error'
+			edge.push(error)
+		end 'error'
+		let start = f.args.count()
+		f.args.append(edge)
+		return ir.newJumpWith(ir.blockOf(resume), argsStart: ir.indexOf(start), argsCount: ir.indexOf(edge.count()))
+	end 'resumeEdge'
+end 'Inliner'
+
+// paramNames are the names in f of the registers of callee that read its parameters, the arguments that call passes,
+// and noReg for every other register.
+function paramNames(f ir.IrFunction, call ir.Instr, callee ir.IrFunction) returns ir.RegList
+	var names = ir.RegList.create(0)
+	for _ in 0 upto callee.regs.count() 'regs'
+		names.push(ir.noReg)
+	end 'regs'
+	let argsStart = ir.callArgsStart(call)
+	let argsCount = ir.callArgsCount(call)
+	for k in 0 upto callee.instrs.count() 'params'
+		if callee.instrs[k].op == ir.Opcode.opLoadParam 'param'
+			let p = ir.loadParamParam(callee.instrs[k])
+			if p >= argsCount 'missing'
+				panic("opt: a call passes {argsCount} arguments to a function that reads parameter {p}")
+			end 'missing'
+			names[regIndex(callee.instrs[k].dst)] = f.args[try argsStart + p otherwise panic("opt: an argument past memory")]
+		end 'param'
+	end 'params'
+	return names
+end 'paramNames'
+
+// freshNames gives each register of callee that names does not name yet a new register of f of its kind.
+function freshNames(mutates f ir.IrFunction, callee ir.IrFunction, mutates names ir.RegList)
+	for r in 0 upto callee.regs.count() 'fresh'
+		if names[r] == ir.noReg 'unnamed'
+			names[r] = f.newReg(callee.regs[r])
+		end 'unnamed'
+	end 'fresh'
+end 'freshNames'
+
+// findLeaf is whether x is a call of a leaf that the module may copy, its own or one of a module it named that this
+// compile lowers (reads, by the module's index from first), and sets fromOwn, list and place to where its IR is: at place
+// in the module's own functions, or in lowered at list.
+function findLeaf(x ir.Instr, f ir.IrFunction, own Leaves, leaves LeavesList, reads Array with bool, first Count, sets fromOwn bool, sets list Count, sets place Count) returns bool
+	fromOwn = false
+	list = 0
+	place = 0
+	if x.op != ir.Opcode.opCall 'notCall'
+		return false
+	end 'notCall'
+	let callee = ir.callCallee(f, x: x)
+	if own.holds(callee) 'own'
+		fromOwn = true
+		place = own.placeOf(callee)
+		return true
+	end 'own'
+	let slot = ast.funcSlotOf(callee)
+	if not ast.isModuleSlot(slot) 'shared'
+		return false
+	end 'shared'
+	let module = ast.slotModuleIndex(slot)
+	if module < first 'earlier'
+		return false
+	end 'earlier'
+	let at = module - first
+	if at >= reads.count() or not reads[at] or not leaves[at].holds(callee) 'unread'
+		return false
+	end 'unread'
+	list = at
+	place = leaves[at].placeOf(callee)
+	return true
+end 'findLeaf'
+
+// hasLeafCall is whether f calls a leaf it may copy outside a cold block.
+function hasLeafCall(f ir.IrFunction, own Leaves, leaves LeavesList, reads Array with bool, first Count) returns bool
+	for b in 0 upto f.blocks.count() 'blocks'
+		if isColdBlock(f, b: b) 'cold'
+			continue 'blocks'
+		end 'cold'
+		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+			var fromOwn as bool
+			var list as Count
+			var place as Count
+			if findLeaf(f.instrs[k], f: f, own: own, leaves: leaves, reads: reads, first: first, fromOwn: fromOwn, list: list, place: place) 'leaf'
+				return true
+			end 'leaf'
+		end 'instrs'
+	end 'blocks'
+	return false
+end 'hasLeafCall'
+
+// inlineInto replaces the calls of leaves in f and in the bodies of its closures and behaviours, and gives whether it
+// replaced any.
+function inlineInto(mutates o Optimizer, mutates f ir.IrFunction, own Leaves, ownFns ir.IrFunctionList, lowered Array with ir.IrFunctionList, leaves LeavesList, reads Array with bool, first Count) returns bool
+	var changed = false
+	for i in 0 upto f.bodies.count() 'bodies'
+		if inlineInto(o, f: f.bodies[i], own: own, ownFns: ownFns, lowered: lowered, leaves: leaves, reads: reads, first: first) 'body'
+			changed = true
+		end 'body'
+	end 'bodies'
+	if f.refusals.count() > 0 or not hasLeafCall(f, own: own, leaves: leaves, reads: reads, first: first) 'none'
+		return changed
+	end 'none'
+	o.inliner.rebuild(f, own: own, ownFns: ownFns, lowered: lowered, leaves: leaves, reads: reads, first: first)
+	return true
+end 'inlineInto'
+
+// inlineModule replaces the calls of leaves in the functions of a module, fns, once the optimizer has run on them, and
+// folds again each function that got a copy; a function that got one and may hold a loop keeps the IR it had before in
+// fallbacks. own are the module's leaves; lowered and leaves are the functions and leaves of the modules this compile
+// lowers, by their index from first, of which the module may read those reads marks: the ones it names, whose lower its
+// own waited for. The module's own entry in lowered is not read.
+export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates fallbacks ir.Fallbacks, own Leaves, lowered Array with ir.IrFunctionList, leaves LeavesList, reads Array with bool, first Count)
+	for i in 0 upto fns.count() 'functions'
+		var f = exchange(fns[i], value: ir.IrFunction.new(ast.noFunc, name: "", paramCount: 0))
+		if mayLoop(f) and treeHasLeafCall(f, own: own, leaves: leaves, reads: reads, first: first) 'fallback'
+			fallbacks.add(i, f: f.clone())
+		end 'fallback'
+		if inlineInto(o, f: f, own: own, ownFns: fns, lowered: lowered, leaves: leaves, reads: reads, first: first) 'changed'
+			o.fold.foldFunction(f)
+		end 'changed'
+		fns[i] = f
+	end 'functions'
+end 'inlineModule'
+
+// treeHasLeafCall is hasLeafCall of f or of a body of its closures and behaviours.
+function treeHasLeafCall(f ir.IrFunction, own Leaves, leaves LeavesList, reads Array with bool, first Count) returns bool
+	for i in 0 upto f.bodies.count() 'bodies'
+		if treeHasLeafCall(f.bodies[i], own: own, leaves: leaves, reads: reads, first: first) 'body'
+			return true
+		end 'body'
+	end 'bodies'
+	return f.refusals.count() == 0 and hasLeafCall(f, own: own, leaves: leaves, reads: reads, first: first)
+end 'treeHasLeafCall'
+
+// mayLoop is whether f, or a body of its closures and behaviours, may hold a loop: whether an edge goes to a block that
+// is not after its own. Every cycle of blocks has such an edge.
+function mayLoop(f ir.IrFunction) returns bool
+	for i in 0 upto f.bodies.count() 'bodies'
+		if mayLoop(f.bodies[i]) 'body'
+			return true
+		end 'body'
+	end 'bodies'
+	for b in 0 upto f.blocks.count() 'blocks'
+		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+			let fail = ir.failTarget(f.instrs[k])
+			if fail != ir.noBlock and ir.blockIndex(fail) <= b 'failBack'
+				return true
+			end 'failBack'
+		end 'instrs'
+		if termGoesBack(f, t: f.blocks[b].term, b: b) 'back'
+			return true
+		end 'back'
+	end 'blocks'
+	return false
+end 'mayLoop'
+
+// termGoesBack is whether the terminator t of block b of f goes to a block that is not after b.
+function termGoesBack(f ir.IrFunction, t ir.Term, b Count) returns bool
+	return match t.kind 'kind'
+		termNone gives panic("opt: a block of {f.name} has no terminator")
+		termJump gives ir.blockIndex(ir.jumpTarget(t)) <= b
+		termBranch gives ir.blockIndex(ir.branchIfTrue(t)) <= b or ir.blockIndex(ir.branchIfFalse(t)) <= b
+		termSwitch gives switchGoesBack(f, t: t, b: b)
+		termRet gives false
+		termTrap gives false
+		termThrow gives false
+	end 'kind'
+end 'termGoesBack'
+
+function switchGoesBack(f ir.IrFunction, t ir.Term, b Count) returns bool
+	if ir.blockIndex(ir.switchFallback(t)) <= b 'fallback'
+		return true
+	end 'fallback'
+	let start = ir.switchCasesStart(t)
+	for i in 0 upto ir.switchCasesCount(t) 'cases'
+		if ir.blockIndex(f.cases[try start + i otherwise panic("opt: a case past memory")].target) <= b 'case'
+			return true
+		end 'case'
+	end 'cases'
+	return false
+end 'switchGoesBack'

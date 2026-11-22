@@ -60,7 +60,7 @@ func maxonType(x operand) string {
 	switch x.Kind {
 	case kReg, kErrorReg:
 		return "Reg"
-	case kSlot, kInt, kBody:
+	case kSlot, kInt, kBody, kDatum, kFrameBox:
 		return "Count"
 	case kWord:
 		return "Word"
@@ -109,7 +109,7 @@ func maxonRead(o op, x operand) string {
 	switch x.Kind {
 	case kReg, kBlock, kWord:
 		return fld
-	case kSlot, kInt, kBody:
+	case kSlot, kInt, kBody, kDatum, kFrameBox:
 		return toCount(fld, what)
 	case kSymbol:
 		return "rtOf(" + toCount(fld, what) + ")"
@@ -281,7 +281,7 @@ func maxonSets(w *writer, o op, x operand) {
 		w.p("\tr.%s = %sFirst\n\tr.%s = %sCount\n", x.Field, n, x.Count, n)
 	case kMoreRegs, kMoreEdgeArgs:
 		w.p("\tr.%s = %sCount\n", x.Field, n)
-	case kSlot, kInt, kBody:
+	case kSlot, kInt, kBody, kDatum, kFrameBox:
 		w.p("\tr.%s = %s\n", x.Field, toField(x.Field, n, what))
 	case kSymbol:
 		w.p("\tr.%s = %s\n", x.Field, toWord("rtCode("+n+")", what))
@@ -552,7 +552,7 @@ func maxonText(o op, x operand, unwrap bool) string {
 		return fmt.Sprintf("{f.casesText(%sStart(%s), count: %sCount(%s))}", g, v, g, v)
 	case kSlot:
 		return "s{" + get + "}"
-	case kInt, kWord:
+	case kInt, kWord, kDatum, kFrameBox:
 		return "{" + get + "}"
 	case kSymbol:
 		return "{rtText(" + get + ")}"
@@ -626,6 +626,88 @@ func emitMaxonRegisters(w *writer) {
 	}
 	w.p("\tpanic(\"ir: an instruction has no opcode\")\nend 'instrWrites'\n\n")
 	emitMaxonRenames(w)
+	emitMaxonRelocations(w)
+}
+
+// shiftOf is the helper of self/ir that moves a field of each type by an offset.
+var shiftOf = map[string]string{"Reg": "shiftedReg", "Index": "shiftedIndex", "Word": "shiftedWord"}
+
+// emitMaxonRelocations writes what a pass that copies an operation into another function asks of each one: every
+// register it reads or writes renamed, every block it goes to renumbered, and every index into a pool of the function
+// moved to where the other function's pools hold the first one's.
+func emitMaxonRelocations(w *writer) {
+	for _, term := range []bool{false, true} {
+		fn, v, rec, what := "relocateInstr", "x", "Instr", "an instruction has no opcode"
+		doc := "// relocateInstr makes an instruction of one function one of another, as at says: the registers it reads and writes\n// renamed, the block it fails to renumbered, and each index into a pool moved to where the other's pools hold the first's.\n"
+		if term {
+			fn, v, rec, what = "relocateTerm", "t", "Term", "a block has no terminator"
+			doc = "// relocateTerm makes a terminator of one function one of another, as at says: the registers it reads renamed, the\n// blocks it goes to renumbered, and its edges' arguments and its cases moved to where the other's pools hold the first's.\n"
+		}
+		w.p("%sexport function %s(mutates %s %s, at Relocation)\n", doc, fn, v, rec)
+		for _, o := range ops {
+			if o.Term != term {
+				continue
+			}
+			w.p("\tif %s.%s == %s '%s'\n", v, recordSelector(o), maxonConst(o), maxonCase(o))
+			switch o.Result {
+			case valueResult:
+				w.p("\t\t%s.dst = renamedReg(at.names, r: %s.dst)\n", v, v)
+			case optionalResult:
+				w.p("\t\tif %s.dst != noReg 'value'\n\t\t\t%s.dst = renamedReg(at.names, r: %s.dst)\n\t\tend 'value'\n", v, v, v)
+			case noResult:
+			}
+			for _, x := range o.Operands {
+				fld := v + "." + string(x.Field)
+				shift := func(by string) {
+					w.p("\t\t%s = %s(%s, by: at.%s)\n", fld, shiftOf[maxonFieldType[x.Field]], fld, by)
+				}
+				present := func(body string) {
+					if optional(x) {
+						w.p("\t\tif %s '%s'\n\t%s\t\tend '%s'\n", maxonPresent(o, x), lowerFirst(x.Name), body, lowerFirst(x.Name))
+						return
+					}
+					w.p("%s", body)
+				}
+				switch x.Kind {
+				case kReg:
+					w.p("\t\t%s = renamedReg(at.names, r: %s)\n", fld, fld)
+				case kRegs, kEdgeArgs:
+					shift("args")
+				case kCases:
+					shift("cases")
+				case kSlot:
+					shift("slots")
+				case kBody:
+					shift("bodies")
+				case kFrameBox:
+					shift("frameBoxes")
+				case kText:
+					shift("strings")
+				case kType:
+					shift("types")
+				case kCallee:
+					shift("callees")
+				case kRoutine:
+					present(fmt.Sprintf("\t\t%s = shiftedIndex(%s, by: at.callees)\n", fld, fld))
+				case kDatum:
+					w.p("\t\t%s = remappedIndex(at.datums, i: %s)\n", fld, fld)
+				case kTable:
+					w.p("\t\t%s = remappedIndex(at.tables, i: %s)\n", fld, fld)
+				case kBlock:
+					w.p("\t\t%s = relocatedBlock(at.blocks, b: %s)\n", fld, fld)
+				case kFail:
+					present(fmt.Sprintf("\t\t%s = relocatedBlock(at.blocks, b: %s as BlockID) as Index\n", fld, fld))
+				case kErrorReg:
+					present(fmt.Sprintf("\t\t%s = renamedReg(at.names, r: %s) as Word\n", fld, maxonRead(o, x)))
+				case kMoreRegs, kMoreEdgeArgs, kInt, kWord, kSymbol, kEnum, kFlag:
+				default:
+					fail("operand %s of %s has no relocation", x.Name, o.Name)
+				}
+			}
+			w.p("\t\treturn\n\tend '%s'\n", maxonCase(o))
+		}
+		w.p("\tpanic(\"ir: %s\")\nend '%s'\n\n", what, fn)
+	}
 }
 
 // emitMaxonRenames writes what a pass that renames registers or slots asks of each operation: every register it reads

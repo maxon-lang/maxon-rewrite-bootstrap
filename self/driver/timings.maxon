@@ -34,9 +34,11 @@ export type Timings
 	var moduleNanos as TimeTotals
 	// emit is charged the time of each phase of the emit stage, which the stage's own time holds.
 	export var emit as backend.EmitClock
+	// inlinedCalls is how many calls leaf inlining replaced.
+	export var inlinedCalls as Count
 
 	export static function off() returns Timings
-		return Timings{enabled: false, stageNames: TimingNames.create(0), stageNanos: TimeTotals.create(0), moduleNanos: TimeTotals.create(0), emit: backend.EmitClock.off()}
+		return Timings{enabled: false, stageNames: TimingNames.create(0), stageNanos: TimeTotals.create(0), moduleNanos: TimeTotals.create(0), emit: backend.EmitClock.off(), inlinedCalls: 0}
 	end 'off'
 
 	// start is a table for the stages named, in order, and for modules modules.
@@ -49,7 +51,7 @@ export type Timings
 		for _ in 0 upto modules 'modules'
 			moduleNanos.push(0)
 		end 'modules'
-		return Timings{enabled: true, stageNames: stageNames, stageNanos: stageNanos, moduleNanos: moduleNanos, emit: backend.EmitClock.start()}
+		return Timings{enabled: true, stageNames: stageNames, stageNanos: stageNanos, moduleNanos: moduleNanos, emit: backend.EmitClock.start(), inlinedCalls: 0}
 	end 'start'
 
 	// addProject charges a task of a stage of the project as a whole.
@@ -84,6 +86,9 @@ export type Timings
 		end 'stages'
 		text = "{text}{rule()}{row("total", time: millisText(whole), share: shareText(whole, whole: whole))}"
 		text = "{text}{emitReport(emit)}"
+		if inlinedCalls > 0 'inlined'
+			text = "{text}\ncalls inlined: {inlinedCalls}\n"
+		end 'inlined'
 		text = "{text}\nslowest modules\n{row("module", time: "ms", share: "%")}{rule()}"
 		var listed = TimeTotals.create(0)
 		for _ in 0 upto timingsTopModules 'ranks'

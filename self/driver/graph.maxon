@@ -232,6 +232,12 @@ type Run
 	// in place of lowered once the optimizer has changed that.
 	var lowered as backend.FunctionLists
 	var kept as backend.FunctionLists
+	// leaves are by module from first on too: the functions of its lowered list that a call of it may be replaced by, which
+	// its lower finds and the lower of each module that names it reads.
+	var leaves as opt.LeavesList
+	// fallbacks are by module from first on too: the IR some of its functions had before leaf inlining, which its emit
+	// compiles where it refuses a hot loop of the inlined one.
+	var fallbacks as ir.FallbacksList
 	var keepsLowered as bool
 	var reversesModules as bool
 	var units as backend.UnitList
@@ -244,7 +250,7 @@ type Run
 	var timings as Timings
 
 	static function make(goal Goal, first Count, makesProgram bool, modules Count) returns Run
-		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), keepsLowered: false, reversesModules: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off()}
+		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), leaves: opt.LeavesList.create(0), fallbacks: ir.FallbacksList.create(0), keepsLowered: false, reversesModules: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off()}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors.
@@ -639,6 +645,8 @@ function endCheckTask(mutates run Run, mutates p ast.Project)
 	for _ in run.first upto p.modules.count() 'slots'
 		run.lowered.push(ir.IrFunctionList.create(0))
 		run.kept.push(ir.IrFunctionList.create(0))
+		run.leaves.push(opt.Leaves.empty())
+		run.fallbacks.push(ir.Fallbacks.none())
 		run.units.push(backend.CodeUnit.new())
 	end 'slots'
 end 'endCheckTask'
@@ -669,10 +677,34 @@ function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Op
 			end 'verifyLowered'
 			var optimizer = opt.Optimizer.new()
 			opt.optimizeModule(optimizer, fns: run.lowered[slot])
+			inlineModule(run, p: p, m: m, optimizer: optimizer)
 		end 'optimize'
 	end 'lowered'
 	appendErrors(errs, found: found)
 end 'lowerModule'
+
+// inlineModule finds the leaves of module m, whose functions the optimizer has run on, and replaces the calls of leaves in
+// them: of its own, and of the modules it names that this compile lowers, whose lower its own waited for.
+function inlineModule(mutates run Run, p ast.Project, m Count, mutates optimizer opt.Optimizer)
+	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is inlined again")
+	run.leaves[slot] = opt.findLeaves(run.lowered[slot], slot: ast.moduleSlot(p.modules[m].id))
+	var reads as Array with bool
+	reads = Array.create(0)
+	for _ in run.first upto p.modules.count() 'modules'
+		reads.push(false)
+	end 'modules'
+	for j in 0 upto p.resolutions[m].deps.count() 'deps'
+		let d = ast.modIndex(p.resolutions[m].deps[j].module)
+		if d >= run.first and d != m 'compiled'
+			reads[d - run.first] = true
+		end 'compiled'
+	end 'deps'
+	var fns = exchange(run.lowered[slot], value: ir.IrFunctionList.create(0))
+	let before = optimizer.inliner.sites
+	opt.inlineModule(optimizer, fns: fns, fallbacks: run.fallbacks[slot], own: run.leaves[slot], lowered: run.lowered, leaves: run.leaves, reads: reads, first: run.first)
+	run.lowered[slot] = fns
+	run.timings.inlinedCalls = try run.timings.inlinedCalls + (optimizer.inliner.sites - before) otherwise panic("driver: more calls inlined than memory")
+end 'inlineModule'
 
 // holdProgram holds the runtime's source to the functions the compiler calls in it; then a compile that makes code writes
 // --emit-ir and reports what only the interpreter runs.
@@ -695,7 +727,7 @@ function emitModule(mutates run Run, mutates p ast.Project, m Count, options Opt
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is emitted again")
 	let module = p.modules[m].id
 	var ms = ast.lendModule(p, module: module, lent: ast.Lent.tables)
-	let unit = backend.emitModule(p, ms: ms, fns: run.lowered[slot], verifies: options.verifyIr, clock: run.timings.emit, errs: errs)
+	let unit = backend.emitModule(p, ms: ms, fns: run.lowered[slot], fallbacks: run.fallbacks[slot], verifies: options.verifyIr, clock: run.timings.emit, errs: errs)
 	ast.giveBack(p, ms: ms)
 	run.units[slot] = unit
 end 'emitModule'

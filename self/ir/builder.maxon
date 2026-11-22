@@ -303,26 +303,12 @@ export type Builder
 
 	// table adds the table of an interface value to the function, once however many boxes name it.
 	function table(mutates self, consumes t WitnessTable) returns Index
-		for i in 0 upto f.tables.count() 'known'
-			if f.tables[i].symbol == t.symbol 'same'
-				return indexOf(i)
-			end 'same'
-		end 'known'
-		let n = f.tables.count()
-		f.tables.push(t)
-		return indexOf(n)
+		return indexOf(f.tableIndex(t))
 	end 'table'
 
 	// datum gives the constant d, which the function holds once however many reads name it.
 	export function datum(mutates self, dst Reg, consumes d Datum) returns Instr
-		for i in 0 upto f.datums.count() 'known'
-			if f.datums[i].symbol == d.symbol 'same'
-				return newDatum(dst, item: i)
-			end 'same'
-		end 'known'
-		let n = f.datums.count()
-		f.datums.push(d)
-		return newDatum(dst, item: n)
+		return newDatum(dst, item: f.datumIndex(d))
 	end 'datum'
 
 	// box makes an interface value of the table t and the value in src, which the box owns.

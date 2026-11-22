@@ -1,0 +1,15 @@
+// The leaves of a module that a module names are copied into its calls as its own are: an accessor that returns a
+// borrowed place, one that throws, and one that drops what it is given.
+function main() returns ExitCode
+	let g = gauges.Gauges.make([3, 5, 7])
+	var total = 0 as Count
+	for i in 0 upto 30 'each'
+		total = try total + g.at(i mod 3) + gauges.within(i, bound: 20) otherwise panic("the total passes a word")
+		total = try total + (try gauges.checked(i, bound: 25) otherwise 1000) otherwise panic("the total passes a word")
+		total = try total + gauges.lengthOf("g{i}") otherwise panic("the total passes a word")
+	end 'each'
+	print("{total}\n")
+	return 0
+end 'main'
+
+//> 5920

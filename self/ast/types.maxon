@@ -571,6 +571,16 @@ export function moduleSlot(module diag.ModuleID) returns Count
 	return try modIndex(module) + 1 otherwise panic("a module past the slots of a handle")
 end 'moduleSlot'
 
+// isModuleSlot is whether the slot holds the entries of a module, which every slot but sharedSlot does.
+export function isModuleSlot(slot Count) returns bool
+	return slot != sharedSlot
+end 'isModuleSlot'
+
+// slotModuleIndex is the index of the module whose entries the slot holds, for a slot of a module.
+export function slotModuleIndex(slot Count) returns Count
+	return try slot - 1 otherwise panic("sharedSlot is the slot of no module")
+end 'slotModuleIndex'
+
 function handleSlot(h Count) returns Count
 	return (h shr handleSlotShift) and handleSlotMask
 end 'handleSlot'
@@ -1665,6 +1675,17 @@ export function funcIndex(ft FuncSlot, f FuncID) returns Count
 	requireHeld(ft.slot, slot: handleSlot(f as Count))
 	return handleIndex(f as Count)
 end 'funcIndex'
+
+// funcSlotOf is the number of the slot that holds the entry of the function f, for a stage that holds no slot of the
+// function table.
+export function funcSlotOf(f FuncID) returns Count
+	return handleSlot(f as Count)
+end 'funcSlotOf'
+
+// funcPlaceOf is the position of the entry of the function f in its slot.
+export function funcPlaceOf(f FuncID) returns Count
+	return handleIndex(f as Count)
+end 'funcPlaceOf'
 
 // allocFunc makes a function that module declares, or that its bodies make: a closure or a behaviour.
 export function allocFunc(mutates ft FuncSlot, module diag.ModuleID, consumes f FuncEntry) returns FuncID

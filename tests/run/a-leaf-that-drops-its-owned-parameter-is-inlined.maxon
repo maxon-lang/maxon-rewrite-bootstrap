@@ -1,0 +1,15 @@
+// A function small enough to inline that is given a value drops it where its call did, once for each call.
+function lengthOf(consumes s String) returns Count
+	return s.byteLength()
+end 'lengthOf'
+
+function main() returns ExitCode
+	var total = 0 as Count
+	for i in 0 upto 1000 'each'
+		total = try total + lengthOf("item {i}") otherwise panic("the total passes a word")
+	end 'each'
+	print("{total}\n")
+	return 0
+end 'main'
+
+//> 7890

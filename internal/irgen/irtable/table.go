@@ -26,6 +26,8 @@ const (
 	kRoutine              // a function of Callees that a runtime entry stores to call later, or none
 	kErrorReg             // the register that receives the error of a call of a function that throws
 	kBody                 // a body of the function's Bodies: a behaviour's or a closure's
+	kDatum                // a datum of the function's Datums
+	kFrameBox             // a frame box of the function's frame
 	kCases                // cases of the function's Cases, from the field to the count in Count, each with the arguments it passes
 	kTable                // a table of the function's Tables: the table of an interface value
 	// kEdgeArgs are the registers in Args, from the field to the count in Count, that an edge passes to the parameters of
@@ -205,7 +207,7 @@ var ops = []op{
 	{Name: "Str", Eval: noEval, Doc: "Str gives a string literal.", Result: valueResult,
 		Operands: []operand{{Name: "Text", Kind: kText, Field: fC}}, Text: "str {Text}"},
 	{Name: "Datum", Eval: noEval, Doc: "Datum gives the constant Item of the function's Datums, laid out once in the executable's data: no one owns\n// it, and it is never written or dropped.", Result: valueResult,
-		Operands: []operand{{Name: "Item", Kind: kInt, Field: fC}}, Text: "datum {Item}"},
+		Operands: []operand{{Name: "Item", Kind: kDatum, Field: fC}}, Text: "datum {Item}"},
 	{Name: "LoadSlot", Eval: noEval, Doc: "LoadSlot reads a slot.", Result: valueResult,
 		Operands: []operand{slotOp}, Effects: []effect{effReads}, Text: "load {Slot}"},
 	{Name: "StoreSlot", Eval: noEval, Doc: "StoreSlot puts a value in a slot, which owns it unless Borrow is set.",
@@ -315,7 +317,7 @@ var ops = []op{
 		Result: valueResult, Operands: []operand{{Name: "Table", Kind: kTable, Field: fC}, reg("Value", fA)},
 		Effects: []effect{effCalls, effAllocates}, Text: "box {Table}, {Value}"},
 	{Name: "FrameBox", Eval: noEval, Doc: "FrameBox gives an interface value whose box is the function's frame box Box, two words of its frame, with the\n// address of the table Table and the value Value: a value only lent to what borrows the interface value, or a scalar,\n// which the box owns nothing of. The box lives as long as the frame, and a borrow cannot outlive the call it is lent to.",
-		Result: valueResult, Operands: []operand{{Name: "Table", Kind: kTable, Field: fC}, reg("Value", fA), num("Box")},
+		Result: valueResult, Operands: []operand{{Name: "Table", Kind: kTable, Field: fC}, reg("Value", fA), {Name: "Box", Kind: kFrameBox, Field: fImm}},
 		Effects: []effect{effWrites}, Text: "framebox {Table}, {Value} in frame box {Box}"},
 	{Name: "CallWitness", Eval: noEval, Doc: "CallWitness calls the method in place Slot of the table of the interface value that is the first of Args, with\n// the value the box holds, given as Recv says, and the rest of Args.",
 		Result: optionalResult,

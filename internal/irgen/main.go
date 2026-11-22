@@ -88,6 +88,8 @@ var kindFields = map[kind][]field{
 	kRoutine:  {fC},
 	kErrorReg: {fImm},
 	kBody:     {fImm},
+	kDatum:    {fC},
+	kFrameBox: {fImm},
 	kCases:    {fFirst},
 	kTable:    {fC},
 

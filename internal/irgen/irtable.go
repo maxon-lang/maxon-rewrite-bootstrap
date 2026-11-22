@@ -33,6 +33,8 @@ const (
 	kRoutine      = irtable.KRoutine
 	kErrorReg     = irtable.KErrorReg
 	kBody         = irtable.KBody
+	kDatum        = irtable.KDatum
+	kFrameBox     = irtable.KFrameBox
 	kCases        = irtable.KCases
 	kTable        = irtable.KTable
 	kEdgeArgs     = irtable.KEdgeArgs

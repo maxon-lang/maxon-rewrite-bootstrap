@@ -1,0 +1,31 @@
+export typealias Levels = Array with Count
+
+export type Gauges
+	export var levels as Levels
+
+	export static function make(consumes levels Levels) returns Gauges
+		return Gauges{levels: levels}
+	end 'make'
+
+	export function at(i Count) returns borrowed Count
+		return levels[i]
+	end 'at'
+end 'Gauges'
+
+export function within(i Count, bound Count) returns Count
+	if i < bound 'inside'
+		return i
+	end 'inside'
+	return bound
+end 'within'
+
+export function checked(i Count, bound Count) returns Count throws ArrayError
+	if i >= bound 'out'
+		throw ArrayError.indexOutOfBounds
+	end 'out'
+	return i
+end 'checked'
+
+export function lengthOf(consumes s String) returns Count
+	return s.byteLength()
+end 'lengthOf'

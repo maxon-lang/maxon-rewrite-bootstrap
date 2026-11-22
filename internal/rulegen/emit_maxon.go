@@ -244,7 +244,7 @@ func (e *ruleEmitter) matchAux(a *term, expr string) {
 // rather than what the pool holds there.
 func auxRead(o irtable.Op, x irtable.Operand, instr string) string {
 	switch x.Kind {
-	case irtable.KInt, irtable.KSlot, irtable.KWord, irtable.KSymbol, irtable.KBody, irtable.KBlock:
+	case irtable.KInt, irtable.KSlot, irtable.KWord, irtable.KSymbol, irtable.KBody, irtable.KDatum, irtable.KFrameBox, irtable.KBlock:
 		return getter(o, x) + "(" + instr + ")"
 	case irtable.KFail:
 		return instr + "." + string(x.Field) + " as ir.BlockID"

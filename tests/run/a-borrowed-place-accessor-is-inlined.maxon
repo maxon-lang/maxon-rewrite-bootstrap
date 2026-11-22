@@ -1,0 +1,27 @@
+// An accessor that returns a borrowed place, inlined, gives the word its borrow is passed as, which the caller reads and
+// never drops: the strings it names are still there after a thousand reads.
+typealias Names = Array with String
+
+type Shelf
+	export var names as Names
+
+	static function make(consumes names Names) returns Shelf
+		return Shelf{names: names}
+	end 'make'
+
+	function at(i Count) returns borrowed String
+		return names[i]
+	end 'at'
+end 'Shelf'
+
+function main() returns ExitCode
+	let s = Shelf.make(["red", "green"])
+	var total = 0 as Count
+	for i in 0 upto 1000 'each'
+		total = try total + s.at(i mod 2).byteLength() otherwise panic("the total passes a word")
+	end 'each'
+	print("{s.at(0)} {s.at(1)} {total}\n")
+	return 0
+end 'main'
+
+//> red green 4000
