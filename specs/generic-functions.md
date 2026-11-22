@@ -79,11 +79,11 @@ typealias Row = int(0 to 100)
 
 typealias RowArray = Array with Row
 
-function same(a T, b T) uses T returns T where T implements Equatable
+function same(a T, b T) uses T returns T where T implements Equatable and Copyable
 	if a == b 'equal'
-		return a
+		return a.clone()
 	end 'equal'
-	return b
+	return b.clone()
 end 'same'
 
 function takesIndex(i ElementIndex) returns ElementIndex
@@ -91,7 +91,7 @@ function takesIndex(i ElementIndex) returns ElementIndex
 end 'takesIndex'
 
 function main() returns ExitCode
-	let rows = RowArray.create(0)
+	var rows = RowArray.create(0)
 	rows.push(1)
 	rows.push(2)
 	rows.push(3)

@@ -1,3 +1,0 @@
-public function get() returns String
-	return "get {net.internal.wire.encode()}"
-end 'get'

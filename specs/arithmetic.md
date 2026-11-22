@@ -51,7 +51,7 @@ end 'main'
 <!-- test: division -->
 ```maxon
 function main() returns ExitCode
-	return try trunc(100 / 4) as ExitCode otherwise panic("out of range")
+	return trunc(100 / 4)
 end 'main'
 ```
 ```exitcode
@@ -88,7 +88,7 @@ typealias NonZero = int(1 to i64.max)
 function divLive(a Integer, b NonZero, x Integer) returns Integer
 	let preserved = try x + 1 otherwise panic("out of range")
 	let result = try (a / (b as Integer)) otherwise panic("b is never zero")
-	return trunc(try (result + preserved) as FullRangeFloat otherwise panic("out of range"))
+	return trunc(try result + preserved otherwise panic("out of range"))
 end 'divLive'
 
 function main() returns ExitCode
@@ -129,14 +129,14 @@ function divLoop(n Integer) returns Integer
 	var sum = 0 as Integer
 	var i = 1 as Integer
 	while i <= n 'loop'
-		sum = sum + trunc((try (50 / i) otherwise panic("divLoop: i was 0")) as FullRangeFloat)
-		i = i + 1
+		sum = try sum + trunc(try (50 / i) otherwise panic("divLoop: i was 0")) otherwise panic("out of range")
+		i = try i + 1 otherwise panic("out of range")
 	end 'loop'
 	return sum
 end 'divLoop'
 
 function main() returns ExitCode
-	return divLoop(5)
+	return try divLoop(5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -151,17 +151,17 @@ typealias Integer = int(i64.min to i64.max)
 typealias NonZero = int(1 to i64.max)
 
 function helper(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'helper'
 
 function divCall(a Integer, b NonZero) returns Integer
-	let temp = trunc((try (a / (b as Integer)) otherwise panic("b is never zero")) as FullRangeFloat)
-	let result = helper(temp as Integer)
-	return result + temp
+	let temp = trunc(try (a / (b as Integer)) otherwise panic("b is never zero"))
+	let result = helper(temp)
+	return try result + temp otherwise panic("out of range")
 end 'divCall'
 
 function main() returns ExitCode
-	return divCall(10, b: 2)
+	return try divCall(10, b: 2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -178,7 +178,7 @@ typealias NonZero = int(1 to i64.max)
 function multiDiv(a Integer, b NonZero, c Integer, d NonZero) returns Integer
 	let r1 = try (a / (b as Integer)) otherwise panic("b is never zero")
 	let r2 = try (c / (d as Integer)) otherwise panic("d is never zero")
-	return trunc(try (r1 + r2) as FullRangeFloat otherwise panic("out of range"))
+	return trunc(try r1 + r2 otherwise panic("out of range"))
 end 'multiDiv'
 
 function main() returns ExitCode

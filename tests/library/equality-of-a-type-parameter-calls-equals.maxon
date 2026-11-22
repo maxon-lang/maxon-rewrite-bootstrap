@@ -1,0 +1,31 @@
+// '==' and '!=' on two values of a type parameter bounded by Equatable call its 'equals', as maxon's Map compares a key.
+type Point implements Equatable
+	var x as Count
+	var y as Count
+
+	static function at(x Count, y Count) returns Self
+		return Self{x: x, y: y}
+	end 'at'
+
+	function equals(other Self) returns bool
+		return x == other.x and y == other.y
+	end 'equals'
+end 'Point'
+
+function same(a T, b T) uses T returns bool where T implements Equatable
+	return a == b
+end 'same'
+
+function differ(a T, b T) uses T returns bool where T implements Equatable
+	return a != b
+end 'differ'
+
+function main() returns ExitCode
+	let p = Point.at(1, y: 2)
+	let q = Point.at(1, y: 2)
+	let r = Point.at(2, y: 1)
+	print("{same(p, b: q)} {same(p, b: r)} {differ(p, b: r)} {same(3 as Count, b: 3 as Count)}\n")
+	return 0
+end 'main'
+
+//> true false true true

@@ -19,7 +19,7 @@ public type HashSeed
 	/// The seed as exactly 8 bytes, which `fromBytes` reads back as the same seed.
 	public function toBytes() returns ByteArray
 		var bytes = ByteArray.create(0)
-		internal.crypto.appendOrderedWord(bytes, word: self.word as OrderedWord, width: HashSeedBytes, order: internal.crypto.ByteOrder.littleEndian)
+		crypto.appendOrderedWord(bytes, word: self.word as OrderedWord, width: HashSeedBytes, order: crypto.ByteOrder.littleEndian)
 		return bytes
 	end 'toBytes'
 
@@ -28,7 +28,7 @@ public type HashSeed
 		if bytes.count() != HashSeedBytes 'wrongCount'
 			throw HashSeedError.wrongByteCount
 		end 'wrongCount'
-		let word = internal.crypto.readOrderedWord(bytes, off: 0, width: HashSeedBytes, limit: bytes.count(), order: internal.crypto.ByteOrder.littleEndian) as HashDigest
+		let word = crypto.readOrderedWord(bytes, off: 0, width: HashSeedBytes, limit: bytes.count(), order: crypto.ByteOrder.littleEndian) as HashDigest
 		return Self.ofWord(word)
 	end 'fromBytes'
 

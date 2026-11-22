@@ -1565,12 +1565,12 @@ typealias Count = int(0 to 100)
 type Box uses T
 	export let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	function itemOf(other Box) returns T
-		return other.item
+	function itemOf(other Box) returns T where T implements Copyable
+		return other.item.clone()
 	end 'itemOf'
 end 'Box'
 

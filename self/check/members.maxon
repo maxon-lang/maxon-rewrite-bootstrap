@@ -258,7 +258,7 @@ end 'declareParentsOf'
 
 function declareParentsOfInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ifd ast.InterfaceDecl, tid ast.TypeID, mutates state ByteArray, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: ifd.id)
-	let parents = conformedInterfaces(c, p: p, ms: ms, interfaces: ifd.parents, capabilities: true, errs: errs)
+	let parents = conformedInterfaces(c, p: p, ms: ms, interfaces: ifd.parents, capabilities: true, selfTy: ast.noType, errs: errs)
 	for i in 0 upto parents.count() 'each'
 		let parent = ast.originOf(ms.types, reads: p.types, t: parents[i])
 		var comesBack = false

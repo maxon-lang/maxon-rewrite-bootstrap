@@ -536,15 +536,41 @@ function lowerCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if kind != ast.CallKind.callBound and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).intrinsic != ast.Intrinsic.intrNone 'intrinsic'
 		return lowerIntrinsic(l, p: p, ms: ms, c: c)
 	end 'intrinsic'
+	let places = l.writeBacks.count()
+	var recv = noReg
+	if c.receiver != 0 'receiver'
+		recv = lowerRead(l, p: p, ms: ms, e: c.receiver)
+	end 'receiver'
+	return callOn(l, p: p, ms: ms, c: c, recv: recv, mark: mark, places: places)
+end 'lowerCall'
+
+// lowerEquals lowers an '==' or a '!=' that the check made a call of 'equals' on the left operand, lowered to left.
+function lowerEquals(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, left Reg) returns Reg
+	var info = callInfoAt(p, module: l.module, node: e)
+	let ordered = info.ordered.clone()
+	let c = CallSite.make(e, info: info, receiver: ast.binaryExprL(p.modules[l.mi].tree, id: e), ordered: ordered)
+	let mark = l.pending.count()
+	let places = l.writeBacks.count()
+	let equal = callOn(l, p: p, ms: ms, c: c, recv: left, mark: mark, places: places)
+	if op == "!=" 'negated'
+		let zero = konst(l, value: 0 as Word)
+		return compare(l, op: CmpOp.cmpEq, a: equal, b: zero, unsigned: true)
+	end 'negated'
+	return equal
+end 'lowerEquals'
+
+// callOn lowers the call c on the receiver recv, already lowered (noReg for a call that has none). mark and places are
+// the pending drops and the write-backs from before the receiver was lowered.
+function callOn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, mark Count, places Count) returns Reg
+	let node = c.node
+	let kind = c.info.kind
 	let iface = witnessInterface(p, ms: ms, module: l.module, receiver: c.receiver, info: c.info, bindParams: l.bindParams, bindArgs: l.bindArgs)
 	var target = ast.noFunc
 	if iface == ast.noType 'direct'
 		target = callee(l, p: p, ms: ms, node: node, info: c.info, receiver: c.receiver)
 	end 'direct'
 	let base = l.args.count()
-	let places = l.writeBacks.count()
-	if c.receiver != 0 'receiver'
-		let recv = lowerRead(l, p: p, ms: ms, e: c.receiver)
+	if recv != noReg 'receiver'
 		pushArg(l, v: recv)
 	end 'receiver'
 	pushOrderedArgs(l, p: p, ms: ms, c: c)
@@ -584,7 +610,7 @@ function lowerCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		return konst(l, value: 0 as Word)
 	end 'none'
 	return dst
-end 'lowerCall'
+end 'callOn'
 
 // emitCallOf emits the call that a call site makes with args, the receiver first: of the function target, or through the
 // table of the interface value that is the receiver, when iface is its interface; err is noReg for a call that cannot
@@ -1317,6 +1343,9 @@ function lowerOperator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		goTo(l, target: frame.join)
 		return load(l, slot: frame.result)
 	end 'logical'
+	if p.typings[l.mi].calls.has(e as Count) 'equals'
+		return lowerEquals(l, p: p, ms: ms, e: e, op: op, left: left)
+	end 'equals'
 	if op == "is" 'identity'
 		var test = CmpOp.cmpEq
 		if ast.binaryExprNegated(p.modules[l.mi].tree, id: e) 'negated'

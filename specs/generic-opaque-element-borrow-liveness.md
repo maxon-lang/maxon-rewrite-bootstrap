@@ -1398,7 +1398,7 @@ type Bag uses T where T implements Equatable
 		items.push(item)
 	end 'add'
 
-	function wipe()
+	function wipe() where T implements Droppable
 		self.items.clear()
 		self.scrub = "zzzzz {40 + 2} value long enough for a heap record"
 	end 'wipe'
@@ -1410,7 +1410,7 @@ type Bag uses T where T implements Equatable
 		return self.seen
 	end 'observe'
 
-	function walk() returns Count
+	function walk() returns Count where T implements Droppable
 		var total = 0 as Count
 		for item in self.items 'scan'
 			wipe()
@@ -1454,13 +1454,13 @@ type Bag uses T where T implements Equatable
 		items.push(item)
 	end 'add'
 
-	function wipeAndGive(extra T) returns T
+	function wipeAndGive(extra T) returns T where T implements Droppable
 		self.items.clear()
 		self.scrub = "zzzzz {40 + 2} value long enough for a heap record"
 		return extra
 	end 'wipeAndGive'
 
-	function matches(extra T) returns bool
+	function matches(extra T) returns bool where T implements Droppable
 		for item in self.items 'scan'
 			return item == wipeAndGive(extra)
 		end 'scan'
@@ -1872,7 +1872,7 @@ type Bag uses T where T implements Equatable
 		return self.seen
 	end 'observe'
 
-	function walk(other Self) returns Count
+	function walk(other Self) returns Count where T implements Droppable
 		var total = 0 as Count
 		for item in other.items 'scan'
 			other.items.clear()

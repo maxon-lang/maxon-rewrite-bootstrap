@@ -2468,8 +2468,12 @@ export function ownsValue(conv Convention) returns bool
 	return conv == Convention.convConsumes or conv == Convention.convDestructs
 end 'ownsValue'
 
-// callReceiver is the object a call of a method names before its dot, or 0 for a call that has none.
+// callReceiver is the object a call of a method names before its dot, the left operand of an operator that calls a method
+// (an '==' of a type parameter calls 'equals'), or 0 for a call that has none.
 export function callReceiver(tree Tree, e NodeID, kind CallKind) returns NodeID
+	if tree.kindOf(e) == NodeKind.binaryExpr 'operator'
+		return binaryExprL(tree, id: e)
+	end 'operator'
 	if kind == CallKind.callMethod or kind == CallKind.callBound or kind == CallKind.callCopy or kind == CallKind.callSend 'member'
 		let callee = callExprCallee(tree, id: e)
 		if tree.kindOf(callee) == NodeKind.memberExpr 'named'

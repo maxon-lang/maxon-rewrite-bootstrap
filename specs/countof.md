@@ -112,13 +112,13 @@ typealias Vec3 = FixedArray with 3 Int
 
 extension FixedArray
 	function byName() returns Int
-		return countof(FixedArray)
+		return try countof(FixedArray) as Int otherwise panic("out of range")
 	end 'byName'
 end 'FixedArray'
 
 function main() returns ExitCode
 	let v = Vec3.create()
-	return v.byName()
+	return try v.byName() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

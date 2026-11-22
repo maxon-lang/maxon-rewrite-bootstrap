@@ -1,0 +1,39 @@
+// What maxon's hash table writes: a probe steps with '(index + 1) and mask', whose result the mask bounds; 'trunc' of an
+// integer gives it back with its alias, so it compares with a sibling alias; and a slot-state array grows with its first
+// case, the one of raw value 0.
+typealias Slot = int(0 to 9223372036854775808)
+
+typealias Cap = int(0 to 9223372036854775808) implements Count
+
+typealias Entries = int(0 to 9223372036854775808) implements Count
+
+typealias States = Array with State
+
+enum State
+	empty
+	full
+end 'State'
+
+function step(index Slot, mask Slot) returns Slot
+	var next = index
+	next = (index + 1) and mask
+	return next
+end 'step'
+
+function main() returns ExitCode
+	let cap = 16 as Cap
+	let stored = 12 as Entries
+	let limit = trunc((cap * 3) / 4)
+	var states = States.create(0)
+	states.resize(4)
+	var empties = 0 as Count
+	for s in states 'count'
+		if s == State.empty 'e'
+			empties = try empties + 1 otherwise 0
+		end 'e'
+	end 'count'
+	print("{limit} {stored >= limit} {step(15, mask: 15)} {step(3, mask: 15)} {empties} {trunc(-2.7)}\n")
+	return 0
+end 'main'
+
+//> 12 true 0 4 4 -2

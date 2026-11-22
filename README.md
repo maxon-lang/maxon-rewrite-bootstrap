@@ -312,12 +312,14 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   `Project.library` names the root. A program names the public declarations of every library module bare
   (`Unicode.isWhitespace(32)`), after its own names and the built-ins, so the layering is the library's own; a public name
   is declared by one library module only (`E3006` at the later one). A library module names the library's other modules
-  qualified from the library's root (`internal.hashtable.X`, `export.X` for the root's), as any module names another, and its `export` reaches the tree rooted at its parent within the
+  qualified from the library's root (`hashtable.X`, `export.X` for the root's), as any module names another, and its `export` reaches the tree rooted at its parent within the
   library, which for the root and a top-level module is the whole library and never a program. A program sees nothing of
-  the library short of `public`, and nothing at all of a module under `stdlib/internal/`, where maxon's `stdlib/helpers/`
-  files go (`stdlib/files.txt` maps each to its module; one that the root names and that names the root, `Hash.maxon`,
-  is a file of the root): the internal rule below holds for the library as for any project,
-  so only the library, and a program the spec runner stages in it, names them. Only the library modules a program names, directly or through others, are compiled past
+  the library short of `public`. Each directory of maxon's `stdlib/helpers/` is a direct child module of the library's
+  root (`stdlib/hashtable`, `stdlib/crypto`; `stdlib/files.txt` maps each file to its module), and the conversion makes
+  every `public` of a helper file `export`, so a helper is the whole library's and no program's; a helper that the root
+  names and that names the root, `Hash.maxon`, is a file of the root, with its `public` made `export` all the same. A
+  program the spec runner stages in the library is compiled as a file of the library's root, so it sees the library's
+  `export` declarations too, bare. Only the library modules a program names, directly or through others, are compiled past
   their resolve (`reachedModules`), so a program pays for no other; each is a module of the build cache like any other,
   with its own key, and is compiled for the compile's target. A project that is the runtime's source or `stdlib/` itself is
   compiled without a second library, and the compiler's own source, `self/` (found as `runtime/` is,
@@ -341,15 +343,6 @@ is that of its module (`app::main`), and a project with no `main` in any module 
 
   Naming a declaration from a module its visibility does not reach is `E3008` (`E3014` for a field), and the message
   says which modifier would reach.
-- **A directory named `internal` scopes a whole module**, as Go's `internal/` does: a module whose path has a directory
-  named `internal` may be named only by the modules of the tree rooted at that directory's parent (the last such
-  directory, if there are several). `app/net/internal/wire` is named from `app/net`, `app/net/http` and anything under
-  `app/net`, not from `app` or `app/ui`; a top-level `internal/x` from the whole project. Naming it from elsewhere, by a
-  qualified name or by a library name that would otherwise be bare, is `E3008`, whatever its declarations' visibility,
-  and the message names the tree that may. `export` scopes one declaration and `internal/` every declaration of the
-  module: a `public` declaration of an internal module is visible wherever the module may be named, and never becomes a
-  bare library name to a program. A value of an internal module's type that a function outside it returns is used as any
-  value is; only naming the module is refused.
 - **A signature may not name a less visible type, except in a result** (`E3167`): each type that the parameters,
   `throws` clause, `where` clause or `implements` clause of an `export` or `public` declaration name, the type of a
   field (at the narrower of the field's and its type's visibility), a payload (at its union's) and a typealias's target
@@ -2182,7 +2175,9 @@ are computed in a 64-bit word that their operands decide:
   needs no check, and `let t = a + b` holds the whole sum. A result past the word is cut to it and the operation can fail
   with `overflow`: `a - b` of two `Count` values is `int(0 to u64.max)` and fails below 0.
 - `and`, `or` and `xor` take the alias of an operand, which must hold the other, and a shift the type of its left
-  operand. `not` keeps its operand's alias where the alias is closed under it (a pattern, or a range that flipping maps
+  operand. An `and` with a non-negative operand is between 0 and that operand, whatever the other, so it keeps the
+  alias of its one named operand wherever that alias holds the interval, though the alias does not hold the other
+  operand: `(index + 1) and mask` of two `int(0 to 2^63)` values is of their alias, as maxon's hash table writes it. `not` keeps its operand's alias where the alias is closed under it (a pattern, or a range that flipping maps
   onto itself, as `int(i64.min to i64.max)` and `Count`), and is otherwise typed as `-` is: by its context, or else the
   exact range of the flipped bits, so `not b` of an `int(0 to 100)` is `int(-101 to -1)`.
 
@@ -2243,7 +2238,8 @@ holds every double, the infinities and NaN among them. A float is an IEEE-754 do
 - `/` is IEEE-754's and never fails, so it needs no `try`: `x / 0.0` is an infinity of the sign of x and of the zero, and
   `0.0 / 0.0` is NaN, as constants fold and as the hardware computes. `inf` and NaN are ordinary values, and a comparison
   with a NaN holds only for `!=`. `-x` flips the sign bit. There is no float `mod`.
-- The built-in functions `trunc(x)` (a `FullRangeInt`, toward zero), `round` (ties to even), `floor`, `ceil`, `sqrt`,
+- The built-in functions `trunc(x)` (a `FullRangeInt`, toward zero, and an integer `x` itself, with its type, as maxon's:
+  there is nothing to truncate, and a double would lose the bits past its mantissa), `round` (ties to even), `floor`, `ceil`, `sqrt`,
   `abs`, `min(a, b)` and `max(a, b)` take their arguments by place, as maxon's do (`E2067` for a label).
 - A float prints as maxon prints one: the shortest decimal that reads back as the same double, always with a fraction and
   never with an exponent (`100.0`, `0.1`, `-0.0`, `inf`, `nan`); a diagnostic writes maxon's notation (`2.5`, `1E+20`).
@@ -2687,7 +2683,8 @@ end 'wrap'
   or is static (`E3905`); an alias, `String` or `bool` cannot implement one in its declaration. A requirement may be `static function`, which the type provides as a static function (a method in its
   place is `E3016`, as is the other way round); as in maxon it has no receiver to dispatch on, so a call of it through a
   type parameter, `T.make()` or `x.make()`, is `E3116`, and `T.make` as a value is `E2078`: it is called on a concrete
-  type. A type parameter's name stands for the parameter in an expression, over a declaration of that name. A method
+  type. `a == b` and `a != b` of two values of a type parameter call the `equals` that a bound of it declares
+  (`Equatable`'s), as maxon's do, and are `E3005` where none declares one that is a method returning `bool`. A type parameter's name stands for the parameter in an expression, over a declaration of that name. A method
   uses its type's parameters and takes none of its own (`E3907`). `Self` inside a generic type is the type at its own
   parameters, and a literal of it is `Self{...}`.
 - **Inheritance.** `interface Derived extends Base, Other` (before or after its `uses`) has the requirements of the
@@ -2725,7 +2722,10 @@ end 'wrap'
   it otherwise), so the bound holds wherever the conformance is used.
 - **Instances.** A type names an instance with `with`: `Box with Count`, `Map with (String, Count)`, `lib.Option
   with Count`, and a `FixedArray` its count before the element, `FixedArray with 3 Int`, which only it takes (`E2056`). One argument is written bare, several in parentheses, and an argument that is an instance itself is
-  parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E2056`). A `typealias` names an
+  parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E2056`), except that inside the
+  body, the `implements` clause or an extension of a generic type, another generic type written with no `with` binds
+  its type parameters by name to the enclosing type's, as maxon's: `MapIterator` inside `type Map uses Key, Value` is
+  `MapIterator with (Key, Value)`, and one whose parameters the enclosing type does not all declare is still `E2056`. A `typealias` names an
   instance, `typealias Counts = Array with Count`, or, with several arguments, `typealias Counts = Map with String, Count` (a bare list, which only a typealias takes), and is that instance, not a type of its own: `Counts` and `array
   with Count` are one type. Its right-hand side is an instance (`E3917`), it may name other typealiases in any module,
   and one that names itself is `E2012`.
@@ -3981,8 +3981,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   entries and the views of a `String` are walked by `for x in` (a `String` itself, a `List` and a range value are not), and the loop holds the array or the map, so a body that pushes to it or reassigns it is
   refused (`E3186`) where maxon re-reads the live count; the
   iteration protocol is found on the concrete type or through a type parameter's bounds, never through an interface value;
-  there is no `sort`, `contains`, `cursor` or `hash` yet, `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` refuses an enum element, whose
-  zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
+  there is no `sort`, `contains`, `cursor` or `hash` yet, `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
+  some case of which writes a raw value or carries a payload, since a slot holds a case's ordinal and its zero is the first case, which is maxon's case of raw value 0 only where no case writes one, and take no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
   There is no built-in `Option`, which maxon's stdlib has no more of either: an
   operation that can miss throws.
 - `ByteArray` is a built-in typealias rather than maxon's in `stdlib/File.maxon`, and the minimaxon `Bytes` buffer is
@@ -4045,15 +4045,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - Modules are Go's, not Maxon's. Another module's names are always qualified by its path (`net.http.parse()`, and
   `export.X` for the root's), where Maxon also finds a bare name in the root or as the one exported declaration
   anywhere (`E3095`, `E3063` for two, which minimaxon does not have). `export` reaches the tree rooted at the declaring
-  module's parent, as Go's `internal/`, and `public` everyone; a directory named `internal` scopes its modules to the
-  tree of its parent, as in Go. Import cycles are refused. The standard library follows
+  module's parent, as Go's `internal/`, and `public` everyone. Import cycles are refused. The standard library follows
   the same rules within `stdlib/` (see "Modules"): a library file names another library module's declaration by its path
   from the library's root, where maxon's stdlib names any declaration of the library bare; a program names the public
-  declarations of every library module bare, as in maxon, and nothing else of the library. maxon's `stdlib/helpers/`
-  is `stdlib/internal/` here, so a program names none of it, where maxon's programs see the helpers' exported names bare
-  (`readOrderedWord`, `TableCapacity`); the spec tests that name one outside the library tier are skipped with that
-  reason. `helpers/hash/Hash.maxon` is the exception: it names the root's `HashValue` and the root's `Hasher` names it,
-  so it is a file of the root. The built-ins are public, so a public
+  declarations of every library module bare, as in maxon, and nothing else of the library. What a file of maxon's
+  `stdlib/helpers/` declares `public` is `export` here, which reaches the whole library and no program, where maxon's
+  programs see the helpers' names bare (`readOrderedWord`, `TableCapacity`); the spec tests that name one outside the
+  library tier are skipped with that reason. The built-ins are public, so a public
   declaration of the library may name `Count` or `ByteArray` (E3167 holds only for a type less visible than public).
 - It checks only the rules that the generated code depends on. The style rules are left out: an unused
   name (`E3012`) or typealias (`E3062`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),

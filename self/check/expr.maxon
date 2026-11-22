@@ -526,6 +526,13 @@ function checkIntegerOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		setOperand(c, node: e, operand: shifted)
 		return shifted
 	end 'shift'
+	if op == "and" 'masked'
+		let masked = maskedAlias(p, ms: ms, l: l, r: r)
+		if masked != ast.noType and wordOf(c, p: p, ms: ms, off: off, l: l, r: r, errs: errs) != ast.noType 'fits'
+			setOperand(c, node: e, operand: masked)
+			return masked
+		end 'fits'
+	end 'masked'
 	if isLogicalOp(op) 'bitwise'
 		let t = unifyInts(c, p: p, ms: ms, off: off, clash: Clash.operator(op.clone()), l: l, r: r, errs: errs)
 		if t != ast.noType 'unified'
@@ -554,6 +561,35 @@ function checkIntegerOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	return exactType(p, ms: ms, word: word, lo: exact.lo, hi: exact.hi)
 end 'checkIntegerOp'
 
+// maskedAlias is the alias of the one named operand of an 'and' whose other operand it does not hold, where it holds the
+// result all the same: the bits of a non-negative operand bound the result to between 0 and that operand, whatever the
+// other, so '(index + 1) and mask' is within the mask's alias. It is noType where that does not prove the alias holds the
+// result, and the operands are typed as any other bitwise operator's.
+function maskedAlias(p ast.Project, ms ast.ModuleState, l ast.TypeID, r ast.TypeID) returns ast.TypeID
+	let lNamed = typeIsNamedInt(ms.types, reads: p.types, t: l)
+	let rNamed = typeIsNamedInt(ms.types, reads: p.types, t: r)
+	if lNamed == rNamed 'notOne'
+		return ast.noType
+	end 'notOne'
+	var alias = r
+	if lNamed 'left'
+		alias = l
+	end 'left'
+	let lBounds = not rangeLo(ms.types, reads: p.types, t: l).isNeg()
+	let rBounds = not rangeLo(ms.types, reads: p.types, t: r).isNeg()
+	if not lBounds and not rBounds 'unbounded'
+		return ast.noType
+	end 'unbounded'
+	var hi = rangeHi(ms.types, reads: p.types, t: l)
+	if not lBounds or (rBounds and rangeHi(ms.types, reads: p.types, t: r).lt(hi)) 'right'
+		hi = rangeHi(ms.types, reads: p.types, t: r)
+	end 'right'
+	if rangeLo(ms.types, reads: p.types, t: alias).gt(ast.I128.zero()) or hi.gt(rangeHi(ms.types, reads: p.types, t: alias)) 'outside'
+		return ast.noType
+	end 'outside'
+	return alias
+end 'maskedAlias'
+
 // wordPatternOf is the bits(64) type that an arithmetic operation on the operand types l and r computes in, which wraps
 // where another unsigned type fails, or noType where neither operand is one.
 function wordPatternOf(p ast.Project, ms ast.ModuleState, l ast.TypeID, r ast.TypeID) returns ast.TypeID
@@ -575,7 +611,7 @@ function foldedType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	end 'value'
 end 'foldedType'
 
-function checkComparison(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkComparison(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if ast.isIntType(ms.types, reads: p.types, t: l) and ast.isIntType(ms.types, reads: p.types, t: r) 'integers'
 		let word = operandWord(c, p: p, ms: ms, off: off, op: op, l: l, r: r, errs: errs)
@@ -594,12 +630,12 @@ function checkComparison(mutates c Checker, p ast.Project, ms ast.ModuleState, e
 		setOperand(c, node: e, operand: l)
 		return p.builtins.boolTy
 	end 'comparable'
+	if equality and l == r and typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.typeParam) 'equatable'
+		setOperand(c, node: e, operand: l)
+		return equalsCall(c, p: p, ms: ms, e: e, op: op, param: l, errs: errs)
+	end 'equatable'
 	if l == r and typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.typeParam) 'parameter'
-		var required = "Comparable"
-		if equality 'equality'
-			required = "Equatable"
-		end 'equality'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operatorRequiresConformance(op, typeParamName: nameOfType(p, ms: ms, t: l), interfaceName: required), errs: errs)
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operatorRequiresConformance(op, typeParamName: nameOfType(p, ms: ms, t: l), interfaceName: "Comparable"), errs: errs)
 		return ast.noType
 	end 'parameter'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(gotName(p, ms: ms, t: l), right: gotName(p, ms: ms, t: r)), errs: errs)

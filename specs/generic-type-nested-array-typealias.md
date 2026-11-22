@@ -2198,8 +2198,8 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 
 	function firstIs(x A) returns bool
@@ -2251,8 +2251,8 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 
 	function firstIs(x A) returns bool
@@ -2316,8 +2316,8 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 
 	function firstIs(x A) returns bool
@@ -2377,8 +2377,8 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 
 	function firstIs(x A) returns bool
@@ -2422,8 +2422,8 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 
 	function firstIs(x A) returns bool
@@ -2477,8 +2477,8 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 
 	function firstIs(x A) returns bool
@@ -2528,8 +2528,8 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 
 	function firstIs(x A) returns bool
@@ -2538,8 +2538,8 @@ type Pair uses A, B where A implements Equatable, B implements Equatable
 end 'Pair'
 
 extension Pair
-	function firstCopy() returns A
-		return self.first
+	function firstCopy() returns A where A implements Copyable
+		return self.first.clone()
 	end 'firstCopy'
 end 'Pair'
 
@@ -4539,9 +4539,9 @@ type Box uses T
 	var v as T
 	typealias Peers = Array with Box
 
-	static function peers(v T) returns Peers
-		let out = Peers.create(0)
-		out.push(Self{v: v})
+	static function peers(v T) returns Peers where T implements Copyable
+		var out = Peers.create(0)
+		out.push(Self{v: v.clone()})
 		return out
 	end 'peers'
 end 'Box'

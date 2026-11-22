@@ -1897,8 +1897,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	static function create(item T) returns Box
-		return Self{item: item}
+	static function create(item T) returns Box where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -1910,7 +1910,7 @@ end 'sixAndThree'
 
 function main() returns ExitCode
 	let b = BoxA.create(sixAndThree())
-	return (b.item.0 - b.item.1) as ExitCode
+	return try (b.item.0 - b.item.1) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Pair = (Integer, Integer)
@@ -1930,8 +1930,8 @@ typealias Pair = (Integer, Integer)
 type Box uses T
 	export var item as T
 
-	static function create(item T) returns Box
-		return Self{item: item}
+	static function create(item T) returns Box where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -1943,7 +1943,7 @@ end 'sixAndThree'
 
 function main() returns ExitCode
 	let b = BoxA.create(sixAndThree())
-	return (b.item.0 - b.item.1) as ExitCode
+	return try (b.item.0 - b.item.1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

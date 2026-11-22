@@ -102,7 +102,7 @@ function declareBounds(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		let cs = constraints[i].clone()
 		let constrained = boundedParamOf(c, p: p, ms: ms, cs: cs)
 		for bi in 0 upto ms.tree().listLen(cs.bounds) 'bounds'
-			let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
+			let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, selfTy: ast.noType, errs: errs)
 			if failedSince(errs, mark: mark) 'failed'
 				return
 			end 'failed'
@@ -194,7 +194,7 @@ end 'optOutAdvice'
 // declareConforms records the interfaces that a declaration implements. Copyable and Droppable are no interface to
 // implement, since every type has them unless it opts out or holds a part that lacks them.
 function declareConforms(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, interfaces diag.U32, nt ast.TypeID, mutates errs diag.ErrorList)
-	let named = conformedInterfaces(c, p: p, ms: ms, interfaces: interfaces, capabilities: false, errs: errs)
+	let named = conformedInterfaces(c, p: p, ms: ms, interfaces: interfaces, capabilities: false, selfTy: nt, errs: errs)
 	for i in 0 upto named.count() 'each'
 		let bound = boundBySiblings(p, ms: ms, iface: named[i], named: named)
 		ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].conforms.push(bound)
@@ -240,13 +240,14 @@ end 'siblingBinding'
 
 // conformedInterfaces are the interfaces a declaration or an extension names after 'implements', or an interface after
 // 'extends', up to the first that is not one. Only an interface names a capability, which every type that implements it
-// then has, so that each value of it has it too.
-function conformedInterfaces(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, interfaces diag.U32, capabilities bool, mutates errs diag.ErrorList) returns ast.TypeIDList
+// then has, so that each value of it has it too. selfTy is the type that names them, whose type parameters a generic
+// written bare among their arguments binds by name (boundByName).
+function conformedInterfaces(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, interfaces diag.U32, capabilities bool, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var named = ast.TypeIDList.create(0)
 	let mark = errs.count()
 	for i in 0 upto ms.tree().listLen(interfaces) 'each'
 		let tr = ms.tree().listAt(interfaces, index: i) as ast.NodeID
-		let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: tr, isBound: false, errs: errs)
+		let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: tr, isBound: false, selfTy: selfTy, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return named
 		end 'failed'

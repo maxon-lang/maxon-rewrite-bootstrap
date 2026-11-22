@@ -19,6 +19,44 @@ function typeIsAnonFloat(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) ret
 	return t != ast.noType and ast.typeKind(tt, reads: reads, t: t) == ast.TypeKind.floatRange and ast.typeEntry(tt, reads: reads, t: t).name == ""
 end 'typeIsAnonFloat'
 
+// truncatedInteger is the type of the integer that a trunc is given, which it gives back as it is, as maxon's does: there
+// is nothing to truncate, and a round trip through a double would lose the bits past its mantissa. It is noType for a
+// float.
+function truncatedInteger(c Checker, p ast.Project, ms ast.ModuleState, arg ast.NodeID) returns ast.TypeID
+	let t = ast.nodeType(c.typing, node: arg)
+	if ast.isIntType(ms.types, reads: p.types, t: t) 'integer'
+		return t
+	end 'integer'
+	return ast.noType
+end 'truncatedInteger'
+
+// callTrunc types a call of trunc, whose argument is typed by itself first: an integer is the call's value and type, and a
+// float is truncated to a FullRangeInt as the built-in declares.
+function callTrunc(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, consumes info ast.CallInfo, mutates errs diag.ErrorList) returns ast.TypeID
+	let mark = errs.count()
+	let ordered = orderArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: 0, errs: errs)
+	if failedSince(errs, mark: mark) 'badOrder'
+		return ast.noType
+	end 'badOrder'
+	if checkExpecting(c, p: p, ms: ms, e: ordered[0], want: ast.noType, errs: errs) == ast.noType 'badArg'
+		return ast.noType
+	end 'badArg'
+	var typed = info
+	let integer = truncatedInteger(c, p: p, ms: ms, arg: ordered[0])
+	if integer != ast.noType 'identity'
+		typed.ordered = ordered.clone()
+		typed.paramSpecs[0].ty = integer
+		c.typing.calls.insert(call as Count, value: typed)
+		return integer
+	end 'identity'
+	typed.ordered = bindArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: 0, argsChecked: true, payload: false, errs: errs)
+	if failedSince(errs, mark: mark) 'failed'
+		return ast.noType
+	end 'failed'
+	c.typing.calls.insert(call as Count, value: typed)
+	return p.builtins.fullRangeIntTy
+end 'callTrunc'
+
 // constantBits is the double of a constant: a float constant's, or an integer constant's converted.
 function constantBits(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Count
 	if isConstFloat(p, ms: ms, t: t) 'float'

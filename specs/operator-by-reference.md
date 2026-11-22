@@ -301,16 +301,16 @@ end 'Tagged'
 type Probe uses T where T implements Equatable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	function pick() returns T
-		return self.item
+	function pick() returns T where T implements Copyable
+		return self.item.clone()
 	end 'pick'
 
-	function matches(candidate T) returns bool
-		let copy = self.item
+	function matches(candidate T) returns bool where T implements Copyable
+		let copy = self.item.clone()
 		return self.item == candidate and self.item == copy and self.item == self.pick()
 	end 'matches'
 end 'Probe'

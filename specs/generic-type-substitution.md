@@ -112,11 +112,11 @@ type Inner uses T
 	export typealias TArr = Array with T
 	var v as TArr
 
-	static function make(v TArr) returns Self
-		return Self{v: v}
+	static function make(v TArr) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function first() returns T throws ArrayError
+	function first() returns T throws ArrayError where T implements Copyable
 		return try v.get(0)
 	end 'first'
 end 'Inner'
@@ -125,11 +125,11 @@ type Outer uses T
 	typealias TArr = Array with T
 	var items as TArr
 
-	static function create(items TArr) returns Self
-		return Self{items: items}
+	static function create(items TArr) returns Self where T implements Copyable
+		return Self{items: items.clone()}
 	end 'create'
 
-	function wrap() returns Inner
+	function wrap() returns Inner where T implements Copyable
 		return Inner.make(items)
 	end 'wrap'
 end 'Outer'
@@ -139,11 +139,11 @@ typealias O = Outer with Integer
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(7)
 	let o = O.create(a)
 	let w = o.wrap()
-	return (try w.first() otherwise 0) as ExitCode
+	return try (try w.first() otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -158,23 +158,23 @@ typealias Integer = int(i64.min to i64.max)
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Cell'
 
 type Holder uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return self.cell.get()
 	end 'value'
 end 'Holder'
@@ -185,7 +185,7 @@ typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
 	let h = IntHolder.create(IntCell.make(9))
-	return h.value() as ExitCode
+	return try h.value() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -201,23 +201,23 @@ stranded heap record — exit 101, the leak gate — while the program prints th
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Cell'
 
 type Holder uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return self.cell.get()
 	end 'value'
 end 'Holder'
@@ -228,7 +228,7 @@ typealias StrHolder = Holder with String
 
 function main() returns ExitCode
 	let h = StrHolder.create(StrCell.make("a string long enough to force a heap allocation"))
-	return h.value().count() as ExitCode
+	return try h.value().count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -289,23 +289,23 @@ Each level's field is a bare generic name at the level above's parameters, so th
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Cell'
 
 type Mid uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return self.cell.get()
 	end 'value'
 end 'Mid'
@@ -313,11 +313,11 @@ end 'Mid'
 type Top uses T
 	export var mid as Mid
 
-	static function create(mid Mid) returns Self
-		return Self{mid: mid}
+	static function create(mid Mid) returns Self where T implements Copyable
+		return Self{mid: mid.clone()}
 	end 'create'
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return self.mid.value()
 	end 'value'
 end 'Top'
@@ -330,7 +330,7 @@ typealias StrTop = Top with String
 
 function main() returns ExitCode
 	let t = StrTop.create(StrMid.create(StrCell.make("a string long enough to force a heap allocation")))
-	return t.value().count() as ExitCode
+	return try t.value().count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -346,23 +346,23 @@ count negative, and both are exit 101.
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Cell'
 
 type Holder uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return self.cell.get()
 	end 'value'
 end 'Holder'
@@ -372,9 +372,9 @@ typealias StrCell = Cell with String
 typealias StrHolder = Holder with String
 
 function main() returns ExitCode
-	let h = StrHolder.create(StrCell.make("first string long enough to force a heap allocation"))
+	var h = StrHolder.create(StrCell.make("first string long enough to force a heap allocation"))
 	h.cell = StrCell.make("second string, longer still, and also heap allocated")
-	return h.value().count() as ExitCode
+	return try h.value().count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -390,20 +390,20 @@ released at every instantiation.
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 end 'Cell'
 
 type Holder uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 
-	function replace(next Cell)
-		self.cell = next
+	function replace(mutates self, next Cell) where T implements Droppable and Copyable
+		self.cell = next.clone()
 	end 'replace'
 end 'Holder'
 
@@ -412,7 +412,7 @@ typealias StrCell = Cell with String
 typealias StrHolder = Holder with String
 
 function main() returns ExitCode
-	let h = StrHolder.create(StrCell.make("first string long enough to force a heap allocation"))
+	var h = StrHolder.create(StrCell.make("first string long enough to force a heap allocation"))
 	h.replace(StrCell.make("second string, longer still, and also heap allocated"))
 	return 0
 end 'main'
@@ -529,16 +529,16 @@ element walk strands the same string when the cascade stops at the base.
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 end 'Cell'
 
 type Holder uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 end 'Holder'
 
@@ -549,10 +549,10 @@ typealias StrHolder = Holder with String
 typealias HolderArray = Array with StrHolder
 
 function main() returns ExitCode
-	let a = HolderArray.create(0)
+	var a = HolderArray.create(0)
 	a.push(StrHolder.create(StrCell.make("a string long enough to force a heap allocation")))
 	a.push(StrHolder.create(StrCell.make("another string long enough to force a heap allocation")))
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -578,16 +578,16 @@ other half of the same mistake.
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 end 'Cell'
 
 type Holder uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 end 'Holder'
 
@@ -598,7 +598,7 @@ typealias StrHolder = Holder with String
 typealias HolderArray = Array with StrHolder
 
 function detached() returns HolderArray
-	let a = HolderArray.create(0)
+	var a = HolderArray.create(0)
 	a.push(StrHolder.create(StrCell.make("a string long enough to force a heap allocation")))
 	return a.clone()
 // a, its Holder box, its Cell box and their String are freed when this function returns
@@ -610,7 +610,7 @@ function main() returns ExitCode
 	if not h.cell.v.equals("a string long enough to force a heap allocation") 'lostTheString'
 		return 92
 	end 'lostTheString'
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -629,23 +629,23 @@ typealias Integer = int(i64.min to i64.max)
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Cell'
 
 type Holder uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return self.cell.get()
 	end 'value'
 end 'Holder'
@@ -660,7 +660,7 @@ function main() returns ExitCode
 		return 1
 	end 'unexpectedLength'
 	let h = IntHolder.create(IntCell.make(9))
-	return h.value() as ExitCode
+	return try h.value() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -676,24 +676,24 @@ type Slot uses Key, Value
 	export var k as Key
 	export var v as Value
 
-	static function make(k Key, v Value) returns Self
-		return Self{k: k, v: v}
+	static function make(k Key, v Value) returns Self where Key implements Copyable, Value implements Copyable
+		return Self{k: k.clone(), v: v.clone()}
 	end 'make'
 
-	function value() returns Value
-		return self.v
+	function value() returns Value where Value implements Copyable
+		return self.v.clone()
 	end 'value'
 end 'Slot'
 
 type Table uses Key, Value
 	export var one as Slot
 
-	static function create(one Slot) returns Self
-		return Self{one: one}
+	static function create(one Slot) returns Self where Key implements Copyable, Value implements Copyable
+		return Self{one: one.clone()}
 	end 'create'
 
-	function only() returns Slot
-		return self.one
+	function only() returns Slot where Key implements Copyable, Value implements Copyable
+		return self.one.clone()
 	end 'only'
 end 'Table'
 
@@ -703,7 +703,7 @@ typealias IntTable = Table with (Integer, Integer)
 
 function main() returns ExitCode
 	let t = IntTable.create(IntSlot.make(1, v: 5))
-	return t.only().value() as ExitCode
+	return try t.only().value() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1228,11 +1228,11 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var v as T
 
-	static function make(x T) returns Self
-		return Self{v: x}
+	static function make(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'make'
 
-	static function twice(x T) returns Box
+	static function twice(x T) returns Box where T implements Copyable
 		return Box.make(x)
 	end 'twice'
 end 'Box'
@@ -1240,7 +1240,7 @@ end 'Box'
 typealias IntBox = Box with Integer
 
 function main() returns ExitCode
-	return IntBox.twice(6).v as ExitCode
+	return try IntBox.twice(6).v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1431,7 +1431,7 @@ type Box uses T implements Iterable with (T, BoxIter)
 		return Self{items: items}
 	end 'create'
 
-	function createIterator() returns BoxIter throws IterationError
+	function createIterator() returns BoxIter throws IterationError where T implements Copyable
 		return try BoxIter.create(items.clone())
 	end 'createIterator'
 end 'Box'

@@ -1,6 +1,6 @@
-public typealias ByteWordWidth = int(1 to 16) implements Count
+export typealias ByteWordWidth = int(1 to 16) implements Count
 
-public enum ByteOrder
+export enum ByteOrder
 	bigEndian
 	littleEndian
 end 'ByteOrder'
@@ -66,7 +66,7 @@ function appendLittleEndianInOneAccess(mutates output ByteArray, word OrderedWor
 end 'appendLittleEndianInOneAccess'
 
 /// Appends the low `width` bytes of `word` in `order`; a byte past the eighth is zero.
-public function appendOrderedWord(mutates output ByteArray, word OrderedWord, width ByteWordWidth, order ByteOrder)
+export function appendOrderedWord(mutates output ByteArray, word OrderedWord, width ByteWordWidth, order ByteOrder)
 	if byteOrderMovesInOneAccess(width) 'oneAccess'
 		match order 'order'
 			bigEndian then appendBigEndianInOneAccess(output, word: word, width: width)
@@ -80,7 +80,7 @@ public function appendOrderedWord(mutates output ByteArray, word OrderedWord, wi
 end 'appendOrderedWord'
 
 /// The `width` bytes at `off` as a word, in `order`; a byte at or past `limit` reads as zero.
-public function readOrderedWord(source ByteArray, off ElementIndex, width ByteWordWidth, limit ElementIndex, order ByteOrder) returns OrderedWord
+export function readOrderedWord(source ByteArray, off ElementIndex, width ByteWordWidth, limit ElementIndex, order ByteOrder) returns OrderedWord
 	if byteOrderMovesInOneAccess(width) and byteOrderWordFitsBelow(off, width: width, limit: limit) 'oneAccess'
 		return match order 'order'
 			bigEndian gives try readBigEndianInOneAccess(source, off: off, width: width) otherwise panic("readOrderedWord: a word inside the limit the caller sized is missing")

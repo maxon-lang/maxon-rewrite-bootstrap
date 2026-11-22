@@ -133,7 +133,7 @@ function declareExtension(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		return
 	end 'ofInterface'
 	let key = ast.extensionKey(p, ms: ms, t: nt).unwrap()
-	let interfaces = conformedInterfaces(c, p: p, ms: ms, interfaces: xd.conforms, capabilities: false, errs: errs)
+	let interfaces = conformedInterfaces(c, p: p, ms: ms, interfaces: xd.conforms, capabilities: false, selfTy: nt, errs: errs)
 	for i in 0 upto interfaces.count() 'conforms'
 		ms.tables.pushExtConform(ast.ExtConform.make(key, iface: interfaces[i], site: xd.id))
 	end 'conforms'

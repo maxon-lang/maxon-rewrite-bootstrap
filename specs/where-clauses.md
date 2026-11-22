@@ -2090,12 +2090,12 @@ type Pair uses T where T implements EqL and EqR
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function go() returns Code
-		return (1 if self.a == self.b else 0) * 100 + self.a.l() * 10 + self.b.r()
+		return try (1 if self.a == self.b else 0) * 100 + self.a.l() * 10 + self.b.r() otherwise panic("out of range")
 	end 'go'
 end 'Pair'
 
@@ -2845,8 +2845,8 @@ When the type parameter is properly constrained, `==` should work:
 type Box uses T where T implements Equatable
 	var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function eq(other T) returns bool

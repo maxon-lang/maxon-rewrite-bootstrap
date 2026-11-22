@@ -100,7 +100,12 @@ function floatUnary(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	return d
 end 'floatUnary'
 
+// lowerFloatTrunc gives an integer argument back as it is, as the checker types it (check.truncatedInteger).
 function lowerFloatTrunc(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let argTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.ordered[0]))
+	if ast.isIntType(ms.types, reads: p.types, t: argTy) 'integer'
+		return args[0]
+	end 'integer'
 	let a = floatArg(l, p: p, ms: ms, c: c, args: args)
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newFloatToInt(d, src: a))

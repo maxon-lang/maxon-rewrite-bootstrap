@@ -217,9 +217,9 @@ function libraryModuleLookup(r Resolver, p ast.Project, module diag.ModuleID, na
 	end 'declared'
 end 'libraryModuleLookup'
 
-// visibleHit is the lookup that found ref, when the module may name its module and sees it, and a miss otherwise.
+// visibleHit is the lookup that found ref, when the module sees it, and a miss otherwise.
 function visibleHit(r Resolver, p ast.Project, consumes ref ast.DeclRef) returns LookupResult
-	if not ast.isNameableFrom(p, owner: ref.module, from: r.modID) or not isDeclVisible(r, p: p, ref: ref) 'hidden'
+	if not isDeclVisible(r, p: p, ref: ref) 'hidden'
 		return LookupResult.miss()
 	end 'hidden'
 	return LookupResult.hit(ref)
@@ -307,10 +307,6 @@ function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff
 end 'qualifiedLookup'
 
 function finishQualified(mutates r Resolver, p ast.Project, consumes ref ast.DeclRef, off diag.U32, used Count, mutates errs diag.ErrorList) returns Count
-	if not ast.isNameableFrom(p, owner: ref.module, from: r.modID) 'internal'
-		pushErr(errs, modID: r.modID, off: off, code: diag.errNotExported, msg: ast.notNameable(p, name: ast.declName(p, ref: ref), owner: ref.module, from: r.modID))
-		return 0 as Count
-	end 'internal'
 	if not isDeclVisible(r, p: p, ref: ref) 'hid'
 		pushErr(errs, modID: r.modID, off: off, code: diag.errNotExported, msg: hiddenMessage(r, p: p, ref: ref))
 		return 0 as Count

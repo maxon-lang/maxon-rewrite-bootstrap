@@ -1,3 +1,0 @@
-export function fetch() returns String
-	return "fetch {net.internal.wire.encode()}"
-end 'fetch'

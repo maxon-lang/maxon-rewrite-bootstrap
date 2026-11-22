@@ -1,0 +1,39 @@
+// Inside a generic type, another generic type written with no 'with' binds its type parameters by name to the enclosing
+// type's, as maxon's 'Map' returns a 'MapIterator' and names it in its header.
+typealias Ints = Pair with (Count, Count)
+
+type Pair uses Key, Value
+	var key as Key
+	var value as Value
+
+	static function create(consumes key Key, consumes value Value) returns Self
+		return Self{key: key, value: value}
+	end 'create'
+
+	function swapped(consumes self) returns Flip
+		return Flip.create(value, key: key)
+	end 'swapped'
+end 'Pair'
+
+type Flip uses Key, Value
+	var value as Value
+	var key as Key
+
+	static function create(consumes value Value, consumes key Key) returns Self
+		return Self{value: value, key: key}
+	end 'create'
+end 'Flip'
+
+extension Pair
+	function flipped(consumes self) returns Flip
+		return swapped()
+	end 'flipped'
+end 'Pair'
+
+function main() returns ExitCode
+	let f = Ints.create(3, value: 4).flipped()
+	print("{f.value} {f.key}\n")
+	return 0
+end 'main'
+
+//> 4 3

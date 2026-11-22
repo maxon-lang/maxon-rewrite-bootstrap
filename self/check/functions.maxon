@@ -72,7 +72,7 @@ function declareGenerics(mutates c Checker, p ast.Project, mutates ms ast.Module
 			let cs = f.whereList[i].clone()
 			let constrained = boundedParamOf(c, p: p, ms: ms, cs: cs)
 			for bi in 0 upto ms.tree().listLen(cs.bounds) 'bounds'
-				let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
+				let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, selfTy: ast.noType, errs: errs)
 				if failedSince(errs, mark: mark) 'failed'
 					return
 				end 'failed'

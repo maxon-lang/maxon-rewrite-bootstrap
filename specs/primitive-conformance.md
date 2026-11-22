@@ -211,8 +211,8 @@ an `int` argument that is the synthesized `int.equals`, so `b.eq(42)` is true an
 type Box uses T where T implements Equatable
 	var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function eq(other T) returns bool

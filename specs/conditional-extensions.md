@@ -168,8 +168,8 @@ Extensions can target types directly, not just interfaces. This is useful when t
 type Box uses Item
 	export var item as Item
 
-	static function create(item Item) returns Self
-		return Self{item: item}
+	static function create(item Item) returns Self where Item implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 

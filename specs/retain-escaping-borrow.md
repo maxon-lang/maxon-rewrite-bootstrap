@@ -649,23 +649,23 @@ parsed before the body.
 type Box uses T
 	var saved as T
 
-	static function create(first T) returns Self
-		return Self{saved: first}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(next T)
-		self.saved = next
+	function replace(mutates self, next T) where T implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
 type Outer uses T
 	var inner as Box
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Box.create(first)}
 	end 'create'
 
-	function swapInner(next T)
+	function swapInner(mutates self, next T) where T implements Droppable and Copyable
 		self.inner.replace(next)
 	end 'swapInner'
 end 'Outer'
@@ -685,7 +685,7 @@ end 'Point'
 typealias PointOuter = Outer with Point
 
 function main() returns ExitCode
-	let o = PointOuter.create(Point.create(7))
+	var o = PointOuter.create(Point.create(7))
 	o.swapInner(Point.create(9))
 	print("{o.inner.saved.xValue()}\n")
 	return 0
@@ -716,7 +716,7 @@ end 'Point'
 typealias PointOuter = Outer with Point
 
 function main() returns ExitCode
-	let o = PointOuter.create(Point.create(7))
+	var o = PointOuter.create(Point.create(7))
 	o.swapInner(Point.create(9))
 	print("{o.inner.saved.xValue()}\n")
 	return 0
@@ -725,23 +725,23 @@ end 'main'
 type Box uses T
 	var saved as T
 
-	static function create(first T) returns Self
-		return Self{saved: first}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(next T)
-		self.saved = next
+	function replace(mutates self, next T) where T implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
 type Outer uses T
 	var inner as Box
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Box.create(first)}
 	end 'create'
 
-	function swapInner(next T)
+	function swapInner(mutates self, next T) where T implements Droppable and Copyable
 		self.inner.replace(next)
 	end 'swapInner'
 end 'Outer'

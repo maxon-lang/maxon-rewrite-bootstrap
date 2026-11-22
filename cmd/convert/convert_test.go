@@ -516,6 +516,17 @@ end 'f'
 	}
 }
 
+func TestConvertHelperPublicIsExport(t *testing.T) {
+	in := "public type Cursor\n\tpublic static function over() returns Count\n\t\treturn 0\n\tend 'over'\nend 'Cursor'\n"
+	want := "export type Cursor\n\texport static function over() returns Count\n\t\treturn 0\n\tend 'over'\nend 'Cursor'\n"
+	if got := Convert("maxon/stdlib/helpers/sort/Cursor.maxon", in, sourceFile).Text; got != want {
+		t.Fatalf("a helper:\ngot:\n%q\nwant:\n%q", got, want)
+	}
+	if got := Convert("maxon/stdlib/Cursor.maxon", in, sourceFile).Text; got != in {
+		t.Fatalf("a root file:\ngot:\n%q\nwant:\n%q", got, in)
+	}
+}
+
 func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 	cases := []struct {
 		name     string

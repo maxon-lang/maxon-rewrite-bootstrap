@@ -1416,7 +1416,7 @@ copy 2: apples 30, plums 7, pears false
 ```
 
 <!-- test: table-aliases-admit-two-to-the-63 -->
-<!-- skip: language difference: maxon's stdlib/helpers is stdlib/internal here, which a program does not name, so the table's TableCapacity and TableSlotIndex are unknown to it -->
+<!-- skip: language difference: what maxon's stdlib/helpers declares public is export here, which reaches the library and no program, so the table's TableCapacity and TableSlotIndex are unknown to a program -->
 The hashtable's capacity, slot-index and entry-count aliases are unsigned and reach 2^63, the largest power of two a u64 holds.
 ```maxon
 function main() returns ExitCode

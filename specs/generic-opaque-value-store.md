@@ -5388,27 +5388,27 @@ typealias Int = int(0 to 1000)
 type Cell uses T
 	export var value as T
 
-	static function create(value T) returns Self
-		return Self{value: value}
+	static function create(value T) returns Self where T implements Copyable
+		return Self{value: value.clone()}
 	end 'create'
 end 'Cell'
 
 type Holder uses T
 	var cell as Cell
 
-	static function create(value T) returns Self
+	static function create(value T) returns Self where T implements Copyable
 		return Self{cell: Cell.create(value)}
 	end 'create'
 
-	function replace(next Cell)
-		self.cell = next
+	function replace(mutates self, next Cell) where T implements Droppable and Copyable
+		self.cell = next.clone()
 	end 'replace'
 end 'Holder'
 
 type Outer uses T
 	var holder as Holder
 
-	static function create(value T) returns Self
+	static function create(value T) returns Self where T implements Copyable
 		return Self{holder: Holder.create(value)}
 	end 'create'
 
@@ -5447,27 +5447,27 @@ typealias Int = int(0 to 1000)
 type Cell uses T
 	export var value as T
 
-	static function create(value T) returns Self
-		return Self{value: value}
+	static function create(value T) returns Self where T implements Copyable
+		return Self{value: value.clone()}
 	end 'create'
 end 'Cell'
 
 type Holder uses T
 	var cell as Cell
 
-	static function create(value T) returns Self
+	static function create(value T) returns Self where T implements Copyable
 		return Self{cell: Cell.create(value)}
 	end 'create'
 
-	function replace(next Cell)
-		self.cell = next
+	function replace(mutates self, next Cell) where T implements Droppable and Copyable
+		self.cell = next.clone()
 	end 'replace'
 end 'Holder'
 
 type Outer uses T
 	var holder as Holder
 
-	static function create(value T) returns Self
+	static function create(value T) returns Self where T implements Copyable
 		return Self{holder: Holder.create(value)}
 	end 'create'
 
@@ -6437,16 +6437,16 @@ The same write inside a `static function`, which releases the displaced cell thr
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 end 'Cell'
 
 type Slot uses T
 	export var cell as Cell
 
-	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+	static function create(cell Cell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 end 'Slot'
 
@@ -6454,12 +6454,12 @@ type Wrapper uses T
 	export typealias Inner = Slot with T
 	export var inner as Inner
 
-	static function create(cell Cell) returns Self
+	static function create(cell Cell) returns Self where T implements Copyable
 		return Self{inner: Inner.create(cell)}
 	end 'create'
 
-	static function put(target Self, next Cell)
-		target.inner.cell = next
+	static function put(mutates target Self, next Cell) where T implements Droppable and Copyable
+		target.inner.cell = next.clone()
 	end 'put'
 end 'Wrapper'
 
@@ -6468,7 +6468,7 @@ typealias StrCell = Cell with String
 typealias StrWrapper = Wrapper with String
 
 function main() returns ExitCode
-	let w = StrWrapper.create(StrCell.make("first string long enough to force a heap allocation"))
+	var w = StrWrapper.create(StrCell.make("first string long enough to force a heap allocation"))
 	StrWrapper.put(w, next: StrCell.make("second string, longer still, and also heap allocated"))
 	return 0
 end 'main'
@@ -6734,15 +6734,15 @@ A function with scalar parameters and a scalar result returns what an equality-g
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function pick(a T, b T) returns T
+	static function pick(a T, b T) returns T where T implements Copyable
 		if a == b 'same'
-			return b
+			return b.clone()
 		end 'same'
-		return a
+		return a.clone()
 	end 'pick'
 end 'Holder'
 
@@ -6805,15 +6805,15 @@ A scalar result of a static through an instance alias owns nothing, so a bound o
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function pick(a T, b T) returns T
+	static function pick(a T, b T) returns T where T implements Copyable
 		if a == b 'same'
-			return b
+			return b.clone()
 		end 'same'
-		return a
+		return a.clone()
 	end 'pick'
 end 'Holder'
 
@@ -6917,17 +6917,17 @@ A static returning `Inner` inside `type Holder uses T` returns `Inner with Holde
 type Inner uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Inner'
 
 type Holder uses T
-	static function wrap(v T) returns Inner
+	static function wrap(v T) returns Inner where T implements Copyable
 		return Inner.make(v)
 	end 'wrap'
 end 'Holder'
@@ -7147,15 +7147,15 @@ A `returns T` the alias fixes to a narrow signed range keeps its sign when the c
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function pick(a T, b T) returns T
+	static function pick(a T, b T) returns T where T implements Copyable
 		if a == b 'same'
-			return b
+			return b.clone()
 		end 'same'
-		return a
+		return a.clone()
 	end 'pick'
 end 'Holder'
 
@@ -7262,32 +7262,32 @@ error E3193: <fragment>:17:19: 'widen' is an instance method of 'Box' and needs 
 type Inner uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Inner'
 
 type Outer uses T
 	export var seed as T
 
-	static function create(seed T) returns Self
-		return Self{seed: seed}
+	static function create(seed T) returns Self where T implements Copyable
+		return Self{seed: seed.clone()}
 	end 'create'
 
-	function helper() returns Inner
+	function helper() returns Inner where T implements Copyable
 		return Inner.make(self.seed)
 	end 'helper'
 
-	function viaImplicit() returns T
+	function viaImplicit() returns T where T implements Droppable and Copyable
 		let w = helper()
 		return w.get()
 	end 'viaImplicit'
 
-	function viaSelf() returns T
+	function viaSelf() returns T where T implements Droppable and Copyable
 		let w = self.helper()
 		return w.get()
 	end 'viaSelf'

@@ -586,6 +586,9 @@ function callFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).selfConv
 	info.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic
 	info.result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).result
+	if info.intrinsic == ast.Intrinsic.intrFloatTrunc 'trunc'
+		return callTrunc(c, p: p, ms: ms, call: call, callee: callee, specs: specs, info: info, errs: errs)
+	end 'trunc'
 	if declares(c, p: p, ms: ms, f: target) 'declared'
 		let mark = errs.count()
 		info.ordered = bindArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: receiverCount(p, ms: ms, f: target), argsChecked: false, payload: false, errs: errs)
@@ -795,29 +798,13 @@ end 'payloadSpecs'
 // parameter has, and it runs the method of whatever type the parameter becomes.
 function boundCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, param ast.TypeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	let bounds = boundsOfParam(p, ms: ms, boundedFn: c.boundedFn, paramTy: param)
-	var bound = ast.noType
-	var iface = ast.noType
-	var sig = ast.noFunc
-	var req = ast.Requirement.make(ast.noType, sig: ast.noFunc, bindings: ast.TypeIDList.create(0))
-	for i in 0 upto bounds.count() 'candidates'
-		let named = requirementsNamed(p, ms: ms, iface: bounds[i], name: name)
-		if named.count() > 1 'inheritedTwice'
-			failAt(c, p: p, ms: ms, node: call, code: diag.errAmbiguousBound, msg: "'{name}' taking {ast.funcEntry(ms.funcs, funcReads: p.funcs, f: named[0].sig).params.count()} argument(s) is provided by both {requirementText(p, ms: ms, req: named[0])} and {requirementText(p, ms: ms, req: named[1])} through the constraints on type parameter '{nameOfType(p, ms: ms, t: param)}' — a witness dispatch binds ONE table slot, and these are two, so there is nothing to choose by. Rename one requirement, or drop one of the constraints", errs: errs)
-			return ast.noType
-		end 'inheritedTwice'
-		if named.count() == 0 or named[0].sig == sig 'absentOrSame'
-			continue 'candidates'
-		end 'absentOrSame'
-		let found = named[0].clone()
-		if sig != ast.noFunc 'ambiguous'
-			failAt(c, p: p, ms: ms, node: call, code: diag.errAmbiguousBound, msg: "the bounds '{nameOfType(p, ms: ms, t: bound)}' and '{nameOfType(p, ms: ms, t: bounds[i])}' of '{nameOfType(p, ms: ms, t: param)}' both declare '{name}'; keep only one bound that declares it", errs: errs)
-			return ast.noType
-		end 'ambiguous'
-		bound = bounds[i]
-		iface = found.iface
-		sig = found.sig
-		req = found
-	end 'candidates'
+	let looked = errs.count()
+	let req = uniqueBoundRequirement(c, p: p, ms: ms, node: call, param: param, bounds: bounds, name: name, errs: errs)
+	if failedSince(errs, mark: looked) 'ambiguousBound'
+		return ast.noType
+	end 'ambiguousBound'
+	let iface = req.iface
+	let sig = req.sig
 	if sig == ast.noFunc 'notRequired'
 		let mark = errs.count()
 		let extended = lookedUp(c, p: p, ms: ms, t: param, name: name, node: call, lookup: ast.interfaceExtensionMethod(p, ms: ms, from: c.modID, have: bounds, name: name), errs: errs)
@@ -852,6 +839,62 @@ function boundCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	recordUse(c, call: call)
 	return ast.substituteType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, params: selfParams, args: selfArgs)
 end 'boundCall'
+
+// uniqueBoundRequirement is the requirement named name that one of the bounds of the type parameter param declares, written at
+// node, or one whose sig is noFunc where none does. Two bounds that declare it are an error, since a witness dispatch
+// binds one table slot.
+function uniqueBoundRequirement(mutates c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, param ast.TypeID, bounds ast.TypeIDList, name String, mutates errs diag.ErrorList) returns ast.Requirement
+	var bound = ast.noType
+	var req = ast.Requirement.make(ast.noType, sig: ast.noFunc, bindings: ast.TypeIDList.create(0))
+	for i in 0 upto bounds.count() 'candidates'
+		let named = requirementsNamed(p, ms: ms, iface: bounds[i], name: name)
+		if named.count() > 1 'inheritedTwice'
+			failAt(c, p: p, ms: ms, node: node, code: diag.errAmbiguousBound, msg: "'{name}' taking {ast.funcEntry(ms.funcs, funcReads: p.funcs, f: named[0].sig).params.count()} argument(s) is provided by both {requirementText(p, ms: ms, req: named[0])} and {requirementText(p, ms: ms, req: named[1])} through the constraints on type parameter '{nameOfType(p, ms: ms, t: param)}' — a witness dispatch binds ONE table slot, and these are two, so there is nothing to choose by. Rename one requirement, or drop one of the constraints", errs: errs)
+			return req
+		end 'inheritedTwice'
+		if named.count() == 0 or named[0].sig == req.sig 'absentOrSame'
+			continue 'candidates'
+		end 'absentOrSame'
+		if req.sig != ast.noFunc 'ambiguous'
+			failAt(c, p: p, ms: ms, node: node, code: diag.errAmbiguousBound, msg: "the bounds '{nameOfType(p, ms: ms, t: bound)}' and '{nameOfType(p, ms: ms, t: bounds[i])}' of '{nameOfType(p, ms: ms, t: param)}' both declare '{name}'; keep only one bound that declares it", errs: errs)
+			return req
+		end 'ambiguous'
+		bound = bounds[i]
+		req = named[0].clone()
+	end 'candidates'
+	return req
+end 'uniqueBoundRequirement'
+
+// equalsCall types '==' or '!=' on two values of the type parameter param as maxon's: a call of the 'equals' that a bound
+// of it declares, a method of one parameter that returns bool, recorded at the operator with the left operand as its
+// receiver and the right as its argument.
+function equalsCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, param ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let bounds = boundsOfParam(p, ms: ms, boundedFn: c.boundedFn, paramTy: param)
+	let mark = errs.count()
+	let req = uniqueBoundRequirement(c, p: p, ms: ms, node: e, param: param, bounds: bounds, name: equalsMethod, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguousBound'
+		return ast.noType
+	end 'ambiguousBound'
+	if req.sig == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).isStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).params.count() != 1 or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).retTy != p.builtins.boolTy 'notEquatable'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: diag.operatorRequiresConformance(op, typeParamName: nameOfType(p, ms: ms, t: param), interfaceName: "Equatable"), errs: errs)
+		return ast.noType
+	end 'notEquatable'
+	let specs = applySpecs(p, ms: ms, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).params.clone(), params: requirementParams(p, ms: ms, iface: req.iface), args: requirementBindings(param, req: req))
+	var info = requirementCall(p, ms: ms, sig: req.sig, receiver: param, specs: specs)
+	let right = ast.binaryExprR(ms.tree(), id: e)
+	if not coerceArg(c, p: p, ms: ms, call: e, value: right, callee: "{nameOfType(p, ms: ms, t: param)}.{equalsMethod}", spec: specs[0], payload: false, errs: errs) 'badArg'
+		return ast.noType
+	end 'badArg'
+	var ordered = ast.NodeIDList.create(0)
+	ordered.push(right)
+	info.ordered = ordered
+	c.typing.calls.insert(e as Count, value: info)
+	recordUse(c, call: e)
+	return p.builtins.boolTy
+end 'equalsCall'
+
+// equalsMethod is the requirement of Equatable that '==' on a type parameter calls.
+let equalsMethod = "equals"
 
 // requirementCall is a call through the requirement sig of an interface, on a receiver of a type parameter or of the
 // interface: it runs the method of whatever type stands there, and its result is a value or a borrowed place as the

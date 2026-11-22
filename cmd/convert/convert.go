@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -73,6 +74,9 @@ func Convert(file, src string, kind inputKind) Result {
 	}
 
 	if kind == sourceFile {
+		if isLibraryHelper(file) {
+			exportPublicModifiers(lines)
+		}
 		dropBuiltinDeclarations(lines)
 		addInterfaceWheres(lines)
 		lendRequirements(lines)
@@ -1001,6 +1005,37 @@ func warnUnsupportedExtension(line *sourceLine, declIdx int, warn func(*sourceLi
 		case "with":
 			warn(line, "extension headers with type arguments are not supported in minimaxon")
 			return
+		}
+	}
+}
+
+// libraryRootDir and helpersDir place a file of maxon's library helpers: maxon's programs see every name of the library
+// bare, but here a program sees only what the library declares public, and a helper is for the library's own files.
+const (
+	libraryRootDir = "stdlib"
+	helpersDir     = "helpers"
+)
+
+// isLibraryHelper reports whether file lies in maxon's stdlib/helpers/.
+func isLibraryHelper(file string) bool {
+	parts := strings.Split(filepath.ToSlash(file), "/")
+	for i := 0; i+1 < len(parts); i++ {
+		if parts[i] == libraryRootDir && parts[i+1] == helpersDir {
+			return true
+		}
+	}
+	return false
+}
+
+// exportPublicModifiers makes each public of a helper export: a helper module is a direct child of the library's root,
+// so export reaches the whole library and no program.
+func exportPublicModifiers(lines []sourceLine) {
+	for i := range lines {
+		l := &lines[i]
+		for k := range skipModifiers(l.code) {
+			if l.code[k].kind == tokIdent && l.code[k].text == "public" {
+				l.code[k].text = "export"
+			}
 		}
 	}
 }

@@ -1127,11 +1127,11 @@ end 'instantiateGeneric'
 // resolveBoundTypeRef is the interface that a bound or an 'implements' names, the instance of a generic one at the types
 // its 'with' binds. A bound binds every associated type, since a call through it is typed by them; a conformance that
 // binds none is refused where its declaration is checked, which names what it lacks.
-export function resolveBoundTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
+export function resolveBoundTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, isBound bool, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = ms.tree().startOf(tr)
 	let tName = ast.typeRefName(ms.tree(), id: tr)
 	match ast.nodeDecl(p, ms: ms, node: tr as Count) 'hit'
-		some(ref) then return checkInterfaceRef(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, isBound: isBound, errs: errs)
+		some(ref) then return checkInterfaceRef(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, isBound: isBound, selfTy: selfTy, errs: errs)
 		none then _ = 0
 	end 'hit'
 	if ast.resolutionOf(p, ms: ms).typeParamSlots.has(tr as Count) 'typeParameter'
@@ -1154,16 +1154,16 @@ function failUnknownType(c Checker, p ast.Project, ms ast.ModuleState, tr ast.No
 	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)
 end 'failUnknownType'
 
-function checkInterfaceRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
+function checkInterfaceRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, isBound bool, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	match ast.declType(p, ms: ms, ref: ref) 'dt'
-		some(tid) then return verifyInterfaceTarget(c, p: p, ms: ms, tr: tr, off: off, tName: tName, tid: tid, isBound: isBound, errs: errs)
+		some(tid) then return verifyInterfaceTarget(c, p: p, ms: ms, tr: tr, off: off, tName: tName, tid: tid, isBound: isBound, selfTy: selfTy, errs: errs)
 		none then _ = 0
 	end 'dt'
 	checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
 	return ast.noType
 end 'checkInterfaceRef'
 
-function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, off diag.U32, tName String, tid ast.TypeID, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
+function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, off diag.U32, tName String, tid ast.TypeID, isBound bool, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if ast.typeKind(ms.types, reads: p.types, t: tid) != ast.TypeKind.interfaceTy 'notIface'
 		checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
 		return ast.noType
@@ -1191,7 +1191,7 @@ function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.
 	end 'badCount'
 	var args = ast.TypeIDList.create(0)
 	for i in 0 upto argCount 'args'
-		let at = resolveTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(argsRef, index: i) as ast.NodeID, selfTy: ast.noType, errs: errs)
+		let at = resolveTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(argsRef, index: i) as ast.NodeID, selfTy: selfTy, errs: errs)
 		if at == ast.noType 'failed'
 			return ast.noType
 		end 'failed'
@@ -1318,6 +1318,36 @@ function resolveBoundTP(c Checker, p ast.Project, ms ast.ModuleState, off diag.U
 	return ast.noType
 end 'resolveBoundTP'
 
+// boundByName is what a generic type written with no 'with' stands for inside the body, header or extension of a generic
+// type, as maxon's: its type parameters bound by name to the enclosing type's, so 'MapIterator' inside 'Map uses Key,
+// Value' is 'MapIterator with (Key, Value)'. It is empty where the enclosing type does not declare every one of them, and
+// the bare base is then refused for its count.
+function boundByName(p ast.Project, ms ast.ModuleState, target ast.TypeID, selfTy ast.TypeID) returns ast.TypeIDList
+	var bound = ast.TypeIDList.create(0)
+	if selfTy == ast.noType 'outside'
+		return bound
+	end 'outside'
+	var scope = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: selfTy).typeArgs)
+	if scope.count() == 0 'origin'
+		scope = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: selfTy).typeParams)
+	end 'origin'
+	let wanted = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: target).typeParams)
+	for i in 0 upto wanted.count() 'params'
+		var found = ast.noType
+		for k in 0 upto scope.count() 'scope'
+			if typeHasKind(p, ms: ms, t: scope[k], kind: ast.TypeKind.typeParam) and ast.typeEntry(ms.types, reads: p.types, t: scope[k]).name == ast.typeEntry(ms.types, reads: p.types, t: wanted[i]).name 'named'
+				found = scope[k]
+				break 'scope'
+			end 'named'
+		end 'scope'
+		if found == ast.noType 'unbound'
+			return ast.TypeIDList.create(0)
+		end 'unbound'
+		bound.push(found)
+	end 'params'
+	return bound
+end 'boundByName'
+
 function applyTypeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	var target = ast.noType
 	match ast.declType(p, ms: ms, ref: ref) 'dt'
@@ -1340,6 +1370,9 @@ function applyTypeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		return target
 	end 'nonGen'
 	var resolvedArgs = ast.TypeIDList.create(0)
+	if argCount == 0 'bare'
+		resolvedArgs = boundByName(p, ms: ms, target: target, selfTy: selfTy)
+	end 'bare'
 	for i in 0 upto argCount 'eachA'
 		let aNode = ms.tree().listAt(argsRef, index: i) as ast.NodeID
 		let at = resolveTypeRef(c, p: p, ms: ms, tr: aNode, selfTy: selfTy, errs: errs)

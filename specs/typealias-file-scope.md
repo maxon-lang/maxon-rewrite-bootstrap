@@ -1583,8 +1583,8 @@ tuple and a plain word copy for the scalar one.
 ```maxon
 // --- file: a-main.maxon
 function main() returns ExitCode
-	gammaSide()
-	alphaSide()
+	zgamma.gammaSide()
+	malpha.alphaSide()
 	return 0
 end 'main'
 
@@ -1592,8 +1592,8 @@ end 'main'
 export type Box uses T
 	export var item as T
 
-	export static function create(item T) returns Box
-		return Self{item: item}
+	export static function create(item T) returns Box where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -1613,7 +1613,7 @@ end 'SlotA'
 
 export function alphaSide()
 	let h = HolderA.create()
-	let xs = PairsA.create(0)
+	var xs = PairsA.create(0)
 	xs.push((4, 1))
 	let e = try xs.get(0) otherwise return
 	let b = BoxA.create((6, 3))
@@ -1623,9 +1623,9 @@ export function alphaSide()
 	let h2 = h.clone()
 	let sv = match s 'm'
 		empty gives 0 as Count
-		some(v) gives v.0 - v.1
+		some(v) gives try v.0 - v.1 otherwise panic("out of range")
 	end 'm'
-	print("alpha {h.p.0 - h.p.1} {e.0 - e.1} {b.item.0 - b.item.1} {sv} {e2.0 - e2.1} {h2.p.0 - h2.p.1}\n")
+	print("alpha {try h.p.0 - h.p.1 otherwise panic("out of range")} {try e.0 - e.1 otherwise panic("out of range")} {try b.item.0 - b.item.1 otherwise panic("out of range")} {sv} {try e2.0 - e2.1 otherwise panic("out of range")} {try h2.p.0 - h2.p.1 otherwise panic("out of range")}\n")
 end 'alphaSide'
 
 typealias Pair = (Count, Count)
@@ -1650,7 +1650,7 @@ end 'SlotG'
 
 export function gammaSide()
 	let h = HolderG.create()
-	let xs = PairsG.create(0)
+	var xs = PairsG.create(0)
 	xs.push(("c", "d"))
 	let e = try xs.get(0) otherwise return
 	let b = BoxG.create(("e", "f"))
@@ -1660,7 +1660,7 @@ export function gammaSide()
 	let h2 = h.clone()
 	let sv = match s 'm'
 		empty gives ""
-		some(v) gives v.0
+		some(v) gives v.0.clone()
 	end 'm'
 	print("gamma {h.p.0}{h.p.1} {e.0}{e.1} {b.item.0}{b.item.1} {sv} {e2.0}{e2.1} {h2.p.0}{h2.p.1}\n")
 end 'gammaSide'
@@ -1690,8 +1690,8 @@ and the answer must not move.
 ```maxon
 // --- file: a-main.maxon
 function main() returns ExitCode
-	gammaSide()
-	alphaSide()
+	mgamma.gammaSide()
+	zalpha.alphaSide()
 	return 0
 end 'main'
 
@@ -1699,8 +1699,8 @@ end 'main'
 export type Box uses T
 	export var item as T
 
-	export static function create(item T) returns Box
-		return Self{item: item}
+	export static function create(item T) returns Box where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -1720,7 +1720,7 @@ end 'SlotG'
 
 export function gammaSide()
 	let h = HolderG.create()
-	let xs = PairsG.create(0)
+	var xs = PairsG.create(0)
 	xs.push(("c", "d"))
 	let e = try xs.get(0) otherwise return
 	let b = BoxG.create(("e", "f"))
@@ -1730,7 +1730,7 @@ export function gammaSide()
 	let h2 = h.clone()
 	let sv = match s 'm'
 		empty gives ""
-		some(v) gives v.0
+		some(v) gives v.0.clone()
 	end 'm'
 	print("gamma {h.p.0}{h.p.1} {e.0}{e.1} {b.item.0}{b.item.1} {sv} {e2.0}{e2.1} {h2.p.0}{h2.p.1}\n")
 end 'gammaSide'
@@ -1757,7 +1757,7 @@ end 'SlotA'
 
 export function alphaSide()
 	let h = HolderA.create()
-	let xs = PairsA.create(0)
+	var xs = PairsA.create(0)
 	xs.push((4, 1))
 	let e = try xs.get(0) otherwise return
 	let b = BoxA.create((6, 3))
@@ -1767,9 +1767,9 @@ export function alphaSide()
 	let h2 = h.clone()
 	let sv = match s 'm'
 		empty gives 0 as Count
-		some(v) gives v.0 - v.1
+		some(v) gives try v.0 - v.1 otherwise panic("out of range")
 	end 'm'
-	print("alpha {h.p.0 - h.p.1} {e.0 - e.1} {b.item.0 - b.item.1} {sv} {e2.0 - e2.1} {h2.p.0 - h2.p.1}\n")
+	print("alpha {try h.p.0 - h.p.1 otherwise panic("out of range")} {try e.0 - e.1 otherwise panic("out of range")} {try b.item.0 - b.item.1 otherwise panic("out of range")} {sv} {try e2.0 - e2.1 otherwise panic("out of range")} {try h2.p.0 - h2.p.1 otherwise panic("out of range")}\n")
 end 'alphaSide'
 
 typealias Pair = (Count, Count)
@@ -1814,8 +1814,8 @@ wrong one still compiles and runs. `6 - 3 + 1 + 24` is the exit code; `ef 16` is
 ```maxon
 // --- file: a-main.maxon
 function main() returns ExitCode
-	gammaSide()
-	return alphaSide()
+	zgamma.gammaSide()
+	return malpha.alphaSide()
 end 'main'
 
 // --- file: bbox/b-box.maxon
@@ -1824,8 +1824,8 @@ export typealias Integer = int(i64.min to i64.max)
 export type Box uses T
 	export var item as T
 
-	export static function create(item T) returns Box
-		return Self{item: item}
+	export static function create(item T) returns Box where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	export function size() returns Integer
@@ -1836,7 +1836,7 @@ end 'Box'
 // --- file: malpha/m-alpha.maxon
 export function alphaSide() returns ExitCode
 	let b = BoxA.create((6, 3, 1))
-	return (b.item.0 - b.item.1 + b.item.2 + b.size()) as ExitCode
+	return try (b.item.0 - b.item.1 + b.item.2 + b.size()) as ExitCode otherwise panic("out of range")
 end 'alphaSide'
 
 typealias BoxA = bbox.Box with Pair
@@ -1869,8 +1869,8 @@ suite would notice.
 ```maxon
 // --- file: a-main.maxon
 function main() returns ExitCode
-	gammaSide()
-	return alphaSide()
+	mgamma.gammaSide()
+	return zalpha.alphaSide()
 end 'main'
 
 // --- file: bbox/b-box.maxon
@@ -1879,8 +1879,8 @@ export typealias Integer = int(i64.min to i64.max)
 export type Box uses T
 	export var item as T
 
-	export static function create(item T) returns Box
-		return Self{item: item}
+	export static function create(item T) returns Box where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	export function size() returns Integer
@@ -1901,7 +1901,7 @@ typealias Pair = (String, String)
 // --- file: zalpha/z-alpha.maxon
 export function alphaSide() returns ExitCode
 	let b = BoxA.create((6, 3, 1))
-	return (b.item.0 - b.item.1 + b.item.2 + b.size()) as ExitCode
+	return try (b.item.0 - b.item.1 + b.item.2 + b.size()) as ExitCode otherwise panic("out of range")
 end 'alphaSide'
 
 typealias BoxA = bbox.Box with Pair

@@ -1214,6 +1214,7 @@ end 'main'
 ```
 
 <!-- test: an-and-does-not-launder-an-unproven-merge-into-a-proof -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⛔⛔ **AN `and` THAT CHANGES NOTHING MUST NOT CHANGE WHAT IS PROVEN.** The inheritance above hands an
 operand's ranged alias to the `and`'s result, so the operand must really be inside that alias. A loop's
 merge of a ranged `var` is: every rebind is a range door, so `n = n + 10` is checked against `Bits` at the
