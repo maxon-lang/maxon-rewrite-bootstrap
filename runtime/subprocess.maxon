@@ -17,8 +17,6 @@ let noThreadSecurity = 0
 
 let inheritHandles = 1
 
-let noCreationFlags = 0
-
 let noEnvironment = 0
 
 let noCurrentDirectory = 0
@@ -45,8 +43,9 @@ let securityLengthOffset = 0
 
 let securityInheritOffset = 16
 
-// STARTUPINFOW, of which the run sets the size, the flag that says the standard handles are given, and the three handles.
-let startupBytes = 104
+// STARTUPINFOEXW: STARTUPINFOW, of which the run sets the size, the flag that says the standard handles are given and the three
+// handles, and then the list of attributes the child is created with.
+let startupBytes = 112
 
 let startupSizeOffset = 0
 
@@ -57,6 +56,28 @@ let startupInputOffset = 80
 let startupOutputOffset = 88
 
 let startupErrorOffset = 96
+
+let startupAttributeListOffset = 104
+
+// The child inherits only the handles that PROC_THREAD_ATTRIBUTE_HANDLE_LIST names: bInheritHandles alone hands it every
+// inheritable handle of the process, the pipe ends of a run that is going on at the same time among them, and a reader
+// then waits for that other child's end of the pipe as well.
+let extendedStartupInfoPresent = 0x80000
+
+let attributeHandleList = 0x20002
+
+let attributeCount = 1
+
+let noAttributeFlags = 0
+
+let noAttributeList = 0
+
+let noPreviousValue = 0
+
+let noReturnSize = 0
+
+// The array of the handles the child inherits has room for a word each of its standard input, output and error.
+let inheritedHandlesBytes = 24
 
 // PROCESS_INFORMATION: the handles of the child and of its first thread.
 let processBytes = 24
@@ -83,12 +104,15 @@ let pipeReceivedOffset = 48
 
 let pipeBytes = 56
 
-// The run's frame, one allocation: a security descriptor, the startup and process records, and the two pipes.
+// The run's frame, one allocation: a security descriptor, the startup record, the array of the handles the child inherits
+// (which the attribute list points into until the child is created), the process record, and the two pipes.
 let frameSecurityOffset = 0
 
 let frameStartupOffset = frameSecurityOffset + securityBytes
 
-let frameProcessOffset = frameStartupOffset + startupBytes
+let frameInheritedOffset = frameStartupOffset + startupBytes
+
+let frameProcessOffset = frameInheritedOffset + inheritedHandlesBytes
 
 let frameOutputOffset = frameProcessOffset + processBytes
 
@@ -172,6 +196,54 @@ function openPipe(pipe Count, security Count) returns bool
 	_ = __Raw.callImport3("SetHandleInformation", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: handleFlagInherit, arg3: noMask)
 	return true
 end 'openPipe'
+
+// inheritedBytes is the size of the first count handles of the array of the handles the child inherits.
+function inheritedBytes(count Count) returns Count
+	return try count * wordBytes otherwise panic("the handles the child inherits are past a word")
+end 'inheritedBytes'
+
+// listInherited adds a handle to the array of the handles the child inherits, unless it is no handle or is in it already,
+// and gives how many handles the array holds then.
+function listInherited(inherited Count, count Count, handle Count) returns Count
+	if handle == 0 or handle == invalidHandle 'unusable'
+		return count
+	end 'unusable'
+	for i in 0 upto count 'seen'
+		if wordAt(inherited, offset: inheritedBytes(i)) == handle 'listed'
+			return count
+		end 'listed'
+	end 'seen'
+	__Raw.storeWord(inherited, offset: inheritedBytes(count), value: handle)
+	return __Raw.wrappingAdd(count, right: 1)
+end 'listInherited'
+
+// createChild creates the child that command and the startup record describe, inheriting the handles of the array and no
+// others, and gives the Win32 error of the step that failed, or 0 when the child was created.
+function createChild(command Count, startup Count, inherited Count, inheritedCount Count, process Count) returns Count
+	var listBytes = 0 as Count
+	// The call that asks for the size fails by design.
+	_ = __Raw.callImport4("InitializeProcThreadAttributeList", arg1: noAttributeList, arg2: attributeCount, arg3: noAttributeFlags, arg4: __Raw.addressOf(listBytes))
+	let list = alloc(listBytes)
+	if dword(__Raw.callImport4("InitializeProcThreadAttributeList", arg1: list, arg2: attributeCount, arg3: noAttributeFlags, arg4: __Raw.addressOf(listBytes))) == 0 'unlisted'
+		let failure = win32Error()
+		free(list)
+		return failure
+	end 'unlisted'
+	var failure = 0 as Count
+	let updated = __Raw.callImport7("UpdateProcThreadAttribute", arg1: list, arg2: noAttributeFlags, arg3: attributeHandleList, arg4: inherited, arg5: inheritedBytes(inheritedCount), arg6: noPreviousValue, arg7: noReturnSize)
+	if dword(updated) == 0 'unupdated'
+		failure = win32Error()
+	end 'unupdated' else 'update'
+		__Raw.storeWord(startup, offset: startupAttributeListOffset, value: list)
+		let created = __Raw.callImport10("CreateProcessW", arg1: noApplication, arg2: command, arg3: noSecurity, arg4: noThreadSecurity, arg5: inheritHandles, arg6: extendedStartupInfoPresent, arg7: noEnvironment, arg8: noCurrentDirectory, arg9: startup, arg10: process)
+		if dword(created) == 0 'uncreated'
+			failure = win32Error()
+		end 'uncreated'
+	end 'update'
+	_ = __Raw.callImport1("DeleteProcThreadAttributeList", arg1: list)
+	free(list)
+	return failure
+end 'createChild'
 
 // closeIfOpen closes the handle that is in a word, unless it is 0.
 function closeIfOpen(base Count, offset Count)
@@ -268,10 +340,13 @@ function osRun(executable String, arguments Count, deadlineMs Count, stdout Coun
 	__Raw.storeWord(startup, offset: startupInputOffset, value: __Raw.callImport1("GetStdHandle", arg1: stdInputHandle))
 	__Raw.storeWord(startup, offset: startupOutputOffset, value: wordAt(output, offset: pipeWriteOffset))
 	__Raw.storeWord(startup, offset: startupErrorOffset, value: wordAt(errors, offset: pipeWriteOffset))
+	let inherited = fieldAt(frame, offset: frameInheritedOffset)
+	var inheritedCount = listInherited(inherited, count: 0, handle: wordAt(startup, offset: startupInputOffset))
+	inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupOutputOffset))
+	inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupErrorOffset))
 	let process = fieldAt(frame, offset: frameProcessOffset)
-	let created = __Raw.callImport10("CreateProcessW", arg1: noApplication, arg2: command, arg3: noSecurity, arg4: noThreadSecurity, arg5: inheritHandles, arg6: noCreationFlags, arg7: noEnvironment, arg8: noCurrentDirectory, arg9: startup, arg10: process)
-	if dword(created) == 0 'spawn'
-		let win32 = win32Error()
+	let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process)
+	if win32 != 0 'spawn'
 		abandonRun(output, errors: errors, command: command)
 		free(frame)
 		endWithError(errorAddress, win32: win32, table: spawnFailures())

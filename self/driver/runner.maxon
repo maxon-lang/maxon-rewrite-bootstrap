@@ -20,9 +20,6 @@ let workersPerExecutable = 2 as Count
 
 let executablesFlag = "--executables="
 
-// The environment variable that names the machine's processors, where MAXON_MAX_PROCS names no worker count.
-let processorsVariable = "NUMBER_OF_PROCESSORS"
-
 // RunWidth is how wide a run of tests goes: how many tests are under way at once, and how many of their executables run at
 // once.
 type RunWidth
@@ -61,15 +58,7 @@ end 'defaultExecutables'
 // runWorkers is how many workers the runtime runs the run's behaviours on, as it counts them: the count MAXON_MAX_PROCS gives,
 // else the machine's processors.
 function runWorkers() returns Count
-	let requested = countVariable(workerCountVariable)
-	if requested > 0 'requested'
-		return requested
-	end 'requested'
-	let processors = countVariable(processorsVariable)
-	if processors > 0 'processors'
-		return processors
-	end 'processors'
-	return 1
+	return Scheduler.processorCount()
 end 'runWorkers'
 
 // countVariable is the count the environment variable name holds, or 0 when it is unset or holds no count.
