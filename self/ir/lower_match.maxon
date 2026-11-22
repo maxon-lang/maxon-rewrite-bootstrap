@@ -28,7 +28,8 @@ function lowerMatch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 		end 'fresh'
 		carried = noBlock
 		let next = l.b.newBlock()
-		if ast.matchArmIsDefault(p.modules[l.mi].tree, id: arm) 'default'
+		let last = a + 1 == p.modules[l.mi].tree.listLen(armsRef)
+		if ast.matchArmIsDefault(p.modules[l.mi].tree, id: arm) or (last and closedSubject(p, ms: ms, st: st)) 'default'
 			goTo(l, target: body)
 		end 'default' else 'patterns'
 			for i in 0 upto p.modules[l.mi].tree.listLen(patternsRef) 'each'
@@ -78,6 +79,13 @@ function lowerMatch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	end 'noResult'
 	return fetch(l, slot: result)
 end 'lowerMatch'
+
+// closedSubject is whether a match on a value of type st that has no default arm names every value st can hold, which the
+// checker holds an enum, a union and a bool to: its last arm then takes what no arm before it took, untested.
+function closedSubject(p ast.Project, ms ast.ModuleState, st ast.TypeID) returns bool
+	let kind = ast.typeKind(ms.types, reads: p.types, t: st)
+	return kind == ast.TypeKind.enumTy or kind == ast.TypeKind.unionTy or st == p.builtins.boolTy
+end 'closedSubject'
 
 // borrowPayloads binds the payload an arm names to a borrow of the subject's box.
 function borrowPayloads(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, arm ast.NodeID, subject Reg)

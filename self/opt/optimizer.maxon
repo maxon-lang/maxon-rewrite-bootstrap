@@ -4,14 +4,15 @@
 // replaces, so the fallback needs no more registers than the program as written; a pass after it may, so a loop that
 // would compile without it always compiles.
 //
-// Before the fallback, on each function (optimizeFunction): SSA construction, then the fold pass with the rules of
-// generic.rules.
+// Before the fallback, on each function (optimizeFunction): SSA construction, jump threading (thread.maxon), then the fold
+// pass with the rules of generic.rules.
 // After it, on the module (inline.maxon): the expansion of the primitives (expand.maxon), whose operations hold no call
 // that values were in memory across; the fold again with the rules of pressure.rules, on each function that holds an
 // instruction they rewrite (a division by a constant, whose multiply holds x beside the high word); leaf inlining, which
 // folds again each function that got a copy; then on each function loop rotation (rotate.maxon), loop-invariant code
-// motion (licm.maxon), which finds a preheader on the guard that rotation leaves, and common subexpression elimination
-// (cse.maxon), which merges what moved out of a loop with what was computed before it.
+// motion (licm.maxon), which finds a preheader on the guard that rotation leaves, common subexpression elimination
+// (cse.maxon), which merges what moved out of a loop with what was computed before it, and copy elision (copies.maxon),
+// which needs the reads of one place merged to see that a copy of it is a move.
 
 // Optimizer is the state of the passes, kept from one function to the next.
 export type Optimizer
@@ -22,12 +23,14 @@ export type Optimizer
 	export var rotator as Rotator
 	export var licm as Licm
 	export var cse as Cse
+	export var copies as Copies
+	export var threader as Threader
 	// The analyses the passes after inlining share: each pass that changes a function has them found again.
 	var analysis as Analysis
 	var facts as LoopFacts
 
 	export static function new() returns Optimizer
-		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(), cse: Cse.new(), analysis: Analysis.new(), facts: LoopFacts.new()}
+		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(), cse: Cse.new(), copies: Copies.new(), threader: Threader.new(), analysis: Analysis.new(), facts: LoopFacts.new()}
 	end 'new'
 end 'Optimizer'
 
@@ -41,8 +44,15 @@ end 'optimizeModule'
 // optimizeFunction runs the passes before the fallback on f.
 function optimizeFunction(mutates o Optimizer, mutates f ir.IrFunction)
 	o.ssa.construct(f)
-	o.fold.foldFunction(f, raises: false)
+	threadAndFold(o, f: f, raises: false)
 end 'optimizeFunction'
+
+// threadAndFold threads the edges of f that pass a constant to a branch on it, and folds f, which removes the blocks and
+// the constants the threaded edges left.
+function threadAndFold(mutates o Optimizer, mutates f ir.IrFunction, raises bool)
+	_ = o.threader.thread(f)
+	o.fold.foldFunction(f, raises: raises)
+end 'threadAndFold'
 
 // fallbackOf is the fallback of the function at place at of fns, a module's functions as lowerModule lowered them and the
 // optimizer then changed: the function lowered again from its declaration and taken through the passes before the
@@ -84,4 +94,5 @@ function refine(mutates o Optimizer, mutates f ir.IrFunction)
 		end 'hoisted'
 	end 'loops'
 	o.cse.eliminate(f, analysis: o.analysis, facts: o.facts)
+	_ = o.copies.elide(f)
 end 'refine'

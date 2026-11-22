@@ -2,9 +2,9 @@
 // helper or an accessor costs what its body does and not the protocol of a call around it (the moves of the arguments, the
 // frame, the values spilled across it).
 //
-// A leaf calls nothing on its hot path, its blocks that do not end in a trap: no call of any kind, allocation, box or copy,
-// but for a call of a runtime entry that the backend writes in place (ir.writtenInPlace) and a drop, which a body that is
-// given a value ends with and which stays a call in the copy. Its size is its instructions and terminators, a parameter's
+// A leaf calls no code of the program on its hot path, its blocks that do not end in a trap: no call of a function, a
+// closure or a witness, allocation, box or copy, but for a call of a runtime entry, which stays one call in the copy, and a
+// drop, which a body that is given a value ends with and which stays a call in the copy. Its size is its instructions and terminators, a parameter's
 // read aside since it becomes the call's argument: at most maxLeafOps on the hot path, or maxColdArmLeafOps when it has
 // blocks that end in a trap, whose own are at most maxLeafColdOps. It keeps no slot after SSA construction (a frame zeroes
 // its slots once, so a copy in a loop would see what the last pass left), holds no closure or behaviour body, and has
@@ -13,8 +13,9 @@
 //
 // The leaves are decided on the bodies as the fold left them, and copied as the expansion of the primitives (expand.maxon)
 // leaves them, which runs on every function before the first copy; a call is replaced only outside a block that ends in a
-// trap, so no leaf is changed by the pass: every copy of one is the same body, and the order the functions are visited in
-// changes nothing. A copy of a function that throws joins the caller where the call did: its returns and its throws jump
+// trap. A function whose calls were all copies of leaves is a leaf from then on, as maxon's followPromotedLeaves makes it,
+// so the functions are visited callees first (calleesFirst), and a caller copies such a leaf with its copies in it: a
+// predicate over a helper inlines whole. A copy of a function that throws joins the caller where the call did: its returns and its throws jump
 // to the block after the call with the value and the error the call would have given (0 for the one that is not there),
 // so the caller's test of the error and its failure handling stay as lowering wrote them. Its drops, traps and panics, with
 // their messages and the places in them, are the callee's own, copied. A function that returns a borrowed place returns
@@ -81,6 +82,19 @@ export type Leaves
 		end 'none'
 		return try places[ast.funcListOf(f)][ast.funcPlaceOf(f)] - 1 otherwise panic("opt: a leaf with no place")
 	end 'placeOf'
+
+	// add makes the function f, at place in its module's list, one of the leaves.
+	function add(mutates self, f ast.FuncID, place Count)
+		let list = ast.funcListOf(f)
+		let at = ast.funcPlaceOf(f)
+		while places.count() <= list 'growLists'
+			places.push(PlaceList.create(0))
+		end 'growLists'
+		while places[list].count() <= at 'grow'
+			places[list].push(noPlace)
+		end 'grow'
+		places[list][at] = plusOne(place)
+	end 'add'
 end 'Leaves'
 
 export typealias LeavesList = Array with frozen with Leaves
@@ -121,23 +135,84 @@ export typealias LoweredLists = Array with frozen with ir.IrFunctionList
 // holds, once the optimizer has run on them; with preemptibleOnly, only those that preemptible marks (Preemptible), the
 // ones a preemptible function may copy.
 export function findLeaves(fns ir.IrFunctionList, slot Count, preemptible Preemptible, preemptibleOnly bool) returns Leaves
-	var places as PlaceLists
-	places = PlaceLists.create(0)
+	var leaves = Leaves.of(slot, places: PlaceLists.create(0))
 	for i in 0 upto fns.count() 'functions'
 		if ast.funcSlotOf(fns[i].decl) == slot and isLeaf(fns[i]) and (not preemptibleOnly or preemptible.holds(i)) 'leaf'
-			let list = ast.funcListOf(fns[i].decl)
-			let at = ast.funcPlaceOf(fns[i].decl)
-			while places.count() <= list 'growLists'
-				places.push(PlaceList.create(0))
-			end 'growLists'
-			while places[list].count() <= at 'grow'
-				places[list].push(noPlace)
-			end 'grow'
-			places[list][at] = try i + 1 otherwise panic("opt: a module with more functions than memory")
+			leaves.add(fns[i].decl, place: i)
 		end 'leaf'
 	end 'functions'
-	return Leaves.of(slot, places: places)
+	return leaves
 end 'findLeaves'
+
+// calleesFirst is the order to inline into the functions fns, of the module of the slot slot, in: each after the ones of
+// the module it calls, so that a function whose calls were all of leaves is a leaf by the time its callers are copied
+// into. A call back into a function on the way is not followed, and the walk starts from each function in the module's
+// order, so the order is the same on every compile.
+function calleesFirst(fns ir.IrFunctionList, slot Count) returns Array with Count
+	var index = Leaves.of(slot, places: PlaceLists.create(0))
+	for i in 0 upto fns.count() 'index'
+		if ast.funcSlotOf(fns[i].decl) == slot 'own'
+			index.add(fns[i].decl, place: i)
+		end 'own'
+	end 'index'
+	var order as Array with Count
+	order = Array.create(0)
+	var state as Array with Count
+	state = Array.create(0)
+	for _ in 0 upto fns.count() 'unseen'
+		state.push(unseenFunction)
+	end 'unseen'
+	var stack as Array with Count
+	stack = Array.create(0)
+	var cursor as Array with Count
+	cursor = Array.create(0)
+	for root in 0 upto fns.count() 'roots'
+		if state[root] != unseenFunction 'seen'
+			continue 'roots'
+		end 'seen'
+		state[root] = openFunction
+		stack.push(root)
+		cursor.push(0)
+		while stack.count() > 0 'walk'
+			let top = try stack.count() - 1 otherwise panic("opt: an empty walk")
+			let i = stack[top]
+			var next = noPlace
+			var k = cursor[top]
+			while k < fns[i].instrs.count() and next == noPlace 'calls'
+				if fns[i].instrs[k].op == ir.Opcode.opCall 'call'
+					let callee = ir.callCallee(fns[i], x: fns[i].instrs[k])
+					if index.holds(callee) 'own'
+						let j = index.placeOf(callee)
+						if state[j] == unseenFunction 'unseen'
+							next = plusOne(j)
+						end 'unseen'
+					end 'own'
+				end 'call'
+				k = plusOne(k)
+			end 'calls'
+			cursor[top] = k
+			if next == noPlace 'done'
+				state[i] = doneFunction
+				order.push(i)
+				_ = try stack.pop() otherwise panic("opt: an empty walk")
+				_ = try cursor.pop() otherwise panic("opt: an empty walk")
+			end 'done' else 'deeper'
+				let j = linkIndex(next)
+				state[j] = openFunction
+				stack.push(j)
+				cursor.push(0)
+			end 'deeper'
+		end 'walk'
+	end 'roots'
+	return order
+end 'calleesFirst'
+
+// The states of a function in the walk of calleesFirst.
+let unseenFunction = 0 as Count
+
+let openFunction = 1 as Count
+
+let doneFunction = 2 as Count
 
 // isLeaf is whether f is a leaf (see the top of this file).
 function isLeaf(f ir.IrFunction) returns bool
@@ -181,7 +256,8 @@ function isColdBlock(f ir.IrFunction, b Count) returns bool
 	return f.blocks[b].term.kind == ir.TermKind.termTrap
 end 'isColdBlock'
 
-// callsOut is whether an instruction calls code that a caller of the leaf would then call too.
+// callsOut is whether an instruction calls code of the program, which a copy would call from each caller: a call of the
+// runtime stays one call in the copy, as it was one in the leaf.
 function callsOut(x ir.Instr) returns bool
 	if (ir.opEffects(x.op) and ir.effectCalls) == 0 'noCall'
 		return false
@@ -189,7 +265,7 @@ function callsOut(x ir.Instr) returns bool
 	if x.op == ir.Opcode.opDrop or x.op == ir.Opcode.opDropAt 'drop'
 		return false
 	end 'drop'
-	return not (x.op == ir.Opcode.opCallRuntime and ir.writtenInPlace(ir.callRuntimeSymbol(x)))
+	return x.op != ir.Opcode.opCallRuntime
 end 'callsOut'
 
 // Inliner is the state of the copies, kept from one function to the next so that its arrays keep their capacity: the
@@ -496,14 +572,16 @@ end 'inlineInto'
 // lowered and leaves are the
 // functions and leaves of the modules this compile lowers, by their index from first, of which the module may read those
 // reads marks: the ones it names, whose lower its own waited for. The module's own entry in lowered is not read.
-export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, own Leaves, ownPreemptible Leaves, preemptible Preemptible, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
+export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates own Leaves, mutates ownPreemptible Leaves, preemptible Preemptible, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
 	for i in 0 upto fns.count() 'expand'
 		_ = o.expander.expandFunction(fns[i])
 		if holdsRaising(fns[i]) 'raising'
 			o.fold.foldFunction(fns[i], raises: true)
 		end 'raising'
 	end 'expand'
-	for i in 0 upto fns.count() 'functions'
+	let order = calleesFirst(fns, slot: own.slot)
+	for n in 0 upto order.count() 'functions'
+		let i = order[n]
 		var f = exchange(fns[i], value: ir.IrFunction.new(ast.noFunc, name: "", paramCount: 0))
 		var changed as bool
 		if preemptible.all() or not preemptible.holds(i) 'every'
@@ -512,7 +590,13 @@ export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList,
 			changed = inlineInto(o, f: f, own: ownPreemptible, ownFns: fns, lowered: lowered, leaves: leaves, reads: reads, first: first)
 		end 'preemptibleOnly'
 		if changed 'changed'
-			o.fold.foldFunction(f, raises: true)
+			threadAndFold(o, f: f, raises: true)
+			if ast.funcSlotOf(f.decl) == own.slot and isLeaf(f) 'promoted'
+				own.add(f.decl, place: i)
+				if not preemptible.all() and preemptible.holds(i) 'preemptible'
+					ownPreemptible.add(f.decl, place: i)
+				end 'preemptible'
+			end 'promoted'
 		end 'changed'
 		fns[i] = f
 	end 'functions'

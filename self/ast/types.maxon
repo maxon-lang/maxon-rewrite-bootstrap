@@ -2431,19 +2431,32 @@ export function payloadType(mutates tt TypeSlot, reads TypeTable, owner TypeID, 
 end 'payloadType'
 
 // packsBytes is whether t is an array whose box holds each element in one byte: an array of an integer type whose range
-// fits in a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an
-// array asks this, so the two boxes are never mistaken for each other.
+// fits in a Byte, as Array with Byte (ByteArray) is, or of an enum, whose value is its case's ordinal, of at most
+// byteEnumCases cases, so that a table of slot states is an eighth of the memory a probe reads. Every other array holds
+// a word to an element. Every operation on an array asks this, so the two boxes are never mistaken for each other.
 export function packsBytes(tt TypeSlot, reads TypeTable, b Builtins, t TypeID) returns bool
 	if typeKind(tt, reads: reads, t: t) != TypeKind.builtinArray 'notArray'
 		return false
 	end 'notArray'
-	let elem = typeEntry(tt, reads: reads, t: t).typeArgs[0]
-	if typeKind(tt, reads: reads, t: elem) != TypeKind.intRange 'notInt'
+	return packsByte(tt, reads: reads, b: b, elem: typeEntry(tt, reads: reads, t: t).typeArgs[0])
+end 'packsBytes'
+
+// packsByte is whether a collection of elements of type elem holds each in one byte (packsBytes): an array, and the
+// memory and cursors over its buffer.
+export function packsByte(tt TypeSlot, reads TypeTable, b Builtins, elem TypeID) returns bool
+	let kind = typeKind(tt, reads: reads, t: elem)
+	if kind == TypeKind.enumTy 'enum'
+		return typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: elem)).cases.count() <= byteEnumCases
+	end 'enum'
+	if kind != TypeKind.intRange 'notInt'
 		return false
 	end 'notInt'
 	let byteTy = b.byteTy
 	return typeEntry(tt, reads: reads, t: elem).minVal.ge(typeEntry(tt, reads: reads, t: byteTy).minVal) and typeEntry(tt, reads: reads, t: elem).maxVal.le(typeEntry(tt, reads: reads, t: byteTy).maxVal)
-end 'packsBytes'
+end 'packsByte'
+
+// byteEnumCases is the most cases an enum whose values a byte holds has: ordinals 0 to 255.
+let byteEnumCases = 256 as Count
 
 // leadingParams is how many words a call of the function passes before its parameters: the receiver of a method, or the
 // closure that a closure's body reads its captures from.

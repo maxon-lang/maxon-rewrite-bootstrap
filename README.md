@@ -1085,6 +1085,12 @@ what a later pass such as reference counting or an optimization changes.
   that is empty only on some paths reaches its drop as a 0, which drops as nothing. An entry block that a back edge enters
   gets a new entry that jumps to it, since the entry takes no parameters. The slots that stay are numbered again from 0,
   so selection reserves and zeroes only those. On `self`, 17,784 of 17,923 slots are promoted.
+- **Jump threading** (`self/opt/thread.maxon`, maxon's `threadConstantBranches`) runs next, and again with the fold after leaf
+  inlining: an edge that passes a constant to a block that holds nothing but a branch on its own parameter goes to the side
+  the constant takes, an edge into a block that holds nothing but a jump goes where it jumps, and a block whose jump goes to a
+  block that holds nothing but a branch on the first block's parameter takes that branch. A `match` that gives a bool which
+  an `if` tests, and an inlined predicate, become one compare and one branch. A `match` on an enum, a union or a bool with no
+  `default` arm takes its last arm untested, since the checker holds it to name every value.
 - The fold pass (`opt.Fold`, `self/opt/fold.maxon`) runs next, on every function of a native build: one worklist that
   folds constants (by the IR's own meaning, `ir.evalBin` and the rest in `self/ir/evaluate_gen.maxon`, which the interpreter
   runs too), propagates copies, applies the rules of `generic.rules` (and, run again past a function's fallback, those of
@@ -1110,13 +1116,14 @@ what a later pass such as reference counting or an optimization changes.
   element become the operations of their common case (see "The primitives in the IR"). Right after it, each function that
   holds a division or a remainder (`opt.mayRaise`) is folded again with the rules of `pressure.rules`.
 - **Leaf inlining** (`self/opt/inline.maxon`) runs after the expansion, on each module: a call of a leaf is replaced by a copy
-  of its body. The policy is maxon's leaf rule (`InlineLeaves`): a leaf calls nothing on its hot path (its blocks that do
-  not end in a `trap`), but for a runtime entry the backend writes in place (`ir.writtenInPlace`: lengths, element reads
-  and writes, a push) and a `drop`, which stays a call in the copy; it has at most `maxLeafOps` (24) instructions and
+  of its body. The policy is maxon's leaf rule (`InlineLeaves`): a leaf calls no code of the program on its hot path (its
+  blocks that do not end in a `trap`); a call of a runtime entry and a `drop` stay one call in the copy; it has at most `maxLeafOps` (24) instructions and
   terminators on its hot path, a parameter's read aside, or `maxColdArmLeafOps` (28) when it has cold blocks, which hold
   at most `maxLeafColdOps` (12); it keeps no slot (a frame zeroes its slots once), holds no closure or behaviour body and
   no refusal. Calling nothing, it is never recursive. The leaves are decided on the bodies as the fold left them and a call
-  is replaced only outside a cold block, so no leaf changes and every copy is the same. A copy of one block that returns a
+  is replaced only outside a cold block; a function whose calls were all copies is a leaf from then on (maxon's
+  `followPromotedLeaves`), so a module's functions are inlined into callees first (`opt.calleesFirst`), and a predicate over
+  a helper, or `String.hash` over the fold of its bytes, is copied whole. A copy of one block that returns a
   value it makes goes into the caller's block with that value made in the call's register; any other copy is blocks of
   its own after the function's (`ir.relocationInto` appends the callee's pools, and the generated `relocateInstr` and
   `relocateTerm` move each operation's registers, blocks and pool indexes), entered by a jump that ends the call's
@@ -1130,7 +1137,8 @@ what a later pass such as reference counting or an optimization changes.
   the function's own writes and calls change, a read of memory another thread may write (a runtime global, a raw word, the
   thread's context: never merged or moved), an operation that changes nothing a read sees (an allocation, a copy, a box, a
   closure, a drop of a register, whose boxes unique ownership gives to the dropped value alone), and a clobber (a store, a
-  move out of a place, a `dropslot` or `dropat`, an atomic operation, a frame box, and every call: a `mutates` argument is
+  move out of a place, a `dropslot` or `dropat`, an atomic operation, a frame box, and every call but of a runtime entry that only
+  reads, such as `rt.streq`, which is quiet: a `mutates` argument is
   the address of the caller's place and a push or an insert is a runtime call that changes its array's length and buffer,
   and the IR keeps no types or conventions to say which box a call may change, so a call ends every read).
   - **Loop rotation** (`self/opt/rotate.maxon`) turns a loop whose header tests whether to leave, as a `while` is lowered,
@@ -1154,6 +1162,11 @@ what a later pass such as reference counting or an optimization changes.
     check that an identical dominating one passed goes with its failure block, and a read is merged only with one that
     sees the same version of memory, a number that changes at each clobber, at a join whose ways in disagree and at the
     header of a loop that holds a clobber, so no read is merged across a write on any path.
+
+  - **Copy elision** (`self/opt/copies.maxon`) runs last: a copy that is only lent (read by an operation that keeps nothing,
+    or by a runtime entry that only reads, `ir.onlyReads`) and dropped on every path, with no clobber and no drop of anything
+    else between, is the value it copied, as a `let` bound to `Array.get` that is only compared is; and a copy of a field
+    that the field's assignment then drops is a move, as `let old = field.clone()` before `field = new` is.
 
   They share one analysis, found again only after a pass that changed the function, and an edit that only removes
   instructions moves the rest down in place. On `self` they rotate 598 loops, move 13,032 operations out of loops (once
@@ -1330,7 +1343,8 @@ runtime each implement the entries. The element is always visible in the call:
   `byteat` that code motion splits an element read into reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
   a loop, a loop that the call let compile may need more registers than x64 has, so the function's IR before the expansion
   is its fallback (see "E5001 and the optimizations"), whose calls the backend writes in place as it always did.
-- An array whose element is an integer that fits in a byte (`ByteArray`, `Array with Byte`) packs one byte to an element, so it
+- An array whose element is an integer that fits in a byte (`ByteArray`, `Array with Byte`) or an enum of at most 256 cases,
+  whose value is its ordinal, packs one byte to an element, so it
   calls the `rt.bytes.*` entries instead of `rt.array.*`: `rt.bytes.get` and `rt.bytes.set` in place of the address of an
   element, and its own `insert`, `remove`, `append` (a copy of the bytes), `appendStr` and `toString`. `ast.packsBytes` decides
   it and `arrayPacked` (`self/ir/arrays.maxon`) is the one place lowering asks, so every array operation goes through it. A byte
@@ -3208,7 +3222,8 @@ for an integer, a float, an enum, a handle and a function, a word to each field 
 any other value, which a place holds as the address of its box. Of a concrete type it is an integer constant; of a type that a
 generic's parameters build it is a `Count` that each instance computes from its arguments.
 
-An array of an integer type whose range fits in a `Byte` holds one byte to an element, natively and under the
+An array of an integer type whose range fits in a `Byte`, or of an enum of at most 256 cases, holds one byte to an element,
+natively and under the
 interpreter, and any other array a word; the program cannot tell, except by how much memory it takes.
 
 **Array and map literals.** `[a, b, c]` is an `Array` and `[k: v, l: w]` the standard library's `Map`, written on one line with at least one element:
@@ -4099,8 +4114,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   There is no built-in `Option`, which maxon's stdlib has no more of either: an
   operation that can miss throws.
 - `ByteArray` is a built-in typealias rather than maxon's in `stdlib/File.maxon`, and the minimaxon `Bytes` buffer is
-  gone for it. Only an array of an integer type that fits in a byte packs its elements; maxon sizes an enum's and a
-  narrower integer's elements by their range too. `String.from(bytes)` copies the bytes where maxon's shares the
+  gone for it. Only an array of an integer type that fits in a byte or of an enum of at most 256 cases packs its
+  elements; maxon sizes a narrower integer's elements by their range too. `String.from(bytes)` copies the bytes where maxon's shares the
   array's buffer, and a `String` here is its bytes, so neither direction scans them.
 - The OS functions (see "The OS") have maxon's names, signatures and errors, but are a subset, built in rather than
   stdlib code: `FilePath` has only `from`, `toString` and its `path`, and `FilePath.from` does not resolve a `file://`

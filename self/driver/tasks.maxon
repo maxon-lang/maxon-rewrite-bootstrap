@@ -513,8 +513,8 @@ end 'keepsChecked'
 // for, and whose code and leaves it knows.
 function inlineModule(c Compile, mutates work ModuleWork, p ast.Project, ms ast.ModuleState, m Count, known Known, mutates fns ir.IrFunctionList, mutates optimizer opt.Optimizer, mutates timing TaskTiming)
 	let preemptible = preemptibleFunctions(p, ms: ms, m: m, fns: fns)
-	let leaves = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module), preemptible: preemptible, preemptibleOnly: false)
-	let ownPreemptible = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module), preemptible: preemptible, preemptibleOnly: true)
+	var leaves = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module), preemptible: preemptible, preemptibleOnly: false)
+	var ownPreemptible = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module), preemptible: preemptible, preemptibleOnly: true)
 	var reads as Array with bool
 	reads = Array.create(0)
 	var lowered as opt.LoweredLists

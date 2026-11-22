@@ -1,0 +1,285 @@
+// Jump threading, maxon's threadConstantBranches: an edge into a block that holds nothing but a branch on one of its own
+// parameters, where the edge passes a constant for it, goes straight to the side of the branch the constant takes. A
+// `match` or a call of a predicate that gives a bool which an `if` then tests is a join of constants and a branch on the
+// join, so this is what makes such a test one compare and one branch. The edge passes the arguments that side passed,
+// with each of the block's parameters replaced by what the edge passed for it, so a parameter may be read only by the
+// block's own branch: what reads it elsewhere would not see the value on the threaded edge. An edge into a block that holds
+// nothing but constants nothing reads and jumps on goes where it jumps, so that the two sides of a test that end up in one
+// place are seen to, and the fold that follows turns the test into a jump and removes the blocks and constants every edge
+// left. A block whose jump goes to a block that holds nothing but a branch on the first block's parameter takes that
+// branch, as the block an inlined predicate returns to does.
+
+// maxThreadRounds bounds the rounds over a function, since a cycle of forwarders that pass one another constants would
+// thread forever.
+let maxThreadRounds = 8 as Count
+
+export type Threader
+	// threaded is how many edges the pass moved, over every function it was given.
+	export var threaded as Count
+	var editor as Editor
+	// By register: how many times it is read, whether a const defines it and its value, and the block plus 1 whose
+	// parameter it is, with its place among the block's parameters.
+	var reads as Array with Count
+	var isConst as Array with bool
+	var value as ir.WordList
+	var paramOf as Array with Count
+	var paramAt as Array with Count
+	// By block: whether it is a branch on a parameter that only its branch reads, and whether it holds nothing but constants
+	// nothing reads and jumps on.
+	var forwards as Array with bool
+	var passes as Array with bool
+	// By block: whether it holds nothing, takes no parameters and ends in a branch.
+	var tests as Array with bool
+	var regs as ir.RegList
+	var moved as ir.RegList
+
+	export static function new() returns Threader
+		return Threader{threaded: 0, editor: Editor.new(), reads: Array.create(0), isConst: Array.create(0), value: ir.WordList.create(0), paramOf: Array.create(0), paramAt: Array.create(0), forwards: Array.create(0), passes: Array.create(0), tests: Array.create(0), regs: ir.RegList.create(0), moved: ir.RegList.create(0)}
+	end 'new'
+
+	// thread moves the edges of f and of the bodies of its closures and behaviours that pass a constant to a branch on it,
+	// and gives whether it moved any. f is in SSA form.
+	export function thread(mutates self, mutates f ir.IrFunction) returns bool
+		var changed = false
+		for i in 0 upto f.bodies.count() 'bodies'
+			if self.thread(f.bodies[i]) 'body'
+				changed = true
+			end 'body'
+		end 'bodies'
+		if f.refusals.count() > 0 or not holdsEmptyBlock(f) 'none'
+			return changed
+		end 'none'
+		var again = true
+		var rounds = 0 as Count
+		while again and rounds < maxThreadRounds 'rounds'
+			again = false
+			rounds = plusOne(rounds)
+			self.facts(f)
+			var any = false
+			for b in 0 upto f.blocks.count() 'blocks'
+				if forwards[b] or passes[b] or tests[b] 'forwarder'
+					any = true
+					break 'blocks'
+				end 'forwarder'
+			end 'blocks'
+			if not any 'nothing'
+				return changed
+			end 'nothing'
+			for p in 0 upto f.blocks.count() 'blocks'
+				let hoisted = self.hoist(f, p: p)
+				if self.threadEdges(f, p: p) or hoisted 'moved'
+					again = true
+					changed = true
+				end 'moved'
+			end 'blocks'
+		end 'rounds'
+		return changed
+	end 'thread'
+
+	// hoist gives block p, which jumps to a block that holds nothing but a branch on one of p's parameters, that branch in
+	// place of its jump, so that p is a forwarder whose edges in can be threaded, as the block an inlined predicate returns
+	// to is. What the branch reads is p's parameter or is defined before the block it was in, so before p too.
+	function hoist(mutates self, mutates f ir.IrFunction, p Count) returns bool
+		if f.blocks[p].term.kind != ir.TermKind.termJump or ir.jumpArgsCount(f.blocks[p].term) != 0 'notJump'
+			return false
+		end 'notJump'
+		let u = ir.blockIndex(ir.jumpTarget(f.blocks[p].term))
+		if u == p or not tests[u] or paramOf[regIndex(ir.branchCond(f.blocks[u].term))] != plusOne(p) 'notTest'
+			return false
+		end 'notTest'
+		f.blocks[p].term = f.blocks[u].term.clone()
+		editor.loadEdges(f, b: p)
+		editor.storeEdges(f, b: p)
+		threaded = plusOne(threaded)
+		return true
+	end 'hoist'
+
+	// facts finds what the pass reads of each register and block.
+	function facts(mutates self, f ir.IrFunction)
+		let nRegs = f.regs.count()
+		ir.resetCounts(reads, n: nRegs)
+		ir.resetFlags(isConst, n: nRegs)
+		ir.resetCounts(paramOf, n: nRegs)
+		ir.resetCounts(paramAt, n: nRegs)
+		while value.count() < nRegs 'grow'
+			value.push(0)
+		end 'grow'
+		for b in 0 upto f.blocks.count() 'blocks'
+			for i in 0 upto f.blocks[b].paramCount 'params'
+				let r = regIndex(f.blockParam(b, i: i))
+				paramOf[r] = plusOne(b)
+				paramAt[r] = i
+			end 'params'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				if f.instrs[k].op == ir.Opcode.opConst 'const'
+					let r = regIndex(f.instrs[k].dst)
+					isConst[r] = true
+					value[r] = ir.constValue(f.instrs[k])
+				end 'const'
+				regs.clear()
+				ir.instrReads(f, x: f.instrs[k], out: regs)
+				self.countAll()
+			end 'instrs'
+			regs.clear()
+			ir.termReads(f, t: f.blocks[b].term, out: regs)
+			self.countAll()
+		end 'blocks'
+		ir.resetFlags(forwards, n: f.blocks.count())
+		ir.resetFlags(passes, n: f.blocks.count())
+		ir.resetFlags(tests, n: f.blocks.count())
+		for b in 0 upto f.blocks.count() 'forwarders'
+			let forwarding = self.forwarder(f, b: b)
+			forwards[b] = forwarding
+			passes[b] = self.holdsNothingRead(f, b: b) and f.blocks[b].paramCount == 0 and f.blocks[b].term.kind == ir.TermKind.termJump and ir.blockIndex(ir.jumpTarget(f.blocks[b].term)) != b
+			tests[b] = f.blocks[b].first == f.blocks[b].endAt and f.blocks[b].paramCount == 0 and f.blocks[b].term.kind == ir.TermKind.termBranch
+		end 'forwarders'
+	end 'facts'
+
+	// holdsNothingRead is whether block b holds nothing but constants nothing reads, which an edge that leaves the block out
+	// leaves for the fold to remove: an edge that a threading moved off them left them unread.
+	function holdsNothingRead(f ir.IrFunction, b Count) returns bool
+		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+			if f.instrs[k].op != ir.Opcode.opConst or reads[regIndex(f.instrs[k].dst)] != 0 'read'
+				return false
+			end 'read'
+		end 'instrs'
+		return true
+	end 'holdsNothingRead'
+
+	function countAll(mutates self)
+		for i in 0 upto regs.count() 'reads'
+			let r = regIndex(regs[i])
+			reads[r] = plusOne(reads[r])
+		end 'reads'
+	end 'countAll'
+
+	// forwarder is whether block b holds nothing but a branch on one of its parameters, and its branch is all that reads
+	// its parameters.
+	function forwarder(mutates self, f ir.IrFunction, b Count) returns bool
+		if f.blocks[b].first != f.blocks[b].endAt or f.blocks[b].term.kind != ir.TermKind.termBranch 'shape'
+			return false
+		end 'shape'
+		let cond = regIndex(ir.branchCond(f.blocks[b].term))
+		if paramOf[cond] != plusOne(b) 'notParam'
+			return false
+		end 'notParam'
+		regs.clear()
+		ir.termReads(f, t: f.blocks[b].term, out: regs)
+		for i in 0 upto f.blocks[b].paramCount 'params'
+			let r = f.blockParam(b, i: i)
+			var here = 0 as Count
+			for j in 0 upto regs.count() 'termReads'
+				if regs[j] == r 'same'
+					here = plusOne(here)
+				end 'same'
+			end 'termReads'
+			if here != reads[regIndex(r)] 'readElsewhere'
+				return false
+			end 'readElsewhere'
+		end 'params'
+		return true
+	end 'forwarder'
+
+	// shared is whether an edge of the terminator being threaded other than e enters target with other arguments than
+	// the count from start of f.args that e would pass: two edges of one branch into one block would need their arguments
+	// set apart, and two that pass the same are one jump to the fold.
+	function shared(f ir.IrFunction, e Count, target ir.BlockID, start Count, count Count) returns bool
+		if count == 0 'none'
+			return false
+		end 'none'
+		for i in 0 upto editor.edges.out.count() 'edges'
+			if i != e and editor.edges.out[i] == target and not sameEdgeArgs(f, a: editor.edges.argsStart[i], b: start, count: count) 'other'
+				return true
+			end 'other'
+		end 'edges'
+		return false
+	end 'shared'
+
+	// threadEdges moves each edge of block p that passes a constant to the branch of a forwarder, and says whether it moved
+	// any.
+	function threadEdges(mutates self, mutates f ir.IrFunction, p Count) returns bool
+		editor.loadEdges(f, b: p)
+		var changed = false
+		for e in 0 upto editor.edges.out.count() 'edges'
+			let t = ir.blockIndex(editor.edges.out[e])
+			if t != p and passes[t] and not self.shared(f, e: e, target: ir.jumpTarget(f.blocks[t].term), start: ir.jumpArgsStart(f.blocks[t].term), count: ir.jumpArgsCount(f.blocks[t].term)) 'passes'
+				editor.edges.out[e] = ir.jumpTarget(f.blocks[t].term)
+				// The edge gets arguments of its own, since a pass that renames what one edge reads does not rename the other.
+				moved.clear()
+				for i in 0 upto ir.jumpArgsCount(f.blocks[t].term) 'args'
+					moved.push(f.args[sum(ir.jumpArgsStart(f.blocks[t].term), b: i)])
+				end 'args'
+				editor.edges.argsStart[e] = f.args.count()
+				editor.edges.argsCount[e] = moved.count()
+				f.args.append(moved)
+				threaded = plusOne(threaded)
+				changed = true
+				continue 'edges'
+			end 'passes'
+			if t == p or not forwards[t] 'other'
+				continue 'edges'
+			end 'other'
+			let term = f.blocks[t].term.clone()
+			let at = paramAt[regIndex(ir.branchCond(term))]
+			let passed = regIndex(f.args[sum(editor.edges.argsStart[e], b: at)])
+			if not isConst[passed] 'unknown'
+				continue 'edges'
+			end 'unknown'
+			var target = ir.branchIfFalse(term)
+			var start = ir.branchFalseArgsStart(term)
+			var count = ir.branchFalseArgsCount(term)
+			if value[passed] != 0 'taken'
+				target = ir.branchIfTrue(term)
+				start = ir.branchTrueArgsStart(term)
+				count = ir.branchTrueArgsCount(term)
+			end 'taken'
+			if target == editor.edges.out[e] 'itself'
+				continue 'edges'
+			end 'itself'
+			moved.clear()
+			for i in 0 upto count 'args'
+				let r = f.args[sum(start, b: i)]
+				if paramOf[regIndex(r)] == plusOne(t) 'param'
+					moved.push(f.args[sum(editor.edges.argsStart[e], b: paramAt[regIndex(r)])])
+				end 'param' else 'outer'
+					moved.push(r)
+				end 'outer'
+			end 'args'
+			let first = f.args.count()
+			f.args.append(moved)
+			if self.shared(f, e: e, target: target, start: first, count: moved.count()) 'apart'
+				f.args.truncate(first)
+				continue 'edges'
+			end 'apart'
+			editor.edges.out[e] = target
+			editor.edges.argsStart[e] = first
+			editor.edges.argsCount[e] = moved.count()
+			threaded = plusOne(threaded)
+			changed = true
+		end 'edges'
+		if changed 'store'
+			editor.storeEdges(f, b: p)
+		end 'store'
+		return changed
+	end 'threadEdges'
+end 'Threader'
+
+// holdsEmptyBlock is whether a block of f holds no instruction, which every block the pass threads through is.
+function holdsEmptyBlock(f ir.IrFunction) returns bool
+	for b in 0 upto f.blocks.count() 'blocks'
+		if f.blocks[b].first == f.blocks[b].endAt 'empty'
+			return true
+		end 'empty'
+	end 'blocks'
+	return false
+end 'holdsEmptyBlock'
+
+// sameEdgeArgs is whether the count arguments of f.args from a are those from b.
+function sameEdgeArgs(f ir.IrFunction, a Count, b Count, count Count) returns bool
+	for i in 0 upto count 'each'
+		if f.args[sum(a, b: i)] != f.args[sum(b, b: i)] 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'sameEdgeArgs'

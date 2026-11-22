@@ -6,6 +6,13 @@ export function writtenInPlace(symbol Rt) returns bool
 	return symbol == Rt.rtArrayLen or symbol == Rt.rtBytesLen or symbol == Rt.rtStrLen or symbol == Rt.rtFrozenGet or symbol == Rt.rtArrayElem or symbol == Rt.rtBytesGet or symbol == Rt.rtStrByteAt or symbol == Rt.rtBytesSet or symbol == Rt.rtArrayInsert or symbol == Rt.rtBytesInsert
 end 'writtenInPlace'
 
+// onlyReads is whether a call of the runtime entry symbol changes nothing its caller can read: it reads its arguments and
+// what they reach, and gives a scalar or a new box. So it ends no read of the caller (opt.motionOf), and a value it is
+// lent may be a borrow of one that nothing else changes.
+export function onlyReads(symbol Rt) returns bool
+	return symbol == Rt.rtConcat or symbol == Rt.rtItoa or symbol == Rt.rtFtoa or symbol == Rt.rtFtoaExact or symbol == Rt.rtFmtInt or symbol == Rt.rtFmtPad or symbol == Rt.rtFmtQuoted or symbol == Rt.rtFmtFixed or symbol == Rt.rtStreq or symbol == Rt.rtStrLen or symbol == Rt.rtStrByteAt or symbol == Rt.rtStrSlice or symbol == Rt.rtStrCount or symbol == Rt.rtStrGraphemeIndex or symbol == Rt.rtStrGraphemeBytePos or symbol == Rt.rtStrFind or symbol == Rt.rtStrFindLast or symbol == Rt.rtStrHasAffix or symbol == Rt.rtStrReplace or symbol == Rt.rtStrTrim or symbol == Rt.rtStrMapCase or symbol == Rt.rtStrCodePointAt or symbol == Rt.rtStrCodePointNext or symbol == Rt.rtStrCodePointCount or symbol == Rt.rtStrUtf16Unit or symbol == Rt.rtStrUtf16Next or symbol == Rt.rtStrUtf16Count or symbol == Rt.rtHashWord or symbol == Rt.rtHashBytes or symbol == Rt.rtHashStringBytes or symbol == Rt.rtArrayNew or symbol == Rt.rtArrayLen or symbol == Rt.rtArrayElem or symbol == Rt.rtBytesNew or symbol == Rt.rtBytesLen or symbol == Rt.rtBytesGet or symbol == Rt.rtBytesToString
+end 'onlyReads'
+
 // arrayOf is the runtime of the array type t, read through the binding and through a frozen value.
 function arrayOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID) returns ArrayBox
 	let bt = builtinOf(l, p: p, ms: ms, collection: t)
@@ -15,16 +22,10 @@ function arrayOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s
 	return ArrayBox.make(site.clone(), ty: bt)
 end 'arrayOf'
 
-// arrayPacked is whether the array's box holds each element in one byte: an array of an integer type whose range fits in
-// a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an array
-// asks this, so the two boxes are never mistaken for each other.
+// arrayPacked is whether the box of the array, or of the memory or cursor over its buffer, holds each element in one byte
+// (ast.packsBytes).
 function arrayPacked(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
-	let elem = ast.typeArgAt(ms.types, reads: p.types, t: box.ty, index: 0)
-	if ast.typeKind(ms.types, reads: p.types, t: elem) != ast.TypeKind.intRange 'notInt'
-		return false
-	end 'notInt'
-	let byte = p.builtins.byteTy
-	return ast.typeEntry(ms.types, reads: p.types, t: byte).minVal.le(ast.typeEntry(ms.types, reads: p.types, t: elem).minVal) and ast.typeEntry(ms.types, reads: p.types, t: byte).maxVal.ge(ast.typeEntry(ms.types, reads: p.types, t: elem).maxVal)
+	return ast.packsByte(ms.types, reads: p.types, b: p.builtins, elem: ast.typeArgAt(ms.types, reads: p.types, t: box.ty, index: 0))
 end 'arrayPacked'
 
 function arrayElem(p ast.Project, ms ast.ModuleState, box ArrayBox) returns ast.TypeID

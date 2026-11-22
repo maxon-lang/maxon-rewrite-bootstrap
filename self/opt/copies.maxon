@@ -1,0 +1,371 @@
+// Copy elision: a copy whose value is only lent and then dropped is the value it copied, and a copy of what a field holds
+// that is dropped from the field right after is a move. Each copy of a string or a record is an allocation and a walk of
+// what it holds, and its drop a walk and a free, so a `let` bound to an element (`Array.get`) that is only compared, and
+// the `let old = field.clone()` that the field's assignment ends, cost no more than a borrow and a move.
+//
+// A lent copy goes where every path from it reaches its drop, through blocks that the path alone enters, and nothing on
+// the way can change or free what it copied: the copy is only read (by an operation that does not keep it, or by a runtime
+// entry that only reads), and between it and its drops there is no clobber (motion.maxon) and no drop but of a copy made
+// on the way, whose boxes are new. Then the copied value is alive and unchanged wherever the copy was, and is read in its
+// place.
+//
+// A copy of a field becomes the field's value where, later in the same block, the field is dropped and stored again, and
+// from the read of the field on nothing reads the field's value but to lend it and nothing changes memory but the stores
+// and drops of other fields of the same box, which own other values. The value then has one owner, the copy, and the
+// store fills the field.
+
+// maxLentWindow is the most instructions a lent copy's paths to its drops may hold, so the pass stays linear.
+let maxLentWindow = 256 as Count
+
+// noField is what fieldOf gives for an address that is not one of the base's fields.
+let noField = 0 as Count
+
+export type Copies
+	// elided is how many copies the pass removed, over every function it was given.
+	export var elided as Count
+	var editor as Editor
+	// By block: how many edges enter it. By register: how many times it is read, the instruction plus 1 that defines it,
+	// whether an elision already involved it, and the register it is read as.
+	var preds as Array with Count
+	var reads as Array with Count
+	var defAt as Array with Count
+	var involved as Array with bool
+	var repl as ir.RegList
+	var replaced as bool
+	// The walk of one copy: the stamp of each block it entered, the blocks left to walk with the instruction to start at,
+	// the drops of the copy it found and the copies made on the way.
+	var visited as Array with Count
+	var stamp as Count
+	var pendingBlock as Array with Count
+	var pendingFrom as Array with Count
+	var drops as Array with Count
+	var made as ir.RegList
+	var blockOf as Array with Count
+	var regs as ir.RegList
+	var successors as ir.SuccessorVisitor
+
+	export static function new() returns Copies
+		return Copies{elided: 0, editor: Editor.new(), preds: Array.create(0), reads: Array.create(0), defAt: Array.create(0), involved: Array.create(0), repl: ir.RegList.create(0), replaced: false, visited: Array.create(0), stamp: 0, pendingBlock: Array.create(0), pendingFrom: Array.create(0), drops: Array.create(0), made: ir.RegList.create(0), blockOf: Array.create(0), regs: ir.RegList.create(0), successors: ir.SuccessorVisitor.new()}
+	end 'new'
+
+	// elide removes the copies of f that are lent or moved, and gives whether it removed any. f is in SSA form.
+	export function elide(mutates self, mutates f ir.IrFunction) returns bool
+		if not holdsCopy(f) 'none'
+			return false
+		end 'none'
+		self.count(f)
+		editor.begin(f)
+		for b in 0 upto f.blocks.count() 'blocks'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				if f.instrs[k].op == ir.Opcode.opCopy and not editor.isRemoved(k) 'copy'
+					let c = regIndex(f.instrs[k].dst)
+					let x = regIndex(ir.copySrc(f.instrs[k]))
+					if not involved[c] and not involved[x] 'free'
+						if self.lent(f, k: k) or self.moved(f, k: k) 'gone'
+							editor.remove(k)
+							repl[c] = ir.regOf(x)
+							involved[c] = true
+							involved[x] = true
+							replaced = true
+							elided = plusOne(elided)
+						end 'gone'
+					end 'free'
+				end 'copy'
+			end 'instrs'
+		end 'blocks'
+		if not editor.changed 'unchanged'
+			return false
+		end 'unchanged'
+		if replaced 'rename'
+			for k in 0 upto f.instrs.count() 'instrs'
+				ir.renameInstrReads(f.instrs[k], args: f.args, names: repl)
+			end 'instrs'
+			for b in 0 upto f.blocks.count() 'terms'
+				ir.renameTermReads(f.blocks[b].term, args: f.args, cases: f.cases, names: repl)
+			end 'terms'
+		end 'rename'
+		editor.finish(f)
+		return true
+	end 'elide'
+
+	// count finds how many edges enter each block, how many times each register is read and where it is defined.
+	function count(mutates self, f ir.IrFunction)
+		let blocks = f.blocks.count()
+		let nRegs = f.regs.count()
+		ir.resetCounts(preds, n: blocks)
+		ir.resetCounts(visited, n: blocks)
+		stamp = 0
+		ir.resetCounts(reads, n: nRegs)
+		ir.resetCounts(defAt, n: nRegs)
+		ir.resetFlags(involved, n: nRegs)
+		ir.resetCounts(blockOf, n: f.instrs.count())
+		repl.clear()
+		for r in 0 upto nRegs 'regs'
+			repl.push(ir.regOf(r))
+		end 'regs'
+		replaced = false
+		for b in 0 upto blocks 'blocks'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				blockOf[k] = b
+				self.countReads(f, x: f.instrs[k])
+				regs.clear()
+				ir.instrWrites(f.instrs[k], out: regs)
+				for w in 0 upto regs.count() 'writes'
+					defAt[regIndex(regs[w])] = plusOne(k)
+				end 'writes'
+				let fail = ir.failTarget(f.instrs[k])
+				if fail != ir.noBlock 'fails'
+					let t = ir.blockIndex(fail)
+					preds[t] = plusOne(preds[t])
+				end 'fails'
+			end 'instrs'
+			regs.clear()
+			ir.termReads(f, t: f.blocks[b].term, out: regs)
+			for i in 0 upto regs.count() 'termReads'
+				let r = regIndex(regs[i])
+				reads[r] = plusOne(reads[r])
+			end 'termReads'
+			successors.clear()
+			ir.visitTerm(successors, f: f, t: f.blocks[b].term)
+			for e in 0 upto successors.out.count() 'edges'
+				let t = ir.blockIndex(successors.out[e])
+				preds[t] = plusOne(preds[t])
+			end 'edges'
+		end 'blocks'
+	end 'count'
+
+	function countReads(mutates self, f ir.IrFunction, x ir.Instr)
+		regs.clear()
+		ir.instrReads(f, x: x, out: regs)
+		for i in 0 upto regs.count() 'reads'
+			let r = regIndex(regs[i])
+			reads[r] = plusOne(reads[r])
+		end 'reads'
+	end 'countReads'
+
+	// readsOf is how many times the instruction x reads the register r.
+	function readsOf(mutates self, f ir.IrFunction, x ir.Instr, r Count) returns Count
+		regs.clear()
+		ir.instrReads(f, x: x, out: regs)
+		var n = 0 as Count
+		for i in 0 upto regs.count() 'reads'
+			if regIndex(regs[i]) == r 'same'
+				n = plusOne(n)
+			end 'same'
+		end 'reads'
+		return n
+	end 'readsOf'
+
+	// lent is whether the copy k is only lent and then dropped, with nothing on its paths to its drops that could change or
+	// free what it copied; where it is, its drops are removed.
+	function lent(mutates self, f ir.IrFunction, k Count) returns bool
+		let c = regIndex(f.instrs[k].dst)
+		stamp = plusOne(stamp)
+		pendingBlock.clear()
+		pendingFrom.clear()
+		drops.clear()
+		made.clear()
+		visited[blockOf[k]] = stamp
+		pendingBlock.push(blockOf[k])
+		pendingFrom.push(plusOne(k))
+		var seen = 0 as Count
+		var budget = maxLentWindow
+		while pendingBlock.count() > 0 'paths'
+			let b = try pendingBlock.pop() otherwise panic("opt: an empty walk")
+			let from = try pendingFrom.pop() otherwise panic("opt: an empty walk")
+			var dropped = false
+			// A block that ends in a trap ends the program, so what it changes matters only to its own later reads.
+			let cold = f.blocks[b].term.kind == ir.TermKind.termTrap
+			var spoiled = false
+			for j in from upto f.blocks[b].endAt 'instrs'
+				if editor.isRemoved(j) 'gone'
+					continue 'instrs'
+				end 'gone'
+				if budget == 0 'long'
+					return false
+				end 'long'
+				budget = try budget - 1 otherwise panic("opt: a window past its budget")
+				let n = self.readsOf(f, x: f.instrs[j], r: c)
+				if n > 0 'reads'
+					if f.instrs[j].op == ir.Opcode.opDrop 'drop'
+						drops.push(j)
+						seen = try seen + n otherwise panic("opt: a count past memory")
+						dropped = true
+						break 'instrs'
+					end 'drop'
+					if spoiled or not lends(f.instrs[j]) 'keeps'
+						return false
+					end 'keeps'
+					seen = try seen + n otherwise panic("opt: a count past memory")
+				end 'reads' else if not self.leavesAlone(f.instrs[j]) 'changes'
+					if not cold 'hot'
+						return false
+					end 'hot'
+					spoiled = true
+				end 'changes'
+				if f.instrs[j].op == ir.Opcode.opCopy 'made'
+					made.push(f.instrs[j].dst)
+				end 'made'
+				let fail = ir.failTarget(f.instrs[j])
+				if fail != ir.noBlock and not self.enter(f, t: ir.blockIndex(fail)) 'joined'
+					return false
+				end 'joined'
+			end 'instrs'
+			if not dropped 'onward'
+				regs.clear()
+				ir.termReads(f, t: f.blocks[b].term, out: regs)
+				for i in 0 upto regs.count() 'termReads'
+					if regIndex(regs[i]) == c 'passed'
+						return false
+					end 'passed'
+				end 'termReads'
+				if f.blocks[b].term.kind == ir.TermKind.termRet or f.blocks[b].term.kind == ir.TermKind.termThrow 'leaves'
+					return false
+				end 'leaves'
+				successors.clear()
+				ir.visitTerm(successors, f: f, t: f.blocks[b].term)
+				for e in 0 upto successors.out.count() 'edges'
+					if not self.enter(f, t: ir.blockIndex(successors.out[e])) 'joined'
+						return false
+					end 'joined'
+				end 'edges'
+			end 'onward'
+		end 'paths'
+		if seen != reads[c] or drops.count() == 0 'elsewhere'
+			return false
+		end 'elsewhere'
+		for i in 0 upto drops.count() 'drops'
+			editor.remove(drops[i])
+		end 'drops'
+		return true
+	end 'lent'
+
+	// enter queues block t on the walk of a lent copy, which only the walk's own edge may enter.
+	function enter(mutates self, f ir.IrFunction, t Count) returns bool
+		if preds[t] != 1 or visited[t] == stamp 'joined'
+			return false
+		end 'joined'
+		visited[t] = stamp
+		pendingBlock.push(t)
+		pendingFrom.push(f.blocks[t].first)
+		return true
+	end 'enter'
+
+	// leavesAlone is whether x, which does not read the copy, can neither change nor free what the copy copied: no clobber,
+	// and no drop but of a copy the walk made.
+	function leavesAlone(x ir.Instr) returns bool
+		if motionOf(x) == Motion.clobber 'clobber'
+			return false
+		end 'clobber'
+		if x.op != ir.Opcode.opDrop 'notDrop'
+			return true
+		end 'notDrop'
+		let src = ir.dropSrc(x)
+		for i in 0 upto made.count() 'made'
+			if made[i] == src 'own'
+				return true
+			end 'own'
+		end 'made'
+		return false
+	end 'leavesAlone'
+
+	// moved is whether the copy k, of what a field holds, is followed in its block by the drop and the store of that field,
+	// with nothing from the read of the field on that reads its value but to lend it or changes memory but other fields of
+	// the same box; where it is, the drop is removed.
+	function moved(mutates self, f ir.IrFunction, k Count) returns bool
+		let x = regIndex(ir.copySrc(f.instrs[k]))
+		if defAt[x] == 0 'undefined'
+			return false
+		end 'undefined'
+		let d = linkIndex(defAt[x])
+		let b = blockOf[k]
+		if f.instrs[d].op != ir.Opcode.opLoadField or blockOf[d] != b 'notField'
+			return false
+		end 'notField'
+		let base = ir.loadFieldObj(f.instrs[d])
+		let field = plusOne(ir.loadFieldOffset(f.instrs[d]))
+		for j in plusOne(d) upto f.blocks[b].endAt 'instrs'
+			if editor.isRemoved(j) or j == k 'skipped'
+				continue 'instrs'
+			end 'skipped'
+			if f.instrs[j].op == ir.Opcode.opDropAt 'dropAt'
+				let at = self.fieldOf(f, addr: ir.dropAtAddr(f.instrs[j]), base: base)
+				if at == field and j > k 'same'
+					if not self.storedNext(f, j: j, b: b, base: base, field: field) 'open'
+						return false
+					end 'open'
+					editor.remove(j)
+					return true
+				end 'same'
+				if at == noField or at == field 'elsewhere'
+					return false
+				end 'elsewhere'
+				continue 'instrs'
+			end 'dropAt'
+			if f.instrs[j].op == ir.Opcode.opStoreField and ir.storeFieldObj(f.instrs[j]) == base 'store'
+				if plusOne(ir.storeFieldOffset(f.instrs[j])) == field 'refilled'
+					return false
+				end 'refilled'
+				continue 'instrs'
+			end 'store'
+			if self.readsOf(f, x: f.instrs[j], r: x) > 0 and not lends(f.instrs[j]) 'keeps'
+				return false
+			end 'keeps'
+			if motionOf(f.instrs[j]) == Motion.clobber 'clobber'
+				return false
+			end 'clobber'
+		end 'instrs'
+		return false
+	end 'moved'
+
+	// fieldOf is the offset plus 1 of the field of base whose address addr is, or noField when addr is not one.
+	function fieldOf(f ir.IrFunction, addr ir.Reg, base ir.Reg) returns Count
+		let at = defAt[regIndex(addr)]
+		if at == 0 'undefined'
+			return noField
+		end 'undefined'
+		let i = linkIndex(at)
+		if f.instrs[i].op != ir.Opcode.opFieldAddr or ir.fieldAddrObj(f.instrs[i]) != base 'other'
+			return noField
+		end 'other'
+		return plusOne(ir.fieldAddrOffset(f.instrs[i]))
+	end 'fieldOf'
+
+	// storedNext is whether the instruction after the drop j in block b stores the field of base at field (its offset
+	// plus 1) again.
+	function storedNext(f ir.IrFunction, j Count, b Count, base ir.Reg, field Count) returns bool
+		for n in plusOne(j) upto f.blocks[b].endAt 'next'
+			if editor.isRemoved(n) 'gone'
+				continue 'next'
+			end 'gone'
+			if f.instrs[n].op == ir.Opcode.opStoreField 'field'
+				return ir.storeFieldObj(f.instrs[n]) == base and plusOne(ir.storeFieldOffset(f.instrs[n])) == field
+			end 'field'
+			if f.instrs[n].op == ir.Opcode.opStoreAt 'at'
+				return self.fieldOf(f, addr: ir.storeAtAddr(f.instrs[n]), base: base) == field
+			end 'at'
+			return false
+		end 'next'
+		return false
+	end 'storedNext'
+end 'Copies'
+
+// lends is whether x reads its operands without keeping them: it reads what they hold, or what an entry that only reads
+// gives from them, and makes no comparison, which would tell a copy from what it copied.
+function lends(x ir.Instr) returns bool
+	let op = x.op
+	if op == ir.Opcode.opCallRuntime 'runtime'
+		return ir.onlyReads(ir.callRuntimeSymbol(x))
+	end 'runtime'
+	return op == ir.Opcode.opLoadField or op == ir.Opcode.opFieldAddr or op == ir.Opcode.opLength or op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAddr or op == ir.Opcode.opBuffer or op == ir.Opcode.opCopy or op == ir.Opcode.opIsType
+end 'lends'
+
+// holdsCopy is whether f copies anything.
+function holdsCopy(f ir.IrFunction) returns bool
+	for k in 0 upto f.instrs.count() 'instrs'
+		if f.instrs[k].op == ir.Opcode.opCopy 'copy'
+			return true
+		end 'copy'
+	end 'instrs'
+	return false
+end 'holdsCopy'

@@ -13,7 +13,8 @@
 //   push, an insert or a remove is a runtime call that changes the length and may move the buffer of the array it is
 //   given, and the IR does not say which argument is which. So every call ends every read: a push to one array ends the
 //   reads of every other array too, since two registers may hold one box (two reads of one borrowed place give the same
-//   box, and a `let` parameter may be the box that a `mutates` parameter's place holds).
+//   box, and a `let` parameter may be the box that a `mutates` parameter's place holds). A call of a runtime entry that
+//   only reads (ir.onlyReads), such as the comparison of two strings, is quiet instead.
 // - A drop of a register, an allocation, a copy, a box, a closure and a function value write only boxes that no other
 //   live register reaches: unique ownership gives a dropped value's boxes to the value alone (a borrow of it has ended
 //   before it is dropped), and a new box is new. They end no read.
@@ -89,6 +90,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opIsType or
 		opDrop or
 		opCopy gives Motion.quiet
+		opCallRuntime gives Motion.quiet if ir.onlyReads(ir.callRuntimeSymbol(x)) else Motion.clobber
 		opStoreSlot or
 		opStoreField or
 		opStoreAt or
@@ -102,7 +104,6 @@ export function motionOf(x ir.Instr) returns Motion
 		opCallCode or
 		opCallHost or
 		opCall or
-		opCallRuntime or
 		opWhen or
 		opAsync or
 		opCallValue or
