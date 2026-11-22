@@ -309,6 +309,7 @@ function lowerIntrinsic(mutates l Lowerer, mutates p ast.Project, c CallSite) re
 	if ownsOperands(op) 'owns'
 		return intrinsicCall(l, p: p, op: op, c: c, recv: noReg, args: RegList.create(0))
 	end 'owns'
+	let mark = l.pending.count()
 	var recv = noReg
 	if c.receiver != 0 'receiver'
 		recv = lowerRead(l, p: p, e: c.receiver)
@@ -318,6 +319,8 @@ function lowerIntrinsic(mutates l Lowerer, mutates p ast.Project, c CallSite) re
 		let v = lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
 		pushArg(l, v: v)
 	end 'each'
+	// The primitive has the arguments now, and drops what it was given itself when it fails, as a callee does.
+	popPending(l, n: mark)
 	let result = intrinsicCall(l, p: p, op: op, c: c, recv: recv, args: argsSince(l, base: base))
 	popArgs(l, n: base)
 	return result

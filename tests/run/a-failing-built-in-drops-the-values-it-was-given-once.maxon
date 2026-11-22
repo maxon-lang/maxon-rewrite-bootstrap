@@ -1,0 +1,39 @@
+// A built-in that fails drops the values it was given itself, so the try around it must not drop them again: Map.insert
+// of a key the map has, Map.replace of one it lacks and Array.set past the end, each given a fresh record.
+union Shape
+	dot
+	square(side Count)
+end 'Shape'
+
+typealias Shapes = Map with String, Shape
+
+typealias ShapeArray = Array with Shape
+
+function main() returns ExitCode
+	var m = Shapes.create()
+	m.upsert("a", value: Shape.dot)
+	try 'insert'
+		m.insert("{1}a", value: Shape.square(1))
+		m.insert("a", value: Shape.square(2))
+	end 'insert' otherwise 'inserted'
+		print("a is there\n")
+	end 'inserted'
+	try 'replace'
+		_ = m.replace("{2}b", value: Shape.square(3))
+	end 'replace' otherwise 'replaced'
+		print("no b\n")
+	end 'replaced'
+	var a = ShapeArray.create(0)
+	try 'set'
+		a.set(4, value: Shape.square(4))
+	end 'set' otherwise 'past'
+		print("past the end\n")
+	end 'past'
+	print("{m.count()} {a.count()}\n")
+	return 0
+end 'main'
+
+//> a is there
+//> no b
+//> past the end
+//> 2 0
