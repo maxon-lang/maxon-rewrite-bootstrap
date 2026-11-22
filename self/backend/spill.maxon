@@ -109,6 +109,17 @@ export type Spiller
 	var changed as bool
 	// current is whether the graph and liveness are those of the function as it stands.
 	var current as bool
+	// shaped is whether the graph holds the function's blocks and edges, which spilling's edits leave as they are.
+	var shaped as bool
+	// knownRegs is how many virtual registers fn had when the round began.
+	var knownRegs as Count
+	// What the survey of the round before left: for each block, whether an edit since has changed its instructions, and
+	// the values live into it; and whether they differ from the values live into it now.
+	var surveyed as bool
+	var stale as BoolList
+	var lastLiveStart as CountList
+	var lastLive as CountList
+	var liveChanged as BoolList
 	// The scratch of a split.
 	var mark as Count
 	var liveMark as CountList
@@ -155,6 +166,22 @@ export type Spiller
 	var deadList as MRegList
 	var pickedTier as Count
 	var insertRank as CountList
+	// The scratch of apply: the insertions by place, the blocks it placed, and the list of instructions the round before,
+	// whose room the next one takes.
+	var applyIndexes as CountList
+	var applyKeys as CountList
+	var applyStarts as CountList
+	var applyList as CountList
+	var placed as BoolList
+	var spareInstrs as MInstrList
+	// What the edits applied since the liveness was computed changed: where each instruction was before them, noDef for
+	// an inserted one, and the values whose definition or uses they added, removed or renamed. edited is whether there are
+	// such edits, so that the next liveness is recomputed from the last one.
+	var movedFrom as IndexList
+	var touched as BoolList
+	var edited as bool
+	// clock times the phases of the emit stage.
+	var clock as EmitClock
 
 	export static function new() returns Spiller
 		return Spiller.under(Conventions.make())
@@ -162,7 +189,7 @@ export type Spiller
 
 	// under is a spiller for functions whose calls follow convs.
 	export static function under(consumes convs Conventions) returns Spiller
-		return Spiller{graph: MirGraph.new(), lv: Liveness.new(), scan: BlockScan.new(), convs: convs, ops: Operands.new(), result: SpillResult.new(), root: MRegList.create(0), slotOf: IndexList.create(0), stored: BoolList.create(0), constAt: IndexList.create(0), consts: MInstrList.create(0), slots: 0, madeBlock: IndexList.create(0), madeOwner: CountList.create(0), madeInsert: IndexList.create(0), madeOut: BoolList.create(0), insertAt: CountList.create(0), inserts: MInstrList.create(0), cancelled: BoolList.create(0), deleted: BoolList.create(0), dirty: BoolList.create(0), changed: false, current: false, mark: 0, liveMark: CountList.create(0), visit: CountList.create(0), stack: CountList.create(0), reach: CountList.create(0), reachAnchor: CountList.create(0), anchorStamp: CountList.create(0), anchorIndex: CountList.create(0), anchorBlock: CountList.create(0), anchorPos: CountList.create(0), anchorEntry: IndexList.create(0), anchorHoisted: BoolList.create(0), anchorReg: MRegList.create(0), inS: IndexList.create(0), sReg: MRegList.create(0), sOwner: CountList.create(0), sCursor: CountList.create(0), sOut: BoolList.create(0), sCount: CountList.create(0), outMark: CountList.create(0), blockMark: 0, fwdOut: BoolList.create(0), outCount: CountList.create(0), readStamp: CountList.create(0), readMark: 0, pendPos: CountList.create(0), pendReg: MRegList.create(0), pendOwner: CountList.create(0), pendCursor: CountList.create(0), pendOut: BoolList.create(0), loopMax: CountList.create(0), blockMost: CountList.create(0), blockFits: BoolList.create(0), loopEnd: CountList.create(0), splitThisRound: MRegList.create(0), bracketedNow: MRegList.create(0), dyingCount: CountList.create(0), writeCount: CountList.create(0), deadList: MRegList.create(0), pickedTier: 0, insertRank: CountList.create(0)}
+		return Spiller{graph: MirGraph.new(), lv: Liveness.new(), scan: BlockScan.new(), convs: convs, ops: Operands.new(), result: SpillResult.new(), root: MRegList.create(0), slotOf: IndexList.create(0), stored: BoolList.create(0), constAt: IndexList.create(0), consts: MInstrList.create(0), slots: 0, shaped: false, knownRegs: 0, surveyed: false, stale: BoolList.create(0), lastLiveStart: CountList.create(0), lastLive: CountList.create(0), liveChanged: BoolList.create(0), madeBlock: IndexList.create(0), madeOwner: CountList.create(0), madeInsert: IndexList.create(0), madeOut: BoolList.create(0), insertAt: CountList.create(0), inserts: MInstrList.create(0), cancelled: BoolList.create(0), deleted: BoolList.create(0), dirty: BoolList.create(0), changed: false, current: false, mark: 0, liveMark: CountList.create(0), visit: CountList.create(0), stack: CountList.create(0), reach: CountList.create(0), reachAnchor: CountList.create(0), anchorStamp: CountList.create(0), anchorIndex: CountList.create(0), anchorBlock: CountList.create(0), anchorPos: CountList.create(0), anchorEntry: IndexList.create(0), anchorHoisted: BoolList.create(0), anchorReg: MRegList.create(0), inS: IndexList.create(0), sReg: MRegList.create(0), sOwner: CountList.create(0), sCursor: CountList.create(0), sOut: BoolList.create(0), sCount: CountList.create(0), outMark: CountList.create(0), blockMark: 0, fwdOut: BoolList.create(0), outCount: CountList.create(0), readStamp: CountList.create(0), readMark: 0, pendPos: CountList.create(0), pendReg: MRegList.create(0), pendOwner: CountList.create(0), pendCursor: CountList.create(0), pendOut: BoolList.create(0), loopMax: CountList.create(0), blockMost: CountList.create(0), blockFits: BoolList.create(0), loopEnd: CountList.create(0), splitThisRound: MRegList.create(0), bracketedNow: MRegList.create(0), dyingCount: CountList.create(0), writeCount: CountList.create(0), deadList: MRegList.create(0), pickedTier: 0, insertRank: CountList.create(0), applyIndexes: CountList.create(0), applyKeys: CountList.create(0), applyStarts: CountList.create(0), applyList: CountList.create(0), placed: BoolList.create(0), spareInstrs: MInstrList.create(0), movedFrom: IndexList.create(0), touched: BoolList.create(0), edited: false, clock: EmitClock.off()}
 	end 'under'
 
 	// adopt takes up fn, which a spiller has spilled already, so that colouring can follow without spilling it again.
@@ -186,6 +213,9 @@ export type Spiller
 		end 'values'
 		slots = fn.slotsGiven()
 		current = false
+		shaped = false
+		surveyed = false
+		edited = false
 	end 'start'
 
 	// analyze starts a round: the graph and liveness of fn as it stands, and no edits. A round that changed nothing
@@ -195,28 +225,47 @@ export type Spiller
 			return
 		end 'current'
 		current = true
-		graph.build(fn)
-		lv.compute(fn, g: graph, convs: convs)
+		clock.lap(EmitPhase.spilling)
+		if shaped 'shaped'
+			graph.locate(fn)
+		end 'shaped' else 'build'
+			graph.build(fn)
+			shaped = true
+		end 'build'
+		clock.lap(EmitPhase.graph)
+		if surveyed 'keep'
+			let starts = exchange(lv.liveInStart, value: CountList.create(0))
+			lv.liveInStart = exchange(lastLiveStart, value: starts)
+			let live = exchange(lv.liveIn, value: CountList.create(0))
+			lv.liveIn = exchange(lastLive, value: live)
+		end 'keep'
+		if edited 'edited'
+			lv.recompute(fn, g: graph, convs: convs, moved: movedFrom, touched: touched)
+		end 'edited' else 'whole'
+			lv.compute(fn, g: graph, convs: convs)
+		end 'whole'
+		edited = false
+		ir.resetFlags(touched, n: fn.vregCount())
+		clock.lap(EmitPhase.liveness)
 		self.survey(fn)
+		clock.lap(EmitPhase.pressure)
+		let fresh = result.rounds == 0
 		result.rounds = nextCount(result.rounds)
 		let regs = fn.vregCount()
-		madeBlock.clear()
-		madeOwner.clear()
-		madeInsert.clear()
-		madeOut.clear()
-		for v in 0 upto regs 'made'
-			madeBlock.push(noBlock)
-			madeOwner.push(v)
-			madeInsert.push(noDef)
-			madeOut.push(false)
-		end 'made'
-		for v in 0 upto regs 'constants'
-			let at = lv.defAt[v]
-			if at != noDef and root[v] == vregAt(v) and constAt[v] == noDef and isRematerializable(fn.instrs[countOfIndex(at)]) 'constant'
-				constAt[v] = indexOfCount(consts.count())
-				consts.push(fn.instrs[countOfIndex(at)].clone())
-			end 'constant'
-		end 'constants'
+		if fresh 'fresh'
+			self.startRounds(fn, regs: regs)
+		end 'fresh' else 'again'
+			// The pieces the round before made are values of their own from now on. Every other value is as the first
+			// round left it: a value is a constant from its definition, which no round changes, and the marks of the
+			// scratch below only grow, so no round's are taken for another's.
+			for v in knownRegs upto regs 'made'
+				madeBlock[v] = noBlock
+				madeOwner[v] = v
+				madeInsert[v] = noDef
+				madeOut[v] = false
+			end 'made'
+		end 'again'
+		knownRegs = regs
 		insertAt.clear()
 		insertRank.clear()
 		inserts.clear()
@@ -225,6 +274,31 @@ export type Spiller
 		ir.resetFlags(dirty, n: fn.blocks.count())
 		changed = false
 		splitThisRound.clear()
+		ir.resetFlags(fwdOut, n: regs)
+	end 'analyze'
+
+	// startRounds sets up what the rounds of a function keep from one to the next: each value its own, the constants
+	// among the values, no value in registers, and the marks of the splits' walks and of the sweeps.
+	function startRounds(mutates self, fn MirFunction, regs Count)
+		madeBlock.clear()
+		madeOwner.clear()
+		madeInsert.clear()
+		madeOut.clear()
+		inS.clear()
+		for v in 0 upto regs 'made'
+			madeBlock.push(noBlock)
+			madeOwner.push(v)
+			madeInsert.push(noDef)
+			madeOut.push(false)
+			inS.push(noDef)
+		end 'made'
+		for v in 0 upto regs 'constants'
+			let at = lv.defAt[v]
+			if at != noDef and root[v] == vregAt(v) and constAt[v] == noDef and isRematerializable(fn.instrs[countOfIndex(at)]) 'constant'
+				constAt[v] = indexOfCount(consts.count())
+				consts.push(fn.instrs[countOfIndex(at)].clone())
+			end 'constant'
+		end 'constants'
 		let blocks = fn.blocks.count()
 		ir.resetCounts(liveMark, n: blocks)
 		ir.resetCounts(visit, n: blocks)
@@ -233,39 +307,79 @@ export type Spiller
 		mark = 0
 		ir.resetCounts(outMark, n: regs)
 		blockMark = 0
-		inS.clear()
-		for v in 0 upto regs 'notInS'
-			inS.push(noDef)
-		end 'notInS'
-		ir.resetFlags(fwdOut, n: regs)
 		ir.resetCounts(readStamp, n: regs)
 		readMark = 0
-	end 'analyze'
+	end 'startRounds'
 
 	// survey scans every block once for the most each class needs at one of its instructions and whether all of them
-	// fit their free registers, which is all most functions need to be told that nothing is to be done.
+	// fit their free registers, which is all most functions need to be told that nothing is to be done. What a block
+	// needs follows from its instructions and the values live out of it alone, so after the first round only a block
+	// that an edit changed, or one where a successor's live-in values changed, is scanned again.
 	function survey(mutates self, fn MirFunction)
 		let blocks = fn.blocks.count()
-		ir.resetCounts(blockMost, n: pointSlots(blocks))
-		ir.resetFlags(blockFits, n: blocks)
+		if not surveyed 'first'
+			ir.resetCounts(blockMost, n: pointSlots(blocks))
+			ir.resetFlags(blockFits, n: blocks)
+			ir.resetFlags(stale, n: blocks)
+			for b in 0 upto blocks 'all'
+				stale[b] = true
+			end 'all'
+		end 'first'
+		self.findLiveChanges(blocks)
 		scan.reset(fn.vregCount(), logs: false)
 		for o in 0 upto fn.order.count() 'blocks'
 			let b = fn.order[o] as Count
-			scan.scan(fn, g: graph, lv: lv, b: b, convs: convs)
-			let n = try fn.blocks[b].endAt - fn.blocks[b].first otherwise panic("backend: a block that ends before it starts")
-			var fits = true
-			for i in 0 upto n 'points'
-				for c in 0 upto classCount 'classes'
-					let at = addCounts(pointSlots(b), b: c)
-					blockMost[at] = maxOf(blockMost[at], b: scan.demandAt(i, c: c))
-				end 'classes'
-				if fits and not scan.fitsAt(i) 'over'
-					fits = false
-				end 'over'
-			end 'points'
-			blockFits[b] = fits
+			if not self.needsScan(b) 'unchanged'
+				continue 'blocks'
+			end 'unchanged'
+			stale[b] = false
+			scan.scan(fn, g: graph, lv: lv, b: b)
+			for c in 0 upto classCount 'classes'
+				blockMost[addCounts(pointSlots(b), b: c)] = scan.most[c]
+			end 'classes'
+			blockFits[b] = scan.fits
 		end 'blocks'
+		surveyed = true
 	end 'survey'
+
+	// findLiveChanges finds the blocks whose live-in values differ from the ones the survey before saw, every block when
+	// there was none.
+	function findLiveChanges(mutates self, blocks Count)
+		ir.resetFlags(liveChanged, n: blocks)
+		for b in 0 upto blocks 'blocks'
+			if not surveyed 'first'
+				liveChanged[b] = true
+				continue 'blocks'
+			end 'first'
+			let start = lv.liveInStart[b]
+			let stop = lv.liveInStart[nextCount(b)]
+			let lastStart = lastLiveStart[b]
+			let lastStop = lastLiveStart[nextCount(b)]
+			if (try stop - start otherwise panic("backend: live sets out of order")) != (try lastStop - lastStart otherwise panic("backend: live sets out of order")) 'count'
+				liveChanged[b] = true
+				continue 'blocks'
+			end 'count'
+			for i in start upto stop 'values'
+				if lv.liveIn[i] != lastLive[addCounts(lastStart, b: try i - start otherwise panic("backend: live sets out of order"))] 'differs'
+					liveChanged[b] = true
+					break 'values'
+				end 'differs'
+			end 'values'
+		end 'blocks'
+	end 'findLiveChanges'
+
+	// needsScan is whether the survey before left block b out of date: an edit changed it, or the values live out of it.
+	function needsScan(b Count) returns bool
+		if stale[b] 'edited'
+			return true
+		end 'edited'
+		for e in graph.succStart[b] upto graph.succStart[nextCount(b)] 'succs'
+			if liveChanged[graph.succ[e]] 'changed'
+				return true
+			end 'changed'
+		end 'succs'
+		return false
+	end 'needsScan'
 
 	// mostIn is the most that class c needs at one instruction of block b.
 	function mostIn(b Count, c Count) returns Count
@@ -506,7 +620,10 @@ export type Spiller
 			let rec = lv.useList[reach[i]]
 			let at = lv.recordAt[rec]
 			renameUse(fn, k: at, slot: lv.recordSlot[rec], r: anchorReg[reachAnchor[i]])
+			lv.recordReg[rec] = anchorReg[reachAnchor[i]]
+			touchValue(touched, v: v)
 			let b = graph.blockAt[at]
+			stale[b] = true
 			if scanning != noBlock and b != countOfIndex(scanning) and graph.rpo[b] > graph.rpo[countOfIndex(scanning)] 'wait'
 				dirty[b] = true
 			end 'wait'
@@ -619,33 +736,39 @@ export type Spiller
 	end 'pend'
 
 	// apply writes the round's edits into fn: each insertion before the instruction it stands at, the deleted ones gone,
-	// the blocks in layout order and the ones the entry does not reach left empty.
+	// the blocks in layout order and the ones the entry does not reach left empty. It notes where each instruction was
+	// and which values a deleted one touched, from which the next liveness is recomputed.
 	function apply(mutates self, mutates fn MirFunction)
-		var starts = CountList.create(0)
-		var list = CountList.create(0)
-		var indexes = CountList.create(0)
-		var keys = CountList.create(0)
+		applyIndexes.clear()
+		applyKeys.clear()
 		for i in 0 upto inserts.count() 'indexes'
-			indexes.push(i)
-			keys.push(addCounts(insertKey(insertAt[i]), b: insertRank[i]))
+			applyIndexes.push(i)
+			applyKeys.push(addCounts(insertKey(insertAt[i]), b: insertRank[i]))
 		end 'indexes'
-		ir.buildCsr(keys, targets: indexes, nodes: insertKey(nextCount(fn.instrs.count())), starts: starts, list: list)
-		var out = MInstrList.create(0)
-		var placed = BoolList.create(0)
+		ir.buildCsr(applyKeys, targets: applyIndexes, nodes: insertKey(nextCount(fn.instrs.count())), starts: applyStarts, list: applyList)
+		var out = exchange(spareInstrs, value: MInstrList.create(0))
+		out.clear()
+		movedFrom.clear()
 		ir.resetFlags(placed, n: fn.blocks.count())
 		for o in 0 upto fn.order.count() 'blocks'
 			let b = fn.order[o] as Count
 			placed[b] = true
 			let first = out.count()
 			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
-				for e in starts[insertKey(k)] upto starts[insertKey(nextCount(k))] 'inserts'
-					if not cancelled[list[e]] 'live'
-						out.push(inserts[list[e]].clone())
+				for e in applyStarts[insertKey(k)] upto applyStarts[insertKey(nextCount(k))] 'inserts'
+					stale[b] = true
+					if not cancelled[applyList[e]] 'live'
+						out.push(inserts[applyList[e]].clone())
+						movedFrom.push(noDef)
 					end 'live'
 				end 'inserts'
 				if not deleted[k] 'kept'
 					out.push(fn.instrs[k].clone())
-				end 'kept'
+					movedFrom.push(indexOfCount(k))
+				end 'kept' else 'dropped'
+					stale[b] = true
+					self.touchOperands(k)
+				end 'dropped'
 			end 'instrs'
 			fn.blocks[b].first = first
 			fn.blocks[b].endAt = out.count()
@@ -656,9 +779,20 @@ export type Spiller
 				fn.blocks[b].endAt = out.count()
 			end 'empty'
 		end 'unreached'
-		fn.instrs = out
+		spareInstrs = exchange(fn.instrs, value: out)
+		edited = true
 		current = false
 	end 'apply'
+
+	// touchOperands marks touched the values the instruction at k reads and defines, which an edit removes.
+	function touchOperands(mutates self, k Count)
+		for rec in lv.readFrom[k] upto lv.readTo[k] 'reads'
+			touchValue(touched, v: vregIndex(lv.recordReg[rec]))
+		end 'reads'
+		for d in lv.writeFrom[k] upto lv.writeTo[k] 'writes'
+			touchValue(touched, v: vregIndex(lv.writeList[d]))
+		end 'writes'
+	end 'touchOperands'
 end 'Spiller'
 
 // The ranks of the insertions before one instruction: a bracket's spill and restore go first, so that a bracket about a
@@ -689,7 +823,10 @@ end 'swapCounts'
 export function spillFunction(mutates fn MirFunction, mutates s Spiller) returns SpillResult
 	prepareBlocks(fn, g: s.graph)
 	let moved = paramsToMemory(fn, g: s.graph, convs: s.convs)
+	s.clock.lap(EmitPhase.blocks)
 	s.start(fn)
+	// Moving parameters to memory edits within the blocks only, so the graph prepareBlocks built is the function's.
+	s.shaped = true
 	for i in 0 upto moved.values.count() 'stored'
 		let v = vregIndex(moved.values[i])
 		s.slotOf[v] = indexOfCount(moved.slots[i])
@@ -716,11 +853,12 @@ export function spillFunction(mutates fn MirFunction, mutates s Spiller) returns
 	for b in 0 upto fn.blocks.count() 'over'
 		over[b] = s.graph.reached[b] and s.graph.isHot(b) and s.overPool(b)
 	end 'over'
-	s.result.refusals = refuseHotLoops(fn, g: s.graph, lv: s.lv, scan: s.scan, convs: s.convs, over: over)
+	s.result.refusals = refuseHotLoops(fn, g: s.graph, lv: s.lv, scan: s.scan, over: over)
 	if s.result.refusals.count() == 0 'fits'
 		sweepRounds(fn, s: s, relief: Relief.all)
 	end 'fits'
 	fn.spillSlots = s.slots
+	s.clock.lap(EmitPhase.spilling)
 	return exchange(s.result, value: SpillResult.new())
 end 'spillFunction'
 
@@ -867,7 +1005,7 @@ end 'hotIn'
 // relieveBlock sweeps block b down from its start with the values in registers, and wherever an instruction needs more
 // registers than the relief allows, takes values out until it fits.
 function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief Relief)
-	s.scan.scan(fn, g: s.graph, lv: s.lv, b: b, convs: s.convs)
+	s.scan.scan(fn, g: s.graph, lv: s.lv, b: b)
 	let first = fn.blocks[b].first
 	let endAt = fn.blocks[b].endAt
 	let n = try endAt - first otherwise panic("backend: a block that ends before it starts")
@@ -926,7 +1064,7 @@ function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief
 			makeRoom(fn, s: s, b: b, k: k, i: i, relief: relief, c: c, across: across, dying: 0, writes: 1, before: true)
 			enter(fn, s: s, r: r, owner: owner, cursor: cursor, out: out)
 		end 'pending'
-		s.ops.gather(fn, x: fn.instrs[k], convs: s.convs)
+		s.ops.load(s.lv, k: k)
 		s.readMark = nextCount(s.readMark)
 		ir.resetCounts(s.dyingCount, n: classCount)
 		ir.resetCounts(s.writeCount, n: classCount)
@@ -1010,7 +1148,7 @@ function fitsUnder(fn MirFunction, s Spiller, i Count, relief Relief) returns bo
 end 'fitsUnder'
 
 function readsOf(fn MirFunction, mutates s Spiller, k Count)
-	s.ops.gather(fn, x: fn.instrs[k], convs: s.convs)
+	s.ops.load(s.lv, k: k)
 	for u in 0 upto s.ops.readLen 'reads'
 		s.readStamp[vregIndex(s.ops.reads[u])] = s.readMark
 	end 'reads'

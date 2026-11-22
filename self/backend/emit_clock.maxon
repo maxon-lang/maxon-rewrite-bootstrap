@@ -1,0 +1,64 @@
+// The wall time of the emit stage by phase, which --timings reports beneath the stages: the phases interleave function by
+// function, so each is timed from the end of whatever ran before it.
+
+// EmitPhase is a part of the emit stage that --timings times on its own.
+export enum EmitPhase
+	// selection is the machine IR made from the IR, and the tables and routines emitted between functions.
+	selection
+	// blocks is the layout of the blocks, the split edges and preheaders, and the parameters moved to memory.
+	blocks
+	// graph is the flow graph and loops of each spilling round.
+	graph
+	// liveness is the live sets and uses of each spilling round.
+	liveness
+	// pressure is the survey of what each instruction needs, once a round.
+	pressure
+	// spilling is the sweeps of the rounds, the E5001 test and the edits applied between rounds.
+	spilling
+	colouring
+	// rewrite is the operands made physical and the edges' parallel copies sequenced.
+	rewrite
+	// verification is --verify-ir's checks of spilling and colouring.
+	verification
+	encoding
+end 'EmitPhase'
+
+export typealias PhaseNanos = Array with Count
+
+// EmitClock charges the time between two of its laps to the phase the later one names. A clock that is off charges none.
+export type EmitClock
+	export var enabled as bool
+	export var nanos as PhaseNanos
+	var last as Count
+
+	export static function off() returns EmitClock
+		return EmitClock{enabled: false, nanos: PhaseNanos.create(0), last: 0}
+	end 'off'
+
+	export static function start() returns EmitClock
+		var nanos = PhaseNanos.create(0)
+		for _ in 0 upto EmitPhase.allCaseNames.count() 'phases'
+			nanos.push(0)
+		end 'phases'
+		return EmitClock{enabled: true, nanos: nanos, last: Clock.nowNanos()}
+	end 'start'
+
+	// restart drops the time since the last lap, which was of no phase.
+	export function restart(mutates self)
+		if enabled 'on'
+			last = Clock.nowNanos()
+		end 'on'
+	end 'restart'
+
+	// lap charges the time since the last lap to phase.
+	export function lap(mutates self, phase EmitPhase)
+		if not enabled 'off'
+			return
+		end 'off'
+		let now = Clock.nowNanos()
+		let elapsed = try now - last otherwise panic("backend: the clock went backwards")
+		let at = phase.ordinal
+		nanos[at] = try nanos[at] + elapsed otherwise panic("backend: the time of a phase passes a word of nanoseconds")
+		last = now
+	end 'lap'
+end 'EmitClock'

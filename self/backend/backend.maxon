@@ -9,8 +9,9 @@ export typealias FunctionLists = Array with ir.IrFunctionList
 export function buildProgram(mutates p ast.Project, modules FunctionLists, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions, mapsSymbols bool) returns Linked
 	var units = UnitList.create(0)
 	var errs = diag.ErrorList.create(0)
+	var clock = EmitClock.off()
 	for i in 0 upto modules.count() 'modules'
-		units.push(emitModule(p, fns: modules[i], verifies: true, errs: errs))
+		units.push(emitModule(p, fns: modules[i], verifies: true, clock: clock, errs: errs))
 	end 'modules'
 	if errs.count() > 0 'refused'
 		panic("backend: a program built without the driver is refused: {errs[0].message}")

@@ -693,7 +693,7 @@ end 'holdProgram'
 
 function emitModule(mutates run Run, mutates p ast.Project, m Count, options Options, mutates errs diag.ErrorList)
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is emitted again")
-	let unit = backend.emitModule(p, fns: run.lowered[slot], verifies: options.verifyIr, errs: errs)
+	let unit = backend.emitModule(p, fns: run.lowered[slot], verifies: options.verifyIr, clock: run.timings.emit, errs: errs)
 	run.units[slot] = unit
 end 'emitModule'
 

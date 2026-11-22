@@ -277,15 +277,15 @@ export type Colourer
 	// survey walks every block back from its end and finds, for each value, the registers it may not be in and the ones
 	// it should leave to values defined in its life, and for each instruction, the fixed registers about it and the
 	// values that die at it.
-	function survey(mutates self, fn MirFunction, g MirGraph, lv Liveness, convs Conventions)
+	function survey(mutates self, fn MirFunction, g MirGraph, lv Liveness)
 		for o in 0 upto fn.order.count() 'blocks'
 			let b = fn.order[o] as Count
-			self.surveyBlock(fn, g: g, lv: lv, b: b, convs: convs)
+			self.surveyBlock(fn, g: g, lv: lv, b: b)
 		end 'blocks'
 		ir.buildCsr(dieAt, targets: dieValue, nodes: fn.instrs.count(), starts: dieStart, list: dieList)
 	end 'survey'
 
-	function surveyBlock(mutates self, fn MirFunction, g MirGraph, lv Liveness, b Count, convs Conventions)
+	function surveyBlock(mutates self, fn MirFunction, g MirGraph, lv Liveness, b Count)
 		for e in g.succStart[b] upto g.succStart[nextCount(b)] 'succs'
 			let s = g.succ[e]
 			for i in lv.liveInStart[s] upto lv.liveInStart[nextCount(s)] 'live'
@@ -296,7 +296,7 @@ export type Colourer
 		var k = fn.blocks[b].endAt
 		while k > fn.blocks[b].first 'instrs'
 			k = prevCount(k)
-			ops.gather(fn, x: fn.instrs[k], convs: convs)
+			ops.load(lv, k: k)
 			physAfter[k] = phys
 			written[k] = ops.physWrites
 			let held = phys or ops.physWrites
@@ -423,7 +423,7 @@ export type Colourer
 
 	// sweepBlock colours the parameters of block b and the values its instructions define, in order, with the values
 	// live into it in their registers.
-	function sweepBlock(mutates self, mutates fn MirFunction, lv Liveness, b Count, convs Conventions)
+	function sweepBlock(mutates self, mutates fn MirFunction, lv Liveness, b Count)
 		stamp = nextCount(stamp)
 		let first = fn.blocks[b].first
 		for k in first upto fn.blocks[b].endAt 'deaths'
@@ -455,7 +455,7 @@ export type Colourer
 			end 'used'
 		end 'params'
 		for k in first upto fn.blocks[b].endAt 'instrs'
-			self.step(fn, b: b, k: k, convs: convs)
+			self.step(fn, lv: lv, b: b, k: k)
 		end 'instrs'
 		for i in 0 upto flagged.count() 'closed'
 			if openWin[flagged[i]] != noDef and self.isPlaced(flagged[i]) 'open'
@@ -467,7 +467,7 @@ export type Colourer
 	// step colours what the instruction at k of block b defines: a definition may take the register of a value that
 	// dies there, since an instruction reads every operand before it writes one. Before a branch, every value out of its
 	// home goes back; before any instruction, a value in a register the instruction fixes or clobbers moves out of it.
-	function step(mutates self, mutates fn MirFunction, b Count, k Count, convs Conventions)
+	function step(mutates self, mutates fn MirFunction, lv Liveness, b Count, k Count)
 		let kind = fn.instrs[k].kind
 		if kind == MKind.restore 'restore'
 			self.closeBracket(vregIndex(fn.instrs[k].a))
@@ -488,7 +488,7 @@ export type Colourer
 			end 'branch'
 			self.relocate(fn, b: b, k: k)
 		end 'flagged'
-		ops.gather(fn, x: fn.instrs[k], convs: convs)
+		ops.load(lv, k: k)
 		var useMask = physBefore[k]
 		for u in 0 upto ops.readLen 'uses'
 			useMask = useMask or maskOfCount(loc[vregIndex(ops.reads[u])])
@@ -1237,12 +1237,14 @@ export function colourFunction(mutates fn MirFunction, mutates s Spiller, mutate
 	s.analyze(fn)
 	c.start(fn, convs: s.convs)
 	c.findHints(fn)
-	c.survey(fn, g: s.graph, lv: s.lv, convs: s.convs)
+	c.survey(fn, g: s.graph, lv: s.lv)
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
-		c.sweepBlock(fn, lv: s.lv, b: b, convs: s.convs)
+		c.sweepBlock(fn, lv: s.lv, b: b)
 	end 'blocks'
+	s.clock.lap(EmitPhase.colouring)
 	c.rewrite(fn, lv: s.lv)
+	s.clock.lap(EmitPhase.rewrite)
 	return exchange(c.result, value: ColourResult.new())
 end 'colourFunction'
 
@@ -1271,6 +1273,7 @@ export type Allocator
 			if problems.count() > 0 'broken'
 				panic("backend: {fn.symbol} is spilled wrong: {problems[0]}")
 			end 'broken'
+			spiller.clock.lap(EmitPhase.verification)
 		end 'pressure'
 		_ = colourFunction(fn, s: spiller, c: colourer)
 		if verifies 'colouring'
@@ -1278,6 +1281,7 @@ export type Allocator
 			if wrong.count() > 0 'broken'
 				panic("backend: {fn.symbol} is coloured wrong: {wrong[0]}")
 			end 'broken'
+			spiller.clock.lap(EmitPhase.verification)
 		end 'colouring'
 		return PressureRefusalList.create(0)
 	end 'allocate'

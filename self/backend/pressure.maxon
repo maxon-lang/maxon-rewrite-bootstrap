@@ -10,11 +10,17 @@
 // spill of a value and, further down its block, a restore of it) lends the value's register to the instructions between,
 // which neither count the value nor may read it: the value comes back into that same register at the restore.
 
+// notLive is the liveStamp of a value no block's walk holds live: every walk's liveMark is above it.
+let notLive = 0 as Count
+
 // BlockScan walks one block back from its end, keeping the values live at each point, and leaves what each instruction
 // needs: for the instruction at first + i, demand and kept at i * classCount + the class's index, and the physical
 // registers that hold fixed values before and after it and that it writes.
 type BlockScan
-	var live as Array with bool
+	// A value is live at the point the walk is at when its liveStamp is the block's liveMark, so that a block starts with
+	// no value live without a pass to clear the last one's. Only a scan that logs lists the live values.
+	var liveStamp as Array with Count
+	var liveMark as Count
 	var out as Array with bool
 	var seen as Array with Count
 	var liveList as MRegList
@@ -34,6 +40,9 @@ type BlockScan
 	var written as Array with RegMask
 	// opens is whether each instruction is the spill that opens a bracket, which a restore further down closes.
 	var opens as Array with bool
+	// most is, by class, the most any instruction of the block needs, and fits whether every one fits its free registers.
+	var most as Array with Count
+	var fits as bool
 	// The log of the points whose demand is over their class's whole pool, which the E5001 test reads: for each, its
 	// block, class and counts, and the values live across it, each with whether the instruction reads it.
 	var logging as bool
@@ -51,12 +60,13 @@ type BlockScan
 	var classMasks as RegMaskList
 
 	static function new() returns BlockScan
-		return BlockScan{live: Array.create(0), out: Array.create(0), seen: Array.create(0), liveList: MRegList.create(0), livePos: Array.create(0), liveCount: Array.create(0), outCount: Array.create(0), readCount: Array.create(0), writeCount: Array.create(0), liveWriteCount: Array.create(0), seenMark: 0, ops: Operands.new(), first: 0, demand: Array.create(0), kept: Array.create(0), physBefore: Array.create(0), physAfter: Array.create(0), written: Array.create(0), opens: Array.create(0), logging: false, logBlock: Array.create(0), logClass: Array.create(0), logT: Array.create(0), logD: Array.create(0), logF: Array.create(0), logStart: Array.create(0), logReg: MRegList.create(0), logKind: Array.create(0), webs: Array.create(0), pools: Array.create(0), classMasks: RegMaskList.create(0)}
+		return BlockScan{liveStamp: Array.create(0), liveMark: 0, out: Array.create(0), seen: Array.create(0), liveList: MRegList.create(0), livePos: Array.create(0), liveCount: Array.create(0), outCount: Array.create(0), readCount: Array.create(0), writeCount: Array.create(0), liveWriteCount: Array.create(0), seenMark: 0, ops: Operands.new(), first: 0, demand: Array.create(0), kept: Array.create(0), physBefore: Array.create(0), physAfter: Array.create(0), written: Array.create(0), opens: Array.create(0), most: Array.create(0), fits: true, logging: false, logBlock: Array.create(0), logClass: Array.create(0), logT: Array.create(0), logD: Array.create(0), logF: Array.create(0), logStart: Array.create(0), logReg: MRegList.create(0), logKind: Array.create(0), webs: Array.create(0), pools: Array.create(0), classMasks: RegMaskList.create(0)}
 	end 'new'
 
 	// reset sizes the scan for a function's registers and empties the log.
 	function reset(mutates self, regs Count, logs bool)
-		ir.resetFlags(live, n: regs)
+		ir.resetCounts(liveStamp, n: regs)
+		liveMark = 0
 		ir.resetFlags(out, n: regs)
 		ir.resetCounts(seen, n: regs)
 		ir.resetCounts(livePos, n: regs)
@@ -87,39 +97,50 @@ type BlockScan
 
 	function setLive(mutates self, fn MirFunction, r MReg)
 		let v = vregIndex(r)
-		if live[v] 'already'
+		if liveStamp[v] == liveMark 'already'
 			return
 		end 'already'
-		live[v] = true
-		livePos[v] = liveList.count()
-		liveList.push(r)
+		liveStamp[v] = liveMark
+		if logging 'listed'
+			livePos[v] = liveList.count()
+			liveList.push(r)
+		end 'listed'
 		let c = classIndex(fn.classes[v])
 		liveCount[c] = nextCount(liveCount[c])
 	end 'setLive'
 
 	function clearLive(mutates self, fn MirFunction, r MReg)
 		let v = vregIndex(r)
-		if not live[v] 'already'
+		if liveStamp[v] != liveMark 'already'
 			return
 		end 'already'
-		live[v] = false
-		let at = livePos[v]
-		let last = try liveList.pop() otherwise panic("backend: an empty live set")
-		if last != r 'moved'
-			liveList[at] = last
-			livePos[vregIndex(last)] = at
-		end 'moved'
+		liveStamp[v] = notLive
+		if logging 'listed'
+			let at = livePos[v]
+			let last = try liveList.pop() otherwise panic("backend: an empty live set")
+			if last != r 'moved'
+				liveList[at] = last
+				livePos[vregIndex(last)] = at
+			end 'moved'
+		end 'listed'
 		let c = classIndex(fn.classes[v])
 		liveCount[c] = prevCount(liveCount[c])
 	end 'clearLive'
 
 	function isLive(r MReg) returns bool
-		return live[vregIndex(r)]
+		return liveStamp[vregIndex(r)] == liveMark
 	end 'isLive'
 
 	// scan walks block b of fn, whose liveness is lv, from the values live where it ends to where it starts.
-	function scan(mutates self, fn MirFunction, g MirGraph, lv Liveness, b Count, convs Conventions)
+	function scan(mutates self, fn MirFunction, g MirGraph, lv Liveness, b Count)
 		first = fn.blocks[b].first
+		liveMark = nextCount(liveMark)
+		for c in 0 upto classCount 'none'
+			liveCount[c] = 0
+		end 'none'
+		liveList.clear()
+		ir.resetCounts(most, n: classCount)
+		fits = true
 		let n = try fn.blocks[b].endAt - first otherwise panic("backend: a block that ends before it starts")
 		while demand.count() < pointSlots(n) 'counts'
 			demand.push(0)
@@ -142,28 +163,41 @@ type BlockScan
 		while i > 0 'instrs'
 			i = prevCount(i)
 			let k = addCounts(first, b: i)
-			ops.gather(fn, x: fn.instrs[k], convs: convs)
+			ops.load(lv, k: k)
 			self.point(fn, b: b, i: i, k: k)
 			physAfter[i] = phys
 			written[i] = ops.physWrites
 			opens[i] = false
 			phys = (phys and not ops.physWrites) or ops.physReads
 			physBefore[i] = phys
+			self.measure(i)
 			self.step(fn, x: fn.instrs[k], i: i)
 		end 'instrs'
 		if phys != 0 and b != 0 'fixedIn'
 			panic("backend: block {b} is entered with a fixed register holding a value")
 		end 'fixedIn'
-		while liveList.count() > 0 'clear'
-			let r = liveList[prevCount(liveList.count())]
-			self.clearLive(fn, r: r)
-		end 'clear'
 		for c in 0 upto classCount 'classes'
 			if outCount[c] != 0 'open'
 				panic("backend: a bracket in block {b} that no spill opens")
 			end 'open'
 		end 'classes'
 	end 'scan'
+
+	// measure takes the i-th instruction's demand into the block's most, and whether it fits into the block's fits.
+	function measure(mutates self, i Count)
+		let around = physBefore[i] or physAfter[i]
+		let across = around or written[i]
+		let at = pointSlots(i)
+		for c in 0 upto classCount 'classes'
+			let d = demand[addCounts(at, b: c)]
+			if d > most[c] 'more'
+				most[c] = d
+			end 'more'
+			if fits and (d > self.freeOfMask(c, mask: around) or kept[addCounts(at, b: c)] > self.freeOfMask(c, mask: across)) 'over'
+				fits = false
+			end 'over'
+		end 'classes'
+	end 'measure'
 
 	// point counts what the instruction at k, the i-th of the block, needs, with the live set as it is after it.
 	function point(mutates self, fn MirFunction, b Count, i Count, k Count)
@@ -188,7 +222,7 @@ type BlockScan
 				continue 'reads'
 			end 'twice'
 			seen[v] = seenMark
-			if not live[v] 'dies'
+			if liveStamp[v] != liveMark 'dies'
 				let c = classIndex(fn.classes[v])
 				readCount[c] = nextCount(readCount[c])
 			end 'dies'
@@ -221,7 +255,7 @@ type BlockScan
 		end 'live'
 		for u in 0 upto ops.readLen 'dying'
 			let r = ops.reads[u]
-			if live[vregIndex(r)] or classIndex(fn.classes[vregIndex(r)]) != c or self.loggedHere(r) 'other'
+			if self.isLive(r) or classIndex(fn.classes[vregIndex(r)]) != c or self.loggedHere(r) 'other'
 				continue 'dying'
 			end 'other'
 			logReg.push(r)
@@ -406,7 +440,7 @@ export function verifyPressureUnder(fn MirFunction, convs Conventions) returns N
 	scan.reset(fn.vregCount(), logs: false)
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
-		scan.scan(fn, g: g, lv: lv, b: b, convs: convs)
+		scan.scan(fn, g: g, lv: lv, b: b)
 		let n = try fn.blocks[b].endAt - fn.blocks[b].first otherwise panic("backend: a block that ends before it starts")
 		for i in 0 upto n 'points'
 			for c in 0 upto classCount 'classes'
@@ -603,14 +637,17 @@ end 'pressureRefusalMessage'
 // class's whole pool is logged; the points of one loop nest and class make one refusal. How many values must go is found
 // by taking out, one at a time, the value that relieves the most excess over those points: out of registers across the
 // loop, a value still needs one at an instruction that reads it, for that instruction alone.
-function refuseHotLoops(fn MirFunction, g MirGraph, lv Liveness, mutates scan BlockScan, convs Conventions, over BoolList) returns PressureRefusalList
+function refuseHotLoops(fn MirFunction, g MirGraph, lv Liveness, mutates scan BlockScan, over BoolList) returns PressureRefusalList
 	var refusals = PressureRefusalList.create(0)
+	if not anyOver(over) 'fits'
+		return refusals
+	end 'fits'
 	scan.reset(fn.vregCount(), logs: true)
 	scan.webs = websOf(fn)
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
 		if over[b] 'over'
-			scan.scan(fn, g: g, lv: lv, b: b, convs: convs)
+			scan.scan(fn, g: g, lv: lv, b: b)
 		end 'over'
 	end 'blocks'
 	let points = scan.logBlock.count()
@@ -654,6 +691,15 @@ function excessOf(t Count, d Count, f Count, pool Count) returns Count
 	end 'over'
 	return 0
 end 'excessOf'
+
+function anyOver(over BoolList) returns bool
+	for b in 0 upto over.count() 'blocks'
+		if over[b] 'over'
+			return true
+		end 'over'
+	end 'blocks'
+	return false
+end 'anyOver'
 
 // websOf is the variable of each virtual register of fn: the registers that edges join, an argument with the parameter it
 // becomes, are one variable of the source, which the programmer moves out of the loop as a whole.

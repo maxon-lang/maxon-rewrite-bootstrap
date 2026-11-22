@@ -86,6 +86,9 @@ with an internal error naming the rules the first broken function breaks. `--tim
 each stage of the task graph: the wall time its tasks took, in milliseconds, and its share of the total, and the five modules whose
 tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. The tasks
 run one at a time, so the stages' times add up to the compile's. The clock is read twice per task and only when the flag is on.
+Beneath the stages, a compile that emitted code splits the emit stage by phase (`backend.EmitPhase`): selection, the blocks'
+layout, and per spilling round the graph, liveness and pressure, then spilling's sweeps and edits, colouring, the rewrite out of
+SSA, `--verify-ir`'s checks and encoding, each by its share of the stage; the clock is read at each boundary of a phase.
 `--count-allocations` builds an executable that counts its live heap boxes (see "Counting allocations"); it is for
 development, and `minimaxon test` always uses it. `--reverse-modules` (development only) runs the modules of each stage
 in another order that still puts each after the modules it names: the modules that name nothing of each other in the
@@ -1259,7 +1262,10 @@ colouring then finishes and which run.
   made again), one per block and stretch of uses, hoisted to the preheader of every loop that holds neither the cut nor
   the definition. A reload defines a new value that dominates its uses, so the function stays SSA with no new
   parameter. The work is in rounds of analysis and one sweep each; an analysis is reused while nothing changed, and a
-  function that fits costs one.
+  function that fits costs one. A round's analysis after the first starts from the one before, since edits change only
+  instructions within blocks: the graph is kept and only the block of each instruction found again; the operands of an
+  instruction no edit touched, and the live blocks of a value whose definition and uses no edit touched, are taken over;
+  and only a block whose instructions or live-out values changed is surveyed for pressure again.
 - **The invariant** (`verifyPressure`, which `--verify-ir` holds every function to): every virtual register has one
   definition; at every instruction each class's demand fits its free registers; and spill code in a hot block lies only
   in loops that define or read its value (a slot is one value). So a store runs where the definition does and a reload

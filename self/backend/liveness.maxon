@@ -202,6 +202,21 @@ type Operands
 		physReads = physReads or ((usesOfForm[form] or returnUses(x, conv: convs.internal, canThrow: fn.canThrow)) and not reserved)
 		physWrites = physWrites or ((writesOfForm[form] or callClobbers(x, convs: convs)) and not reserved)
 	end 'gatherTarget'
+
+	// load takes the operands of the instruction at k from what the liveness lv gathered of it, which a rename since has
+	// kept up to date.
+	function load(mutates self, lv Liveness, k Count)
+		readLen = 0
+		writeLen = 0
+		for rec in lv.readFrom[k] upto lv.readTo[k] 'reads'
+			self.addRead(lv.recordReg[rec], slot: lv.recordSlot[rec])
+		end 'reads'
+		for d in lv.writeFrom[k] upto lv.writeTo[k] 'writes'
+			self.addWrite(lv.writeList[d])
+		end 'writes'
+		physReads = lv.physIn[k]
+		physWrites = lv.physOut[k]
+	end 'load'
 end 'Operands'
 
 // useOperand is the register a use of slot slot names in the instruction at k.
@@ -285,13 +300,20 @@ type MirGraph
 		loops.find(predStart, pred: pred, order: order, rpo: rpo, idom: idom, reached: reached, retreatFrom: retreatFrom, retreatTo: retreatTo, walk: walk)
 		self.findCold(fn)
 		self.findPreheaders()
+		self.locate(fn)
+	end 'build'
+
+	// locate finds the block of each instruction of fn, whose blocks and edges are those the graph was built from: all
+	// that an edit within the blocks changes.
+	function locate(mutates self, fn MirFunction)
+		let blocks = fn.blocks.count()
 		ir.resetCounts(blockAt, n: fn.instrs.count())
 		for b in 0 upto blocks 'at'
 			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
 				blockAt[k] = b
 			end 'instrs'
 		end 'at'
-	end 'build'
+	end 'locate'
 
 	function findCold(mutates self, fn MirFunction)
 		ir.resetFlags(cold, n: fn.blocks.count())
@@ -416,7 +438,7 @@ function prepareBlocks(mutates fn MirFunction, mutates g MirGraph)
 		fn.blocks[b].loopDepth = g.loops.depth[b]
 	end 'depth'
 	writeLayout(fn)
-	g.build(fn)
+	g.locate(fn)
 end 'prepareBlocks'
 
 // writeLayout writes the instructions of fn in the order of its layout, so that an instruction's index orders it as the layout
@@ -532,6 +554,28 @@ end 'addPreheaders'
 
 typealias IndexList = Array with ir.Index
 
+// touchValue marks the value v touched, if touched holds it: a value past its count is new, and walked anyway.
+function touchValue(mutates touched BoolList, v Count)
+	if v < touched.count() 'old'
+		touched[v] = true
+	end 'old'
+end 'touchValue'
+
+function swapCountLists(mutates a CountList, mutates b CountList)
+	let x = exchange(a, value: CountList.create(0))
+	a = exchange(b, value: x)
+end 'swapCountLists'
+
+function swapRegLists(mutates a MRegList, mutates b MRegList)
+	let x = exchange(a, value: MRegList.create(0))
+	a = exchange(b, value: x)
+end 'swapRegLists'
+
+function swapMaskLists(mutates a Array with RegMask, mutates b Array with RegMask)
+	let x = exchange(a, value: RegMaskList.create(0))
+	a = exchange(b, value: x)
+end 'swapMaskLists'
+
 // Liveness is where each virtual register of a function is defined, used and live. A register's uses are in the order
 // of the instructions, which is the layout order once the layout has been written; liveIn holds, for each block, the
 // registers live where it starts that its parameters are not, and valueLive the same as blocks for each register.
@@ -542,9 +586,21 @@ type Liveness
 	var defAt as Array with ir.Index
 	var useStart as Array with Count
 	var useList as Array with Count
-	// recordAt and recordSlot are each use: the instruction at recordAt reads the register through recordSlot.
+	// recordAt, recordSlot and recordReg are each use: the instruction at recordAt reads the register recordReg through
+	// recordSlot.
 	var recordAt as CountList
 	var recordSlot as CountList
+	var recordReg as MRegList
+	// The operands of each instruction as gathered, which every later walk of the round loads instead of gathering
+	// again: its uses are the records from readFrom to readTo, its definitions writeList from writeFrom to writeTo, and
+	// physIn and physOut the physical registers it reads and writes.
+	var readFrom as CountList
+	var readTo as CountList
+	var writeFrom as CountList
+	var writeTo as CountList
+	var writeList as MRegList
+	var physIn as Array with RegMask
+	var physOut as Array with RegMask
 	var liveInStart as Array with Count
 	var liveIn as Array with Count
 	var valueLiveStart as Array with Count
@@ -556,9 +612,22 @@ type Liveness
 	var stamp as Array with Count
 	var work as Array with Count
 	var ops as Operands
+	// The operands and live blocks of the liveness before, which recompute takes over for the instructions and values
+	// that the edits since left alone.
+	var lastRecordReg as MRegList
+	var lastRecordSlot as CountList
+	var lastReadFrom as CountList
+	var lastReadTo as CountList
+	var lastWriteFrom as CountList
+	var lastWriteTo as CountList
+	var lastWriteList as MRegList
+	var lastPhysIn as Array with RegMask
+	var lastPhysOut as Array with RegMask
+	var lastValueLiveStart as CountList
+	var lastValueLive as CountList
 
 	static function new() returns Liveness
-		return Liveness{defBlock: Array.create(0), defAt: Array.create(0), useStart: Array.create(0), useList: Array.create(0), recordAt: CountList.create(0), recordSlot: CountList.create(0), liveInStart: Array.create(0), liveIn: Array.create(0), valueLiveStart: Array.create(0), valueLive: Array.create(0), pairBlock: Array.create(0), pairReg: Array.create(0), useOwner: Array.create(0), useIndexes: Array.create(0), stamp: Array.create(0), work: Array.create(0), ops: Operands.new()}
+		return Liveness{defBlock: Array.create(0), defAt: Array.create(0), useStart: Array.create(0), useList: Array.create(0), recordAt: CountList.create(0), recordSlot: CountList.create(0), recordReg: MRegList.create(0), readFrom: CountList.create(0), readTo: CountList.create(0), writeFrom: CountList.create(0), writeTo: CountList.create(0), writeList: MRegList.create(0), physIn: Array.create(0), physOut: Array.create(0), liveInStart: Array.create(0), liveIn: Array.create(0), valueLiveStart: Array.create(0), valueLive: Array.create(0), pairBlock: Array.create(0), pairReg: Array.create(0), useOwner: Array.create(0), useIndexes: Array.create(0), stamp: Array.create(0), work: Array.create(0), ops: Operands.new(), lastRecordReg: MRegList.create(0), lastRecordSlot: CountList.create(0), lastReadFrom: CountList.create(0), lastReadTo: CountList.create(0), lastWriteFrom: CountList.create(0), lastWriteTo: CountList.create(0), lastWriteList: MRegList.create(0), lastPhysIn: Array.create(0), lastPhysOut: Array.create(0), lastValueLiveStart: CountList.create(0), lastValueLive: CountList.create(0)}
 	end 'new'
 
 	function vregCount() returns Count
@@ -569,6 +638,59 @@ type Liveness
 	// the block that defines it. Each block a walk passes holds the value live where it starts, so the work is the size
 	// of the live ranges in blocks, with no fixpoint.
 	function compute(mutates self, fn MirFunction, g MirGraph, convs Conventions)
+		self.begin(fn)
+		for i in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[i] as Count
+			self.defineParams(fn, b: b)
+			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+				ops.gather(fn, x: fn.instrs[k], convs: convs)
+				self.takeGathered(b, k: k)
+			end 'instrs'
+		end 'blocks'
+		self.finish(g, regs: fn.vregCount(), touched: BoolList.create(0))
+	end 'compute'
+
+	// recompute finds the liveness of fn, which this liveness was computed for before and edits have changed since: the
+	// instruction now at k was at moved[k] then, or is new where that is noDef, and touched holds every value of then
+	// whose definition or uses an edit added, removed or renamed. The other instructions' operands and the other values'
+	// live blocks are what they were, and are taken over, not found again: a value's live blocks follow from the blocks of
+	// its definition and its uses alone.
+	function recompute(mutates self, fn MirFunction, g MirGraph, convs Conventions, moved IndexList, mutates touched BoolList)
+		swapRegLists(lastRecordReg, b: recordReg)
+		swapCountLists(lastRecordSlot, b: recordSlot)
+		swapCountLists(lastReadFrom, b: readFrom)
+		swapCountLists(lastReadTo, b: readTo)
+		swapCountLists(lastWriteFrom, b: writeFrom)
+		swapCountLists(lastWriteTo, b: writeTo)
+		swapRegLists(lastWriteList, b: writeList)
+		swapMaskLists(lastPhysIn, b: physIn)
+		swapMaskLists(lastPhysOut, b: physOut)
+		swapCountLists(lastValueLiveStart, b: valueLiveStart)
+		swapCountLists(lastValueLive, b: valueLive)
+		self.begin(fn)
+		for i in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[i] as Count
+			self.defineParams(fn, b: b)
+			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+				if moved[k] != noDef 'kept'
+					self.takeKept(b, k: k, was: countOfIndex(moved[k]))
+					continue 'instrs'
+				end 'kept'
+				ops.gather(fn, x: fn.instrs[k], convs: convs)
+				for u in 0 upto ops.readLen 'reads'
+					touchValue(touched, v: vregIndex(ops.reads[u]))
+				end 'reads'
+				for d in 0 upto ops.writeLen 'writes'
+					touchValue(touched, v: vregIndex(ops.writes[d]))
+				end 'writes'
+				self.takeGathered(b, k: k)
+			end 'instrs'
+		end 'blocks'
+		self.finish(g, regs: fn.vregCount(), touched: touched)
+	end 'recompute'
+
+	// begin empties the liveness for the definitions and uses of fn.
+	function begin(mutates self, fn MirFunction)
 		let regs = fn.vregCount()
 		defBlock.clear()
 		defAt.clear()
@@ -578,31 +700,83 @@ type Liveness
 		end 'none'
 		recordAt.clear()
 		recordSlot.clear()
+		recordReg.clear()
+		writeList.clear()
+		let n = fn.instrs.count()
+		ir.resetCounts(readFrom, n: n)
+		ir.resetCounts(readTo, n: n)
+		ir.resetCounts(writeFrom, n: n)
+		ir.resetCounts(writeTo, n: n)
+		resetMasks(physIn, n: n)
+		resetMasks(physOut, n: n)
 		useOwner.clear()
 		useIndexes.clear()
-		for i in 0 upto fn.order.count() 'blocks'
-			let b = fn.order[i] as Count
-			for p in 0 upto fn.blocks[b].paramCount 'params'
-				let r = fn.blockParams[addCounts(fn.blocks[b].params, b: p)]
-				self.define(r, block: b, at: noDef)
-			end 'params'
-			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
-				ops.gather(fn, x: fn.instrs[k], convs: convs)
-				for d in 0 upto ops.writeLen 'defs'
-					let r = ops.writes[d]
-					self.define(r, block: b, at: indexOfCount(k))
-				end 'defs'
-				for u in 0 upto ops.readLen 'uses'
-					useOwner.push(vregIndex(ops.reads[u]))
-					useIndexes.push(recordAt.count())
-					recordAt.push(k)
-					recordSlot.push(ops.slots[u])
-				end 'uses'
-			end 'instrs'
-		end 'blocks'
+	end 'begin'
+
+	function defineParams(mutates self, fn MirFunction, b Count)
+		for p in 0 upto fn.blocks[b].paramCount 'params'
+			let r = fn.blockParams[addCounts(fn.blocks[b].params, b: p)]
+			self.define(r, block: b, at: noDef)
+		end 'params'
+	end 'defineParams'
+
+	// takeGathered takes in the operands ops gathered of the instruction at k of block b.
+	function takeGathered(mutates self, b Count, k Count)
+		writeFrom[k] = writeList.count()
+		for d in 0 upto ops.writeLen 'defs'
+			let r = ops.writes[d]
+			self.takeDef(r, b: b, k: k)
+		end 'defs'
+		writeTo[k] = writeList.count()
+		readFrom[k] = recordAt.count()
+		for u in 0 upto ops.readLen 'uses'
+			let r = ops.reads[u]
+			let slot = ops.slots[u]
+			self.takeUse(r, slot: slot, k: k)
+		end 'uses'
+		readTo[k] = recordAt.count()
+		physIn[k] = ops.physReads
+		physOut[k] = ops.physWrites
+	end 'takeGathered'
+
+	// takeKept takes in the operands of the instruction at k of block b as the liveness before had them at was.
+	function takeKept(mutates self, b Count, k Count, was Count)
+		writeFrom[k] = writeList.count()
+		for d in lastWriteFrom[was] upto lastWriteTo[was] 'defs'
+			let r = lastWriteList[d]
+			self.takeDef(r, b: b, k: k)
+		end 'defs'
+		writeTo[k] = writeList.count()
+		readFrom[k] = recordAt.count()
+		for rec in lastReadFrom[was] upto lastReadTo[was] 'uses'
+			let r = lastRecordReg[rec]
+			let slot = lastRecordSlot[rec]
+			self.takeUse(r, slot: slot, k: k)
+		end 'uses'
+		readTo[k] = recordAt.count()
+		physIn[k] = lastPhysIn[was]
+		physOut[k] = lastPhysOut[was]
+	end 'takeKept'
+
+	function takeDef(mutates self, r MReg, b Count, k Count)
+		self.define(r, block: b, at: indexOfCount(k))
+		writeList.push(r)
+	end 'takeDef'
+
+	function takeUse(mutates self, r MReg, slot Count, k Count)
+		useOwner.push(vregIndex(r))
+		useIndexes.push(recordAt.count())
+		recordAt.push(k)
+		recordSlot.push(slot)
+		recordReg.push(r)
+	end 'takeUse'
+
+	// finish orders the uses by value and finds where each value is live; a value below touched's count that touched
+	// does not hold keeps the live blocks of the liveness before.
+	function finish(mutates self, g MirGraph, regs Count, touched BoolList)
 		ir.buildCsr(useOwner, targets: useIndexes, nodes: regs, starts: useStart, list: useList)
-		self.walkLiveness(g, regs: regs)
-	end 'compute'
+		self.walkLiveness(g, regs: regs, touched: touched)
+	end 'finish'
 
 	function define(mutates self, r MReg, block Count, at ir.Index)
 		let v = vregIndex(r)
@@ -613,7 +787,7 @@ type Liveness
 		defAt[v] = at
 	end 'define'
 
-	function walkLiveness(mutates self, g MirGraph, regs Count)
+	function walkLiveness(mutates self, g MirGraph, regs Count, touched BoolList)
 		pairBlock.clear()
 		pairReg.clear()
 		ir.resetCounts(valueLiveStart, n: nextCount(regs))
@@ -621,6 +795,15 @@ type Liveness
 		ir.resetCounts(stamp, n: g.blockCount())
 		for v in 0 upto regs 'values'
 			valueLiveStart[v] = valueLive.count()
+			if v < touched.count() and not touched[v] 'kept'
+				for e in lastValueLiveStart[v] upto lastValueLiveStart[nextCount(v)] 'blocks'
+					let b = lastValueLive[e]
+					valueLive.push(b)
+					pairBlock.push(b)
+					pairReg.push(v)
+				end 'blocks'
+				continue 'values'
+			end 'kept'
 			let first = useStart[v]
 			let stop = useStart[nextCount(v)]
 			if first == stop 'unused'

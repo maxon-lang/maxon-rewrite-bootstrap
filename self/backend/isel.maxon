@@ -999,12 +999,14 @@ function selectFunction(mutates sel Selector, mutates p ast.Project, f ir.IrFunc
 	end 'blocks'
 	sel.mir.endBlock()
 	var mir = exchange(sel.mir, value: MirFunction.new("", canThrow: false))
+	sel.allocator.spiller.clock.lap(EmitPhase.selection)
 	let refusals = sel.allocator.allocate(mir)
 	if refusals.count() > 0 'refused'
 		reportRefusals(p, f: f, refusals: refusals, errs: errs)
 		return
 	end 'refused'
 	encodeMachineFunction(sel.u, fn: mir, instance: instance)
+	sel.allocator.spiller.clock.lap(EmitPhase.encoding)
 end 'selectFunction'
 
 // targetName is the target's name in a diagnostic.
@@ -1099,12 +1101,16 @@ function selectFunctionTree(mutates sel Selector, mutates p ast.Project, f ir.Ir
 end 'selectFunctionTree'
 
 // emitModule is the unit with the code of a module's functions, and the hot loops E5001 refuses in errs. With verifies,
-// register allocation holds each function to its invariants.
-export function emitModule(mutates p ast.Project, fns ir.IrFunctionList, verifies bool, mutates errs diag.ErrorList) returns CodeUnit
+// register allocation holds each function to its invariants. clock is charged the time of each phase.
+export function emitModule(mutates p ast.Project, fns ir.IrFunctionList, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) returns CodeUnit
 	var sel = Selector.new(verifies)
+	sel.allocator.spiller.clock = exchange(clock, value: EmitClock.off())
+	sel.allocator.spiller.clock.restart()
 	for i in 0 upto fns.count() 'each'
 		selectFunctionTree(sel, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.slots[ast.funcSlot(fns[i].decl)][ast.funcIndex(fns[i].decl)].genericOrigin != ast.noFunc, errs: errs)
 	end 'each'
 	sel.u.asm.endLabels()
+	sel.allocator.spiller.clock.lap(EmitPhase.selection)
+	clock = exchange(sel.allocator.spiller.clock, value: EmitClock.off())
 	return exchange(sel.u, value: CodeUnit.new())
 end 'emitModule'
