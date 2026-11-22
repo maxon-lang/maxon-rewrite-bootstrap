@@ -40,11 +40,13 @@ wall time of each building `self/`. The Go compiler was removed on 2026-11-21, a
 ## From 2026-11-21: built from the seed
 
 Seed is the wall time of `seed\minimaxon.exe` building `self/` into C1, C1 that of C1 building it into C2, and C2 that
-of C2 building it again. `.text` bytes is the size of C2's code, read from its PE section header (`textsize.ps1`); rows
-before Phase 3 have none.
+of C2 building it again, each without the build cache. `.text` bytes is the size of C2's code, read from its PE section
+header (`textsize.ps1`); rows before Phase 3 have none. Peak MB and Commit MB are of C2's build: the most physical
+memory the compiler held at once (its peak working set) and the most it had committed; rows before 2026-11-22 have
+neither.
 
-| Date | Commit | Stage | `self/` lines | Seed ms | C1 ms | C2 ms | `.text` bytes |
-|---|---|---|---:|---:|---:|---:|---:|
+| Date | Commit | Stage | `self/` lines | Seed ms | C1 ms | C2 ms | `.text` bytes | Peak MB | Commit MB |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
 | 2026-11-21 | 750979c | cutover: seed, Go compiler removed | 49378 | 7723 | 7850 | 7355 | — |
 | 2026-11-21 | 8cbb12d | fix command; specs at 2,251 | 50660 | 7972 | 7113 | 7132 | — |
 | 2026-11-21 | c840d38 | formatter selftests | 50743 | 7810 | 7145 | 7422 | — |
@@ -62,3 +64,4 @@ before Phase 3 have none.
 | 2026-11-21 | 3f5b380 | Phase 3 T1: measurement tools | 69860 | 6804 | 6431 | 6017 | 6443248 |
 | 2026-11-21 | 30d6d11 | Phase 3: new allocator on every build, constants in data, structural hash handles, stage signatures part 1 (machine shared with two agents) | 89248 | 8422 | 26111 | 7639 | 3631833 |
 | 2026-11-22 | e81e761 | Phase 3: parallel executor and runners, register convention, inlining, element ops, CSE/LICM, selection quality, division by constant, xmm class | 101499 | 2065 | 2044 | 2043 | 2588568 |
+| 2026-11-22 | 3fcdf6d | Phase 3 done: build cache, x64-linux, per-thread heap; first row with memory (two agents building alongside) | 103039 | 1480 | 1401 | 1408 | 2611481 | 425.8 | 441.4 |

@@ -1,7 +1,9 @@
-# Times a build of self/ three ways and appends one row to docs/self-compile-times.md, so the compile time of self/
-# is on record at each stage of the plan: by the seed (seed\minimaxon.exe), by C1 (self/ built by the seed) and by C2
-# (self/ built by C1, so compiled by itself and running its own runtime). One run each: the numbers are a record, not
-# a benchmark. The row also holds the size in bytes of the code (.text) of C2, the compiler the current code generator made.
+# Times a build of self/ three ways and appends one row to docs/self-compile-times.md, so the compile time and the
+# memory use of self/ are on record at each stage of the plan: by the seed (seed\minimaxon.exe), by C1 (self/ built by
+# the seed) and by C2 (self/ built by C1, so compiled by itself and running its own runtime). One run each, without the
+# build cache: the numbers are a record, not a benchmark. The row also holds the size in bytes of the code (.text) of
+# C2, the compiler the current code generator made, and the two peaks of C2's own build of self/: the most physical
+# memory it held at once (working set) and the most it had committed.
 #
 #   .\selftime.ps1 -Note 'Stage 2.1: maps'
 #   .\selftime.ps1 -Note 'backfill' -Tree <another checkout> -Commit <its commit>
@@ -15,19 +17,65 @@ $ErrorActionPreference = 'Stop'
 $log = Join-Path $PSScriptRoot 'docs\self-compile-times.md'
 # The self-built compilers find runtime/ by walking up from their own executable, so they are built inside the tree.
 $selfBuilt = Join-Path $Tree "bin\selftime-$PID"
+$bytesPerMegabyte = 1MB
 
-# Runs a compiler on self/ and returns the wall time in milliseconds, or $null if it cannot build it.
+# .NET reads a process's peaks by its id, which fails once it has exited; the handle still answers.
+Add-Type -Namespace SelfTime -Name Memory -MemberDefinition @'
+[StructLayout(LayoutKind.Sequential)]
+public struct Counters {
+	public uint cb; public uint PageFaultCount;
+	public UIntPtr PeakWorkingSetSize; public UIntPtr WorkingSetSize;
+	public UIntPtr QuotaPeakPagedPoolUsage; public UIntPtr QuotaPagedPoolUsage;
+	public UIntPtr QuotaPeakNonPagedPoolUsage; public UIntPtr QuotaNonPagedPoolUsage;
+	public UIntPtr PagefileUsage; public UIntPtr PeakPagefileUsage;
+}
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern bool K32GetProcessMemoryInfo(IntPtr process, out Counters counters, uint size);
+'@
+
+# Runs a compiler on self/ and returns its wall time in milliseconds and its peak working set and peak commit in
+# bytes, or $null if it cannot build it.
 function Measure-SelfBuild([string]$compilerExe, [string]$outExe) {
-	$ErrorActionPreference = 'Continue'
-	$elapsed = Measure-Command { & $compilerExe build self -o $outExe 2>&1 | Out-Null }
-	$ErrorActionPreference = 'Stop'
-	if ($LASTEXITCODE -ne 0 -or -not (Test-Path $outExe)) { return $null }
-	return $elapsed.TotalMilliseconds
+	$start = [Diagnostics.ProcessStartInfo]::new($compilerExe)
+	foreach ($argument in 'build', 'self', '--no-cache', '-o', $outExe) { $start.ArgumentList.Add($argument) }
+	$start.WorkingDirectory = $Tree
+	$start.UseShellExecute = $false
+	$start.RedirectStandardOutput = $true
+	$start.RedirectStandardError = $true
+	$watch = [Diagnostics.Stopwatch]::StartNew()
+	$process = [Diagnostics.Process]::Start($start)
+	try {
+		$handle = $process.Handle
+		$out = $process.StandardOutput.ReadToEndAsync()
+		$err = $process.StandardError.ReadToEndAsync()
+		$process.WaitForExit()
+		$watch.Stop()
+		[void]$out.Result
+		[void]$err.Result
+		if ($process.ExitCode -ne 0 -or -not (Test-Path $outExe)) { return $null }
+		$counters = [SelfTime.Memory+Counters]::new()
+		$size = [Runtime.InteropServices.Marshal]::SizeOf($counters)
+		if (-not [SelfTime.Memory]::K32GetProcessMemoryInfo($handle, [ref]$counters, $size)) {
+			throw "cannot read the memory counters of $compilerExe"
+		}
+		return [pscustomobject]@{
+			Milliseconds   = $watch.Elapsed.TotalMilliseconds
+			PeakWorkingSet = $counters.PeakWorkingSetSize.ToUInt64()
+			PeakCommit     = $counters.PeakPagefileUsage.ToUInt64()
+		}
+	} finally {
+		$process.Dispose()
+	}
 }
 
 function Format-Milliseconds($value) {
 	if ($null -eq $value) { return '—' }
 	return '{0:0}' -f $value
+}
+
+function Format-Megabytes($bytes) {
+	if ($null -eq $bytes) { return '—' }
+	return '{0:0.0}' -f ($bytes / $bytesPerMegabyte)
 }
 
 try {
@@ -50,6 +98,6 @@ try {
 	Pop-Location
 	if (Test-Path $selfBuilt) { Remove-Item -Recurse -Force $selfBuilt }
 }
-$row = '| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} |' -f (Get-Date -Format 'yyyy-MM-dd'), $Commit, $Note, $lines, (Format-Milliseconds $bySeed), (Format-Milliseconds $byC1), (Format-Milliseconds $byC2), (Format-Milliseconds $textBytes)
+$row = '| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} |' -f (Get-Date -Format 'yyyy-MM-dd'), $Commit, $Note, $lines, (Format-Milliseconds (${bySeed}?.Milliseconds)), (Format-Milliseconds (${byC1}?.Milliseconds)), (Format-Milliseconds (${byC2}?.Milliseconds)), (Format-Milliseconds $textBytes), (Format-Megabytes (${byC2}?.PeakWorkingSet)), (Format-Megabytes (${byC2}?.PeakCommit))
 Add-Content $log $row
 Write-Output $row
