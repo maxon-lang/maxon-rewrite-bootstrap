@@ -61,3 +61,4 @@ before Phase 3 have none.
 | 2026-11-21 | 6f9999f | Phase 2: fourth batch (interface values, extensions, casts, frame box), seed 6f9999f | 69471 | 5723 | 5843 | 5785 | — |
 | 2026-11-21 | 3f5b380 | Phase 3 T1: measurement tools | 69860 | 6804 | 6431 | 6017 | 6443248 |
 | 2026-11-21 | 30d6d11 | Phase 3: new allocator on every build, constants in data, structural hash handles, stage signatures part 1 (machine shared with two agents) | 89248 | 8422 | 26111 | 7639 | 3631833 |
+| 2026-11-22 | e81e761 | Phase 3: parallel executor and runners, register convention, inlining, element ops, CSE/LICM, selection quality, division by constant, xmm class | 101499 | 2065 | 2044 | 2043 | 2588568 |
