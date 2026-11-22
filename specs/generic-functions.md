@@ -507,7 +507,7 @@ end 'larger'
 typealias Score = int(0 to 100)
 
 function main() returns ExitCode
-	print("{larger(3 as Score, b: 8 as Score)} {larger("fig", b: "date")}\n")
+	print("{lib.larger(3 as Score, b: 8 as Score)} {lib.larger("fig", b: "date")}\n")
 	return 0
 end 'main'
 ```
@@ -589,8 +589,8 @@ type Point implements Comparable
 end 'Point'
 
 function main() returns ExitCode
-	let p = smaller(Point.create(9), b: Point.create(3))
-	print("{p.rank} {libraryPoint()}\n")
+	let p = lib.smaller(Point.create(9), b: Point.create(3))
+	print("{p.rank} {lib.libraryPoint()}\n")
 	return 0
 end 'main'
 ```
@@ -631,7 +631,7 @@ end 'Point'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let p = smaller(Point.create(9), b: Point.create(3))
+	let p = lib.smaller(point.Point.create(9), b: point.Point.create(3))
 	print("{p.rank}\n")
 	return 0
 end 'main'
@@ -716,7 +716,7 @@ type Point implements Comparable
 end 'Point'
 
 function main() returns ExitCode
-	let p = smaller(Point.create(9), b: Point.create(3))
+	let p = export.smaller(Point.create(9), b: Point.create(3))
 	print("{p.rank}\n")
 	return 0
 end 'main'
@@ -759,7 +759,7 @@ type Point implements Comparable
 end 'Point'
 
 function main() returns ExitCode
-	let p = smallerVia(Point.make(9), b: Point.make(3))
+	let p = export.smallerVia(Point.make(9), b: Point.make(3))
 	print("{p.rank}\n")
 	return 0
 end 'main'
@@ -914,7 +914,7 @@ enum Shade
 end 'Shade'
 
 function main() returns ExitCode
-	print("{same(Shade.light, b: Shade.dark)} {same(Shade.dark, b: Shade.dark)} {libraryShade()}\n")
+	print("{lib.same(Shade.light, b: Shade.dark)} {lib.same(Shade.dark, b: Shade.dark)} {lib.libraryShade()}\n")
 	return 0
 end 'main'
 ```
@@ -994,8 +994,8 @@ end 'larger'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	print("main {larger(10, b: 2)}\n")
+	a.runA()
+	print("main {b.larger(10, b: 2)}\n")
 	return 0
 end 'main'
 ```
@@ -1036,8 +1036,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```
@@ -1127,8 +1127,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```
@@ -1528,7 +1528,7 @@ type Tag implements Stringable
 end 'Tag'
 
 function main() returns ExitCode
-	print("{describe(Tag.create(7))}\n")
+	print("{export.describe(Tag.create(7))}\n")
 	return 0
 end 'main'
 ```

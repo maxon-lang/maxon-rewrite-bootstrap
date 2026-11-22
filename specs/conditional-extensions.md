@@ -422,7 +422,7 @@ type Loose implements holder.Holder with Bag
 	end 'get'
 
 	function size() returns ExitCode
-		return self.get().count() as ExitCode
+		return try self.get().count() as ExitCode otherwise panic("out of range")
 	end 'size'
 end 'Loose'
 
@@ -432,7 +432,7 @@ end 'looseSize'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return packedWitnessed() + looseSize()
+	return try packed.packedWitnessed() + loose.looseSize() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -511,7 +511,7 @@ end 'looseSize'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return packedWeight() + looseSize()
+	return packed.packedWeight() + loose.looseSize()
 end 'main'
 ```
 ```exitcode

@@ -315,6 +315,7 @@ associated-types.md: conformance-argument-unparenthesized-at-arity-one
 associated-types.md: conformance-arguments-in-parentheses-at-arity-two
 associated-types.md: conformance-requirement-typed-by-a-generic-instance
 associated-types.md: conformers-binding-an-associated-type-differently-are-each-dispatched-through-a-receiver-claiming-theirs
+associated-types.md: error.a-where-clause-after-a-conformance-argument-is-not-part-of-its-spelling
 associated-types.md: error.an-exported-conformance-with-a-file-private-alias-is-refused
 associated-types.md: error.extends.a-clause-binding-one-inherited-name-two-ways-is-refused
 associated-types.md: error.extends.no-sibling-conformance-leaves-the-inherited-name-unbound
@@ -944,8 +945,16 @@ commute-for-coalescing.md: a-float-multiply-keeps-its-copy
 commute-for-coalescing.md: a-non-commutative-op-keeps-its-copy
 commute-for-coalescing.md: an-integer-add-is-not-commuted
 comparable.md: comparable.concrete-typeparam-result-stays-scalar
+comparable.md: comparable.error.cross-type-param-compare-method
+comparable.md: comparable.error.cross-type-param-ordering
+comparable.md: comparable.error.instantiate-nonconforming
+comparable.md: comparable.error.missing-compare
 comparable.md: comparable.error.non-protocol-compare-result
+comparable.md: comparable.error.ordering-concrete-self-arg
 comparable.md: comparable.error.ordering-requires-comparable
+comparable.md: comparable.error.wrong-compare-signature
+comparable.md: comparable.ordering-qualified-values
+comparable.md: comparable.user-type-direct-compare
 comparison-operators.md: a-plain-int-operand-keeps-the-signed-reading
 comparison-operators.md: a-wide-domain-orders-unsigned
 comparison-operators.md: an-honest-signed-sentinel-still-decodes
@@ -991,6 +1000,7 @@ compiler-directives.md: directives.doc-comment-after-condition
 compiler-directives.md: directives.not-doubles-back
 compiler-directives.md: directives.or-always-true
 conditional-extensions.md: conditional-extensions.array-contains
+conditional-extensions.md: conditional-extensions.constraint-not-met
 conditional-move-drops.md: a-binding-reassigned-before-its-move-on-every-trip-is-legal
 conditional-move-drops.md: a-break-with-a-live-value-out-of-a-loop-that-moves-it-on-the-back-edge
 conditional-move-drops.md: a-cell-resident-var-handed-to-async-each-trip-with-a-continue
@@ -1640,6 +1650,13 @@ enums-simple.md: float-backed-equality-is-the-tag-compare
 enums-simple.md: float-backed-negative
 enums-simple.md: float-backed-signed-zero
 enums-simple.md: simple-enum
+equatable.md: basic-equal
+equatable.md: basic-not-equal
+equatable.md: equals-branching
+equatable.md: equals-in-function
+equatable.md: partial-field-match
+equatable.md: self-equality
+equatable.md: single-field
 error-handling.md: a-throws-clause-names-an-error-enum-through-its-directory
 error-handling.md: a-user-declared-string-error-shadows-the-library-one
 error-handling.md: error.assoc-value-throw-catch
@@ -1783,6 +1800,7 @@ extension-over-enum.md: error.an-enum-extension-that-leaves-a-requirement-unmet-
 extension-over-enum.md: error.an-extension-of-a-typealias-is-refused
 extension-over-enum.md: error.an-extension-of-an-undeclared-name-is-refused
 extension-over-enum.md: error.two-extensions-of-an-enum-declare-one-method
+extension-over-primitive.md: a-declared-conformance-supplies-a-protocol-the-primitive-lacks
 extension-over-primitive.md: an-extension-adds-a-method-to-bool
 extension-over-primitive.md: an-extension-adds-a-method-to-int
 extension-over-primitive.md: self-in-parameter-position-on-a-primitive-extension
@@ -2106,6 +2124,7 @@ fixed-array.md: a-literal-through-a-runtime-sized-alias-is-sized
 fixed-array.md: a-literal-through-an-inner-runtime-sized-alias-is-sized
 fixed-array.md: a-loop-counter-length-is-runtime-sized
 fixed-array.md: a-managed-element-reads-back-through-get
+fixed-array.md: a-managed-fixed-array-field-is-released-with-its-owner
 fixed-array.md: a-managed-fixed-array-is-returned-and-passed-on
 fixed-array.md: a-managed-fixed-array-literal-holds-heap-strings
 fixed-array.md: a-managed-fixed-array-of-count-zero-is-empty
@@ -2411,6 +2430,7 @@ functions.md: zero-arg-call
 generic-functions.md: an-exported-generic-and-another-directorys-exported-non-generic-of-one-name-both-stand
 generic-functions.md: an-exported-non-generic-and-another-directorys-exported-generic-of-one-name-both-stand
 generic-functions.md: error.a-template-refusing-in-every-instance-names-the-same-instance-in-any-declaration-order
+generic-functions.md: error.an-inferred-count-is-nominal
 generic-functions.md: error.two-files-of-one-directory-declare-a-generic-beside-another-directorys-generic-of-one-name
 generic-functions.md: error.two-files-of-one-directory-each-declare-a-private-generic-of-one-name
 generic-instance-clone.md: a-trivial-instantiation-of-the-same-nested-shape-still-clones
@@ -2471,6 +2491,7 @@ generic-opaque-value-store.md: a-bare-generic-static-called-inside-its-own-type-
 generic-opaque-value-store.md: a-composed-container-cloned-in-a-closure-in-a-static-copies-through-the-call-sites-descriptor
 generic-opaque-value-store.md: a-concrete-function-that-reassigns-and-a-generic-one-that-does-not
 generic-opaque-value-store.md: a-conformer-binding-a-concrete-type-the-extension-stores-compiles
+generic-opaque-value-store.md: a-conformer-binding-an-interface-is-not-refused-where-a-conditional-extension-is-withheld
 generic-opaque-value-store.md: a-conformer-binding-an-interface-the-extension-does-not-store-compiles
 generic-opaque-value-store.md: a-container-of-tuples-over-the-parameter-cloned-inside-a-closure-clones-its-records
 generic-opaque-value-store.md: a-container-of-tuples-over-the-parameter-clones-its-records
@@ -2548,6 +2569,7 @@ generic-type-nested-array-typealias.md: a-member-array-of-self-stays-distinct-pe
 generic-type-nested-array-typealias.md: a-recursive-generic-type-holds-an-array-of-itself
 generic-type-nested-array-typealias.md: a-type-body-and-an-extension-in-two-directories-each-read-their-own-transform
 generic-type-nested-array-typealias.md: a-user-generic-of-self-takes-and-hands-back-self
+generic-type-nested-array-typealias.md: a-withheld-conditional-extension-scans-no-descriptor-site
 generic-type-nested-array-typealias.md: an-alias-over-the-type-parameter-types-a-field-and-a-parameter-beside-another-types
 generic-type-nested-array-typealias.md: an-extension-default-names-the-alias-of-the-extension-declared-after-another
 generic-type-nested-array-typealias.md: an-extension-default-names-the-alias-of-the-extension-declared-before-another
@@ -2934,6 +2956,7 @@ interface-conformance.md: conformance-wrong-return-type
 interface-conformance.md: error.a-conformance-mismatch-over-a-contested-byte-array-names-it-in-source-form
 interface-conformance.md: error.conformance-alias-crossing
 interface-conformance.md: error.instance-requirement-supplied-as-static-method
+interface-conformance.md: error.partial-builtin-interface
 interface-conformance.md: error.static-requirement-not-supplied
 interface-conformance.md: error.static-requirement-not-supplied-without-witness
 interface-conformance.md: error.static-requirement-supplied-as-instance-method
@@ -2967,6 +2990,7 @@ interface-dispatch.md: dispatch-void-method
 interface-dispatch.md: dispatch-with-method-args
 interface-dispatch.md: dispatch-with-print
 interface-dispatch.md: error.a-witness-argument-of-another-instance-is-refused
+interface-dispatch.md: error.existentials-cannot-be-compared
 interface-dispatch.md: error.interface-return-of-a-nonconformer
 interface-dispatch.md: error.interface-return-of-a-nonconformer-at-two-returns-beside-an-owned-local
 interface-dispatch.md: interface-dispatch.function-values-over-concrete-types-still-compile
@@ -3016,9 +3040,11 @@ interface-extensions.md: extension-with-self
 interface-extensions.md: interface-extensions.a-conformers-own-declaration-still-shadows-an-extensions
 interfaces.md: a-struct-literal-stores-a-conformer-into-an-interface-typed-field
 interfaces.md: an-assignment-replaces-an-interface-typed-field-with-another-conformer
+interfaces.md: basic-interface
 interfaces.md: error.mismatched-interface-end-label
 interfaces.md: method-call-syntax
 interfaces.md: method-with-params
+interfaces.md: multiple-interfaces
 interfaces.md: multiple-methods
 interfaces.md: non-interface-method
 interfaces.md: parenthesized-conformance-arg-is-a-use
@@ -3039,6 +3065,9 @@ iterator-element-provenance.md: a-for-with-iterator-over-a-let-parameters-field-
 jcc-erratum-padding.md: a-tight-loops-back-edge-never-straddles-a-32-byte-boundary
 keyword-as-a-declared-name.md: a-keyword-as-a-free-function-name
 keyword-as-a-declared-name.md: a-keyword-as-a-static-method-name
+keyword-as-a-declared-name.md: a-keyword-as-an-instance-method-name
+keyword-as-a-declared-name.md: a-keyword-as-an-interface-METHOD-name
+keyword-as-a-declared-name.md: a-keyword-named-parameter-AS-THE-FIRST-TOKEN-OF-A-CONDITION
 keyword-as-a-declared-name.md: a-keyword-named-parameter-that-a-CONSTRUCTOR-CONSUMES
 keyword-named-case-members.md: a-parenthesized-condition-with-or-past-the-group
 keyword-parameter-names.md: array-and-of-are-ordinary-identifiers
@@ -4019,6 +4048,8 @@ nominal-typealias.md: main-returns-an-alias-typed-value
 nominal-typealias.md: negating-a-converted-unsigned-value-keeps-the-signed-alias
 nominal-typealias.md: same-alias-arithmetic-keeps-the-alias
 operator-by-reference.md: operator-by-reference.a-method-with-more-parameters-is-not-behind-an-operator
+operator-by-reference.md: operator-by-reference.error.an-enum-conformer-marking-its-operand-mutable-does-not-conform
+operator-by-reference.md: operator-by-reference.error.an-enum-conformer-may-not-reassign-its-operand
 optimizer-refcount.md: multi-exit-match-arm-brackets
 optimizer-refcount.md: multi-exit-three-way-split
 optimizer-refcount.md: prefix-kill-sibling-cleanup
@@ -4383,7 +4414,10 @@ primitive-cloneable.md: bool.clone
 primitive-cloneable.md: byte.clone
 primitive-cloneable.md: float.clone
 primitive-cloneable.md: int.clone
+primitive-conformance.md: primitive-conformance.error.eq-concrete-self-arg
+primitive-conformance.md: primitive-conformance.error.eq-cross-type-param
 primitive-conformance.md: primitive-conformance.error.eq-requires-equatable
+primitive-conformance.md: primitive-conformance.error.equals-concrete-self-arg
 primitive-conformance.md: primitive-conformance.error.non-protocol-equals-result
 print-error-function.md: basic
 print-error-function.md: interpolation
@@ -6405,6 +6439,8 @@ unreachable-code.md: unreachable-after-throw
 unsigned-bounds-guard.md: the-last-element-is-in-and-the-length-is-not
 unused-export.md: a-public-function-read-only-in-its-directory-is-not-flagged
 unused-export.md: a-type-named-only-in-another-files-const-initializer-is-a-reference
+unused-export.md: an-export-named-only-by-a-generic-function-nothing-instantiates
+unused-export.md: an-unmarked-function-named-only-by-a-generic-function-nothing-instantiates
 unused-export.md: an-unmarked-function-named-only-in-an-inactive-branch
 unused-export.md: cross-file-alias-in-a-signature-is-a-reference
 unused-export.md: cross-file-constant-chain-is-a-reference
@@ -6526,6 +6562,7 @@ where-clause-associated-binding.md: associated-binding.a-generic-conformer-reach
 where-clause-associated-binding.md: associated-binding.a-method-reading-nothing-of-its-parameter-supplies-a-parametric-witness-from-its-own-table
 where-clause-associated-binding.md: associated-binding.a-parametric-constraint-argument-is-a-zero-nothing-reads
 where-clause-associated-binding.md: associated-binding.a-parametric-constraint-argument-the-callee-reads
+where-clause-associated-binding.md: associated-binding.a-shared-table-serves-a-generic-conformer-from-a-static
 where-clause-associated-binding.md: associated-binding.a-static-whose-callee-reads-a-parametric-witness-composes-it-from-the-call-sites-descriptor
 where-clause-associated-binding.md: associated-binding.a-witness-read-only-inside-a-closure-the-callee-builds-is-supplied-from-the-callers-table
 where-clause-associated-binding.md: associated-binding.constrained-parameter-typed-through-the-binding
@@ -6550,6 +6587,7 @@ where-clauses.md: where-clauses.error.ambiguous-inherited-requirement
 where-clauses.md: where-clauses.error.instantiate-nonconforming
 where-clauses.md: where-clauses.error.operator-witness-wrong-arity
 where-clauses.md: where-clauses.error.operator-witness-wrong-formal-type
+where-clauses.md: where-clauses.error.operator-witness-wrong-formal-type-comparable
 where-clauses.md: where-clauses.error.static-operator-witness
 where-clauses.md: where-clauses.error.static-requirement-through-type-param
 where-clauses.md: where-clauses.error.static-requirement-wrong-arity-at-call

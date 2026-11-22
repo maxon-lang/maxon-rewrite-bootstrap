@@ -90,7 +90,6 @@ end 'main'
 ```
 
 <!-- test: a-keyword-as-an-instance-method-name -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -101,15 +100,14 @@ type Counter
 		return Self{base: base}
 	end 'create'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 	function to() returns Integer
-		return base + 2
+		return try base + 2 otherwise panic("out of range")
 	end 'to'
 end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create(40)
-	return c.to()
+	return try c.to() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -117,14 +115,12 @@ end 'main'
 ```
 
 <!-- test: a-keyword-as-an-interface-METHOD-name -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 An interface REQUIREMENT is a declared name in the same sense a function's own name is, so it admits a
 keyword too — a requirement a conforming type could not spell would be one no type could satisfy.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Scaled
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 	function to() returns Integer
 end 'Scaled'
 
@@ -135,14 +131,13 @@ type Cell implements Scaled
 		return Self{n: n}
 	end 'from'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 	function to() returns Integer
-		return n * 3
+		return try n * 3 otherwise panic("out of range")
 	end 'to'
 end 'Cell'
 
 function main() returns ExitCode
-	return Cell.from(14).to()
+	return try Cell.from(14).to() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -286,7 +281,6 @@ end 'main'
 <!-- test: block-keywords-as-parameter-names-beside-real-blocks -->
 <!-- skip: 'for' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'match' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'while' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- positions: moved -->
 The same keywords in the PARAMETER position, which is the shape whose miscount is a spurious closer
@@ -309,7 +303,6 @@ typealias Integer = int(i64.min to i64.max)
 // TODO: 'while' is a keyword in minimaxon and cannot be used as a name; rename it
 // TODO: 'for' is a keyword in minimaxon and cannot be used as a name; rename it
 // TODO: 'match' is a keyword in minimaxon and cannot be used as a name; rename it
-// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 function weigh(while Integer, for Integer, match Integer, from Integer, to Integer) returns Integer
 	var acc = 0 as Integer
 	var k = 0 as Integer
@@ -605,7 +598,6 @@ end 'main'
 ### A keyword-named binding OPENING a block header
 
 <!-- test: a-keyword-named-parameter-AS-THE-FIRST-TOKEN-OF-A-CONDITION -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⛔⛔ **A BLOCK HEADER'S CONDITION MAY *BEGIN* WITH A KEYWORD-NAMED BINDING, AND THAT PUTS AN ARM
 SEPARATOR IMMEDIATELY AFTER THE BLOCK KEYWORD.** A keyword followed by `gives`/`then`/`to`/`upto`/`or`
 is not necessarily a match-arm case name, because a control keyword CAN be followed by a match-arm
@@ -622,26 +614,23 @@ in a `while` and as a `match` SCRUTINEE — the three headers whose next token i
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 function twosComplementDistance(to Integer, from Integer) returns Integer
 	if to >= from 'forward'
-		return to -from
+		return try to - from otherwise panic("out of range")
 	end 'forward'
-	return (from -to) * -1
+	return try (from - to) * -1 otherwise panic("out of range")
 end 'twosComplementDistance'
 
-// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 function span(to Integer, from Integer) returns Integer
 	var acc = 0 as Integer
 	var k = from
 	while to > k 'spin'
-		acc = acc + 1
+		acc = try acc + 1 otherwise panic("out of range")
 		k = k + 1
 	end 'spin'
 	return acc
 end 'span'
 
-// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 function weight(to Integer) returns Integer
 	return match to 'pick'
 		1 gives 100
@@ -651,7 +640,7 @@ function weight(to Integer) returns Integer
 end 'weight'
 
 function main() returns ExitCode
-	return (twosComplementDistance(50, from: 8) + span(4, from: 1) + weight(2)) as ExitCode
+	return try (twosComplementDistance(50, from: 8) + span(4, from: 1) + weight(2)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -661,7 +650,6 @@ end 'main'
 <!-- test: a-keyword-named-condition-BESIDE-keyword-named-match-arms -->
 <!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⭐⭐ **THE DISCRIMINATING CASE: both readings of the same lookahead, alive in one program.** The scoping
 above is only right if the arm lookahead still FIRES where an arm really stands, and the two shapes are
 spelled with the same two tokens. `end gives 4` inside the match body is a keyword-named case name whose
@@ -691,7 +679,6 @@ function score(k Kw) returns Integer
 	end 'classify'
 end 'score'
 
-// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 function gap(to Integer, from Integer) returns Integer
 	if to >= from 'forward'
 		return to -from
@@ -780,7 +767,6 @@ a=7 b=5 c=2
 
 <!-- test: error.a-bare-read-of-end-in-a-first-method-is-the-only-diagnostic -->
 <!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- positions: moved -->
 ```maxon
 // --- file: span.maxon
@@ -801,7 +787,6 @@ type Span
 		return moved
 	end 'shifted'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 	function width(to SpanPos) returns SpanPos
 		return to -start
 	end 'width'

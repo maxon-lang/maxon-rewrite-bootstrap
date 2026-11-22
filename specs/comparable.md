@@ -136,7 +136,7 @@ function rank(o Ordering) returns Integer
 end 'rank'
 
 function main() returns ExitCode
-	return rank(Ordering.lessThan) * 100 + rank(Ordering.equalTo) * 10 + rank(Ordering.greaterThan)
+	return try rank(Ordering.lessThan) * 100 + rank(Ordering.equalTo) * 10 + rank(Ordering.greaterThan) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

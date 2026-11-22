@@ -1954,7 +1954,7 @@ Code outside the image, a DLL's, never is. When live code names `g.preemptibleCo
 every unit the table of the preemptible code: the count of ranges, then each range's start and end as how far below the
 table they are, sections next to each other in the layout as one range, which the monitor searches with the address it
 stopped a thread at. `tests/runtime/stack-switch.maxon` switches between two stacks by hand, reads the table, and stops
-the main thread from another thread on both systems.
+on both systems a thread of its own, which holds no processor and so is never stopped by the monitor.
 
 **The scheduler** (`runtime/sched.maxon`, `green.maxon`, `monitor.maxon`, `timers.maxon`, `poll.maxon`) is Go's: green
 threads (G) run by threads (M) that each hold a processor (P) while they run one. There are as many processors as
@@ -3885,10 +3885,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   where Maxon takes a literal whole: `Alias from [1, 2].count()` is `E3005`, since a call on the literal is not an array
   literal, and the conversion is parenthesized to call on it: `(Alias from [1, 2]).count()`. `from` is still a name where a
   name is required or an operand is (`function from()`, a parameter read as `from`, `String.from(bytes)`), as in Maxon, and
-  starts `Type from value` only after an expression.
+  starts `Type from value` only after an expression. So is `to` (`move(cursor, to: next)`), which closes a range only after a
+  bound, a pattern value or the start of a `for`'s range.
 - The reserved words are exactly the keywords the grammar uses, so a word Maxon reserves for a feature minimaxon
   lacks is an ordinary name, and a word that could be read by context, such as `mutates`, `consumes` or `sets`, is
-  reserved.
+  reserved, except `from` and `to`, which Maxon's programs use as names.
 - A parameter convention is a verb written before the parameter's name, with the function as its subject:
   `push(consumes item T)`, `swap(mutates a T, mutates b T)`, `parse(sets result Ast)`, and `mutates self` or
   `consumes self` for a receiver, and `destructs self` for a destructor.

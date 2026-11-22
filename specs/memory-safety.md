@@ -303,7 +303,6 @@ original word long enough for a heap record and a tail
 ```
 
 <!-- test: clone-of-union-array-copies-the-payload -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ### Cloning an Array of UNIONS copies each live case's payload
 A union with a payload is a heap box holding heap pointers, so a copied element slot is a second
 name for the SAME box and the same payload record; uncopied, a write through the clone's payload
@@ -313,12 +312,11 @@ type Item
 	export var label as String
 
 	static function create(label String) returns Item
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
-	function rename(to String)
-		self.label = to
+	function rename(mutates self, to String)
+		self.label = to.clone()
 	end 'rename'
 end 'Item'
 
@@ -330,7 +328,7 @@ end 'Op'
 typealias Ops = Array with Op
 
 function main() returns ExitCode
-	let a = Ops.create(0)
+	var a = Ops.create(0)
 	a.push(Op.holds(Item.create("original label long enough for a heap record")))
 	let b = a.clone()
 	let bOp = try b.get(0) otherwise Op.none
@@ -901,7 +899,6 @@ error E2015: <fragment>:51:12: Unsupported: `clone` on `Holder`, whose field `sh
 ```
 
 <!-- test: clone-of-struct-with-union-field-copies-the-payload -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ### Cloning a struct whose FIELD is a union copies that union
 A struct auto-conforms once every field does, so a union field is what carries the conformance
 into the struct — and the struct's own cloner has to reach through it. Copying the field by
@@ -911,12 +908,11 @@ type Item
 	export var label as String
 
 	static function create(label String) returns Item
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
-	function rename(to String)
-		self.label = to
+	function rename(mutates self, to String)
+		self.label = to.clone()
 	end 'rename'
 end 'Item'
 
@@ -929,7 +925,7 @@ type Decl
 	export var op as Op
 
 	static function create(op Op) returns Decl
-		return Self{op: op}
+		return Self{op: op.clone()}
 	end 'create'
 end 'Decl'
 
@@ -955,7 +951,6 @@ a holds: original label long enough for a heap record
 ```
 
 <!-- test: a-match-over-the-union-field-of-a-let-clone-is-written -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 The twin of the case above: the match binding names the record the payload holds, and a `let` clone forbids only
 reassigning `b`, so over a `let` clone `rename` writes the payload as it does over a `var` clone.
 ```maxon
@@ -963,12 +958,11 @@ type Item
 	export var label as String
 
 	static function create(label String) returns Item
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
-	function rename(to String)
-		self.label = to
+	function rename(mutates self, to String)
+		self.label = to.clone()
 	end 'rename'
 end 'Item'
 
@@ -981,7 +975,7 @@ type Decl
 	export var op as Op
 
 	static function create(op Op) returns Decl
-		return Self{op: op}
+		return Self{op: op.clone()}
 	end 'create'
 end 'Decl'
 
@@ -993,7 +987,7 @@ function main() returns ExitCode
 		none then return 3
 	end 'mut'
 	match b.op 'read'
-		holds(it) then return it.label.byteLength() as ExitCode
+		holds(it) then return try it.label.byteLength() as ExitCode otherwise panic("out of range")
 		none then return 4
 	end 'read'
 end 'main'

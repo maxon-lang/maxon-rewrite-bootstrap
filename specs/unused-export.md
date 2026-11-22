@@ -1192,9 +1192,9 @@ function helper() returns ExitCode
 end 'helper'
 
 // --- file: generic.maxon
-public function viaGeneric(a T) uses T returns T where T implements Comparable
+public function viaGeneric(a T) uses T returns T where T implements Comparable and Copyable
 	let h = helper()
-	return a if h > 0 else a
+	return a.clone() if h > 0 else a.clone()
 end 'viaGeneric'
 
 // --- file: main.maxon
@@ -1214,9 +1214,9 @@ export function helper() returns ExitCode
 end 'helper'
 
 // --- file: use/generic.maxon
-public function viaGeneric(a T) uses T returns T where T implements Comparable
-	let h = helper()
-	return a if h > 0 else a
+public function viaGeneric(a T) uses T returns T where T implements Comparable and Copyable
+	let h = api.helper()
+	return a.clone() if h > 0 else a.clone()
 end 'viaGeneric'
 
 // --- file: use/main.maxon

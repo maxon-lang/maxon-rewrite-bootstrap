@@ -704,8 +704,8 @@ type Tagged uses T implements Equatable
 	var tag as Integer
 	var v as T
 
-	static function create(tag Integer, v T) returns Self
-		return Self{tag: tag, v: v}
+	static function create(tag Integer, v T) returns Self where T implements Copyable
+		return Self{tag: tag, v: v.clone()}
 	end 'create'
 
 	function equals(other Self) returns bool
@@ -716,8 +716,8 @@ end 'Tagged'
 type Holder uses S where S implements Equatable
 	var s as S
 
-	static function create(s S) returns Self
-		return Self{s: s}
+	static function create(s S) returns Self where S implements Copyable
+		return Self{s: s.clone()}
 	end 'create'
 
 	function same(other S) returns bool
@@ -846,7 +846,7 @@ type Bag uses T implements Equatable
 		return Self{items: items}
 	end 'create'
 
-	function equals(other Self) returns bool
+	function equals(other Self) returns bool where T implements Copyable
 		let copy = try other.items.slice(0, endIndex: other.items.count()) otherwise return false
 		return copy.count() == items.count()
 	end 'equals'

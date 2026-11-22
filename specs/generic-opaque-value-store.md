@@ -3880,7 +3880,7 @@ end 'Source'
 extension Source where Item implements Equatable
 	typealias ItemArray = Array with Item
 
-	function collected() returns Count
+	function collected() returns Count where Item implements Droppable
 		var xs = ItemArray{}
 		return xs.count()
 	end 'collected'
@@ -3898,7 +3898,7 @@ end 'Impl'
 
 function main() returns ExitCode
 	let impl = Impl.create()
-	return impl.first().label().byteLength() - 5
+	return try impl.first().label().byteLength() - 5 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

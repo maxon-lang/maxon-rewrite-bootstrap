@@ -2790,12 +2790,12 @@ type Bag uses T implements Holder with Plain
 	export var value as T
 	export var tag as Plain
 
-	static function create(v T, tag Plain) returns Self
-		return Self{value: v, tag: tag}
+	static function create(v T, tag Plain) returns Self where T implements Copyable
+		return Self{value: v.clone(), tag: tag.clone()}
 	end 'create'
 
 	function get() returns Plain
-		return self.tag
+		return self.tag.clone()
 	end 'get'
 
 	function slotSize() returns Num

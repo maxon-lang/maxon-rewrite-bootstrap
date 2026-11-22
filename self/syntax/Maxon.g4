@@ -111,7 +111,7 @@ testDecl builds FuncDecl
 // `returns borrowed T` gives a place of type T that the function borrows from its parameters instead of a value it makes.
 // `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else.
 funcDecl
-    : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | 'from')
+    : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | 'from' | 'to')
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
@@ -146,7 +146,7 @@ param
     ;
 
 constDecl
-    : visibility=('export' | 'public')? 'let' name=(Name | 'from') '=' value=expr
+    : visibility=('export' | 'public')? 'let' name=(Name | 'from' | 'to') '=' value=expr
     ;
 
 @ast::ConstDecl {
@@ -163,11 +163,11 @@ typeDecl
 
 // A static let is one constant of its type, which the rest of the program names as Type.name.
 staticLetDecl builds ConstDecl
-    : visibility=('export' | 'public')? 'static' 'let' name=(Name | 'from') '=' value=expr
+    : visibility=('export' | 'public')? 'static' 'let' name=(Name | 'from' | 'to') '=' value=expr
     ;
 
 fieldDecl
-    : visibility=('export' | 'public')? ('let' | isVar='var') name=(Name | 'from') ('as' type=typeRef | '=' default=expr)
+    : visibility=('export' | 'public')? ('let' | isVar='var') name=(Name | 'from' | 'to') ('as' type=typeRef | '=' default=expr)
     ;
 
 // An extension adds methods, typealiases and conformances to a type another declaration names: a type, an enum, a union, a
@@ -186,7 +186,7 @@ enumDecl
     ;
 
 enumCaseDecl
-    : name=(Name | 'from') ('=' raw=expr)?
+    : name=(Name | 'from' | 'to') ('=' raw=expr)?
     ;
 
 unionDecl
@@ -196,7 +196,7 @@ unionDecl
     ;
 
 unionCaseDecl
-    : name=(Name | 'from') (^'(' (fields+=param (',' fields+=param)*)? ')')? ('=' raw=expr)?
+    : name=(Name | 'from' | 'to') (^'(' (fields+=param (',' fields+=param)*)? ')')? ('=' raw=expr)?
     ;
 
 aliasDecl
@@ -300,7 +300,7 @@ interfaceDecl
     ;
 
 funcSig
-    : isStatic='static'? 'function' name=(Name | 'from')
+    : isStatic='static'? 'function' name=(Name | 'from' | 'to')
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
@@ -354,8 +354,8 @@ stmt
 // The checker refuses another word after the `@`, and a value that owns no heap.
 letStmt
     : (isHeap='@' annotation=Name)?
-      ( 'let' name=(Name | 'from') '=' init=expr
-      | isVar='var' name=(Name | 'from') ('=' init=expr | 'as' type=typeRef)
+      ( 'let' name=(Name | 'from' | 'to') '=' init=expr
+      | isVar='var' name=(Name | 'from' | 'to') ('=' init=expr | 'as' type=typeRef)
       )
     ;
 
@@ -437,7 +437,7 @@ whileStmt
     ;
 
 forStmt
-    : 'for' (var=(Name | 'from' | '_') | '(' vars+=bindName (',' vars+=bindName)+ ')') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
+    : 'for' (var=(Name | 'from' | 'to' | '_') | '(' vars+=bindName (',' vars+=bindName)+ ')') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
       body=block
       'end' end=endLabel?
     ;
@@ -450,7 +450,7 @@ tryStmt
     : 'try' label=Label
       body=block
       'end' end=endLabel?
-      ( hasOtherwise='otherwise' ('(' binding=(Name | 'from') ')')? handlerLabel=Label
+      ( hasOtherwise='otherwise' ('(' binding=(Name | 'from' | 'to') ')')? handlerLabel=Label
         handler=block
         'end' handlerEnd=endLabel?
       )?
@@ -541,7 +541,7 @@ throwsArm builds ThrowStmt
 
 /** a pattern */
 pattern
-    : caseName=(Name | 'from') ('.' member=Name)? (hasBindings=^'(' (bindings+=(Name | 'from' | '_') (',' bindings+=(Name | 'from' | '_'))*)? ')')?
+    : caseName=(Name | 'from' | 'to') ('.' member=Name)? (hasBindings=^'(' (bindings+=(Name | 'from' | 'to' | '_') (',' bindings+=(Name | 'from' | 'to' | '_'))*)? ')')?
     | value=patternValue ((inclusive='to' | 'upto') high=patternValue)?
     ;
 
@@ -575,7 +575,7 @@ expr
     | typeQueryExpr
     | {atTuple}? tupleExpr
     | '(' expr ')'
-    | obj=expr '.' name=(Name | 'from' | Integer)                    # MemberExpr
+    | obj=expr '.' name=(Name | 'from' | 'to' | Integer)                    # MemberExpr
     | obj=expr ^'[' args+=expr (',' args+=expr)* ']'                 # IndexExpr
     | callee=expr ^'(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
     | head=expr 'from' value=expr                                    # FromExpr
@@ -660,7 +660,7 @@ boolLit
 // 'export' is a name only as the start of a qualified name, where it is the root module, and 'int' only as the head of
 // one, where it names the type of an integer's static functions.
 nameExpr
-    : name=(Name | 'from' | 'Self' | 'export' | 'int')
+    : name=(Name | 'from' | 'to' | 'Self' | 'export' | 'int')
     ;
 
 @ast::NameExpr {
@@ -685,7 +685,7 @@ structLitExpr
 }
 
 structField
-    : name=(Name | 'from') ':' value=expr
+    : name=(Name | 'from' | 'to') ':' value=expr
     ;
 
 // An array literal [a, b] or a map literal [k: v, k: v]: the first element's following token says which. The empty [] parses

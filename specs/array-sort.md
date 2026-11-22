@@ -514,7 +514,7 @@ function nthPerm4(k Integer) returns IntArray
 	for i in 0 upto 4 'pick'
 		let d = try divs.get(i) otherwise panic("divs OOB")
 		// Every `divs` entry is >= 1, so `d` is a proven divisor and these divides cannot throw.
-		let idx = trunc(remaining / d)
+		let idx = trunc((remaining / d) as FullRangeFloat)
 		remaining = remaining mod d
 		let v = try pool.get(idx as ElementIndex) otherwise panic("pool OOB")
 		result.push(v)

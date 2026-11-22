@@ -1671,12 +1671,12 @@ func isCapabilityWord(word string) bool {
 
 // isKeywordName reports whether word is a keyword of minimaxon, other than the discard `_` that a declaration may name.
 func isKeywordName(word string) bool {
-	return word != "_" && word != nameKeyword && reservedWords[word]
+	return word != "_" && !slices.Contains(nameKeywords, word) && reservedWords[word]
 }
 
-// nameKeyword is the keyword that is still a name wherever a name is required, as it is in Maxon: `from` follows a type
-// only to write `Type from value`.
-const nameKeyword = "from"
+// nameKeywords are the keywords that are still names wherever a name is required, as they are in Maxon: `from` follows a
+// type only to write `Type from value`, and `to` follows a bound or an expression only to close a range.
+var nameKeywords = []string{"from", "to"}
 
 // keywordNameMessage words the warning for a name that minimaxon reserves and Maxon does not. A parameter may be
 // declared with one, but its body cannot read it.

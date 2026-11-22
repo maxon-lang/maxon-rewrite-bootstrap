@@ -2655,7 +2655,6 @@ sq4 3x4
 ```
 
 <!-- test: a-managed-fixed-array-field-is-released-with-its-owner -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -2672,9 +2671,8 @@ type Roster
 		return Roster{names: Names.create(n, value: label(5))}
 	end 'build'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
-	function rename(index ElementIndex, to String)
-		try names.set(index, value: to) otherwise panic("rename")
+	function rename(mutates self, index ElementIndex, to String)
+		try names.set(index, value: to.clone()) otherwise panic("rename")
 	end 'rename'
 
 	function nameAt(index ElementIndex) returns String
@@ -2687,7 +2685,7 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let roster = Roster.build(launder(3))
+	var roster = Roster.build(launder(3))
 	roster.rename(1, to: label(6))
 	print("{roster.nameAt(0)} {roster.nameAt(1)} {roster.nameAt(2)}\n")
 	return 0

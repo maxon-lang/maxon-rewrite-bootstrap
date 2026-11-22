@@ -1119,7 +1119,7 @@ end 'Points'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let points = Points.make()
+	let points = lib.Points.make()
 	points.sort()
 	print("{points.firstX()}\n")
 	return 0

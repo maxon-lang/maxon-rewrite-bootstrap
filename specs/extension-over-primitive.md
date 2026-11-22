@@ -170,8 +170,8 @@ end 'bool'
 type Box uses T where T implements Hashable
 	export var a as T
 
-	static function create(a T) returns Self
-		return Self{a: a}
+	static function create(a T) returns Self where T implements Copyable
+		return Self{a: a.clone()}
 	end 'create'
 
 	function digest() returns HashValue

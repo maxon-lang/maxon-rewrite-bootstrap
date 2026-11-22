@@ -83,6 +83,7 @@ export function isReserved(word String) returns bool
 		"static" or
 		"function" or
 		"from" or
+		"to" or
 		"mutates" or
 		"consumes" or
 		"destructs" or
@@ -102,7 +103,6 @@ export function isReserved(word String) returns bool
 		"enum" or
 		"union" or
 		"typealias" or
-		"to" or
 		"upto" or
 		"implements" or
 		"Self" or

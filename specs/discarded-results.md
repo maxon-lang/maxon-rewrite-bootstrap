@@ -3868,7 +3868,7 @@ error E3064: <fragment>:25:2: result of pure function 'firstWordEnd' must be use
 ```
 
 <!-- test: error.a-static-of-a-generic-type-that-moves-a-local-cursor-is-pure -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `Probe.move` is a static of a generic type that seeks the cursor it is handed, and `head` hands it a cursor it created itself, so `head` is pure and dropping its result is E3064.
@@ -3880,7 +3880,6 @@ typealias Counts = Array with Count
 type Probe uses Element
 	typealias Cursor = __ManagedMemoryCursor with Element
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function move(cursor Cursor, to ElementIndex)
 		try cursor.seek(to) otherwise panic("seek")
 	end 'move'
@@ -3906,7 +3905,7 @@ error E3064: <fragment>:24:2: result of pure function 'head' must be used
 ```
 
 <!-- test: error.a-generic-holder-that-moves-its-own-cursor-through-a-static-is-pure -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `Walker.rewind` moves the cursor it holds through a static of a generic type, and `first` builds its own `Walker`, so `first` is pure and dropping its result is E3064.
@@ -3918,7 +3917,6 @@ typealias Counts = Array with Count
 type Probe uses Element
 	typealias Cursor = __ManagedMemoryCursor with Element
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function move(cursor Cursor, to ElementIndex)
 		try cursor.seek(to) otherwise panic("seek")
 	end 'move'

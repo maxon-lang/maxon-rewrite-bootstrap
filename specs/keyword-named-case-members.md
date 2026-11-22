@@ -882,7 +882,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-keyword-named-condition-after-a-case-list-spelling-block-keywords -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 ⚠ **A CASE LIST IS NOT BLOCK STRUCTURE, AND THE EXTENT WALK HAS TO KNOW WHERE ONE IS.** `while`, `match`
 and `for` on their own lines in an enum body are case names; read as openers they leak past the enum's
@@ -902,7 +901,6 @@ enum Kw
 	omega
 end 'Kw'
 
-// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 function span(to Idx, from Idx) returns Idx
 	if to >= from 'forward'
 		return to -from

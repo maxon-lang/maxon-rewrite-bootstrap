@@ -124,7 +124,6 @@ error E3004: <fragment>:9:9: call to undefined function 'Helper.nope'
 
 <!-- test: static-method-statement.keyword-named-static-is-a-statement -->
 <!-- skip: 'match' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'upto' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⭐⭐ A static DECLARED UNDER A KEYWORD (D8), called as a bare statement. The statement door's shape check asks `namesMemberAt` for the member, the
 predicate `methodCallsAt`, `memberCallFollows` and `fieldAssignsAt` share, so a member-naming token is
@@ -143,7 +142,6 @@ type Helper
 		print("u")
 	end 'upto'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function to()
 		print("t")
 	end 'to'

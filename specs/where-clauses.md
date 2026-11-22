@@ -4030,7 +4030,7 @@ type Ticks uses T where T implements Hashable and Equatable
 		return Self{items: items}
 	end 'create'
 
-	function current() returns T
+	function current() returns T where T implements Copyable
 		return try items.get(at) otherwise panic("Ticks.current: the positioning invariant holds")
 	end 'current'
 

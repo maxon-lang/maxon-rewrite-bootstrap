@@ -223,7 +223,7 @@ type Point implements Hashable
 	var y as Integer
 
 	function hash() returns HashValue
-		return x + y * 31
+		return try x + y * 31 otherwise panic("out of range")
 	end 'hash'
 
 	static function create(x Integer, y Integer) returns Self
@@ -322,7 +322,7 @@ type Point implements Hashable, Equatable
 	var y as Integer
 
 	function hash() returns HashValue
-		return x + y
+		return try x + y otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Point) returns bool

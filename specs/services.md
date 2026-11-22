@@ -5121,7 +5121,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-ring-of-posts-answers-through-continuations -->
-<!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **A POST IS NOT A WAIT, SO A RING OF POSTS IS A REQUEST AND ITS REPLY.** `A.kick` posts `B.work` and answers
 at once; `B.work` posts `A.ack` with `B`'s own handle and returns; `A.ack` posts the answer back to `B.acked` and
@@ -5143,7 +5142,6 @@ type A
 		return 1
 	end 'kick'
 
-	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
 	export function ack(to B.handle)
 		try to.acked(7) otherwise panic("an open mailbox with room takes the send")
 	end 'ack'
