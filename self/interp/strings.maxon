@@ -8,7 +8,7 @@ function stringArg(mutates vm Vm, f ir.IrFunction, x ir.Instr, i Count, what Str
 end 'stringArg'
 
 function countArg(vm Vm, f ir.IrFunction, x ir.Instr, i Count) returns Count
-	return bitsOf(argNum(vm, f: f, x: x, i: i))
+	return ir.bitsOfWord(argNum(vm, f: f, x: x, i: i))
 end 'countArg'
 
 function giveCount(mutates vm Vm, x ir.Instr, n Count)

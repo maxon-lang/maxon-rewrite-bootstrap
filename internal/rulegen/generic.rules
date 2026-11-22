@@ -39,6 +39,10 @@
 (bin.xor x x) => (const [0])
 (bin.mod x (const [1])) => (const [0])
 (bin.mod.!unsigned x (const [-1])) => (const [0])
+// A division of x by itself runs only where x is not 0, which a guard before it or the range analysis made sure of,
+// and x / x cannot overflow, since -1 / -1 is 1.
+(bin.div x x) => (const [1])
+(bin.mod x x) => (const [0])
 
 // Negation. A checked x * -1, x / -1 or 0 - x fails for i64.min alone, as a checked -x does, and to the same block.
 (bin.mul.!checked x (const [-1])) => (neg x)
@@ -58,7 +62,7 @@
 (bin.div.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.shr.unsigned x (const [log2(c)]))
 (bin.mod.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.and x (const [lowBits(c)]))
 
-// Comparisons of a register with itself, and unsigned ones with 0.
+// Comparisons of a register with itself, and unsigned ones with 0 and with the largest word, -1.
 (cmp.eq x x) => (const [1])
 (cmp.ne x x) => (const [0])
 (cmp.lt x x) => (const [0])
@@ -67,3 +71,7 @@
 (cmp.ge x x) => (const [1])
 (cmp.lt.unsigned x (const [0])) => (const [0])
 (cmp.ge.unsigned x (const [0])) => (const [1])
+(cmp.le.unsigned (const [0]) x) => (const [1])
+(cmp.gt.unsigned (const [0]) x) => (const [0])
+(cmp.le.unsigned x (const [-1])) => (const [1])
+(cmp.gt.unsigned x (const [-1])) => (const [0])

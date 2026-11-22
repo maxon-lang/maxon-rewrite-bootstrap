@@ -240,56 +240,50 @@ function rewriteBin(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates ou
 	if rule44(fn, at: at, defs: defs, out: out) 'rule44'
 		return true
 	end 'rule44'
-	if rule44v2(fn, at: at, defs: defs, out: out) 'rule44v2'
-		return true
-	end 'rule44v2'
 	if rule45(fn, at: at, defs: defs, out: out) 'rule45'
 		return true
 	end 'rule45'
-	if rule45v2(fn, at: at, defs: defs, out: out) 'rule45v2'
-		return true
-	end 'rule45v2'
-	if rule46(fn, at: at, defs: defs, out: out) 'rule46'
-		return true
-	end 'rule46'
-	if rule47(fn, at: at, defs: defs, out: out) 'rule47'
-		return true
-	end 'rule47'
 	if rule48(fn, at: at, defs: defs, out: out) 'rule48'
 		return true
 	end 'rule48'
+	if rule48v2(fn, at: at, defs: defs, out: out) 'rule48v2'
+		return true
+	end 'rule48v2'
 	if rule49(fn, at: at, defs: defs, out: out) 'rule49'
 		return true
 	end 'rule49'
-	if rule57(fn, at: at, defs: defs, out: out) 'rule57'
+	if rule49v2(fn, at: at, defs: defs, out: out) 'rule49v2'
 		return true
-	end 'rule57'
-	if rule57v2(fn, at: at, defs: defs, out: out) 'rule57v2'
+	end 'rule49v2'
+	if rule50(fn, at: at, defs: defs, out: out) 'rule50'
 		return true
-	end 'rule57v2'
-	if rule58(fn, at: at, defs: defs, out: out) 'rule58'
+	end 'rule50'
+	if rule51(fn, at: at, defs: defs, out: out) 'rule51'
 		return true
-	end 'rule58'
-	if rule59(fn, at: at, defs: defs, out: out) 'rule59'
+	end 'rule51'
+	if rule52(fn, at: at, defs: defs, out: out) 'rule52'
 		return true
-	end 'rule59'
-	return false
-end 'rewriteBin'
-
-// rewriteCmp applies the rules of cmp.
-function rewriteCmp(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+	end 'rule52'
+	if rule53(fn, at: at, defs: defs, out: out) 'rule53'
+		return true
+	end 'rule53'
+	if rule61(fn, at: at, defs: defs, out: out) 'rule61'
+		return true
+	end 'rule61'
+	if rule61v2(fn, at: at, defs: defs, out: out) 'rule61v2'
+		return true
+	end 'rule61v2'
 	if rule62(fn, at: at, defs: defs, out: out) 'rule62'
 		return true
 	end 'rule62'
 	if rule63(fn, at: at, defs: defs, out: out) 'rule63'
 		return true
 	end 'rule63'
-	if rule64(fn, at: at, defs: defs, out: out) 'rule64'
-		return true
-	end 'rule64'
-	if rule65(fn, at: at, defs: defs, out: out) 'rule65'
-		return true
-	end 'rule65'
+	return false
+end 'rewriteBin'
+
+// rewriteCmp applies the rules of cmp.
+function rewriteCmp(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if rule66(fn, at: at, defs: defs, out: out) 'rule66'
 		return true
 	end 'rule66'
@@ -302,25 +296,49 @@ function rewriteCmp(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates ou
 	if rule69(fn, at: at, defs: defs, out: out) 'rule69'
 		return true
 	end 'rule69'
+	if rule70(fn, at: at, defs: defs, out: out) 'rule70'
+		return true
+	end 'rule70'
+	if rule71(fn, at: at, defs: defs, out: out) 'rule71'
+		return true
+	end 'rule71'
+	if rule72(fn, at: at, defs: defs, out: out) 'rule72'
+		return true
+	end 'rule72'
+	if rule73(fn, at: at, defs: defs, out: out) 'rule73'
+		return true
+	end 'rule73'
+	if rule74(fn, at: at, defs: defs, out: out) 'rule74'
+		return true
+	end 'rule74'
+	if rule75(fn, at: at, defs: defs, out: out) 'rule75'
+		return true
+	end 'rule75'
+	if rule76(fn, at: at, defs: defs, out: out) 'rule76'
+		return true
+	end 'rule76'
+	if rule77(fn, at: at, defs: defs, out: out) 'rule77'
+		return true
+	end 'rule77'
 	return false
 end 'rewriteCmp'
 
 // rewriteNeg applies the rules of neg.
 function rewriteNeg(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
-	if rule52(fn, at: at, defs: defs, out: out) 'rule52'
+	if rule56(fn, at: at, defs: defs, out: out) 'rule56'
 		return true
-	end 'rule52'
-	if rule53(fn, at: at, defs: defs, out: out) 'rule53'
+	end 'rule56'
+	if rule57(fn, at: at, defs: defs, out: out) 'rule57'
 		return true
-	end 'rule53'
+	end 'rule57'
 	return false
 end 'rewriteNeg'
 
 // rewriteNot applies the rules of not.
 function rewriteNot(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
-	if rule50(fn, at: at, defs: defs, out: out) 'rule50'
+	if rule54(fn, at: at, defs: defs, out: out) 'rule54'
 		return true
-	end 'rule50'
+	end 'rule54'
 	return false
 end 'rewriteNot'
 
@@ -845,33 +863,65 @@ function rule41(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	return true
 end 'rule41'
 
-// generic.rules:44: (bin.mul.!checked x (const [-1])) => (neg x)
+// generic.rules:44: (bin.div x x) => (const [1])
 function rule44(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
-	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
+	if ir.binOp(fn.instrs[at]) != ir.BinOp.binDiv 'm1'
 		return false
 	end 'm1'
-	if ir.binHasFail(fn.instrs[at]) 'm2'
+	let vX = ir.binLeft(fn.instrs[at])
+	if ir.binRight(fn.instrs[at]) != vX 'm2'
 		return false
 	end 'm2'
-	let vX = ir.binLeft(fn.instrs[at])
-	let reg1 = ir.binRight(fn.instrs[at])
-	if not definedBy(fn, defs: defs, r: reg1, op: ir.Opcode.opConst) 'm3'
-		return false
-	end 'm3'
-	let def2 = defOf(defs, r: reg1)
-	if ir.constValue(fn.instrs[def2]) != -1 'm4'
-		return false
-	end 'm4'
 	out.pre.clear()
 	let dst = fn.instrs[at].dst
-	out.instr = ir.newNeg(dst, src: vX, fail: ir.noBlock)
+	out.instr = ir.newConst(dst, value: 1)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
 end 'rule44'
 
-// generic.rules:44: (bin.mul.!checked x (const [-1])) => (neg x)
+// generic.rules:45: (bin.mod x x) => (const [0])
+function rule45(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMod 'm1'
+		return false
+	end 'm1'
+	let vX = ir.binLeft(fn.instrs[at])
+	if ir.binRight(fn.instrs[at]) != vX 'm2'
+		return false
+	end 'm2'
+	out.pre.clear()
+	let dst = fn.instrs[at].dst
+	out.instr = ir.newConst(dst, value: 0)
+	out.kind = RewriteKind.rewriteToInstr
+	return true
+end 'rule45'
+
+// generic.rules:48: (bin.mul.!checked x (const [-1])) => (neg x)
+function rule48(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
+		return false
+	end 'm1'
+	if ir.binHasFail(fn.instrs[at]) 'm2'
+		return false
+	end 'm2'
+	let vX = ir.binLeft(fn.instrs[at])
+	let reg1 = ir.binRight(fn.instrs[at])
+	if not definedBy(fn, defs: defs, r: reg1, op: ir.Opcode.opConst) 'm3'
+		return false
+	end 'm3'
+	let def2 = defOf(defs, r: reg1)
+	if ir.constValue(fn.instrs[def2]) != -1 'm4'
+		return false
+	end 'm4'
+	out.pre.clear()
+	let dst = fn.instrs[at].dst
+	out.instr = ir.newNeg(dst, src: vX, fail: ir.noBlock)
+	out.kind = RewriteKind.rewriteToInstr
+	return true
+end 'rule48'
+
+// generic.rules:48: (bin.mul.!checked x (const [-1])) => (neg x)
 // with the operands swapped: (bin.mul.!checked (const [-1]) x)
-function rule44v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+function rule48v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -892,10 +942,10 @@ function rule44v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out 
 	out.instr = ir.newNeg(dst, src: vX, fail: ir.noBlock)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule44v2'
+end 'rule48v2'
 
-// generic.rules:45: (bin.mul.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
-function rule45(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:49: (bin.mul.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
+function rule49(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -920,11 +970,11 @@ function rule45(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newNeg(dst, src: vX, fail: vFail)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule45'
+end 'rule49'
 
-// generic.rules:45: (bin.mul.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
+// generic.rules:49: (bin.mul.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
 // with the operands swapped: (bin.mul.!unsigned.checked (const [-1]) x [fail])
-function rule45v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+function rule49v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -949,10 +999,10 @@ function rule45v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out 
 	out.instr = ir.newNeg(dst, src: vX, fail: vFail)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule45v2'
+end 'rule49v2'
 
-// generic.rules:46: (bin.div.!unsigned.!checked x (const [-1])) => (neg x)
-function rule46(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:50: (bin.div.!unsigned.!checked x (const [-1])) => (neg x)
+function rule50(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binDiv 'm1'
 		return false
 	end 'm1'
@@ -976,10 +1026,10 @@ function rule46(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newNeg(dst, src: vX, fail: ir.noBlock)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule46'
+end 'rule50'
 
-// generic.rules:47: (bin.div.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
-function rule47(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:51: (bin.div.!unsigned.checked x (const [-1]) [fail]) => (neg x [fail])
+function rule51(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binDiv 'm1'
 		return false
 	end 'm1'
@@ -1004,10 +1054,10 @@ function rule47(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newNeg(dst, src: vX, fail: vFail)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule47'
+end 'rule51'
 
-// generic.rules:48: (bin.sub.!checked (const [0]) x) => (neg x)
-function rule48(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:52: (bin.sub.!checked (const [0]) x) => (neg x)
+function rule52(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binSub 'm1'
 		return false
 	end 'm1'
@@ -1028,10 +1078,10 @@ function rule48(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newNeg(dst, src: vX, fail: ir.noBlock)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule48'
+end 'rule52'
 
-// generic.rules:49: (bin.sub.!unsigned.checked (const [0]) x [fail]) => (neg x [fail])
-function rule49(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:53: (bin.sub.!unsigned.checked (const [0]) x [fail]) => (neg x [fail])
+function rule53(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binSub 'm1'
 		return false
 	end 'm1'
@@ -1056,10 +1106,10 @@ function rule49(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newNeg(dst, src: vX, fail: vFail)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule49'
+end 'rule53'
 
-// generic.rules:50: (not (not x)) => x
-function rule50(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:54: (not (not x)) => x
+function rule54(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	let reg1 = ir.notSrc(fn.instrs[at])
 	if not definedBy(fn, defs: defs, r: reg1, op: ir.Opcode.opNot) 'm1'
 		return false
@@ -1070,10 +1120,10 @@ function rule50(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.kind = RewriteKind.rewriteToReg
 	out.reg = vX
 	return true
-end 'rule50'
+end 'rule54'
 
-// generic.rules:52: (neg.!checked (neg x)) => x
-function rule52(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:56: (neg.!checked (neg x)) => x
+function rule56(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.negHasFail(fn.instrs[at]) 'm1'
 		return false
 	end 'm1'
@@ -1087,10 +1137,10 @@ function rule52(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.kind = RewriteKind.rewriteToReg
 	out.reg = vX
 	return true
-end 'rule52'
+end 'rule56'
 
-// generic.rules:53: (neg.checked (neg.checked x)) => x
-function rule53(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:57: (neg.checked (neg.checked x)) => x
+function rule57(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if not ir.negHasFail(fn.instrs[at]) 'm1'
 		return false
 	end 'm1'
@@ -1107,10 +1157,10 @@ function rule53(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.kind = RewriteKind.rewriteToReg
 	out.reg = vX
 	return true
-end 'rule53'
+end 'rule57'
 
-// generic.rules:57: (bin.mul.!checked x (const [c])) && isPowerOfTwo(c) => (bin.shl x (const [log2(c)]))
-function rule57(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:61: (bin.mul.!checked x (const [c])) && isPowerOfTwo(c) => (bin.shl x (const [log2(c)]))
+function rule61(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -1134,11 +1184,11 @@ function rule57(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newBin(dst, op: ir.BinOp.binShl, left: vX, right: new3, unsigned: false, fail: ir.noBlock)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule57'
+end 'rule61'
 
-// generic.rules:57: (bin.mul.!checked x (const [c])) && isPowerOfTwo(c) => (bin.shl x (const [log2(c)]))
+// generic.rules:61: (bin.mul.!checked x (const [c])) && isPowerOfTwo(c) => (bin.shl x (const [log2(c)]))
 // with the operands swapped: (bin.mul.!checked (const [c]) x)
-function rule57v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+function rule61v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMul 'm1'
 		return false
 	end 'm1'
@@ -1162,10 +1212,10 @@ function rule57v2(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out 
 	out.instr = ir.newBin(dst, op: ir.BinOp.binShl, left: vX, right: new3, unsigned: false, fail: ir.noBlock)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule57v2'
+end 'rule61v2'
 
-// generic.rules:58: (bin.div.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.shr.unsigned x (const [log2(c)]))
-function rule58(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:62: (bin.div.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.shr.unsigned x (const [log2(c)]))
+function rule62(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binDiv 'm1'
 		return false
 	end 'm1'
@@ -1189,10 +1239,10 @@ function rule58(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newBin(dst, op: ir.BinOp.binShr, left: vX, right: new3, unsigned: true, fail: ir.noBlock)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule58'
+end 'rule62'
 
-// generic.rules:59: (bin.mod.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.and x (const [lowBits(c)]))
-function rule59(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:63: (bin.mod.unsigned x (const [c])) && isPowerOfTwo(c) => (bin.and x (const [lowBits(c)]))
+function rule63(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.binOp(fn.instrs[at]) != ir.BinOp.binMod 'm1'
 		return false
 	end 'm1'
@@ -1216,10 +1266,10 @@ function rule59(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newBin(dst, op: ir.BinOp.binAnd, left: vX, right: new3, unsigned: false, fail: ir.noBlock)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule59'
+end 'rule63'
 
-// generic.rules:62: (cmp.eq x x) => (const [1])
-function rule62(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:66: (cmp.eq x x) => (const [1])
+function rule66(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpEq 'm1'
 		return false
 	end 'm1'
@@ -1232,10 +1282,10 @@ function rule62(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newConst(dst, value: 1)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule62'
+end 'rule66'
 
-// generic.rules:63: (cmp.ne x x) => (const [0])
-function rule63(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:67: (cmp.ne x x) => (const [0])
+function rule67(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpNe 'm1'
 		return false
 	end 'm1'
@@ -1248,10 +1298,10 @@ function rule63(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newConst(dst, value: 0)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule63'
+end 'rule67'
 
-// generic.rules:64: (cmp.lt x x) => (const [0])
-function rule64(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:68: (cmp.lt x x) => (const [0])
+function rule68(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpLt 'm1'
 		return false
 	end 'm1'
@@ -1264,10 +1314,10 @@ function rule64(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newConst(dst, value: 0)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule64'
+end 'rule68'
 
-// generic.rules:65: (cmp.le x x) => (const [1])
-function rule65(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:69: (cmp.le x x) => (const [1])
+function rule69(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpLe 'm1'
 		return false
 	end 'm1'
@@ -1280,10 +1330,10 @@ function rule65(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newConst(dst, value: 1)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule65'
+end 'rule69'
 
-// generic.rules:66: (cmp.gt x x) => (const [0])
-function rule66(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:70: (cmp.gt x x) => (const [0])
+function rule70(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpGt 'm1'
 		return false
 	end 'm1'
@@ -1296,10 +1346,10 @@ function rule66(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newConst(dst, value: 0)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule66'
+end 'rule70'
 
-// generic.rules:67: (cmp.ge x x) => (const [1])
-function rule67(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:71: (cmp.ge x x) => (const [1])
+function rule71(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpGe 'm1'
 		return false
 	end 'm1'
@@ -1312,10 +1362,10 @@ function rule67(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newConst(dst, value: 1)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule67'
+end 'rule71'
 
-// generic.rules:68: (cmp.lt.unsigned x (const [0])) => (const [0])
-function rule68(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:72: (cmp.lt.unsigned x (const [0])) => (const [0])
+function rule72(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpLt 'm1'
 		return false
 	end 'm1'
@@ -1336,10 +1386,10 @@ function rule68(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newConst(dst, value: 0)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule68'
+end 'rule72'
 
-// generic.rules:69: (cmp.ge.unsigned x (const [0])) => (const [1])
-function rule69(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+// generic.rules:73: (cmp.ge.unsigned x (const [0])) => (const [1])
+function rule73(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
 	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpGe 'm1'
 		return false
 	end 'm1'
@@ -1360,4 +1410,100 @@ function rule69(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Re
 	out.instr = ir.newConst(dst, value: 1)
 	out.kind = RewriteKind.rewriteToInstr
 	return true
-end 'rule69'
+end 'rule73'
+
+// generic.rules:74: (cmp.le.unsigned (const [0]) x) => (const [1])
+function rule74(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpLe 'm1'
+		return false
+	end 'm1'
+	if not ir.cmpUnsigned(fn.instrs[at]) 'm2'
+		return false
+	end 'm2'
+	let reg1 = ir.cmpLeft(fn.instrs[at])
+	if not definedBy(fn, defs: defs, r: reg1, op: ir.Opcode.opConst) 'm3'
+		return false
+	end 'm3'
+	let def2 = defOf(defs, r: reg1)
+	if ir.constValue(fn.instrs[def2]) != 0 'm4'
+		return false
+	end 'm4'
+	let vX = ir.cmpRight(fn.instrs[at])
+	out.pre.clear()
+	let dst = fn.instrs[at].dst
+	out.instr = ir.newConst(dst, value: 1)
+	out.kind = RewriteKind.rewriteToInstr
+	return true
+end 'rule74'
+
+// generic.rules:75: (cmp.gt.unsigned (const [0]) x) => (const [0])
+function rule75(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpGt 'm1'
+		return false
+	end 'm1'
+	if not ir.cmpUnsigned(fn.instrs[at]) 'm2'
+		return false
+	end 'm2'
+	let reg1 = ir.cmpLeft(fn.instrs[at])
+	if not definedBy(fn, defs: defs, r: reg1, op: ir.Opcode.opConst) 'm3'
+		return false
+	end 'm3'
+	let def2 = defOf(defs, r: reg1)
+	if ir.constValue(fn.instrs[def2]) != 0 'm4'
+		return false
+	end 'm4'
+	let vX = ir.cmpRight(fn.instrs[at])
+	out.pre.clear()
+	let dst = fn.instrs[at].dst
+	out.instr = ir.newConst(dst, value: 0)
+	out.kind = RewriteKind.rewriteToInstr
+	return true
+end 'rule75'
+
+// generic.rules:76: (cmp.le.unsigned x (const [-1])) => (const [1])
+function rule76(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpLe 'm1'
+		return false
+	end 'm1'
+	if not ir.cmpUnsigned(fn.instrs[at]) 'm2'
+		return false
+	end 'm2'
+	let vX = ir.cmpLeft(fn.instrs[at])
+	let reg1 = ir.cmpRight(fn.instrs[at])
+	if not definedBy(fn, defs: defs, r: reg1, op: ir.Opcode.opConst) 'm3'
+		return false
+	end 'm3'
+	let def2 = defOf(defs, r: reg1)
+	if ir.constValue(fn.instrs[def2]) != -1 'm4'
+		return false
+	end 'm4'
+	out.pre.clear()
+	let dst = fn.instrs[at].dst
+	out.instr = ir.newConst(dst, value: 1)
+	out.kind = RewriteKind.rewriteToInstr
+	return true
+end 'rule76'
+
+// generic.rules:77: (cmp.gt.unsigned x (const [-1])) => (const [0])
+function rule77(mutates fn ir.IrFunction, at Count, defs ir.Defs, mutates out Rewrite) returns bool
+	if ir.cmpOp(fn.instrs[at]) != ir.CmpOp.cmpGt 'm1'
+		return false
+	end 'm1'
+	if not ir.cmpUnsigned(fn.instrs[at]) 'm2'
+		return false
+	end 'm2'
+	let vX = ir.cmpLeft(fn.instrs[at])
+	let reg1 = ir.cmpRight(fn.instrs[at])
+	if not definedBy(fn, defs: defs, r: reg1, op: ir.Opcode.opConst) 'm3'
+		return false
+	end 'm3'
+	let def2 = defOf(defs, r: reg1)
+	if ir.constValue(fn.instrs[def2]) != -1 'm4'
+		return false
+	end 'm4'
+	out.pre.clear()
+	let dst = fn.instrs[at].dst
+	out.instr = ir.newConst(dst, value: 0)
+	out.kind = RewriteKind.rewriteToInstr
+	return true
+end 'rule77'

@@ -1,99 +1,10 @@
-// The interpreter's registers hold a 64-bit word as a signed number, and an unsigned one is the same bits read as one that
-// may be past i64.max. Go does this arithmetic by wrapping; here a number is only ever in range, so the wrap is made by
-// hand, on the bits as a Count.
+// The interpreter's words are ir's (ir.bitsOfWord, ir.wordOfBits and the wrapping arithmetic of self/ir/evaluate.maxon).
 
 typealias CountList = Array with Count
-
-let signBit = 9223372036854775808 as Count
-
-let maxWordCount = 9223372036854775807 as Count
 
 let maxCount = 18446744073709551615 as Count
 
 let mask32 = 4294967295 as Count
-
-let minWord = -9223372036854775808 as ir.Word
-
-// bitsOf is the 64 bits of a word, as the unsigned number they spell.
-function bitsOf(x ir.Word) returns Count
-	if x >= 0 'positive'
-		return x as Count
-	end 'positive'
-	let low = (try x + (9223372036854775807 as ir.Word) + 1 otherwise panic("interp: a word below i64.min")) as Count
-	return low or signBit
-end 'bitsOf'
-
-// wordOf is the word that 64 bits spell, as a signed number.
-function wordOf(c Count) returns ir.Word
-	if c <= maxWordCount 'positive'
-		return c as ir.Word
-	end 'positive'
-	let low = (c and maxWordCount) as ir.Word
-	return try low + minWord otherwise panic("interp: a word past i64.min")
-end 'wordOf'
-
-// wrapAdd is a + b modulo 2^64.
-function wrapAdd(a Count, b Count) returns Count
-	let room = maxCount - b
-	if a <= room 'fits'
-		return try a + b otherwise panic("interp: an addition that fits overflows")
-	end 'fits'
-	let over = try a - room otherwise panic("interp: a wrapped addition")
-	return try over - 1 otherwise panic("interp: a wrapped addition")
-end 'wrapAdd'
-
-// wrapSub is a - b modulo 2^64.
-function wrapSub(a Count, b Count) returns Count
-	if a >= b 'fits'
-		return try a - b otherwise panic("interp: a subtraction that fits underflows")
-	end 'fits'
-	let under = try (b - a) - 1 otherwise panic("interp: a wrapped subtraction")
-	return maxCount - under
-end 'wrapSub'
-
-// Wide is a 128-bit product, as its high 64 bits and its low 64 bits.
-type Wide
-	var hi as Count
-	var lo as Count
-
-	static function make(hi Count, lo Count) returns Wide
-		return Wide{hi: hi, lo: lo}
-	end 'make'
-end 'Wide'
-
-// mulWide is the full 128-bit product of two 64-bit numbers.
-function mulWide(a Count, b Count) returns Wide
-	let a0 = a and mask32
-	let a1 = a shr 32
-	let b0 = b and mask32
-	let b1 = b shr 32
-	let p00 = try a0 * b0 otherwise panic("interp: a product of halves overflows")
-	let p01 = try a0 * b1 otherwise panic("interp: a product of halves overflows")
-	let p10 = try a1 * b0 otherwise panic("interp: a product of halves overflows")
-	let p11 = try a1 * b1 otherwise panic("interp: a product of halves overflows")
-	let mid = try (p00 shr 32) + (p01 and mask32) + (p10 and mask32) otherwise panic("interp: a middle sum overflows")
-	let lo = try ((mid and mask32) shl 32) + (p00 and mask32) otherwise panic("interp: a low half overflows")
-	let hi = try p11 + (p01 shr 32) + (p10 shr 32) + (mid shr 32) otherwise panic("interp: a high half overflows")
-	return Wide.make(hi, lo: lo)
-end 'mulWide'
-
-// wrapMul is a * b modulo 2^64.
-function wrapMul(a Count, b Count) returns Count
-	return mulWide(a, b: b).lo
-end 'wrapMul'
-
-// The powers of two a shift is made of, so that no shift of a Count can overflow.
-function powersOfTwo() returns CountList
-	var out = CountList.create(0)
-	var p = 1 as Count
-	for i in 0 upto 64 'each'
-		out.push(p)
-		if i < 63 'next'
-			p = try p * 2 otherwise panic("interp: a power of two past 2^63")
-		end 'next'
-	end 'each'
-	return out
-end 'powersOfTwo'
 
 // The Go generator that the schedule is drawn from, a PCG with the DXSM output (math/rand/v2). A seed names a schedule,
 // so every step is the same as Go's.
@@ -115,24 +26,24 @@ type Rng
 	var lo as Count
 
 	static function new(seed ir.Word) returns Rng
-		return Rng{hi: bitsOf(seed), lo: seedStream}
+		return Rng{hi: ir.bitsOfWord(seed), lo: seedStream}
 	end 'new'
 
 	function uint64(mutates self) returns Count
-		let product = mulWide(lo, b: pcgMultiplierLow)
-		var h = wrapAdd(wrapAdd(product.hi, b: wrapMul(hi, b: pcgMultiplierLow)), b: wrapMul(lo, b: pcgMultiplierHigh))
-		let sum = wrapAdd(product.lo, b: pcgIncrementLow)
+		let product = ir.mulWide(lo, b: pcgMultiplierLow)
+		var h = ir.wrapAdd(ir.wrapAdd(product.hi, b: ir.wrapMul(hi, b: pcgMultiplierLow)), b: ir.wrapMul(lo, b: pcgMultiplierHigh))
+		let sum = ir.wrapAdd(product.lo, b: pcgIncrementLow)
 		var carry = 0 as Count
 		if sum < product.lo 'carried'
 			carry = 1
 		end 'carried'
-		h = wrapAdd(wrapAdd(h, b: pcgIncrementHigh), b: carry)
+		h = ir.wrapAdd(ir.wrapAdd(h, b: pcgIncrementHigh), b: carry)
 		lo = sum
 		hi = h
 		var out = h xor (h shr 32)
-		out = wrapMul(out, b: pcgCheapMultiplier)
+		out = ir.wrapMul(out, b: pcgCheapMultiplier)
 		out = out xor (out shr 48)
-		return wrapMul(out, b: sum or 1)
+		return ir.wrapMul(out, b: sum or 1)
 	end 'uint64'
 
 	// intN is a number from 0 up to n, which is more than 0, by the unbiased method Go uses.
@@ -144,11 +55,11 @@ type Rng
 		if (n and below) == 0 'power'
 			return self.uint64() and below
 		end 'power'
-		var product = mulWide(self.uint64(), b: n)
+		var product = ir.mulWide(self.uint64(), b: n)
 		if product.lo < n 'rejectable'
 			let thresh = (try (maxCount - n) + 1 otherwise panic("interp: a threshold past 2^64")) mod n
 			while product.lo < thresh 'again'
-				product = mulWide(self.uint64(), b: n)
+				product = ir.mulWide(self.uint64(), b: n)
 			end 'again'
 		end 'rejectable'
 		return product.hi
@@ -157,10 +68,10 @@ end 'Rng'
 
 // seedOf is the seed that the bits of a number name, as the command line gives one: a negative seed is its two's complement.
 export function seedOf(bits Count) returns ir.Word
-	return wordOf(bits)
+	return ir.wordOfBits(bits)
 end 'seedOf'
 
 // exitStatus is the exit code of the process that a program's exit code makes: the low 32 bits, as the system reads them.
 export function exitStatus(code ir.Word) returns ExitCode
-	return (bitsOf(code) and mask32) as ExitCode
+	return (ir.bitsOfWord(code) and mask32) as ExitCode
 end 'exitStatus'

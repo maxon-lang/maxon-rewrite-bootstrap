@@ -1,0 +1,1176 @@
+// The fold pass, which every native build runs on each function once it is in SSA form: one worklist over the function
+// that folds constants, propagates copies, folds branches and switches on constants, decides guards and checks whose
+// operands are constants, applies the rules of generic.rules (rewrite_gen.maxon), and drops the drops of a known 0; then
+// it removes the blocks nothing reaches, the parameters that are trivial (every edge passes one value, or the parameter
+// itself) and those nothing reads, and every instruction whose value nothing reads.
+//
+// The invariant every fold keeps: a program that is folded fails exactly where and as it failed before. Arithmetic is
+// checked, and which check fires first, and so which error a `try` sees, is part of the program's meaning.
+//
+// - A check is removed only where its operands are constants that pass it: a guard that holds, a checked operation whose
+//   result fits. Where they fail it, the instruction becomes a jump to its failure block, and what came after it in the
+//   block goes, so the failure is taken exactly where it was; a branch that then folds follows.
+// - An operation is evaluated by the IR's own meaning (ir.evalBin and the rest, which the interpreter runs too), and one
+//   that has no meaning on its constants (a division by 0, a negative shift count) is left as it is: the guard before it
+//   decides it.
+// - Nothing that can fail, and nothing that the IR table marks with an effect (a call, a drop, a box, a load, a store,
+//   the atomic and raw operations of the runtime), is ever removed, moved or merged, so no check is reordered either. The
+//   one exception is the drop of a register that holds 0, which drops nothing.
+// - A rule replaces only the instruction it matches and keeps its check unless it can never fail (generic.rules).
+//
+// The cost is linear in the function plus what is rewritten: every register is learnt constant or a copy at most once,
+// and then only its readers are visited again, through use lists that a copy splices into its value's; every edge is
+// dropped at most once. Every array is kept from one function to the next.
+
+// The kinds of a worklist item: an instruction, a block's terminator, or a block parameter (by its place in blockParams).
+let itemInstr = 0 as Count
+
+let itemTerm = 1 as Count
+
+let itemParam = 2 as Count
+
+let itemKinds = 3 as Count
+
+// noLink ends a chain or a use list, whose links are an index plus 1.
+let noLink = 0 as Count
+
+export type Fold
+	// What the pass did, over every function it was given: the instructions before and after, the branches and switches
+	// that became jumps, the block parameters removed, and the checks (guards and checked operations) decided.
+	export var instrsBefore as Count
+	export var instrsAfter as Count
+	export var branchesFolded as Count
+	export var paramsRemoved as Count
+	export var checksDecided as Count
+	// defs is where each register is defined, which the rules read: the pass's own, since it needs neither the segments
+	// nor the dominators of an ir.Flow.
+	var defs as ir.Defs
+	// By register: the register it is read as (itself unless it is a copy), whether it holds a known constant and which,
+	// its use list (the items that read it, useItem[e - 1] for a link e), whether the marking found it read, and, plus 1,
+	// the place in blockParams of the parameter it is.
+	var repl as ir.RegList
+	var known as Array with bool
+	var value as ir.WordList
+	var useHead as Array with Count
+	var useTail as Array with Count
+	var useItem as Array with Count
+	var useNext as Array with Count
+	var regLive as Array with bool
+	var paramOf as Array with Count
+	// By instruction, the ones the pass appends included: whether it is gone, its block, whether it is queued and whether
+	// the marking keeps it. The instructions a rule puts before another are a chain on an anchor: anchor b is the start of
+	// block b, and anchor blocks + k is the instruction k; chainFirst and chainLast link the first and last, chainNext the
+	// next of each.
+	var dead as Array with bool
+	var instrBlock as Array with Count
+	var queuedInstr as Array with bool
+	var liveInstr as Array with bool
+	var chainFirst as Array with Count
+	var chainLast as Array with Count
+	var chainNext as Array with Count
+	// By block: whether nothing reaches it, how many edges from blocks that are not dead enter it (the entry counts one
+	// more), whether its terminator is queued, its predecessors as built (pred[predStart[b]] up to pred[predStart[b + 1]],
+	// each once), its new number and whether the final walk reached it.
+	var blockDead as Array with bool
+	var livePreds as Array with Count
+	var queuedTerm as Array with bool
+	var predStart as Array with Count
+	var pred as Array with Count
+	var newID as ir.BlockIDList
+	var reached as Array with bool
+	// By parameter, by its place in blockParams: its block, whether it is gone and whether it is queued.
+	var paramBlock as Array with Count
+	var paramGone as Array with bool
+	var queuedParam as Array with bool
+	// The worklist is queue[head] up to queue[tail]; dying, walk and marks are stacks of the heights dyingTop, walkTop and
+	// marksTop, and order is orderCount long. They, like every array kept by register, instruction, block or parameter,
+	// only grow: each function overwrites what it uses, since an array that shrinks pays a removal for each element.
+	var queue as Array with Count
+	var head as Count
+	var tail as Count
+	var dying as Array with Count
+	var dyingTop as Count
+	var walk as Array with Count
+	var walkTop as Count
+	var into as Array with Count
+	var marks as ir.RegList
+	var marksTop as Count
+	var order as Array with Count
+	var orderCount as Count
+	var useCount as Count
+	var regCount as Count
+	var pairFrom as Array with Count
+	var pairTo as Array with Count
+	var regs as ir.RegList
+	var successors as ir.SuccessorVisitor
+	var rewrite as Rewrite
+	var blocks as Count
+
+	export static function new() returns Fold
+		return Fold{instrsBefore: 0, instrsAfter: 0, branchesFolded: 0, paramsRemoved: 0, checksDecided: 0, defs: ir.Defs.new(), repl: ir.RegList.create(0), known: Array.create(0), value: ir.WordList.create(0), useHead: Array.create(0), useTail: Array.create(0), useItem: Array.create(0), useNext: Array.create(0), regLive: Array.create(0), paramOf: Array.create(0), dead: Array.create(0), instrBlock: Array.create(0), queuedInstr: Array.create(0), liveInstr: Array.create(0), chainFirst: Array.create(0), chainLast: Array.create(0), chainNext: Array.create(0), blockDead: Array.create(0), livePreds: Array.create(0), queuedTerm: Array.create(0), predStart: Array.create(0), pred: Array.create(0), newID: ir.BlockIDList.create(0), reached: Array.create(0), paramBlock: Array.create(0), paramGone: Array.create(0), queuedParam: Array.create(0), queue: Array.create(0), head: 0, tail: 0, dying: Array.create(0), dyingTop: 0, walk: Array.create(0), walkTop: 0, into: Array.create(0), marks: ir.RegList.create(0), marksTop: 0, order: Array.create(0), orderCount: 0, useCount: 0, regCount: 0, pairFrom: Array.create(0), pairTo: Array.create(0), regs: ir.RegList.create(0), successors: ir.SuccessorVisitor.new(), rewrite: Rewrite.new(), blocks: 0}
+	end 'new'
+
+	// foldFunction folds the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures. A
+	// function with a refusal is never compiled, so it is left as it is.
+	export function foldFunction(mutates self, mutates f ir.IrFunction)
+		if f.refusals.count() > 0 'refused'
+			return
+		end 'refused'
+		for i in 0 upto f.bodies.count() 'bodies'
+			self.foldFunction(f.bodies[i])
+		end 'bodies'
+		if f.blocks.count() == 0 'empty'
+			return
+		end 'empty'
+		instrsBefore = try instrsBefore + f.instrs.count() otherwise panic("opt: a count past memory")
+		self.start(f)
+		var settled = false
+		while not settled 'converge'
+			self.drain(f)
+			settled = not self.killUnreached(f)
+		end 'converge'
+		self.markLive(f)
+		self.compact(f)
+		instrsAfter = try instrsAfter + f.instrs.count() otherwise panic("opt: a count past memory")
+	end 'foldFunction'
+
+	// start sets up the arrays for f and queues every parameter, instruction and terminator, block by block in the order
+	// lowering laid them out, which mostly puts a value before what reads it.
+	function start(mutates self, f ir.IrFunction)
+		blocks = f.blocks.count()
+		let nInstrs = f.instrs.count()
+		regCount = 0
+		self.growRegs(f)
+		useCount = 0
+		zeroFlags(dead, n: nInstrs)
+		zeroCounts(instrBlock, n: nInstrs)
+		zeroFlags(queuedInstr, n: nInstrs)
+		zeroCounts(chainFirst, n: sum(blocks, b: nInstrs))
+		zeroCounts(chainLast, n: sum(blocks, b: nInstrs))
+		zeroCounts(chainNext, n: nInstrs)
+		zeroFlags(blockDead, n: blocks)
+		zeroCounts(livePreds, n: blocks)
+		zeroFlags(queuedTerm, n: blocks)
+		zeroCounts(paramBlock, n: f.blockParams.count())
+		zeroFlags(paramGone, n: f.blockParams.count())
+		zeroFlags(queuedParam, n: f.blockParams.count())
+		head = 0
+		tail = 0
+		dyingTop = 0
+		pairFrom.clear()
+		pairTo.clear()
+		livePreds[0] = 1
+		for b in 0 upto blocks 'blocks'
+			for i in 0 upto f.blocks[b].paramCount 'params'
+				let e = sum(f.blocks[b].params, b: i)
+				paramBlock[e] = b
+				let r = regIndex(f.blockParams[e])
+				paramOf[r] = plusOne(e)
+				defs.defined[r] = true
+			end 'params'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				instrBlock[k] = b
+				self.addUses(f, k: k)
+				regs.clear()
+				ir.instrWrites(f.instrs[k], out: regs)
+				for w in 0 upto regs.count() 'writes'
+					let r = regIndex(regs[w])
+					defs.defined[r] = true
+					defs.instr[r] = ir.indexOf(k)
+				end 'writes'
+				let fail = ir.failTarget(f.instrs[k])
+				if fail != ir.noBlock 'fails'
+					self.addEdge(fail)
+				end 'fails'
+			end 'instrs'
+			regs.clear()
+			ir.termReads(f, t: f.blocks[b].term, out: regs)
+			for i in 0 upto regs.count() 'reads'
+				let operand = regs[i]
+				self.addUse(operand, item: item(b, kind: itemTerm))
+			end 'reads'
+			successors.clear()
+			ir.visitTerm(successors, f: f, t: f.blocks[b].term)
+			let firstPair = pairFrom.count()
+			for e in 0 upto successors.out.count() 'edges'
+				let t = ir.blockIndex(successors.out[e])
+				let operand = successors.out[e]
+				self.addEdge(operand)
+				var seen = false
+				for q in firstPair upto pairFrom.count() 'seen'
+					if pairTo[q] == t 'same'
+						seen = true
+					end 'same'
+				end 'seen'
+				if not seen 'new'
+					pairFrom.push(b)
+					pairTo.push(t)
+				end 'new'
+			end 'edges'
+		end 'blocks'
+		ir.buildCsr(pairTo, targets: pairFrom, nodes: blocks, starts: predStart, list: pred)
+		for b in 0 upto blocks 'unentered'
+			if livePreds[b] == 0 'none'
+				self.kill(b)
+			end 'none'
+		end 'unentered'
+		self.drainDying(f)
+		for b in 0 upto blocks 'queue'
+			self.queueParams(f, b: b)
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				self.push(item(k, kind: itemInstr))
+			end 'instrs'
+			self.push(item(b, kind: itemTerm))
+		end 'queue'
+	end 'start'
+
+	// addUses records that the instruction k reads each of its registers.
+	function addUses(mutates self, f ir.IrFunction, k Count)
+		regs.clear()
+		ir.instrReads(f, x: f.instrs[k], out: regs)
+		for i in 0 upto regs.count() 'reads'
+			let operand = regs[i]
+			self.addUse(operand, item: item(k, kind: itemInstr))
+		end 'reads'
+	end 'addUses'
+
+	function addUse(mutates self, r ir.Reg, item Count)
+		let i = regIndex(r)
+		putCount(useItem, at: useCount, v: item)
+		putCount(useNext, at: useCount, v: noLink)
+		useCount = plusOne(useCount)
+		let link = useCount
+		if useTail[i] == noLink 'first'
+			useHead[i] = link
+		end 'first' else 'more'
+			useNext[linkIndex(useTail[i])] = link
+		end 'more'
+		useTail[i] = link
+	end 'addUse'
+
+	function addEdge(mutates self, target ir.BlockID)
+		let t = ir.blockIndex(target)
+		livePreds[t] = plusOne(livePreds[t])
+	end 'addEdge'
+
+	// dropEdge takes away an edge into target: its parameters may have become trivial, and a block that nothing enters
+	// any more dies.
+	function dropEdge(mutates self, f ir.IrFunction, target ir.BlockID)
+		let t = ir.blockIndex(target)
+		livePreds[t] = try livePreds[t] - 1 otherwise panic("opt: an edge into b{t} is dropped twice")
+		self.queueParams(f, b: t)
+		if livePreds[t] == 0 'none'
+			self.kill(t)
+		end 'none'
+	end 'dropEdge'
+
+	function kill(mutates self, b Count)
+		if blockDead[b] 'already'
+			return
+		end 'already'
+		blockDead[b] = true
+		putCount(dying, at: dyingTop, v: b)
+		dyingTop = plusOne(dyingTop)
+	end 'kill'
+
+	// drainDying drops the edges out of every block that died, which may kill the blocks they entered.
+	function drainDying(mutates self, f ir.IrFunction)
+		while dyingTop > 0 'dying'
+			dyingTop = try dyingTop - 1 otherwise panic("opt: an empty list of dying blocks")
+			let b = dying[dyingTop]
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				if not dead[k] 'live'
+					let fail = ir.failTarget(f.instrs[k])
+					if fail != ir.noBlock 'fails'
+						self.dropEdge(f, target: fail)
+					end 'fails'
+				end 'live'
+			end 'instrs'
+			self.dropTermEdges(f, b: b)
+		end 'dying'
+	end 'drainDying'
+
+	function dropTermEdges(mutates self, f ir.IrFunction, b Count)
+		successors.clear()
+		ir.visitTerm(successors, f: f, t: f.blocks[b].term)
+		for e in 0 upto successors.out.count() 'edges'
+			let operand = successors.out[e]
+			self.dropEdge(f, target: operand)
+		end 'edges'
+	end 'dropTermEdges'
+
+	// replaceTerm makes t the terminator of block b, whose edges are among the old one's: the new edges are counted before
+	// the old ones are dropped, so no block they share dies on the way.
+	function replaceTerm(mutates self, mutates f ir.IrFunction, b Count, consumes t ir.Term)
+		successors.clear()
+		ir.visitTerm(successors, f: f, t: t)
+		for e in 0 upto successors.out.count() 'add'
+			let operand = successors.out[e]
+			self.addEdge(operand)
+		end 'add'
+		self.dropTermEdges(f, b: b)
+		f.blocks[b].term = t
+	end 'replaceTerm'
+
+	function push(mutates self, it Count)
+		let index = it / itemKinds
+		let kind = it mod itemKinds
+		if kind == itemInstr 'instr'
+			if queuedInstr[index] 'queued'
+				return
+			end 'queued'
+			queuedInstr[index] = true
+		end 'instr' else if kind == itemTerm 'term'
+			if queuedTerm[index] 'queued'
+				return
+			end 'queued'
+			queuedTerm[index] = true
+		end 'term' else 'param'
+			if queuedParam[index] 'queued'
+				return
+			end 'queued'
+			queuedParam[index] = true
+		end 'param'
+		putCount(queue, at: tail, v: it)
+		tail = plusOne(tail)
+	end 'push'
+
+	function queueParams(mutates self, f ir.IrFunction, b Count)
+		for i in 0 upto f.blocks[b].paramCount 'params'
+			self.push(item(sum(f.blocks[b].params, b: i), kind: itemParam))
+		end 'params'
+	end 'queueParams'
+
+	function queueUses(mutates self, r ir.Reg)
+		var link = useHead[regIndex(r)]
+		while link != noLink 'uses'
+			let at = linkIndex(link)
+			let operand = useItem[at]
+			self.push(operand)
+			link = useNext[at]
+		end 'uses'
+	end 'queueUses'
+
+	function drain(mutates self, mutates f ir.IrFunction)
+		while head < tail 'items'
+			let it = queue[head]
+			head = plusOne(head)
+			let index = it / itemKinds
+			let kind = it mod itemKinds
+			if kind == itemInstr 'instr'
+				queuedInstr[index] = false
+				self.visitInstr(f, k: index)
+			end 'instr' else if kind == itemTerm 'term'
+				queuedTerm[index] = false
+				self.visitTerm(f, b: index)
+			end 'term' else 'param'
+				queuedParam[index] = false
+				self.visitParam(f, e: index)
+			end 'param'
+			self.drainDying(f)
+		end 'items'
+		head = 0
+		tail = 0
+	end 'drain'
+
+	// find is the register r is read as, with the copies it goes through pointed straight at it.
+	function find(mutates self, r ir.Reg) returns ir.Reg
+		var root = r
+		while repl[regIndex(root)] != root 'up'
+			root = repl[regIndex(root)]
+		end 'up'
+		var x = r
+		while x != root 'compress'
+			let next = repl[regIndex(x)]
+			repl[regIndex(x)] = root
+			x = next
+		end 'compress'
+		return root
+	end 'find'
+
+	function renameInstr(mutates self, mutates f ir.IrFunction, k Count)
+		regs.clear()
+		ir.instrReads(f, x: f.instrs[k], out: regs)
+		for i in 0 upto regs.count() 'reads'
+			let operand = regs[i]
+			_ = self.find(operand)
+		end 'reads'
+		ir.renameInstrReads(f.instrs[k], args: f.args, names: repl)
+	end 'renameInstr'
+
+	function renameTerm(mutates self, mutates f ir.IrFunction, b Count)
+		regs.clear()
+		ir.termReads(f, t: f.blocks[b].term, out: regs)
+		for i in 0 upto regs.count() 'reads'
+			let operand = regs[i]
+			_ = self.find(operand)
+		end 'reads'
+		ir.renameTermReads(f.blocks[b].term, args: f.args, cases: f.cases, names: repl)
+	end 'renameTerm'
+
+	function isKnown(r ir.Reg) returns bool
+		return known[regIndex(r)]
+	end 'isKnown'
+
+	function valueOf(r ir.Reg) returns ir.Word
+		return value[regIndex(r)]
+	end 'valueOf'
+
+	// learn records that r holds the constant v, and queues what reads it.
+	function learn(mutates self, r ir.Reg, v ir.Word)
+		let i = regIndex(r)
+		if known[i] 'already'
+			return
+		end 'already'
+		known[i] = true
+		value[i] = v
+		self.queueUses(r)
+	end 'learn'
+
+	// copyOf records that r is read as v from here on: what reads r is queued, and joins the readers of v.
+	function copyOf(mutates self, r ir.Reg, v ir.Reg)
+		let root = self.find(v)
+		if root == r 'self'
+			return
+		end 'self'
+		self.queueUses(r)
+		let i = regIndex(r)
+		repl[i] = root
+		let j = regIndex(root)
+		if useHead[i] != noLink 'splice'
+			if useTail[j] == noLink 'empty'
+				useHead[j] = useHead[i]
+			end 'empty' else 'append'
+				useNext[linkIndex(useTail[j])] = useHead[i]
+			end 'append'
+			useTail[j] = useTail[i]
+			useHead[i] = noLink
+			useTail[i] = noLink
+		end 'splice'
+	end 'copyOf'
+
+	function visitInstr(mutates self, mutates f ir.IrFunction, k Count)
+		if dead[k] or blockDead[instrBlock[k]] 'gone'
+			return
+		end 'gone'
+		self.renameInstr(f, k: k)
+		if self.evaluate(f, k: k) 'evaluated'
+			return
+		end 'evaluated'
+		self.applyRules(f, k: k)
+	end 'visitInstr'
+
+	// evaluate folds the instruction k where its operands are known, and says whether it did.
+	function evaluate(mutates self, mutates f ir.IrFunction, k Count) returns bool
+		let op = f.instrs[k].op
+		if op == ir.Opcode.opConst 'const'
+			self.learn(f.instrs[k].dst, v: ir.constValue(f.instrs[k]))
+			return true
+		end 'const'
+		if op == ir.Opcode.opBin 'bin'
+			let l = ir.binLeft(f.instrs[k])
+			let r = ir.binRight(f.instrs[k])
+			if not self.isKnown(l) or not self.isKnown(r) 'unknown'
+				return false
+			end 'unknown'
+			var result as ir.Word
+			let outcome = ir.evalBin(ir.binOp(f.instrs[k]), a: self.valueOf(l), b: self.valueOf(r), unsigned: ir.binUnsigned(f.instrs[k]), checked: ir.binHasFail(f.instrs[k]), value: result)
+			return self.settle(f, k: k, outcome: outcome, result: result)
+		end 'bin'
+		if op == ir.Opcode.opNeg 'neg'
+			let src = ir.negSrc(f.instrs[k])
+			if not self.isKnown(src) 'unknown'
+				return false
+			end 'unknown'
+			var result as ir.Word
+			let outcome = ir.evalNeg(self.valueOf(src), checked: ir.negHasFail(f.instrs[k]), value: result)
+			return self.settle(f, k: k, outcome: outcome, result: result)
+		end 'neg'
+		if op == ir.Opcode.opGuard 'guard'
+			let src = ir.guardSrc(f.instrs[k])
+			if not self.isKnown(src) 'unknown'
+				return false
+			end 'unknown'
+			if ir.guardHolds(ir.guardKind(f.instrs[k]), bound: ir.guardBound(f.instrs[k]), v: self.valueOf(src)) 'holds'
+				self.removeCheck(f, k: k)
+				dead[k] = true
+				checksDecided = plusOne(checksDecided)
+			end 'holds' else 'fails'
+				self.failHere(f, k: k)
+			end 'fails'
+			return true
+		end 'guard'
+		if op == ir.Opcode.opDrop 'drop'
+			let src = ir.dropSrc(f.instrs[k])
+			if self.isKnown(src) and self.valueOf(src) == 0 'nothing'
+				dead[k] = true
+				return true
+			end 'nothing'
+			return false
+		end 'drop'
+		if op == ir.Opcode.opCmp 'cmp'
+			let l = ir.cmpLeft(f.instrs[k])
+			let r = ir.cmpRight(f.instrs[k])
+			if not self.isKnown(l) or not self.isKnown(r) 'unknown'
+				return false
+			end 'unknown'
+			return self.fold(f, k: k, v: truth(ir.evalCmp(ir.cmpOp(f.instrs[k]), a: self.valueOf(l), b: self.valueOf(r), unsigned: ir.cmpUnsigned(f.instrs[k]))))
+		end 'cmp'
+		if op == ir.Opcode.opNot 'not'
+			let src = ir.notSrc(f.instrs[k])
+			if not self.isKnown(src) 'unknown'
+				return false
+			end 'unknown'
+			return self.fold(f, k: k, v: ir.evalNot(self.valueOf(src)))
+		end 'not'
+		if op == ir.Opcode.opFBin 'fbin'
+			let l = ir.fBinLeft(f.instrs[k])
+			let r = ir.fBinRight(f.instrs[k])
+			if not self.isKnown(l) or not self.isKnown(r) 'unknown'
+				return false
+			end 'unknown'
+			return self.fold(f, k: k, v: ir.evalFBin(ir.fBinOp(f.instrs[k]), a: self.valueOf(l), b: self.valueOf(r)))
+		end 'fbin'
+		if op == ir.Opcode.opFCmp 'fcmp'
+			let l = ir.fCmpLeft(f.instrs[k])
+			let r = ir.fCmpRight(f.instrs[k])
+			if not self.isKnown(l) or not self.isKnown(r) 'unknown'
+				return false
+			end 'unknown'
+			return self.fold(f, k: k, v: truth(ir.evalFCmp(ir.fCmpOp(f.instrs[k]), a: self.valueOf(l), b: self.valueOf(r))))
+		end 'fcmp'
+		if op == ir.Opcode.opFUnary 'funary'
+			let src = ir.fUnarySrc(f.instrs[k])
+			if not self.isKnown(src) 'unknown'
+				return false
+			end 'unknown'
+			return self.fold(f, k: k, v: ir.evalFUnary(ir.fUnaryOp(f.instrs[k]), a: self.valueOf(src)))
+		end 'funary'
+		if op == ir.Opcode.opIntToFloat 'itof'
+			let src = ir.intToFloatSrc(f.instrs[k])
+			if not self.isKnown(src) 'unknown'
+				return false
+			end 'unknown'
+			return self.fold(f, k: k, v: ir.evalIntToFloat(self.valueOf(src), unsigned: ir.intToFloatUnsigned(f.instrs[k])))
+		end 'itof'
+		if op == ir.Opcode.opFloatToInt 'ftoi'
+			let src = ir.floatToIntSrc(f.instrs[k])
+			if not self.isKnown(src) 'unknown'
+				return false
+			end 'unknown'
+			return self.fold(f, k: k, v: ir.evalFloatToInt(self.valueOf(src)))
+		end 'ftoi'
+		return false
+	end 'evaluate'
+
+	// settle folds an operation that can fail by what it does on its constants: its value, its failure taken here, or,
+	// with no meaning on them, nothing, which leaves it to its guard.
+	function settle(mutates self, mutates f ir.IrFunction, k Count, outcome ir.Outcome, result ir.Word) returns bool
+		return match outcome 'outcome'
+			outcomeValue gives self.fold(f, k: k, v: result)
+			outcomeFails gives self.failHere(f, k: k)
+			outcomeUndefined gives false
+		end 'outcome'
+	end 'settle'
+
+	// fold makes the instruction k a constant v, which passes its check if it has one.
+	function fold(mutates self, mutates f ir.IrFunction, k Count, v ir.Word) returns bool
+		if ir.instrCanFail(f.instrs[k]) 'checked'
+			self.removeCheck(f, k: k)
+			checksDecided = plusOne(checksDecided)
+		end 'checked'
+		let dst = f.instrs[k].dst
+		f.instrs[k] = ir.newConst(dst, value: v)
+		self.learn(dst, v: v)
+		return true
+	end 'fold'
+
+	// removeCheck drops the failure edge of the instruction k, whose check its operands pass.
+	function removeCheck(mutates self, f ir.IrFunction, k Count)
+		self.dropEdge(f, target: ir.failTarget(f.instrs[k]))
+	end 'removeCheck'
+
+	// failHere makes the instruction k, whose check its constants fail, the end of its block: a jump to its failure block.
+	// What came after it never ran, and goes.
+	function failHere(mutates self, mutates f ir.IrFunction, k Count) returns bool
+		let b = instrBlock[k]
+		if k < f.blocks[b].first or k >= f.blocks[b].endAt 'appended'
+			panic("opt: an instruction a rule put before another fails on its constants")
+		end 'appended'
+		let fail = ir.failTarget(f.instrs[k])
+		self.replaceTerm(f, b: b, t: ir.newJump(fail))
+		checksDecided = plusOne(checksDecided)
+		dead[k] = true
+		self.dropEdge(f, target: fail)
+		for j in plusOne(k) upto f.blocks[b].endAt 'after'
+			if not dead[j] 'live'
+				dead[j] = true
+				let jFail = ir.failTarget(f.instrs[j])
+				if jFail != ir.noBlock 'fails'
+					self.dropEdge(f, target: jFail)
+				end 'fails'
+			end 'live'
+			self.killChain(anchorOf(j))
+		end 'after'
+		return true
+	end 'failHere'
+
+	function killChain(mutates self, anchor Count)
+		var link = chainFirst[anchor]
+		while link != noLink 'chain'
+			let j = linkIndex(link)
+			dead[j] = true
+			self.killChain(anchorOf(j))
+			link = chainNext[j]
+		end 'chain'
+	end 'killChain'
+
+	function anchorOf(k Count) returns Count
+		return try blocks + k otherwise panic("opt: an anchor past memory")
+	end 'anchorOf'
+
+	// applyRules rewrites the instruction k by the first rule of generic.rules that matches it.
+	function applyRules(mutates self, mutates f ir.IrFunction, k Count)
+		if not rewriteInstr(f, at: k, defs: defs, out: rewrite) 'none'
+			return
+		end 'none'
+		self.growRegs(f)
+		let oldFail = ir.failTarget(f.instrs[k])
+		let dst = f.instrs[k].dst
+		if rewrite.kind == RewriteKind.rewriteToReg 'reg'
+			dead[k] = true
+			if oldFail != ir.noBlock 'checked'
+				self.dropEdge(f, target: oldFail)
+				checksDecided = plusOne(checksDecided)
+			end 'checked'
+			let operand = rewrite.reg
+			self.copyOf(dst, v: operand)
+			return
+		end 'reg'
+		let b = instrBlock[k]
+		let firstPre = f.instrs.count()
+		for i in 0 upto rewrite.pre.count() 'pre'
+			if ir.instrCanFail(rewrite.pre[i]) 'fails'
+				panic("opt: a rule puts an instruction that can fail before another")
+			end 'fails'
+			let j = self.insert(f, x: rewrite.pre[i].clone(), b: b, anchor: anchorOf(k))
+			self.addUses(f, k: j)
+		end 'pre'
+		let lastPre = f.instrs.count()
+		f.instrs[k] = rewrite.instr.clone()
+		let newFail = ir.failTarget(f.instrs[k])
+		if newFail != oldFail 'moved'
+			if newFail != ir.noBlock 'elsewhere'
+				panic("opt: a rule sends the failure of an instruction to another block")
+			end 'elsewhere'
+			self.dropEdge(f, target: oldFail)
+			checksDecided = plusOne(checksDecided)
+		end 'moved'
+		self.addUses(f, k: k)
+		for j in firstPre upto lastPre 'visit'
+			self.visitInstr(f, k: j)
+		end 'visit'
+		self.push(item(k, kind: itemInstr))
+	end 'applyRules'
+
+	// growRegs gives the registers a rule made their place in every array kept by register.
+	function growRegs(mutates self, f ir.IrFunction)
+		while regCount < f.regs.count() 'grow'
+			let r = regCount
+			putReg(repl, at: r, v: ir.regOf(r))
+			putFlag(known, at: r, v: false)
+			putWord(value, at: r, v: 0)
+			putCount(useHead, at: r, v: noLink)
+			putCount(useTail, at: r, v: noLink)
+			putCount(paramOf, at: r, v: 0)
+			putFlag(defs.defined, at: r, v: false)
+			putIndex(defs.instr, at: r, v: ir.noDef)
+			regCount = plusOne(r)
+		end 'grow'
+	end 'growRegs'
+
+	// insert appends the instruction x, which defines a register, to the chain of anchor in block b, and gives its index.
+	function insert(mutates self, mutates f ir.IrFunction, consumes x ir.Instr, b Count, anchor Count) returns Count
+		let j = f.instrs.count()
+		let r = regIndex(x.dst)
+		f.instrs.push(x)
+		putFlag(dead, at: j, v: false)
+		putCount(instrBlock, at: j, v: b)
+		putFlag(queuedInstr, at: j, v: false)
+		putCount(chainFirst, at: anchorOf(j), v: noLink)
+		putCount(chainLast, at: anchorOf(j), v: noLink)
+		putCount(chainNext, at: j, v: noLink)
+		defs.defined[r] = true
+		defs.instr[r] = ir.indexOf(j)
+		self.chainPush(anchor, j: j)
+		return j
+	end 'insert'
+
+	function chainPush(mutates self, anchor Count, j Count)
+		let link = plusOne(j)
+		if chainLast[anchor] == noLink 'first'
+			chainFirst[anchor] = link
+		end 'first' else 'more'
+			chainNext[linkIndex(chainLast[anchor])] = link
+		end 'more'
+		chainLast[anchor] = link
+	end 'chainPush'
+
+	// visitTerm folds a branch or a switch on a constant, and a branch whose two edges are the same, into a jump; then the
+	// parameters of where it goes are looked at again, since what it passes may have changed.
+	function visitTerm(mutates self, mutates f ir.IrFunction, b Count)
+		if blockDead[b] 'gone'
+			return
+		end 'gone'
+		self.renameTerm(f, b: b)
+		let kind = f.blocks[b].term.kind
+		if kind == ir.TermKind.termBranch 'branch'
+			let t = f.blocks[b].term.clone()
+			let cond = ir.branchCond(t)
+			if self.isKnown(cond) 'known'
+				if self.valueOf(cond) != 0 'yes'
+					self.replaceTerm(f, b: b, t: ir.newJumpWith(ir.branchIfTrue(t), argsStart: ir.indexOf(ir.branchTrueArgsStart(t)), argsCount: ir.indexOf(ir.branchTrueArgsCount(t))))
+				end 'yes' else 'no'
+					self.replaceTerm(f, b: b, t: ir.newJumpWith(ir.branchIfFalse(t), argsStart: ir.indexOf(ir.branchFalseArgsStart(t)), argsCount: ir.indexOf(ir.branchFalseArgsCount(t))))
+				end 'no'
+			end 'known' else if ir.branchIfTrue(t) == ir.branchIfFalse(t) and self.sameArgs(f, a: ir.branchTrueArgsStart(t), b: ir.branchFalseArgsStart(t), count: ir.branchTrueArgsCount(t)) 'same'
+				self.replaceTerm(f, b: b, t: ir.newJumpWith(ir.branchIfTrue(t), argsStart: ir.indexOf(ir.branchTrueArgsStart(t)), argsCount: ir.indexOf(ir.branchTrueArgsCount(t))))
+			end 'same'
+		end 'branch' else if kind == ir.TermKind.termSwitch 'switch'
+			let t = f.blocks[b].term.clone()
+			let v = ir.switchValue(t)
+			if self.isKnown(v) 'known'
+				var target = ir.switchFallback(t)
+				var start = ir.switchFallbackArgsStart(t)
+				var count = ir.switchFallbackArgsCount(t)
+				let first = ir.switchCasesStart(t)
+				for i in 0 upto ir.switchCasesCount(t) 'cases'
+					let at = try first + i otherwise panic("opt: a case list is out of range")
+					if f.cases[at].value == self.valueOf(v) 'match'
+						target = f.cases[at].target
+						start = f.cases[at].argsStart()
+						count = f.cases[at].argsCount()
+						break 'cases'
+					end 'match'
+				end 'cases'
+				self.replaceTerm(f, b: b, t: ir.newJumpWith(target, argsStart: ir.indexOf(start), argsCount: ir.indexOf(count)))
+			end 'known'
+		end 'switch'
+		if f.blocks[b].term.kind != kind 'folded'
+			branchesFolded = plusOne(branchesFolded)
+		end 'folded'
+		successors.clear()
+		ir.visitTerm(successors, f: f, t: f.blocks[b].term)
+		for e in 0 upto successors.out.count() 'edges'
+			self.queueParams(f, b: ir.blockIndex(successors.out[e]))
+		end 'edges'
+	end 'visitTerm'
+
+	function sameArgs(f ir.IrFunction, a Count, b Count, count Count) returns bool
+		for i in 0 upto count 'each'
+			if f.args[sum(a, b: i)] != f.args[sum(b, b: i)] 'differs'
+				return false
+			end 'differs'
+		end 'each'
+		return true
+	end 'sameArgs'
+
+	// visitParam removes the parameter blockParams[e] where every edge into its block that is not dead passes one value or
+	// the parameter itself: it is that value from here on. Where they pass constants that are all the same but in
+	// different registers, it becomes a constant at the start of its block.
+	function visitParam(mutates self, mutates f ir.IrFunction, e Count)
+		let b = paramBlock[e]
+		if paramGone[e] or blockDead[b] 'gone'
+			return
+		end 'gone'
+		let p = f.blockParams[e]
+		let i = try e - f.blocks[b].params otherwise panic("opt: a parameter before its block's")
+		var one = ir.noReg
+		var same = true
+		var constant = true
+		var c = 0 as ir.Word
+		self.edgesInto(f, b: b)
+		for edge in 0 upto into.count() 'edges'
+			let arg = self.find(f.args[sum(into[edge], b: i)])
+			if arg == p 'itself'
+				continue 'edges'
+			end 'itself'
+			if one == ir.noReg 'first'
+				one = arg
+				constant = self.isKnown(arg)
+				if constant 'value'
+					c = self.valueOf(arg)
+				end 'value'
+			end 'first' else if arg != one 'another'
+				same = false
+				if not self.isKnown(arg) or self.valueOf(arg) != c 'differs'
+					constant = false
+				end 'differs'
+			end 'another'
+		end 'edges'
+		if one == ir.noReg 'onlyItself'
+			return
+		end 'onlyItself'
+		if same 'trivial'
+			paramGone[e] = true
+			paramsRemoved = plusOne(paramsRemoved)
+			self.copyOf(p, v: one)
+			return
+		end 'trivial'
+		if not constant 'varies'
+			return
+		end 'varies'
+		paramGone[e] = true
+		paramsRemoved = plusOne(paramsRemoved)
+		_ = self.insert(f, x: ir.newConst(p, value: c), b: b, anchor: b)
+		self.learn(p, v: c)
+	end 'visitParam'
+
+	// edgesInto lists in into where the arguments start of each edge into block b from a block that is not dead.
+	function edgesInto(mutates self, f ir.IrFunction, b Count)
+		into.clear()
+		for at in predStart[b] upto predStart[plusOne(b)] 'preds'
+			let q = pred[at]
+			if blockDead[q] 'deadPred'
+				continue 'preds'
+			end 'deadPred'
+			successors.clear()
+			ir.visitTerm(successors, f: f, t: f.blocks[q].term)
+			for edge in 0 upto successors.out.count() 'edges'
+				if ir.blockIndex(successors.out[edge]) == b 'into'
+					into.push(successors.argsStart[edge])
+				end 'into'
+			end 'edges'
+		end 'preds'
+	end 'edgesInto'
+
+	// killUnreached kills the blocks that the walk from the entry does not reach but that an edge from a block as dead
+	// still enters, as a loop that nothing enters does, and says whether it killed any.
+	function killUnreached(mutates self, mutates f ir.IrFunction) returns bool
+		zeroFlags(reached, n: blocks)
+		reached[0] = true
+		putCount(walk, at: 0, v: 0)
+		walkTop = 1
+		while walkTop > 0 'walk'
+			walkTop = try walkTop - 1 otherwise panic("opt: an empty walk")
+			let b = walk[walkTop]
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				if not dead[k] 'live'
+					let fail = ir.failTarget(f.instrs[k])
+					if fail != ir.noBlock 'fails'
+						self.reach(ir.blockIndex(fail))
+					end 'fails'
+				end 'live'
+			end 'instrs'
+			successors.clear()
+			ir.visitTerm(successors, f: f, t: f.blocks[b].term)
+			for e in 0 upto successors.out.count() 'edges'
+				self.reach(ir.blockIndex(successors.out[e]))
+			end 'edges'
+		end 'walk'
+		var killed = false
+		for b in 0 upto blocks 'blocks'
+			if not reached[b] and not blockDead[b] 'unreached'
+				self.kill(b)
+				killed = true
+			end 'unreached'
+		end 'blocks'
+		self.drainDying(f)
+		return killed
+	end 'killUnreached'
+
+	function reach(mutates self, b Count)
+		if reached[b] 'seen'
+			return
+		end 'seen'
+		reached[b] = true
+		putCount(walk, at: walkTop, v: b)
+		walkTop = plusOne(walkTop)
+	end 'reach'
+
+	// blockOrder lists the instructions of block b as they run, each after the ones a rule put before it.
+	function blockOrder(mutates self, f ir.IrFunction, b Count)
+		orderCount = 0
+		self.chainInto(b)
+		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+			self.chainInto(anchorOf(k))
+			self.ordered(k)
+		end 'instrs'
+	end 'blockOrder'
+
+	function ordered(mutates self, k Count)
+		putCount(order, at: orderCount, v: k)
+		orderCount = plusOne(orderCount)
+	end 'ordered'
+
+	function chainInto(mutates self, anchor Count)
+		var link = chainFirst[anchor]
+		while link != noLink 'chain'
+			let j = linkIndex(link)
+			self.chainInto(anchorOf(j))
+			self.ordered(j)
+			link = chainNext[j]
+		end 'chain'
+	end 'chainInto'
+
+	// markLive finds what is read: from every instruction that has an effect or can fail and the value of every
+	// terminator, back through what defines each register read, and through a parameter to the arguments that the edges
+	// into its block pass it.
+	function markLive(mutates self, f ir.IrFunction)
+		zeroFlags(regLive, n: f.regs.count())
+		zeroFlags(liveInstr, n: f.instrs.count())
+		marksTop = 0
+		for b in 0 upto blocks 'blocks'
+			if blockDead[b] 'gone'
+				continue 'blocks'
+			end 'gone'
+			self.blockOrder(f, b: b)
+			for i in 0 upto orderCount 'instrs'
+				let k = order[i]
+				if not dead[k] and not removable(f.instrs[k]) 'root'
+					self.markInstr(f, k: k)
+				end 'root'
+			end 'instrs'
+			let kind = f.blocks[b].term.kind
+			if kind == ir.TermKind.termBranch or kind == ir.TermKind.termSwitch or kind == ir.TermKind.termRet or kind == ir.TermKind.termThrow 'value'
+				self.markReg(f.blocks[b].term.value)
+			end 'value'
+		end 'blocks'
+		while marksTop > 0 'marks'
+			marksTop = try marksTop - 1 otherwise panic("opt: an empty list of marks")
+			let r = marks[marksTop]
+			let i = regIndex(r)
+			let def = defs.instr[i]
+			if def != ir.noDef 'instr'
+				self.markInstr(f, k: try def as Count otherwise panic("opt: a definition before the instructions"))
+				continue 'marks'
+			end 'instr'
+			if paramOf[i] == 0 'none'
+				continue 'marks'
+			end 'none'
+			let e = try paramOf[i] - 1 otherwise panic("opt: a parameter out of order")
+			let b = paramBlock[e]
+			let at = try e - f.blocks[b].params otherwise panic("opt: a parameter before its block's")
+			self.edgesInto(f, b: b)
+			for edge in 0 upto into.count() 'edges'
+				self.markReg(f.args[sum(into[edge], b: at)])
+			end 'edges'
+		end 'marks'
+	end 'markLive'
+
+	function markInstr(mutates self, f ir.IrFunction, k Count)
+		if liveInstr[k] 'already'
+			return
+		end 'already'
+		if dead[k] 'gone'
+			panic("opt: a register of {f.name} is read whose instruction is gone")
+		end 'gone'
+		liveInstr[k] = true
+		regs.clear()
+		ir.instrReads(f, x: f.instrs[k], out: regs)
+		for i in 0 upto regs.count() 'reads'
+			let operand = regs[i]
+			self.markReg(operand)
+		end 'reads'
+	end 'markInstr'
+
+	function markReg(mutates self, r ir.Reg)
+		let i = regIndex(r)
+		if regLive[i] 'already'
+			return
+		end 'already'
+		regLive[i] = true
+		putReg(marks, at: marksTop, v: r)
+		marksTop = plusOne(marksTop)
+	end 'markReg'
+
+	// keeps is whether the parameter blockParams[e] stays: it is not gone and something reads it.
+	function keeps(f ir.IrFunction, e Count) returns bool
+		return not paramGone[e] and regLive[regIndex(f.blockParams[e])]
+	end 'keeps'
+
+	// compact lays out the blocks that live, numbered again in their order, with the instructions that are read or have an
+	// effect, the parameters that stay and the edges that pass them.
+	function compact(mutates self, mutates f ir.IrFunction)
+		var n = 0 as Count
+		for b in 0 upto blocks 'number'
+			if blockDead[b] 'gone'
+				putBlock(newID, at: b, v: ir.noBlock)
+			end 'gone' else 'kept'
+				putBlock(newID, at: b, v: ir.blockOf(n))
+				n = plusOne(n)
+			end 'kept'
+		end 'number'
+		var instrs = ir.InstrList.create(0)
+		var blockList = ir.BlockList.create(0)
+		var blockParams = ir.RegList.create(0)
+		for b in 0 upto blocks 'blocks'
+			if blockDead[b] 'gone'
+				continue 'blocks'
+			end 'gone'
+			let first = instrs.count()
+			self.blockOrder(f, b: b)
+			for i in 0 upto orderCount 'instrs'
+				let k = order[i]
+				if liveInstr[k] and not dead[k] 'kept'
+					var x = f.instrs[k].clone()
+					let fail = ir.failTarget(x)
+					if fail != ir.noBlock 'fails'
+						ir.setFail(x, fail: newID[ir.blockIndex(fail)])
+					end 'fails'
+					instrs.push(x)
+				end 'kept'
+			end 'instrs'
+			let firstParam = blockParams.count()
+			for i in 0 upto f.blocks[b].paramCount 'params'
+				let e = sum(f.blocks[b].params, b: i)
+				if self.keeps(f, e: e) 'kept'
+					blockParams.push(f.blockParams[e])
+				end 'kept'
+			end 'params'
+			let term = self.newTerm(f, t: f.blocks[b].term.clone())
+			blockList.push(ir.Block.make(first, endAt: instrs.count(), params: firstParam, paramCount: try blockParams.count() - firstParam otherwise panic("opt: parameters out of order"), term: term))
+		end 'blocks'
+		f.instrs = instrs
+		f.blocks = blockList
+		f.blockParams = blockParams
+	end 'compact'
+
+	// newTerm is the terminator t with its blocks numbered again and its edges passing only the parameters that stay.
+	function newTerm(mutates self, mutates f ir.IrFunction, t ir.Term) returns ir.Term
+		let kind = t.kind
+		if kind == ir.TermKind.termJump 'jump'
+			let target = ir.jumpTarget(t)
+			let start = self.edgeArgs(f, target: target, start: ir.jumpArgsStart(t), count: ir.jumpArgsCount(t))
+			return ir.newJumpWith(newID[ir.blockIndex(target)], argsStart: ir.indexOf(start), argsCount: ir.indexOf(try f.args.count() - start otherwise panic("opt: arguments out of order")))
+		end 'jump'
+		if kind == ir.TermKind.termBranch 'branch'
+			let yes = ir.branchIfTrue(t)
+			let no = ir.branchIfFalse(t)
+			// The false edge's arguments come right after the true edge's, so both are copied.
+			let start = self.edgeArgs(f, target: yes, start: ir.branchTrueArgsStart(t), count: ir.branchTrueArgsCount(t))
+			let middle = f.args.count()
+			_ = self.edgeArgs(f, target: no, start: ir.branchFalseArgsStart(t), count: ir.branchFalseArgsCount(t))
+			return ir.newBranchWith(ir.branchCond(t), ifTrue: newID[ir.blockIndex(yes)], trueArgsStart: ir.indexOf(start), trueArgsCount: ir.indexOf(try middle - start otherwise panic("opt: arguments out of order")), ifFalse: newID[ir.blockIndex(no)], falseArgsCount: ir.indexOf(try f.args.count() - middle otherwise panic("opt: arguments out of order")))
+		end 'branch'
+		if kind == ir.TermKind.termSwitch 'switch'
+			let first = ir.switchCasesStart(t)
+			let count = ir.switchCasesCount(t)
+			let cases = f.cases.count()
+			for i in 0 upto count 'cases'
+				let at = try first + i otherwise panic("opt: a case list is out of range")
+				let target = f.cases[at].target
+				let caseValue = f.cases[at].value
+				let start = self.edgeArgs(f, target: target, start: f.cases[at].argsStart(), count: f.cases[at].argsCount())
+				f.cases.push(ir.SwitchCase.make(caseValue, target: newID[ir.blockIndex(target)], args: ir.indexOf(start), argCount: ir.indexOf(try f.args.count() - start otherwise panic("opt: arguments out of order"))))
+			end 'cases'
+			let fallback = ir.switchFallback(t)
+			let start = self.edgeArgs(f, target: fallback, start: ir.switchFallbackArgsStart(t), count: ir.switchFallbackArgsCount(t))
+			return ir.newSwitchWith(ir.switchValue(t), casesFirst: ir.indexOf(cases), casesCount: ir.indexOf(count), fallback: newID[ir.blockIndex(fallback)], fallbackArgsStart: ir.indexOf(start), fallbackArgsCount: ir.indexOf(try f.args.count() - start otherwise panic("opt: arguments out of order")))
+		end 'switch'
+		if kind == ir.TermKind.termRet or kind == ir.TermKind.termTrap or kind == ir.TermKind.termThrow 'exits'
+			return t.clone()
+		end 'exits'
+		panic("opt: a block of {f.name} has no terminator")
+	end 'newTerm'
+
+	// edgeArgs appends to args the arguments, args[start] on, count of them, that an edge into target passes to the
+	// parameters that stay, and gives where they start.
+	function edgeArgs(mutates self, mutates f ir.IrFunction, target ir.BlockID, start Count, count Count) returns Count
+		let at = f.args.count()
+		let tb = ir.blockIndex(target)
+		for i in 0 upto count 'each'
+			if self.keeps(f, e: sum(f.blocks[tb].params, b: i)) 'kept'
+				let r = f.args[sum(start, b: i)]
+				f.args.push(r)
+			end 'kept'
+		end 'each'
+		return at
+	end 'edgeArgs'
+end 'Fold'
+
+// item is the worklist's name for an index of a kind.
+function item(index Count, kind Count) returns Count
+	return try index * itemKinds + kind otherwise panic("opt: a worklist item past memory")
+end 'item'
+
+function truth(holds bool) returns ir.Word
+	return 1 if holds else 0
+end 'truth'
+
+// removable is whether an instruction may go when nothing reads its value: it has no effect in the IR table and cannot
+// fail.
+function removable(x ir.Instr) returns bool
+	return (ir.opEffects(x.op) or ir.effectFails) == ir.effectFails and not ir.instrCanFail(x)
+end 'removable'
+
+function sum(a Count, b Count) returns Count
+	return try a + b otherwise panic("opt: an index past memory")
+end 'sum'
+
+// linkIndex is the index that a link of a chain or a use list, which is not noLink, names.
+function linkIndex(link Count) returns Count
+	return try link - 1 otherwise panic("opt: a link that ends its list is followed")
+end 'linkIndex'
+
+// zeroCounts makes the first n elements of a 0, growing it to n if it is shorter.
+function zeroCounts(mutates a Array with Count, n Count)
+	for i in 0 upto n 'each'
+		putCount(a, at: i, v: 0)
+	end 'each'
+end 'zeroCounts'
+
+function zeroFlags(mutates a Array with bool, n Count)
+	for i in 0 upto n 'each'
+		putFlag(a, at: i, v: false)
+	end 'each'
+end 'zeroFlags'
+
+// putCount sets the element at, which is at most the length, to v.
+function putCount(mutates a Array with Count, at Count, v Count)
+	if at < a.count() 'inside'
+		a[at] = v
+		return
+	end 'inside'
+	a.push(v)
+end 'putCount'
+
+function putFlag(mutates a Array with bool, at Count, v bool)
+	if at < a.count() 'inside'
+		a[at] = v
+		return
+	end 'inside'
+	a.push(v)
+end 'putFlag'
+
+function putWord(mutates a ir.WordList, at Count, v ir.Word)
+	if at < a.count() 'inside'
+		a[at] = v
+		return
+	end 'inside'
+	a.push(v)
+end 'putWord'
+
+function putReg(mutates a ir.RegList, at Count, v ir.Reg)
+	if at < a.count() 'inside'
+		a[at] = v
+		return
+	end 'inside'
+	a.push(v)
+end 'putReg'
+
+function putBlock(mutates a ir.BlockIDList, at Count, v ir.BlockID)
+	if at < a.count() 'inside'
+		a[at] = v
+		return
+	end 'inside'
+	a.push(v)
+end 'putBlock'
+
+function putIndex(mutates a Array with ir.Index, at Count, v ir.Index)
+	if at < a.count() 'inside'
+		a[at] = v
+		return
+	end 'inside'
+	a.push(v)
+end 'putIndex'

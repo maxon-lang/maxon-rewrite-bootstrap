@@ -527,8 +527,8 @@ function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Op
 			if options.verifyIr 'verifyLowered'
 				verifyFunctions(p, fns: run.lowered[slot])
 			end 'verifyLowered'
-			var ssa = opt.Ssa.new()
-			opt.optimizeModule(ssa, fns: run.lowered[slot])
+			var optimizer = opt.Optimizer.new()
+			opt.optimizeModule(optimizer, fns: run.lowered[slot])
 		end 'optimize'
 	end 'lower' else 'instances'
 		_ = ir.findInstances(p, callers: run.checked.callers[m], errs: found)

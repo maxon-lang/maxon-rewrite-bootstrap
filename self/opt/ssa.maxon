@@ -609,10 +609,3 @@ export type Ssa
 		end 'trim'
 	end 'compact'
 end 'Ssa'
-
-// optimizeModule runs the optimizer on the functions of a module that the backend compiles.
-export function optimizeModule(mutates ssa Ssa, mutates fns ir.IrFunctionList)
-	for i in 0 upto fns.count() 'each'
-		ssa.construct(fns[i])
-	end 'each'
-end 'optimizeModule'

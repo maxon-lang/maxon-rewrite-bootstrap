@@ -1,8 +1,3 @@
-// wordBitsCount is the width of a word, which a shift of that much or more clears.
-let wordBitsCount = 64 as ir.Word
-
-let maxWord = 9223372036854775807 as ir.Word
-
 // slotCell is the cell of a slot of the frame that runs.
 function slotCell(vm Vm, slot Count) returns Count
 	return try vm.slotBase + slot otherwise panic("interp: a slot past memory")
@@ -171,155 +166,17 @@ function execLoadGlobal(mutates vm Vm, x ir.Instr)
 	panic("interp: unknown global {ir.rtSymbol(symbol)}")
 end 'execLoadGlobal'
 
-// addOverflows is whether a + b is past a signed word.
-function addOverflows(a ir.Word, b ir.Word) returns bool
-	if b > 0 'positive'
-		return a > (try maxWord - b otherwise panic("interp: a bound past a word"))
-	end 'positive'
-	if b < 0 'negative'
-		return a < (try minWord - b otherwise panic("interp: a bound past a word"))
-	end 'negative'
-	return false
-end 'addOverflows'
-
-// subOverflows is whether a - b is past a signed word.
-function subOverflows(a ir.Word, b ir.Word) returns bool
-	if b < 0 'negative'
-		return a > (try maxWord + b otherwise panic("interp: a bound past a word"))
-	end 'negative'
-	if b > 0 'positive'
-		return a < (try minWord + b otherwise panic("interp: a bound past a word"))
-	end 'positive'
-	return false
-end 'subOverflows'
-
-// mulOverflows is whether a * b is past a signed word, where product is the word its bits spell.
-function mulOverflows(a ir.Word, b ir.Word, product ir.Word) returns bool
-	if a == 0 'zero'
-		return false
-	end 'zero'
-	if a == -1 'minusOne'
-		return b == minWord
-	end 'minusOne'
-	return (try product / a otherwise panic("interp: a quotient of a word by a nonzero word")) != b
-end 'mulOverflows'
-
-// shift moves the bits of a word: a shift of the width or more clears all but the sign of a signed right shift.
-function shift(vm Vm, left bool, unsigned bool, x ir.Word, count ir.Word) returns ir.Word
-	if count < 0 'negative'
-		panic("interp: a negative shift count that no guard checked")
-	end 'negative'
-	if left and count >= wordBitsCount 'cleared'
-		return 0
-	end 'cleared'
-	if left 'shl'
-		return wordOf(wrapMul(bitsOf(x), b: vm.powers[count as Count]))
-	end 'shl'
-	if count >= wordBitsCount and unsigned 'clearedUnsigned'
-		return 0
-	end 'clearedUnsigned'
-	if count >= wordBitsCount 'sign'
-		if x < 0 'negative'
-			return -1
-		end 'negative'
-		return 0
-	end 'sign'
-	let divisor = vm.powers[count as Count]
-	if unsigned or x >= 0 'logical'
-		return wordOf(try bitsOf(x) / divisor otherwise panic("interp: a power of two that is 0"))
-	end 'logical'
-	// An arithmetic shift of a negative number is the logical shift of its complement, complemented.
-	return wordOf(maxCount - (try (maxCount - bitsOf(x)) / divisor otherwise panic("interp: a power of two that is 0")))
-end 'shift'
-
-// binary computes an operation in a word, and sets failTo when the result does not fit, which only a checked operation
-// asks. The range analysis proved that an operation without a check fits, and a guard before it rules out a divisor of 0 and a
-// negative shift count, so finding one is a compiler bug.
+// execBin computes an operation in a word, and sets failTo when a checked one does not fit. The range analysis proved
+// that an operation without a check fits, and a guard before it rules out a divisor of 0 and a negative shift count, so
+// finding one is a compiler bug.
 function execBin(mutates vm Vm, x ir.Instr)
-	let a = vm.num(x.a)
-	let b = vm.num(x.b)
-	let unsigned = (x.flags and ir.flagUnsigned) != 0
-	let checked = (x.flags and ir.flagChecked) != 0
-	let op = ir.binOp(x)
-	var result = 0 as ir.Word
-	var fits = true
-	if op == ir.BinOp.binAdd 'add'
-		if unsigned 'unsigned'
-			result = wordOf(wrapAdd(bitsOf(a), b: bitsOf(b)))
-			fits = bitsOf(a) <= maxCount - bitsOf(b)
-		end 'unsigned' else 'signed'
-			result = wordOf(wrapAdd(bitsOf(a), b: bitsOf(b)))
-			fits = not addOverflows(a, b: b)
-		end 'signed'
-	end 'add' else if op == ir.BinOp.binSub 'sub'
-		result = wordOf(wrapSub(bitsOf(a), b: bitsOf(b)))
-		if unsigned 'unsigned'
-			fits = bitsOf(a) >= bitsOf(b)
-		end 'unsigned' else 'signed'
-			fits = not subOverflows(a, b: b)
-		end 'signed'
-	end 'sub' else if op == ir.BinOp.binMul 'mul'
-		let wide = mulWide(bitsOf(a), b: bitsOf(b))
-		result = wordOf(wide.lo)
-		if unsigned 'unsigned'
-			fits = wide.hi == 0
-		end 'unsigned' else 'signed'
-			fits = not mulOverflows(a, b: b, product: result)
-		end 'signed'
-	end 'mul' else if op == ir.BinOp.binDiv or op == ir.BinOp.binMod 'divide'
-		if b == 0 'zero'
-			panic("interp: a division by 0 that no guard checked")
-		end 'zero'
-		let division = op == ir.BinOp.binDiv
-		if unsigned 'unsigned'
-			if division 'quotient'
-				result = wordOf(try bitsOf(a) / bitsOf(b) otherwise panic("interp: a division by 0 that no guard checked"))
-			end 'quotient' else 'remainder'
-				result = wordOf(try bitsOf(a) mod bitsOf(b) otherwise panic("interp: a division by 0 that no guard checked"))
-			end 'remainder'
-		end 'unsigned' else if b == -1 'minusOne'
-			if not division 'remainder'
-				result = 0
-			end 'remainder' else if a == minWord 'overflow'
-				if not checked 'unchecked'
-					panic("interp: i64.min / -1 in a division that is not checked")
-				end 'unchecked'
-				fits = false
-			end 'overflow' else 'negate'
-				result = 0 - a
-			end 'negate'
-		end 'minusOne' else 'signed'
-			if division 'quotient'
-				result = try a / b otherwise panic("interp: a signed division that overflows after the guards")
-			end 'quotient' else 'remainder'
-				result = try a mod b otherwise panic("interp: a signed remainder that fails after the guards")
-			end 'remainder'
-		end 'signed'
-	end 'divide' else if op == ir.BinOp.binAnd 'and'
-		result = wordOf(bitsOf(a) and bitsOf(b))
-	end 'and' else if op == ir.BinOp.binOr 'or'
-		result = wordOf(bitsOf(a) or bitsOf(b))
-	end 'or' else if op == ir.BinOp.binXor 'xor'
-		result = wordOf(bitsOf(a) xor bitsOf(b))
-	end 'xor' else if op == ir.BinOp.binShr 'shr'
-		result = shift(vm, left: false, unsigned: unsigned, x: a, count: b)
-	end 'shr' else if op == ir.BinOp.binShl 'shl'
-		result = shift(vm, left: true, unsigned: unsigned, x: a, count: b)
-		if checked 'checked'
-			if b >= wordBitsCount 'wide'
-				fits = a == 0
-			end 'wide' else 'narrow'
-				fits = shift(vm, left: false, unsigned: unsigned, x: result, count: b) == a
-			end 'narrow'
-		end 'checked'
-	end 'shl' else 'unknown'
-		panic("interp: operator {op}")
-	end 'unknown'
-	if checked and not fits 'failed'
-		vm.failTo = x.c as ir.Word
-		return
-	end 'failed'
-	vm.setNum(x.dst, n: result)
+	var result as ir.Word
+	let outcome = ir.evalBin(ir.binOp(x), a: vm.num(x.a), b: vm.num(x.b), unsigned: ir.binUnsigned(x), checked: ir.binHasFail(x), value: result)
+	match outcome 'outcome'
+		outcomeValue then vm.setNum(x.dst, n: result)
+		outcomeFails then vm.failTo = x.c as ir.Word
+		outcomeUndefined then panic("interp: {ir.binOpText(ir.binOp(x))} of operands that no guard checked")
+	end 'outcome'
 end 'execBin'
 
 function execCmp(mutates vm Vm, x ir.Instr)
@@ -331,75 +188,24 @@ function execCmp(mutates vm Vm, x ir.Instr)
 		a = try objectA as ir.Word otherwise panic("interp: a handle past a word")
 		b = try objectB as ir.Word otherwise panic("interp: a handle past a word")
 	end 'objects'
-	let equal = a == b
-	var less = a < b
-	if (x.flags and ir.flagUnsigned) != 0 'unsigned'
-		less = bitsOf(a) < bitsOf(b)
-	end 'unsigned'
-	let op = ir.cmpOp(x)
-	var result = false
-	if op == ir.CmpOp.cmpEq 'eq'
-		result = equal
-	end 'eq' else if op == ir.CmpOp.cmpNe 'ne'
-		result = not equal
-	end 'ne' else if op == ir.CmpOp.cmpLt 'lt'
-		result = less
-	end 'lt' else if op == ir.CmpOp.cmpLe 'le'
-		result = less or equal
-	end 'le' else if op == ir.CmpOp.cmpGt 'gt'
-		result = not less and not equal
-	end 'gt' else if op == ir.CmpOp.cmpGe 'ge'
-		result = not less
-	end 'ge' else 'unknown'
-		panic("interp: comparison {op.name}")
-	end 'unknown'
-	if result 'true'
-		vm.setNum(x.dst, n: 1)
-	end 'true' else 'false'
-		vm.setNum(x.dst, n: 0)
-	end 'false'
+	vm.setNum(x.dst, n: 1 if ir.evalCmp(ir.cmpOp(x), a: a, b: b, unsigned: ir.cmpUnsigned(x)) else 0)
 end 'execCmp'
 
 function execNeg(mutates vm Vm, x ir.Instr)
-	let a = vm.num(x.a)
-	if (x.flags and ir.flagChecked) != 0 and a == minWord 'failed'
+	var result as ir.Word
+	if ir.evalNeg(vm.num(x.a), checked: ir.negHasFail(x), value: result) == ir.Outcome.outcomeFails 'failed'
 		vm.failTo = x.c as ir.Word
 		return
 	end 'failed'
-	vm.setNum(x.dst, n: wordOf(wrapSub(0, b: bitsOf(a))))
+	vm.setNum(x.dst, n: result)
 end 'execNeg'
 
 function execNot(mutates vm Vm, x ir.Instr)
-	vm.setNum(x.dst, n: wordOf(maxCount - bitsOf(vm.num(x.a))))
+	vm.setNum(x.dst, n: ir.evalNot(vm.num(x.a)))
 end 'execNot'
 
-// inRange is whether a value passes a guard.
-function inRange(x ir.Instr, v ir.Word) returns bool
-	let kind = ir.guardKind(x)
-	let bound = ir.guardBound(x)
-	if kind == ir.GuardKind.guardNonNegative 'nonNegative'
-		return v >= 0
-	end 'nonNegative'
-	if kind == ir.GuardKind.guardSignedAtLeast 'signedAtLeast'
-		return v >= bound
-	end 'signedAtLeast'
-	if kind == ir.GuardKind.guardSignedAtMost 'signedAtMost'
-		return v <= bound
-	end 'signedAtMost'
-	if kind == ir.GuardKind.guardUnsignedAtLeast 'unsignedAtLeast'
-		return bitsOf(v) >= bitsOf(bound)
-	end 'unsignedAtLeast'
-	if kind == ir.GuardKind.guardUnsignedAtMost 'unsignedAtMost'
-		return bitsOf(v) <= bitsOf(bound)
-	end 'unsignedAtMost'
-	if kind == ir.GuardKind.guardNonZero 'nonZero'
-		return v != 0
-	end 'nonZero'
-	panic("interp: guard {kind.name}")
-end 'inRange'
-
 function execGuard(mutates vm Vm, x ir.Instr)
-	if not inRange(x, v: vm.num(x.a)) 'failed'
+	if not ir.guardHolds(ir.guardKind(x), bound: ir.guardBound(x), v: vm.num(x.a)) 'failed'
 		vm.failTo = x.c as ir.Word
 	end 'failed'
 end 'execGuard'

@@ -1,47 +1,18 @@
-// The float operations, on the 64 bits of a double that a register holds, computed exactly as the hardware computes them
-// (ast's floats), since the interpreter is compiled with no floats of its own.
+// The float operations, on the 64 bits of a double that a register holds, as ir's evaluator computes them (ast's floats,
+// exactly as the hardware does), since the interpreter is compiled with no floats of its own.
 
 function execFBin(mutates vm Vm, x ir.Instr)
-	let a = bitsOf(vm.num(ir.fBinLeft(x)))
-	let b = bitsOf(vm.num(ir.fBinRight(x)))
-	let r = match ir.fBinOp(x) 'op'
-		fBinAdd gives ast.floatAdd(a, b: b)
-		fBinSub gives ast.floatSub(a, b: b)
-		fBinMul gives ast.floatMul(a, b: b)
-		fBinDiv gives ast.floatDiv(a, b: b)
-	end 'op'
-	vm.setNum(x.dst, n: wordOf(r))
+	vm.setNum(x.dst, n: ir.evalFBin(ir.fBinOp(x), a: vm.num(ir.fBinLeft(x)), b: vm.num(ir.fBinRight(x))))
 end 'execFBin'
 
 function execFCmp(mutates vm Vm, x ir.Instr)
-	let order = ast.floatCompare(bitsOf(vm.num(ir.fCmpLeft(x))), b: bitsOf(vm.num(ir.fCmpRight(x))))
-	let holds = match ir.fCmpOp(x) 'op'
-		cmpEq gives order == ast.FloatOrder.equal
-		cmpNe gives order != ast.FloatOrder.equal
-		cmpLt gives order == ast.FloatOrder.less
-		cmpLe gives order == ast.FloatOrder.less or order == ast.FloatOrder.equal
-		cmpGt gives order == ast.FloatOrder.greater
-		cmpGe gives order == ast.FloatOrder.greater or order == ast.FloatOrder.equal
-	end 'op'
-	vm.setNum(x.dst, n: 1 if holds else 0)
+	vm.setNum(x.dst, n: 1 if ir.evalFCmp(ir.fCmpOp(x), a: vm.num(ir.fCmpLeft(x)), b: vm.num(ir.fCmpRight(x))) else 0)
 end 'execFCmp'
 
 function execFUnary(mutates vm Vm, x ir.Instr)
-	let a = bitsOf(vm.num(ir.fUnarySrc(x)))
-	let r = match ir.fUnaryOp(x) 'op'
-		fUnarySqrt gives ast.floatSqrt(a)
-		fUnaryRound gives ast.floatRound(a, mode: ast.FloatRounding.nearest)
-		fUnaryFloor gives ast.floatRound(a, mode: ast.FloatRounding.down)
-		fUnaryCeil gives ast.floatRound(a, mode: ast.FloatRounding.up)
-	end 'op'
-	vm.setNum(x.dst, n: wordOf(r))
+	vm.setNum(x.dst, n: ir.evalFUnary(ir.fUnaryOp(x), a: vm.num(ir.fUnarySrc(x))))
 end 'execFUnary'
 
 function execIntToFloat(mutates vm Vm, x ir.Instr)
-	let n = vm.num(ir.intToFloatSrc(x))
-	var v = ast.I128.fromInt(n as FullRangeInt)
-	if ir.intToFloatUnsigned(x) 'unsigned'
-		v = ast.I128.fromCount(bitsOf(n))
-	end 'unsigned'
-	vm.setNum(x.dst, n: wordOf(ast.floatFromInt(v)))
+	vm.setNum(x.dst, n: ir.evalIntToFloat(vm.num(ir.intToFloatSrc(x)), unsigned: ir.intToFloatUnsigned(x)))
 end 'execIntToFloat'

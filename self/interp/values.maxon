@@ -180,7 +180,7 @@ type Table
 
 	function handleOf(slot Count) returns ir.Word
 		let bits = try (gens[slot] shl 32) + slot + 1 otherwise panic("interp: a handle past a word")
-		return wordOf(bits)
+		return ir.wordOfBits(bits)
 	end 'handleOf'
 
 	function release(mutates self, slot Count)

@@ -115,19 +115,19 @@ function entryItoa(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let n = argNum(vm, f: f, x: x, i: 0)
 	var text = "{n}"
 	if argNum(vm, f: f, x: x, i: 1) != 0 'unsigned'
-		text = "{bitsOf(n)}"
+		text = "{ir.bitsOfWord(n)}"
 	end 'unsigned'
 	let made = newString(vm, text: text)
 	giveRef(vm, x: x, o: made)
 end 'entryItoa'
 
 function entryFtoa(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let made = newString(vm, text: ast.floatText(bitsOf(argNum(vm, f: f, x: x, i: 0))))
+	let made = newString(vm, text: ast.floatText(ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))))
 	giveRef(vm, x: x, o: made)
 end 'entryFtoa'
 
 function entryFtoaExact(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let made = newString(vm, text: ast.floatExactText(bitsOf(argNum(vm, f: f, x: x, i: 0))))
+	let made = newString(vm, text: ast.floatExactText(ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))))
 	giveRef(vm, x: x, o: made)
 end 'entryFtoaExact'
 
@@ -144,7 +144,7 @@ end 'entryStrLen'
 
 function entryStrByteAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a string byteAt")
-	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	if i >= vm.h.texts[at].byteLength() 'outside'
 		throw trap(vm, message: "string byte position out of bounds")
 	end 'outside'
@@ -153,8 +153,8 @@ end 'entryStrByteAt'
 
 function entryStrSlice(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a string slice")
-	let start = bitsOf(argNum(vm, f: f, x: x, i: 1))
-	let stop = bitsOf(argNum(vm, f: f, x: x, i: 2))
+	let start = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let stop = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
 	if start > stop or stop > vm.h.texts[at].byteLength() 'outside'
 		throw trap(vm, message: "string slice out of bounds")
 	end 'outside'
@@ -249,7 +249,7 @@ end 'entryArrayLen'
 
 function entryArrayElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "an element address")
-	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[a]
 	if i >= vm.h.elements[data].count() 'outside'
 		throw trap(vm, message: indexOutOfRangeMessage)
@@ -260,7 +260,7 @@ end 'entryArrayElem'
 
 function entryArrayInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "an insert")
-	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[a]
 	if i > vm.h.elements[data].count() 'outside'
 		throw trap(vm, message: indexOutOfRangeMessage)
@@ -272,7 +272,7 @@ end 'entryArrayInsert'
 
 function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a remove")
-	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[a]
 	if i >= vm.h.elements[data].count() 'outside'
 		throw trap(vm, message: indexOutOfRangeMessage)
@@ -294,7 +294,7 @@ end 'entryBytesLen'
 
 function entryBytesGet(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a byte read")
-	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[b]
 	if i >= vm.h.buffers[data].count() 'outside'
 		throw trap(vm, message: indexOutOfRangeMessage)
@@ -304,12 +304,12 @@ end 'entryBytesGet'
 
 // lowByte is the byte a word holds in its low 8 bits.
 function lowByte(n ir.Word) returns Byte
-	return (bitsOf(n) and 255) as Byte
+	return (ir.bitsOfWord(n) and 255) as Byte
 end 'lowByte'
 
 function entryBytesSet(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a byte write")
-	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[b]
 	if i >= vm.h.buffers[data].count() 'outside'
 		throw trap(vm, message: indexOutOfRangeMessage)
@@ -320,7 +320,7 @@ end 'entryBytesSet'
 
 function entryBytesInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "an insert")
-	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[b]
 	if i > vm.h.buffers[data].count() 'outside'
 		throw trap(vm, message: indexOutOfRangeMessage)
@@ -331,7 +331,7 @@ end 'entryBytesInsert'
 
 function entryBytesRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a remove")
-	let i = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[b]
 	if i >= vm.h.buffers[data].count() 'outside'
 		throw trap(vm, message: indexOutOfRangeMessage)
@@ -370,7 +370,7 @@ function mapLookup(mutates vm Vm, f ir.IrFunction, data Count, key ir.Reg, what 
 		let at = try textIndex(vm, o: vm.ref(key), what: what)
 		return vm.h.maps[data].byText.get(vm.h.texts[at])
 	end 'text'
-	return vm.h.maps[data].byNumber.get(bitsOf(vm.num(key)))
+	return vm.h.maps[data].byNumber.get(ir.bitsOfWord(vm.num(key)))
 end 'mapLookup'
 
 function entryMapNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
@@ -405,7 +405,7 @@ end 'entryMapElem'
 function mapEntryAt(mutates vm Vm, f ir.IrFunction, x ir.Instr, what String) returns Count throws Halt
 	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: what)
 	let data = vm.h.oData[m]
-	let position = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	let position = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	if position >= vm.h.maps[data].entries.count() 'past'
 		throw trap(vm, message: indexOutOfRangeMessage)
 	end 'past'
@@ -456,7 +456,7 @@ function entryMapInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		let at = vm.h.oData[vm.h.refOf(key)]
 		vm.h.maps[data].byText.insert(vm.h.texts[at].clone(), value: e)
 	end 'text' else 'number'
-		vm.h.maps[data].byNumber.insert(bitsOf(vm.num(keyReg)), value: e)
+		vm.h.maps[data].byNumber.insert(ir.bitsOfWord(vm.num(keyReg)), value: e)
 	end 'number'
 end 'entryMapInsert'
 
@@ -474,7 +474,7 @@ function entryMapRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		let at = try textIndex(vm, o: vm.ref(keyReg), what: "a remove")
 		_ = vm.h.maps[data].byText.remove(vm.h.texts[at])
 	end 'text' else 'number'
-		_ = vm.h.maps[data].byNumber.remove(bitsOf(vm.num(keyReg)))
+		_ = vm.h.maps[data].byNumber.remove(ir.bitsOfWord(vm.num(keyReg)))
 	end 'number'
 	for i in 0 upto vm.h.maps[data].entries.count() 'entries'
 		if vm.h.maps[data].entries[i] == e 'same'
@@ -757,7 +757,7 @@ function copyObject(mutates vm Vm, o Count) returns Count throws Halt
 			if ref != 0 'text'
 				vm.h.maps[outData].byText.insert(vm.h.texts[vm.h.oData[ref]].clone(), value: copied)
 			end 'text' else 'number'
-				vm.h.maps[outData].byNumber.insert(bitsOf(vm.h.cellN[key]), value: copied)
+				vm.h.maps[outData].byNumber.insert(ir.bitsOfWord(vm.h.cellN[key]), value: copied)
 			end 'number'
 		end 'entries'
 		return out

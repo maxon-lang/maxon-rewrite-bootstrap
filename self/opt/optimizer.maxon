@@ -1,0 +1,19 @@
+// The optimizer's passes in the order a native build runs them on each function: SSA construction, then the fold pass.
+
+// Optimizer is the state of the passes, kept from one function to the next.
+export type Optimizer
+	export var ssa as Ssa
+	export var fold as Fold
+
+	export static function new() returns Optimizer
+		return Optimizer{ssa: Ssa.new(), fold: Fold.new()}
+	end 'new'
+end 'Optimizer'
+
+// optimizeModule runs the optimizer on the functions of a module that the backend compiles.
+export function optimizeModule(mutates o Optimizer, mutates fns ir.IrFunctionList)
+	for i in 0 upto fns.count() 'each'
+		o.ssa.construct(fns[i])
+		o.fold.foldFunction(fns[i])
+	end 'each'
+end 'optimizeModule'

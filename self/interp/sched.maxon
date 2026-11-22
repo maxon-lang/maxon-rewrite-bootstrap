@@ -286,7 +286,7 @@ end 'Interp'
 
 // int32Of is the word that the low 32 bits of a word spell as a signed number, which is what main's exit code is.
 function int32Of(n ir.Word) returns ir.Word
-	let low = bitsOf(n) and mask32
+	let low = ir.bitsOfWord(n) and mask32
 	if low >= 2147483648 'negative'
 		return (try low - 4294967296 otherwise panic("interp: a low half past 32 bits")) as ir.Word
 	end 'negative'
