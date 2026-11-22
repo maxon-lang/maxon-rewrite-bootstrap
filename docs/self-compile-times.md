@@ -67,3 +67,4 @@ neither.
 | 2026-11-22 | 3fcdf6d | Phase 3 done: build cache, x64-linux, per-thread heap; first row with memory (two agents building alongside) | 103039 | 1480 | 1401 | 1408 | 2611481 | 425.8 | 441.4 |
 | 2026-11-22 | 87cc499 | Phase 4: stdlib loader, line-fit code placement, fallback IR on demand (three agents building alongside) | 103870 | 2729 | 1708 | 1411 | 2811949 | 387.9 | 403.5 |
 | 2026-11-22 | 84f5f83 | Phase 4: green-thread runtime, async/await, borrowed iterators, interface bounds (one agent building alongside) | 107696 | 2694 | 2593 | 2610 | 2922605 | 390.9 | 402.8 |
+| 2026-11-22 | 36944b1 | native Map, neutral backend, behaviours without stacks | 110696 | 1913 | 1882 | 1843 | 3479085 | 440.4 | 453.3 |
