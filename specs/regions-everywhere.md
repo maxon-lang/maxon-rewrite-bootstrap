@@ -547,7 +547,7 @@ type Cursor
 	var items as TallyArray
 
 	static function create(items TallyArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function size() returns Count
@@ -566,18 +566,18 @@ type Bag implements Cursors
 		return Self{items: TallyArray.create(0)}
 	end 'create'
 
-	function open() returns Cursor
+	function open(mutates self) returns Cursor
 		return Cursor.create(self.items)
 	end 'open'
 end 'Bag'
 
-function first(source Cursors) returns Cursor
+function first(mutates source Cursors) returns Cursor
 	return source.open()
 end 'first'
 
 function main() returns ExitCode
 	let bag = Bag.create()
-	return first(bag).size() as ExitCode
+	return try first(bag).size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

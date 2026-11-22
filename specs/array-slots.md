@@ -248,6 +248,7 @@ error E3005: <fragment>:9:10: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: laundered-negative-index-panics-at-the-door -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### The same refusal when the compiler cannot fold the index
 A negative the compiler cannot see is refused by the runtime guard instead. The `match` arms are what prove
 the refusal is not either `ArrayError`: both are still written, both would return, and neither runs.

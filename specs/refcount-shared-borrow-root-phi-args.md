@@ -56,7 +56,7 @@ type Clause
 	export var typeName as String
 
 	static function create(paramName String, traitName String, typeName String) returns Self
-		return Self{paramName: paramName, traitName: traitName, typeName: typeName}
+		return Self{paramName: paramName.clone(), traitName: traitName.clone(), typeName: typeName.clone()}
 	end 'create'
 end 'Clause'
 
@@ -85,12 +85,12 @@ function firstFailing(m ClauseMap, key String) returns Count
 			break
 		end 'fail'
 	end 'each'
-	return failedParam.count() + failedTrait.count() + failedType.count()
+	return try failedParam.count() + failedTrait.count() + failedType.count() otherwise panic("out of range")
 end 'firstFailing'
 
 function main() returns ExitCode
-	let m = ClauseMap.create()
-	let arr = ClauseArray.create(0)
+	var m = ClauseMap.create()
+	var arr = ClauseArray.create(0)
 	arr.push(Clause.create("Item", traitName: "Comparable", typeName: "NotComparable"))
 	try m.insert("MyHolder.isGreater", value: arr) otherwise return 1
 	// "Item"(4) + "Comparable"(10) + "NotComparable"(13) = 27

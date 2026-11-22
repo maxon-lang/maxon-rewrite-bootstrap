@@ -204,13 +204,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias NameMap = Map with (String, Integer)
 
 function main() returns ExitCode
-	let names = NameMap.create()
+	var names = NameMap.create()
 	for i in 0 upto 200 'fill'
 		names.upsert("key number {i} padded out long enough to heap allocate", value: i as Integer)
 	end 'fill'
 	var total = 0 as Integer
 	for i in 0 upto 200 'sum'
-		total = total + (try names.get("key number {i} padded out long enough to heap allocate") otherwise 0)
+		total = try total + (try names.get("key number {i} padded out long enough to heap allocate") otherwise 0) otherwise panic("out of range")
 	end 'sum'
 	print("{names.count()} {total}\n")
 	return 0

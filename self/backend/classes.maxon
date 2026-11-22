@@ -194,6 +194,7 @@ export type ClassChoice
 			opFuncValue or
 			opBox or
 			opFrameBox or
+			opFrameArea or
 			opIsType or
 			opDrop or
 			opDropSlot or

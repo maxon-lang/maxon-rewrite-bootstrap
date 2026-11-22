@@ -86,7 +86,7 @@ function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
-// expect-error: E3908 at 90:14
+// expect-error: E3017 at 90:14
 function f(m Map with (K, Count)) uses K
 	print("{m.count()}")
 end 'f'

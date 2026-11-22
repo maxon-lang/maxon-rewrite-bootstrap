@@ -84,7 +84,6 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		record gives false
 		unionTy gives false
 		builtinArray gives false
-		builtinMap gives false
 		builtinList gives false
 		builtinPool gives false
 		builtinHandle gives false
@@ -450,6 +449,28 @@ function boundRequirement(p ast.Project, ms ast.ModuleState, boundedFn ast.FuncI
 	return ast.Requirement.make(ast.noType, sig: ast.noFunc, bindings: ast.TypeIDList.create(0))
 end 'boundRequirement'
 
+// overloadByFirstArgument is the function a call of the static function declared names: declared itself, or the form of
+// it that the type of the first argument chooses, as maxon's __Builtins.hashBytes folds a byte array's bytes or a
+// string's. The argument is typed here only where it is a variable, which typing again gives the same, and a form is
+// chosen only for the argument's type alone.
+function overloadByFirstArgument(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, declared ast.FuncID, mutates errs diag.ErrorList) returns ast.FuncID
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: declared).intrinsic != ast.Intrinsic.intrHashBytes 'single'
+		return declared
+	end 'single'
+	let args = ast.callExprArgsRef(ms.tree(), id: call)
+	if ms.tree().listLen(args) == 0 'none'
+		return declared
+	end 'none'
+	let first = ast.argValue(ms.tree(), id: ms.tree().listAt(args, index: 0) as ast.NodeID)
+	if ms.tree().kindOf(first) != ast.NodeKind.nameExpr 'notVariable'
+		return declared
+	end 'notVariable'
+	if checkExpr(c, p: p, ms: ms, e: first, errs: errs) == p.builtins.stringTy 'string'
+		return p.builtins.hashStringBytesFunc
+	end 'string'
+	return declared
+end 'overloadByFirstArgument'
+
 // callOnType types a call written on a type's name: a case of a union that carries a payload, or a static function.
 function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, nt ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	if ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.typeParam 'parameter'
@@ -467,7 +488,8 @@ function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return ast.noType
 	end 'ambiguous'
 	if sm != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sm).isStatic 'static'
-		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: ast.typeEntry(ms.types, reads: p.types, t: nt).typeArgs.count() > 0, given: ast.typeEntry(ms.types, reads: p.types, t: nt).typeArgs.clone(), errs: errs)
+		let target = overloadByFirstArgument(c, p: p, ms: ms, call: call, declared: sm, errs: errs)
+		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: target, hasGiven: ast.typeEntry(ms.types, reads: p.types, t: nt).typeArgs.count() > 0, given: ast.typeEntry(ms.types, reads: p.types, t: nt).typeArgs.clone(), errs: errs)
 	end 'static'
 	if sm != ast.noFunc 'instance'
 		return refuseInstanceMethodWithoutReceiver(c, p: p, ms: ms, node: ast.callExprCallee(ms.tree(), id: call), owner: nt, name: name, errs: errs)

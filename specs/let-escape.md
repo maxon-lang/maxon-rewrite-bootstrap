@@ -687,7 +687,7 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
@@ -2635,10 +2635,10 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let m = BoxMap.create()
+	var m = BoxMap.create()
 	let a = Box.create(2)
 	m.upsert(1, value: a)
-	let w = try m.get(1) otherwise return 1
+	var w = try m.get(1) otherwise return 1
 	w.n = 9
 	print("{a.n}\n")
 	return 0
@@ -2723,20 +2723,20 @@ type Table
 	end 'create'
 end 'Table'
 
-function fill(t Table, b Box)
-	let inner = Boxes.create(0)
-	inner.push(b)
+function fill(mutates t Table, b Box)
+	var inner = Boxes.create(0)
+	inner.push(b.clone())
 	t.rows.upsert(7, value: inner)
 end 'fill'
 
 function wipe(t Table)
 	let r = try t.rows.get(7) otherwise return
-	let w = try r.get(0) otherwise return
+	var w = try r.get(0) otherwise return
 	w.n = 0
 end 'wipe'
 
 function main() returns ExitCode
-	let t = Table.create()
+	var t = Table.create()
 	let a = Box.create(2)
 	fill(t, b: a)
 	wipe(t)

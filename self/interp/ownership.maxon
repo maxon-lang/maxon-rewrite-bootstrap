@@ -137,11 +137,6 @@ function newArray(mutates vm Vm) returns Count
 	return vm.h.newArray(site)
 end 'newArray'
 
-function newMap(mutates vm Vm) returns Count
-	let site = vm.site()
-	return vm.h.newMap(site)
-end 'newMap'
-
 function newTable(mutates vm Vm, kind Count) returns Count
 	let site = vm.site()
 	return vm.h.newTable(kind, site: site)
@@ -426,16 +421,6 @@ function free(mutates vm Vm, o Count) throws Halt
 		end 'each'
 		return
 	end 'array'
-	if kind == kindMap 'map'
-		for i in 0 upto vm.h.maps[data].entries.count() 'each'
-			let e = vm.h.maps[data].entries[i]
-			let key = vm.h.entryKey[e]
-			let value = vm.h.entryVal[e]
-			try freeCell(vm, c: key)
-			try freeCell(vm, c: value)
-		end 'each'
-		return
-	end 'map'
 	if kind == kindList 'list'
 		for i in 0 upto vm.h.tables[data].order.count() 'each'
 			let element = vm.h.tables[data].cells[vm.h.tables[data].order[i]]

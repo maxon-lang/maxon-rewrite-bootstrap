@@ -2612,7 +2612,7 @@ type Bag uses Op implements Appendable with Integer
 		return self.ops.count()
 	end 'opsCount'
 
-	function absorb(other Integer)
+	function absorb(mutates self, other Integer) where Op implements Copyable
 		self.ops.append(self.ops)
 		_ = other
 	end 'absorb'
@@ -4736,13 +4736,13 @@ type Box uses T
 	var v as T
 	typealias Index = Map with String, Self
 
-	static function index(k String, v T) returns Index
-		let m = Index.create()
-		m.upsert(k, value: Self{v: v})
+	static function index(k String, v T) returns Index where T implements Droppable and Copyable
+		var m = Index.create()
+		m.upsert(k, value: Self{v: v.clone()})
 		return m
 	end 'index'
 
-	static function at(m Index, k String) returns T
+	static function at(m Index, k String) returns T where T implements Copyable
 		let b = try m.get(k) otherwise panic("has")
 		return b.v
 	end 'at'

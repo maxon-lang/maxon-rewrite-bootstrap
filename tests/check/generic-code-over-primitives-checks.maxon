@@ -33,7 +33,7 @@ function moveFirst(mutates source Array with T, mutates target Array with T) use
 	end 'some'
 end 'moveFirst'
 
-function store(mutates m Map with (String, V), consumes value V) uses V where V implements Droppable
+function store(mutates m Map with (String, V), consumes value V) uses V where V implements Droppable and Copyable
 	m.upsert("key", value: value)
 end 'store'
 

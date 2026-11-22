@@ -71,25 +71,57 @@ end 'followEdge'
 function checkConformance(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList)
 	let orig = ast.originOf(ms.types, reads: p.types, t: nt)
 	let conforms = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: orig).conforms)
-	var missing = ast.StringList.create(0)
-	var wrong = ast.StringList.create(0)
+	var lacks = Shortfall.new()
 	for i in 0 upto conforms.count() 'interfaces'
 		let mark = errs.count()
-		checkInterface(c, p: p, ms: ms, site: site, nt: nt, iface: conforms[i], missing: missing, wrong: wrong, errs: errs)
+		checkInterface(c, p: p, ms: ms, site: site, nt: nt, iface: conforms[i], lacks: lacks, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return
 		end 'failed'
 	end 'interfaces'
-	failIncomplete(c, p: p, ms: ms, site: site, typeName: ast.typeEntry(ms.types, reads: p.types, t: orig).name.clone(), missing: missing, wrong: wrong, errs: errs)
+	failIncomplete(c, p: p, ms: ms, site: site, typeName: ast.typeEntry(ms.types, reads: p.types, t: orig).name.clone(), lacks: lacks, errs: errs)
 end 'checkConformance'
 
+// Shortfall is what a type lacks of the interfaces it implements: the methods it does not have, those whose signature
+// differs, and the edits that would mend the differences, of which unfixed have none.
+type Shortfall
+	var missing as ast.StringList
+	var wrong as ast.StringList
+	var edits as diag.FixEdits
+	var unfixed as Count
+	var kind as String
+
+	static function new() returns Shortfall
+		return Shortfall{missing: ast.StringList.create(0), wrong: ast.StringList.create(0), edits: diag.FixEdits.create(0), unfixed: 0 as Count, kind: ""}
+	end 'new'
+
+	// addWrong records a method whose signature differs, and the fix that mends it, if one does.
+	function addWrong(mutates self, consumes text String, fix diag.Fix)
+		wrong.push(text)
+		if not fix.isSome() 'none'
+			unfixed = try unfixed + 1 otherwise panic("generics: more methods than memory")
+			return
+		end 'none'
+		if kind == "" 'first'
+			kind = fix.kind.clone()
+		end 'first'
+		for i in 0 upto fix.edits.count() 'edits'
+			edits.push(fix.edits[i].clone())
+		end 'edits'
+	end 'addWrong'
+end 'Shortfall'
+
 // failIncomplete files the one error for a type that implements an interface incompletely: the methods it lacks, or else the
-// methods whose signature differs.
-function failIncomplete(c Checker, p ast.Project, ms ast.ModuleState, site ast.NodeID, typeName String, missing ast.StringList, wrong ast.StringList, mutates errs diag.ErrorList)
-	if missing.count() > 0 'missing'
-		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: "{diag.missingMethods(typeName, count: "{missing.count()}")}\n{bulletLines(missing)}", errs: errs)
-	end 'missing' else if wrong.count() > 0 'wrong'
-		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: "{diag.wrongSignatureMethods(typeName, count: "{wrong.count()}")}\n{bulletLines(wrong)}", errs: errs)
+// methods whose signature differs, with the fix where every difference has one.
+function failIncomplete(c Checker, p ast.Project, ms ast.ModuleState, site ast.NodeID, typeName String, lacks Shortfall, mutates errs diag.ErrorList)
+	if lacks.missing.count() > 0 'missing'
+		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: "{diag.missingMethods(typeName, count: "{lacks.missing.count()}")}\n{bulletLines(lacks.missing)}", errs: errs)
+	end 'missing' else if lacks.wrong.count() > 0 'wrong'
+		var fix = diag.Fix.none()
+		if lacks.unfixed == 0 'mended'
+			fix = diag.Fix.make(lacks.kind.clone(), edits: lacks.edits.clone())
+		end 'mended'
+		checkFailFixed(c.modID, off: offsetOf(c, p: p, ms: ms, node: site), code: diag.errConformance, msg: "{diag.wrongSignatureMethods(typeName, count: "{lacks.wrong.count()}")}\n{bulletLines(lacks.wrong)}", fix: fix, errs: errs)
 	end 'wrong'
 end 'failIncomplete'
 
@@ -104,7 +136,7 @@ end 'bulletLines'
 
 // checkInterface checks a type against one interface it implements, whether its body or an extension says so: each
 // requirement is met, up to the first that is not, and what is lacking is collected into missing and wrong.
-function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, iface ast.TypeID, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
+function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, iface ast.TypeID, mutates lacks Shortfall, mutates errs diag.ErrorList)
 	let own = ast.selfType(ms.types, reads: p.types, declTy: nt)
 	let orig = ast.originOf(ms.types, reads: p.types, t: nt)
 	let ifaceOrig = ast.originOf(ms.types, reads: p.types, t: iface)
@@ -122,7 +154,7 @@ function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: iface)
 	for j in 0 upto reqs.count() 'sigs'
 		let mark = errs.count()
-		requireImplements(c, p: p, ms: ms, site: site, nt: orig, own: own, req: reqs[j], inherited: reqs[j].iface != iface, missing: missing, wrong: wrong, errs: errs)
+		requireImplements(c, p: p, ms: ms, site: site, nt: orig, own: own, req: reqs[j], inherited: reqs[j].iface != iface, lacks: lacks, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return
 		end 'failed'
@@ -149,7 +181,7 @@ end 'requireCapabilities'
 
 // requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing,
 // with the interface it comes from when it is inherited, and the method beside the requirement when its signature differs.
-function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, own ast.TypeID, req ast.Requirement, inherited bool, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
+function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, own ast.TypeID, req ast.Requirement, inherited bool, mutates lacks Shortfall, mutates errs diag.ErrorList)
 	let iface = req.iface
 	let sig = req.sig
 	let selfParams = requirementParams(p, ms: ms, iface: iface)
@@ -177,14 +209,36 @@ function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState,
 	end 'matches'
 	let wanted = signatureText(p, ms: ms, name: sigName, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic, specs: wantSpecs, ret: wantReturn, err: sigError, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).result)
 	if m == ast.noFunc and inherited 'absentInherited'
-		missing.push("{wanted} (from {ifaceName})")
+		lacks.missing.push("{wanted} (from {ifaceName})")
 		return
 	end 'absentInherited'
 	if m == ast.noFunc 'absent'
-		missing.push(wanted)
+		lacks.missing.push(wanted)
 		return
 	end 'absent'
-	wrong.push("{signatureText(p, ms: ms, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).name, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).isStatic, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).params, ret: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).retTy, err: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).errTy, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).result)} (expected {wanted})")
+	// A method that meets the requirement but for a receiver it does not declare mutable is mended by declaring it so, as
+	// a body that changes its receiver is: the requirement says the caller lends the receiver to be changed.
+	let mStatic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).isStatic
+	let mConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).selfConv
+	if not sigStatic and not mStatic and sigConv == ast.Convention.convMutates and mConv == ast.Convention.convLet and witnessMatches(c, p: p, ms: ms, m: m, own: own, wantSpecs: wantSpecs, wantReturn: wantReturn, wantError: sigError, wantResult: sigResult) 'receiver'
+		var fix = diag.Fix.none()
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).module == c.modID 'here'
+			fix = mutatesSelfFix(ms.tree(), method: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).nodeID)
+		end 'here'
+		lacks.addWrong("{sigName}() does not declare 'mutates self' (expected {sigName}(mutates self), as {ifaceName} declares it)", fix: fix)
+		return
+	end 'receiver'
+	// One that gives a value where the requirement lends a place is mended by lending it, which its return checks.
+	let mResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).result
+	if mStatic == sigStatic and (sigStatic or mConv == sigConv) and sigResult == ast.ResultConv.resultBorrowed and mResult == ast.ResultConv.resultOwned and witnessMatches(c, p: p, ms: ms, m: m, own: own, wantSpecs: wantSpecs, wantReturn: wantReturn, wantError: sigError, wantResult: mResult) 'lends'
+		var fix = diag.Fix.none()
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).module == c.modID 'here'
+			fix = borrowedResultFix(ms.tree(), method: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).nodeID)
+		end 'here'
+		lacks.addWrong("{sigName}() gives a value where {ifaceName} lends a place (expected {wanted})", fix: fix)
+		return
+	end 'lends'
+	lacks.addWrong("{signatureText(p, ms: ms, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).name, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).isStatic, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).params, ret: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).retTy, err: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).errTy, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).result)} (expected {wanted})", fix: diag.Fix.none())
 end 'requireImplements'
 
 // witnessMatches is whether the method m, which meets a requirement for the type own, takes and gives what the requirement

@@ -195,10 +195,10 @@ end 'main'
 <!-- test: upsert.update -->
 ```maxon
 function main() returns ExitCode
-	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
+	var m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
 	m.upsert(1, value: 100)
 	let result = try m.get(1) otherwise 0
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -268,11 +268,11 @@ end 'main'
 <!-- test: empty-map.from-syntax -->
 ```maxon
 function main() returns ExitCode
-	let m = [0 as Count: 0 as Count].clone()
+	var m = [0 as Count: 0 as Count].clone()
 	_ = m.remove(0)
 	try m.insert(1, value: 100) otherwise ignore
 	let result = try m.get(1) otherwise 0
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -306,11 +306,11 @@ end 'main'
 <!-- test: remove-reinsert -->
 ```maxon
 function main() returns ExitCode
-	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count, 3 as Count: 30 as Count].clone()
+	var m = [1 as Count: 10 as Count, 2 as Count: 20 as Count, 3 as Count: 30 as Count].clone()
 	_ = m.remove(2)
 	try m.insert(2, value: 99) otherwise ignore
 	let result = try m.get(2) otherwise 0
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -325,12 +325,12 @@ type Container
 	export var data as StrMap
 
 	static function create(data StrMap) returns Self
-		return Self{data: data}
+		return Self{data: data.clone()}
 	end 'create'
 end 'Container'
 
 function main() returns ExitCode
-	let m = StrMap.create()
+	var m = StrMap.create()
 	try m.insert("key", value: "val") otherwise ignore
 	let c = Container.create(m)
 	let result = try c.data.get("key") otherwise ""
@@ -385,10 +385,10 @@ end 'main'
 <!-- test: string-keys-upsert-update -->
 ```maxon
 function main() returns ExitCode
-	let m = ["x": 10 as Count].clone()
+	var m = ["x": 10 as Count].clone()
 	m.upsert("x", value: 99)
 	let result = try m.get("x") otherwise 0
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -487,10 +487,10 @@ end 'main'
 <!-- test: insert.duplicate-does-not-update -->
 ```maxon
 function main() returns ExitCode
-	let m = [1 as Count: 10 as Count].clone()
+	var m = [1 as Count: 10 as Count].clone()
 	try m.insert(1, value: 99) otherwise ignore
 	let result = try m.get(1) otherwise 0
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -512,10 +512,10 @@ end 'main'
 <!-- test: upsert.existing-key -->
 ```maxon
 function main() returns ExitCode
-	let m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
+	var m = [1 as Count: 10 as Count, 2 as Count: 20 as Count].clone()
 	m.upsert(1, value: 100)
 	let result = try m.get(1) otherwise 0
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -560,20 +560,20 @@ typealias UnaryOp = function(Integer) returns Integer
 typealias HandlerMap = Map with String, UnaryOp
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function triple(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 function main() returns ExitCode
-	let m = HandlerMap.create()
+	var m = HandlerMap.create()
 	m.upsert("d", value: double)
 	m.upsert("t", value: triple)
 	let f = try m.get("d") otherwise panic("missing 'd'")
 	let g = try m.get("t") otherwise panic("missing 't'")
-	return f(7) + g(7)
+	return try f(7) + g(7) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -647,7 +647,7 @@ type Point implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return x * 31 + y
+		return try x * 31 + y otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Self) returns bool
@@ -658,11 +658,11 @@ end 'Point'
 typealias PointMap = Map with (Point, Val)
 
 function main() returns ExitCode
-	let m = PointMap.create()
+	var m = PointMap.create()
 	for i in 1 upto 4 'fill'
 		m.upsert(freeze(Point.create(i, y: i * 2)), value: i * 7)
 	end 'fill'
-	return (try m.get(Point.create(1, y: 2)) otherwise 0) + (try m.get(Point.create(2, y: 4)) otherwise 0) + (try m.get(Point.create(3, y: 6)) otherwise 0)
+	return try (try m.get(Point.create(1, y: 2)) otherwise 0) + (try m.get(Point.create(2, y: 4)) otherwise 0) + (try m.get(Point.create(3, y: 6)) otherwise 0) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -699,7 +699,7 @@ type Point implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return x * 31 + y
+		return try x * 31 + y otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Self) returns bool
@@ -710,18 +710,18 @@ end 'Point'
 typealias PointMap = Map with (Point, Val)
 
 function build(n Val) returns Val
-	let m = PointMap.create()
+	var m = PointMap.create()
 	for i in 0 upto n 'fill'
-		m.upsert(freeze(Point.create(i, y: i * 3)), value: i)
+		m.upsert(freeze(Point.create(i, y: try i * 3 otherwise panic("out of range"))), value: i)
 	end 'fill'
 	var seen = 0 as Val
 	for i in 0 upto n 'read'
-		seen = seen + (try m.get(Point.create(i, y: i * 3)) otherwise -1)
+		seen = try seen + (try m.get(Point.create(i, y: i * 3)) otherwise -1) otherwise panic("out of range")
 	end 'read'
-	if seen != (n * (n - 1)) / 2 'sum'
+	if seen != (try (n * (n - 1)) / 2 otherwise panic("out of range")) 'sum'
 		return -1
 	end 'sum'
-	return m.count()
+	return try m.count() as Val otherwise panic("out of range")
 end 'build'
 
 function main() returns ExitCode
@@ -758,7 +758,7 @@ type Point implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return x * 31 + y
+		return try x * 31 + y otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Self) returns bool
@@ -769,7 +769,7 @@ end 'Point'
 typealias PointStrMap = Map with (Point, String)
 
 function main() returns ExitCode
-	let m = PointStrMap.create()
+	var m = PointStrMap.create()
 	for i in 0 upto 40 'fill'
 		m.upsert(freeze(Point.create(i, y: i * 3)), value: "value number {i}, long enough to escape any small-string envelope")
 	end 'fill'
@@ -809,18 +809,18 @@ typealias Count = int(i64.min to i64.max)
 typealias StrMap = Map with (String, Count)
 
 function build(n Count) returns Count
-	let m = StrMap.create()
+	var m = StrMap.create()
 	for i in 0 upto n 'fill'
 		m.upsert("key number {i}, long enough to escape any small-string envelope", value: i)
 	end 'fill'
 	var seen = 0 as Count
 	for i in 0 upto n 'read'
-		seen = seen + (try m.get("key number {i}, long enough to escape any small-string envelope") otherwise 0)
+		seen = try seen + (try m.get("key number {i}, long enough to escape any small-string envelope") otherwise 0) otherwise panic("out of range")
 	end 'read'
-	if seen != (n * (n - 1)) / 2 'sum'
+	if seen != (try (n * (n - 1)) / 2 otherwise panic("out of range")) 'sum'
 		return -1
 	end 'sum'
-	return m.count()
+	return try m.count() as Count otherwise panic("out of range")
 end 'build'
 
 function main() returns ExitCode
@@ -853,25 +853,25 @@ type Tagged
 	var n as Count
 
 	static function create(label String, n Count) returns Self
-		return Self{label: label, n: n}
+		return Self{label: label.clone(), n: n}
 	end 'create'
 
 	function score() returns Count
-		return n + (label.byteLength() as Count)
+		return try n + (label.byteLength() as Count) otherwise panic("out of range")
 	end 'score'
 end 'Tagged'
 
 typealias TaggedMap = Map with (Count, Tagged)
 
 function build(n Count) returns Count
-	let m = TaggedMap.create()
+	var m = TaggedMap.create()
 	for i in 0 upto n 'fill'
 		m.upsert(i, value: Tagged.create("tag {i}", n: i))
 	end 'fill'
 	var total = 0 as Count
 	for i in 0 upto n 'read'
 		let t = try m.get(i) otherwise panic("Map lost an entry across its rehash")
-		total = total + t.score()
+		total = try total + t.score() otherwise panic("out of range")
 	end 'read'
 	return total
 end 'build'
@@ -917,7 +917,7 @@ type Point implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return x * 31 + y
+		return try x * 31 + y otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Self) returns bool
@@ -967,7 +967,7 @@ type Point implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return x * 31 + y
+		return try x * 31 + y otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Self) returns bool
@@ -985,10 +985,10 @@ function main() returns ExitCode
 	let m = build()
 	var total = 0 as Val
 	for i in 1 upto 4 'read'
-		total = total + (try m.get(Point.create(i * 2 - 1, y: i * 2)) otherwise panic("map literal lost a user-type key"))
+		total = try total + (try m.get(Point.create(i * 2 - 1, y: i * 2)) otherwise panic("map literal lost a user-type key")) otherwise panic("out of range")
 	end 'read'
 	print("total {total} count {m.count()}")
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -1025,7 +1025,7 @@ type Pair
 	end 'create'
 
 	function sum() returns Val
-		return a + b
+		return try a + b otherwise panic("out of range")
 	end 'sum'
 end 'Pair'
 
@@ -1033,9 +1033,9 @@ function main() returns ExitCode
 	let m = [1: Pair.create(3, b: 4), 2: Pair.create(10, b: 25)]
 	let first = try m.get(1) otherwise panic("map literal lost an aggregate value")
 	let second = try m.get(2) otherwise panic("map literal lost an aggregate value")
-	let total = first.sum() + second.sum()
+	let total = try first.sum() + second.sum() otherwise panic("out of range")
 	print("total {total} count {m.count()}")
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -1066,7 +1066,7 @@ function main() returns ExitCode
 	let a = try m.get("alpha") otherwise panic("map literal lost a String key")
 	let g = try m.get("gamma") otherwise panic("map literal lost a String key")
 	print("{a}/{g} count {m.count()}")
-	return m.count() as ExitCode
+	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -1122,7 +1122,7 @@ typealias Val = int(i64.min to i64.max)
 typealias ValMap = Map with (Val, Val)
 
 function main() returns ExitCode
-	let m = ValMap.create()
+	var m = ValMap.create()
 	let empty = m.getCapacity()
 	m.upsert(1, value: 1)
 	let one = m.getCapacity()
@@ -1130,7 +1130,7 @@ function main() returns ExitCode
 		m.upsert(i, value: i * 10)
 	end 'fill'
 	print("capacity {empty} {one} {m.getCapacity()} count {m.count()}")
-	return m.count() as ExitCode
+	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -1152,22 +1152,22 @@ typealias Val = int(i64.min to i64.max)
 typealias ValMap = Map with (Val, Val)
 
 function main() returns ExitCode
-	let m = ValMap.create()
+	var m = ValMap.create()
 	m.upsert(1, value: 10)
 	m.upsert(2, value: 20)
 	m.upsert(3, value: 30)
-	let it = try m.createIterator() otherwise panic("a three-entry map has an occupied first slot")
+	var it = try m.createIterator() otherwise panic("a three-entry map has an occupied first slot")
 	var total = 0 as Val
 	var more = true
 	while more 'walk'
-		let entry = it.current()
-		total = total + entry.0 * entry.1
+		let entry = it.current().clone()
+		total = try total + entry.0 * entry.1 otherwise panic("out of range")
 		try it.advance() otherwise 'exhausted'
 			more = false
 		end 'exhausted'
 	end 'walk'
 	print("total {total} count {m.count()}")
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -1362,7 +1362,7 @@ let Live = 2000 as Tally
 let Rounds = 2000 as Tally
 
 function main() returns ExitCode
-	let m = TallyMap.create()
+	var m = TallyMap.create()
 	for i in 0 upto Live 'seed'
 		m.upsert(i, value: i)
 	end 'seed'
@@ -1391,10 +1391,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias Stock = Map with (String, Integer)
 
 function main() returns ExitCode
-	let original = Stock.create()
+	var original = Stock.create()
 	original.upsert("apples", value: 3)
 	original.upsert("pears", value: 5)
-	let copy = original.clone()
+	var copy = original.clone()
 	copy.upsert("apples", value: 30)
 	copy.upsert("plums", value: 7)
 	_ = copy.remove("pears")

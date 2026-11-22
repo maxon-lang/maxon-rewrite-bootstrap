@@ -123,7 +123,6 @@ ErrSetArgument	E3904	-	An argument for a 'sets' parameter already has a value.
 ErrInterfaceAsType	E3905	-	An interface that cannot be the type of a value, since a requirement names Self or is static, names one.
 ErrInstantiationTooDeep	E3906	-	A generic function instantiates itself with a type argument that grows without end.
 ErrGenericDeclaration	E3907	-	A type parameter, bound or 'implements' clause is declared where it is not allowed.
-ErrMapKey	E3908	-	A type that cannot be a map key is used as one.
 ErrBehaviourBorrow	E3909	-	A behaviour keeps a borrowed value, which it outlives.
 ErrFreezeScalar	E3910	-	'freeze' is applied to a plain value that is copied freely.
 ErrShareTarget	E3911	-	'share' or 'thaw' is given a value of the wrong kind: not a frozen value, or not a cown reference.

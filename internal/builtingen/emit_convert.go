@@ -55,6 +55,47 @@ func emitConvert(t table) string {
 	for _, name := range builtinNames(t) {
 		fmt.Fprintf(&sb, "\t%q: true,\n", name)
 	}
+	sb.WriteString("}\n\n")
+	sb.WriteString("// builtinMethods are the methods minimaxon declares on each type it builds in, by the type's name, in the table's order.\n")
+	sb.WriteString("var builtinMethods = map[string][]string{\n")
+	owners, methods := builtinMethods(t)
+	for _, owner := range owners {
+		fmt.Fprintf(&sb, "\t%q: {", owner)
+		for i, m := range methods[owner] {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(&sb, "%q", m)
+		}
+		sb.WriteString("},\n")
+	}
 	sb.WriteString("}\n")
 	return sb.String()
+}
+
+// builtinMethods are the names of the methods of each owner of the table, under the owner's type name, the owners in the
+// order the table first names them.
+func builtinMethods(t table) ([]string, map[string][]string) {
+	nameOf := map[string]string{}
+	for _, bt := range builtinTypes {
+		nameOf[bt.Key] = bt.Name
+	}
+	var owners []string
+	methods := map[string][]string{}
+	for _, f := range t.fns {
+		if f.Owner == "" {
+			continue
+		}
+		owner := f.Owner
+		if name, ok := nameOf[owner]; ok {
+			owner = name
+		}
+		if _, ok := methods[owner]; !ok {
+			owners = append(owners, owner)
+		}
+		if !slices.Contains(methods[owner], f.Name) {
+			methods[owner] = append(methods[owner], f.Name)
+		}
+	}
+	return owners, methods
 }

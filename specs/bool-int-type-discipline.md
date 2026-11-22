@@ -493,7 +493,7 @@ bool is the new one and not the old.
 typealias Flags = Map with (String, bool)
 
 function main() returns ExitCode
-	let m = Flags.create()
+	var m = Flags.create()
 	m.upsert("on", value: true)
 	m.upsert("off", value: false)
 	let on = try m.get("on") otherwise false

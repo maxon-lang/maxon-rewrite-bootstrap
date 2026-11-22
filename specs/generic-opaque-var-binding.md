@@ -43,7 +43,7 @@ type Tag implements Hashable, Equatable
 	export let n as Count
 
 	static function create(name String, n Count) returns Tag
-		return Tag{name: name, n: n}
+		return Tag{name: name.clone(), n: n}
 	end 'create'
 
 	function hash() returns HashValue
@@ -62,25 +62,25 @@ typealias TagCountMap = Map with (Tag, Count)
 typealias TallyCountMap = Map with (Count, Count)
 
 extension Map
-	function lastKeyViaVar(fallback Key) returns Key
-		var chosen = fallback
+	function lastKeyViaVar(fallback Key) returns Key where Key implements Copyable
+		var chosen = fallback.clone()
 		for (key, _) in self 'eachKey'
-			chosen = key
+			chosen = key.clone()
 		end 'eachKey'
 		return chosen
 	end 'lastKeyViaVar'
 end 'Map'
 
 function main() returns ExitCode
-	let texts = TextCountMap.create()
+	var texts = TextCountMap.create()
 	texts.upsert("key {40 + 2} long enough for a heap record", value: 1)
 	let s = texts.lastKeyViaVar("fallback {40 + 2} long enough for a heap record")
 	print("{s} {s.byteLength()} {texts.contains(s)}\n")
-	let tags = TagCountMap.create()
+	var tags = TagCountMap.create()
 	tags.upsert(Tag.create("tag {40 + 2} long enough for a heap record", n: 7), value: 1)
 	let t = tags.lastKeyViaVar(Tag.create("fallback {40 + 2} long enough for a heap record", n: 9))
 	print("{t.name} {t.n} {tags.contains(t)}\n")
-	let tallies = TallyCountMap.create()
+	var tallies = TallyCountMap.create()
 	tallies.upsert(5, value: 1)
 	let c = tallies.lastKeyViaVar(3)
 	print("{c} {tallies.contains(c)}\n")
@@ -171,7 +171,7 @@ type Tag implements Hashable, Equatable
 	export let n as Count
 
 	static function create(name String, n Count) returns Tag
-		return Tag{name: name, n: n}
+		return Tag{name: name.clone(), n: n}
 	end 'create'
 
 	function hash() returns HashValue
@@ -190,26 +190,26 @@ typealias TagCountMap = Map with (Tag, Count)
 typealias TallyCountMap = Map with (Count, Count)
 
 extension Map
-	function lastKeyViaEntry(fallback Key) returns Key
-		var chosen = fallback
+	function lastKeyViaEntry(fallback Key) returns Key where Key implements Copyable
+		var chosen = fallback.clone()
 		for entry in self 'eachEntry'
 			let (key, _) = entry
-			chosen = key
+			chosen = key.clone()
 		end 'eachEntry'
 		return chosen
 	end 'lastKeyViaEntry'
 end 'Map'
 
 function main() returns ExitCode
-	let texts = TextCountMap.create()
+	var texts = TextCountMap.create()
 	texts.upsert("key {40 + 2} long enough for a heap record", value: 1)
 	let s = texts.lastKeyViaEntry("fallback {40 + 2} long enough for a heap record")
 	print("{s} {s.byteLength()} {texts.contains(s)}\n")
-	let tags = TagCountMap.create()
+	var tags = TagCountMap.create()
 	tags.upsert(Tag.create("tag {40 + 2} long enough for a heap record", n: 7), value: 1)
 	let t = tags.lastKeyViaEntry(Tag.create("fallback {40 + 2} long enough for a heap record", n: 9))
 	print("{t.name} {t.n} {tags.contains(t)}\n")
-	let tallies = TallyCountMap.create()
+	var tallies = TallyCountMap.create()
 	tallies.upsert(5, value: 1)
 	let c = tallies.lastKeyViaEntry(3)
 	print("{c} {tallies.contains(c)}\n")

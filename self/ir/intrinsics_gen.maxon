@@ -119,33 +119,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
 		return lowerCursorPeek(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCursorPeek'
-	if op == ast.Intrinsic.intrMapCreate 'intrMapCreate'
-		return lowerMapCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapCreate'
-	if op == ast.Intrinsic.intrMapCount 'intrMapCount'
-		return lowerMapCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapCount'
-	if op == ast.Intrinsic.intrMapIsEmpty 'intrMapIsEmpty'
-		return lowerMapIsEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapIsEmpty'
-	if op == ast.Intrinsic.intrMapContains 'intrMapContains'
-		return lowerMapContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapContains'
-	if op == ast.Intrinsic.intrMapInsert 'intrMapInsert'
-		return lowerMapInsert(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapInsert'
-	if op == ast.Intrinsic.intrMapUpsert 'intrMapUpsert'
-		return lowerMapUpsert(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapUpsert'
-	if op == ast.Intrinsic.intrMapReplace 'intrMapReplace'
-		return lowerMapReplace(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapReplace'
-	if op == ast.Intrinsic.intrMapRemove 'intrMapRemove'
-		return lowerMapRemove(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapRemove'
-	if op == ast.Intrinsic.intrMapDropEmpty 'intrMapDropEmpty'
-		return lowerMapDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrMapDropEmpty'
 	if op == ast.Intrinsic.intrListCreate 'intrListCreate'
 		return lowerListCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrListCreate'
@@ -482,6 +455,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrHashBytes 'intrHashBytes'
 		return lowerHashBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHashBytes'
+	if op == ast.Intrinsic.intrHashStringBytes 'intrHashStringBytes'
+		return lowerHashStringBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHashStringBytes'
 	if op == ast.Intrinsic.intrReadBigEndian 'intrReadBigEndian'
 		return lowerReadBigEndian(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrReadBigEndian'
@@ -718,33 +694,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
 		return false
 	end 'intrCursorPeek'
-	if op == ast.Intrinsic.intrMapCreate 'intrMapCreate'
-		return false
-	end 'intrMapCreate'
-	if op == ast.Intrinsic.intrMapCount 'intrMapCount'
-		return false
-	end 'intrMapCount'
-	if op == ast.Intrinsic.intrMapIsEmpty 'intrMapIsEmpty'
-		return false
-	end 'intrMapIsEmpty'
-	if op == ast.Intrinsic.intrMapContains 'intrMapContains'
-		return false
-	end 'intrMapContains'
-	if op == ast.Intrinsic.intrMapInsert 'intrMapInsert'
-		return false
-	end 'intrMapInsert'
-	if op == ast.Intrinsic.intrMapUpsert 'intrMapUpsert'
-		return false
-	end 'intrMapUpsert'
-	if op == ast.Intrinsic.intrMapReplace 'intrMapReplace'
-		return false
-	end 'intrMapReplace'
-	if op == ast.Intrinsic.intrMapRemove 'intrMapRemove'
-		return false
-	end 'intrMapRemove'
-	if op == ast.Intrinsic.intrMapDropEmpty 'intrMapDropEmpty'
-		return false
-	end 'intrMapDropEmpty'
 	if op == ast.Intrinsic.intrListCreate 'intrListCreate'
 		return false
 	end 'intrListCreate'
@@ -1081,6 +1030,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrHashBytes 'intrHashBytes'
 		return false
 	end 'intrHashBytes'
+	if op == ast.Intrinsic.intrHashStringBytes 'intrHashStringBytes'
+		return false
+	end 'intrHashStringBytes'
 	if op == ast.Intrinsic.intrReadBigEndian 'intrReadBigEndian'
 		return false
 	end 'intrReadBigEndian'

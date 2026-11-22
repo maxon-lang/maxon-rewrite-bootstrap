@@ -351,9 +351,6 @@ export let errInstantiationTooDeep = "E3906"
 // A type parameter, bound or 'implements' clause is declared where it is not allowed.
 export let errGenericDeclaration = "E3907"
 
-// A type that cannot be a map key is used as one.
-export let errMapKey = "E3908"
-
 // A behaviour keeps a borrowed value, which it outlives.
 export let errBehaviourBorrow = "E3909"
 

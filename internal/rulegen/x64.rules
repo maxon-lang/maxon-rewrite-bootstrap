@@ -199,6 +199,7 @@
 (funcValue) => (emitFuncValue)
 (box) => (emitBox)
 (frameBox) => (emitFrameBox)
+(frameArea) => (emitFrameArea)
 (drop) => (emitDropValue)
 (dropSlot) => (emitDropSlot)
 (dropAt) => (emitDropAt)

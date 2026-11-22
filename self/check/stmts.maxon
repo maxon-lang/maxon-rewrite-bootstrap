@@ -366,7 +366,7 @@ function checkForBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	var local = ast.noLocal
 	var bound = ast.NodeIDList.create(0)
 	if destructures 'tuples'
-		local = declareTupleVariable(c, p: p, ms: ms, s: s, varType: varType, bound: bound, errs: errs)
+		local = declareTupleVariable(c, p: p, ms: ms, s: s, varType: varType, lends: borrows, bound: bound, errs: errs)
 	end 'tuples' else 'single'
 		let name = ast.forStmtVar(ms.tree(), id: s)
 		local = declareLocal(c, p: p, ms: ms, name: name, t: varType, isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: s), errs: errs)
@@ -392,35 +392,6 @@ function leaveForBody(mutates c Checker)
 	popBlock(c)
 end 'leaveForBody'
 
-// checkMapEntries types a for over the entries of a Map, in the order their keys were inserted. Each pass lends the key
-// and the value of one entry to the two names of the loop, as an array lends an element, so no pair is made for the
-// entry: the loop names both, `for (key, value) in m`, and `_` stands for one it does not need.
-function checkMapEntries(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
-	let namesRef = ast.forStmtVarsRef(ms.tree(), id: s)
-	if ms.tree().listLen(namesRef) != 2 'notPair'
-		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` needs a name for the key and one for the value, `for (key, value) in map`, with `_` for the one the body does not use: the map holds no pair of the two to bind to a single variable", errs: errs)
-		return
-	end 'notPair'
-	let args = ast.typeArgsOf(ms.types, reads: p.types, t: t)
-	enterForBody(c, p: p, ms: ms, s: s)
-	for i in 0 upto 2 'names'
-		let at = ms.tree().listAt(namesRef, index: i) as ast.NodeID
-		let name = ast.bindNameName(ms.tree(), id: at)
-		if name == "_" 'discard'
-			continue 'names'
-		end 'discard'
-		let local = declareLocal(c, p: p, ms: ms, name: name, t: args[i], isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: at), errs: errs)
-		if local == ast.noLocal 'failed'
-			leaveForBody(c)
-			return
-		end 'failed'
-		c.typing.locals[local as Count].projected = ast.isManagedType(ms.types, reads: p.types, t: args[i])
-		c.typing.nodeLocals.insert(at as Count, value: local)
-	end 'names'
-	checkStmts(c, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree(), id: s), errs: errs)
-	leaveForBody(c)
-end 'checkMapEntries'
-
 // The methods of maxon's iteration protocol: a cursor's current() is its element and advance() moves it on, throwing
 // IterationError past the last one, and a collection's createIterator() makes a cursor, throwing where it is empty.
 let currentMethod = "current"
@@ -430,8 +401,8 @@ let advanceMethod = "advance"
 let createIteratorMethod = "createIterator"
 
 // checkForEach types a for over the elements of a collection. An array lends each element to the variable, as a
-// subscript lends it, and a map its keys and values; a type that declares the iteration protocol gives each one as the
-// value its current() returns.
+// subscript lends it; a type that declares the iteration protocol gives each one as the value its current() returns, or
+// lends it where current() returns borrowed.
 function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
 	let source = ast.forStmtFrom(ms.tree(), id: s)
 	let receiver = enumeratedReceiver(ms.tree(), source: source)
@@ -452,10 +423,6 @@ function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: ast.isManagedType(ms.types, reads: p.types, t: elem), errs: errs)
 		return
 	end 'array'
-	if kindOfType(p, ms: ms, t: t) == ast.TypeKind.builtinMap 'map'
-		checkMapEntries(c, p: p, ms: ms, s: s, t: t, errs: errs)
-		return
-	end 'map'
 	let elem = checkIteration(c, p: p, ms: ms, s: s, t: t, typed: typed, errs: errs)
 	if elem == ast.noType 'notIterable'
 		return
@@ -760,7 +727,6 @@ function scalarTag(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Stri
 		record gives ""
 		unionTy gives ""
 		builtinArray gives ""
-		builtinMap gives ""
 		builtinList gives ""
 		builtinPool gives ""
 		builtinHandle gives ""

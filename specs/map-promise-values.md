@@ -156,7 +156,7 @@ typealias IntPromise = Promise with Integer
 type Job
 	var running as IntPromise
 
-	static function start(consumes running IntPromise) returns Self
+	static function start(running IntPromise) returns Self
 		return Self{running: running}
 	end 'start'
 end 'Job'

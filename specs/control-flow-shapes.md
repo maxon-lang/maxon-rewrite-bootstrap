@@ -335,13 +335,13 @@ function sumHandled(count Integer) returns Integer
 	var i = 0 as Integer
 	while i < count 'loop'
 		i = i + 1
-		let v = try check(i * 9 - 20) otherwise (e) 'err'
+		let v = try check(try i * 9 - 20 otherwise panic("out of range")) otherwise (e) 'err'
 			if e == CheckError.tooBig 'tooBig'
 				break
 			end 'tooBig'
 			continue
 		end 'err'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'loop'
 	return total
 end 'sumHandled'

@@ -1100,6 +1100,13 @@ function emitFrameBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.fillBox(box, table: ir.frameBoxTable(fn, x: ins), value: vregOf(ir.frameBoxValue(ins)))
 end 'emitFrameBox'
 
+// emitFrameArea gives the address of a frame area, which starts at the word of its last frame box that is lowest, and lies
+// upward from there through the boxes before it, as a box's words do.
+function emitFrameArea(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let last = try ir.frameAreaBox(ins) + ir.frameAreaBoxes(ir.frameAreaWords(ins)) - 1 otherwise panic("backend: a frame area past memory")
+	sel.target(X64Form.leaRegBaseDisp, a: vregOf(ins.dst), b: physReg(rbp), c: noMReg, aux: frameBoxDisp(fn, box: last), imm: 0)
+end 'emitFrameArea'
+
 // emitWhen makes a behaviour's record and hands it to the runtime's acquire: the thunk of its body, how many cowns it
 // names, and then, after the request slots that the acquire fills in, the cowns in source order and the captures, a
 // word each. The record holds the behaviour's captures from here on, and the runtime adds the behaviour's own hold on

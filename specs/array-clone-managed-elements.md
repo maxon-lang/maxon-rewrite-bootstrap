@@ -759,10 +759,10 @@ end 'Box'
 typealias BoxMap = Map with (Count, Box)
 
 function main() returns ExitCode
-	let src = BoxMap.create()
+	var src = BoxMap.create()
 	src.upsert(1, value: Box.create(1))
 	let c = src.clone()
-	let e = try c.get(1) otherwise return 91
+	var e = try c.get(1) otherwise return 91
 	e.n = 9
 	let s = try src.get(1) otherwise return 92
 	print("{s.n}\n")

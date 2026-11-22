@@ -727,7 +727,7 @@ function fetch(i Index, stop Index) returns String throws Refusal
 	return "fetched {i} padded out long enough to heap allocate"
 end 'fetch'
 
-function run(stop Index, first Voice, second Voice) returns String
+function run(stop Index, consumes first Voice, consumes second Voice) returns String
 	var current = first
 	var seen = 0 as Index
 	try 'work'
@@ -737,7 +737,7 @@ function run(stop Index, first Voice, second Voice) returns String
 		let c = fetch(2, stop: stop)
 		let d = fetch(3, stop: stop)
 		let e = fetch(4, stop: stop)
-		seen = (a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() + e.byteLength()) as Index
+		seen = try (a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() + e.byteLength()) as Index otherwise panic("out of range")
 	end 'work' otherwise (caught) 'bad'
 		match caught 'kind'
 			refused then seen = seen + 1

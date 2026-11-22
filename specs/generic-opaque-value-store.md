@@ -101,8 +101,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -115,11 +115,11 @@ type Held uses Value
 		return Self{values: ValueMap.create()}
 	end 'create'
 
-	function hold(key String, value Value)
+	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
 		self.values.upsert(key, value: value)
 	end 'hold'
 
-	function get(key String) returns Value throws MapError
+	function get(key String) returns Value throws MapError where Value implements Copyable
 		return try self.values.get(key)
 	end 'get'
 end 'Held'
@@ -127,10 +127,10 @@ end 'Held'
 typealias HeldBoxes = Held with Box
 
 function main() returns ExitCode
-	let held = HeldBoxes.create()
+	var held = HeldBoxes.create()
 	held.hold("a", value: Box.create(1))
 	for _ in 0 upto 3 'eachRound'
-		let b = try held.get("a") otherwise panic("absent")
+		var b = try held.get("a") otherwise panic("absent")
 		b.bump()
 	end 'eachRound'
 	let c = try held.get("a") otherwise panic("absent")
@@ -160,8 +160,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -174,7 +174,7 @@ type Held uses Value
 		return Self{values: ValueMap.create()}
 	end 'create'
 
-	function hold(key String, value Value)
+	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
 		self.values.upsert(key, value: value)
 		self.touch(key)
 	end 'hold'
@@ -185,7 +185,7 @@ type Held uses Value
 		end 'absent'
 	end 'touch'
 
-	function get(key String) returns Value throws MapError
+	function get(key String) returns Value throws MapError where Value implements Copyable
 		return try self.values.get(key)
 	end 'get'
 end 'Held'
@@ -193,10 +193,10 @@ end 'Held'
 typealias HeldBoxes = Held with Box
 
 function main() returns ExitCode
-	let held = HeldBoxes.create()
+	var held = HeldBoxes.create()
 	held.hold("a", value: Box.create(1))
 	for _ in 0 upto 3 'eachRound'
-		let b = try held.get("a") otherwise panic("absent")
+		var b = try held.get("a") otherwise panic("absent")
 		b.bump()
 	end 'eachRound'
 	let c = try held.get("a") otherwise panic("absent")
@@ -226,8 +226,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -240,11 +240,11 @@ type Held uses Value
 		return Self{values: ValueMap.create()}
 	end 'create'
 
-	function hold(key String, value Value)
+	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
 		self.values.upsert(key, value: value)
 	end 'hold'
 
-	function get(key String) returns Value throws MapError
+	function get(key String) returns Value throws MapError where Value implements Copyable
 		return try self.values.get(key)
 	end 'get'
 end 'Held'
@@ -252,11 +252,11 @@ end 'Held'
 typealias HeldBoxes = Held with Box
 
 function main() returns ExitCode
-	let held = HeldBoxes.create()
+	var held = HeldBoxes.create()
 	let first = Box.create(1)
 	held.hold("a", value: first)
 	held.hold("a", value: Box.create(7))
-	let b = try held.get("a") otherwise panic("absent")
+	var b = try held.get("a") otherwise panic("absent")
 	b.bump()
 	let c = try held.get("a") otherwise panic("absent")
 	print("{c.n} {c.names.count()}\n")
@@ -285,8 +285,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -299,11 +299,11 @@ type Held uses Value
 		return Self{values: ValueMap.create()}
 	end 'create'
 
-	function hold(key String, value Value)
+	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
 		self.values.upsert(key, value: value)
 	end 'hold'
 
-	function get(key String) returns Value throws MapError
+	function get(key String) returns Value throws MapError where Value implements Copyable
 		return try self.values.get(key)
 	end 'get'
 end 'Held'
@@ -316,11 +316,11 @@ type Registry uses Item
 		return Self{held: ItemHeld.create()}
 	end 'create'
 
-	function put(key String, item Item)
+	function put(mutates self, key String, item Item) where Item implements Droppable and Copyable
 		self.held.hold(key, value: item)
 	end 'put'
 
-	function get(key String) returns Item throws MapError
+	function get(key String) returns Item throws MapError where Item implements Copyable
 		return try self.held.get(key)
 	end 'get'
 end 'Registry'
@@ -328,10 +328,10 @@ end 'Registry'
 typealias BoxRegistry = Registry with Box
 
 function main() returns ExitCode
-	let registry = BoxRegistry.create()
+	var registry = BoxRegistry.create()
 	registry.put("a", item: Box.create(1))
 	for _ in 0 upto 3 'eachRound'
-		let b = try registry.get("a") otherwise panic("absent")
+		var b = try registry.get("a") otherwise panic("absent")
 		b.bump()
 	end 'eachRound'
 	let c = try registry.get("a") otherwise panic("absent")
@@ -741,16 +741,16 @@ end 'Box'
 typealias BoxMap = Map with (String, Box)
 
 function main() returns ExitCode
-	let m = BoxMap.create()
+	var m = BoxMap.create()
 	m.upsert("a", value: Box.create(1))
 	m.upsert("bb", value: Box.create(2))
 	var total = 0 as Count
 	for _ in 0 upto 3 'eachRound'
-		let mapped = m.map(function(p) gives p)
+		let mapped = m.map(function(p) gives p.clone())
 		m.upsert("a", value: Box.create(50))
 		m.upsert("bb", value: Box.create(60))
 		for pair in mapped 'sum'
-			total = total + pair.1.n + (pair.1.names.count() as Count)
+			total = try total + pair.1.n + (pair.1.names.count() as Count) otherwise panic("out of range")
 		end 'sum'
 	end 'eachRound'
 	let a = try m.get("a") otherwise panic("absent")
@@ -5843,16 +5843,16 @@ typealias EnvMap = Map with String, String
 typealias Cnt = int(0 to 1000)
 
 function envSize(e EnvMap) returns Cnt
-	return e.count()
+	return try e.count() as Cnt otherwise panic("out of range")
 end 'envSize'
 
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2, "c": 3]
-	let mapped = m.map(function(p) gives p)
-	let e = EnvMap.create()
+	let mapped = m.map(function(p) gives p.clone())
+	var e = EnvMap.create()
 	try e.insert("k", value: "v") otherwise return 9
 	print("mapped {mapped.count()}\n")
-	return ((mapped.count() as Cnt) + envSize(e)) as ExitCode
+	return try ((mapped.count() as Cnt) + envSize(e)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -6012,7 +6012,7 @@ type Registry uses Value
 	end 'create'
 
 	function put(mutates self, key String, item Value) where Value implements Droppable and Copyable
-		self.entries.upsert(key.clone(), value: item.clone())
+		self.entries.upsert(key, value: item)
 	end 'put'
 
 	function count() returns Count
@@ -6772,15 +6772,15 @@ The result of such a call outside any closure is a `String` where the alias fixe
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function pick(a T, b T) returns T
+	static function pick(a T, b T) returns T where T implements Copyable
 		if a == b 'same'
-			return b
+			return b.clone()
 		end 'same'
-		return a
+		return a.clone()
 	end 'pick'
 end 'Holder'
 
@@ -6842,15 +6842,15 @@ A heap result of the same static is released once however it is used.
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function pick(a T, b T) returns T
+	static function pick(a T, b T) returns T where T implements Copyable
 		if a == b 'same'
-			return b
+			return b.clone()
 		end 'same'
-		return a
+		return a.clone()
 	end 'pick'
 end 'Holder'
 

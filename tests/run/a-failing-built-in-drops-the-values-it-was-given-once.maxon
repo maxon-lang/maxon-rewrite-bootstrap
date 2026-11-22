@@ -1,5 +1,5 @@
-// A built-in that fails drops the values it was given itself, so the try around it must not drop them again: Map.insert
-// of a key the map has, Map.replace of one it lacks and Array.set past the end, each given a fresh record.
+// A call that fails drops the values it was given itself, so the try around it must not drop them again: Map.insert of
+// a key the map has and Array.set past the end, each given a fresh record, and Map.get of a key it lacks.
 union Shape
 	dot
 	square(side Count)
@@ -19,7 +19,7 @@ function main() returns ExitCode
 		print("a is there\n")
 	end 'inserted'
 	try 'replace'
-		_ = m.replace("{2}b", value: Shape.square(3))
+		_ = m.get("{2}b")
 	end 'replace' otherwise 'replaced'
 		print("no b\n")
 	end 'replaced'

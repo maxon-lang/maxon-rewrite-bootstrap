@@ -1,4 +1,4 @@
-// expect-error: E3908 at 2:26
+// expect-error: E3017 at 2:26
 typealias CellCountMap = Map with Cell, Count
 
 type Cell
@@ -10,6 +10,6 @@ type Cell
 end 'Cell'
 
 function main() returns ExitCode
-	var m = CellCountMap.new()
+	var m = CellCountMap.create()
 	return 0
 end 'main'

@@ -1513,7 +1513,7 @@ typealias Items = Array with Key
 typealias ItemIndex = Map with (Key, Items)
 
 function main() returns ExitCode
-	let index = ItemIndex.create()
+	var index = ItemIndex.create()
 	index.upsert(500, value: [1, 2])
 	let found = try index.get(500) otherwise [0]
 	print("{index.count()} {found.count()}\n")
@@ -1799,7 +1799,7 @@ type Upto implements Seq with Integer
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'

@@ -118,6 +118,20 @@ function entryHashBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveNum(vm, x: x, n: ir.wordOfBits(hashSpan(input, count: count, seed: seed) as Count))
 end 'entryHashBytes'
 
+function entryHashStringBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let s = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindString, what: "a hash of a string's bytes")
+	let at = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let count = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
+	let seed = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 3)) as HashWord
+	let bytes = vm.h.texts[vm.h.oData[s]].toByteArray()
+	let length = bytes.count()
+	if at > length or count > length - at 'outside'
+		throw trap(vm, message: "a hashed span reaches past the end of its string")
+	end 'outside'
+	let input = HashInput.make(try bytes.slice(at, endIndex: at + count) otherwise panic("interp: a hashed span checked inside its string is not"))
+	giveNum(vm, x: x, n: ir.wordOfBits(hashSpan(input, count: count, seed: seed) as Count))
+end 'entryHashStringBytes'
+
 // entryBytesReadWord is the width bytes from an index as a word, the first the most significant where bigEndian, or
 // indexOutOfBounds when they are not all inside the array.
 function entryBytesReadWord(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

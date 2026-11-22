@@ -520,11 +520,11 @@ type Pair uses Item implements Mirrored where Item implements Equatable
 	let first as Item
 	var second as Item
 
-	static function create(one Item, two Item) returns Self
+	static function create(one Item, two Item) returns Self where Item implements Copyable
 		return Self{first: one, second: two}
 	end 'create'
 
-	function mirror()
+	function mirror(mutates self) where Item implements Droppable
 		self.second = self.first
 	end 'mirror'
 
@@ -536,11 +536,11 @@ end 'Pair'
 type Holder
 	var held as Mirrored
 
-	static function create(held Mirrored) returns Holder
+	static function create(consumes held Mirrored) returns Holder
 		return Holder{held: held}
 	end 'create'
 
-	function run()
+	function run(mutates self)
 		self.held.mirror()
 	end 'run'
 
@@ -590,11 +590,11 @@ type Pair uses Item implements Mirrored
 	let first as Item
 	var second as Item
 
-	static function create(one Item, two Item) returns Self
+	static function create(one Item, two Item) returns Self where Item implements Copyable
 		return Self{first: one, second: two}
 	end 'create'
 
-	function mirror()
+	function mirror(mutates self) where Item implements Droppable
 		self.second = self.first
 	end 'mirror'
 end 'Pair'
@@ -602,11 +602,11 @@ end 'Pair'
 type Holder
 	var held as Mirrored
 
-	static function create(held Mirrored) returns Holder
+	static function create(consumes held Mirrored) returns Holder
 		return Holder{held: held}
 	end 'create'
 
-	function run()
+	function run(mutates self)
 		self.held.mirror()
 	end 'run'
 end 'Holder'
@@ -646,11 +646,11 @@ type Pair uses Item implements Mirrored
 	let first as Item
 	var second as Item
 
-	static function create(one Item, two Item) returns Self
+	static function create(one Item, two Item) returns Self where Item implements Copyable
 		return Self{first: one, second: two}
 	end 'create'
 
-	function mirror()
+	function mirror(mutates self) where Item implements Droppable
 		self.second = self.first
 	end 'mirror'
 end 'Pair'
@@ -660,7 +660,7 @@ function make() returns Mirrored
 end 'make'
 
 function main() returns ExitCode
-	let made = make()
+	var made = make()
 	made.mirror()
 	return 0
 end 'main'
@@ -694,11 +694,11 @@ type Pair uses Item implements Mirrored
 	let first as Item
 	var second as Item
 
-	static function create(one Item, two Item) returns Self
+	static function create(one Item, two Item) returns Self where Item implements Copyable
 		return Self{first: one, second: two}
 	end 'create'
 
-	function mirror()
+	function mirror(mutates self) where Item implements Droppable
 		self.second = self.first
 	end 'mirror'
 end 'Pair'
@@ -712,7 +712,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	holder.held.mirror()
 	return 0
 end 'main'

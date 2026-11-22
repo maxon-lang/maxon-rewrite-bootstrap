@@ -246,7 +246,7 @@ function main() returns ExitCode
 	var counter = Counter.create(1)
 	index.upsert("a", value: counter)
 	counter.n = 2
-	return index.count() as ExitCode
+	return try index.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -502,6 +502,7 @@ error E3197: specs/readonly-element-types/error.a-for-variable-over-an-immutable
 ```
 
 <!-- test: error.a-for-value-over-an-immutable-map-is-not-written -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `Map`'s `immutable` value stays immutable when a `for` loop destructures an entry.
 

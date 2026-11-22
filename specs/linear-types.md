@@ -3251,7 +3251,6 @@ error E3224: <fragment>:22:12: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-linear-value-is-refused-in-a-map-literal -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon

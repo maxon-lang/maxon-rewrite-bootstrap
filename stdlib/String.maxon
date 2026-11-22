@@ -1,0 +1,5 @@
+extension String implements Hashable, Equatable
+	public function hash() returns HashValue
+		return hashString(self)
+	end 'hash'
+end 'String'

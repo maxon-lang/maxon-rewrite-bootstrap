@@ -110,12 +110,28 @@ function letStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 		return withFact(s, fact: OwnFact.make(sym, site: site, kind: OwnFactKind.factUninitialised, dest: OwnDest.of(OwnDestKind.destVariable)))
 	end 'uninitialised'
 	let name = ast.letStmtName(ms.tree(), id: st)
+	if o.c.typing.locals[sym as Count].projected 'lent'
+		return lentLetOwn(o, p: p, ms: ms, sym: sym, init: init, s: s)
+	end 'lent'
 	let out = consume(o, p: p, ms: ms, e: init, dest: OwnDest.make(OwnDestKind.destBinding, name: name), s: s)
 	bindHolder(o, p: p, ms: ms, local: sym, e: init)
 	bindBorrowHolder(o, p: p, ms: ms, local: sym, e: init)
 	oblige(o, p: p, ms: ms, l: sym, site: site)
 	return bindLends(without(out, l: sym), holder: sym)
 end 'letStmtOwn'
+
+// lentLetOwn checks a let that a destructuring of a lent tuple makes (check/destructure.maxon): it borrows the place init
+// is, an element of the tuple or the tuple a call lends, instead of moving it, and holds what that place borrows from for
+// as long as its scope lasts, as a value that holds a borrow holds what it borrows. It owns nothing, so nothing drops.
+function lentLetOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, sym ast.LocalID, init ast.NodeID, consumes s OwnState) returns OwnState
+	let out = expr(o, p: p, ms: ms, e: init, s: s)
+	let name = o.c.typing.locals[sym as Count].name.clone()
+	let lent = lentPaths(o, p: p, ms: ms, e: init)
+	for i in 0 upto lent.count() 'each'
+		o.projections.push(OwnProjection.capture(lent[i].clone(), kind: OwnProjectionKind.projectBorrow, ty: ownType(o, node: init), holder: "'{name}'"))
+	end 'each'
+	return without(out, l: sym)
+end 'lentLetOwn'
 
 function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
 	let target = ast.assignStmtTarget(ms.tree(), id: st)
@@ -419,7 +435,9 @@ end 'tryExprOwn'
 function returnStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
 	var out = s
 	let value = ast.returnStmtValue(ms.tree(), id: st)
-	if value != 0 and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).result == ast.ResultConv.resultBorrowed 'lent'
+	if value != 0 and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).result == ast.ResultConv.resultBorrowed and ms.tree().kindOf(value) == ast.NodeKind.tupleExpr 'lentTuple'
+		out = lentTupleOwn(o, p: p, ms: ms, e: value, s: out)
+	end 'lentTuple' else if value != 0 and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).result == ast.ResultConv.resultBorrowed 'lent'
 		out = expr(o, p: p, ms: ms, e: value, s: out)
 		requireLentByParameters(o, p: p, ms: ms, e: value)
 	end 'lent' else if value != 0 'value'
@@ -430,6 +448,24 @@ function returnStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	requireEnded(o, p: p, ms: ms, from: 0 as Count, s: out, site: site, kind: OwnDropKind.dropReturn)
 	return OwnState.unreachable()
 end 'returnStmtOwn'
+
+// lentTupleOwn checks the tuple that a function returning a borrowed place returns, which is lent element by element: each
+// element that is managed is a place under the law of requireLentByParameters, which it lends, and a scalar is its value,
+// as a borrow of one is. The tuple holds those borrows and no value of its own (README, "Tuples").
+function lentTupleOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
+	let elements = match consumes o.c.typing.structLits.get(e as Count) 'lit'
+		some(lit) gives lit.ordered
+		none panic("ownership: the tuple at node {e} was not typed")
+	end 'lit'
+	var out = s
+	for i in 0 upto elements.count() 'each'
+		out = expr(o, p: p, ms: ms, e: elements[i], s: out)
+		if isManagedOwn(p, ms: ms, t: ownType(o, node: elements[i])) or ast.boxedTo(o.c.typing, node: elements[i]) != ast.noType 'place'
+			requireLentByParameters(o, p: p, ms: ms, e: elements[i])
+		end 'place'
+	end 'each'
+	return out
+end 'lentTupleOwn'
 
 // requireLentByParameters is the law of a function that returns a borrowed place: the place lies in what the caller lent
 // it, a let or a mutates parameter or a self that is not consumed, so it outlives the call. Through a call of another
@@ -580,9 +616,7 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 		end 'advances'
 	end 'protocol'
 	var lent = ast.LocalIDList.create(0)
-	if lends and ast.typeKind(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: ownType(o, node: source))) == ast.TypeKind.builtinMap 'entries'
-		lent = lentValue(o, p: p, ms: ms, st: st)
-	end 'entries' else if lends 'element'
+	if lends 'element'
 		lent.push(ownLocalOf(o, node: st))
 	end 'element'
 	for i in 0 upto lent.count() 'lend'
@@ -602,19 +636,6 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	end 'unlend'
 	return out
 end 'forEachOwn'
-
-// lentValue is the variable that a for over a map names its values by, the only one whose parts are as writable
-// as the map's: a key is read-only, and `_` is no variable.
-function lentValue(o Ownership, p ast.Project, ms ast.ModuleState, st ast.NodeID) returns ast.LocalIDList
-	var lent = ast.LocalIDList.create(0)
-	let namesRef = ast.forStmtVarsRef(ms.tree(), id: st)
-	let at = ms.tree().listAt(namesRef, index: 1 as Count) as ast.NodeID
-	match consumes o.c.typing.nodeLocals.get(at as Count) 'value'
-		some(local) then lent.push(local)
-		none then _ = 0
-	end 'value'
-	return lent
-end 'lentValue'
 
 function iterationOwn(o Ownership, node ast.NodeID) returns ast.IterationInfo
 	return match consumes o.c.typing.iterations.get(node as Count) 'hit'

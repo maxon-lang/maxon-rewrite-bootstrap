@@ -1,0 +1,3 @@
+export function hashString(s String) returns HashValue
+	return hashValueOfDigest(__Builtins.hashBytes(s, 0, s.byteLength(), processFoldStart()))
+end 'hashString'

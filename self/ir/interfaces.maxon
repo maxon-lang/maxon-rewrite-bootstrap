@@ -53,6 +53,10 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 			some(fid) then methods.push(fid)
 			none then return table.Option.none
 		end 'method'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: methods[pred(methods.count())]).intrinsic != ast.Intrinsic.intrNone 'builtin'
+			pushInstanceError(p, module: module, site: site, code: diag.errUnsupported, message: "Unsupported: an interface value of a '{ast.typeName(ms.types, reads: p.types, t: concrete)}', whose '{name}' is built in, has no code to call through its table; call it on the value, or through a bound of a type parameter", errs: errs)
+			return table.Option.none
+		end 'builtin'
 	end 'methods'
 	let symbol = "{tableWord} {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: concrete)} as {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: wanted)} by {ast.moduleLinkPath(p, modID: conformance)}"
 	return table.Option.some(WitnessTable.make(symbol, concrete: concrete, iface: wanted, methods: methods))

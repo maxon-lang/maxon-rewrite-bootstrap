@@ -4003,7 +4003,7 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	try 'work'
 		for i in await p upto 5 'each'
-			total = total + i
+			total = try total + i otherwise panic("out of range")
 		end 'each'
 		total = check(total)
 	end 'work' otherwise (e) 'h'
@@ -4011,7 +4011,7 @@ function main() returns ExitCode
 			tooBig then total = 0
 		end 'k'
 	end 'h'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

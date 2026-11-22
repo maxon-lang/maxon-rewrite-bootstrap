@@ -56,8 +56,8 @@ and each answers what `hash()` answers on the same text called directly.
 type Box uses T where T implements Hashable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemHash() returns HashValue
@@ -95,8 +95,8 @@ stays live and droppable across both comparisons.
 type Box uses T where T implements Equatable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function sameAs(other T) returns bool
@@ -128,8 +128,8 @@ BOTH witnesses on a `String` argument, each to its synthesized impl.
 type Key uses T where T implements Hashable and Equatable
 	export var value as T
 
-	static function create(value T) returns Self
-		return Self{value: value}
+	static function create(value T) returns Self where T implements Copyable
+		return Self{value: value.clone()}
 	end 'create'
 
 	function digest() returns HashValue
@@ -168,8 +168,8 @@ The `==` OPERATOR on an Equatable-constrained type parameter lowers to the Equat
 type Box uses T where T implements Equatable
 	var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function eq(other T) returns bool
@@ -200,8 +200,8 @@ would leak. Neither happens: `acc` reaches 100 and the leak gate stays green.
 type Box uses T where T implements Hashable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemHash() returns HashValue
@@ -220,7 +220,7 @@ function main() returns ExitCode
 	while i < 100 'loop'
 		let b = StringBox.create("abc")
 		if b.itemHash() == expected 'ok'
-			acc = acc + 1
+			acc = try acc + 1 otherwise panic("out of range")
 		end 'ok'
 		i = i + 1
 	end 'loop'
@@ -271,8 +271,8 @@ holds a relocation to `String.hash`.
 type Box uses T where T implements Hashable
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemHash() returns HashValue
@@ -360,16 +360,16 @@ boundaries, the empty string included, and a String of multi-byte characters.
 typealias LengthList = Array with Count
 
 function textOf(length Count) returns String
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto length 'eachByte'
-		let mixed = ((index + length * 977 + 1) * 2654435761 + 12345) mod 4294967296
+		let mixed = try ((index + length * 977 + 1) * 2654435761 + 12345) mod 4294967296 otherwise panic("out of range")
 		bytes.push((0x40 + ((mixed shr 11) and 0x3F)) as Byte)
 	end 'eachByte'
 	return String.from(bytes)
 end 'textOf'
 
 function folded(bytes ByteArray) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes(bytes)
 	return hasher.finalize()
 end 'folded'
@@ -417,9 +417,9 @@ about once in 10^6 runs, so one unmoved hash is allowed and two are a byte the h
 typealias LengthList = Array with Count
 
 function bytesOf(length Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto length 'eachByte'
-		let mixed = ((index + length * 977 + 1) * 2654435761 + 12345) mod 4294967296
+		let mixed = try ((index + length * 977 + 1) * 2654435761 + 12345) mod 4294967296 otherwise panic("out of range")
 		bytes.push((0x40 + ((mixed shr 11) and 0x3F)) as Byte)
 	end 'eachByte'
 	return bytes
@@ -429,7 +429,7 @@ function bitsSet(pattern HashValue) returns Count
 	var rest = pattern
 	var count = 0 as Count
 	while rest != 0 'eachBit'
-		count = count + ((rest and 1) as Count)
+		count = try count + ((rest and 1) as Count) otherwise panic("out of range")
 		rest = rest shr 1
 	end 'eachBit'
 	return count
@@ -447,17 +447,17 @@ function main() returns ExitCode
 		for index in 0 upto length 'eachByte'
 			let original = try bytes.get(index) otherwise panic("the index is inside the text")
 			for mask in masks 'eachMask'
-				let flipped = bytes.clone()
+				var flipped = bytes.clone()
 				try flipped.set(index, value: original xor mask) otherwise panic("the index is inside the text")
 				let distance = bitsSet(hash xor String.from(flipped).hash())
-				moved = moved + distance
-				flips = flips + 1
+				moved = try moved + distance otherwise panic("out of range")
+				flips = try flips + 1 otherwise panic("out of range")
 				if distance == 0 'unchanged'
-					unmoved = unmoved + 1
+					unmoved = try unmoved + 1 otherwise panic("out of range")
 				end 'unchanged'
 			end 'eachMask'
 		end 'eachByte'
-		print("{length} mean>=8: {moved >= flips * 8} at most one 0: {unmoved <= 1}\n")
+		print("{length} mean>=8: {moved >= (try flips * 8 otherwise panic("out of range"))} at most one 0: {unmoved <= 1}\n")
 	end 'eachLength'
 	return 0
 end 'main'

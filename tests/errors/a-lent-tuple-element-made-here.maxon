@@ -1,0 +1,19 @@
+// expect-error: E3926 at 10:14
+type Pair
+	var a as String
+
+	static function make() returns Pair
+		return Pair{a: "x"}
+	end 'make'
+
+	function both() returns borrowed (String, String)
+		return (a, "{a}!")
+	end 'both'
+end 'Pair'
+
+function main() returns ExitCode
+	let p = Pair.make()
+	let (x, y) = p.both()
+	print("{x} {y}")
+	return 0
+end 'main'

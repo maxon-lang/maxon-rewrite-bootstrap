@@ -502,7 +502,7 @@ type Square implements Shape
 		return self.side * self.side
 	end 'area'
 
-	function grow()
+	function grow(mutates self)
 		self.side = self.side + 1
 	end 'grow'
 end 'Square'
@@ -554,7 +554,7 @@ type Square implements Shape
 		return self.side * self.side
 	end 'area'
 
-	function grow()
+	function grow(mutates self)
 		self.side = self.side + 1
 	end 'grow'
 end 'Square'
@@ -728,7 +728,7 @@ type Square implements Shape
 		return self.side * self.side
 	end 'area'
 
-	function grow()
+	function grow(mutates self)
 		self.side = self.side + 1
 	end 'grow'
 end 'Square'

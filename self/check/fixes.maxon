@@ -14,6 +14,8 @@ export let fixKindMutates = "mutates"
 
 export let fixKindMutatesSelf = "mutates self"
 
+export let fixKindBorrowed = "borrowed"
+
 export let fixKindVar = "var"
 
 export let fixKindBound = "bound"
@@ -27,6 +29,12 @@ let letKeyword = "let"
 let varKeyword = "var"
 
 let closeParenByte = 41 as Byte
+
+let newlineByte = 10 as Byte
+
+let returnsKeyword = "returns"
+
+let borrowedKeyword = "borrowed"
 
 function fixOf(consumes kind String, consumes edits diag.FixEdits) returns diag.Fix
 	return diag.Fix.make(kind, edits: edits)
@@ -149,6 +157,26 @@ export function mutatesSelfFix(t ast.Tree, method ast.NodeID) returns diag.Fix
 	edits.push(diag.FixEdit.insert(t.module, at: at32(inside), text: text))
 	return fixOf(fixKindMutatesSelf, edits: edits)
 end 'mutatesSelfFix'
+
+// borrowedResultFix declares that the method lends its result, which a requirement it meets lends: orrowed after the
+// eturns of its header, the first on the line it starts.
+export function borrowedResultFix(t ast.Tree, method ast.NodeID) returns diag.Fix
+	if method == 0 or t.kindOf(method) != ast.NodeKind.funcDecl 'notMethod'
+		return diag.Fix.none()
+	end 'notMethod'
+	let written = "{returnsKeyword} "
+	var at = t.startOf(method) as Count
+	while at < t.text.byteLength() and t.text.byteAt(at) != newlineByte 'scan'
+		let past = try at + written.byteLength() otherwise panic("fixes: an offset past a module")
+		if past <= t.text.byteLength() and t.text.sliceBytes(at, endPos: past) == written 'returns'
+			var edits = diag.FixEdits.create(0)
+			edits.push(diag.FixEdit.insert(t.module, at: at32(past), text: "{borrowedKeyword} "))
+			return fixOf(fixKindBorrowed, edits: edits)
+		end 'returns'
+		at = try at + 1 otherwise panic("fixes: an offset past a module")
+	end 'scan'
+	return diag.Fix.none()
+end 'borrowedResultFix'
 
 // boundFix gives the type parameter named param the bound in the where clause of the function declared at decl, a type
 // parameter of its own or of the type it is a method of: what "add the bound 'where T implements Copyable'" asks for.

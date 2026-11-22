@@ -345,7 +345,7 @@ type Polite implements Greeter
 		return Self{n: 0}
 	end 'create'
 
-	function greet() returns String
+	function greet(mutates self) returns String
 		return "hello"
 	end 'greet'
 end 'Polite'

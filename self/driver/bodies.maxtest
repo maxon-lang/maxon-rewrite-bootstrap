@@ -30,7 +30,7 @@ end 'expectCheckError'
 
 test 'bodies'
 	expectChecked("tests/run/generics.maxon")
-	expectChecked("tests/run/lru-cache.maxon")
+	expectChecked("tests/run/list-handles.maxon")
 	expectChecked("tests/run/handle-stack.maxon")
 	expectChecked("tests/modules/generics")
 	expectChecked("tests/modules/throws")

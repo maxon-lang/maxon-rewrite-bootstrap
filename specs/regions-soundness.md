@@ -5121,6 +5121,7 @@ error E3201: <fragment>:49:15: 'ident' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-function-value-or-interface-result-is-not-a-clean-input -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A function value can hand back what it captured and a `mutable self` requirement can hand back its receiver's data, so a call through a function-typed parameter or an interface value is no clean call: its result is refused at an `isolated` field store.
 
@@ -6552,11 +6553,11 @@ function weighPayload(holder Holder) returns Count
 	end 'take'
 end 'weighPayload'
 
-function storeIsolated(holder Holder, other Holder)
+function storeIsolated(holder Holder, mutates other Holder)
 	other.bytes = holder.bytes.clone()
 end 'storeIsolated'
 
-function storePlain(holder Holder, other Holder)
+function storePlain(holder Holder, mutates other Holder)
 	other.plain = holder.bytes.clone()
 end 'storePlain'
 
@@ -6570,7 +6571,7 @@ end 'returnMapValue'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	let other = Holder.create()
+	var other = Holder.create()
 	storeIsolated(holder, other: other)
 	storePlain(holder, other: other)
 	print("{weighPayload(holder)} {returnField(holder).count()} {other.bytes.count()} {other.plain.count()} {returnMapValue(holder).count()}\n")

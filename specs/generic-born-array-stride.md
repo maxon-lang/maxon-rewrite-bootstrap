@@ -535,7 +535,7 @@ typealias Crumb = int(0 to 3)
 typealias CrumbMap = Map with (Crumb, Integer)
 
 function main() returns ExitCode
-	let bytes = ByteMap.create()
+	var bytes = ByteMap.create()
 	for i in 0 upto 200 'fillBytes'
 		bytes.upsert(((i * 7) mod 256) as Byte, value: i)
 	end 'fillBytes'
@@ -552,11 +552,11 @@ function main() returns ExitCode
 	var byteKeys = 0 as Total
 	var byteValues = 0 as Integer
 	for (key, value) in bytes 'walkBytes'
-		byteKeys = byteKeys + (key as Total)
-		byteValues = byteValues + value
+		byteKeys = try byteKeys + (key as Total) otherwise panic("out of range")
+		byteValues = try byteValues + value otherwise panic("out of range")
 	end 'walkBytes'
 	print("byte count {bytes.count()} keys {byteKeys} values {byteValues}\n")
-	let halves = HalfMap.create()
+	var halves = HalfMap.create()
 	for i in 0 upto 300 'fillHalves'
 		halves.upsert(((i * 1237 + 5) mod 65521) as Half, value: i)
 	end 'fillHalves'
@@ -573,11 +573,11 @@ function main() returns ExitCode
 	var halfKeys = 0 as Total
 	var halfValues = 0 as Integer
 	for (key, value) in halves 'walkHalves'
-		halfKeys = halfKeys + (key as Total)
-		halfValues = halfValues + value
+		halfKeys = try halfKeys + (key as Total) otherwise panic("out of range")
+		halfValues = try halfValues + value otherwise panic("out of range")
 	end 'walkHalves'
 	print("half count {halves.count()} keys {halfKeys} values {halfValues}\n")
-	let crumbs = CrumbMap.create()
+	var crumbs = CrumbMap.create()
 	crumbs.upsert(0, value: 10)
 	crumbs.upsert(3, value: 11)
 	crumbs.upsert(1, value: 12)

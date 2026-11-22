@@ -2536,7 +2536,7 @@ typealias Level = int(0 to 255)
 typealias ALevels = Map with (String, Level)
 
 export function firstOfA() returns String
-	let xs = ALevels.create()
+	var xs = ALevels.create()
 	xs.upsert("k", value: 200)
 	let first = try xs.get("k") otherwise 0
 	return "{first} {xs.count()}"
@@ -2549,7 +2549,7 @@ typealias Level = int(0 to 100000)
 typealias BLevels = Map with (String, Level)
 
 export function firstOfB() returns String
-	let xs = BLevels.create()
+	var xs = BLevels.create()
 	xs.upsert("k", value: 90000)
 	let first = try xs.get("k") otherwise 0
 	return "{first} {xs.count()}"

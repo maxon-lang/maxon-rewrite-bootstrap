@@ -147,7 +147,7 @@ function dispatch(m TypeMap, key String) returns MaxonType
 	if let rt = try m.get(key) 'haveRT'
 		resultType = match rt 'unwrap'
 			void gives MaxonType.integer
-			value(inner) gives inner
+			value(inner) gives inner.clone()
 		end 'unwrap'
 	end 'haveRT'
 	return resultType
@@ -155,14 +155,14 @@ end 'dispatch'
 
 function decode(t MaxonType) returns Integer
 	return match t 'unwrap'
-		named(id) gives id as Integer
+		named(id) gives try id as Integer otherwise panic("out of range")
 		boolean gives 1
 		integer gives 2
 	end 'unwrap'
 end 'decode'
 
 function main() returns ExitCode
-	let m = TypeMap.create()
+	var m = TypeMap.create()
 	m.upsert("a", value: ReturnType.value(MaxonType.named(42)))
 	let t = dispatch(m, key: "a")
 	return decode(t)

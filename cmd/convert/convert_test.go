@@ -486,7 +486,12 @@ end 'f'
 		{
 			name: "a capability word before a type is left out",
 			in:   "typealias Keys = Array with immutable Key\n\ntype Table uses Key, Value\n\ttypealias Entry = (immutable Key, Value)\n\tvar slots as Map with (immutable Key, Array with isolated Value)\n\n\tfunction put(key immutable Key, _ isolated Key) returns immutable Key\n\t\treturn key as isolated Key\n\tend 'put'\nend 'Table'\n",
-			want: "typealias Keys = Array with Key\n\ntype Table uses Key, Value\n\ttypealias Entry = (Key, Value)\n\tvar slots as Map with (Key, Array with Value)\n\n\tfunction put(key frozen with Key, consumes _ Key) returns frozen with Key\n\t\treturn key as Key\n\tend 'put'\nend 'Table'\n",
+			want: "typealias Keys = Array with Key\n\ntype Table uses Key, Value\n\ttypealias Entry = (Key, Value)\n\tvar slots as Map with (Key, Array with Value)\n\n\tfunction put(key Key, consumes _ Key) returns Key\n\t\treturn key as Key\n\tend 'put'\nend 'Table'\n",
+		},
+		{
+			name: "immutable before a concrete type or a type parameter's instance is a frozen value",
+			in:   "type Table uses Key\n\tfunction put(key immutable Box, keys immutable Array with Key) returns immutable Box\n\t\treturn key\n\tend 'put'\nend 'Table'\n\nfunction pick(a immutable T, b immutable Box) uses T returns immutable T\n\treturn a\nend 'pick'\n",
+			want: "type Table uses Key\n\tfunction put(key frozen with Box, keys frozen with Array with Key) returns frozen with Box\n\t\treturn key\n\tend 'put'\nend 'Table'\n\nfunction pick(a T, b frozen with Box) uses T returns T\n\treturn a\nend 'pick'\n",
 		},
 		{
 			name: "a capability word on a parameter's or a result's own type maps, a nested one is left out",
@@ -524,6 +529,49 @@ func TestConvertHelperPublicIsExport(t *testing.T) {
 	}
 	if got := Convert("maxon/stdlib/Cursor.maxon", in, sourceFile).Text; got != in {
 		t.Fatalf("a root file:\ngot:\n%q\nwant:\n%q", got, in)
+	}
+}
+
+// TestConvertLibraryRules covers what a file of the library becomes by what the rest of the library declares: a member
+// whose parameters or typealias target name a helper's type is export, a type minimaxon builds in keeps its conformances
+// alone, and a literal marker leaves the implements clause.
+func TestConvertLibraryRules(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "stdlib")
+	write := func(rel, text string) {
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("helpers/table/slots.maxon", "public enum Slot\n\tempty\nend 'Slot'\n")
+	write("Interfaces.maxon", "public interface Hashable\n\tfunction hash() returns HashValue\nend 'Hashable'\n\npublic interface Cloneable\n\tfunction clone() returns Self\nend 'Cloneable'\n\npublic interface BuiltinStringLiteral\n\tstatic function init(value Count) returns Self\nend 'BuiltinStringLiteral'\n")
+	cases := []struct{ name, file, in, want string }{
+		{
+			name: "a member naming a helper's type is export, and so is one naming that member",
+			file: "Table.maxon",
+			in:   "public type Table implements BuiltinDictionaryLiteral, Hashable\n\tpublic typealias Slots = Array with Slot\n\n\tpublic static function make(slots Slots) returns Count\n\t\treturn 0\n\tend 'make'\n\n\tpublic function slot() returns Slot\n\t\treturn Slot.empty\n\tend 'slot'\nend 'Table'\n",
+			want: "public type Table implements Hashable\n\texport typealias Slots = Array with Slot\n\n\texport static function make(slots Slots) returns Count\n\t\treturn 0\n\tend 'make'\n\n\tpublic function slot() returns Slot\n\t\treturn Slot.empty\n\tend 'slot'\nend 'Table'\n",
+		},
+		{
+			name: "a built-in type keeps the conformances it can declare, with the methods it lacks",
+			file: "String.maxon",
+			in:   "let Unused = 1\n\npublic type String implements BuiltinStringLiteral, Hashable, Cloneable, Iterable with (Count, Count)\n\tpublic function hash() returns HashValue\n\t\treturn hashText(self)\n\tend 'hash'\n\n\tpublic function clone() returns String\n\t\treturn self\n\tend 'clone'\nend 'String'\n\nfunction hashText(s String) returns HashValue\n\treturn 0\nend 'hashText'\n",
+			want: "extension String implements Hashable\n\tpublic function hash() returns HashValue\n\t\treturn hashText(self)\n\tend 'hash'\nend 'String'\n\nfunction hashText(s String) returns HashValue\n\treturn 0\nend 'hashText'\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := Convert(filepath.Join(root, tc.file), tc.in, sourceFile)
+			if len(res.Warnings) > 0 || !res.Formatted {
+				t.Fatalf("warnings %v, formatted %v:\n%s", res.Warnings, res.Formatted, res.Text)
+			}
+			if res.Text != tc.want {
+				t.Fatalf("mismatch:\ngot:\n%q\nwant:\n%q", res.Text, tc.want)
+			}
+		})
 	}
 }
 

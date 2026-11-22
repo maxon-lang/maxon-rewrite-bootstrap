@@ -13,7 +13,6 @@ export function extensionKey(p Project, ms ModuleState, t TypeID) returns table.
 		enumTy gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		unionTy gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinArray gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
-		builtinMap gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinList gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinPool gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinHandle gives table.Option.some(originOf(ms.types, reads: p.types, t: t))

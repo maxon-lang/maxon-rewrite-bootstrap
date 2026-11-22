@@ -59,7 +59,7 @@ function main() returns ExitCode
 	try 'work'
 		let a = maybeFail(false)
 		let b = maybeFail(false)
-		sum = a + b
+		sum = try a + b otherwise panic("out of range")
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			failed then sum = 99
@@ -93,7 +93,7 @@ function main() returns ExitCode
 	try 'work'
 		let a = maybeFail(false)
 		let b = maybeFail(true)
-		sum = a + b
+		sum = try a + b otherwise panic("out of range")
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			failed then sum = 42
@@ -496,14 +496,14 @@ typealias Score = int(0 to 100)
 typealias ScoreArray = Array with Score
 
 function main() returns ExitCode
-	let arr = ScoreArray.create(0)
+	var arr = ScoreArray.create(0)
 	arr.push(7)
 	arr.push(11)
 	var sum = 0 as Score
 	try 'work'
 		let a = arr.get(0)
 		let b = arr.get(1)
-		sum = a + b
+		sum = try a + b otherwise panic("out of range")
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			indexOutOfBounds then sum = 99
@@ -984,7 +984,7 @@ typealias Score = int(0 to 100)
 typealias ScoreArray = Array with Score
 
 function main() returns ExitCode
-	let arr = ScoreArray.create(0)
+	var arr = ScoreArray.create(0)
 	arr.push(0)
 	arr.push(0)
 	arr.push(0)
@@ -996,7 +996,7 @@ function main() returns ExitCode
 		let a = arr.get(0)
 		let b = arr.get(1)
 		let c = arr.get(2)
-		sum = a + b + c
+		sum = try a + b + c otherwise panic("out of range")
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			indexOutOfBounds then sum = 99
@@ -1050,21 +1050,21 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(7)
 	arr.push(11)
 	var sum = 0 as Integer
 	try 'work'
 		let a = arr.get(0)
 		let b = arr.get(99)
-		sum = a + b
+		sum = try a + b otherwise panic("out of range")
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			indexOutOfBounds then sum = 42
 			emptySlot then sum = 99
 		end 'k'
 	end 'h'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1111,10 +1111,10 @@ function main() returns ExitCode
 			end 'ik'
 		end 'ih'
 		let b = callB(true)
-		sum = sum + b
+		sum = try sum + b otherwise panic("out of range")
 	end 'outer' otherwise (e) 'h'
 		match e 'k'
-			splat then sum = sum + 40
+			splat then sum = try sum + 40 otherwise panic("out of range")
 		end 'k'
 	end 'h'
 	return sum
@@ -1156,7 +1156,7 @@ function main() returns ExitCode
 	try 'work'
 		let a = try callA(true) otherwise 0
 		let b = callB(false)
-		sum = a + b
+		sum = try a + b otherwise panic("out of range")
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			splat then sum = 99
@@ -2902,7 +2902,7 @@ function main() returns ExitCode
 	var result = 0 as Tally
 	try 'work'
 		let s = try (items(false) as Scores) otherwise Scores.create(0)
-		result = (s.count() as Tally) + other(false)
+		result = try (s.count() as Tally) + other(false) otherwise panic("out of range")
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			failed then result = 55

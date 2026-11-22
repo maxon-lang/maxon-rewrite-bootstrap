@@ -95,8 +95,8 @@ type SimpleCounter implements Counter
 		return value
 	end 'get'
 
-	function increment()
-		value = value + 1
+	function increment(mutates self)
+		value = try value + 1 otherwise panic("out of range")
 	end 'increment'
 
 	static function create(value Integer) returns Self
@@ -105,10 +105,10 @@ type SimpleCounter implements Counter
 end 'SimpleCounter'
 
 function main() returns ExitCode
-	let c = SimpleCounter.create(40)
+	var c = SimpleCounter.create(40)
 	c.increment()
 	c.increment()
-	return c.get()
+	return try c.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -135,7 +135,7 @@ type Buffer implements Readable, Writable
 		return data
 	end 'read'
 
-	function write(value Integer)
+	function write(mutates self, value Integer)
 		data = value
 	end 'write'
 
@@ -145,9 +145,9 @@ type Buffer implements Readable, Writable
 end 'Buffer'
 
 function main() returns ExitCode
-	let buf = Buffer.create(0)
+	var buf = Buffer.create(0)
 	buf.write(42)
-	return buf.read()
+	return try buf.read() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

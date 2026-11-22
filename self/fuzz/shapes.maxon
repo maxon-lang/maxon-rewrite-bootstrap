@@ -5,7 +5,7 @@ typealias CountLists = Array with CountList
 // carelessPrograms is the share of programs that break the rules of ownership on purpose.
 let carelessPrograms = 40 as Count
 
-// arraysOnlyPrograms is the share of programs with no map, list or pool, which can also run as executables.
+// arraysOnlyPrograms is the share of programs with no list or pool, which can also run as executables.
 let arraysOnlyPrograms = 30 as Count
 
 // nativeSharingPrograms is the share of those that freeze values, make cowns and schedule behaviours, quietly.
@@ -34,9 +34,6 @@ let useMatch = 3 as Count
 
 let subscriptUses = 4 as Count
 
-// firstElementKey is the key the generator keeps in a map it needs an element of.
-let firstElementKey = 0 as Count
-
 // lower is the depth of what is inside an expression of the depth.
 function lower(depth Depth) returns Depth
 	return try depth - 1 otherwise panic("fuzz: a depth below the smallest")
@@ -54,14 +51,6 @@ function typed(kind Kind, value String) returns String
 	end 'count'
 	return value.clone()
 end 'typed'
-
-// keyOf is the key of a map with keys of the kind that the number names.
-function keyOf(kind Kind, n Count) returns String
-	if kind == Kind.kCount 'count'
-		return "{n}"
-	end 'count'
-	return quoted("k{n}")
-end 'keyOf'
 
 // convention is the convention that the number picks for a parameter: weighted towards none.
 function convention(n Count) returns String
@@ -128,7 +117,10 @@ function trimTrailingNewlines(text String) returns String
 	return text.sliceBytes(0, endPos: finish)
 end 'trimTrailingNewlines'
 
-// collectionSlot is the position of a collection's kind among the four that a program has: arrays, pools, lists and maps.
+// collectionSlot is the position of a collection's kind among the three that a program has: arrays, pools and lists.
+// collectionKinds is how many kinds of collection a program has.
+let collectionKinds = 3 as Count
+
 function collectionSlot(kind Kind) returns Count
 	if kind == Kind.kArray 'array'
 		return 0
@@ -139,9 +131,6 @@ function collectionSlot(kind Kind) returns Count
 	if kind == Kind.kList 'list'
 		return 2
 	end 'list'
-	if kind == Kind.kMap 'map'
-		return 3
-	end 'map'
 	panic("fuzz: not a collection")
 end 'collectionSlot'
 
@@ -158,7 +147,6 @@ function allCollections() returns KindList
 	kinds.push(Kind.kArray)
 	kinds.push(Kind.kPool)
 	kinds.push(Kind.kList)
-	kinds.push(Kind.kMap)
 	return kinds
 end 'allCollections'
 
@@ -282,7 +270,6 @@ enum Action
 	actArray
 	actPool
 	actList
-	actMap
 	actReturn
 	actLoopJump
 	actElement
@@ -341,7 +328,6 @@ function actionTable() returns WeightedList
 	t.push(Weighted.make(9, action: Action.actArray))
 	t.push(Weighted.make(5, action: Action.actPool))
 	t.push(Weighted.make(4, action: Action.actList))
-	t.push(Weighted.make(4, action: Action.actMap))
 	t.push(Weighted.make(3, action: Action.actReturn))
 	t.push(Weighted.make(3, action: Action.actLoopJump))
 	t.push(Weighted.make(3, action: Action.actElement))

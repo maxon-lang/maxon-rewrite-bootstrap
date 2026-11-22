@@ -232,6 +232,10 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		try execFrameBox(vm, f: f, x: x) otherwise ignore
 	end 'visitFrameBox'
 
+	function visitFrameArea(mutates self, f ir.IrFunction, x ir.Instr)
+		execFrameArea(vm, x: x)
+	end 'visitFrameArea'
+
 	function visitCallWitness(mutates self, f ir.IrFunction, x ir.Instr)
 		try execCallWitness(vm, f: f, x: x) otherwise ignore
 	end 'visitCallWitness'
@@ -380,7 +384,7 @@ function requireLent(mutates vm Vm, src ir.Reg) throws Halt
 		throw violation(vm, kind: movedUse, message: "the function lends a value that was moved out or never assigned")
 	end 'moved'
 	try requireLive(vm, o: o, what: "lent")
-	if not vm.h.oImmortal[o] and vm.h.oOwner[o] == 0 'unowned'
+	if not vm.h.oImmortal[o] and not vm.h.oFrameArea[o] and vm.h.oOwner[o] == 0 'unowned'
 		throw violation(vm, kind: ownership, message: "the function lends {objectText(vm, o: o)}, which nothing owns, so nothing would drop it: a lent result is a place of the caller's")
 	end 'unowned'
 end 'requireLent'

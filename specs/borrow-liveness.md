@@ -3835,17 +3835,17 @@ type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	function reset() returns String
+	function reset(mutates self) returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
 end 'Holder'
 
 function main() returns ExitCode
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let m = [x.label: x.reset()]
 	let filler = "filler {1} padded out long enough for the heap"
 	let found = try m.get("original {40 + 2} padded out long enough for the heap") otherwise "missing"

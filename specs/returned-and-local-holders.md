@@ -198,18 +198,18 @@ type ItemCursor implements Iterator with Item
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items, pos: 0}
+		return Self{items: items.clone(), pos: 0}
 	end 'create'
 
-	function current() returns Item
+	function current() returns borrowed Item
 		return try self.items.get(self.pos) otherwise panic("oob")
 	end 'current'
 
-	function advance() throws IterationError
-		if self.pos + 1 >= self.items.count() 'atEnd'
+	function advance(mutates self) throws IterationError
+		if (try self.pos + 1 otherwise panic("out of range")) >= self.items.count() 'atEnd'
 			throw IterationError.exhausted
 		end 'atEnd'
-		self.pos = self.pos + 1
+		self.pos = try self.pos + 1 otherwise panic("out of range")
 	end 'advance'
 end 'ItemCursor'
 
@@ -217,7 +217,7 @@ type ItemSeq implements Iterable with (Item, ItemCursor)
 	var items as ItemArray
 
 	static function create(items ItemArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function createIterator() returns ItemCursor throws IterationError
@@ -226,13 +226,13 @@ type ItemSeq implements Iterable with (Item, ItemCursor)
 end 'ItemSeq'
 
 function main() returns ExitCode
-	let a = ItemArray.create(0)
+	var a = ItemArray.create(0)
 	a.push(Item.create(10))
 	a.push(Item.create(20))
 	let s = ItemSeq.create(a)
 	var sum = 0 as Count
 	for v in s 'each'
-		sum = sum + v.n
+		sum = try sum + v.n otherwise panic("out of range")
 	end 'each'
 	print("{sum}\n")
 	return 0
@@ -255,8 +255,8 @@ type Box
 		return Self{data: StrArray.create(0)}
 	end 'create'
 
-	function add(text String)
-		self.data.push(text)
+	function add(mutates self, text String)
+		self.data.push(text.clone())
 	end 'add'
 
 	function size() returns Count
@@ -275,7 +275,7 @@ type Lst implements Iterable with (String, LstIter)
 		return Self{box: Box.create()}
 	end 'create'
 
-	function add(text String)
+	function add(mutates self, text String)
 		self.box.add(text)
 	end 'add'
 
@@ -292,31 +292,31 @@ type LstIter implements Iterator with String
 		if box.size() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{owner: box, pos: 0}
+		return Self{owner: box.clone(), pos: 0}
 	end 'create'
 
-	function current() returns String
+	function current() returns borrowed String
 		return owner.at(pos)
 	end 'current'
 
-	function advance() throws IterationError
-		if pos + 1 >= owner.size() 'last'
+	function advance(mutates self) throws IterationError
+		if (try pos + 1 otherwise panic("out of range")) >= owner.size() 'last'
 			throw IterationError.exhausted
 		end 'last'
-		pos = pos + 1
+		pos = try pos + 1 otherwise panic("out of range")
 	end 'advance'
 end 'LstIter'
 
 function total(l Lst) returns Count
 	var n = 0 as Count
 	for s in l 'each'
-		n = n + s.byteLength()
+		n = try n + s.byteLength() otherwise panic("out of range")
 	end 'each'
 	return n
 end 'total'
 
 function main() returns ExitCode
-	let l = Lst.create()
+	var l = Lst.create()
 	l.add("ab")
 	l.add("cde")
 	print("{total(l)}\n")

@@ -182,10 +182,9 @@ export function checkExtensionConformances(mutates c Checker, p ast.Project, mut
 		if not requireOnceInModule(c, p: p, ms: ms, index: i, errs: errs) 'twice'
 			continue 'each'
 		end 'twice'
-		var missing = ast.StringList.create(0)
-		var wrong = ast.StringList.create(0)
-		checkInterface(c, p: p, ms: ms, site: entry.site, nt: entry.owner, iface: entry.iface, missing: missing, wrong: wrong, errs: errs)
-		failIncomplete(c, p: p, ms: ms, site: entry.site, typeName: ast.typeName(ms.types, reads: p.types, t: entry.owner), missing: missing, wrong: wrong, errs: errs)
+		var lacks = Shortfall.new()
+		checkInterface(c, p: p, ms: ms, site: entry.site, nt: entry.owner, iface: entry.iface, lacks: lacks, errs: errs)
+		failIncomplete(c, p: p, ms: ms, site: entry.site, typeName: ast.typeName(ms.types, reads: p.types, t: entry.owner), lacks: lacks, errs: errs)
 	end 'each'
 end 'checkExtensionConformances'
 

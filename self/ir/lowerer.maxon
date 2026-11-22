@@ -187,6 +187,9 @@ export type Lowerer
 	export var ownerSlots as OwnerSlotList
 	// selfOwner is the slot that owns a consumes self, or noSlot.
 	export var selfOwner as Index
+	// lentElements is how many elements the tuple has that the function lends, whose frame area is its last parameter, or
+	// 0 (ast.lentTupleElements).
+	export var lentElements as Count
 	// args holds the values of the arguments of the calls being lowered, the innermost call's last, so a call needs no
 	// list of its own.
 	export var args as RegList
@@ -204,7 +207,7 @@ export type Lowerer
 	export var writeBacks as WriteBackList
 
 	export static function new(consumes instances InstanceSet) returns Lowerer
-		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0)}
+		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, lentElements: 0, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0)}
 	end 'new'
 end 'Lowerer'
 
@@ -371,14 +374,31 @@ end 'emitStr'
 
 // emitCall calls the function target, by the float signature of its declaration, which the function's own is.
 export function emitCall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, dst Reg, target ast.FuncID, args RegList)
-	let instr = l.b.call(dst, target: target, args: args, sig: funcSignature(p, ms: ms, fid: target))
-	emit(l, i: instr)
+	emitThrowingCall(l, p: p, ms: ms, dst: dst, target: target, args: args, err: noReg)
 end 'emitCall'
 
+// emitThrowingCall calls the function target, which throws into err unless that is noReg. A function that lends a tuple is
+// given a frame area of the call's own after the arguments, which it fills and returns (ast.lentTupleElements).
 function emitThrowingCall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, dst Reg, target ast.FuncID, args RegList, err Reg)
+	let elements = ast.lentTupleElements(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target))
+	if elements > 0 'lentTuple'
+		var all = args.clone()
+		all.push(frameArea(l, elements: elements))
+		let lending = l.b.throwingCall(dst, target: target, args: all, err: err, sig: funcSignature(p, ms: ms, fid: target))
+		emit(l, i: lending)
+		return
+	end 'lentTuple'
 	let instr = l.b.throwingCall(dst, target: target, args: args, err: err, sig: funcSignature(p, ms: ms, fid: target))
 	emit(l, i: instr)
 end 'emitThrowingCall'
+
+// frameArea is a new frame area of a lent tuple of that many elements, a word each.
+function frameArea(mutates l Lowerer, elements Count) returns Reg
+	let area = newReg(l, kind: IrKind.kindManaged)
+	let instr = l.b.frameArea(area, words: elements)
+	emit(l, i: instr)
+	return area
+end 'frameArea'
 
 export function emitCallRuntime(mutates l Lowerer, dst Reg, symbol Rt, args RegList, routine ast.FuncID)
 	let instr = l.b.callRuntime(dst, symbol: symbol, args: args, routine: routine, proven: false)

@@ -2080,7 +2080,7 @@ type MyKey implements Hashable, Equatable
 	var value as Integer
 
 	function hash() returns HashValue
-		return self.value * 31
+		return try self.value * 31 otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other MyKey) returns bool
@@ -2095,9 +2095,9 @@ end 'MyKey'
 typealias MyKeyMap = Map with (MyKey, Integer)
 
 function main() returns ExitCode
-	let m = MyKeyMap.create()
+	var m = MyKeyMap.create()
 	try m.insert(freeze(MyKey.create(1)), value: 42) otherwise ignore
-	return m.count()
+	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

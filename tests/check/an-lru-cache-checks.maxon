@@ -45,14 +45,14 @@ type Cache
 		if not index.contains(key) 'miss'
 			return StringOption.none
 		end 'miss'
-		let node = index[key]
+		let node = (try index.get(key) otherwise panic("no such key"))
 		order.moveToFront(node)
 		return Option.some(order[node].value.clone())
 	end 'get'
 
 	function put(mutates self, key Count, consumes value String)
 		if index.contains(key) 'hit'
-			let node = index[key]
+			let node = (try index.get(key) otherwise panic("no such key"))
 			order[node].value = value
 			order.moveToFront(node)
 			return

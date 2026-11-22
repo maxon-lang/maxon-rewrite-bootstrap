@@ -2813,7 +2813,7 @@ type Ledger
 		return Self{taken: 0, log: ""}
 	end 'create'
 
-	export function take(n Tally)
+	export function take(mutates self, n Tally)
 		self.taken = try self.taken + 1 otherwise panic("out of range")
 		self.log.append(" {n}")
 	end 'take'
@@ -2826,7 +2826,7 @@ end 'Ledger'
 
 function fill(h Ledger.handle, base Tally) returns Tally
 	for i in 0 upto attempts 'innerFill'
-		try h.take(base + i) otherwise (e) 'refused'
+		try h.take(try base + i otherwise panic("out of range")) otherwise (e) 'refused'
 			match e 'why'
 				mailboxFull then print("refused after {i} sends\n")
 				serviceStopped then panic("the service is running")
@@ -6331,7 +6331,6 @@ got x 2
 ```
 
 <!-- test: deepmove.error.a-map-holding-a-shared-value-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6364,7 +6363,7 @@ function main() returns ExitCode
 	m.upsert("k {1}", value: cell)
 	let h = spawn Svc.create()
 	try h.take(m) otherwise panic("an open mailbox with room takes the send")
-	return cell.n as ExitCode
+	return try cell.n as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -14983,7 +14982,7 @@ type Tick implements Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
+	function bump(mutates self)
 		self.n = self.n + 1
 	end 'bump'
 

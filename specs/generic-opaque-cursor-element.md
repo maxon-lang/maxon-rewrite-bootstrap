@@ -72,15 +72,15 @@ typealias Int = int(i64.min to i64.max)
 export type BagIter uses Element implements Iterator with Element
 	var slot as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{slot: v}
 	end 'create'
 
-	export function current() returns Element
+	export function current() returns borrowed Element
 		return slot
 	end 'current'
 
-	export function advance() throws IterationError
+	export function advance(mutates self) throws IterationError
 		throw IterationError.exhausted
 	end 'advance'
 end 'BagIter'
@@ -88,11 +88,11 @@ end 'BagIter'
 type Bag uses Element implements Iterable with (Element, BagIter)
 	var slot as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{slot: v}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError
+	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
 		return BagIter.create(slot)
 	end 'createIterator'
 end 'Bag'
@@ -130,15 +130,15 @@ typealias Int = int(i64.min to i64.max)
 export type BagIterator uses Element implements Iterator with Element
 	var slot as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{slot: v}
 	end 'create'
 
-	export function current() returns Element
+	export function current() returns borrowed Element
 		return slot
 	end 'current'
 
-	export function advance() throws IterationError
+	export function advance(mutates self) throws IterationError
 		throw IterationError.exhausted
 	end 'advance'
 end 'BagIterator'
@@ -147,11 +147,11 @@ type Bag uses Element implements Iterable with (Element, BagIter)
 	export typealias BagIter = BagIterator with Element
 	var slot as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{slot: v}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError
+	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
 		return BagIter.create(slot)
 	end 'createIterator'
 end 'Bag'
@@ -188,15 +188,15 @@ export type BagIterator uses Element implements Iterator with Element
 	var slot as Element
 	var remaining as Count
 
-	static function create(v Element, remaining Count) returns Self
+	static function create(v Element, remaining Count) returns Self where Element implements Copyable
 		return Self{slot: v, remaining: remaining}
 	end 'create'
 
-	export function current() returns Element
+	export function current() returns borrowed Element
 		return slot
 	end 'current'
 
-	export function advance() throws IterationError
+	export function advance(mutates self) throws IterationError
 		if remaining <= 1 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -209,11 +209,11 @@ type Bag uses Element implements Iterable with (Element, BagIter)
 	var slot as Element
 	let repeats as Count
 
-	static function create(v Element, repeats Count) returns Self
+	static function create(v Element, repeats Count) returns Self where Element implements Copyable
 		return Self{slot: v, repeats: repeats}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError
+	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
 		return BagIter.create(slot, remaining: repeats)
 	end 'createIterator'
 end 'Bag'
@@ -251,15 +251,15 @@ bag still holds.
 export type BagIter uses Element implements Iterator with Element
 	var slot as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{slot: v}
 	end 'create'
 
-	export function current() returns Element
+	export function current() returns borrowed Element
 		return slot
 	end 'current'
 
-	export function advance() throws IterationError
+	export function advance(mutates self) throws IterationError
 		throw IterationError.exhausted
 	end 'advance'
 end 'BagIter'
@@ -267,11 +267,11 @@ end 'BagIter'
 type Bag uses Element implements Iterable with (Element, BagIter)
 	var slot as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{slot: v}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError
+	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
 		return BagIter.create(slot)
 	end 'createIterator'
 end 'Bag'
@@ -313,15 +313,15 @@ export type BagIter uses Element implements Iterator with Element
 	var slot as Element
 	var remaining as Count
 
-	static function create(v Element, remaining Count) returns Self
+	static function create(v Element, remaining Count) returns Self where Element implements Copyable
 		return Self{slot: v, remaining: remaining}
 	end 'create'
 
-	export function current() returns Element
+	export function current() returns borrowed Element
 		return slot
 	end 'current'
 
-	export function advance() throws IterationError
+	export function advance(mutates self) throws IterationError
 		if remaining <= 1 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -333,11 +333,11 @@ type Bag uses Element implements Iterable with (Element, BagIter)
 	var slot as Element
 	let repeats as Count
 
-	static function create(v Element, repeats Count) returns Self
+	static function create(v Element, repeats Count) returns Self where Element implements Copyable
 		return Self{slot: v, repeats: repeats}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError
+	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
 		return BagIter.create(slot, remaining: repeats)
 	end 'createIterator'
 end 'Bag'

@@ -1,5 +1,5 @@
 // The entries are the primitives that the backend has no code for, and the ones it has, which the interpreter gives their meaning:
-// an array, a map, a list and a pool, each with the generational handles that the README's "Primitives" describes, strings, byte
+// an array, a list and a pool, each with the generational handles that the README's "Primitives" describes, strings, byte
 // arrays, a frozen value and a cown, and standard output. builtins_gen.maxon dispatches a call of an entry to the function of
 // its name here.
 
@@ -489,136 +489,6 @@ function entryBytesToString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws H
 	giveRef(vm, x: x, o: made)
 end 'entryBytesToString'
 
-// mapLookup is the entry of a map that a key names: a word, or the text of a string.
-function mapLookup(mutates vm Vm, f ir.IrFunction, data Count, key ir.Reg, what String) returns table.Option with Count throws Halt
-	if isManaged(f, r: key) 'text'
-		let at = try textIndex(vm, o: vm.ref(key), what: what)
-		return vm.h.maps[data].byText.get(vm.h.texts[at])
-	end 'text'
-	return vm.h.maps[data].byNumber.get(ir.bitsOfWord(vm.num(key)))
-end 'mapLookup'
-
-function entryMapNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	let made = newMap(vm)
-	giveRef(vm, x: x, o: made)
-end 'entryMapNew'
-
-function entryMapLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "a length")
-	giveNum(vm, x: x, n: try vm.h.maps[vm.h.oData[m]].entries.count() as ir.Word otherwise panic("interp: a map past a word"))
-end 'entryMapLen'
-
-function entryMapHas(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "a lookup")
-	let data = vm.h.oData[m]
-	let found = try mapLookup(vm, f: f, data: data, key: argAt(f, x: x, i: 1), what: "a lookup")
-	giveFlag(vm, x: x, b: found.isSome())
-end 'entryMapHas'
-
-function entryMapElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "an element address")
-	let data = vm.h.oData[m]
-	let found = try mapLookup(vm, f: f, data: data, key: argAt(f, x: x, i: 1), what: "a lookup")
-	if not found.isSome() 'missing'
-		throw trap(vm, message: missingKeyMessage)
-	end 'missing'
-	let element = vm.h.entryVal[found.unwrap()]
-	giveAddress(vm, x: x, c: element)
-end 'entryMapElem'
-
-// mapEntryAt is the entry of a map at a position of the order the keys were inserted in.
-function mapEntryAt(mutates vm Vm, f ir.IrFunction, x ir.Instr, what String) returns Count throws Halt
-	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: what)
-	let data = vm.h.oData[m]
-	let position = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
-	if position >= vm.h.maps[data].entries.count() 'past'
-		throw trap(vm, message: indexOutOfRangeMessage)
-	end 'past'
-	return vm.h.maps[data].entries[position]
-end 'mapEntryAt'
-
-function entryMapKeyAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let e = try mapEntryAt(vm, f: f, x: x, what: "a key address")
-	let key = vm.h.entryKey[e]
-	giveAddress(vm, x: x, c: key)
-end 'entryMapKeyAt'
-
-function entryMapValueAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let e = try mapEntryAt(vm, f: f, x: x, what: "an element address")
-	let val = vm.h.entryVal[e]
-	giveAddress(vm, x: x, c: val)
-end 'entryMapValueAt'
-
-function entryMapInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "an insert")
-	let data = vm.h.oData[m]
-	let keyReg = argAt(f, x: x, i: 1)
-	let valueReg = argAt(f, x: x, i: 2)
-	let found = try mapLookup(vm, f: f, data: data, key: keyReg, what: "an insert")
-	try restructure(vm, o: m)
-	if found.isSome() 'present'
-		// A key that is there keeps its place: the value that was there is dropped, and so is the key that came in, since the map
-		// holds one.
-		let e = found.unwrap()
-		let val = vm.h.entryVal[e]
-		try dropCell(vm, c: val)
-		try store(vm, f: f, c: val, src: valueReg, what: "the insert")
-		let incoming = vm.ref(keyReg)
-		if incoming != 0 and not vm.h.oImmortal[incoming] 'dropKey'
-			try drop(vm, o: incoming)
-		end 'dropKey'
-		return
-	end 'present'
-	let key = vm.h.newCell(m)
-	let val = vm.h.newCell(m)
-	let e = vm.h.entryKey.count()
-	vm.h.entryKey.push(key)
-	vm.h.entryVal.push(val)
-	try store(vm, f: f, c: key, src: keyReg, what: "the insert")
-	try store(vm, f: f, c: val, src: valueReg, what: "the insert")
-	vm.h.maps[data].entries.push(e)
-	if isManaged(f, r: keyReg) 'text'
-		let at = vm.h.oData[vm.h.refOf(key)]
-		vm.h.maps[data].byText.insert(vm.h.texts[at].clone(), value: e)
-	end 'text' else 'number'
-		vm.h.maps[data].byNumber.insert(ir.bitsOfWord(vm.num(keyReg)), value: e)
-	end 'number'
-end 'entryMapInsert'
-
-function entryMapRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "a remove")
-	let data = vm.h.oData[m]
-	let keyReg = argAt(f, x: x, i: 1)
-	let found = try mapLookup(vm, f: f, data: data, key: keyReg, what: "a remove")
-	if not found.isSome() 'missing'
-		throw trap(vm, message: missingKeyMessage)
-	end 'missing'
-	let e = found.unwrap()
-	try restructure(vm, o: m)
-	if isManaged(f, r: keyReg) 'text'
-		let at = try textIndex(vm, o: vm.ref(keyReg), what: "a remove")
-		_ = vm.h.maps[data].byText.remove(vm.h.texts[at])
-	end 'text' else 'number'
-		_ = vm.h.maps[data].byNumber.remove(ir.bitsOfWord(vm.num(keyReg)))
-	end 'number'
-	for i in 0 upto vm.h.maps[data].entries.count() 'entries'
-		if vm.h.maps[data].entries[i] == e 'same'
-			try vm.h.maps[data].entries.remove(i) otherwise ignore
-			break 'entries'
-		end 'same'
-	end 'entries'
-	let key = vm.h.entryKey[e]
-	let val = vm.h.entryVal[e]
-	try freeCell(vm, c: key)
-	try moveOutOfCollection(vm, x: x, c: val, what: "the remove")
-end 'entryMapRemove'
-
-function entryMapCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "a copy")
-	let copy = try copyObject(vm, o: m)
-	giveRef(vm, x: x, o: copy)
-end 'entryMapCopy'
-
 function entryListNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	let made = newTable(vm, kind: kindList)
 	giveRef(vm, x: x, o: made)
@@ -848,8 +718,17 @@ function copyObject(mutates vm Vm, o Count) returns Count throws Halt
 	if kind == kindBox 'box'
 		let size = vm.h.oSize[o]
 		let out = newBox(vm, words: size)
+		// A frame area lends every element of its tuple, whose copy owns a copy of each, as the tuple's copy routine makes.
+		let owns = vm.h.oFrameArea[o]
 		for i in 0 upto size 'fields'
-			try copyCell(vm, dst: vm.h.field(out, i: i), source: vm.h.field(o, i: i))
+			let source = vm.h.field(o, i: i)
+			let ref = vm.h.refOf(source)
+			if owns and ref != 0 'element'
+				let copy = try copyObject(vm, o: ref)
+				try adopt(vm, c: vm.h.field(out, i: i), o: copy, what: "the copy")
+				continue 'fields'
+			end 'element'
+			try copyCell(vm, dst: vm.h.field(out, i: i), source: source)
 		end 'fields'
 		return out
 	end 'box'
@@ -863,30 +742,6 @@ function copyObject(mutates vm Vm, o Count) returns Count throws Halt
 		end 'elements'
 		return out
 	end 'array'
-	if kind == kindMap 'map'
-		let out = newMap(vm)
-		let outData = vm.h.oData[out]
-		for i in 0 upto vm.h.maps[data].entries.count() 'entries'
-			let e = vm.h.maps[data].entries[i]
-			let key = vm.h.newCell(out)
-			let val = vm.h.newCell(out)
-			let copied = vm.h.entryKey.count()
-			vm.h.entryKey.push(key)
-			vm.h.entryVal.push(val)
-			let sourceKey = vm.h.entryKey[e]
-			let sourceVal = vm.h.entryVal[e]
-			try copyCell(vm, dst: key, source: sourceKey)
-			try copyCell(vm, dst: val, source: sourceVal)
-			vm.h.maps[outData].entries.push(copied)
-			let ref = vm.h.refOf(key)
-			if ref != 0 'text'
-				vm.h.maps[outData].byText.insert(vm.h.texts[vm.h.oData[ref]].clone(), value: copied)
-			end 'text' else 'number'
-				vm.h.maps[outData].byNumber.insert(ir.bitsOfWord(vm.h.cellN[key]), value: copied)
-			end 'number'
-		end 'entries'
-		return out
-	end 'map'
 	if kind == kindList or kind == kindPool 'table'
 		let out = newTable(vm, kind: kind)
 		let outData = vm.h.oData[out]

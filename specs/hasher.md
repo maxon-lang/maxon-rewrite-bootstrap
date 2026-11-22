@@ -1292,7 +1292,7 @@ function accept(value HashValue) returns HashValue
 end 'accept'
 
 function main() returns ExitCode
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes("abc".toByteArray())
 	let value = accept(hasher.finalize())
 	print("the fold is the hash of the string: {value == "abc".hash()}\n")

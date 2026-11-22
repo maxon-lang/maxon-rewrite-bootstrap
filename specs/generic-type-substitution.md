@@ -1411,11 +1411,11 @@ type BoxIter uses T implements Iterator with T
 		return Self{items: items}
 	end 'create'
 
-	function current() returns T
+	function current() returns borrowed T
 		return try items.get(at) otherwise panic("oob")
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		at = at + 1
 		if at >= items.count() 'done'
 			throw IterationError.exhausted

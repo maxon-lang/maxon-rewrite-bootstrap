@@ -323,8 +323,8 @@ type BagIter uses E implements Iterator with Int
 		return i
 	end 'current'
 
-	function advance() throws IterationError
-		i = i - 1
+	function advance(mutates self) throws IterationError
+		i = try i - 1 otherwise panic("out of range")
 		if i <= 0 'exhausted'
 			throw IterationError.exhausted
 		end 'exhausted'
@@ -346,7 +346,7 @@ type Bag uses Element implements Iterable with (Int, BIter)
 	function walk() returns Int
 		var total = 0 as Int
 		for x in self 'loop'
-			total = total + x
+			total = try total + x otherwise panic("out of range")
 		end 'loop'
 		return total
 	end 'walk'
@@ -356,7 +356,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create()
-	return b.walk()
+	return try b.walk() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -719,8 +719,8 @@ end 'main'
 public type Slot uses V
 	var v as V
 
-	public static function create(x V) returns Self
-		return Self{v: x}
+	public static function create(x V) returns Self where V implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	public static function measure() returns Count
@@ -740,7 +740,7 @@ public type PairIter uses K, W implements Iterator with Count
 		return Held.measure()
 	end 'current'
 
-	public function advance() throws IterationError
+	public function advance(mutates self) throws IterationError
 		if done 'finished'
 			throw IterationError.exhausted
 		end 'finished'
@@ -753,8 +753,8 @@ public type Pairs uses Key, Value implements Iterable with (Count, PIter)
 	var tag as Key
 	var value as Value
 
-	public static function create(tag Key, value Value) returns Self
-		return Self{tag: tag, value: value}
+	public static function create(tag Key, value Value) returns Self where Key implements Copyable, Value implements Copyable
+		return Self{tag: tag.clone(), value: value.clone()}
 	end 'create'
 
 	public function createIterator() returns PIter throws IterationError

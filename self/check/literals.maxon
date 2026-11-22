@@ -67,10 +67,33 @@ function checkArrayLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: origin, args: args, errs: errs)
 end 'checkArrayLit'
 
+// isLibraryMap is whether t is an instance of the standard library's Map, the type of a map literal.
+function isLibraryMap(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	let origin = ast.originOf(ms.types, reads: p.types, t: t)
+	return match p.library 'library'
+		some(root) gives ast.typeEntry(ms.types, reads: p.types, t: origin).decl.module == root and ast.typeEntry(ms.types, reads: p.types, t: origin).name == ast.libraryMapName
+		none gives false
+	end 'library'
+end 'isLibraryMap'
+
+// mapInitName is the static function of the library's Map that a map literal calls, maxon's: it reads the keys and the
+// values from two buffers, in the order they are written, into a new map.
+let mapInitName = "init"
+
+// checkMapLit types a map literal, which makes the standard library's Map, the type that resolve bound the literal to:
+// a call of its static init, as maxon's literal is, with the keys and the values, each converted to its column.
 function checkMapLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
 	let keysRef = ast.collectionLitExprElemsRef(ms.tree(), id: e)
 	let valuesRef = ast.collectionLitExprValuesRef(ms.tree(), id: e)
-	let given = expectedArgs(p, ms: ms, want: want, kind: ast.TypeKind.builtinMap)
+	var origin = ast.noType
+	match consumes p.resolutions[ast.modIndex(c.modID)].decls.get(e as Count) 'map'
+		some(ref) then origin = declTypeOf(p, ms: ms, ref: ref)
+		none then return ast.noType
+	end 'map'
+	var given = ast.TypeIDList.create(0)
+	if want != ast.noType and ast.originOf(ms.types, reads: p.types, t: want) == origin 'expected'
+		given = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: want).typeArgs)
+	end 'expected'
 	var keys = Column.open("'key'")
 	var values = Column.open("'value'")
 	if given.count() == 2 and given[0] != ast.noType and given[1] != ast.noType 'stated'
@@ -88,8 +111,25 @@ function checkMapLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	var args = ast.TypeIDList.create(0)
 	args.push(columnType(p, ms: ms, col: keys, wide: wide))
 	args.push(columnType(p, ms: ms, col: values, wide: wide))
-	let origin = p.builtins.mapOrigin
-	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: origin, args: args, errs: errs)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
+	let t = instantiateGeneric(c, p: p, ms: ms, off: off, orig: origin, args: args, errs: errs)
+	if t == ast.noType 'refused'
+		return ast.noType
+	end 'refused'
+	let init = methodNamed(p, ms: ms, t: t, name: mapInitName)
+	if init == ast.noFunc or not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).isStatic 'noInit'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errExpressionError, msg: "a map literal makes the standard library's '{ast.libraryMapName}' through its static '{mapInitName}', which it does not declare", errs: errs)
+		return ast.noType
+	end 'noInit'
+	let generics = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).generics)
+	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: init, receiverTy: ast.noType)
+	info.typeArgs = args.clone()
+	info.paramSpecs = applySpecs(p, ms: ms, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).params.clone(), params: generics, args: args)
+	info.result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).result
+	c.typing.calls.insert(e as Count, value: info)
+	queueMethodBounds(c, p: p, ms: ms, off: off, method: init, args: args)
+	recordUse(c, call: e)
+	return t
 end 'checkMapLit'
 
 // addToColumn types an element and folds its type into the column, which gives whether it could.
@@ -176,7 +216,7 @@ end 'bareRange'
 // take a number outside their range later.
 function holdsBareNumbers(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
-	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinMap and kind != ast.TypeKind.builtinList and not ast.isTupleType(ms.types, reads: p.types, t: t) 'other'
+	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinList and not ast.isTupleType(ms.types, reads: p.types, t: t) and not isLibraryMap(p, ms: ms, t: t) 'other'
 		return false
 	end 'other'
 	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs.count() 'args'

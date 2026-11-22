@@ -107,6 +107,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opAsync or
 		opCallValue or
 		opFrameBox or
+		opFrameArea or
 		opCallWitness or
 		opDropSlot or
 		opDropAt or

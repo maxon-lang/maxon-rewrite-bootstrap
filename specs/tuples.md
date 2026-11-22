@@ -2106,11 +2106,11 @@ entry loop never ran.
 function main() returns ExitCode
 	let m = ["a": "x"]
 	for e in m 'each'
-		let arr = [e]
+		let arr = [e.clone()]
 		let cp = arr.clone()
 		let copied = try cp.get(0) otherwise panic("cloned")
 		print("{copied.0}{copied.1}\n")
-		return (cp.count() + arr.count()) as ExitCode
+		return try (cp.count() + arr.count()) as ExitCode otherwise panic("out of range")
 	end 'each'
 	return 9
 end 'main'
@@ -2133,21 +2133,21 @@ type Point
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Point'
 
 typealias PointMap = Map with (String, Point)
 
 function main() returns ExitCode
-	let m = PointMap.create()
+	var m = PointMap.create()
 	m.upsert("a", value: Point.create("alpha"))
 	for e in m 'each'
-		let arr = [e]
+		let arr = [e.clone()]
 		let cp = arr.clone()
 		let copied = try cp.get(0) otherwise panic("cloned")
 		print("{copied.0}{copied.1.name}\n")
-		return (cp.count() + arr.count()) as ExitCode
+		return try (cp.count() + arr.count()) as ExitCode otherwise panic("out of range")
 	end 'each'
 	return 9
 end 'main'

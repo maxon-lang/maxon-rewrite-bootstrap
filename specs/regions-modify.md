@@ -288,15 +288,15 @@ type WordIndex
 		return Self{counts: WordCounts.create()}
 	end 'create'
 
-	function add(word String)
+	function add(mutates self, word String)
 		let seen = try self.counts.get(word) otherwise 0
-		self.counts.upsert(word, value: seen + 1)
+		self.counts.upsert(word, value: try seen + 1 otherwise panic("out of range"))
 	end 'add'
 
-	function absorb(other WordIndex)
+	function absorb(mutates self, other WordIndex)
 		for (word, seen) in other.counts 'eachWord'
 			let mine = try self.counts.get(word) otherwise 0
-			self.counts.upsert(word, value: mine + seen)
+			self.counts.upsert(word, value: try mine + seen otherwise panic("out of range"))
 		end 'eachWord'
 	end 'absorb'
 end 'WordIndex'
@@ -308,7 +308,7 @@ type Indexer
 		return Self{index: WordIndex.create()}
 	end 'create'
 
-	function absorbSpare()
+	function absorbSpare(mutates self)
 		var spare = WordIndex.create()
 		spare.add("x")
 		self.index.absorb(spare)

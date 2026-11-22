@@ -4688,7 +4688,7 @@ type Slot implements Stasher
 		return Self{op: op}
 	end 'create'
 
-	function stash(mutates fn UnaryOp) returns Integer
+	function stash(mutates self, mutates fn UnaryOp) returns Integer
 		self.op = fn
 		return self.op(2)
 	end 'stash'

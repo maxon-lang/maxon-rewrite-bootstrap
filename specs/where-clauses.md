@@ -2596,7 +2596,7 @@ type MyKey implements Hashable, Equatable
 	var value as Integer
 
 	function hash() returns HashValue
-		return self.value * 31
+		return try self.value * 31 otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other MyKey) returns bool
@@ -2611,9 +2611,9 @@ end 'MyKey'
 typealias MyKeyMap = Map with (MyKey, Integer)
 
 function main() returns ExitCode
-	let m = MyKeyMap.create()
+	var m = MyKeyMap.create()
 	try m.insert(freeze(MyKey.create(1)), value: 42) otherwise ignore
-	return m.count()
+	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3180,12 +3180,12 @@ type Labelled uses T
 	var item as T
 	var label as String
 
-	static function create(item T, label String) returns Self
-		return Self{item: item, label: label}
+	static function create(item T, label String) returns Self where T implements Copyable
+		return Self{item: item.clone(), label: label.clone()}
 	end 'create'
 
 	function hasLabel(text String) returns bool
-		let wanted = label
+		let wanted = label.clone()
 		return wanted.equals(text)
 	end 'hasLabel'
 
@@ -3229,8 +3229,8 @@ type Labelled uses T
 	var item as T
 	var label as String
 
-	static function create(item T, label String) returns Self
-		return Self{item: item, label: label}
+	static function create(item T, label String) returns Self where T implements Copyable
+		return Self{item: item.clone(), label: label.clone()}
 	end 'create'
 
 	function labelHash() returns HashValue
@@ -3319,15 +3319,15 @@ type Outer uses E where E implements Hashable and Equatable
 	export typealias Items = Array with E
 	var e as E
 
-	static function create(e E) returns Self
-		return Self{e: e}
+	static function create(e E) returns Self where E implements Copyable
+		return Self{e: e.clone()}
 	end 'create'
 
-	function tally() returns HashValue
-		let items = Items.create(0)
-		items.push(e)
+	function tally() returns HashValue where E implements Copyable
+		var items = Items.create(0)
+		items.push(e.clone())
 		if items.count() == 1 'one'
-			return e.hash() + 1
+			return try e.hash() + 1 otherwise panic("out of range")
 		end 'one'
 		return 0
 	end 'tally'
@@ -3337,7 +3337,7 @@ type Runner uses D where D implements Hashable and Equatable
 	export typealias OuterD = Outer with D
 	var d as D
 
-	static function run(o OuterD) returns HashValue
+	static function run(o OuterD) returns HashValue where D implements Copyable
 		return o.tally()
 	end 'run'
 end 'Runner'
@@ -3375,7 +3375,7 @@ type Key implements Hashable, Equatable
 	end 'equals'
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Key'
 
@@ -3383,15 +3383,15 @@ type Outer uses E where E implements Hashable and Equatable
 	export typealias Items = Array with E
 	var e as E
 
-	static function create(e E) returns Self
-		return Self{e: e}
+	static function create(e E) returns Self where E implements Copyable
+		return Self{e: e.clone()}
 	end 'create'
 
-	function tally() returns HashValue
-		let items = Items.create(0)
-		items.push(e)
+	function tally() returns HashValue where E implements Copyable
+		var items = Items.create(0)
+		items.push(e.clone())
 		if items.count() == 1 'one'
-			return e.hash() + 1
+			return try e.hash() + 1 otherwise panic("out of range")
 		end 'one'
 		return 0
 	end 'tally'
@@ -3401,7 +3401,7 @@ type Runner uses D where D implements Hashable and Equatable
 	export typealias OuterD = Outer with D
 	var d as D
 
-	static function run(o OuterD) returns HashValue
+	static function run(o OuterD) returns HashValue where D implements Copyable
 		return o.tally()
 	end 'run'
 end 'Runner'
@@ -3433,15 +3433,15 @@ type Outer uses E where E implements Hashable and Equatable
 	export typealias Items = Array with E
 	var e as E
 
-	static function create(e E) returns Self
-		return Self{e: e}
+	static function create(e E) returns Self where E implements Copyable
+		return Self{e: e.clone()}
 	end 'create'
 
-	function tally() returns HashValue
+	function tally() returns HashValue where E implements Copyable
 		var items = Items.create(0)
-		items.push(e)
+		items.push(e.clone())
 		if items.count() == 1 'one'
-			return e.hash() + 1
+			return try e.hash() + 1 otherwise panic("out of range")
 		end 'one'
 		return 0
 	end 'tally'
@@ -3451,17 +3451,17 @@ type Runner uses D where D implements Hashable and Equatable
 	export typealias OuterD = Outer with D
 	var d as D
 
-	static function run(o OuterD) returns HashValue
+	static function run(o OuterD) returns HashValue where D implements Copyable
 		return o.tally()
 	end 'run'
 
-	function viaClosure(o OuterD) returns HashValue
+	function viaClosure(o OuterD) returns HashValue where D implements Copyable
 		let f = function(x OuterD) gives Self.run(x)
 		return f(o)
 	end 'viaClosure'
 
-	static function make(d D) returns Self
-		return Self{d: d}
+	static function make(d D) returns Self where D implements Copyable
+		return Self{d: d.clone()}
 	end 'make'
 end 'Runner'
 
@@ -3623,8 +3623,8 @@ false true
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	static function same(a T, b T) returns bool
@@ -3655,8 +3655,8 @@ Control: the comparison is between two `Count` values, not type-parameter values
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	static function below(i Count, n Count) returns bool
@@ -3692,8 +3692,8 @@ true
 type Holder uses T where T implements Equatable
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	static function sameField(a Self, b Self) returns bool
@@ -3724,15 +3724,15 @@ true false
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function keep(x T) returns T
-		return x
+	static function keep(x T) returns T where T implements Copyable
+		return x.clone()
 	end 'keep'
 
-	static function sameKept(a T, b T) returns bool
+	static function sameKept(a T, b T) returns bool where T implements Droppable and Copyable
 		return keep(a) == keep(b)
 	end 'sameKept'
 end 'Holder'

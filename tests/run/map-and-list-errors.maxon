@@ -18,9 +18,9 @@ end 'add'
 
 function main() returns ExitCode
 	var m = StringCountMap.create()
-	print("{add(m, key: "a", value: 1)} {add(m, key: "a", value: 2)} {m["a"]}\n")
+	print("{add(m, key: "a", value: 1)} {add(m, key: "a", value: 2)} {(try m.get("a") otherwise panic("no such key"))}\n")
 	m.upsert("a", value: 3)
-	print("{m["a"]} {m.contains("a")} {m.remove("a")} {m.remove("a")} {m.contains("a")} {m.count()}\n")
+	print("{(try m.get("a") otherwise panic("no such key"))} {m.contains("a")} {m.remove("a")} {m.remove("a")} {m.contains("a")} {m.count()}\n")
 	var l = NameList.create()
 	let first = try l.first() otherwise l.append("x")
 	print("{l.count()} {l[first]}\n")

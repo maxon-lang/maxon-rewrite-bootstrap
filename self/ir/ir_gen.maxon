@@ -81,6 +81,7 @@ export enum Opcode
 	opCallValue
 	opBox
 	opFrameBox
+	opFrameArea
 	opCallWitness
 	opIsType
 	opDrop
@@ -785,6 +786,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opFrameBox 'opFrameBox'
 		return 2
 	end 'opFrameBox'
+	if op == Opcode.opFrameArea 'opFrameArea'
+		return 0
+	end 'opFrameArea'
 	if op == Opcode.opCallWitness 'opCallWitness'
 		return 31
 	end 'opCallWitness'
@@ -1410,6 +1414,17 @@ export function newFrameBox(dst Reg, table Index, value Reg, box Count) returns 
 	r.imm = try box as Word otherwise panic("ir: frameBox box is out of range")
 	return r
 end 'newFrameBox'
+
+// FrameArea gives the address of Words words of the function's frame, from its frame box Box on through as many
+// boxes as they fill: the box of a tuple that a function lends, which the call passes it to fill with a borrow of each
+// element. It owns nothing, lives as long as the frame, and a lent tuple cannot outlive the scope it is lent to.
+export function newFrameArea(dst Reg, words Count, box Count) returns Instr
+	var r = Instr.make(Opcode.opFrameArea)
+	r.dst = dst
+	r.c = try words as Index otherwise panic("ir: frameArea words is out of range")
+	r.imm = try box as Word otherwise panic("ir: frameArea box is out of range")
+	return r
+end 'newFrameArea'
 
 // CallWitness calls the method in place Slot of the table of the interface value that is the first of Args, with
 // the value the box holds, given as Recv says, and the rest of Args.
@@ -2094,6 +2109,14 @@ export function frameBoxBox(x Instr) returns Count
 	return try x.imm as Count otherwise panic("ir: frameBox box is out of range")
 end 'frameBoxBox'
 
+export function frameAreaWords(x Instr) returns Count
+	return try x.c as Count otherwise panic("ir: frameArea words is out of range")
+end 'frameAreaWords'
+
+export function frameAreaBox(x Instr) returns Count
+	return try x.imm as Count otherwise panic("ir: frameArea box is out of range")
+end 'frameAreaBox'
+
 export function callWitnessRecv(x Instr) returns ReceiverConv
 	return receiverConvOf(x.sub)
 end 'callWitnessRecv'
@@ -2430,6 +2453,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opFrameBox 'opFrameBox'
 		return table.Option.some(x.dst)
 	end 'opFrameBox'
+	if x.op == Opcode.opFrameArea 'opFrameArea'
+		return table.Option.some(x.dst)
+	end 'opFrameArea'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		if x.dst == noReg 'none'
 			return table.Option.none
@@ -2624,6 +2650,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opFrameBox 'opFrameBox'
 		return table.Option.none
 	end 'opFrameBox'
+	if x.op == Opcode.opFrameArea 'opFrameArea'
+		return table.Option.none
+	end 'opFrameArea'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		return table.Option.none
 	end 'opCallWitness'
@@ -2709,6 +2738,7 @@ export function instrCanFail(x Instr) returns bool
 		opCallValue gives false
 		opBox gives false
 		opFrameBox gives false
+		opFrameArea gives false
 		opCallWitness gives false
 		opIsType gives false
 		opDrop gives false
@@ -2941,6 +2971,9 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(frameBoxValue(x))
 		return
 	end 'opFrameBox'
+	if x.op == Opcode.opFrameArea 'opFrameArea'
+		return
+	end 'opFrameArea'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		f.regsInto(callWitnessArgsStart(x), count: callWitnessArgsCount(x), out: out)
 		return
@@ -3226,6 +3259,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opFrameBox'
+	if x.op == Opcode.opFrameArea 'opFrameArea'
+		out.push(x.dst)
+		return
+	end 'opFrameArea'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		if x.dst != noReg 'value'
 			out.push(x.dst)
@@ -3484,6 +3521,9 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.a = renamedReg(names, r: x.a)
 		return
 	end 'opFrameBox'
+	if x.op == Opcode.opFrameArea 'opFrameArea'
+		return
+	end 'opFrameArea'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		renameRegs(args, start: callWitnessArgsStart(x), count: callWitnessArgsCount(x), names: names)
 		return
@@ -3877,6 +3917,11 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.imm = shiftedWord(x.imm, by: at.frameBoxes)
 		return
 	end 'opFrameBox'
+	if x.op == Opcode.opFrameArea 'opFrameArea'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.imm = shiftedWord(x.imm, by: at.frameBoxes)
+		return
+	end 'opFrameArea'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		if x.dst != noReg 'value'
 			x.dst = renamedReg(at.names, r: x.dst)
@@ -4019,6 +4064,7 @@ export interface InstrVisitor
 	function visitCallValue(mutates self, f IrFunction, x Instr)
 	function visitBox(mutates self, f IrFunction, x Instr)
 	function visitFrameBox(mutates self, f IrFunction, x Instr)
+	function visitFrameArea(mutates self, f IrFunction, x Instr)
 	function visitCallWitness(mutates self, f IrFunction, x Instr)
 	function visitIsType(mutates self, f IrFunction, x Instr)
 	function visitDrop(mutates self, f IrFunction, x Instr)
@@ -4247,6 +4293,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitFrameBox(f, x: x)
 		return
 	end 'opFrameBox'
+	if x.op == Opcode.opFrameArea 'opFrameArea'
+		visitor.visitFrameArea(f, x: x)
+		return
+	end 'opFrameArea'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		visitor.visitCallWitness(f, x: x)
 		return
@@ -4539,6 +4589,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opFrameBox 'opFrameBox'
 		return "{resultText(x.dst)}framebox {frameBoxTable(f, x: x).symbol}, %{frameBoxValue(x)} in frame box {frameBoxBox(x)}"
 	end 'opFrameBox'
+	if x.op == Opcode.opFrameArea 'opFrameArea'
+		return "{resultText(x.dst)}framearea {frameAreaWords(x)} in frame box {frameAreaBox(x)}"
+	end 'opFrameArea'
 	if x.op == Opcode.opCallWitness 'opCallWitness'
 		var text = "{resultText(x.dst)}callwitness.{receiverConvText(callWitnessRecv(x))} {callWitnessSlot(x)}({f.regsText(callWitnessArgsStart(x), count: callWitnessArgsCount(x))})"
 		if callWitnessHasErrReg(x) 'errReg'

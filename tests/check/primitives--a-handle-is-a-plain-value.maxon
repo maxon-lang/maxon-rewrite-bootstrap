@@ -88,8 +88,6 @@ end 'total'
 
 typealias CellHandleArray = Array with (Handle with Cell)
 
-typealias CellHandleCountMap = Map with Handle with Cell, Count
-
 typealias CellPool = Pool with Cell
 
 function main() returns ExitCode
@@ -100,8 +98,6 @@ function main() returns ExitCode
 	var hs = CellHandleArray.create(0)
 	hs.push(h)
 	hs.push(h2)
-	var by = CellHandleCountMap.create()
-	by.upsert(h3, value: 1)
-	print("{h == h2} {by[h]}")
+	print("{h == h2} {h3 == h} {hs.count()}")
 	return 0
 end 'main'

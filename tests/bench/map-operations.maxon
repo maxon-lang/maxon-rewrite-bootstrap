@@ -1,0 +1,90 @@
+// The library's Map: a million inserts, hits, misses and removes, and a walk of every entry, by integer keys and by string
+// keys, the work of a table that a compiler's passes look names up in.
+typealias Word = int(0 to u64.max)
+
+typealias WordMap = Map with (Word, Word)
+
+typealias TextMap = Map with (String, Word)
+
+typealias Texts = Array with String
+
+let size = 1000000 as Count
+
+// spread scatters the integer keys, so they are not inserted in the order of their hashes.
+let spread = 7919 as Word
+
+function integerKeys() returns Word
+	var m = WordMap.create()
+	for i in 0 upto size 'insert'
+		m.upsert(try (i as Word) * spread otherwise panic("key overflowed"), value: i as Word)
+	end 'insert'
+	var sum = 0 as Word
+	for i in 0 upto size 'hits'
+		sum = try sum + (try m.get(try (i as Word) * spread otherwise panic("key overflowed")) otherwise panic("a key went missing")) otherwise panic("sum overflowed")
+	end 'hits'
+	var misses = 0 as Word
+	for i in 0 upto size 'misses'
+		if not m.contains(try (i as Word) * spread + 1 otherwise panic("key overflowed")) 'missed'
+			misses = try misses + 1 otherwise panic("count overflowed")
+		end 'missed'
+	end 'misses'
+	for (k, v) in m 'walk'
+		sum = try sum + v + (k mod 2) otherwise panic("sum overflowed")
+	end 'walk'
+	var removed = 0 as Word
+	for i in 0 upto size 'remove'
+		if m.remove(try (i as Word) * spread otherwise panic("key overflowed")) 'gone'
+			removed = try removed + 1 otherwise panic("count overflowed")
+		end 'gone'
+	end 'remove'
+	return try sum + misses + removed + (m.count() as Word) otherwise panic("sum overflowed")
+end 'integerKeys'
+
+function stringKeys() returns Word
+	var keys = Texts.create(0)
+	var absent = Texts.create(0)
+	for i in 0 upto size 'names'
+		keys.push("key{i}")
+		absent.push("none{i}")
+	end 'names'
+	var m = TextMap.create()
+	for i in 0 upto size 'insert'
+		m.upsert(keys[i], value: i as Word)
+	end 'insert'
+	var sum = 0 as Word
+	for i in 0 upto size 'hits'
+		sum = try sum + (try m.get(keys[i]) otherwise panic("a key went missing")) otherwise panic("sum overflowed")
+	end 'hits'
+	var misses = 0 as Word
+	for i in 0 upto size 'misses'
+		if not m.contains(absent[i]) 'missed'
+			misses = try misses + 1 otherwise panic("count overflowed")
+		end 'missed'
+	end 'misses'
+	for (k, v) in m 'walk'
+		sum = try sum + v + (k.byteLength() as Word) otherwise panic("sum overflowed")
+	end 'walk'
+	var removed = 0 as Word
+	for i in 0 upto size 'remove'
+		if m.remove(keys[i]) 'gone'
+			removed = try removed + 1 otherwise panic("count overflowed")
+		end 'gone'
+	end 'remove'
+	return try sum + misses + removed + (m.count() as Word) otherwise panic("sum overflowed")
+end 'stringKeys'
+
+function work() returns ExitCode
+	print("{integerKeys()} {stringKeys()}\n")
+	return 0
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let started = Clock.nowNanos()
+	let code = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("work ns {elapsed}\n")
+	return code
+end 'main'
+
+//> 1000001500000 1000009888890

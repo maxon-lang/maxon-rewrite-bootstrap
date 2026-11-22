@@ -1,0 +1,14 @@
+function keep(consumes s String) returns Count
+	return s.count()
+end 'keep'
+
+function name(t (Count, String)) returns Count
+	let (_, s) = t
+	return keep(s)
+end 'name'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3900 at 7:14

@@ -1,0 +1,100 @@
+//> 1 one
+//> 2 two
+//> x y
+//> x y!
+//> 3 x
+//> ada 36
+//> alan 41
+//> 2 ada
+//> 1 x
+
+typealias Pairs = Array with ((Count, String))
+
+typealias Names = Array with String
+
+typealias Ages = Array with Count
+
+type Holder
+	var a as String
+	var b as String
+	var n as Count
+
+	static function make(consumes a String, consumes b String) returns Holder
+		return Holder{a: a, b: b, n: 3}
+	end 'make'
+
+	// A tuple of two places of the receiver lends each of them.
+	function both() returns borrowed (String, String)
+		return (a, b)
+	end 'both'
+
+	// A scalar element is its value, as a borrow of one is.
+	function counted() returns borrowed (Count, String)
+		return (n, a)
+	end 'counted'
+
+	// A lent tuple passes on through another function that lends one.
+	function again() returns borrowed (String, String)
+		return both()
+	end 'again'
+end 'Holder'
+
+// A cursor whose current() lends a pair of places of what it walks.
+type People
+	var names as Names
+	var ages as Ages
+	var at as Count
+
+	static function make(consumes names Names, consumes ages Ages) returns People
+		return People{names: names, ages: ages, at: 0}
+	end 'make'
+
+	function current() returns borrowed (String, Count)
+		return (names[at], ages[at])
+	end 'current'
+
+	function advance(mutates self) throws IterationError
+		let next = try at + 1 otherwise throw IterationError.exhausted
+		if next >= names.count() 'last'
+			throw IterationError.exhausted
+		end 'last'
+		at = next
+	end 'advance'
+end 'People'
+
+function joined(pair (String, String)) returns String
+	return "{pair.0} {pair.1}"
+end 'joined'
+
+function main() returns ExitCode
+	var xs = Pairs.create(0)
+	xs.push((1 as Count, "one"))
+	xs.push((2 as Count, "two"))
+	// An element of an array of tuples is lent, and so are its parts.
+	for (n, s) in xs 'each'
+		print("{n} {s}\n")
+	end 'each'
+	let h = Holder.make("x", b: "y")
+	let (p, q) = h.both()
+	print("{p} {q}\n")
+	var copy = h.again().clone()
+	copy.1.append("!")
+	print("{joined(copy)}\n")
+	let (count, name) = h.counted()
+	print("{count} {name}\n")
+	var names = Names.create(0)
+	names.push("ada")
+	names.push("alan")
+	var ages = Ages.create(0)
+	ages.push(36)
+	ages.push(41)
+	var people = People.make(names, ages: ages)
+	for (who, age) in people 'people'
+		print("{who} {age}\n")
+	end 'people'
+	let (first, _) = xs[1]
+	let (_, last) = h.both()
+	print("{first} {people.names[0]}\n")
+	print("{last.count()} {joined(h.both()).sliceBytes(0, endPos: 1)}\n")
+	return 0
+end 'main'

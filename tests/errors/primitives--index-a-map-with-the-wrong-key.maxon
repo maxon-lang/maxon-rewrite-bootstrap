@@ -86,11 +86,11 @@ function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
-// expect-error: E3005 at 94:12
+// expect-error: E3005 at 94:17
 typealias StringCountMap = Map with String, Count
 
 function main() returns ExitCode
 	var m = StringCountMap.create()
-	print("{m[1]}")
+	print("{(try m.get(1) otherwise panic("no such key"))}")
 	return 0
 end 'main'

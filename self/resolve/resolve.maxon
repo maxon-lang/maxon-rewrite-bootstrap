@@ -842,6 +842,25 @@ function resolveMatchCore(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 	closeBlock(r, labelRef: ast.matchCoreLabelRef(r.tree, id: mc))
 end 'resolveMatchCore'
 
+// resolveMapLiteral binds a map literal to the type it makes, the library's Map (ast.libraryMapName), which it names as a
+// written name would: the module depends on the library's root from here on.
+function resolveMapLiteral(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	let off = r.tree.startOf(id)
+	if not p.library.isSome() 'none'
+		pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "a map literal makes the standard library's '{ast.libraryMapName}', and this compile has no library: build the map with code")
+		return
+	end 'none'
+	var root = diag.stdlibID
+	match p.library 'library'
+		some(m) then root = m
+		none then return
+	end 'library'
+	match consumes takeLookup(r, p: p, lr: libraryModuleLookup(r, p: p, module: root, name: ast.libraryMapName), off: off, errs: errs) 'hit'
+		some(ref) then r.res.bindDecl(id, d: ref)
+		none then pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "a map literal makes the standard library's '{ast.libraryMapName}', which its root does not declare publicly")
+	end 'hit'
+end 'resolveMapLiteral'
+
 function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
 	let n = ast.nameExprName(r.tree, id: id)
 	if n == "Self" 's'
@@ -1068,6 +1087,9 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 	end 'slit' else if k == ast.NodeKind.collectionLitExpr 'coll'
 		resolveExprList(r, p: p, ms: ms, list: ast.collectionLitExprElemsRef(r.tree, id: id), errs: errs)
 		resolveExprList(r, p: p, ms: ms, list: ast.collectionLitExprValuesRef(r.tree, id: id), errs: errs)
+		if r.tree.listLen(ast.collectionLitExprValuesRef(r.tree, id: id)) > 0 'map'
+			resolveMapLiteral(r, p: p, id: id, errs: errs)
+		end 'map'
 	end 'coll' else if k == ast.NodeKind.tupleExpr 'tup'
 		resolveExprList(r, p: p, ms: ms, list: ast.tupleExprElemsRef(r.tree, id: id), errs: errs)
 	end 'tup' else if k == ast.NodeKind.castExpr 'cast'

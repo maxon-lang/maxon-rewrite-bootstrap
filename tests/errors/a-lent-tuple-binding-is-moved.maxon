@@ -1,0 +1,24 @@
+// expect-error: E3900 at 22:11
+type Holder
+	export var a as String
+	export var b as String
+
+	static function make() returns Holder
+		return Holder{a: "x", b: "y"}
+	end 'make'
+
+	function both() returns borrowed (String, String)
+		return (a, b)
+	end 'both'
+end 'Holder'
+
+function take(consumes s String) returns Count
+	return s.count()
+end 'take'
+
+function main() returns ExitCode
+	let h = Holder.make()
+	let (p, q) = h.both()
+	_ = take(p)
+	return 0
+end 'main'

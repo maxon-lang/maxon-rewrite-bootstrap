@@ -60,7 +60,7 @@ type Container uses Op implements Mergeable with Wrapper
 		return self.ops.count()
 	end 'opsCount'
 
-	function appendOps(source Self)
+	function appendOps(mutates self, source Self) where Op implements Copyable
 		self.ops.append(source.ops)
 	end 'appendOps'
 
@@ -74,7 +74,7 @@ type Container uses Op implements Mergeable with Wrapper
 		end 'unreachable'
 	end 'getItem'
 
-	function pushItem(mutates item Wrapper)
+	function pushItem(mutates self, mutates item Wrapper)
 		self.items.push(item)
 	end 'pushItem'
 

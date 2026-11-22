@@ -1,6 +1,6 @@
 // The program generator writes random minimaxon programs over the constructs the memory model's rules cover: records, unions,
 // strings, let and var, assignment, moves, copy(), the four conventions, calls whose arguments overlap or are disjoint, match
-// bindings, loops, generics with bounds, and arrays, maps, lists and pools with handles. A program is well formed, and the types
+// bindings, loops, generics with bounds, and arrays, lists and pools with handles. A program is well formed, and the types
 // are consistent, but nothing in it tries to obey the ownership rules: the checker decides which programs are accepted, and
 // every one it accepts must run without a violation. The generator only leans toward programs that pass, so that most of what
 // it writes reaches the interpreter, and leans toward the edges of the rules where a hole would be: arguments that overlap,
@@ -20,7 +20,6 @@ enum Kind
 	kArray
 	kPool
 	kList
-	kMap
 	kHandle
 	kOption
 	kFrozen
@@ -209,7 +208,7 @@ type Generator
 	var pendingInit as CountList
 	// carelessPercent is how often this program breaks a rule of ownership on purpose.
 	var carelessPercent as Count
-	// arraysOnly keeps a map, a list and a pool out of the program, so that it also compiles to an executable.
+	// arraysOnly keeps a list and a pool out of the program, so that it also compiles to an executable.
 	var arraysOnly as bool
 	// sharing lets the program freeze values, make cowns and schedule behaviours.
 	var sharing as bool
@@ -362,13 +361,6 @@ type Generator
 		return self.internInstance(Kind.kOption, base: "Option", args: args)
 	end 'optionOf'
 
-	function mapOf(mutates self, k Count, v Count) returns Count
-		var args = CountList.create(0)
-		args.push(k)
-		args.push(v)
-		return self.internInstance(Kind.kMap, base: "Map", args: args)
-	end 'mapOf'
-
 	function chance(mutates self, percent Count) returns bool
 		return rng.chance(percent)
 	end 'chance'
@@ -493,13 +485,6 @@ type Generator
 		let managedList = self.managedTypes()
 		return managedList[self.pick(managedList.count())]
 	end 'elementType'
-
-	function keyType(mutates self) returns Count
-		if self.chance(50) 'count'
-			return tCount
-		end 'count'
-		return tString
-	end 'keyType'
 
 	// recordIndex is the index of the record that declares t, when t is a record.
 	function recordIndex(t Count) returns table.Option with Count
@@ -631,11 +616,6 @@ type Generator
 			let inner = self.elementTypeBefore()
 			return self.listOf(inner)
 		end 'list'
-		if n < 15 and not arraysOnly 'map'
-			let key = self.keyType()
-			let valueT = self.elementTypeBefore()
-			return self.mapOf(key, v: valueT)
-		end 'map'
 		return self.elementTypeBefore()
 	end 'fieldType'
 
@@ -950,7 +930,7 @@ type Generator
 
 	function isCollection(t Count) returns bool
 		let k = tys[t].kind
-		return k == Kind.kArray or k == Kind.kPool or k == Kind.kList or k == Kind.kMap
+		return k == Kind.kArray or k == Kind.kPool or k == Kind.kList
 	end 'isCollection'
 
 	// walk is the places in and under p whose type accept takes.
@@ -1359,7 +1339,7 @@ type Generator
 			end 'some'
 			return "{self.typeExpr(t)}.create(0)"
 		end 'array'
-		if k == Kind.kPool or k == Kind.kList or k == Kind.kMap 'collection'
+		if k == Kind.kPool or k == Kind.kList 'collection'
 			if self.chance(30) 'storage'
 				let s = self.ownedFromStorage(t)
 				if s.isSome() 'some'
@@ -1886,11 +1866,7 @@ type Generator
 				if tys[vars[v].t].args[0] == t 'element'
 					found.push(v)
 				end 'element'
-			end 'sequence' else if k == Kind.kMap 'map'
-				if tys[vars[v].t].args[1] == t 'value'
-					found.push(v)
-				end 'value'
-			end 'map'
+			end 'sequence'
 		end 'each'
 		if found.count() == 0 'none'
 			return table.Option.none
@@ -1997,12 +1973,6 @@ type Generator
 			let inner = self.inside(whole, src: "{name}[{hsrc}]", t: pooledT, mutable: mutable)
 			return table.Option.some(self.element(inner, guard: "{name}.contains({hsrc})"))
 		end 'handled'
-		if k == Kind.kMap 'map'
-			let key = keyOf(tys[tys[t].args[0]].kind, n: firstElementKey)
-			let valueT = tys[t].args[1]
-			let inner = self.inside(whole, src: "{name}[{key}]", t: valueT, mutable: mutable)
-			return table.Option.some(self.element(inner, guard: "{name}.contains({key})"))
-		end 'map'
 		if k == Kind.kFrozen 'frozen'
 			let held = tys[t].args[0]
 			if tys[held].kind == Kind.kArray 'array'
@@ -2013,10 +1983,6 @@ type Generator
 		end 'frozen'
 		return table.Option.none
 	end 'elementPlace'
-
-	function keyLiteral(mutates self, k Count) returns String
-		return keyOf(tys[k].kind, n: self.pick(3))
-	end 'keyLiteral'
 
 	function stmt(mutates self, depth Depth)
 		budget = try budget - 1 otherwise panic("fuzz: a statement past the budget")
@@ -2104,7 +2070,6 @@ type Generator
 			actArray then return self.actArray(depth)
 			actPool then return self.actPool(depth)
 			actList then return self.actList(depth)
-			actMap then return self.actMap(depth)
 			actReturn then return self.actReturn(depth)
 			actLoopJump then return self.actLoopJump(depth)
 			actElement then return self.actElement(depth)
@@ -2839,7 +2804,7 @@ type Generator
 		return true
 	end 'actPool'
 
-	// elementStatement2 does something with the element a handle names in a pool, a list or a map, which the caller guards.
+	// elementStatement2 does something with the element a handle names in a pool or a list, which the caller guards.
 	function elementStatement2(mutates self, v Count)
 		let elem = self.elementTypeOf(vars[v].t)
 		let mutable = vars[v].mutable
@@ -2932,41 +2897,6 @@ type Generator
 		end 'count'
 		return true
 	end 'actList'
-
-	function actMap(mutates self, depth Depth) returns bool
-		let found = self.collectionVar(kindsOf(Kind.kMap))
-		if not found.isSome() 'none'
-			return false
-		end 'none'
-		let v = found.unwrap()
-		if not vars[v].mutable 'immutable'
-			return false
-		end 'immutable'
-		let name = vars[v].name.clone()
-		let key = tys[vars[v].t].args[0]
-		let value = tys[vars[v].t].args[1]
-		let n = self.pick(6)
-		if n < 2 'upsert'
-			let keyText = self.keyLiteral(key)
-			let valueText = self.owned(value, depth: 2)
-			self.line("{name}.upsert({keyText}, value: {valueText})")
-		end 'upsert' else if n < 3 'remove'
-			let kept = self.fresh("v")
-			let keyText = self.keyLiteral(key)
-			self.line("{kwLet} {kept} = {name}.remove({keyText})")
-			_ = self.declare(kept, t: tBool, owned: true, mutable: false)
-		end 'remove' else if n < 4 'element'
-			let mark = self.guardedBegin()
-			self.elementStatement2(v)
-			self.guardedEnd(mark)
-		end 'element' else if n < 5 'contains'
-			let keyText = self.keyLiteral(key)
-			self.say(printed("{name}.contains({keyText})"))
-		end 'contains' else 'count'
-			self.say(printed("{name}.count()"))
-		end 'count'
-		return true
-	end 'actMap'
 
 	function actBox(mutates self, depth Depth) returns bool
 		var boxes = CountList.create(0)
@@ -3207,17 +3137,6 @@ type Generator
 			let handleT = self.handleOf(elem)
 			_ = self.declare(h, t: handleT, owned: false, mutable: false)
 		end 'list'
-		if self.chance(70) and not arraysOnly 'map'
-			let key = self.keyType()
-			elem = self.elementType()
-			let m = self.fresh("v")
-			let mt = self.mapOf(key, v: elem)
-			let mapText = self.typeExpr(mt)
-			self.line("{kwVar} {m} = {mapText}.create()")
-			_ = self.declare(m, t: mt, owned: true, mutable: true)
-			let value = self.owned(elem, depth: 2)
-			self.line("{m}.upsert({keyOf(tys[key].kind, n: firstElementKey)}, value: {value})")
-		end 'map'
 		self.sharingPreamble()
 	end 'preamble'
 
@@ -3392,13 +3311,7 @@ type Generator
 			call = "churn({name})"
 		end 'array' else if k == Kind.kList 'list'
 			call = "churnList({name})"
-		end 'list' else if k == Kind.kMap 'map'
-			if tys[t].args[0] != tString 'keyed'
-				self.say(printNothing)
-				return
-			end 'keyed'
-			call = "churnMap({name})"
-		end 'map' else 'pool'
+		end 'list' else 'pool'
 			let value = self.owned(elem, depth: 1)
 			call = "churnPool({name}, x: {value})"
 		end 'pool'
@@ -3426,9 +3339,6 @@ type Generator
 		if k == Kind.kArray 'array'
 			return tCount
 		end 'array'
-		if k == Kind.kMap 'map'
-			return tys[t].args[0]
-		end 'map'
 		if k == Kind.kPool or k == Kind.kList 'handled'
 			let pooledT = tys[t].args[0]
 			return self.handleOf(pooledT)
@@ -3776,7 +3686,7 @@ type Generator
 		// A kind is picked before a place, since arrays are the most common and would leave the others few.
 		let all = self.pathPlaces(Accept.collections(), mutable: use == useAssign or use == useMutate, elements: true)
 		var byKind = CountLists.create(0)
-		for _ in 0 upto 4 'kinds'
+		for _ in 0 upto collectionKinds 'kinds'
 			byKind.push(CountList.create(0))
 		end 'kinds'
 		for i in 0 upto all.count() 'each'
@@ -3787,7 +3697,7 @@ type Generator
 			byKind[collectionSlot(tys[store[p].t].kind)].push(p)
 		end 'each'
 		var kinds = CountList.create(0)
-		for k in 0 upto 4 'present'
+		for k in 0 upto collectionKinds 'present'
 			if byKind[k].count() > 0 'some'
 				kinds.push(k)
 			end 'some'
@@ -3906,18 +3816,6 @@ type Generator
 			end 'guard'
 			return table.Option.some(Access.make("0", result: typed(Kind.kCount, value: "0")))
 		end 'array'
-		if k == Kind.kMap 'map'
-			let keyT = tys[bt].args[0]
-			let key = keyOf(tys[keyT].kind, n: firstElementKey)
-			if mutable 'replace'
-				let value = self.owned(elem, depth: 0)
-				self.line("_ = {src}.replace({key}, value: {self.typedOf(elem, value: value)})")
-			end 'replace' else 'guard'
-				guards.push("{src}.contains({key})")
-			end 'guard'
-			let typedKey = self.typedOf(keyT, value: key)
-			return table.Option.some(Access.make(key, result: typedKey))
-		end 'map'
 		if k == Kind.kPool or k == Kind.kList 'handled'
 			if not mutable 'named'
 				// A handle that is a field is a copy that the checker still sees as a place, so it is passed only by name.

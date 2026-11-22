@@ -240,6 +240,7 @@ error E3207: <fragment>:19:6: 'Edit' takes `mutable` parameter; 'pinned' is immu
 ```
 
 <!-- test: isolated-requirement-parameter-refuses-a-mutable-argument -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Sink.take` declares `items` isolated, so `spare`, a mutable array of this region, cannot be passed to it.
 

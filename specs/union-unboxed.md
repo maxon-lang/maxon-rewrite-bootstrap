@@ -160,15 +160,15 @@ function mass(h Holder) returns Mass
 end 'mass'
 
 function main() returns ExitCode
-	let all = HolderArray.create(0)
+	var all = HolderArray.create(0)
 	all.push(Holder.holding(Body.create(4)))
 	all.push(Holder.empty)
 	all.push(Holder.holding(Body.create(6)))
-	let byName = HolderMap.create()
+	var byName = HolderMap.create()
 	byName.upsert("a", value: Holder.holding(Body.create(10)))
 	var total = 0 as Mass
 	for h in all 'eachHolder'
-		total = total + mass(h)
+		total = try total + mass(h) otherwise panic("out of range")
 	end 'eachHolder'
 	let found = try byName.get("a") otherwise return 99
 	return (total + mass(found)) as ExitCode

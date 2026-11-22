@@ -79,7 +79,7 @@ type Upto implements Seq
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -139,7 +139,7 @@ type Upto implements Counted
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -193,7 +193,7 @@ type Tagged uses T implements Seq
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -248,7 +248,7 @@ type Numbered implements Lines
 		return "line number {self.pos} of this managed sequence"
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -302,7 +302,7 @@ type Upto implements Seq
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -572,7 +572,7 @@ type Upto implements Seq
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -591,7 +591,7 @@ type Down implements Seq
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos <= 1 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -657,7 +657,7 @@ type Upto implements Seq
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -668,14 +668,14 @@ end 'Upto'
 type Wrap uses T where T implements Seq
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	function total() returns Integer
+	function total(mutates self) returns Integer
 		var sum = 0 as Integer
 		for v in self.item 'walk'
-			sum = sum + v
+			sum = try sum + v otherwise panic("out of range")
 		end 'walk'
 		return sum
 	end 'total'
@@ -684,7 +684,7 @@ end 'Wrap'
 typealias UptoWrap = Wrap with Upto
 
 function main() returns ExitCode
-	let w = UptoWrap.create(Upto.create(4))
+	var w = UptoWrap.create(Upto.create(4))
 	print("{w.total()}\n")
 	return 0
 end 'main'
@@ -722,7 +722,7 @@ type Numbered implements Lines
 		return "a managed line long enough to live on the heap, number {self.pos}"
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'

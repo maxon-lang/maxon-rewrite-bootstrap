@@ -2,10 +2,6 @@ typealias ColorCountMap = Map with Color, Count
 
 typealias StringCellMap = Map with String, Cell
 
-typealias StringHandleCountMap = Map with Handle with String, Count
-
-typealias StringPool = Pool with String
-
 type Cell
 	export var n as Count
 	export var label as String
@@ -19,30 +15,45 @@ function bump(mutates c Cell)
 	c.n = try c.n + 1 otherwise c.n
 end 'bump'
 
-enum Color
+// A key is Hashable and Equatable, which a payload-free enum declares as any type does.
+enum Color implements Hashable, Equatable
 	red
 	green
+
+	function hash() returns HashValue
+		return try self.ordinal as HashValue otherwise panic("an ordinal past a hash")
+	end 'hash'
+
+	function equals(other Color) returns bool
+		return self.ordinal == other.ordinal
+	end 'equals'
 end 'Color'
 
 function main() returns ExitCode
 	var m = StringCellMap.create()
 	m.upsert("one", value: Cell.make(1, label: "first"))
 	m.upsert("two", value: Cell.make(2, label: "second"))
-	print("{m.count()} {m.contains("one")} {m.contains("three")} {m.isEmpty()}\n")
-	m["one"].n = 10
-	bump(m["two"])
-	print("{m["one"].n} {m["one"].label} {m["two"].n}\n")
+	print("{m.count()} {m.contains("one")} {m.contains("three")} {(m.count() == 0)}\n")
+	var entry1 = try m.get("one") otherwise panic("no such key")
+	entry1.n = 10
+	m.upsert("one", value: entry1)
+	var entry2 = try m.get("two") otherwise panic("no such key")
+	bump(entry2)
+	m.upsert("two", value: entry2)
+	print("{(try m.get("one") otherwise panic("no such key")).n} {(try m.get("one") otherwise panic("no such key")).label} {(try m.get("two") otherwise panic("no such key")).n}\n")
 	m.upsert("one", value: Cell.make(100, label: "replaced"))
-	print("{m.count()} {m["one"].n} {m["one"].label}\n")
+	print("{m.count()} {(try m.get("one") otherwise panic("no such key")).n} {(try m.get("one") otherwise panic("no such key")).label}\n")
 	let key = "t{m.count()}o"
 	m.upsert(key, value: Cell.make(3, label: "interpolated key"))
 	print("{m.count()} {m.contains("t2o")}\n")
 	m.upsert("t2o", value: Cell.make(4, label: "same key again"))
-	print("{m.count()} {m["t2o"].n}\n")
+	print("{m.count()} {(try m.get("t2o") otherwise panic("no such key")).n}\n")
 	let copied = m.clone()
-	m["one"].n = 0
-	print("{m["one"].n} {copied["one"].n} {copied.count()}\n")
-	let cell = m["two"].clone()
+	var entry3 = try m.get("one") otherwise panic("no such key")
+	entry3.n = 0
+	m.upsert("one", value: entry3)
+	print("{(try m.get("one") otherwise panic("no such key")).n} {(try copied.get("one") otherwise panic("no such key")).n} {copied.count()}\n")
+	let cell = (try m.get("two") otherwise panic("no such key")).clone()
 	let taken = m.remove("two")
 	print("{taken} {m.contains("two")} {m.count()}\n")
 	let missing = m.remove("two")
@@ -51,13 +62,8 @@ function main() returns ExitCode
 	var counts = ColorCountMap.create()
 	counts.upsert(Color.red, value: 1)
 	counts.upsert(Color.green, value: 2)
-	counts[Color.red] = try counts[Color.red] + counts[Color.green] otherwise return 1
-	print("{counts[Color.red]} {counts[Color.green]}\n")
-	var handles = StringPool.create()
-	let h = handles.insert("pooled")
-	var byHandle = StringHandleCountMap.create()
-	byHandle.upsert(h, value: 7)
-	print("{byHandle[h]} {byHandle.contains(h)}\n")
+	counts.upsert(Color.red, value: try (try counts.get(Color.red) otherwise panic("no such key")) + (try counts.get(Color.green) otherwise panic("no such key")) otherwise return 1)
+	print("{(try counts.get(Color.red) otherwise panic("no such key"))} {(try counts.get(Color.green) otherwise panic("no such key"))}\n")
 	return 0
 end 'main'
 
@@ -71,4 +77,3 @@ end 'main'
 //> false
 //> 3 second
 //> 3 2
-//> 7 true

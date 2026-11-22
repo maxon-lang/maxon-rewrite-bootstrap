@@ -126,7 +126,6 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer cursor type is nameable", Instead: "walk an 'Array' with 'for'"},
 		Methods: rawSurface{What: "a raw '__ManagedMemoryCursor' is reachable", Instead: "walk an 'Array' with 'for'"},
 	}},
-	{Key: "Map", Name: "Map", Params: []string{"K", "V"}, Managed: true, Subscriptable: true},
 	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "Pool", Name: "Pool", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "Handle", Name: "Handle", Params: []string{"T"}},
@@ -264,10 +263,6 @@ var enumTypes = []enumType{
 	{Key: "ArrayError", Name: "ArrayError", Cases: []enumCase{
 		{"indexOutOfBounds", "ErrorIndexOutOfBounds"},
 		{"emptySlot", "ErrorEmptySlot"},
-	}},
-	{Key: "MapError", Name: "MapError", Cases: []enumCase{
-		{"keyNotFound", "ErrorKeyNotFound"},
-		{"keyAlreadyExists", "ErrorKeyAlreadyExists"},
 	}},
 	// ManagedMemoryError is what maxon's buffer operations throw; its first cases are an array's, so an array operation
 	// that a buffer's row lowers to fails with the same case of either.
@@ -574,16 +569,6 @@ var tableFunctions = []function{
 	{Owner: "ManagedMemoryCursor", Name: "seek", Self: "mutates", Params: []string{"index ElementIndex"}, Throws: "ManagedMemoryError", Intrinsic: "CursorSeek"},
 	{Owner: "ManagedMemoryCursor", Name: "peek", Params: []string{"ahead ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "CursorPeek"},
 
-	{Owner: "Map", Name: "create", Static: true, Result: "Self", Intrinsic: "MapCreate"},
-	{Owner: "Map", Name: "count", Result: "Count", Intrinsic: "MapCount"},
-	{Owner: "Map", Name: "isEmpty", Result: "Bool", Intrinsic: "MapIsEmpty"},
-	{Owner: "Map", Name: "contains", Params: []string{"key K"}, Result: "Bool", Intrinsic: "MapContains"},
-	{Owner: "Map", Name: "insert", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Bounds: []string{"V Droppable"}, Throws: "MapError", Intrinsic: "MapInsert"},
-	{Owner: "Map", Name: "upsert", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Bounds: []string{"V Droppable"}, Intrinsic: "MapUpsert"},
-	{Owner: "Map", Name: "replace", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Result: "V", Throws: "MapError", Intrinsic: "MapReplace"},
-	{Owner: "Map", Name: "remove", Self: "mutates", Params: []string{"key K"}, Result: "Bool", Bounds: []string{"V Droppable"}, Intrinsic: "MapRemove"},
-	{Owner: "Map", Name: "dropEmpty", Self: "consumes", Intrinsic: "MapDropEmpty"},
-
 	{Owner: "List", Name: "create", Static: true, Result: "Self", Intrinsic: "ListCreate"},
 	{Owner: "List", Name: "count", Result: "Count", Intrinsic: "ListCount"},
 	{Owner: "List", Name: "isEmpty", Result: "Bool", Intrinsic: "ListIsEmpty"},
@@ -739,6 +724,8 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "drawHashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeedDraw", Instead: "HashSeed.random()"},
 	{Owner: "Builtins", Name: "hashWord", Static: true, Params: []string{"_ HashDigest", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashWord", Instead: "a Hasher's combine(value)"},
 	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashBytes", Instead: "a Hasher's combineBytes(bytes)"},
+	// hashBytes of a String, whose box holds its bytes inline: the call of hashBytes whose first argument is a String.
+	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ String", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashStringBytes", Field: "HashStringBytes", Instead: "a Hasher's combineBytes(bytes)"},
 	// The ordered words of maxon's library: a read of the 2, 4 or 8 bytes at an index of an array, the first the most
 	// significant or the least, and an append of a word's low bytes in that order.
 	{Owner: "Builtins", Name: "readBigEndian", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ Count"}, Result: "OrderedWord", Throws: "ArrayError", Intrinsic: "ReadBigEndian", Instead: "readOrderedWord", Checked: true},
@@ -863,6 +850,7 @@ var entries = []entry{
 	{"HashSeedDraw", "rt.hash.draw", "Source", roleCall, "() -> a fresh secret from the system, or the next of the sequence a pinned process draws"},
 	{"HashWord", "rt.hash.word", "Source", roleCall, "(word, seed) -> the fold of the word's 8 bytes under the seed"},
 	{"HashBytes", "rt.hash.bytes", "Source", roleCall, "(ByteArray, at, count, seed) -> the fold of the count bytes from at under the seed; a span past the end panics"},
+	{"HashStringBytes", "rt.hash.string", "Source", roleCall, "(String, at, count, seed) -> the fold of the count bytes of the string from at under the seed; a span past the end panics"},
 	{"BytesReadWord", "rt.bytes.readWord", "Source", roleCall, "(ByteArray, at, width, bigEndian, error) -> the width bytes from at as a word, the first the most significant where bigEndian; past the end sets the error to indexOutOfBounds"},
 	{"BytesAppendWord", "rt.bytes.appendWord", "Source", roleCall, "(ByteArray, word, width, bigEndian): appends the word's low width bytes, the most significant first where bigEndian"},
 	{"ServiceNew", "rt.service.new", "Source", roleCall, "(state, capacity) -> handle: a service, a cown that holds its state and its mailbox's gate, whose state the factory's behaviour stores when it is 0"},
@@ -878,16 +866,6 @@ var entries = []entry{
 	{"ArrayInsert", "rt.array.insert", "Arrays", roleCall, "(array, index, element): moves it in at index, which may be the length"},
 	{"ArrayRemove", "rt.array.remove", "Arrays", roleCall, "(array, index) -> element: moves it out"},
 	{"ArrayShrink", "rt.array.shrink", "Arrays", roleCall, "(array or byte array, length): sets the length to one that is not above it, keeping the buffer; what was above it was moved out or needs no drop"},
-
-	{"MapNew", "rt.map.new", "Interpreter", roleCall, "() -> map"},
-	{"MapLen", "rt.map.len", "Interpreter", roleCall, "(map) -> count"},
-	{"MapHas", "rt.map.has", "Interpreter", roleCall, "(map, key) -> bool"},
-	{"MapElem", "rt.map.elem", "Interpreter", roleCall, "(map, key) -> address of the value"},
-	{"MapKeyAt", "rt.map.keyAt", "Interpreter", roleCall, "(map, position) -> address of the key of the entry at that position, in the order the keys were inserted"},
-	{"MapValueAt", "rt.map.valueAt", "Interpreter", roleCall, "(map, position) -> address of the value of the entry at that position"},
-	{"MapInsert", "rt.map.insert", "Interpreter", roleCall, "(map, key, value): moves both in; the value of an existing key is dropped"},
-	{"MapRemove", "rt.map.remove", "Interpreter", roleCall, "(map, key) -> value: moves it out; the key is dropped"},
-	{"MapCopy", "rt.map.copy", "Interpreter", roleCall, "(map) -> map: every key and value copied"},
 
 	{"ListNew", "rt.list.new", "Interpreter", roleCall, "() -> list"},
 	{"ListLen", "rt.list.len", "Interpreter", roleCall, "(list) -> count"},
@@ -1019,6 +997,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"HashSeedDraw", "drawHashSeed() Count"},
 	{"HashWord", "hashWord(word Count, seed Count) Count"},
 	{"HashBytes", "hashBytes(array Count, at Count, count Count, seed Count) Count"},
+	{"HashStringBytes", "hashStringBytes(text String, at Count, count Count, seed Count) Count"},
 	{"BytesReadWord", "bytesReadWord(array Count, at Count, width Count, bigEndian Bool, errorAddress Count) Count"},
 	{"BytesAppendWord", "bytesAppendWord(array Count, word Count, width Count, bigEndian Bool)"},
 	{"ServiceNew", "serviceNew(state Count, capacity Count) Count"},

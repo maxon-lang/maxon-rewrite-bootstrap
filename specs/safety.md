@@ -1606,6 +1606,7 @@ error E2051: sub/<fragment>:3:10: identifier 'maxon_force_segfault' is reserved:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-map-value-store -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused where it is stored as a `Map` value, not at the `idiv`
 The map's value type excludes 0, so a value read back out of it is proven non-zero and `100 / d` is a bare `idiv`. The store holds the proof: the zero is refused at `upsert`, ahead of the `print`.
 ```maxon

@@ -44,11 +44,12 @@ function main() returns ExitCode
 	var boxes = Boxes.create()
 	boxes.upsert(1, value: Box.make(5))
 	boxes.upsert(2, value: Box.make(7))
-	for (_, box) in boxes 'boxes'
-		box.n = try box.n * 2 otherwise panic("overflow")
+	var twice = Boxes.create()
+	for (key, box) in boxes 'boxes'
+		twice.upsert(key, value: Box.make(try box.n * 2 otherwise panic("overflow")))
 	end 'boxes'
 	var doubled = 0 as Count
-	for (key, box) in boxes 'again'
+	for (key, box) in twice 'again'
 		doubled = try doubled + key + box.n otherwise panic("overflow")
 	end 'again'
 	print("{doubled}\n")

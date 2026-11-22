@@ -1,0 +1,21 @@
+// expect-error: E3186 at 18:2
+type Holder
+	export var a as String
+	export var b as String
+
+	static function make() returns Holder
+		return Holder{a: "x", b: "y"}
+	end 'make'
+
+	function both() returns borrowed (String, String)
+		return (a, b)
+	end 'both'
+end 'Holder'
+
+function main() returns ExitCode
+	var h = Holder.make()
+	let (p, q) = h.both()
+	h.a = "z"
+	print("{p} {q}")
+	return 0
+end 'main'

@@ -57,15 +57,15 @@ typealias Int = int(i64.min to i64.max)
 export type BagIter uses Element implements Iterator with Element
 	var item as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{item: v}
 	end 'create'
 
-	export function current() returns Element
+	export function current() returns borrowed Element
 		return item
 	end 'current'
 
-	export function advance() throws IterationError
+	export function advance(mutates self) throws IterationError
 		throw IterationError.exhausted
 	end 'advance'
 end 'BagIter'
@@ -73,11 +73,11 @@ end 'BagIter'
 type Bag uses Element implements Iterable with (Element, BagIter)
 	var item as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{item: v}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError
+	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
 		return BagIter.create(item)
 	end 'createIterator'
 end 'Bag'
@@ -113,15 +113,15 @@ typealias Int = int(i64.min to i64.max)
 export type BagIter uses Element implements Iterator with Element
 	var item as Element
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{item: v}
 	end 'create'
 
-	export function current() returns Element
+	export function current() returns borrowed Element
 		return item
 	end 'current'
 
-	export function advance() throws IterationError
+	export function advance(mutates self) throws IterationError
 		throw IterationError.exhausted
 	end 'advance'
 end 'BagIter'
@@ -130,11 +130,11 @@ type Bag uses Element implements Iterable with (Element, BagIter)
 	var item as Element
 	var result as Int
 
-	static function create(v Element) returns Self
+	static function create(v Element) returns Self where Element implements Copyable
 		return Self{item: v, result: 0}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError
+	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
 		return BagIter.create(item)
 	end 'createIterator'
 end 'Bag'

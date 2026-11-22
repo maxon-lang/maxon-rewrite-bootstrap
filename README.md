@@ -47,7 +47,7 @@ generator.
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
-| `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
+| `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
 | `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
 | `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). It lays out what it converts with the compiler's `fmt`: `minimaxon.exe` in the root of the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
@@ -69,7 +69,7 @@ the rest, with line endings made LF. A test whose conversion warned, or whose so
 `<!-- skip: kind -->` line per kind of warning after its test marker; the runner skips and counts it, and every other test
 runs. `--check` over the specs, and the summary at the end of a conversion, give the tests converted cleanly and skipped and
 the kinds by tests blocked, most blocking first. Then `fix specs` applies the fixes that minimaxon's language differences
-name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`, the bound `where T implements Copyable` or `Droppable` that a generic body needs, written in the function's header, the module written before a bare name that means one declaration of another module, as `qualify` writes it) to every test that runs a program; a test
+name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`, `borrowed` on a result that a requirement lends, the bound `where T implements Copyable` or `Droppable` that a generic body needs, written in the function's header, the module written before a bare name that means one declaration of another module, as `qualify` writes it) to every test that runs a program; a test
 that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
 instead, and so does a test that expects a compile error which minimaxon reports first under another code for a known reason
 (the pairs of `self/driver/skips.tsv`, generated into `codeSkipTable`: ownership refused by another rule, the syntax error, operand
@@ -190,7 +190,7 @@ and none is run. Any other program that compiles is run twice, as the executable
 (see "The interpreter"), from the IR that the native build lowered, and both must give the stdout and the exit code the
 directives say; the interpreter must also find no violation of the memory model, and the executable, built with
 `--count-allocations`, must end with no heap box live (a program that traps skips that check). A program that uses a
-map, a list or a pool has no executable yet: it fails to compile with `E9900`, and the runner then runs it under the
+list or a pool has no executable yet: it fails to compile with `E9900`, and the runner then runs it under the
 interpreter alone. A program that schedules behaviours runs under 20 schedules of the interpreter
 (seeds 0 to 19), and every one must give the same stdout and exit code and no violation, as must the executable, whose
 workers schedule it as the machine does, so the directives of such a program must say an output that does not depend
@@ -303,7 +303,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
-  `stdlib/`, `.` for the root), and `.\stdlib.ps1` regenerates them, then applies the compiler's `fix` to them as `specs.ps1`
+  `stdlib/`, `.` for the root) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`), and `.\stdlib.ps1` regenerates them, then applies the compiler's `fix` to them as `specs.ps1`
   does to the spec tests (a `let` that is changed becomes a `var`, a name of another library module is qualified); none is
   edited here. The modules are layers, as a program's are: maxon's library names any of its declarations from any file, so
   the list puts files that name each other in one module and each other module above the ones it names. Every
@@ -316,7 +316,9 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   library, which for the root and a top-level module is the whole library and never a program. A program sees nothing of
   the library short of `public`. Each directory of maxon's `stdlib/helpers/` is a direct child module of the library's
   root (`stdlib/hashtable`, `stdlib/crypto`; `stdlib/files.txt` maps each file to its module), and the conversion makes
-  every `public` of a helper file `export`, so a helper is the whole library's and no program's; a helper that the root
+  every `public` of a helper file `export`, so a helper is the whole library's and no program's, and so is a `public`
+  member of another library file whose parameters or typealias target name a helper's type or such a member (its result may
+  name one); a helper that the root
   names and that names the root, `Hash.maxon`, is a file of the root, with its `public` made `export` all the same. A
   program the spec runner stages in the library is compiled as a file of the library's root, so it sees the library's
   `export` declarations too, bare. Only the library modules a program names, directly or through others, are compiled past
@@ -1240,11 +1242,11 @@ drop of one, a store into one or a move out of one as a violation.
 
 ### The primitives in the IR
 
-An `Array`, a `Map`, a `List` and a `Pool` (see "Primitives") are heap boxes that only runtime entries touch, so the IR holds no
+An `Array`, a `List` and a `Pool` (see "Primitives") are heap boxes that only runtime entries touch, so the IR holds no
 layout of them: an operation is a `runtime` call of a named entry (`internal/builtingen/table.go`), and the interpreter and the
 runtime each implement the entries. The element is always visible in the call:
 
-- An entry that takes an element **moves it in** (`rt.array.insert`, `rt.map.insert`, `rt.list.pushBack`, `rt.pool.insert`), one
+- An entry that takes an element **moves it in** (`rt.array.insert`, `rt.list.pushBack`, `rt.pool.insert`), one
   that returns an element **moves it out** (`rt.array.remove`, `rt.list.popFront`, `rt.pool.remove`), and `rt.<primitive>.elem`
   returns the **address** of an element: a borrow, valid until the next call that changes the primitive. A subscript is that
   call and a `loadat` or a `storeat`, and a `mutates` argument `a[i]` is the address itself. A value that changes the primitive
@@ -1263,7 +1265,7 @@ runtime each implement the entries. The element is always visible in the call:
   in the middle of a block would keep what the trap block reads live to the block's end), and an element as a load of the
   buffer's address and an indexed access (`[data + index*8]`, `[data + index]`; a string's bytes are in its box, so a
   byte of one is the access alone). Every
-  other entry stays a call: growth, insertion, removal, the byte write, maps, lists and pools. Where an index is proved
+  other entry stays a call: growth, insertion, removal, the byte write, lists and pools. Where an index is proved
   (inside a `FixedArray` by the checker, or by the test of a `try` around `get` and `set`), lowering writes the entry's call
   `proven` (`runtime rt.array.elem(%a, %i) proven`), which the expansion makes the access alone, with no `length` or
   `bounds`: lowering writes calls only, so the fallback holds every call the expansion takes out. The interpreter runs the expanded form (the driver expands the IR it keeps for it, as
@@ -1288,7 +1290,7 @@ runtime each implement the entries. The element is always visible in the call:
   allocator see nothing new. The interpreter holds such a return to giving a live value that an owner still holds, where
   any other return must give one that nothing owns.
 - An entry that is given an index, a key or a handle that names nothing traps. The queries that cannot miss
-  (`rt.<primitive>.len`, `rt.map.has`, `rt.pool.contains`, `rt.list.contains`) are what lowering tests before it calls an entry
+  (`rt.<primitive>.len`, `rt.pool.contains`, `rt.list.contains`) are what lowering tests before it calls an entry
   that would trap, failing with the operation's error when the test fails (see "Primitives").
 - A handle is a word, never 0. An entry that returns one returns 0 for none, where the operation fails.
 - **The OS entries** (`rt.os.*`) take and give Strings and arrays, never a record or a union: lowering takes the String out of a
@@ -1308,10 +1310,10 @@ runtime each implement the entries. The element is always visible in the call:
 words, the length, the capacity and the address of its elements, which are 8-byte words; `rt.array.insert` grows it by doubling
 and shifts what follows, and frees the buffer it leaves (the elements moved to the new one, so only the buffer goes), and
 `rt.array.remove` hands the element it removes to the caller, who owns it. `rt.array.shrink` sets the length of an array or a byte array and keeps the buffer: `clear` and `truncate` of an element that needs no drop are that one call, and of an element that owns something they drop each element in place, last first, in one loop in the IR (`arrayShrinkTo`), and then call it. A byte array has the same three words, with a buffer
-of one byte to an element; its copy and drop routines copy and free the buffer whole. A map, a list and a pool are lowered all
+of one byte to an element; its copy and drop routines copy and free the buffer whole. A list and a pool are lowered all
 the same, which is what the interpreter runs, but the driver refuses a function that needs one before it generates code:
 `E9900`, at the first use in each function. A function that only drops, copies or holds a value that contains one (a `consumes`
-parameter of type `Map with (K, V)`, or a record with a pool in it) is refused too, at the function, since there is no routine to
+parameter of type `List with T`, or a record with a pool in it) is refused too, at the function, since there is no routine to
 free it.
 
 ### Frozen values, cowns and behaviours in the IR
@@ -1395,7 +1397,7 @@ the same two routines (`backend.dropClosure`, `copyClosure`), and the drop routi
 body (`backend.emitCaptureDrop`), named `captures` and the body's symbol, since its types are the body's and no function
 type names them. Natively the count is stepped by one locked add (`lock xadd`), as a frozen value's is: a function value
 is immutable, so a copy of it may reach another thread, as the capture of a behaviour will. A closure that owns a value
-which only the interpreter can drop (a map, a list, a pool) is refused natively like one that drops it.
+which only the interpreter can drop (a list, a pool) is refused natively like one that drops it.
 
 ### Interface values in the IR
 
@@ -1441,7 +1443,7 @@ interpreter and native code free exactly there.
 |---|---|
 | `dropslot s2 T` | what slot `s2` owns, if anything, and leaves it empty: a local at the end of its block, on every way out of it (fallthrough, `return`, `break`, `continue`), and the old value of a local that is assigned |
 | `dropat %a T` | what the address holds, if anything: the old value of a field, an element or a `mutates` or `sets` parameter that is assigned |
-| `drop %r T` | the value in a register: a temporary that nothing took, an element removed and discarded, the key and the value that a failed `Map.insert` or `Map.replace` was given, the value given to `array.filled` |
+| `drop %r T` | the value in a register: a temporary that nothing took, an element removed and discarded, the value given to `array.filled` |
 | `%r = move s2` | reads a slot and leaves it empty: a whole local that moves (a binding, a `consumes` argument, a return, a field, a branch of a conditional) |
 | `%r = moveat %a` | reads the value at an address and leaves it empty: the payload that leaves the box of a union that `match consumes` takes apart, the String that leaves each element of the array `Directory.list` gives, for the `FilePath` made of it to take its place, and the value that `exchange` takes from a place |
 | `%r = copy %s T` | a deep copy of the owned value in `%s`, which stays where it is: a new box for each record, union and array inside it, a new string for each string that is not a literal, and another owner of the same box for a frozen value or a cown |
@@ -1450,7 +1452,7 @@ interpreter and native code free exactly there.
 drops what it owns, deeply by type: the fields of a record, the payload of a union, the elements of a primitive. A borrow is never
 dropped: a `let` or `mutates` parameter, a projection, and a `match` binding of a payload, which is stored with
 `store s3, %r borrow`. A place that holds nothing, because it was moved from or never assigned, drops as a no-op, so one drop at
-the end of a scope serves every path to it and no analysis of paths is needed. A function that drops a value that holds a map, a
+the end of a scope serves every path to it and no analysis of paths is needed. A function that drops a value that holds a
 list or a pool is refused natively like one that makes it.
 
 - **One place decides what moves.** The ownership pass marks each expression whose value changes owner (`ast.Typing.consumed`):
@@ -1531,7 +1533,7 @@ nothing.
 
 ### The interpreter
 
-`self/interp` runs the IR of a whole program, with the primitives written in Maxon (an array, a map, a list and a pool, each with
+`self/interp` runs the IR of a whole program, with the primitives written in Maxon (an array, a list and a pool, each with
 the generational handles that "Primitives" describes; a frozen value and a cown, with their counts) and a simulated scheduler of
 behaviours, and tracks the heap as the memory model describes it. It is for tests and development: it is never part of a
 compiled program, and the driver reaches it only from `minimaxon interp`, the test runner and `fuzz`. It has no types; it works
@@ -1579,7 +1581,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   behaviours, and requires the same stdout and exit code as the directives and no violation. `self/interp/interp.maxtest` tests it on
   IR that is written to break each rule (and to schedule behaviours: their order, their interleaving, the counts). `minimaxon fuzz` (`self/fuzz`) writes random well-formed programs over records, unions,
   strings, the four conventions, calls with overlapping and disjoint arguments, match bindings, loops, generics with bounds,
-  arrays, maps, lists and pools with handles, a borrowed place held while a later operand of the same expression changes or
+  arrays, lists and pools with handles, a borrowed place held while a later operand of the same expression changes or
   consumes what it lies in, and frozen values, cowns and behaviours. The checker refuses most of them, since the generator leans
   on the edges of the rules: about two programs in five are careless and break rules throughout, and two in five of the rest
   break exactly one rule of sharing, once (a behaviour that takes a borrow, a variable used after a behaviour took it, a frozen
@@ -1590,7 +1592,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   `self/fuzz/library.txt`. The command runs its seeds in worker processes, loads each program from memory
   (`project.loadSourceInto`), and with `--native` also builds each accepted program that has an executable, with its
   allocations counted, and compares it with the interpreter's: the same output and exit code, and no box left live.
-  The programs with no map, list or pool, which are the ones with an executable, share in half the seeds, and those are
+  The programs with no list or pool, which are the ones with an executable, share in half the seeds, and those are
   quiet: only main's own statements print (a print anywhere else only evaluates its string) and only they schedule
   behaviours, so the behaviours on each cown run in main's order and the output and the exit code are the same under
   every schedule, the executable's and the interpreter's alike. Such a program's executable runs 3 times, under the
@@ -2119,7 +2121,7 @@ edit to `runtime/` rebuilds everything.
   union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
-  maxon's iteration protocol, `for (i, x) in xs.enumerated()` over an array with its indexes, `for (k, v) in m` over a map and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
+  maxon's iteration protocol, `for (i, x) in xs.enumerated()` over an array with its indexes, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), `await p` of a promise of a
   function that returns nothing, and a `try` block with or without a handler (see "Checked arithmetic").
@@ -2309,7 +2311,9 @@ end 'forms'
   covers its whole expression, and a `try` block its whole body, except what a `try` inside covers with an `otherwise`
   of its own. A `throw` needs no `try`: it goes to the handler of the `try` block around it, or out of the function.
 - What leaves the function, through a `try` without `otherwise` or a `throw`, must be the error the function throws:
-  `E3059` otherwise, also where the function throws nothing; convert another error with `otherwise throw`. A handler
+  `E3059` otherwise, also where the function throws nothing; convert another error with `otherwise throw`. Where what
+  fails so is an operation's range (an arithmetic, a cast, an index, a conversion at a return), `fix` gives the
+  operation a `try ... otherwise panic(...)` of its own, as it does where no `try` covers one. A handler
   that names the error (`(e)`) takes the one error its block's calls and throws fail with, must `match` on it (`E3084`),
   and refuses anything else that fails in the block (`E3059`), which a `try ... otherwise` of its own handles instead. A
   handler without a name catches every error.
@@ -2338,7 +2342,7 @@ end 'forms'
   (`throw Outer.wrapped(e)`) or `throw e` again; every other handler (`otherwise 0`, `ignore`, a `try` block with no name,
   an `if try` with no binding) drops it where the failure leaves. `throw` moves its value, as `return` does, so throwing a
   field that stays in use needs `.clone()`.
-- A built-in that can fail throws maxon's error enum for it, which the stdlib declares: `ArrayError` and `MapError` for
+- A built-in that can fail throws maxon's error enum for it, which the stdlib declares: `ArrayError` for
   the collections (see "Primitives"), and the errors of the OS functions (see "The OS"). Its call is covered by a `try`
   like any other, and its failure takes the same register and branch.
 
@@ -2906,8 +2910,20 @@ end 'main'
   tree (`check/destructure.maxon`, `ast.Typing.expansions`): a `let` that holds the tuple, unless it is a variable, a field or an element at a
   simple index, which is read again for each element; then a `let` or an assignment for each name, whose value is that element read as a
   field. The ranges, the ownership pass and the lowering run those statements as they run any, so a scalar element is copied, a managed
-  one is moved out of an owned tuple and a borrowed one is `E3900` (`.clone()` is the fix), and no pass has a rule of its own for
-  tuples. The names count against the elements: `E2015` for a declaration and `E3005` for an assignment.
+  one is moved out of an owned tuple, and no pass has a rule of its own for tuples. A tuple that is lent rather than owned (an
+  element, the variable of a loop that lends it, a part of a borrowed parameter or receiver, the result of a call that
+  returns borrowed) gives each name a borrow of its element instead, a `let` that owns nothing and holds what the element
+  lies in for its scope (`check.lentLetOwn`): moving one is `E3900` (`.clone()` is the fix), and a `var` takes a copy, as
+  `var x = a[i]` does. The names count against the elements: `E2015` for a declaration and `E3005` for an assignment.
+- **A tuple of lent places is lent.** A function that `returns borrowed (K, V)` may return a tuple written of places it may
+  lend (`return (keys.current(), values.current())`, `return (a, b)` of the receiver's fields) and scalars, which a borrow of
+  one is: each element is held to the law of a borrowed return (`E3926` for one made in the function, a nested tuple among
+  them), and the tuple holds the borrows of all of them, as a value of a type that holds a borrow does: it lives in the
+  caller's scope, cannot be moved, and holds what it borrows until it ends (Hylo's projections captured by a tuple). It is
+  lowered with no box: the caller passes a frame area of a word for each element after the arguments (`ir.FrameArea`,
+  `ast.lentTupleElements`), the function writes the borrows there and returns it, and a call through a requirement or an
+  interface's table does the same at the instance it calls. A record literal of lent places is not lent: a borrowed record
+  is one a parameter holds.
 
 A value that must be ended in one of several ways (a transaction that commits or rolls back, a socket, a reply token) is
 the "Higher RAII" of [Vale's linear types](https://verdagon.dev/blog/higher-raii-uses-linear-types), built here from
@@ -2953,7 +2969,7 @@ A `Txn` has no copy and no drop, so every path that makes one ends it with `comm
 
 `Copyable` and `Droppable` are structural: a type never says it has one (`implements Copyable` on a declaration is
 `E3921`), it says what removes it. `Copyable` is lost by `is noncopyable` or by a part that lacks it; a part is a field,
-a union payload, an element of an `Array`, `List` or `Pool`, or a value of a `Map`. A `frozen`, a `cown` and a
+a union payload, an element of an `Array`, `List` or `Pool`. A `frozen`, a `cown` and a
 `Handle` have both whatever they hold, so the loss stops there. A generic type is judged per instance (`Box with Socket`
 is not `Copyable`, `Box with Count` is), and a type parameter has a capability only by bound; `Copyable` includes
 `Droppable`. A type that declares a destructor, a method whose receiver is `destructs self`, loses both, and so does
@@ -2971,7 +2987,7 @@ can say where it comes from and how to get it back. Every copy decision goes thr
 - Built-ins state what they need as a bound on their signature, checked like any other (`E3017`): `thaw` needs a
   `Copyable` content because it copies it, and `array.filled` needs a `Copyable` element, a bound on the method that
   `Array with T` adds to its own parameter. `freeze` and `cown(x)` need a `Droppable` content, because the last owner
-  drops it, and `map.insert` needs a `Droppable` value, because it drops the one it replaces.
+  drops it.
 - **An implicit drop needs `Droppable`.** These drop a value, and each is `E3919` when its type lacks `Droppable`: the end
   of a scope that still holds an owned local, a `consumes` parameter, a `consumes self` or a payload bound by `match
   consumes` (also through a `return`, `break` or `continue` that leaves it, reported at that statement; at the
@@ -3018,7 +3034,7 @@ end 'int'
 ```
 
 An `extension` adds the methods it declares, and the interfaces it `implements`, to the type it names: a `type`, an `enum`
-or a `union` of any module (`extension shapes.Counter`), the built-in `Array`, `Map` and `List`, `String`, `bool`, `int`,
+or a `union` of any module (`extension shapes.Counter`), the built-in `Array` and `List`, `String`, `bool`, `int`,
 which stands for every integer type (`self` has the range of `FullRangeInt`), and `float`, which stands for every float type
 (`self` is a `FullRangeFloat`), as maxon's `PrimitiveExtensions.maxon` extends them. The end label is the extended type's name.
 Inside, `self` and the bare names of the type's fields and type parameters mean what they do in its body, and `Self` is
@@ -3106,7 +3122,7 @@ names no type parameter of the extended declaration is `E2015`. A method with su
 ### Primitives
 
 Layer 2 of [docs/regions.md](docs/regions.md), as far as step 3 goes: their signatures and ownership rules. An
-`Array with T`, a `Map with (K, V)`, a `List with T` (doubly linked, one node per element) and a `Pool with T` own their elements.
+`Array with T`, a `List with T` (doubly linked, one node per element) and a `Pool with T` own their elements.
 Their operations are generic methods that no source declares (`internal/builtingen/table.go`), typed, borrowed and moved
 like any other method from the signature below, so none of the ownership rules has a special case for them. They are
 declared in the stdlib module, so a name resolves to them last, after the module's own, the root's and an exported
@@ -3116,14 +3132,13 @@ one anywhere.
 |---|---|
 | `FixedArray with N T`, `FixedArray with T` | maxon's fixed-size array (`stdlib/FixedArray.maxon`): an array whose count never changes, which its type states (`with 3 Int`, a literal from 1 to 4294967295, `E2069`) or, runtime-sized, its value. `create()` and `create(value: x)` where the type states the count, `create(n)` and `create(n, value: x)` where it does not (`E3194` for the other form), each zeroed where no `value:` is given and `T` has a zero value (`E3106`), and a constant `n` gives the type that states it; `Alias from [a, b]`, of exactly the count a counted alias states, or stating the literal's; `count()`; `get(i)` where `T` is `Copyable` and `set(i, value: v)` where `T` is `Droppable`; `refill(x)`, copies of `x` over every element. A get or a set of a type that states its count at an index the range analysis proves inside it cannot fail and compiles to the access with no check; a constant index outside it is `E3005`, and any other index throws `ArrayError.indexOutOfBounds` as an array's does, so it needs a `try` (`E3057`, naming the ranged type that would prove it). A `FixedArray with N T` is a subtype of `FixedArray with T`, so it goes where one is taken and a join of the two is the runtime-sized type. `for x in xs` walks it as an array; inside an `extension FixedArray` its `Self` states no count, and `countof(Self)` in a method is the receiver's |
 | `Array with T` | `create(n)`, `n` zero elements, where `T` has a zero value or `n` is the literal `0` (`E3106`); `filled(n, value: x)` where `T` is `Copyable`; `count()`, `isEmpty()`; `get(i)`, a copy of the element, where `T` is `Copyable`, and `set(i, value: v)`, where `T` is `Droppable`, both throwing `ArrayError.indexOutOfBounds` past the end; `push(value)`; `append(other)`, a copy of each element of `other`, where `T` is `Copyable`; `insert(at, value: v)`, which clamps `at` to the count; `remove(at)` and `pop()` return `T` and throw `ArrayError`; `dropEmpty()` |
-| `Map with (K, V)` | `create()`; `count()`, `isEmpty()`, `contains(k)`; `insert(k, value: v)`, which throws `MapError.keyAlreadyExists` for a key that is there, and `upsert(k, value: v)`, which replaces its value, both where `V` is `Droppable`; `replace(k, value: v)` returns the old value and throws `MapError.keyNotFound` for a key that is not there; `remove(k)` drops the value and returns whether the key was there, where `V` is `Droppable`; `dropEmpty()` |
 | `List with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `first()`, `last()`, `next(h)` and `prev(h)` return `Handle with T` and throw `ArrayError.indexOutOfBounds` where there is no such node; `prepend(value)` and `append(value)` return `Handle with T`; `removeFirst()` and `removeLast()` return `T` and throw `ArrayError`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `moveToFront(h)`; `dropEmpty()` |
 | `Pool with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `Handle with T`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `dropEmpty()` |
 | `Handle with T` | no operations; `==` and `!=` |
 | `__ManagedMemory with T` | maxon's raw buffer, which only the library tiers name (`E3185`): the box of an array, seen through maxon's buffer operations, each the array operation that does the same, so there is one implementation of each on either target. `length()`; `get(i)`, a copy of the element, where `T` is `Copyable`, throwing `__ManagedMemoryError.indexOutOfBounds` past the end and `emptySlot` at an empty slot (see `Array.clearSlot`). `xs.managed` is the buffer of an array: the array itself seen as one, so it is borrowed, moved and dropped as `xs` is (`let m = xs.managed` moves `xs`) |
 | `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`; `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The test runners pin `MAXON_HASH_SEED` for every program they start (`hashseed.ps1`), as maxon's harness hands its programs the run's seed |
 | `__ManagedMemoryCursor with T` | maxon's position in a raw buffer, which only the library tiers name (`E3185`), made by a buffer's `createCursor()` at its first element, which fails with `__ManagedMemoryError.indexOutOfBounds` on an empty buffer. It holds a borrow of the buffer (see "Borrowing values"), so the buffer cannot change while it lives and it always names an element: `current()` lends it, `index()` is its index, `advance()`, `retreat()` and `seek(index)` move it (`mutates self`) and fail, leaving it where it was, past either end, and `peek(ahead)` is a copy of the element so many places on, where `T` is `Copyable` |
-| `ArrayError`, `MapError`, `IterationError`, `__ManagedMemoryError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists`; `exhausted` and `atStart`, which the iteration protocol throws; a buffer's, whose first two cases are an array's |
+| `ArrayError`, `IterationError`, `__ManagedMemoryError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `exhausted` and `atStart`, which the iteration protocol throws; a buffer's, whose first two cases are an array's |
 | `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
 
 A fixed array is an array's box with its count of elements: the instance states the count as one more type argument after the
@@ -3139,11 +3154,11 @@ generic's parameters build it is a `Count` that each instance computes from its 
 An array of an integer type whose range fits in a `Byte` holds one byte to an element, natively and under the
 interpreter, and any other array a word; the program cannot tell, except by how much memory it takes.
 
-**Array and map literals.** `[a, b, c]` is an `Array` and `[k: v, l: w]` a `Map`, written on one line with at least one element:
+**Array and map literals.** `[a, b, c]` is an `Array` and `[k: v, l: w]` the standard library's `Map`, written on one line with at least one element:
 `[]` is `E2015`, as in maxon (its element type cannot be inferred). A literal is what the explicit code
 does: an empty collection, then a `push` or an `upsert` of each element in the order written, so each element is checked against
 `value` (and `key`) as that call's argument is, moved in under the same rules, and a later `upsert` of a key replaces its value. The
-element type is the one the context expects when it is an `Array with T` or a `Map with (K, V)` (an argument, a return, a field, an
+element type is the one the context expects when it is an `Array with T` or the library's `Map with (K, V)` (an argument, a return, a field, an
 assignment, a typealias'd `let`), else the first element's, with a later integer joined to it as the branches of a conditional are
 (`E3005` for two types that do not join; for a negative number and one above `i64.max`, "no common integer type"). Bare numbers have
 no alias, so a literal of them keeps the range it spans, `[1, 2, 3]` being `Array with int(1 to 3)`, which a `let` reads at any alias that holds it
@@ -3166,19 +3181,18 @@ throw.
 `create` and `filled` are static functions, called through a typealias of the instance (`Counts.create(0)`) or where
 the type is known (`Shelf{items: Array.create(0)}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`.
 `dropEmpty()` takes `consumes self`, ends the collection and traps if an element is left: it is how a collection of values with destructors, which cannot be
-dropped, ends after every element was taken out. `Map.replace` lowers to `has`, `elem`, `moveat` and `insert`, so the key
-keeps its place and no value is dropped. Nothing built in returns an `Option`, and there is none built in.
-- **Operations that fail throw.** `remove`, `pop`, `removeFirst`, `removeLast`, `first`, `last`, `next`, `prev`, `Map.insert` and `Map.replace` throw
+dropped, ends after every element was taken out. Nothing built in returns an `Option`, and there is none built in.
+- **Operations that fail throw.** `remove`, `pop`, `removeFirst`, `removeLast`, `first`, `last`, `next` and `prev` throw
   maxon's error, so a call of one is covered by a `try` like any other that throws (`E3057`): `try a.pop() otherwise
   fallback`, or `try a.remove(i) otherwise panic("index out of range")` where a miss is a bug. The lowering tests first
   and fails as a compiled throwing function does, with the case plus 1 in the error register, so a failure allocates
-  nothing; `Map.insert` and `Map.replace` drop the key and the value they were given on a failure.
+  nothing.
 
 - **Collections own their elements.** Adding takes the element `consumes`, so it moves in. Taking one out is `remove`,
   `pop`, `removeFirst` or `removeLast`, which move it out to the caller, owned; the only other way to hold an
   element is `.clone()`. `clone()` of a collection is deep.
 -  **A subscript is a projection.** `a[i]`, `m[k]`, `l[h]` and `p[h]` borrow the element: the array is indexed by a
-  `Count`, a map by its key, a list and a pool by the `Handle` of the element. Read, it is a `let` borrow; assigned
+  `Count`, a list and a pool by the `Handle` of the element. Read, it is a `let` borrow; assigned
   through (`a[i] = v`, `a[i].count = 3`) or passed to a `mutates` parameter, it is `mutates`. It is never an owned
   value: binding it, returning it or passing it to a `consumes` parameter is `E3901`, or `E3900` where the collection
   itself is borrowed, and `clone()` is the fix. A scalar element is copied like any scalar, so `let n = a[i]` is fine.
@@ -3203,18 +3217,22 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   nothing, so `a[0].n + shrink(a)` is fine; so is a copy on the left, `a[0].clone() == wipe(a)`, or the other operand
   computed into a variable first. One helper, `hold`, takes every one of these, and a hold is only a push that is looked
   at when something in the rest changes or moves a place.
-- **Handles are keys.** A `Handle with T` is a plain word: copy it freely, store it in a field, in a map, in an array or
+- **Handles are keys.** A `Handle with T` is a plain word: copy it freely, store it in a field, in an array or
   in another element, compare it with `==`. It owns nothing. Using one is a lookup, so a handle whose element was
   removed finds nothing, and a slot that was reused does not answer to the old handle, because a handle also
   carries a generation. A handle of one pool used on another pool of the same element type is not a soundness issue:
   the lookup fails or finds that pool's element at the same slot. A handle of another element type is refused
   (`E3005`). A `List` hands out the same kind of handle for its nodes, so a cache is a `List` of entries in order of
-  use and a `Map` from each key to the handle of its entry, and a linked structure is a `Pool` of nodes that name
+  use and the library's `Map` from each key to the handle of its entry, and a linked structure is a `Pool` of nodes that name
   each other by handle (see `tests/`).
-- **Map keys** are compared and copied as a word or as text: an integer alias, a `bool`, an enum, a `String` or a
-  `Handle`. Any other key, a record or a union or a type parameter, is `E3908`. A generic function can therefore take
-  a `Map with (String, V)` with a generic `V`, but not a `Map with (K, V)` with a generic `K`; a bound for keys would lift that.
-  `upsert` replaces the value of a key that is there, which is dropped.
+- **The Map is the library's**, maxon's `stdlib/Map.maxon` converted (`stdlib/Map.maxon`): `Map with (K, V)` where `K implements Hashable and Equatable`, an open-addressed table that probes linearly over three columns (keys, values, slot
+  states with the keys' cached hashes), with maxon's API: `create()`, `insert(k, value: v)` (`MapError.keyAlreadyExists`),
+  `upsert`, `get(k)` (a copy, `MapError.keyNotFound`), `contains`, `remove`, `count()`, `getCapacity()` and `createIterator()`.
+  Its methods carry the bounds its body needs here, which `fix` wrote: storing, rehashing and reading a value copy it, so
+  `K` and `V` are `Copyable` and `Droppable` for `insert`, `upsert` and `get`. A key is `Hashable` and `Equatable`: an integer
+  alias and a `float` through `PrimitiveExtensions`, a `String` through the library's extension (its `hash()` folds its bytes
+  with `__Builtins.hashBytes`, its `equals` is the built-in one, which meets the requirement in place), and a type of
+  the program that declares both (`E3017` otherwise).
 - **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `Array with T` is
   owned and movable, so a generic container gives an element out with `remove` or `pop`, or `.clone()`.
 - **Iteration.** `for x in a` walks an array: each element in turn is lent to `x`, as `a[i]` lends it, so a scalar is
@@ -3238,19 +3256,16 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   element is: a borrow of the cursor, which the loop holds, so moving it is `E3900` and `.clone()` the fix. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
   throws another error is `E2015`, as is a loop over anything else: a string, a list, a pool. A string's `bytes()`,
   `codepoints()` and `utf16()` views are such collections; a loop over the string itself waits for `Character`.
-  The order in which a map is walked is not specified, and the implementation walks it as is most efficient (two
-  loops over a map that is not changed see the same order). `for (key, value) in m` binds the key and the value of each
-  entry, `_` for the one the body does not use, and each is lent as an array's element is, a scalar copied and anything else a borrow (`E3900` to move it, `.clone()`
-  is the fix). Both are `let`s (`E2013`), the key is read-only, and the value's fields are as writable as the map's. The
-  map is held while the body runs as an array is (`E3186`). A map holds no pair of a key and a value, so a loop that
-  names one variable, `for entry in m`, is `E2015`. The lowering is a loop over the entries' positions, reading the key
-  and the value in place with `rt.map.keyAt` and `rt.map.valueAt`, so a program that walks a map runs under the
-  interpreter, as every use of a map does.
+  A `Map` is walked by its `MapIterator`, in the order of its slots: `current()` lends the entry as a tuple of two
+  borrows, the key's and the value's slots (see "Tuples"), so `for (key, value) in m` binds the two as borrows of the
+  table, read-only, `_` for one the body does not use, and `for entry in m` binds the pair. The map is held while the
+  body runs (`E3186`). The loop is the iteration protocol's: `createIterator()` once, then `current()` and `advance()` per
+  entry, `current()` writing the two borrows into two words of the loop's frame, so a pass allocates nothing.
   `E.allCases` is a new `Array` of an enum's cases and `E.allCaseNames` one of the names of the cases of an enum or a
   union, `Array with String`, in declaration order; both are read before a case of the same name. `allCases` of a union
   is `E4006`. A loop over either walks the array as any other (`for c in E.allCases` is a loop over a fresh array).
 - **Running them.** An array runs natively: heap-allocated, bounds-checked, and freed with what it holds where its owner
-  dies (see "The primitives in the IR" and "Native freeing"). A map, a list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
+  dies (see "The primitives in the IR" and "Native freeing"). A list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
   program that uses one is refused when it is compiled to an executable (`E9900`) and still passes `check`; the test
   runner runs such a program under the interpreter alone.
 - **Limits.** A primitive implements no interface (`E3017`). A record
@@ -3718,6 +3733,20 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- `Map` is maxon's `stdlib/Map.maxon`, converted, and the built-in map is gone: a map literal makes it by calling its static
+  `init` with an array of the keys and one of the values, the type found by its name at the library's root (`ast.libraryMapName`)
+  where maxon's compiler looks for the type that implements `BuiltinDictionaryLiteral`, which the conversion leaves out of
+  the header with the other literal markers (`Builtin*Literal`). maxon's `Map` has no subscript, `replace`, `isEmpty` or
+  `dropEmpty`, which the built-in had, and a `Handle` is no key, since it is not `Hashable`. maxon makes a payload-free enum
+  `Hashable` and `Equatable` itself; here such an enum declares both, with its methods, to be a key (not yet synthesized).
+- `String` implements `Hashable` and `Equatable` through the library's extension, which the conversion writes from the header
+  of maxon's `String.maxon`, with the methods that the built-in `String` lacks (`hash()`) from maxon's source; the built-in
+  `equals` meets `Equatable` and is called in place through a bound. `Cloneable` is left out: `clone()` is the copy every
+  `Copyable` value has here, which no type declares.
+- `name immutable T` on a parameter, or a result's `immutable T`, where `T` is a type parameter alone, is a plain `T`: a
+  parameter is read-only already, and a generic body cannot give a frozen value of a `T` it holds. Of any other type it is
+  `frozen with T`.
+
 - x64-linux: `FilePath.from` turns a backslash into a slash
   and refuses nothing on Linux, as maxon's does. A run of a program found on `PATH` looks for it as `execvp` does, in the run's
   own `PATH`; the run passes the child the run's environment.
@@ -3809,9 +3838,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   add one name are `E3942` at the use that sees both and not `E3061`, and `Type.name` of a generic type, which would need the
   type's arguments, is `E2015`. A ranged typealias of an extension of a generic type is `E2015`, as in its body. A function
   typealias of a non-generic type or extension is a type of its own, as a top-level one is; in the body of a generic type it is not.
-- `for` loops (see "Primitives"): a `Map` is walked as `for (key, value) in m`, in an order that neither language specifies (the two differ in practice), and a loop that names one variable for the pair
-  (maxon binds a tuple) is `E2015`; the key and the value are
-  lent, not copied, and the map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it. `E.allCases`
+- `for` loops (see "Primitives"): a `Map`'s entries are lent, not copied, as a tuple of two borrows (see "Tuples"), and the
+  map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it. `E.allCases`
   and `E.allCaseNames` are a new array each time they are read, since an array has one owner, and `Shape.unionCases` is not
   supported. Not supported, and skipped by the converter: a loop over the characters of a `String` (there is no `Character`),
   over its grapheme clusters, `split()` or `lines()`. maxon's `for (iter, x) in xs.withIterator()`, whose iterator the
@@ -3864,8 +3892,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   in two registers). Destructuring a managed element out of a borrowed tuple, which Maxon shares, is `E3900` and takes
   `.clone()`, and so does naming it in a `for (a, b) in xs` over a collection of them. A tuple of bare numbers has the ranges of
   its numbers (`(int(1 to 1), int(2 to 2))`, for the messages that name it), not `(int, int)`, and two tuple literals of
-  different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), a loop over
-  a `Map` that names the `(key, value)` pair by one variable (see "Primitives"), the spelling `t._0` of an element that
+  different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), the spelling `t._0` of an element that
   some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
   and the `E3064` lint on a tuple assignment of nothing but `_`.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
@@ -3966,19 +3993,19 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   local, a payload or a receiver, and `modify`), static fields, default parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
-  all but the map, the list and the pool. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
+  all but the list and the pool. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
   and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
   The grammar has none of the rest, so each is a syntax error.
 - Array and map literals (see "Primitives") are the maxon literals without a literal spread over several
-  lines or constant image data: a `let` literal is a fresh `Array` or `Map` like any other value, not an immutable image shared by its
+  lines or constant image data: a `let` literal is a fresh `Array` or library `Map` like any other value, not an immutable image shared by its
   uses, and its bare numbers keep their range as the element type of that one array instead of fitting any alias at each use, so
   passing `let xs = [1, 2]` to a parameter of `Array with Count` is `E3005` until the literal is written where the parameter is.
-- `Array`, `Map` and `List` have the names, the signatures and the errors of maxon's stdlib, but they are built-in
+- `Array` and `List` have the names, the signatures and the errors of maxon's stdlib, but they are built-in
   types rather than stdlib code, and keep these differences: a subscript is a place (`a[i].f = x`, `mutates a[i]`) that
   traps on a miss, where only `get` and `set` throw, as maxon's do; `Pool`, `Handle` and the list's handle API (`prepend`
   and `append` return a `Handle`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
-  maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; only an array, a `Map`'s
-  entries and the views of a `String` are walked by `for x in` (a `String` itself, a `List` and a range value are not), and the loop holds the array or the map, so a body that pushes to it or reassigns it is
+  maxon has pointers and indexes; `filled` and `dropEmpty` are minimaxon's own; only an array, a type with the iteration protocol (the library's `Map`)
+  and the views of a `String` are walked by `for x in` (a `String` itself, a `List` and a range value are not), and the loop holds the array or the map, so a body that pushes to it or reassigns it is
   refused (`E3186`) where maxon re-reads the live count; the
   iteration protocol is found on the concrete type or through a type parameter's bounds, never through an interface value;
   there is no `sort`, `contains`, `cursor` or `hash` yet, `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element

@@ -852,6 +852,14 @@ export function declName(p Project, ref DeclRef) returns String
 	return p.modules[ref.module as Count].decls[ref.ordinal as Count].name()
 end 'declName'
 
+// constValueNode is the expression that the constant ref is declared with.
+export function constValueNode(p Project, ref DeclRef) returns NodeID
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].constValue()
+	end 'std'
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].constValue()
+end 'constValueNode'
+
 export function declLevel(p Project, ref DeclRef) returns Visibility
 	if ref.module == diag.stdlibID 'std'
 		return p.stdlib.decls[ref.ordinal as Count].level()
@@ -967,7 +975,6 @@ export function typeLinkNameIn(p Project, tt TypeSlot, reads TypeTable, t TypeID
 		enumTy gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		unionTy gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinArray gives nominalLinkName(p, tt: tt, reads: reads, t: t)
-		builtinMap gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinList gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinPool gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinHandle gives nominalLinkName(p, tt: tt, reads: reads, t: t)

@@ -83,8 +83,8 @@ type Bag implements Grows
 		return Self{total: 0}
 	end 'create'
 
-	function grow(by Tally)
-		self.total = self.total + by
+	function grow(mutates self, by Tally)
+		self.total = try self.total + by otherwise panic("out of range")
 	end 'grow'
 
 	function size() returns Tally
@@ -92,7 +92,7 @@ type Bag implements Grows
 	end 'size'
 end 'Bag'
 
-function stretch(g Grows)
+function stretch(mutates g Grows)
 	g.grow(5)
 end 'stretch'
 

@@ -29,7 +29,7 @@ function getValue(m StringMap, key String) returns String throws TestError
 end 'getValue'
 
 function main() returns ExitCode
-	let m = StringMap.create()
+	var m = StringMap.create()
 	try m.insert("key", value: "hello") otherwise ignore
 	let got = try getValue(m, key: "key") otherwise "none"
 	if got == "hello" 'ok'
@@ -52,7 +52,7 @@ type Entry
 	export var count as SmallInt
 
 	static function create(name String, count SmallInt) returns Self
-		return Self{name: name, count: count}
+		return Self{name: name.clone(), count: count}
 	end 'create'
 end 'Entry'
 
@@ -70,7 +70,7 @@ function getEntry(m EntryMap, key String) returns Entry throws TestError
 end 'getEntry'
 
 function main() returns ExitCode
-	let m = EntryMap.create()
+	var m = EntryMap.create()
 	try m.insert("key", value: Entry.create("hello", count: 7)) otherwise ignore
 	let got = try getEntry(m, key: "key") otherwise Entry.create("none", count: 0)
 	return got.count
@@ -87,10 +87,10 @@ typealias Code = int(0 to 125)
 
 typealias CodeArray = Array with Code
 
-function bump(a CodeArray)
+function bump(mutates a CodeArray)
 	try 'update'
 		let old = a.get(0)
-		a.set(0, value: old + 1)
+		a.set(0, value: try old + 1 otherwise panic("out of range"))
 	end 'update' otherwise (e) 'bad'
 		match e 'kind'
 			indexOutOfBounds then panic("oob")
@@ -100,7 +100,7 @@ function bump(a CodeArray)
 end 'bump'
 
 function main() returns ExitCode
-	let a = CodeArray.create(0)
+	var a = CodeArray.create(0)
 	a.push(41)
 	bump(a)
 	return try a.get(0) otherwise 99

@@ -65,15 +65,60 @@ function elementRead(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 end 'elementRead'
 
 // TupleSource is the tuple that a destructuring takes apart: the expression the elements are read from, which is the tuple's
-// own place or a name for the hidden local that holds it.
+// own place or a name for the hidden local that holds it, and whether the tuple is lent rather than owned, so that its
+// elements are bound as borrows of it.
 type TupleSource
 	var node as ast.NodeID
 	var ty as ast.TypeID
+	var lends as bool
 
-	static function make(node ast.NodeID, ty ast.TypeID) returns TupleSource
-		return TupleSource{node: node, ty: ty}
+	static function make(node ast.NodeID, ty ast.TypeID, lends bool) returns TupleSource
+		return TupleSource{node: node, ty: ty, lends: lends}
 	end 'make'
 end 'TupleSource'
+
+// placeLends is whether the tuple at the place e is lent: an element of a collection, which element access lends, or a part
+// of a local that borrows its value, a parameter that does not own its value or a receiver that does not.
+function placeLends(c Checker, tree ast.Tree, e ast.NodeID) returns bool
+	let k = tree.kindOf(e)
+	if k == ast.NodeKind.indexExpr 'element'
+		return true
+	end 'element'
+	if k == ast.NodeKind.memberExpr 'member'
+		return placeLends(c, tree: tree, e: ast.memberExprObj(tree, id: e))
+	end 'member'
+	if k == ast.NodeKind.selfExpr 'receiver'
+		return receiverLends(c)
+	end 'receiver'
+	if k == ast.NodeKind.nameExpr 'name'
+		return match c.typing.names.get(e as Count) 'hit'
+			some(info) gives (info.kind == ast.NameKind.nameLocal and isBorrowed(c.typing.locals[info.local as Count])) or (info.kind == ast.NameKind.nameSelfField and receiverLends(c))
+			none gives false
+		end 'hit'
+	end 'name'
+	panic("destructure: a place of kind {k.name} is no pure place")
+end 'placeLends'
+
+// receiverLends is whether the receiver of the function being checked borrows its value.
+function receiverLends(c Checker) returns bool
+	for i in 0 upto c.fnLocals.count() 'locals'
+		if c.typing.locals[c.fnLocals[i] as Count].isSelf 'self'
+			return isBorrowed(c.typing.locals[c.fnLocals[i] as Count])
+		end 'self'
+	end 'locals'
+	return false
+end 'receiverLends'
+
+// lendsResult is whether the call at e gives a place that it borrows from its arguments, a tuple that is lent.
+function lendsResult(c Checker, tree ast.Tree, e ast.NodeID) returns bool
+	if tree.kindOf(e) != ast.NodeKind.callExpr 'notCall'
+		return false
+	end 'notCall'
+	return match c.typing.calls.get(e as Count) 'hit'
+		some(info) gives info.result == ast.ResultConv.resultBorrowed
+		none gives false
+	end 'hit'
+end 'lendsResult'
 
 // tupleSource types the tuple that the statement s takes apart, and holds it in a local of its own when it is not a place
 // that can be read once for each element. It gives none after it reported why the value is no tuple of as many elements as
@@ -97,23 +142,25 @@ function tupleSource(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		return table.Option.none
 	end 'arity'
 	if isPurePlace(ms.tree(), typing: c.typing, e: value) 'place'
-		return table.Option.some(TupleSource.make(value, ty: t))
+		return table.Option.some(TupleSource.make(value, ty: t, lends: placeLends(c, tree: ms.tree(), e: value)))
 	end 'place'
 	let hold = ast.newLetStmt(ms.ownTree, start: ms.tree().startOf(s))
 	ast.setLetStmtNameRef(ms.ownTree, id: hold, ref: nameRefAt(ms.tree().startOf(s)))
 	ast.setLetStmtInit(ms.ownTree, id: hold, value: value)
 	let local = declareHidden(c, name: "tuple", t: t, definedAt: hold)
+	let lends = lendsResult(c, tree: ms.tree(), e: value)
+	c.typing.locals[local as Count].projected = lends
 	c.typing.nodeLocals.insert(hold as Count, value: local)
 	syn.push(hold)
 	let name = ast.newNameExpr(ms.ownTree, start: ms.tree().startOf(value))
 	ast.setNameExprNameRef(ms.ownTree, id: name, ref: nameRefAt(ms.tree().startOf(s)))
 	c.typing.names.insert(name as Count, value: ast.NameInfo.localName(local))
 	ast.setNodeType(c.typing, node: name, ty: t)
-	return table.Option.some(TupleSource.make(name, ty: t))
+	return table.Option.some(TupleSource.make(name, ty: t, lends: lends))
 end 'tupleSource'
 
 // bindElement is a let that binds the element at index of the tuple to a name, which the name's node places and the ref
-// of the name spells.
+// of the name spells. An element of a lent tuple is lent to a let, which borrows it; a var owns what it holds.
 function bindElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, source TupleSource, index Count, at ast.NodeID, ref diag.U32, isVar bool, mutates syn ast.NodeIDList, mutates errs diag.ErrorList)
 	let elem = elementRead(c, p: p, ms: ms, obj: source.node, ownerTy: source.ty, index: index, binding: ref)
 	let bound = ast.newLetStmt(ms.ownTree, start: ms.tree().startOf(at))
@@ -129,6 +176,12 @@ function bindElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		return
 	end 'bareNumber'
 	bindLet(c, p: p, ms: ms, s: bound, name: name, t: t, isVar: isVar, off: offsetOf(c, p: p, ms: ms, node: at), errs: errs)
+	if source.lends and not isVar 'lent'
+		match c.typing.nodeLocals.get(bound as Count) 'local'
+			some(local) then c.typing.locals[local as Count].projected = ast.isManagedType(ms.types, reads: p.types, t: t)
+			none then _ = 0
+		end 'local'
+	end 'lent'
 	syn.push(bound)
 end 'bindElement'
 
@@ -194,7 +247,7 @@ end 'assignElements'
 // declareTupleVariable declares the variable of a for over tuples, which no name reaches, and the lets that bind each element
 // of what it holds to the names of the loop. It gives none after it reported why the elements are no tuple of as many
 // elements as there are names.
-function declareTupleVariable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, varType ast.TypeID, mutates bound ast.NodeIDList, mutates errs diag.ErrorList) returns ast.LocalID
+function declareTupleVariable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, varType ast.TypeID, lends bool, mutates bound ast.NodeIDList, mutates errs diag.ErrorList) returns ast.LocalID
 	let namesRef = ast.forStmtVarsRef(ms.tree(), id: s)
 	let count = ms.tree().listLen(namesRef)
 	if not ast.isTupleType(ms.types, reads: p.types, t: varType) 'notTuple'
@@ -211,7 +264,7 @@ function declareTupleVariable(mutates c Checker, p ast.Project, mutates ms ast.M
 	ast.setNameExprNameRef(ms.ownTree, id: name, ref: nameRefAt(ms.tree().startOf(s)))
 	c.typing.names.insert(name as Count, value: ast.NameInfo.localName(local))
 	ast.setNodeType(c.typing, node: name, ty: varType)
-	let source = TupleSource.make(name, ty: varType)
+	let source = TupleSource.make(name, ty: varType, lends: lends)
 	for i in 0 upto count 'each'
 		let at = ms.tree().listAt(namesRef, index: i) as ast.NodeID
 		let ref = ast.bindNameNameRef(ms.tree(), id: at)

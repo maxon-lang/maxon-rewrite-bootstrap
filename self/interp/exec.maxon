@@ -503,6 +503,21 @@ function execFrameBox(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.setRef(x.dst, o: o)
 end 'execFrameBox'
 
+// execFrameArea gives the frame area of the frame that runs, a record of as many words as the tuple it holds the borrows
+// of, made the first time the frame reaches it and the same one each time after, as the executable's is the same words of
+// the frame. It owns nothing and nothing owns it: the frame keeps it, so a function may lend it, and it ends with its frame
+// as a frame box does.
+function execFrameArea(mutates vm Vm, x ir.Instr)
+	let at = try vm.fr.boxBase[vm.top] + ir.frameAreaBox(x) otherwise panic("interp: a frame area past memory")
+	if vm.fr.boxes[at] == 0 'first'
+		let made = newBox(vm, words: ir.frameAreaWords(x))
+		vm.h.oFrameArea[made] = true
+		vm.fr.boxes[at] = made
+	end 'first'
+	let o = vm.fr.boxes[at]
+	vm.setRef(x.dst, o: o)
+end 'execFrameArea'
+
 // endFrameBoxes ends the frame boxes of the frame serial as it returns: each is marked freed without being a free of the
 // program's, so a use of one after its frame is a use after free.
 function endFrameBoxes(mutates vm Vm, serial Count)

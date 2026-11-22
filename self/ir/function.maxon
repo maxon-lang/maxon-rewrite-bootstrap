@@ -23,6 +23,12 @@ export function kindName(k IrKind) returns String
 end 'kindName'
 
 // regOf is the register that a count of the registers made so far names.
+// frameAreaBoxes is how many frame boxes a frame area of that many words takes.
+export function frameAreaBoxes(words Count) returns Count
+	let boxWords = ifaceBoxBytes / wordBytes
+	return try (words + boxWords - 1) / boxWords otherwise panic("ir: a frame area past memory")
+end 'frameAreaBoxes'
+
 export function regOf(n Count) returns Reg
 	return try n as Reg otherwise panic("ir: a function has more registers than a register can name")
 end 'regOf'
@@ -224,10 +230,15 @@ export type IrFunction
 	end 'newSlot'
 
 	export function newFrameBox(mutates self) returns Count
-		let n = frameBoxes
-		frameBoxes = try frameBoxes + 1 otherwise panic("ir: more frame boxes than memory")
-		return n
+		return self.newFrameBoxes(1)
 	end 'newFrameBox'
+
+	// newFrameBoxes reserves count frame boxes in a row, the first of which it gives.
+	export function newFrameBoxes(mutates self, count Count) returns Count
+		let n = frameBoxes
+		frameBoxes = try frameBoxes + count otherwise panic("ir: more frame boxes than memory")
+		return n
+	end 'newFrameBoxes'
 
 	export function stringAt(i Index) returns String
 		return strings[try i as Count otherwise panic("ir: a string index is out of range")].clone()

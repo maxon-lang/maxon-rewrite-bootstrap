@@ -101,6 +101,20 @@ export union Decl
 		return visibilityOf(self.visibility())
 	end 'level'
 
+	// constValue is the expression a constant is declared with, which only a constant has.
+	export function constValue() returns NodeID
+		return match self 'd'
+			constDecl(cd) gives cd.value
+			funcDecl(_) panic("ast: a function has no constant value")
+			typeDecl(_) panic("ast: a type has no constant value")
+			enumDecl(_) panic("ast: an enum has no constant value")
+			unionDecl(_) panic("ast: a union has no constant value")
+			aliasDecl(_) panic("ast: a typealias has no constant value")
+			interfaceDecl(_) panic("ast: an interface has no constant value")
+			extensionDecl(_) panic("ast: an extension has no constant value")
+		end 'd'
+	end 'constValue'
+
 	export function isExported() returns bool
 		return self.level() != Visibility.unexported
 	end 'isExported'

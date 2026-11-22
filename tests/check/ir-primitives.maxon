@@ -12,7 +12,7 @@ function drop(mutates items Array with Count)
 end 'drop'
 
 function lookup(m Map with (Count, Count), k Count) returns Count
-	return m[k]
+	return (try m.get(k) otherwise panic("no such key"))
 end 'lookup'
 
 function build() returns Count

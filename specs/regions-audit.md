@@ -170,7 +170,7 @@ type Row
 	end 'create'
 end 'Row'
 
-function look(_ frozen with T) uses T returns Tally
+function look(_ T) uses T returns Tally
 	return 1
 end 'look'
 

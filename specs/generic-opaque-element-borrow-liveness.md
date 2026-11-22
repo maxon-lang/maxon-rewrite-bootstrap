@@ -1216,17 +1216,17 @@ type Slot uses T where T implements Equatable
 	var spare as T
 	var scrub as String
 
-	static function create(first T, second T) returns Self
-		return Self{current: first, spare: second, scrub: ""}
+	static function create(first T, second T) returns Self where T implements Copyable
+		return Self{current: first.clone(), spare: second.clone(), scrub: ""}
 	end 'create'
 
-	function replace() returns T
-		self.current = self.spare
+	function replace(mutates self) returns T where T implements Droppable and Copyable
+		self.current = self.spare.clone()
 		self.scrub = "zzzzz {40 + 2} value long enough for a heap record"
-		return self.spare
+		return self.spare.clone()
 	end 'replace'
 
-	function run() returns bool
+	function run(mutates self) returns bool where T implements Droppable and Copyable
 		return self.current == replace()
 	end 'run'
 end 'Slot'
@@ -1234,7 +1234,7 @@ end 'Slot'
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record", second: "alpha {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record", second: "alpha {40 + 2} value long enough for a heap record")
 	print("{s.run()}\n")
 	return 0
 end 'main'
@@ -1255,17 +1255,17 @@ type Slot uses T where T implements Equatable
 	var spare as T
 	var scrub as String
 
-	static function create(first T, second T) returns Self
-		return Self{current: first, spare: second, scrub: ""}
+	static function create(first T, second T) returns Self where T implements Copyable
+		return Self{current: first.clone(), spare: second.clone(), scrub: ""}
 	end 'create'
 
-	function replace() returns T
-		self.current = self.spare
+	function replace(mutates self) returns T where T implements Droppable and Copyable
+		self.current = self.spare.clone()
 		self.scrub = "zzzzz {40 + 2} value long enough for a heap record"
-		return self.spare
+		return self.spare.clone()
 	end 'replace'
 
-	function run() returns bool
+	function run(mutates self) returns bool where T implements Droppable and Copyable
 		return current == replace()
 	end 'run'
 end 'Slot'
@@ -1273,7 +1273,7 @@ end 'Slot'
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record", second: "alpha {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record", second: "alpha {40 + 2} value long enough for a heap record")
 	print("{s.run()}\n")
 	return 0
 end 'main'
@@ -1338,28 +1338,28 @@ type Slot uses T where T implements Equatable
 	var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function look() returns Count
-		let held = current
+	function look(mutates self) returns Count where T implements Copyable
+		let held = current.clone()
 		return observe(held)
 	end 'look'
 
-	function pass() returns Count
+	function pass(mutates self) returns Count
 		return observe(current)
 	end 'pass'
 
-	function lookSelf() returns Count
-		let held = self.current
+	function lookSelf(mutates self) returns Count where T implements Copyable
+		let held = self.current.clone()
 		return observe(held)
 	end 'lookSelf'
 end 'Slot'
@@ -1367,7 +1367,7 @@ end 'Slot'
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
 	print("{s.look()} {s.pass()} {s.lookSelf()}\n")
 	return 0
 end 'main'
@@ -1380,6 +1380,7 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-in-a-method-with-no-other-opaque-signal-is-counted -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### A `for` element survives a call that wipes its source, in a method that needs no descriptor for anything else
 `walk` stores nothing and moves nothing out, so the loop element is the only reason it owes a layout descriptor. `wipe` clears the
 array and allocates a record of the size it freed; the element holds its own reference, and the clear ends the loop.
@@ -1398,7 +1399,7 @@ type Bag uses T where T implements Equatable
 		items.push(item)
 	end 'add'
 
-	function wipe() where T implements Droppable
+	function wipe()
 		self.items.clear()
 		self.scrub = "zzzzz {40 + 2} value long enough for a heap record"
 	end 'wipe'
@@ -1410,7 +1411,7 @@ type Bag uses T where T implements Equatable
 		return self.seen
 	end 'observe'
 
-	function walk() returns Count where T implements Droppable
+	function walk() returns Count
 		var total = 0 as Count
 		for item in self.items 'scan'
 			wipe()
@@ -1438,6 +1439,7 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-binary-operand-survives-a-call-releasing-its-source -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### A `for` element compared against a call that wipes its source
 The element is the left operand of `==`; the right operand is `wipeAndGive(extra)`, which clears the array before it returns.
 ```maxon
@@ -1454,13 +1456,13 @@ type Bag uses T where T implements Equatable
 		items.push(item)
 	end 'add'
 
-	function wipeAndGive(extra T) returns T where T implements Droppable
+	function wipeAndGive(extra T) returns T
 		self.items.clear()
 		self.scrub = "zzzzz {40 + 2} value long enough for a heap record"
 		return extra
 	end 'wipeAndGive'
 
-	function matches(extra T) returns bool where T implements Droppable
+	function matches(extra T) returns bool
 		for item in self.items 'scan'
 			return item == wipeAndGive(extra)
 		end 'scan'
@@ -1542,8 +1544,8 @@ type Slot uses T where T implements Equatable
 	export var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 end 'Slot'
 
@@ -1552,19 +1554,19 @@ type Wrapper uses T where T implements Equatable
 	var inner as Inner
 	var seen as Count
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function bareHead() returns Count
-		let held = inner.current
+	function bareHead(mutates self) returns Count where T implements Copyable
+		let held = inner.current.clone()
 		return observe(held)
 	end 'bareHead'
 end 'Wrapper'
@@ -1572,7 +1574,7 @@ end 'Wrapper'
 typealias StrWrapper = Wrapper with String
 
 function main() returns ExitCode
-	let w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
+	var w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
 	print("{w.bareHead()}\n")
 	return 0
 end 'main'
@@ -1591,8 +1593,8 @@ type Slot uses T where T implements Equatable
 	export var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 end 'Slot'
 
@@ -1601,19 +1603,19 @@ type Wrapper uses T where T implements Equatable
 	var inner as Inner
 	var seen as Count
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function viaLocal() returns Count
-		let via = self.inner
+	function viaLocal(mutates self) returns Count where T implements Copyable
+		let via = self.inner.clone()
 		let held = via.current
 		return observe(held)
 	end 'viaLocal'
@@ -1622,7 +1624,7 @@ end 'Wrapper'
 typealias StrWrapper = Wrapper with String
 
 function main() returns ExitCode
-	let w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
+	var w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
 	print("{w.viaLocal()}\n")
 	return 0
 end 'main'
@@ -1642,8 +1644,8 @@ type Slot uses T where T implements Equatable
 	export var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 end 'Slot'
 
@@ -1652,23 +1654,23 @@ type Wrapper uses T where T implements Equatable
 	var inner as Inner
 	var seen as Count
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function nestedLook() returns Count
-		let held = self.inner.current
+	function nestedLook(mutates self) returns Count where T implements Copyable
+		let held = self.inner.current.clone()
 		return observe(held)
 	end 'nestedLook'
 
-	function nestedPass() returns Count
+	function nestedPass(mutates self) returns Count
 		return observe(self.inner.current)
 	end 'nestedPass'
 end 'Wrapper'
@@ -1676,7 +1678,7 @@ end 'Wrapper'
 typealias StrWrapper = Wrapper with String
 
 function main() returns ExitCode
-	let w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
+	var w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
 	print("{w.nestedLook()} {w.nestedPass()}\n")
 	return 0
 end 'main'
@@ -1695,8 +1697,8 @@ type Slot uses T where T implements Equatable
 	export var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 end 'Slot'
 
@@ -1705,19 +1707,19 @@ type Wrapper uses T where T implements Equatable
 	var inner as Inner
 	var seen as Count
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function viaParam(c Inner) returns Count
-		let held = c.current
+	function viaParam(mutates self, c Inner) returns Count where T implements Copyable
+		let held = c.current.clone()
 		return observe(held)
 	end 'viaParam'
 end 'Wrapper'
@@ -1727,7 +1729,7 @@ typealias StrWrapper = Wrapper with String
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
+	var w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
 	let s = StrSlot.create("beta {40 + 2} value long enough for a heap record")
 	print("{w.viaParam(s)}\n")
 	return 0
@@ -1747,8 +1749,8 @@ type Slot uses T where T implements Equatable
 	export var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 end 'Slot'
 
@@ -1757,19 +1759,19 @@ type Wrapper uses T where T implements Equatable
 	var inner as Inner
 	var seen as Count
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function viaPeer(other Self) returns Count
-		let held = other.inner.current
+	function viaPeer(mutates self, other Self) returns Count where T implements Copyable
+		let held = other.inner.current.clone()
 		return observe(held)
 	end 'viaPeer'
 end 'Wrapper'
@@ -1777,7 +1779,7 @@ end 'Wrapper'
 typealias StrWrapper = Wrapper with String
 
 function main() returns ExitCode
-	let w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
+	var w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
 	let o = StrWrapper.create("beta {40 + 2} value long enough for a heap record")
 	print("{w.viaPeer(o)}\n")
 	return 0
@@ -1797,8 +1799,8 @@ type Slot uses T where T implements Equatable
 	export var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 end 'Slot'
 
@@ -1806,7 +1808,7 @@ type Middle uses T where T implements Equatable
 	export typealias Inner = Slot with T
 	export var inner as Inner
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first)}
 	end 'create'
 end 'Middle'
@@ -1816,19 +1818,19 @@ type Outer uses T where T implements Equatable
 	var mid as Mid
 	var seen as Count
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{mid: Mid.create(first), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function deepLook() returns Count
-		let held = self.mid.inner.current
+	function deepLook(mutates self) returns Count where T implements Copyable
+		let held = self.mid.inner.current.clone()
 		return observe(held)
 	end 'deepLook'
 end 'Outer'
@@ -1836,7 +1838,7 @@ end 'Outer'
 typealias StrOuter = Outer with String
 
 function main() returns ExitCode
-	let o = StrOuter.create("alpha {40 + 2} value long enough for a heap record")
+	var o = StrOuter.create("alpha {40 + 2} value long enough for a heap record")
 	print("{o.deepLook()}\n")
 	return 0
 end 'main'
@@ -1849,6 +1851,7 @@ end 'main'
 ```
 
 <!-- test: a-for-loop-over-the-array-field-of-a-self-typed-parameter-holds-its-element -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### A `for` over the array field of a `Self`-typed parameter holds its element across a call that wipes the source
 `walk` iterates `other.items` and `wipe` clears that very array while the loop's element is live; the loop owes the element a reference of its own.
 ```maxon
@@ -1872,7 +1875,7 @@ type Bag uses T where T implements Equatable
 		return self.seen
 	end 'observe'
 
-	function walk(other Self) returns Count where T implements Droppable
+	function walk(other Self) returns Count
 		var total = 0 as Count
 		for item in other.items 'scan'
 			other.items.clear()
@@ -1907,23 +1910,23 @@ type Slot uses T where T implements Equatable
 	var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function groupedLook() returns Count
-		let held = (current)
+	function groupedLook(mutates self) returns Count where T implements Copyable
+		let held = (current.clone())
 		return observe(held)
 	end 'groupedLook'
 
-	function groupedSelfPass() returns Count
+	function groupedSelfPass(mutates self) returns Count
 		return observe((self.current))
 	end 'groupedSelfPass'
 end 'Slot'
@@ -1931,7 +1934,7 @@ end 'Slot'
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
 	print("{s.groupedLook()} {s.groupedSelfPass()}\n")
 	return 0
 end 'main'
@@ -1952,19 +1955,19 @@ type Slot uses T where T implements Equatable
 	var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function peerLook(other Self) returns Count
-		let held = other.current
+	function peerLook(mutates self, other Self) returns Count where T implements Copyable
+		let held = other.current.clone()
 		return observe(held)
 	end 'peerLook'
 end 'Slot'
@@ -1972,7 +1975,7 @@ end 'Slot'
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
 	let t = StrSlot.create("beta {40 + 2} value long enough for a heap record")
 	print("{s.peerLook(t)}\n")
 	return 0
@@ -1992,18 +1995,18 @@ type Slot uses T where T implements Equatable
 	var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function peerPass(other Self) returns Count
+	function peerPass(mutates self, other Self) returns Count
 		return observe(other.current)
 	end 'peerPass'
 end 'Slot'
@@ -2011,7 +2014,7 @@ end 'Slot'
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
 	let t = StrSlot.create("beta {40 + 2} value long enough for a heap record")
 	print("{s.peerPass(t)}\n")
 	return 0

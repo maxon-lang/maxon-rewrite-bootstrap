@@ -242,6 +242,7 @@ error E3014: <fragment>:6:8: field 'Map.capacity' is not exported
 ```
 
 <!-- test: error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-by-its-bare-name -->
+<!-- positions: moved -->
 The bare spelling of the same read.
 
 ```maxon
@@ -256,7 +257,7 @@ end 'Map'
 function main() returns ExitCode
 	var index = Index.create()
 	index.upsert("key", value: 1)
-	return index.slots() as ExitCode
+	return try index.slots() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

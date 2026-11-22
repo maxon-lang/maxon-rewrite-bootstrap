@@ -6451,8 +6451,8 @@ is, and returns the record without a leak.
 type Solo uses T where T implements Equatable
 	var a as T
 
-	static function create(item T) returns Self
-		let built = Self{a: item}
+	static function create(item T) returns Self where T implements Copyable
+		let built = Self{a: item.clone()}
 		if built.sameAs(item) 'same'
 			return built
 		end 'same'
@@ -6463,8 +6463,8 @@ type Solo uses T where T implements Equatable
 		return self.a.equals(other)
 	end 'sameAs'
 
-	function held() returns T
-		return self.a
+	function held() returns T where T implements Copyable
+		return self.a.clone()
 	end 'held'
 end 'Solo'
 

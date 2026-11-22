@@ -99,9 +99,9 @@ function bump(mutates s String)
 	s = "b"
 end 'bump'
 
-// expect-error: E3186 at 105:16
+// expect-error: E3186 at 105:25
 function main() returns ExitCode
 	var m = CountPersonMap.create()
-	print(m[drain(m)].name)
+	print((try m.get(drain(m)) otherwise panic("no such key")).name)
 	return 0
 end 'main'

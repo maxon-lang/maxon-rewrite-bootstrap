@@ -264,7 +264,7 @@ function checkDeclaredName(mutates c Checker, p ast.Project, mutates ms ast.Modu
 		return ast.noType
 	end 'type'
 	match consumes constantOf(p, ms: ms, ref: ref) 'const'
-		some(value) then return typeOfConstant(c, e: e, ref: ref, value: value)
+		some(value) then return typeOfConstant(c, p: p, ms: ms, e: e, ref: ref, value: value, errs: errs)
 		none then _ = 0
 	end 'const'
 	if ast.declIsConst(p, ref: ref) 'unvalued'
@@ -274,7 +274,21 @@ function checkDeclaredName(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	return functionValue(c, p: p, ms: ms, e: e, ref: ref, name: name, errs: errs)
 end 'checkDeclaredName'
 
-function typeOfConstant(mutates c Checker, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue) returns ast.TypeID
+// typeOfConstant types a read of the constant ref. A constant is built where it is read, so the calls of its value that need
+// an instance of a generic (a map literal's) are the reader's, which only a reader in the constant's module can make.
+function typeOfConstant(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue, mutates errs diag.ErrorList) returns ast.TypeID
+	if c.hasUses 'reader'
+		let node = ast.constValueNode(p, ref: ref)
+		if ref.module == c.modID 'here'
+			match consumes c.typing.fieldUses.get(node as Count) 'uses'
+				some(calls) then recordAll(c, calls: calls)
+				none then _ = 0
+			end 'uses'
+		end 'here' else if p.typings[ast.modIndex(ref.module)].fieldUses.has(node as Count) 'elsewhere'
+			failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupported, msg: "Unsupported: '{ast.declName(p, ref: ref)}' is built where it is read, and its value calls code of its own module that another module cannot make here; read it through a function of its module", errs: errs)
+			return ast.noType
+		end 'elsewhere'
+	end 'reader'
 	c.typing.names.insert(e as Count, value: ast.NameInfo.constName(ref))
 	return value.ty
 end 'typeOfConstant'
@@ -428,7 +442,6 @@ function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bo
 		record gives true
 		primString gives true
 		builtinArray gives true
-		builtinMap gives true
 		builtinList gives true
 		invalid gives false
 		primBool gives false
@@ -880,7 +893,6 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 		floatRange gives false
 		constFloat gives false
 		builtinArray gives false
-		builtinMap gives false
 		builtinList gives false
 		builtinPool gives false
 		builtinHandle gives false
@@ -911,7 +923,6 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		enumTy gives "enum"
 		unionTy gives "union"
 		builtinArray gives name
-		builtinMap gives name
 		builtinList gives name
 		builtinPool gives name
 		builtinHandle gives name
@@ -943,7 +954,6 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		enumTy gives nameOfType(p, ms: ms, t: t)
 		unionTy gives nameOfType(p, ms: ms, t: t)
 		builtinArray gives nameOfType(p, ms: ms, t: t)
-		builtinMap gives nameOfType(p, ms: ms, t: t)
 		builtinList gives nameOfType(p, ms: ms, t: t)
 		builtinPool gives nameOfType(p, ms: ms, t: t)
 		builtinHandle gives nameOfType(p, ms: ms, t: t)

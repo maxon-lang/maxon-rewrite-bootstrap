@@ -17,8 +17,6 @@ let kindString = 1 as Count
 
 let kindArray = 2 as Count
 
-let kindMap = 3 as Count
-
 let kindList = 4 as Count
 
 let kindPool = 5 as Count
@@ -45,7 +43,6 @@ function kindName(kind Count) returns String
 		0 gives "record"
 		1 gives "string"
 		2 gives "array"
-		3 gives "map"
 		4 gives "list"
 		5 gives "pool"
 		6 gives "frozen value"
@@ -112,20 +109,6 @@ type SharedData
 end 'SharedData'
 
 typealias SharedDatas = Array with SharedData
-
-// MapData is the entries of a map in the order they were made, and the ways to find one by its key: a word, or the text of
-// a string.
-type MapData
-	var entries as CountList
-	var byNumber as table.IntMap with Count
-	var byText as table.StringMap with Count
-
-	static function new() returns MapData
-		return MapData{entries: CountList.create(0), byNumber: table.IntMap.new(), byText: table.StringMap.new()}
-	end 'new'
-end 'MapData'
-
-typealias MapDatas = Array with MapData
 
 // Table holds the elements of a list or a pool in slots that name them by a handle with a generation, so a slot that held
 // an element and was reused does not answer to the handle of the old one. A list also keeps its slots in order.
@@ -233,10 +216,12 @@ type Heap
 	// it walks, which the cell's owner neither frees nor copies.
 	var cellLent as BoolList
 	// An object's columns. oData is where its contents are: the first cell of a box, an index into the heap's texts, buffers,
-	// element lists, maps, tables or shared data by its kind.
+	// element lists, tables or shared data by its kind.
 	var oKind as CountList
 	var oFreed as BoolList
 	var oImmortal as BoolList
+	// oFrameArea is whether an object is the frame area of a frame (ir.FrameArea), which the frame keeps and nothing owns.
+	var oFrameArea as BoolList
 	var oOwner as CountList
 	var oVersion as CountList
 	var oData as CountList
@@ -246,24 +231,21 @@ type Heap
 	var texts as ast.StringList
 	var buffers as ByteArrays
 	var elements as CountLists
-	var maps as MapDatas
 	var tables as Tables
 	var shareds as SharedDatas
-	// A map entry is a pair of cells.
-	var entryKey as CountList
-	var entryVal as CountList
 	// literals are the strings that are in the executable, by their text, and constants the constants that are, by their
 	// symbol.
 	var literals as table.StringMap with Count
 	var constants as table.StringMap with Count
 
 	static function new() returns Heap
-		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), maps: MapDatas.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), entryKey: CountList.create(0), entryVal: CountList.create(0), literals: table.StringMap.new(), constants: table.StringMap.new()}
+		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oFrameArea: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), literals: table.StringMap.new(), constants: table.StringMap.new()}
 		// Handle 0 names nothing, so every column starts with a row that is never used.
 		_ = h.newCell(0)
 		h.oKind.push(0)
 		h.oFreed.push(false)
 		h.oImmortal.push(false)
+		h.oFrameArea.push(false)
 		h.oOwner.push(0)
 		h.oVersion.push(0)
 		h.oData.push(0)
@@ -273,11 +255,8 @@ type Heap
 		h.texts.push("")
 		h.buffers.push(ByteArray.create(0))
 		h.elements.push(CountList.create(0))
-		h.maps.push(MapData.new())
 		h.tables.push(Table.new())
 		h.shareds.push(SharedData.new())
-		h.entryKey.push(0)
-		h.entryVal.push(0)
 		return h
 	end 'new'
 
@@ -298,6 +277,7 @@ type Heap
 		oKind.push(kind)
 		oFreed.push(false)
 		oImmortal.push(false)
+		oFrameArea.push(false)
 		oOwner.push(0)
 		oVersion.push(0)
 		oData.push(0)
@@ -358,13 +338,6 @@ type Heap
 		elements.push(CountList.create(0))
 		return o
 	end 'newArray'
-
-	function newMap(mutates self, site Count) returns Count
-		let o = self.newObject(kindMap, site: site)
-		oData[o] = maps.count()
-		maps.push(MapData.new())
-		return o
-	end 'newMap'
 
 	// newTable makes a list or a pool.
 	function newTable(mutates self, kind Count, site Count) returns Count

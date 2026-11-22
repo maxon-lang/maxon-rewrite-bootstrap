@@ -378,7 +378,8 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	c.constName = cd.name.clone()
 	startUses(c, node: cd.value, inField: true)
 	let t = checkExpr(c, p: p, ms: ms, e: cd.value, errs: errs)
-	c.hasUses = false
+	// The calls the value makes are made where it is read (typeOfConstant).
+	finishUses(c)
 	if t == ast.noType 'failed'
 		return
 	end 'failed'

@@ -754,14 +754,6 @@ export function boundsOfParam(p ast.Project, ms ast.ModuleState, boundedFn ast.F
 	return out
 end 'boundsOfParam'
 
-export function isKeyType(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, t ast.TypeID) returns bool
-	if t == ast.noType 'n'
-		return false
-	end 'n'
-	let k = ast.typeKind(tt, reads: reads, t: t)
-	return t == b.boolTy or t == b.stringTy or k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.enumTy or k == ast.TypeKind.builtinHandle
-end 'isKeyType'
-
 export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
 	if t == ast.noType 'n'
 		return false
@@ -771,7 +763,6 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		enumTy gives true
 		unionTy gives true
 		builtinArray gives true
-		builtinMap gives true
 		builtinList gives true
 		builtinPool gives true
 		builtinHandle gives true
@@ -816,9 +807,6 @@ export function typeElemType(p ast.Project, ms ast.ModuleState, ownerTy ast.Type
 	let orig = ast.originOf(ms.types, reads: p.types, t: ownerTy)
 	let k = ast.typeKind(ms.types, reads: p.types, t: orig)
 	let args = ast.typeArgsOf(ms.types, reads: p.types, t: ownerTy)
-	if k == ast.TypeKind.builtinMap and args.count() >= 2 'map'
-		return args[1]
-	end 'map'
 	if args.count() >= 1 'one'
 		return args[0]
 	end 'one'
@@ -832,9 +820,6 @@ export function typeIndexType(p ast.Project, mutates ms ast.ModuleState, ownerTy
 		return p.builtins.countTy
 	end 'arr'
 	let args = ast.typeArgsOf(ms.types, reads: p.types, t: ownerTy)
-	if k == ast.TypeKind.builtinMap and args.count() >= 1 'map'
-		return args[0]
-	end 'map'
 	if (k == ast.TypeKind.builtinList or k == ast.TypeKind.builtinPool) and args.count() >= 1 'hl'
 		var hArgs = ast.TypeIDList.create(0)
 		hArgs.push(args[0])
@@ -926,15 +911,11 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 				end 'eachP'
 			end 'eachC'
 		end 'cases'
-	end 'uni' else if k == ast.TypeKind.builtinArray or k == ast.TypeKind.builtinList or k == ast.TypeKind.builtinPool or k == ast.TypeKind.builtinMap 'col'
+	end 'uni' else if k == ast.TypeKind.builtinArray or k == ast.TypeKind.builtinList or k == ast.TypeKind.builtinPool 'col'
 		let elTy = typeElemType(p, ms: ms, ownerTy: t)
 		let sub = lacksCap(c, p: p, ms: ms, wantCopy: wantCopy, t: elTy)
 		if sub.missing 'elMiss'
-			var placeStr = "as its elements"
-			if k == ast.TypeKind.builtinMap 'mp'
-				placeStr = "as its values"
-			end 'mp'
-			res = LackInfo.wrap(LackStep.part(t, partTy: elTy, place: placeStr), inner: sub)
+			res = LackInfo.wrap(LackStep.part(t, partTy: elTy, place: "as its elements"), inner: sub)
 		end 'elMiss'
 	end 'col'
 	_ = c.capVisiting.remove(key)
@@ -1108,12 +1089,7 @@ export function instantiateGeneric(mutates c Checker, p ast.Project, mutates ms 
 		return ast.noType
 	end 'badCount'
 	let bk = ast.typeKind(ms.types, reads: p.types, t: base)
-	if bk == ast.TypeKind.builtinMap 'mp'
-		if not isKeyType(ms.types, reads: p.types, b: p.builtins, t: args[0]) 'badK'
-			checkFail(c.modID, off: off, code: diag.errMapKey, msg: "'{ast.typeName(ms.types, reads: p.types, t: args[0])}' cannot be the key of a map: a key is an integer alias, a bool, an enum, a String or a Handle", errs: errs)
-			return ast.noType
-		end 'badK'
-	end 'mp' else if bk == ast.TypeKind.builtinFrozen 'fr'
+	if bk == ast.TypeKind.builtinFrozen 'fr'
 		if args[0] != ast.noType and not ast.isManagedType(ms.types, reads: p.types, t: args[0]) 'badF'
 			checkFail(c.modID, off: off, code: diag.errFreezeScalar, msg: "'{ast.typeName(ms.types, reads: p.types, t: args[0])}' is a plain value, which is immutable already and copied freely, so there is nothing to freeze: freeze a record, a union, a String or a collection", errs: errs)
 			return ast.noType

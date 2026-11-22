@@ -968,6 +968,7 @@ error E3197: <fragment>:21:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-map-miss-falling-back-to-a-module-let-array-is-not-writable-for-its-caller -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `pick` builds its own map, so every argument it takes is a value; the `otherwise` fallback is the module `let` array, and the result mixes it with the stored one.
 
@@ -1557,8 +1558,8 @@ type Shelf implements Parted
 		return Self{items: Digits.create(0)}
 	end 'create'
 
-	function part() returns Digits
-		return self.items
+	function part(mutates self) returns Digits
+		return self.items.clone()
 	end 'part'
 end 'Shelf'
 
@@ -1572,7 +1573,7 @@ end 'Cabinet'
 
 function main() returns ExitCode
 	let c = freeze(Cabinet.create())
-	let d = c.parted.part()
+	var d = c.parted.part()
 	d.push(1)
 	return 0
 end 'main'

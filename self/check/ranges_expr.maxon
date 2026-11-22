@@ -803,6 +803,22 @@ function uncheckedFix(p ast.Project, ms ast.ModuleState, t ast.Tree, why Uncheck
 	end 'why'
 end 'uncheckedFix'
 
+// ownTryFix is the change for an operation that fails where the try around it passes the failure to a caller, or to a
+// handler, that takes another error: a try of its own that panics, as one that no try covers gets. Only a failure of the
+// operation's range is such a fault of the program, as maxon's check of a value at a parameter or a cast panics; a
+// call's error, or a throw, is the program's to handle, so it gets no fix.
+function ownTryFix(p ast.Project, ms ast.ModuleState, why Unchecked, site ast.NodeID) returns diag.Fix
+	return match why 'why'
+		call(_) gives diag.Fix.none()
+		thrown gives diag.Fix.none()
+		index(_, _) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
+		operation(_, _, _, _) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
+		cast(_) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
+		recovered(_, _) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
+		returned(_, _) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
+	end 'why'
+end 'ownTryFix'
+
 // uncheckedText is the error for an operation that can fail where no try covers it.
 function uncheckedText(r Ranges, p ast.Project, ms ast.ModuleState, why Unchecked) returns String
 	return match why 'why'
@@ -852,11 +868,11 @@ function rangeFallible(mutates r Ranges, p ast.Project, ms ast.ModuleState, site
 	if not r.probing 'judged'
 		let thrown = fnErrorType(r, p: p, ms: ms)
 		if propagates and thrown != err 'otherError'
-			rangeRaise(r, p: p, ms: ms, node: site, code: diag.errErrorTypeMismatch, msg: diag.propagateMismatch(nameOfType(p, ms: ms, t: err), enclosing: nameOfType(p, ms: ms, t: thrown)))
+			rangeRaiseFixed(r, p: p, ms: ms, node: site, code: diag.errErrorTypeMismatch, msg: diag.propagateMismatch(nameOfType(p, ms: ms, t: err), enclosing: nameOfType(p, ms: ms, t: thrown)), fix: ownTryFix(p, ms: ms, why: why, site: site))
 			return
 		end 'otherError'
 		if takes != ast.noType and takes != err 'otherHandler'
-			rangeRaise(r, p: p, ms: ms, node: site, code: diag.errErrorTypeMismatch, msg: "this fails with '{nameOfType(p, ms: ms, t: err)}', but the handler of the try around it names a '{nameOfType(p, ms: ms, t: takes)}': give it a 'try ... otherwise' of its own")
+			rangeRaiseFixed(r, p: p, ms: ms, node: site, code: diag.errErrorTypeMismatch, msg: "this fails with '{nameOfType(p, ms: ms, t: err)}', but the handler of the try around it names a '{nameOfType(p, ms: ms, t: takes)}': give it a 'try ... otherwise' of its own", fix: ownTryFix(p, ms: ms, why: why, site: site))
 			return
 		end 'otherHandler'
 	end 'judged'

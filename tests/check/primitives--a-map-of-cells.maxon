@@ -92,10 +92,14 @@ function main() returns ExitCode
 	var m = StringCellMap.create()
 	m.upsert("a", value: Cell.make(1))
 	if m.contains("a") 'h'
-		m["a"].n = 4
-		touch(m["a"])
+		var entry1 = try m.get("a") otherwise panic("no such key")
+		entry1.n = 4
+		m.upsert("a", value: entry1)
+		var entry2 = try m.get("a") otherwise panic("no such key")
+		touch(entry2)
+		m.upsert("a", value: entry2)
 	end 'h'
 	let gone = m.remove("a")
-	print("{gone} {m.count()} {m.isEmpty()}")
+	print("{gone} {m.count()} {(m.count() == 0)}")
 	return 0
 end 'main'

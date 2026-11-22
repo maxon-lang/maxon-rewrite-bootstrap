@@ -61,7 +61,7 @@ interface HasItems uses Element
 end 'HasItems'
 
 extension HasItems where Element implements Equatable
-	function has(target Element) returns bool
+	function has(mutates self, target Element) returns bool
 		for item in self 'loop'
 			if item == target 'found'
 				return true
@@ -81,23 +81,23 @@ type IntList implements HasItems with Integer
 		return try data.get(idx as ElementIndex) otherwise panic("IntList.current: idx out of bounds")
 	end 'current'
 
-	function advance() throws IterationError
-		if idx + 1 >= (data.count() as Integer) 'done'
+	function advance(mutates self) throws IterationError
+		if (try idx + 1 otherwise panic("out of range")) >= (try data.count() as Integer otherwise panic("out of range")) 'done'
 			throw IterationError.exhausted
 		end 'done'
-		idx = idx + 1
+		idx = try idx + 1 otherwise panic("out of range")
 	end 'advance'
 
 	static function create(data IntegerArray) returns Self throws IterationError
 		if data.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{data: data, idx: 0}
+		return Self{data: data.clone(), idx: 0}
 	end 'create'
 end 'IntList'
 
 function main() returns ExitCode
-	let list = try IntList.create([10, 20, 30]) otherwise return 2
+	var list = try IntList.create([10, 20, 30]) otherwise return 2
 	if list.has(20) 'yes'
 		return 1
 	end 'yes'
@@ -226,7 +226,7 @@ interface Bucket uses Element
 end 'Bucket'
 
 extension Bucket where Element implements Equatable and Hashable
-	function lookup(target Element) returns bool
+	function lookup(mutates self, target Element) returns bool
 		for item in self 'loop'
 			if item == target 'found'
 				return true
@@ -244,7 +244,7 @@ type HashItem implements Equatable, Hashable
 	end 'equals'
 
 	function hash() returns HashValue
-		return v
+		return try v as HashValue otherwise panic("out of range")
 	end 'hash'
 
 	static function create(v Integer) returns Self
@@ -262,23 +262,23 @@ type HashBucket implements Bucket with HashItem
 		return try items.get(idx as ElementIndex) otherwise panic("HashBucket.current: idx out of bounds")
 	end 'current'
 
-	function advance() throws IterationError
-		if idx + 1 >= (items.count() as Integer) 'done'
+	function advance(mutates self) throws IterationError
+		if (try idx + 1 otherwise panic("out of range")) >= (try items.count() as Integer otherwise panic("out of range")) 'done'
 			throw IterationError.exhausted
 		end 'done'
-		idx = idx + 1
+		idx = try idx + 1 otherwise panic("out of range")
 	end 'advance'
 
 	static function create(items HashItemArray) returns Self throws IterationError
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items, idx: 0}
+		return Self{items: items.clone(), idx: 0}
 	end 'create'
 end 'HashBucket'
 
 function main() returns ExitCode
-	let b = try HashBucket.create([HashItem.create(1), HashItem.create(2), HashItem.create(3)]) otherwise return 2
+	var b = try HashBucket.create([HashItem.create(1), HashItem.create(2), HashItem.create(3)]) otherwise return 2
 	if b.lookup(HashItem.create(2)) 'found'
 		return 1
 	end 'found'
@@ -302,17 +302,17 @@ interface Seq uses Element
 end 'Seq'
 
 extension Seq
-	function countItems() returns Integer
+	function countItems(mutates self) returns Integer
 		var n = 0 as Integer
 		for _ in self 'loop'
-			n = n + 1
+			n = try n + 1 otherwise panic("out of range")
 		end 'loop'
 		return n
 	end 'countItems'
 end 'Seq'
 
 extension Seq where Element implements Equatable
-	function includes(target Element) returns bool
+	function includes(mutates self, target Element) returns bool
 		for item in self 'loop'
 			if item == target 'yes'
 				return true
@@ -340,24 +340,24 @@ type NotEqSeq implements Seq with NotEq
 		return try items.get(idx as ElementIndex) otherwise panic("NotEqSeq.current: idx out of bounds")
 	end 'current'
 
-	function advance() throws IterationError
-		if idx + 1 >= (items.count() as Integer) 'done'
+	function advance(mutates self) throws IterationError
+		if (try idx + 1 otherwise panic("out of range")) >= (try items.count() as Integer otherwise panic("out of range")) 'done'
 			throw IterationError.exhausted
 		end 'done'
-		idx = idx + 1
+		idx = try idx + 1 otherwise panic("out of range")
 	end 'advance'
 
 	static function create(items NotEqArray) returns Self throws IterationError
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items, idx: 0}
+		return Self{items: items.clone(), idx: 0}
 	end 'create'
 end 'NotEqSeq'
 
 function main() returns ExitCode
-	let s = try NotEqSeq.create([NotEq.create(1), NotEq.create(2)]) otherwise return 9
-	return s.countItems()
+	var s = try NotEqSeq.create([NotEq.create(1), NotEq.create(2)]) otherwise return 9
+	return try s.countItems() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

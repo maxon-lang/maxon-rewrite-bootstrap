@@ -166,6 +166,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opFrameBox 'opcodeFrameBox'
 		return false
 	end 'opcodeFrameBox'
+	if op == ir.Opcode.opFrameArea 'opcodeFrameArea'
+		return false
+	end 'opcodeFrameArea'
 	if op == ir.Opcode.opCallWitness 'opcodeCallWitness'
 		return false
 	end 'opcodeCallWitness'

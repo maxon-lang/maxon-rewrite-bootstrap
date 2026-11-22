@@ -2405,9 +2405,9 @@ type Counter implements Sink
 		return Self{total: 0}
 	end 'create'
 
-	function take(consumes box Box)
+	function take(mutates self, consumes box Box)
 		let added = box.n
-		self.total = self.total + added
+		self.total = try self.total + added otherwise panic("out of range")
 	end 'take'
 
 	function size() returns Tally
@@ -2418,11 +2418,11 @@ end 'Counter'
 type Feeder
 	var sink as Sink
 
-	static function create(sink Sink) returns Self
+	static function create(consumes sink Sink) returns Self
 		return Self{sink: sink}
 	end 'create'
 
-	function feed() returns Tally
+	function feed(mutates self) returns Tally
 		var a = Box.create(3) as Box
 		self.sink.take(a)
 		return a.n
@@ -2465,9 +2465,9 @@ type Counter implements Sink
 		return Self{total: 0}
 	end 'create'
 
-	function take(consumes box Box)
+	function take(mutates self, consumes box Box)
 		let added = box.n
-		self.total = self.total + added
+		self.total = try self.total + added otherwise panic("out of range")
 	end 'take'
 
 	function size() returns Tally
@@ -2478,18 +2478,18 @@ end 'Counter'
 type Feeder
 	var sink as Sink
 
-	static function create(sink Sink) returns Self
+	static function create(consumes sink Sink) returns Self
 		return Self{sink: sink}
 	end 'create'
 
-	function feed()
+	function feed(mutates self)
 		let a = Box.create(3) as Box
 		self.sink.take(a)
 		self.sink.take(Box.create(4))
 	end 'feed'
 end 'Feeder'
 
-function feedDirect(sink Sink)
+function feedDirect(mutates sink Sink)
 	let a = Box.create(30) as Box
 	sink.take(a)
 	sink.take(Box.create(40))

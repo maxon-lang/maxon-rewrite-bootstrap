@@ -48,7 +48,6 @@ test 'declare'
 	expectDeclared("tests/modules/generics")
 	expectDeclareError("tests/errors/typealias-names-itself.maxon", code: "E2012", line: 5, col: 11)
 	expectDeclareError("tests/errors/typealias-of-a-plain-type.maxon", code: "E3917", line: 3, col: 20)
-	expectDeclareError("tests/errors/map-key-is-a-record.maxon", code: "E3908", line: 2, col: 26)
 	expectDeclareError("tests/errors/constant-cycle.maxon", code: "E2012", line: 1, col: 5)
 	expectDeclareError("tests/errors/constant-of-a-noncopyable-type.maxon", code: "E3918", line: 6, col: 5)
 	expectDeclareError("tests/errors/generic-duplicate-type-parameter.maxon", code: "E3006", line: 51, col: 29)

@@ -1196,20 +1196,20 @@ type Point implements Bumpable
 		return Self{x: x}
 	end 'create'
 
-	function bump()
-		self.x = self.x + 1
+	function bump(mutates self)
+		self.x = try self.x + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Point'
 
-function relay(p Bumpable) returns Bumpable
+function relay(consumes p Bumpable) returns Bumpable
 	return p
 end 'relay'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let b = relay(a)
+	var b = relay(a)
 	b.bump()
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

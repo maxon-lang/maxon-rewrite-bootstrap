@@ -37,7 +37,6 @@ export enum TypeKind
 	enumTy
 	unionTy
 	builtinArray
-	builtinMap
 	builtinList
 	builtinPool
 	builtinHandle
@@ -53,7 +52,6 @@ export enum TypeKind
 	export function isBuiltin() returns bool
 		return match self 'k'
 			builtinArray gives true
-			builtinMap gives true
 			builtinList gives true
 			builtinPool gives true
 			builtinHandle gives true
@@ -1554,7 +1552,6 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		enumTy gives sizeofWord
 		unionTy gives sizeofWord
 		builtinArray gives sizeofWord
-		builtinMap gives sizeofWord
 		builtinList gives sizeofWord
 		builtinPool gives sizeofWord
 		builtinHandle gives sizeofWord
@@ -1982,7 +1979,6 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		record gives true
 		unionTy gives true
 		builtinArray gives true
-		builtinMap gives true
 		builtinList gives true
 		builtinPool gives true
 		builtinFrozen gives true
@@ -2458,6 +2454,21 @@ export function leadingParams(f FuncEntry) returns Count
 	return 0
 end 'leadingParams'
 
+// libraryMapName is the type a map literal makes, the standard library root's Map, as maxon's makes the type that implements
+// BuiltinDictionaryLiteral (README, "Where it differs from Maxon").
+export let libraryMapName = "Map"
+
+// lentTupleElements is how many elements the tuple has that a function lends, 0 for one that lends no tuple. A tuple it
+// lends is a box of borrows, one word for each element, in the caller's frame: the caller passes its address after the
+// parameters, and the function writes the borrows there and returns it (README, "Tuples"). An instance has its types
+// substituted, so every call of it and its own body read the same count.
+export function lentTupleElements(tt TypeSlot, reads TypeTable, f FuncEntry) returns Count
+	if f.result != ResultConv.resultBorrowed or not isTupleType(tt, reads: reads, t: f.retTy) 'none'
+		return 0
+	end 'none'
+	return typeEntry(tt, reads: reads, t: f.retTy).typeArgs.count()
+end 'lentTupleElements'
+
 // isByAddress is whether a parameter of the convention is passed as the address of the caller's place.
 export function isByAddress(conv Convention) returns bool
 	return conv == Convention.convMutates or conv == Convention.convSets
@@ -2499,8 +2510,9 @@ export function isStorage(tree Tree, typing Typing, node NodeID) returns bool
 		return true
 	end 'place'
 	if k == NodeKind.memberExpr 'member'
+		// A view of a value (`xs.managed`) is the value itself, so it is storage where the value is.
 		return match typing.members.get(e as Count) 'hit'
-			some(info) gives info.kind == MemberKind.memberField
+			some(info) gives info.kind == MemberKind.memberField or (info.kind == MemberKind.memberView and isStorage(tree, typing: typing, node: memberExprObj(tree, id: e)))
 			none panic("ast: the member at node {e} was not recorded by the check")
 		end 'hit'
 	end 'member'

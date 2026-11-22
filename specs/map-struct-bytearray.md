@@ -26,15 +26,15 @@ type Entry
 	export var tag as SmallInt
 
 	static function create(data ByteArray, tag SmallInt) returns Self
-		return Self{data: data, tag: tag}
+		return Self{data: data.clone(), tag: tag}
 	end 'create'
 end 'Entry'
 
 typealias EntryMap = Map with (String, Entry)
 
 function main() returns ExitCode
-	let m = EntryMap.create()
-	let arr = ByteArray.create(0)
+	var m = EntryMap.create()
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)

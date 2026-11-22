@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -76,6 +79,10 @@ func Convert(file, src string, kind inputKind) Result {
 	if kind == sourceFile {
 		if isLibraryHelper(file) {
 			exportPublicModifiers(lines)
+		} else if root := libraryRoot(file); root != "" {
+			exportMembersNamingHelpers(lines, helperTypes(root))
+			keepBuiltinConformances(lines, libraryInterfaces(root))
+			dropLiteralMarkers(lines)
 		}
 		dropBuiltinDeclarations(lines)
 		addInterfaceWheres(lines)
@@ -653,8 +660,9 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 	type openBlock struct {
 		indent string
 		kind   blockKind
-		// generic is whether the block is a type with type parameters.
+		// generic is whether the block is a type with type parameters, and params are their names.
 		generic bool
+		params  []string
 	}
 	var stack []openBlock
 	var matches []openMatch
@@ -671,6 +679,13 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		return len(stack) > 0 && (stack[len(stack)-1].kind == blockType || stack[len(stack)-1].kind == blockExtension || stack[len(stack)-1].kind == blockInterface) && stack[len(stack)-1].generic
 	}
 	generics := genericTypes(lines)
+	typeParamsInScope := func(header []token) []string {
+		var names []string
+		for _, b := range stack {
+			names = append(names, b.params...)
+		}
+		return append(names, usesNames(header)...)
+	}
 
 	for i := range lines {
 		line := &lines[i]
@@ -730,7 +745,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 		switch declWord {
 		case "type":
 			transformTypeOrUnionHeader(line, declIdx, warn)
-			stack = append(stack, openBlock{indent: line.indent, kind: blockType, generic: hasUsesClause(line.code[declIdx:])})
+			stack = append(stack, openBlock{indent: line.indent, kind: blockType, generic: hasUsesClause(line.code[declIdx:]), params: usesNames(line.code[declIdx:])})
 			continue
 		case "union":
 			transformTypeOrUnionHeader(line, declIdx, warn)
@@ -741,11 +756,11 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			stack = append(stack, openBlock{indent: line.indent, kind: blockEnum})
 			continue
 		case "interface":
-			stack = append(stack, openBlock{indent: line.indent, kind: blockInterface, generic: hasUsesClause(line.code[declIdx:])})
+			stack = append(stack, openBlock{indent: line.indent, kind: blockInterface, generic: hasUsesClause(line.code[declIdx:]), params: usesNames(line.code[declIdx:])})
 			continue
 		case "function":
 			if !isClosureLine(line.code, declIdx) {
-				transformFunctionHeader(line, declIdx, warn)
+				transformFunctionHeader(line, declIdx, typeParamsInScope(line.code[declIdx:]), warn)
 				if currentBlock() != blockInterface {
 					stack = append(stack, openBlock{indent: line.indent, kind: blockOther})
 				}
@@ -1031,11 +1046,442 @@ func isLibraryHelper(file string) bool {
 // so export reaches the whole library and no program.
 func exportPublicModifiers(lines []sourceLine) {
 	for i := range lines {
-		l := &lines[i]
-		for k := range skipModifiers(l.code) {
-			if l.code[k].kind == tokIdent && l.code[k].text == "public" {
-				l.code[k].text = "export"
+		makeExport(&lines[i])
+	}
+}
+
+// makeExport writes export for the public of a declaration's line, and says whether it had one.
+func makeExport(l *sourceLine) bool {
+	for k := range skipModifiers(l.code) {
+		if l.code[k].kind == tokIdent && l.code[k].text == "public" {
+			l.code[k].text = "export"
+			return true
+		}
+	}
+	return false
+}
+
+// libraryRoot is the directory of maxon's library that file lies in, or "" for a file outside it.
+func libraryRoot(file string) string {
+	parts := strings.Split(filepath.ToSlash(file), "/")
+	for i := len(parts) - 2; i >= 0; i-- {
+		if parts[i] == libraryRootDir {
+			return filepath.FromSlash(strings.Join(parts[:i+1], "/"))
+		}
+	}
+	return ""
+}
+
+// helperDeclaration is a public declaration of a type or a typealias at the top of a helper's file.
+var helperDeclaration = regexp.MustCompile(`^public\s+(?:type|enum|union|interface|typealias)\s+(\w+)`)
+
+// helperTypesByRoot holds, for each library root read so far, the names of the types its helpers declare.
+var helperTypesByRoot = map[string]map[string]bool{}
+
+// helperTypes are the names of the types and typealiases that the helpers of the library at root declare public, which
+// are export here (exportPublicModifiers): visible to the whole library and to no program.
+func helperTypes(root string) map[string]bool {
+	if names, ok := helperTypesByRoot[root]; ok {
+		return names
+	}
+	names := map[string]bool{}
+	_ = filepath.WalkDir(filepath.Join(root, helpersDir), func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(path) != ".maxon" {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		for line := range strings.SplitSeq(string(data), "\n") {
+			if m := helperDeclaration.FindStringSubmatch(line); m != nil {
+				names[m[1]] = true
 			}
+		}
+		return nil
+	})
+	helperTypesByRoot[root] = names
+	return names
+}
+
+// interfaceDeclaration and requirementDeclaration are a public interface of the library's root and one of its requirements.
+var (
+	interfaceDeclaration   = regexp.MustCompile(`^public\s+interface\s+(\w+)`)
+	requirementDeclaration = regexp.MustCompile(`^\s+(static\s+)?function\s+(\w+)\s*\(`)
+)
+
+// libraryInterfacesByRoot holds, for each library root read so far, the requirements of the interfaces it declares.
+var libraryInterfacesByRoot = map[string]map[string][]string{}
+
+// libraryInterfaces are the public interfaces that the files at the root of the library at root declare, each with the
+// names of its requirements, a static one's after "static ".
+func libraryInterfaces(root string) map[string][]string {
+	if found, ok := libraryInterfacesByRoot[root]; ok {
+		return found
+	}
+	found := map[string][]string{}
+	files, _ := filepath.Glob(filepath.Join(root, "*.maxon"))
+	slices.Sort(files)
+	for _, path := range files {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		current := ""
+		for line := range strings.SplitSeq(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
+			if m := interfaceDeclaration.FindStringSubmatch(line); m != nil {
+				current = m[1]
+				found[current] = nil
+				continue
+			}
+			if current == "" {
+				continue
+			}
+			if strings.HasPrefix(line, "end ") {
+				current = ""
+				continue
+			}
+			if m := requirementDeclaration.FindStringSubmatch(line); m != nil && !strings.HasPrefix(line, "\t\t") {
+				found[current] = append(found[current], strings.TrimSpace(m[1]+m[2]))
+			}
+		}
+	}
+	libraryInterfacesByRoot[root] = found
+	return found
+}
+
+// cloneRequirement is the requirement that the copy every Copyable value has meets here (x.clone()): no type declares a
+// method of that name, so a conformance that requires it is not one a built-in type can declare.
+const cloneRequirement = "clone"
+
+// staticRequirement starts the name of a requirement that is a static function (libraryInterfaces).
+const staticRequirement = "static "
+
+// keepBuiltinConformances converts a file of the library that declares a type minimaxon builds in, whose methods the
+// compiler declares (String), into that type's conformances alone: an extension of the type that implements the
+// interfaces of its header that the library declares and that take no type arguments, with each method they require
+// that the built-in type lacks, as the file writes it, and the file's declarations that those methods name. The rest of
+// the file is the built-in's own implementation, which minimaxon has natively. A conformance whose requirements neither
+// the built-in nor the file meets, that requires clone, or that requires a static function, which makes a value of the
+// type where the compiler makes the built-in's, is left out.
+func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string) {
+	header := -1
+	name := ""
+	for i := range lines {
+		l := &lines[i]
+		if l.removed || len(l.code) == 0 || l.indent != "" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "type" {
+			continue
+		}
+		candidate := l.code[declIdx+1].text
+		if _, ok := builtinMethods[candidate]; ok && !builtinNames[candidate] {
+			header, name = i, candidate
+			break
+		}
+	}
+	if header < 0 {
+		return
+	}
+	last := topLevelEnd(lines, header)
+	declared := memberMethods(lines, header, last)
+	var kept []string
+	var needed []string
+	for _, item := range implementedInterfaces(lines[header].code) {
+		reqs, ok := interfaces[item.name]
+		if !ok || item.hasArgs || slices.Contains(reqs, cloneRequirement) || slices.ContainsFunc(reqs, func(r string) bool { return strings.HasPrefix(r, staticRequirement) }) {
+			continue
+		}
+		var mine []string
+		met := true
+		for _, req := range reqs {
+			if slices.Contains(builtinMethods[name], req) {
+				continue
+			}
+			if _, ok := declared[req]; !ok {
+				met = false
+				break
+			}
+			mine = append(mine, req)
+		}
+		if !met {
+			continue
+		}
+		kept = append(kept, item.name)
+		for _, m := range mine {
+			if !slices.Contains(needed, m) {
+				needed = append(needed, m)
+			}
+		}
+	}
+	keep := make([]bool, len(lines))
+	keep[header], keep[last] = true, true
+	for _, m := range needed {
+		span := declared[m]
+		for k := span.first; k <= span.last; k++ {
+			keep[k] = true
+		}
+	}
+	code := []token{{kind: tokIdent, text: "extension"}, {kind: tokIdent, text: name}}
+	for i, iface := range kept {
+		if i == 0 {
+			code = append(code, token{kind: tokIdent, text: "implements"})
+		} else {
+			code = append(code, token{kind: tokPunct, text: ","})
+		}
+		code = append(code, token{kind: tokIdent, text: iface})
+	}
+	lines[header].code = code
+	keepNamedDeclarations(lines, keep, header, last)
+	for k := range lines {
+		if !keep[k] {
+			lines[k].removed = true
+		}
+	}
+}
+
+// lineSpan is the lines of a declaration, the comments above it first.
+type lineSpan struct{ first, last int }
+
+// memberMethods are the methods that the body of the type declared from header to last declares, by name.
+func memberMethods(lines []sourceLine, header, last int) map[string]lineSpan {
+	methods := map[string]lineSpan{}
+	for k := header + 1; k < last; k++ {
+		l := &lines[k]
+		if l.removed || len(l.code) == 0 || l.indent != "\t" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "function" {
+			continue
+		}
+		end := blockEnd(lines, k, l.indent)
+		methods[l.code[declIdx+1].text] = lineSpan{first: commentsAbove(lines, k), last: end}
+		k = end
+	}
+	return methods
+}
+
+// blockEnd is the line of the `end` at the indentation indent that closes the block that line start opens.
+func blockEnd(lines []sourceLine, start int, indent string) int {
+	for k := start + 1; k < len(lines); k++ {
+		if len(lines[k].code) > 0 && lines[k].indent == indent && lines[k].code[0].text == "end" {
+			return k
+		}
+	}
+	return len(lines) - 1
+}
+
+// commentsAbove is the first of the comment lines right above the line at, or at itself where there are none.
+func commentsAbove(lines []sourceLine, at int) int {
+	first := at
+	for first > 0 && len(lines[first-1].code) == 0 && lines[first-1].comment != "" {
+		first--
+	}
+	return first
+}
+
+// keepNamedDeclarations keeps, besides what keep holds, each top-level declaration outside the type from header to last
+// that a kept line names, and those that they name in turn.
+func keepNamedDeclarations(lines []sourceLine, keep []bool, header, last int) {
+	type topLevel struct {
+		name string
+		span lineSpan
+	}
+	var decls []topLevel
+	for k := 0; k < len(lines); k++ {
+		l := &lines[k]
+		if k >= header && k <= last || l.removed || len(l.code) == 0 || l.indent != "" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) {
+			continue
+		}
+		end := k
+		if slices.Contains(blockDeclWords, l.code[declIdx].text) {
+			end = topLevelEnd(lines, k)
+		}
+		decls = append(decls, topLevel{name: l.code[declIdx+1].text, span: lineSpan{first: commentsAbove(lines, k), last: end}})
+		k = end
+	}
+	for changed := true; changed; {
+		changed = false
+		for _, d := range decls {
+			if keep[d.span.last] || !namedByKept(lines, keep, d.name) {
+				continue
+			}
+			for k := d.span.first; k <= d.span.last; k++ {
+				keep[k] = true
+			}
+			changed = true
+		}
+	}
+}
+
+// namedByKept is whether a kept line names name.
+func namedByKept(lines []sourceLine, keep []bool, name string) bool {
+	for k := range lines {
+		if keep[k] && slices.ContainsFunc(lines[k].code, func(t token) bool { return t.kind == tokIdent && t.text == name }) {
+			return true
+		}
+	}
+	return false
+}
+
+// literalMarker names the marker interfaces by which maxon's compiler finds the type a literal makes (BuiltinStringLiteral,
+// BuiltinDictionaryLiteral and the others of maxon's Builtins.maxon): minimaxon's literals make its built-in types, and a
+// map literal the library's Map, so a library type does not implement one.
+var literalMarker = regexp.MustCompile(`^Builtin\w*Literal$`)
+
+// dropLiteralMarkers leaves the literal markers out of the implements clause of each type the lines declare.
+func dropLiteralMarkers(lines []sourceLine) {
+	for i := range lines {
+		l := &lines[i]
+		declIdx := skipModifiers(l.code)
+		if l.removed || declIdx >= len(l.code) || l.code[declIdx].text != "type" {
+			continue
+		}
+		at := findToken(l.code, declIdx, "implements")
+		if at < 0 {
+			continue
+		}
+		end := len(l.code)
+		var items [][]token
+		depth, from := 0, at+1
+		for k := at + 1; k < len(l.code); k++ {
+			t := l.code[k]
+			if depth == 0 && t.kind == tokIdent && (t.text == "where" || t.text == "uses") {
+				end = k
+				break
+			}
+			switch {
+			case t.text == "(":
+				depth++
+			case t.text == ")":
+				depth--
+			case depth == 0 && t.text == ",":
+				items = append(items, l.code[from:k])
+				from = k + 1
+			}
+		}
+		items = append(items, l.code[from:end])
+		var kept [][]token
+		for _, item := range items {
+			if len(item) > 0 && !literalMarker.MatchString(item[0].text) {
+				kept = append(kept, item)
+			}
+		}
+		if len(kept) == len(items) {
+			continue
+		}
+		out := slices.Clone(l.code[:at])
+		for j, item := range kept {
+			if j == 0 {
+				out = append(out, l.code[at])
+			} else {
+				out = append(out, token{kind: tokPunct, text: ","})
+			}
+			out = append(out, item...)
+		}
+		l.code = append(out, l.code[end:]...)
+	}
+}
+
+// implementedInterface is an interface that a type's header implements, and whether it gives it type arguments.
+type implementedInterface struct {
+	name    string
+	hasArgs bool
+}
+
+// implementedInterfaces are the interfaces of the implements clause of a type's header.
+func implementedInterfaces(code []token) []implementedInterface {
+	at := findToken(code, 0, "implements")
+	if at < 0 {
+		return nil
+	}
+	var items []implementedInterface
+	depth := 0
+	start := true
+	for i := at + 1; i < len(code); i++ {
+		t := code[i]
+		switch {
+		case t.text == "(":
+			depth++
+		case t.text == ")":
+			depth--
+		case depth == 0 && t.text == ",":
+			start = true
+			continue
+		case depth == 0 && t.kind == tokIdent && (t.text == "where" || t.text == "uses"):
+			return items
+		}
+		if start && t.kind == tokIdent {
+			items = append(items, implementedInterface{name: t.text})
+			start = false
+			continue
+		}
+		if t.kind == tokIdent && t.text == "with" && len(items) > 0 {
+			items[len(items)-1].hasArgs = true
+		}
+	}
+	return items
+}
+
+// exportMembersNamingHelpers makes export each public declaration of a file of the library whose parameters, or whose
+// target if it is a typealias, name a type that is less visible than public: a helper's, or a typealias that this rule
+// made export. A signature may not name a less visible type there (E3167), while its result may (README, "Modules").
+// A typealias declared in a type is named bare only in that type, so it counts there alone.
+func exportMembersNamingHelpers(lines []sourceLine, helpers map[string]bool) {
+	topLevel := map[string]bool{}
+	for name := range helpers {
+		topLevel[name] = true
+	}
+	for {
+		changed := false
+		var members map[string]bool
+		for i := range lines {
+			l := &lines[i]
+			if l.removed || len(l.code) == 0 {
+				continue
+			}
+			if l.indent == "" {
+				members = map[string]bool{}
+			}
+			hidden := func(name string) bool { return topLevel[name] || members[name] }
+			declIdx := skipModifiers(l.code)
+			if declIdx >= len(l.code) || !slices.ContainsFunc(l.code[:declIdx], func(t token) bool { return t.text == "public" }) {
+				continue
+			}
+			var named []token
+			switch l.code[declIdx].text {
+			case "typealias":
+				if eq := findToken(l.code, declIdx+1, "="); eq >= 0 {
+					named = l.code[eq+1:]
+				}
+			case "function":
+				if lp := findToken(l.code, declIdx+1, "("); lp >= 0 {
+					if rp := findMatchingParen(l.code, lp); rp >= 0 {
+						named = l.code[lp+1 : rp]
+					}
+				}
+			}
+			if !slices.ContainsFunc(named, func(t token) bool { return t.kind == tokIdent && hidden(t.text) }) || !makeExport(l) {
+				continue
+			}
+			changed = true
+			if l.code[declIdx].text == "typealias" && declIdx+1 < len(l.code) {
+				if l.indent == "" {
+					topLevel[l.code[declIdx+1].text] = true
+				} else {
+					members[l.code[declIdx+1].text] = true
+				}
+			}
+		}
+		if !changed {
+			return
 		}
 	}
 }
@@ -1161,7 +1607,7 @@ func transformWhereInSlice(toks []token, from int, line *sourceLine, warn func(*
 	}
 }
 
-func transformFunctionHeader(line *sourceLine, fnIdx int, warn func(*sourceLine, string)) {
+func transformFunctionHeader(line *sourceLine, fnIdx int, typeParams []string, warn func(*sourceLine, string)) {
 	toks := line.code
 	if fnIdx+1 < len(toks) && isKeywordName(toks[fnIdx+1].text) {
 		warn(line, keywordNameMessage(toks[fnIdx+1].text))
@@ -1176,7 +1622,7 @@ func transformFunctionHeader(line *sourceLine, fnIdx int, warn func(*sourceLine,
 	}
 
 	// Rewrite parameter list between lp+1 and rp.
-	newParams := rewriteParamList(toks[lp+1:rp], line, warn)
+	newParams := rewriteParamList(toks[lp+1:rp], typeParams, line, warn)
 	rebuilt := make([]token, 0, len(toks)+4)
 	rebuilt = append(rebuilt, toks[:lp+1]...)
 	rebuilt = append(rebuilt, newParams...)
@@ -1194,26 +1640,60 @@ func transformFunctionHeader(line *sourceLine, fnIdx int, warn func(*sourceLine,
 		switch t.text {
 		case "returns":
 			if i+1 < len(line.code) && isCapabilityWord(line.code[i+1].text) {
-				line.code = slices.Concat(line.code[:i+1], capabilityType(line.code[i+1].text), line.code[i+2:])
+				line.code = slices.Concat(line.code[:i+1], capabilityType(line.code[i+1].text, line.code[i+2:], typeParams), line.code[i+2:])
 			}
 		}
 	}
 }
 
-// capabilityType is what maxon's capability word before a type becomes here, where what crosses between threads is
-// decided by ownership (README, "Where it differs from Maxon"): `isolated T`, a value no one else reaches, is an owned
-// T, and `immutable T`, frozen data that threads share, is a `frozen with T`.
-func capabilityType(word string) []token {
-	if word == "immutable" {
+// capabilityType is what maxon's capability word before the type that typ starts becomes here, where what crosses
+// between threads is decided by ownership (README, "Where it differs from Maxon"): `isolated T`, a value no one else
+// reaches, is an owned T, and `immutable T`, frozen data that threads share, is a `frozen with T`. `immutable T` of a
+// bare type parameter in scope is a plain T: maxon means a value the callee will not change and may share, which a
+// parameter here is already, and a generic body cannot give a frozen value of a T it holds, so `frozen with T` would
+// refuse every call from one. A service, which alone takes frozen values across threads, has no type parameters.
+func capabilityType(word string, typ []token, typeParams []string) []token {
+	if word == "immutable" && !namesBareTypeParam(typ, typeParams) {
 		return []token{{kind: tokIdent, text: "frozen"}, {kind: tokIdent, text: "with"}}
 	}
 	return nil
 }
 
+// namesBareTypeParam is whether typ, the tokens from a type on, starts with a type parameter alone: a name of
+// typeParams that no `with` or `.` follows.
+func namesBareTypeParam(typ []token, typeParams []string) bool {
+	if len(typ) == 0 || typ[0].kind != tokIdent || !slices.Contains(typeParams, typ[0].text) {
+		return false
+	}
+	return len(typ) == 1 || (typ[1].text != "with" && typ[1].text != ".")
+}
+
+// usesNames are the type parameters that the `uses` clause of a declaration's header names.
+func usesNames(header []token) []string {
+	at := findToken(header, 0, "uses")
+	if at < 0 {
+		return nil
+	}
+	var names []string
+	for i := at + 1; i < len(header) && header[i].kind == tokIdent && !isDeclClauseWord(header[i].text); i++ {
+		names = append(names, header[i].text)
+		if i+1 >= len(header) || header[i+1].text != "," {
+			break
+		}
+		i++
+	}
+	return names
+}
+
+// isDeclClauseWord is whether word starts a clause of a declaration's header.
+func isDeclClauseWord(word string) bool {
+	return word == "implements" || word == "is" || word == "where" || word == "throws" || word == "returns"
+}
+
 // parameterModes are the words before a parameter's name that say how the function takes it.
 var parameterModes = []string{"mutates", "consumes", "sets"}
 
-func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, string)) []token {
+func rewriteParamList(params []token, typeParams []string, line *sourceLine, warn func(*sourceLine, string)) []token {
 	if len(params) == 0 {
 		return params
 	}
@@ -1271,7 +1751,7 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 		// `name isolated T` takes a value that moves in, and `name immutable T` shares a frozen one.
 		if typeAt := nameIdx + 1; typeAt+1 < len(g) && g[typeAt].kind == tokIdent && isCapabilityWord(g[typeAt].text) {
 			word := g[typeAt].text
-			g = slices.Concat(g[:typeAt:typeAt], capabilityType(word), g[typeAt+1:])
+			g = slices.Concat(g[:typeAt:typeAt], capabilityType(word, g[typeAt+1:], typeParams), g[typeAt+1:])
 			if word == "isolated" && nameIdx == 0 {
 				g = slices.Concat([]token{{kind: tokIdent, text: "consumes"}}, g)
 				nameIdx = 1
@@ -1520,7 +2000,7 @@ func rewriteClosureParams(toks []token, line *sourceLine, warn func(*sourceLine,
 		if closeIdx < 0 {
 			return out
 		}
-		params := rewriteParamList(slices.Clone(out[i+2:closeIdx]), line, warn)
+		params := rewriteParamList(slices.Clone(out[i+2:closeIdx]), nil, line, warn)
 		rest := slices.Clone(out[closeIdx:])
 		out = append(append(out[:i+2:i+2], params...), rest...)
 	}

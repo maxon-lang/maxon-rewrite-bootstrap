@@ -1935,8 +1935,8 @@ typealias Tally = int(0 to 100)
 
 // The discard below is the whole shape, so `widen` must have an effect — discarding a PURE result is
 // E3064 (`discarded-results.md`) and the program would never reach the retain this case is about.
-function widen(h Hashable, mutates widenings Tally) returns Hashable
-	widenings = widenings + 1
+function widen(consumes h Hashable, mutates widenings Tally) returns Hashable
+	widenings = try widenings + 1 otherwise panic("out of range")
 	return h
 end 'widen'
 
@@ -1945,7 +1945,7 @@ function main() returns ExitCode
 	print("A")
 	_ = widen("abc", widenings: widenings)
 	print("B")
-	return widenings - 1
+	return try widenings - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1962,7 +1962,7 @@ CLONE, not the literal, or the drop decrefs `.rdata`. The clone is a real `Strin
 through the witness table answers the same hash the heap spelling of the same five bytes does, and the leak
 gate (exit 101) is what proves the extra reference was released exactly once.
 ```maxon
-function widen(h Hashable) returns Hashable
+function widen(consumes h Hashable) returns Hashable
 	return h
 end 'widen'
 
@@ -1991,12 +1991,12 @@ RESULT rather than the borrow it was given; storing the original would put the i
 type Holder
 	export var h as Hashable
 
-	static function create(h Hashable) returns Self
+	static function create(consumes h Hashable) returns Self
 		return Self{h: h}
 	end 'create'
 end 'Holder'
 
-function hold(h Hashable) returns Holder
+function hold(consumes h Hashable) returns Holder
 	return Holder.create(h)
 end 'hold'
 
@@ -4047,8 +4047,8 @@ type Small implements Survey
 	end 'packed'
 
 	function tally() returns Tally
-		let t = Tally.create()
-		t.upsert("x", value: self.base * 10)
+		var t = Tally.create()
+		t.upsert("x", value: try self.base * 10 otherwise panic("out of range"))
 		return t
 	end 'tally'
 end 'Small'
@@ -4061,7 +4061,7 @@ type Large implements Survey
 	end 'create'
 
 	function packed() returns ByteArray
-		let out = ByteArray.create(0)
+		var out = ByteArray.create(0)
 		for i in 0 upto 4 'each'
 			out.push((200 + i) as Byte)
 		end 'each'
@@ -4069,9 +4069,9 @@ type Large implements Survey
 	end 'packed'
 
 	function tally() returns Tally
-		let t = Tally.create()
+		var t = Tally.create()
 		t.upsert("x", value: self.base)
-		t.upsert("y", value: self.base + 5)
+		t.upsert("y", value: try self.base + 5 otherwise panic("out of range"))
 		return t
 	end 'tally'
 end 'Large'

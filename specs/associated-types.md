@@ -4105,13 +4105,13 @@ type Walker implements Cursor with Pos, BiCursor
 		return pos
 	end 'current'
 
-	function retreat()
-		pos = pos - 1
+	function retreat(mutates self)
+		pos = try pos - 1 otherwise panic("out of range")
 	end 'retreat'
 end 'Walker'
 
 function main() returns ExitCode
-	let w = Walker.create(8)
+	var w = Walker.create(8)
 	w.retreat()
 	print("{w.current()}\n")
 	return 0
@@ -4153,13 +4153,13 @@ type Walker implements BiCursor, Cursor with Pos
 		return pos
 	end 'current'
 
-	function retreat()
-		pos = pos - 1
+	function retreat(mutates self)
+		pos = try pos - 1 otherwise panic("out of range")
 	end 'retreat'
 end 'Walker'
 
 function main() returns ExitCode
-	let w = Walker.create(8)
+	var w = Walker.create(8)
 	w.retreat()
 	print("{w.current()}\n")
 	return 0
@@ -4423,7 +4423,7 @@ public type Bag uses Element implements Holder with Element, Maker
 		return Self{}
 	end 'spawn'
 
-	function absorb(value ElementArray) where Element implements Copyable
+	function absorb(mutates self, value ElementArray) where Element implements Copyable
 		items = value.clone()
 	end 'absorb'
 
@@ -4467,18 +4467,18 @@ type Crate implements Holder with Num
 		return Self{}
 	end 'create'
 
-	function absorb(value NumStore)
+	function absorb(mutates self, value NumStore)
 		items = value.clone()
 	end 'absorb'
 
 	function count() returns Num
-		return items.count()
+		return try items.count() as Num otherwise panic("out of range")
 	end 'count'
 end 'Crate'
 
 function main() returns ExitCode
-	let c = Crate.create()
-	let v = NumStore.create(0)
+	var c = Crate.create()
+	var v = NumStore.create(0)
 	v.push(4)
 	v.push(9)
 	c.absorb(v)
@@ -4520,22 +4520,22 @@ type Log implements Sink
 	end 'create'
 
 	static function single(v Byte) returns Bytes
-		let b = Bytes.create(0)
+		var b = Bytes.create(0)
 		b.push(v)
 		return b
 	end 'single'
 
-	function write(data Bytes)
+	function write(mutates self, data Bytes)
 		kept = data.clone()
 	end 'write'
 
 	function count() returns Byte
-		return kept.count()
+		return try kept.count() as Byte otherwise panic("out of range")
 	end 'count'
 end 'Log'
 
 function main() returns ExitCode
-	let l = Log.create()
+	var l = Log.create()
 	l.write(Log.single(7))
 	print("{l.count()}\n")
 	return 0
@@ -4575,19 +4575,19 @@ type Crate implements Holder with Num
 		return Self{}
 	end 'create'
 
-	function absorb(value NumStoreStore)
+	function absorb(mutates self, value NumStoreStore)
 		items = value.clone()
 	end 'absorb'
 
 	function count() returns Num
-		return items.count()
+		return try items.count() as Num otherwise panic("out of range")
 	end 'count'
 end 'Crate'
 
 function main() returns ExitCode
-	let c = Crate.create()
-	let outer = NumStoreStore.create(0)
-	let inner = NumStore.create(0)
+	var c = Crate.create()
+	var outer = NumStoreStore.create(0)
+	var inner = NumStore.create(0)
 	inner.push(3)
 	outer.push(inner)
 	c.absorb(outer)

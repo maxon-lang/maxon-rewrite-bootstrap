@@ -38,12 +38,12 @@ instance whose argument is `T`, so the caller adopts a `+1` on the enclosing `T`
 type Cell uses U
 	export var slot as U
 
-	static function make(slot U) returns Self
-		return Self{slot: slot}
+	static function make(slot U) returns Self where U implements Copyable
+		return Self{slot: slot.clone()}
 	end 'make'
 
-	function get() returns U
-		return slot
+	function get() returns U where U implements Copyable
+		return slot.clone()
 	end 'get'
 end 'Cell'
 
@@ -51,11 +51,11 @@ type Holder uses T where T implements Equatable
 	export typealias TCell = Cell with T
 	export var cell as TCell
 
-	static function make(cell TCell) returns Self
-		return Self{cell: cell}
+	static function make(cell TCell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'make'
 
-	function holds(other T) returns bool
+	function holds(other T) returns bool where T implements Droppable and Copyable
 		let mine = cell.get()
 		return mine == other
 	end 'holds'

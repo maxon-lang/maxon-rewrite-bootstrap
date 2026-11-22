@@ -171,6 +171,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryHashBytes(vm, f: f, x: x)
 		return
 	end 'rtHashBytes'
+	if symbol == ir.Rt.rtHashStringBytes 'rtHashStringBytes'
+		try entryHashStringBytes(vm, f: f, x: x)
+		return
+	end 'rtHashStringBytes'
 	if symbol == ir.Rt.rtBytesReadWord 'rtBytesReadWord'
 		try entryBytesReadWord(vm, f: f, x: x)
 		return
@@ -227,42 +231,6 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryArrayShrink(vm, f: f, x: x)
 		return
 	end 'rtArrayShrink'
-	if symbol == ir.Rt.rtMapNew 'rtMapNew'
-		try entryMapNew(vm, f: f, x: x)
-		return
-	end 'rtMapNew'
-	if symbol == ir.Rt.rtMapLen 'rtMapLen'
-		try entryMapLen(vm, f: f, x: x)
-		return
-	end 'rtMapLen'
-	if symbol == ir.Rt.rtMapHas 'rtMapHas'
-		try entryMapHas(vm, f: f, x: x)
-		return
-	end 'rtMapHas'
-	if symbol == ir.Rt.rtMapElem 'rtMapElem'
-		try entryMapElem(vm, f: f, x: x)
-		return
-	end 'rtMapElem'
-	if symbol == ir.Rt.rtMapKeyAt 'rtMapKeyAt'
-		try entryMapKeyAt(vm, f: f, x: x)
-		return
-	end 'rtMapKeyAt'
-	if symbol == ir.Rt.rtMapValueAt 'rtMapValueAt'
-		try entryMapValueAt(vm, f: f, x: x)
-		return
-	end 'rtMapValueAt'
-	if symbol == ir.Rt.rtMapInsert 'rtMapInsert'
-		try entryMapInsert(vm, f: f, x: x)
-		return
-	end 'rtMapInsert'
-	if symbol == ir.Rt.rtMapRemove 'rtMapRemove'
-		try entryMapRemove(vm, f: f, x: x)
-		return
-	end 'rtMapRemove'
-	if symbol == ir.Rt.rtMapCopy 'rtMapCopy'
-		try entryMapCopy(vm, f: f, x: x)
-		return
-	end 'rtMapCopy'
 	if symbol == ir.Rt.rtListNew 'rtListNew'
 		try entryListNew(vm, f: f, x: x)
 		return

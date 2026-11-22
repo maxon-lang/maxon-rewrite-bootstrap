@@ -2,7 +2,11 @@
 // arguments, and bindWitnesses the conformances for their bounds; they are the function's own when it is an instance of a
 // generic function, and the ones of the function around it for the body of a behaviour.
 export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, consumes name String)
-	let paramCount = try ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).params.count() + ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn)) otherwise panic("ir: too many parameters")
+	var paramCount = try (ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).params.count() + ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn))) as Count otherwise panic("ir: too many parameters")
+	l.lentElements = ast.lentTupleElements(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn))
+	if l.lentElements > 0 'lentTuple'
+		paramCount = succ(paramCount)
+	end 'lentTuple'
 	l.b.start(fn, name: name, paramCount: paramCount)
 	l.b.f.lendsResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).result == ast.ResultConv.resultBorrowed
 	l.fn = fn
@@ -281,6 +285,12 @@ end 'condition'
 function visitLetStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
 	let init = ast.letStmtInit(p.modules[l.mi].tree, id: s)
+	// A let that a destructuring of a lent tuple makes borrows what it is bound to, and owns nothing.
+	if sym.projected 'lent'
+		let v = lowerExpr(l, p: p, ms: ms, e: init)
+		emit(l, i: newStoreSlot(slotOf(sym), src: v, borrow: regKind(l, v: v) == IrKind.kindManaged))
+		return
+	end 'lent'
 	if init != 0 'init'
 		let v = lowerExpr(l, p: p, ms: ms, e: init)
 		emit(l, i: newStoreSlot(slotOf(sym), src: v, borrow: false))
@@ -329,7 +339,9 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	let value = ast.returnStmtValue(p.modules[l.mi].tree, id: s)
 	if value == 0 'none'
 		v = konst(l, value: 0 as Word)
-	end 'none' else 'some'
+	end 'none' else if l.lentElements > 0 'lentTuple'
+		v = lentTuple(l, p: p, ms: ms, value: value)
+	end 'lentTuple' else 'some'
 		v = lowerExpr(l, p: p, ms: ms, e: value)
 		if l.b.f.lendsResult 'lent'
 			let have = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: value))
@@ -344,6 +356,30 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	unwind(l, p: p, depth: 0 as Count)
 	seal(l, t: newRet(v))
 end 'visitReturnStmt'
+
+// lentTuple writes the tuple that a function lends into the frame area its caller passed, a borrow of each element, and
+// gives the area: the elements of a tuple written in the return, or the words of the tuple box it lends a place of.
+function lentTuple(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, value ast.NodeID) returns Reg
+	let area = paramReg(l, index: pred(l.b.f.paramCount), kind: IrKind.kindManaged)
+	let declared = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).retTy
+	let tuple = applyType(l, p: p, ms: ms, t: declared)
+	if p.modules[l.mi].tree.kindOf(value) == ast.NodeKind.tupleExpr 'written'
+		let lit = structLitInfoAt(p, module: l.module, node: value)
+		for i in 0 upto lit.ordered.count() 'elements'
+			let v = lowerExpr(l, p: p, ms: ms, e: lit.ordered[i])
+			emit(l, i: newStoreField(area, offset: wordOffset(i), src: v, borrow: regKind(l, v: v) == IrKind.kindManaged))
+		end 'elements'
+		return area
+	end 'written'
+	let box = lowerExpr(l, p: p, ms: ms, e: value)
+	for i in 0 upto l.lentElements 'words'
+		let element = ast.typeEntry(ms.types, reads: p.types, t: tuple).typeArgs[i]
+		let word = newReg(l, kind: kindOf(l, p: p, ms: ms, t: element))
+		emit(l, i: newLoadField(word, obj: box, offset: wordOffset(i)))
+		emit(l, i: newStoreField(area, offset: wordOffset(i), src: word, borrow: regKind(l, v: word) == IrKind.kindManaged))
+	end 'words'
+	return area
+end 'lentTuple'
 
 // convertReturned converts the value of a return to the declared type of the function as the cast 'value as T' does.
 function convertReturned(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, value ast.NodeID, v Reg) returns Reg
@@ -422,10 +458,6 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		visitForCursor(l, p: p, ms: ms, s: s)
 		return
 	end 'cursor'
-	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) and isMap(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: ast.forStmtFrom(p.modules[l.mi].tree, id: s))) 'entries'
-		visitForMap(l, p: p, ms: ms, s: s)
-		return
-	end 'entries'
 	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) 'forEach'
 		visitForEach(l, p: p, ms: ms, s: s)
 		return
@@ -526,61 +558,6 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	goTo(l, target: top)
 	l.cur = exit
 end 'visitForEach'
-
-// visitForMap lowers a for over a map to a loop over the positions of its entries, which run in the order the keys were
-// inserted. The map is read once, and the ownership pass keeps the body from changing it. Each pass lends the key and the
-// value of the entry at the position to the names of the loop, as a subscript lends an element.
-function visitForMap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
-	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
-	let site = siteOf(l, p: p, node: s)
-	let held = l.b.f.newSlot(IrKind.kindManaged)
-	let position = l.b.f.newSlot(IrKind.kindScalar)
-	let top = l.b.newBlock()
-	let body = l.b.newBlock()
-	let cont = l.b.newBlock()
-	let exit = l.b.newBlock()
-	let coll = lowerRead(l, p: p, ms: ms, e: source)
-	emit(l, i: newStoreSlot(held, src: coll, borrow: true))
-	let zero = konst(l, value: 0 as Word)
-	emit(l, i: newStoreSlot(position, src: zero, borrow: false))
-	goTo(l, target: top)
-	let whole = load(l, slot: held)
-	let n = entry(l, p: p, site: site, symbol: Rt.rtMapLen, kind: IrKind.kindScalar, args: argsOf1(whole))
-	let at = load(l, slot: position)
-	let below = compare(l, op: CmpOp.cmpLt, a: at, b: n, unsigned: true)
-	l.b.terminate(l.cur, t: newBranch(below, ifTrue: body, ifFalse: exit))
-	l.cur = body
-	let namesRef = ast.forStmtVarsRef(p.modules[l.mi].tree, id: s)
-	for i in 0 upto 2 'names'
-		let name = p.modules[l.mi].tree.listAt(namesRef, index: i) as ast.NodeID
-		let id = localOfNode(p, module: l.module, node: name)
-		if id == ast.noLocal 'discard'
-			continue 'names'
-		end 'discard'
-		let sym = localEntry(p, module: l.fnModule, id: id)
-		let m = load(l, slot: held)
-		let place = load(l, slot: position)
-		var part = Rt.rtMapKeyAt
-		if i == 1 'value'
-			part = Rt.rtMapValueAt
-		end 'value'
-		let addr = entry(l, p: p, site: site, symbol: part, kind: IrKind.kindScalar, args: argsOf2(m, b: place))
-		let lent = newReg(l, kind: kindOf(l, p: p, ms: ms, t: sym.ty))
-		emit(l, i: newLoadAt(lent, addr: addr))
-		emit(l, i: newStoreSlot(slotOf(sym), src: lent, borrow: regKind(l, v: lent) == IrKind.kindManaged))
-	end 'names'
-	pushJumps(l, node: s, brk: exit, cont: cont)
-	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
-	goTo(l, target: cont)
-	popJumps(l)
-	let next = newReg(l, kind: IrKind.kindScalar)
-	let cur = load(l, slot: position)
-	let one = konst(l, value: 1 as Word)
-	emit(l, i: newBin(next, op: BinOp.binAdd, left: cur, right: one, unsigned: true, fail: noBlock))
-	emit(l, i: newStoreSlot(position, src: next, borrow: false))
-	goTo(l, target: top)
-	l.cur = exit
-end 'visitForMap'
 
 // visitForCursor lowers a for over a type with the iteration protocol. The cursor is made once, by the collection's
 // createIterator(), and owned by the statement, or is the collection itself, borrowed. Each pass reads the element with

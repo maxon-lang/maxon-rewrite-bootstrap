@@ -4,10 +4,10 @@ typealias StringCountMap = Map with String, Count
 function main() returns ExitCode
 	var m = StringCountMap.create()
 	m.upsert("a", value: 1)
-	print("{m["a"]} {m.contains("b")}\n")
+	print("{(try m.get("a") otherwise panic("no such key"))} {m.contains("b")}\n")
 	let gone = m.remove("a")
 	print("{gone} {m.contains("a")}\n")
-	print("{m["a"]}\n")
+	print("{(try m.get("a") otherwise panic("no such key"))}\n")
 	return 0
 end 'main'
 

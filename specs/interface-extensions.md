@@ -347,10 +347,10 @@ function main() returns ExitCode
 	let m = ["a": 1, "b": 2, "c": 3]
 	var sum = 0 as FullRangeInt
 	for pair in m 'loop'
-		sum = sum + pair.1 * 10
+		sum = try sum + pair.1 * 10 otherwise panic("out of range")
 	end 'loop'
 	// 10 + 20 + 30 = 60
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -361,13 +361,13 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2, "c": 3]
-	let mapped = m.map(function(p) gives p)
+	let mapped = m.map(function(p) gives p.clone())
 	var sum = 0 as FullRangeInt
 	for pair in mapped 'loop'
-		sum = sum + pair.1
+		sum = try sum + pair.1 otherwise panic("out of range")
 	end 'loop'
 	// 1 + 2 + 3 = 6
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -863,8 +863,8 @@ public type BagIter uses E, F implements Iterator with Int
 		return i
 	end 'current'
 
-	public function advance() throws IterationError
-		i = i - 1
+	public function advance(mutates self) throws IterationError
+		i = try i - 1 otherwise panic("out of range")
 		if i <= 0 'exhausted'
 			throw IterationError.exhausted
 		end 'exhausted'
@@ -914,7 +914,7 @@ type BagIter uses E implements Iterator with Int
 		return i
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		i = i - 1
 		if i <= 0 'exhausted'
 			throw IterationError.exhausted

@@ -559,6 +559,31 @@ function lowerEquals(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	return equal
 end 'lowerEquals'
 
+// lowerBuiltinWitness lowers a call through a bound that a built-in method meets (instances.witnessFor), as a call of that
+// method lowers: in place, on the receiver and the arguments already lowered from base on.
+function lowerBuiltinWitness(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, target ast.FuncID, recv Reg, base Count, mark Count) returns Reg
+	let op = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic
+	if ownsOperands(op) 'owns'
+		panic("lower: the built-in {op.name} meets a requirement but lowers its own operands")
+	end 'owns'
+	var info = c.info.clone()
+	info.fn = target
+	info.kind = ast.CallKind.callMethod
+	let site = CallSite.make(c.node, info: info, receiver: c.receiver, ordered: c.ordered.clone())
+	var args = RegList.create(0)
+	var first = base
+	if recv != noReg 'receiver'
+		first = succ(base)
+	end 'receiver'
+	for i in first upto l.args.count() 'args'
+		args.push(l.args[i])
+	end 'args'
+	popPending(l, n: mark)
+	let result = intrinsicCall(l, p: p, ms: ms, op: op, c: site, recv: recv, args: args)
+	popArgs(l, n: base)
+	return result
+end 'lowerBuiltinWitness'
+
 // callOn lowers the call c on the receiver recv, already lowered (noReg for a call that has none). mark and places are
 // the pending drops and the write-backs from before the receiver was lowered.
 function callOn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, mark Count, places Count) returns Reg
@@ -574,6 +599,9 @@ function callOn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c 
 		pushArg(l, v: recv)
 	end 'receiver'
 	pushOrderedArgs(l, p: p, ms: ms, c: c)
+	if target != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic != ast.Intrinsic.intrNone 'builtin'
+		return lowerBuiltinWitness(l, p: p, ms: ms, c: c, target: target, recv: recv, base: base, mark: mark)
+	end 'builtin'
 	let dst = callResult(l, p: p, ms: ms, node: node)
 	var errTy = ast.noType
 	if kind == ast.CallKind.callBound 'bound'
@@ -622,6 +650,11 @@ function emitCallOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 		for i in 1 upto args.count() 'rest'
 			rest.push(args[i])
 		end 'rest'
+		// The method that meets a requirement lending a tuple lends one at the instance the call sees.
+		let result = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node))
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).result == ast.ResultConv.resultBorrowed and ast.isTupleType(ms.types, reads: p.types, t: result) 'lentTuple'
+			rest.push(frameArea(l, elements: ast.typeEntry(ms.types, reads: p.types, t: result).typeArgs.count()))
+		end 'lentTuple'
 		let sig = requirementSignature(l, p: p, ms: ms, c: c)
 		let instr = l.b.callWitness(dst, conv: receiverConv(c.info.selfConv), slot: slot, recv: args[0], args: rest, err: err, sig: sig)
 		emit(l, i: instr)
