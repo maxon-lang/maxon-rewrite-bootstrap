@@ -1260,6 +1260,7 @@ Stack trace:
 ```
 
 <!-- test: unbounded-recursion-on-a-green-thread-panics-with-stack-overflow -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- runs: alone -->
 ### Unbounded recursion on a green thread panics `stack overflow` too
@@ -1463,8 +1464,6 @@ Stack trace:
 ```
 
 <!-- test: force-segfault-on-a-green-thread -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 ### A fault on a green thread walks that thread's own stack
 The fault happens on a coroutine's stack while the handler runs elsewhere — on the machine's system stack on
@@ -1496,9 +1495,7 @@ function faultOnAGreenThread() returns ExitCode
 end 'faultOnAGreenThread'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async faultOnAGreenThread()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	return r
 end 'main'
@@ -2085,7 +2082,6 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-a-service-handler-entry -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 #### A runtime zero is refused at the entry of a service handler whose parameter is `NonZero`
 The handler divides by its `NonZero` parameter with a bare `idiv`, so the proof has to hold when the message arrives; the entry guard on the service's own thread holds it. The zero is a difference of two `NonZero`s, which wears the alias without proving it.
@@ -2116,7 +2112,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Divider.create()
 	print("before\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let q = try await h.divideBy(one - one) otherwise 0
 	return q as ExitCode
 end 'main'

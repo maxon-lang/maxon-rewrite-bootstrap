@@ -117,7 +117,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-send-argument-survives-a-later-operand-that-replaces-the-field -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `sink.take` reads `shelf.label` for its first argument and then runs `replace`, which gives the shelf a new label. The text the message carries is still alive when the service reads it.
 
@@ -154,7 +153,6 @@ function main() returns ExitCode
 	let shelf = Shelf.create(1)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.take(shelf.label, tag: replace(shelf)) otherwise 0
 	print("{n}\n")
 	return 0
@@ -168,7 +166,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-spawn-argument-survives-a-later-operand-that-replaces-the-field -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `spawn Holder.create` reads `shelf.label` for the factory and then runs `replace`; the text the factory keeps is still alive.
 
@@ -205,7 +202,6 @@ function main() returns ExitCode
 	let shelf = Shelf.create(1)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let holder = spawn Holder.create(shelf.label, tag: replace(shelf))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await holder.total() otherwise 0
 	print("{n}\n")
 	return 0
@@ -219,8 +215,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-async-argument-survives-a-later-operand-that-replaces-the-field -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `async total` reads `shelf.items` for its first argument and then runs `replace`; the array the coroutine receives is still alive.
 
 ```maxon
@@ -232,15 +226,15 @@ type Shelf
 	export var items as TallyArray
 
 	static function create() returns Self
-		let items = TallyArray.create(0)
+		var items = TallyArray.create(0)
 		items.push(11)
 		items.push(22)
 		return Self{items: items}
 	end 'create'
 end 'Shelf'
 
-function replace(shelf Shelf) returns Tally
-	let fresh = TallyArray.create(0)
+function replace(mutates shelf Shelf) returns Tally
+	var fresh = TallyArray.create(0)
 	fresh.push(99)
 	shelf.items = fresh
 	return 1
@@ -248,14 +242,12 @@ end 'replace'
 
 function total(items TallyArray, tag Tally) returns Tally
 	sleep(1)
-	return (items.count() as Tally) + tag
+	return try (items.count() as Tally) + tag otherwise panic("out of range")
 end 'total'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var shelf = Shelf.create()
 	let later = async total(shelf.items, tag: replace(shelf))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await later
 	print("{n}\n")
 	return 0

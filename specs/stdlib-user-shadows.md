@@ -1155,8 +1155,6 @@ error E3005: <fragment>:7:25: operator '+' requires both operands to be the same
 ```
 
 <!-- test: stdlib-user-shadows.an-async-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A program that declares its own `Range` spawns a static of the library's `Range` by writing `stdlib.Range`,
 the same spelling the synchronous call accepts.
 ```maxon
@@ -1165,8 +1163,6 @@ type Range
 end 'Range'
 
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let bound = await async stdlib.Range.create(1, finish: 4)
 	let doubled = bound.map(function(x) gives x * 2)
 	return 0 if doubled.count() > 0 else 1
@@ -1196,7 +1192,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-default-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: top-level default declarations are not supported in minimaxon -->
 A program that declares its own `TextLogHandler` makes the library's `TextLogHandler` the default
 `LogHandler` by writing `stdlib.TextLogHandler`, and the record sent to it is written.
@@ -1210,7 +1205,6 @@ default LogHandler = spawn stdlib.TextLogHandler.create(LogHandlerOptions.create
 
 function main() returns ExitCode
 	let record = freeze(LogRecord.create(0, level: LogLevel.info.clone(), message: "up", attrs: LogFieldArray.create(0), file: "main.maxon", line: 1))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let written = try await LogHandler.current().handle(record) otherwise false
 	return 0 if written else 1
 end 'main'
@@ -1256,9 +1250,6 @@ error E4006: <fragment>:7:22: Type 'stdlib.Range' has no method named 'nosuch'
 ```
 
 <!-- test: stdlib-user-shadows.error.a-missing-static-spawned-async-on-a-shadowed-library-type-is-named-as-written -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 The same missing static, spawned with `async`, is refused the same way.
 ```maxon
 type Range
@@ -1266,8 +1257,6 @@ type Range
 end 'Range'
 
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let n = await async stdlib.Range.nosuch()
 	return n as ExitCode
 end 'main'

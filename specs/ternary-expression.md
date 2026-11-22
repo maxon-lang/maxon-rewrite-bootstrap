@@ -1828,8 +1828,6 @@ error E3102: <fragment>:30:10: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-lends-then-arm-reads-scalar -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 ### A lend made in the CONDITION is seen by a scalar read in the TRUE arm
@@ -1847,13 +1845,11 @@ end 'bump'
 typealias Pending = Promise with Tally
 
 function started(p Pending) returns Tally
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'started'
 
 function main() returns ExitCode
 	var n = 5 as Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = n if started(async bump(n, k: 1)) > 0 else 0
 	print("{r}\n")
 	return 0
@@ -2442,8 +2438,6 @@ end 'main'
 ```
 
 <!-- test: ternary-expression.error.condition-lends-then-arm-statement-reads -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2473,7 +2467,6 @@ end 'bump'
 typealias Pending = Promise with Tally
 
 function started(p Pending) returns Tally
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'started'
 
@@ -2483,7 +2476,6 @@ function probe(k Tally) returns Tally
 	let c = (try mayFail(k) otherwise 'h'
 		print("{n}\n")
 		return 0
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	end 'h') if started(async bump(n, k: 1)) > 0 else 0
 	return c
 end 'probe'

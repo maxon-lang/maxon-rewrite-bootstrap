@@ -381,17 +381,35 @@ let greenWhenOffset = 64 as Count
 // greenPreemptOffset is where a green thread holds 1 while the monitor asks that it be stopped (Go's g.preempt).
 let greenPreemptOffset = 72 as Count
 
-// greenArgsOffset is where a green thread's arguments begin, greenArgWords words that its code reads.
+// greenArgsOffset is where a green thread's arguments begin, greenArgWords words that its code reads: an async call's arguments, which its thunk passes to the function.
 let greenArgsOffset = 80 as Count
 
-// greenArgWords is how many words of arguments a green thread holds.
+// greenArgWords is how many words of arguments a green thread holds, and so how many an async call passes.
 let greenArgWords = 8 as Count
 
 // greenSwitchOffset is where a green thread holds the switch record of its stack while it does not run.
 let greenSwitchOffset = 144 as Count
 
+// greenStrandOffset is where a green thread holds the root of the strand it is a member of, 0 for one that has made no coroutine and is none.
+let greenStrandOffset = 384 as Count
+
+// greenStrandHolderOffset is where the root of a strand holds the member that may run, 0 while each waits for something other than the strand, under the strand's lock.
+let greenStrandHolderOffset = 392 as Count
+
+// greenStrandHeadOffset is where the root of a strand holds the first of the members that wait to run, linked through greenLinkOffset, under the strand's lock.
+let greenStrandHeadOffset = 400 as Count
+
+// greenStrandTailOffset is where the root of a strand holds the last of the members that wait to run, under the strand's lock.
+let greenStrandTailOffset = 408 as Count
+
+// greenStrandLockOffset is where the root of a strand holds the lock of its holder and its queue, 1 while it is held.
+let greenStrandLockOffset = 416 as Count
+
+// greenErrorOffset is where a coroutine holds what its function failed with, as a call that throws gives it: 0 when it returned.
+let greenErrorOffset = 424 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 384 as Count
+let greenBytes = 432 as Count
 
 // pooledStackLowOffset is where a pooled stack holds the lowest address of its reserve.
 let pooledStackLowOffset = 0 as Count

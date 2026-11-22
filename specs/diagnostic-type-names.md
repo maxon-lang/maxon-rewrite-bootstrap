@@ -321,8 +321,6 @@ error E2004: <fragment>:10:22: Cannot operate on Array with float(0 to 1) and in
 ```
 
 <!-- test: error.an-instance-over-a-bit-pattern-names-its-width -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 ```maxon
 typealias Hash = bits(64)
 
@@ -332,7 +330,6 @@ function seed() returns Hash
 end 'seed'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async seed()
 	let bumped = p + 1
 	print("bumped {bumped}")

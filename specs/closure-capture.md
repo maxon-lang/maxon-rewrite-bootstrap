@@ -1235,8 +1235,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-closure-passed-to-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The coroutine owns the closure it was handed and runs it after the block that built it has ended.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1252,14 +1250,12 @@ end 'later'
 
 function spawnIt() returns Pending
 	let text = "a text padded long enough to heap allocate {1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	return async later(function() gives text.byteLength() as Integer)
+	return async later(function() gives try text.byteLength() as Integer otherwise panic("out of range"))
 end 'spawnIt'
 
 function main() returns ExitCode
 	let p = spawnIt()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2488,7 +2484,6 @@ error E2013: <fragment>:23:28: cannot pass 'start' to a function that writes arg
 ### A captured Promise
 
 <!-- test: closure-capture.a-captured-promise-moves-into-the-closure -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A capture moves the promise into the closure, so the green thread stays alive for as long as the closure does
 and runs at the next yield, after the frame that spawned it has ended. `main`'s two yields let `setFlag` run
 to completion on the strand, so the closure's `isComplete()` read answers through a promise that is still
@@ -2513,7 +2508,6 @@ function finished(p IntPromise) returns Integer
 end 'finished'
 
 function later(flag FlagCell) returns Thunk
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async setFlag(flag.clone())
 	return function() gives finished(p)
 end 'later'
@@ -2535,7 +2529,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-captured-promise-is-released-with-the-closure -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A closure that never runs releases the promise it captured when it is dropped.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2554,7 +2547,6 @@ function alive(p IntPromise) returns Integer
 end 'alive'
 
 function never() returns Thunk
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async plain()
 	return function() gives alive(p)
 end 'never'
@@ -2573,8 +2565,6 @@ built
 ```
 
 <!-- test: closure-capture.error.a-captured-promise-is-not-awaited-inside-the-closure -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The closure owns the promise and may run more than once, so its body cannot give it away.
 ```maxon
@@ -2588,15 +2578,13 @@ function plain() returns Integer
 end 'plain'
 
 function later() returns Thunk
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async plain()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return function() gives await p
 end 'later'
 
 function main() returns ExitCode
 	let f = later()
-	return f() as ExitCode
+	return try f() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -2604,8 +2592,6 @@ error E3141: <fragment>:12:26: a promise cannot be borrowed through 'await': it 
 ```
 
 <!-- test: closure-capture.error.a-captured-promise-read-after-the-literal -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The capture consumed the promise, so awaiting it in the frame afterwards is a use after move.
 ```maxon
@@ -2623,10 +2609,8 @@ function alive(p IntPromise) returns Integer
 end 'alive'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async plain()
 	let f = function() gives alive(p)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (f() + (await p)) as ExitCode
 end 'main'
 ```

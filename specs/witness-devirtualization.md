@@ -338,7 +338,6 @@ end 'main'
 ```
 
 <!-- test: witness-devirtualization.a-promise-element-is-dropped-and-reclaimed-by-its-destroy-word-alone -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise is never co-owned, so `Slot with Promise` has a destroy word and no retain word. In `promiseRound`
 the retain of the element `create` stores is the identity, the release of the feed is nothing, and the drop of
 the displaced promise and the reclaim of the one `choose` did not store are each a direct call of the destroy
@@ -360,18 +359,18 @@ type Slot uses T
 	var item as T
 	var origin as Tally
 
-	static function create(item T, origin Tally) returns Self
+	static function create(item T, origin Tally) returns Self where T implements Copyable
 		return Self{item: item, origin: origin}
 	end 'create'
 
-	static function choose(item T, spare T, useItem bool) returns Self
+	static function choose(item T, spare T, useItem bool) returns Self where T implements Copyable
 		if useItem 'chosen'
 			return Self{item: item, origin: 1}
 		end 'chosen'
 		return Self{item: spare, origin: 2}
 	end 'choose'
 
-	function replace(next T, stamp Tally)
+	function replace(mutates self, next T, stamp Tally) where T implements Droppable
 		self.item = next
 		self.origin = stamp
 	end 'replace'
@@ -384,13 +383,10 @@ end 'Slot'
 typealias PromiseSlot = Slot with TallyPromise
 
 function promiseRound(seed Tally) returns Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let slot = PromiseSlot.create(async work(seed), origin: seed)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	slot.replace(async work(seed + 1), stamp: seed + 10)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let other = PromiseSlot.choose(async work(seed), spare: async work(seed + 2), useItem: seed > 1)
-	return slot.source() + other.source()
+	slot.replace(async work(try seed + 1 otherwise panic("out of range")), stamp: try seed + 10 otherwise panic("out of range"))
+	let other = PromiseSlot.choose(async work(seed), spare: async work(try seed + 2 otherwise panic("out of range")), useItem: seed > 1)
+	return try slot.source() + other.source() otherwise panic("out of range")
 end 'promiseRound'
 
 function main() returns ExitCode

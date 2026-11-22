@@ -310,6 +310,18 @@ function entryOsFileInfo(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	end 'found'
 end 'entryOsFileInfo'
 
+// entryOsExists is whether a file or a directory is at a path, which the host can give the information of.
+function entryOsExists(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	var there = true
+	try 'info'
+		_ = File.info(pathOf(vm.h.texts[at].clone()))
+	end 'info' otherwise 'missing'
+		there = false
+	end 'missing'
+	giveFlag(vm, x: x, b: there)
+end 'entryOsExists'
+
 function entryOsIsDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	giveFlag(vm, x: x, b: Directory.isDirectory(pathOf(vm.h.texts[at].clone())))

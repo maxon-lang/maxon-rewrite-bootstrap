@@ -1147,7 +1147,7 @@ what a later pass such as reference counting or an optimization changes.
 | arithmetic | `bin` (add, sub, mul, div, mod, and, or, xor, shl, shr; `.u` for unsigned; checked ones have an `else` block), `cmp`, `neg`, `not`, `guard` |
 | collections | `length.array`, `length.string`, `bounds`, `elemaddr`, `elem`, `byte.array`, `byte.string` (see "The primitives in the IR") |
 | floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
-| calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `callvalue` (see "Function values in the IR") |
+| calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `async` (see "Coroutines: async and await"), `callvalue` (see "Function values in the IR") |
 | function values | `closure`, `funcvalue` (see "Function values in the IR") |
 | interface values | `box`, `framebox`, `callwitness`, `istype` (see "Interface values in the IR") |
 | ownership | `drop`, `dropslot`, `dropat`, `move`, `moveat`, `copy` (see "Drops") |
@@ -1986,10 +1986,24 @@ so the code at `run` must have released and freed what the behaviour holds by th
   completion port on Windows (`GetQueuedCompletionStatusEx`, broken by `PostQueuedCompletionStatus`) and epoll with an
   eventfd on Linux; a completion whose key is a poll descriptor readies the green thread that waits on it.
 
-After `main`, `schedDrain` has the main thread run the scheduler until no behaviour or green thread is left (the last to
-finish wakes it), and gives back `main`'s code, or the code that `Process.setExitCode` set last; then `ExitProcess` ends the
-other threads wherever they are. `main` itself runs on the main thread's own stack, not on a green thread, so it cannot
-park. A panic or a trap on any thread writes its line and exits with 1 at once. The tests of `tests/runtime/` that start
+`main` runs as a green thread, as Go runs it as a goroutine, so that it can wait: the stub calls the runtime's `mainRun`
+with the address of its own `rt.mainGreen`, which calls `main` (or each test of an executable of tests) and gives the exit
+code. `mainRun` makes the green thread, has the main thread run the scheduler until no behaviour or green thread is left
+(the last to finish wakes it), and gives back `main`'s code, or the code that `Process.setExitCode` set last; then
+`ExitProcess` ends the other threads wherever they are. So every program starts the scheduler and the monitor, and its
+`main` may be preempted. A panic or a trap on any thread writes its line and exits with 1 at once.
+
+- **Strands.** The coroutines that `async` starts run in strands, as maxon's do (`runtime/strand.maxon`): a strand is a
+  green thread that started a coroutine, its root, and the coroutines it and they start, and only the member that holds the
+  strand runs program code. A member gives the strand to the member that waits to run first where it parks (an await, a
+  sleep, the poller) or yields, and when it finishes; a preemption and a blocking call keep it. A member readied by a timer,
+  a finish or the poller takes the strand again before it goes on, on whatever thread readied it, so a strand moves between
+  threads between its waits and its coroutines never run at once. The strand is the root's record (its holder, the queue of
+  members that wait to run and their lock), which outlives every member, since each coroutine is awaited in a frame of the
+  strand. An async call makes the coroutine's green thread with the address of the thunk of its function
+  (`rt.async.new`), writes its argument words, and queues it last in the strand (`rt.async.start`), so it runs once the
+  caller waits; the thunk calls the function with the words, keeps what it failed with (`greenErrorOffset`) and gives back
+  what it returned. The tests of `tests/runtime/` that start
 with `green-` hold the scheduler to many green threads ping-ponging, a busy loop stopped for another, the float state
 across a preemption, a blocking call handed off, timers and a completion of the poller.
 
@@ -2054,8 +2068,10 @@ edit to `runtime/` rebuilds everything.
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
   maxon's iteration protocol, `for (i, x) in xs.enumerated()` over an array with its indexes, `for (k, v) in m` over a map and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
-  with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), and a `try` block with or
-  without a handler (see "Checked arithmetic").
+  with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), `await p` of a promise of a
+  function that returns nothing, and a `try` block with or without a handler (see "Checked arithmetic").
+- `async f(args)` and `await p`, `Promise with T` and `Promise with (T, E)`, `sleep(ms)` and `Scheduler.yield()` (see
+  "Coroutines: async and await").
 - A statement after a `return`, a `throw`, a `break`, a `continue` or a `panic(...)` in its block is `E3071`, once for each
   such statement, at the statement that follows it; a call of a function that never returns does not count, as in maxon.
   Code after an `if`/`else` or `match` whose every branch returns or panics is allowed and type-checked, but never compiled
@@ -3365,6 +3381,52 @@ end 'transfer'
   order, and a behaviour that names several cowns acquires them together: there is no lock to hold while waiting, so no
   deadlock.
 
+### Coroutines: async and await
+
+maxon's surface, on the green threads of the runtime (see "Green threads"):
+
+- `async f(args)` starts a direct call of a function or a static function as a **coroutine** of the caller's strand and
+  gives its **promise**: `Promise with T` of a function that returns `T` and throws nothing, `Promise with (T, E)` of one
+  that throws `E`. The caller goes on; the coroutine runs once the caller waits, and the strand's members never run at once.
+  `await p` gives what the function returned, and stands alone as a statement where it returns nothing; a promise whose
+  function throws is awaited with `try await p otherwise ...` (every form a call's `try` takes), and a plain `await` of it
+  is `E3057`. `sleep(milliseconds)` (a `Milliseconds`) parks the green thread, and `Scheduler.yield()` lets the members of
+  its strand that wait run first, else the runnable green threads. `File.exists(path)` is maxon's, as I/O.
+- Refused as maxon refuses them (`E2015`): `async` of what is not a call, of a method of a value, of a built-in, of a
+  function that returns a float (and, minimaxon's, one that takes a float or more than eight arguments, the words a
+  coroutine holds). `await` of what is not a promise is `E3005`. A function the async call starts must be able to wait
+  (`E3073`, maxon's inference, `self/check/waits.maxon`): it awaits, sleeps, yields, does file or process I/O, calls
+  through a function value or an interface, calls a function of another module, or calls or starts one of its module that
+  may.
+- **What the coroutine takes of its caller** (`self/check/ownership_async.maxon`), where maxon shares by counts:
+  - a scalar is copied, and a value passed to a `consumes` parameter moves in;
+  - a place passed to a `let` parameter is lent to be read until the promise is awaited: the caller may read it, but
+    changing it, moving it or passing it `mutates` is `E3943`; a temporary there is `E2015` (the statement would drop it),
+    a string literal aside;
+  - a local `var`, or a field of one, passed to a `mutates` parameter is lent to be changed until the await: any use is
+    `E3102`, maxon's message; anything else by reference is `E2015`, and a function value that lives on and borrows
+    what is lent is `E3186`;
+  - a promise is taken only by a `consumes` parameter (`E3141` at a `let` one).
+- **A promise is linear.** It is never copied and never dropped: on every path out of its scope it is awaited, returned
+  or passed to a `consumes` parameter, else `E3213`. Awaiting it again is `E3142`, and awaiting inside a loop one started
+  outside it `E3100`. A promise whose call lent anything is **tied** to what it borrows: it is bound by the declaration
+  of a local, which ends inside the scope of everything it borrows, and awaited there; returning it, storing it, passing
+  it on or assigning it to a variable declared before it is `E3212`, and so is an exit that leaves it unawaited. A
+  closure that captures a promise is `E3141`, and a behaviour that does `E3909`: the coroutine belongs to its strand.
+  So every coroutine ends before the frames that lent it anything do, and its borrows are those frames' own.
+- **In the IR** an async call is one instruction, `%p = async f(%a, %b)`, whose arguments are lowered as the call's
+  would be; the backend makes the coroutine with the address of the function's thunk (`async <f>`, written in each unit
+  that starts `f`, the link keeping one), writes the words into it and queues it in the strand. An await is the
+  runtime's: `rt.async.await` for a function that throws nothing, and `rt.async.wait`, `rt.async.error` and
+  `rt.async.take` with the failure branch of a call for one that throws. A promise's drop routine meets only the empty
+  place an await leaves, and panics on a coroutine.
+- **The interpreter** runs no coroutine: an async call ends an interpreted run with `async calls are not supported by the
+  interpreter`, so a test that starts one is `// native-only`. Running them needs a strand of its threads (the
+  scheduler already keeps each thread's frames apart, so a coroutine is a thread that runs only while it holds its
+  strand) and a clock that sleeps advance; `sleep` and `Scheduler.yield()` change nothing there.
+- Not yet: `p.cancel()`, `p.isComplete()`, `awaitAny`, promises in containers and fields (a promise is not `Copyable`
+  nor `Droppable`, which arrays need), `sendTimeout:`, the deadlock exit 92, and I/O on the poller.
+
 ### Identity
 
 `a is b` is true when two names stand for one object, and `a is not b` when they do not (maxon's reference identity; the
@@ -3511,14 +3573,23 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and refuses nothing on Linux, as maxon's does. A run of a program found on `PATH` looks for it as `execvp` does, in the run's
   own `PATH`; the run passes the child the run's environment.
 - `Process.setExitCode(code)` sets the code the process ends with when `main` has returned and no behaviour is left,
-  in place of `main`'s; the last code set wins. Maxon has none: its programs wait for their behaviours with `await`,
-  which minimaxon does not have, so a behaviour that finds the program's result needs this to report it.
+  in place of `main`'s; the last code set wins. Maxon has none: its programs wait for their services with `await`, and a
+  behaviour, which nothing awaits, needs this to report the program's result.
+- **An async call lends its coroutine what it passes, instead of sharing it** (see "Coroutines: async and await"): a place
+  at a `let` parameter is the coroutine's to read until the promise is awaited, so the caller may read it but not change
+  it, move it or pass it `mutates` meanwhile (`E3943`, minimaxon's), where maxon lets the caller write a `var` its
+  coroutine reads, kept alive by reference counts; a temporary at a `let` parameter is refused (`E2015`), where maxon
+  counts it. The spec tests that write such a variable while the call is pending are skipped with that reason. A tied
+  promise is any whose call lent a place, not only mutable data, and it may not be assigned to a variable declared before
+  it. An async call takes no float and at most eight arguments (`E2015`), where maxon refuses only a float result; maxon's
+  `cancel`, `isComplete`, `awaitAny` and promises held in containers and fields are not there yet.
 
 - `Clock` has only `nowNanos()`, which maxon's gives as `InstantNanos`, here a `Count`; maxon's `nowMs`, `osTickMs`,
   `threadCpuTicks`, `elapsedMs`, `elapsedNanos`, `remainingMs` and `WallClock` are not there. Natively a reading is the
   performance counter (`QueryPerformanceCounter`) in nanoseconds; the interpreter's clock moves by 1000 ns at each reading, so a run is deterministic.
 
-- `Scheduler` has only `processorCount()`, which maxon's gives as `SchedulerProcessorCount`, here a `Count`; maxon's `yield` is not there.
+- `Scheduler` has only `processorCount()`, which maxon's gives as `SchedulerProcessorCount`, here a `Count`, and `yield()`;
+  maxon's `quiesce`, `parallelBoundary` and pins are not there.
 
 - Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
   directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch

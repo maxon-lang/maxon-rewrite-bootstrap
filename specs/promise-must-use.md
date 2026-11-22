@@ -17,8 +17,6 @@ compile error. A promise inside a container or a field is cancelled when its hol
 ## Tests
 
 <!-- test: a-promise-dropped-at-the-end-of-its-scope-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `later` is never awaited, cancelled, stored or returned, so the end of `main` drops it.
 
@@ -31,7 +29,6 @@ function slow() returns Tally
 end 'slow'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async slow()
 	_ = later.isComplete()
 	print("started\n")
@@ -43,9 +40,6 @@ error E3213: <fragment>:13:2: this drops 'later', which was never awaited, cance
 ```
 
 <!-- test: a-promise-overwritten-before-it-is-consumed-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 Re-arming `later` drops the first promise before anything consumed it.
 
@@ -58,11 +52,8 @@ function slow() returns Tally
 end 'slow'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var later = async slow()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	later = async slow()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await later
 	return 0
 end 'main'
@@ -72,8 +63,6 @@ error E3213: <fragment>:11:2: this drops a promise that was never awaited, cance
 ```
 
 <!-- test: a-discarded-promise-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `_ =` discards the promise at once, which is a drop.
 
@@ -86,7 +75,6 @@ function slow() returns Tally
 end 'slow'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	_ = async slow()
 	return 0
 end 'main'
@@ -96,8 +84,6 @@ error E3213: <fragment>:10:2: this drops a promise that was never awaited, cance
 ```
 
 <!-- test: a-promise-awaited-on-one-path-only-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The `await` sits in one branch, so the other path reaches the end of `main` with the promise still held.
@@ -115,10 +101,8 @@ function choose() returns bool
 end 'choose'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async slow()
 	if choose() 'maybe'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await later
 	end 'maybe'
 	return 0
@@ -129,8 +113,6 @@ error E3213: <fragment>:16:2: this drops a promise that was never awaited, cance
 ```
 
 <!-- test: an-early-return-before-the-await-of-a-promise-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The early `return 1` leaves with the promise held.
@@ -144,12 +126,10 @@ function slow() returns Tally
 end 'slow'
 
 function leave(early bool) returns Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async slow()
 	if early 'leavingEarly'
 		return 1
 	end 'leavingEarly'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await later
 end 'leave'
 
@@ -163,7 +143,6 @@ error E3213: <fragment>:13:3: this drops 'later', which was never awaited, cance
 ```
 
 <!-- test: a-promise-stored-in-a-field-is-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Storing the promise in a record hands it to the record, which cancels it when it is dropped.
 
 ```maxon
@@ -174,7 +153,7 @@ typealias TallyPromise = Promise with Tally
 type Pending
 	var later as TallyPromise
 
-	static function of(later TallyPromise) returns Self
+	static function of(consumes later TallyPromise) returns Self
 		return Self{later: later}
 	end 'of'
 end 'Pending'
@@ -185,7 +164,6 @@ function slow() returns Tally
 end 'slow'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let held = Pending.of(async slow())
 	_ = held
 	print("stored\n")
@@ -200,7 +178,6 @@ stored
 ```
 
 <!-- test: a-promise-returned-is-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Returning the promise hands it to the caller, which awaits it.
 
 ```maxon
@@ -214,7 +191,6 @@ function slow() returns Tally
 end 'slow'
 
 function start() returns TallyPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async slow()
 end 'start'
 
@@ -232,7 +208,6 @@ end 'main'
 ```
 
 <!-- test: a-promise-cancelled-is-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 `.cancel()` consumes the promise, so the end of `main` drops nothing.
 
 ```maxon
@@ -244,7 +219,6 @@ function slow() returns Tally
 end 'slow'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async slow()
 	later.cancel()
 	print("cancelled\n")
@@ -259,8 +233,6 @@ cancelled
 ```
 
 <!-- test: a-promise-awaited-on-every-path-is-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Both branches consume the promise, so no path reaches an exit with it held.
 
 ```maxon
@@ -276,10 +248,8 @@ function choose() returns bool
 end 'choose'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async slow()
 	if choose() 'maybe'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await later
 	end 'maybe' else 'otherwise'
 		later.cancel()

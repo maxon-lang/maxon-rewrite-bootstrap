@@ -332,8 +332,6 @@ end 'main'
 ```
 
 <!-- test: a-promise-result-is-not-released-on-the-error-edge -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A throwing call whose result is a PROMISE owns that promise only on the ok edge: on the error edge the
 result register was never written. The handler's `return` leaves the enclosing expression, so it releases
 what the fork owes, and the promise must not be among those values.
@@ -348,20 +346,18 @@ end 'StartError'
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function start(fail bool) returns IntPromise throws StartError
 	if fail 'refuse'
 		throw StartError.refused
 	end 'refuse'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work(1)
 end 'start'
 
 function run(fail bool) returns Integer
 	let p = try start(fail) otherwise return 1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'run'
 
@@ -378,8 +374,6 @@ end 'main'
 ```
 
 <!-- test: a-promise-result-of-a-catching-condition-is-not-released-on-the-error-edge -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same promise result reached through a catching `if`: the success value belongs to the then branch, and
 the else branch must not release it.
 ```maxon
@@ -393,20 +387,18 @@ end 'StartError'
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function start(fail bool) returns IntPromise throws StartError
 	if fail 'refuse'
 		throw StartError.refused
 	end 'refuse'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work(1)
 end 'start'
 
 function run(fail bool) returns Integer
 	if let p = try start(fail) 'started'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return await p
 	end 'started' else 'refused'
 		return 1
@@ -426,8 +418,6 @@ end 'main'
 ```
 
 <!-- test: a-promise-result-merged-with-a-promise-fallback-is-owned-on-both-edges -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A throwing call whose result is a PROMISE, with a fallback that is ANOTHER promise: the merged binding owns
 whichever promise its edge produced, and releases or consumes it exactly once. The failing call awaits the
 fallback; the succeeding call leaves the returned promise to the binding's scope exit.
@@ -449,7 +439,6 @@ function start(fail bool) returns IntPromise throws StartError
 	if fail 'refuse'
 		throw StartError.refused
 	end 'refuse'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work(1)
 end 'start'
 
@@ -459,10 +448,8 @@ function fallback() returns Integer
 end 'fallback'
 
 function run(fail bool) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = try start(fail) otherwise async fallback()
 	if fail 'awaitTheFallback'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return await p
 	end 'awaitTheFallback'
 	p.cancel()
@@ -484,8 +471,6 @@ end 'main'
 ```
 
 <!-- test: a-promise-fallback-is-owned-through-the-merge-on-the-error-edge -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The error edge of the case above, alone: the fallback promise is moved into the merged binding, which owns
 it, so `await p` consumes it and nothing else releases it.
 ```maxon
@@ -506,7 +491,6 @@ function start(fail bool) returns IntPromise throws StartError
 	if fail 'refuse'
 		throw StartError.refused
 	end 'refuse'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work(1)
 end 'start'
 
@@ -516,10 +500,8 @@ function fallback() returns Integer
 end 'fallback'
 
 function run(fail bool) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = try start(fail) otherwise async fallback()
 	if fail 'awaitTheFallback'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return await p
 	end 'awaitTheFallback'
 	p.cancel()

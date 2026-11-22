@@ -24,7 +24,6 @@ still runs, which is where the promises' own strand drops them.
 ## Tests
 
 <!-- test: a-local-array-of-promises-reclaims-an-unawaited-element -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -39,7 +38,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push(async work(1))
 	held.clear()
 	return 0
@@ -50,7 +48,6 @@ end 'main'
 ```
 
 <!-- test: a-local-array-of-throwing-promises-reclaims-an-unawaited-element -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -72,7 +69,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = CheckedPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push(async work(1))
 	held.clear()
 	return 0
@@ -83,7 +79,6 @@ end 'main'
 ```
 
 <!-- test: a-local-array-of-records-holding-a-promise-reclaims-an-unawaited-element -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -106,7 +101,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = JobArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push(Job.start(async work(1)))
 	held.clear()
 	return 0
@@ -117,7 +111,6 @@ end 'main'
 ```
 
 <!-- test: a-local-array-of-generic-instances-over-a-promise-reclaims-an-unawaited-element -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -142,7 +135,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = PromiseBoxArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push(PromiseBox.wrap(async work(1)))
 	held.clear()
 	return 0
@@ -153,7 +145,6 @@ end 'main'
 ```
 
 <!-- test: a-local-array-of-unions-carrying-a-promise-reclaims-an-unawaited-element -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -173,7 +164,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = SlotArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push(Slot.running(async work(1)))
 	held.clear()
 	return 0
@@ -184,7 +174,6 @@ end 'main'
 ```
 
 <!-- test: a-local-array-of-tuples-holding-a-promise-reclaims-an-unawaited-element -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -201,7 +190,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = EntryArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.push((1, async work(1)))
 	held.clear()
 	return 0

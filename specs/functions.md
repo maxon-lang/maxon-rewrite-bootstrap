@@ -599,15 +599,10 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-awaited-under-bare-if-try -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A bare `if try await` over a promise of the undefined call names the CALL.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async frobnicate(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if try await p 'ok'
 		print("ok\n")
 	end 'ok'
@@ -619,15 +614,10 @@ error E3004: <fragment>:3:16: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-awaited-under-if-try -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 An `if let … = try await` over a promise of the undefined call names the CALL.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async frobnicate(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if let x = try await p 'ok'
 		print("{x}\n")
 	end 'ok'
@@ -639,15 +629,10 @@ error E3004: <fragment>:3:16: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-awaited-under-try-with-a-fallback-value -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A `try await` with a fallback over a promise of the undefined call names the CALL.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async frobnicate(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let x = try await p otherwise 0
 	print("{x}\n")
 	return 0
@@ -658,12 +643,10 @@ error E3004: <fragment>:3:16: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-spawn-stored -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Storing a promise of the undefined call names the CALL, not a mismatch with the storage's type.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async frobnicate(2)
 	var ps = PendingArray.create(0)
 	ps.push(p)
@@ -681,12 +664,10 @@ error E3004: <fragment>:3:16: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-spawn-stored-as-throwing -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Storage typed as a throwing promise is not refused for a callee whose throws clause is unknown.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async frobnicate(2)
 	var ps = PendingArray.create(0)
 	ps.push(p)
@@ -1504,11 +1485,8 @@ error E3004: <fragment>:7:8: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-awaited-directly -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await frobnicate(2)
 	return v as ExitCode
 end 'main'

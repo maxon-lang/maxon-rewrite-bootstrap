@@ -4181,8 +4181,6 @@ end 'main'
 ```
 
 <!-- test: where-clauses.a-static-with-conditional-witnesses-that-carries-nothing-is-spawned -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 type Holder uses T where T implements Hashable and Equatable
@@ -4199,9 +4197,7 @@ type Holder uses T where T implements Hashable and Equatable
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Holder.plain(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await p
 	print("{v}\n")
 	return 0
@@ -4215,8 +4211,6 @@ end 'main'
 ```
 
 <!-- test: where-clauses.error.a-static-reading-its-types-parameter-is-not-spawned -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
@@ -4234,9 +4228,7 @@ type Holder uses T where T implements Hashable and Equatable
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Holder.width(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await p
 	print("{v}\n")
 	return 0
@@ -4247,7 +4239,6 @@ error E2015: <fragment>:16:23: Unsupported: `async Holder.width(…)` reads the 
 ```
 
 <!-- test: where-clauses.a-spawned-function-looks-up-a-signed-enum-key-in-a-shared-map-body -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 A function spawned onto a green thread runs the shared `Map` body over an opaque key. A key from a signed narrow enum is
 stored at its one-byte stride and read back sign-extended inside that body, so the lookup `map.get(Signal.minus)` finds
@@ -4284,9 +4275,7 @@ function signalLookup(n Count) returns Count
 end 'signalLookup'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let wordPromise = async wordLookup(10)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let signalPromise = async signalLookup(20)
 	print("{await wordPromise} {await signalPromise}\n")
 	return 0
@@ -4300,7 +4289,6 @@ end 'main'
 ```
 
 <!-- test: where-clauses.error.a-spawned-method-reading-an-opaque-arrays-elements-has-no-receiver -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 A method of a generic type that reads an element of an `Array with T` takes the instance as its receiver, and a spawn
@@ -4339,7 +4327,6 @@ typealias SignalHolder = Holder with Signal
 function main() returns ExitCode
 	var holder = SignalHolder.create()
 	holder.add(Signal.minus)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async holder.head()
 	print("{await promise}\n")
 	return 0

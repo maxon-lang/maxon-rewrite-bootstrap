@@ -291,8 +291,6 @@ error E2015: specs/stack-arguments/argument-slots-are-capped-and-the-cap-is-stat
 ```
 
 <!-- test: a-spawn-passes-its-overflow-arguments-on-the-new-threads-stack -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An `async` call's arguments past the callee's register files are written onto the new green thread's stack
 before its first resume, where the callee's incoming-argument loads find them, exactly as an ordinary call's
 outgoing area would hold them. Seven integers overflow x64's six integer registers by one.
@@ -301,13 +299,11 @@ typealias Integer = int(i64.min to i64.max)
 
 function wide7(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer) returns bool
 	Scheduler.yield()
-	return a + b + c + d + e + f + g == 127
+	return (try a + b + c + d + e + f + g otherwise panic("out of range")) == 127
 end 'wide7'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async wide7(1, b: 2, c: 4, d: 8, e: 16, f: 32, g: 64)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await p 'ok'
 		return 0
 	end 'ok'

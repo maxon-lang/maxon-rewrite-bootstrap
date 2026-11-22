@@ -1217,8 +1217,6 @@ kind=2 code=3 memberEnded=true
 ```
 
 <!-- test: subprocess-builtins.a-release-under-a-parked-collect-is-a-named-stop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1265,9 +1263,9 @@ function parkedInCollect(parkedFrom ParkMark) returns bool
 		return false
 	end 'notYet'
 	#if os(Windows)
-	return true
+		return true
 	#else
-	return Scheduler.counters().netpollBlocks >= mark
+		return Scheduler.counters().netpollBlocks >= mark
 	#endif
 end 'parkedInCollect'
 
@@ -1290,26 +1288,24 @@ end 'collector'
 function main() returns ExitCode
 	let argv = ByteArray.create(0)
 	#if os(Windows)
-	appendToken(argv, token: "cmd")
-	appendToken(argv, token: "/c")
-	appendToken(argv, token: "set /p released=")
-	let argc = 3
+		appendToken(argv, token: "cmd")
+		appendToken(argv, token: "/c")
+		appendToken(argv, token: "set /p released=")
+		let argc = 3
 	#else
-	appendToken(argv, token: "/bin/cat")
-	let argc = 1
+		appendToken(argv, token: "/bin/cat")
+		let argc = 1
 	#endif
 	let empty = ""
 	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
 	let h = __Builtins.subprocessSpawn(argv, argc, empty.cstr(), env, 1, holdStdin, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
 	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let collecting = async collector(h, parkedFrom: parkedFrom.clone())
 	while not parkedInCollect(parkedFrom) 'untilParkedInCollect'
 		Scheduler.yield()
 	end 'untilParkedInCollect'
 	// The collector is parked in the group wait on this slot's pipes and child, so this release is the refusal.
 	__Builtins.subprocessReleaseHandle(h)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let unreachable = await collecting
 	return unreachable
 end 'main'
@@ -1322,8 +1318,6 @@ fatal error: runtime abort 117 (subpCollectSlotReleased)
 ```
 
 <!-- test: subprocess-builtins.a-second-collect-on-a-held-slot-is-a-named-stop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1360,9 +1354,9 @@ function parkedInCollect(parkedFrom ParkMark) returns bool
 		return false
 	end 'notYet'
 	#if os(Windows)
-	return true
+		return true
 	#else
-	return Scheduler.counters().netpollBlocks >= mark
+		return Scheduler.counters().netpollBlocks >= mark
 	#endif
 end 'parkedInCollect'
 
@@ -1385,29 +1379,25 @@ end 'collector'
 function main() returns ExitCode
 	let argv = ByteArray.create(0)
 	#if os(Windows)
-	appendToken(argv, token: "cmd")
-	appendToken(argv, token: "/c")
-	appendToken(argv, token: "set /p released=")
-	let argc = 3
+		appendToken(argv, token: "cmd")
+		appendToken(argv, token: "/c")
+		appendToken(argv, token: "set /p released=")
+		let argc = 3
 	#else
-	appendToken(argv, token: "/bin/cat")
-	let argc = 1
+		appendToken(argv, token: "/bin/cat")
+		let argc = 1
 	#endif
 	let empty = ""
 	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
 	let h = __Builtins.subprocessSpawn(argv, argc, empty.cstr(), env, 1, holdStdin, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
 	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async collector(h, parkedFrom: parkedFrom.clone())
 	while not parkedInCollect(parkedFrom) 'untilParkedInCollect'
 		Scheduler.yield()
 	end 'untilParkedInCollect'
 	// The first collector holds the slot and is parked in its group wait, so this second collect is the refusal.
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async collector(h, parkedFrom: parkedFrom.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let unreachableSecond = await second
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let unreachableFirst = await first
 	return unreachableSecond + unreachableFirst
 end 'main'
@@ -3035,7 +3025,6 @@ exit=0 out=ok
 ```
 
 <!-- test: subprocess-builtins.posix-a-released-handle-cannot-release-the-spawn-that-reuses-its-slot -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
@@ -3106,7 +3095,6 @@ function main() returns ExitCode
 	sleep(setupHoldMs)
 	__Builtins.subprocessReleaseHandle(first)
 	try File.writeText(try FilePath.from(fifo) otherwise return 2, content: "through the fifo") otherwise return 3
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = try await reader.answer() otherwise return 8
 	print("second: {answer}\n")
 	try File.delete(try FilePath.from(fifo) otherwise return 4) otherwise return 5
@@ -3122,7 +3110,6 @@ second: kind=0 code=0 out=through the fifo
 ```
 
 <!-- test: subprocess-builtins.posix-a-file-open-in-the-parent-is-not-inherited-by-the-child -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
@@ -3195,7 +3182,6 @@ function main() returns ExitCode
 	let reader = spawn FifoReader.create()
 	try reader.countFrom("{dir}/f") otherwise return 9
 	try File.writeText(try FilePath.from(fifo) otherwise return 2, content: payload.build()) otherwise return 3
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = try await reader.answer() otherwise return 8
 	print("child: {answer}\n")
 	try File.delete(try FilePath.from(fifo) otherwise return 4) otherwise return 5

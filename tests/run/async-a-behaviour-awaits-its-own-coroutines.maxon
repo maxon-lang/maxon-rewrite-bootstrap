@@ -1,0 +1,23 @@
+// native-only
+// A behaviour is a green thread, so it may start coroutines of its strand and await them while it holds its cown; main
+// waits for its own after it scheduled the behaviour, and its exit code is what that gave. The interpreter runs no
+// coroutine.
+// expect-exit: 5
+//> behaviour got 3 of 7
+typealias Tally = int(0 to 1000000)
+
+function nap(tag Tally) returns Tally
+	sleep(2)
+	return tag
+end 'nap'
+
+function main() returns ExitCode
+	let c = cown(7 as Tally)
+	when c as v 'later'
+		let p = async nap(3)
+		let got = await p
+		print("behaviour got {got} of {v}\n")
+	end 'later'
+	let q = async nap(5)
+	return await q
+end 'main'

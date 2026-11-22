@@ -417,8 +417,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-kept-by-a-callee-while-a-task-runs-and-read-again-is-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `register` keeps its parameter in a container while a task runs and `a` is read afterwards: the call is accepted, whatever the task does.
 
 ```maxon
@@ -435,7 +433,7 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b)
+	registry.push(b.clone())
 end 'register'
 
 function quiet() returns Count
@@ -444,12 +442,10 @@ function quiet() returns Count
 end 'quiet'
 
 function main() returns ExitCode
-	let registry = Boxes.create(0)
+	var registry = Boxes.create(0)
 	let a = Box.create(2)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let handle = async quiet()
 	register(a, registry: registry)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await handle
 	print("{a.n}{r}\n")
 	return 0
@@ -876,8 +872,6 @@ a7
 ```
 
 <!-- test: let-escape.a-let-kept-in-a-module-container-across-a-yield-and-read-again-is-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `register` keeps its parameter in a container and `b` is read afterwards: the call is accepted, whatever type the spawned task writes.
 
 ```maxon
@@ -917,13 +911,11 @@ function main() returns ExitCode
 	let others = OtherBoxes.create(0)
 	let registry = Boxes.create(0)
 	others.push(Other.create(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let task = async wipeFirst(others)
 	let b = Box.create(2)
 	register(b, registry: registry)
 	Scheduler.yield()
 	print("{b.n}\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await task
 	return r as ExitCode
 end 'main'

@@ -92,6 +92,12 @@ function visitExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if k == ast.NodeKind.unaryExpr 'unaryExpr'
 		return checkUnary(c, p: p, ms: ms, e: e, errs: errs)
 	end 'unaryExpr'
+	if k == ast.NodeKind.asyncExpr 'asyncExpr'
+		return checkAsync(c, p: p, ms: ms, e: e, errs: errs)
+	end 'asyncExpr'
+	if k == ast.NodeKind.awaitExpr 'awaitExpr'
+		return checkAwait(c, p: p, ms: ms, e: e, errs: errs)
+	end 'awaitExpr'
 	if k == ast.NodeKind.condExpr 'condExpr'
 		return checkCond(c, p: p, ms: ms, e: e, errs: errs)
 	end 'condExpr'
@@ -436,6 +442,7 @@ function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bo
 		builtinFrozen gives false
 		builtinCown gives false
 		builtinCursor gives false
+		builtinPromise gives false
 		typeParam gives false
 		interfaceTy gives false
 		funcTy gives false
@@ -840,6 +847,7 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 		builtinFrozen gives false
 		builtinCown gives false
 		builtinCursor gives false
+		builtinPromise gives false
 		typeParam gives false
 		interfaceTy gives false
 	end 'k'
@@ -869,6 +877,7 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		builtinFrozen gives name
 		builtinCown gives name
 		builtinCursor gives name
+		builtinPromise gives name
 		typeParam gives name
 		interfaceTy gives name
 		funcTy gives "function"
@@ -899,6 +908,7 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		builtinFrozen gives nameOfType(p, ms: ms, t: t)
 		builtinCown gives nameOfType(p, ms: ms, t: t)
 		builtinCursor gives nameOfType(p, ms: ms, t: t)
+		builtinPromise gives nameOfType(p, ms: ms, t: t)
 		typeParam gives nameOfType(p, ms: ms, t: t)
 		interfaceTy gives nameOfType(p, ms: ms, t: t)
 	end 'k'

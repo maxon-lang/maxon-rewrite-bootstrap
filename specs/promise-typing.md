@@ -38,7 +38,6 @@ A promise converts to no `int`. Its result arrives through `await`, and **`p.isC
 ## Tests
 
 <!-- test: promise-typing.error.return-a-promise-as-its-result-type -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A promise is not its result. `grab` is declared `returns Integer` and returns `async plain()`, which is a
 `Promise with Integer` — the value that will eventually produce an `Integer`, not an `Integer`. Before
@@ -53,7 +52,6 @@ function plain() returns Integer
 end 'plain'
 
 function grab() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async plain()
 end 'grab'
 
@@ -67,8 +65,6 @@ error E3005: <fragment>:10:3: Cannot return 'Promise with int' from function dec
 ```
 
 <!-- test: promise-typing.error.arithmetic-on-a-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A promise is not a number, so it has no arithmetic.
 ```maxon
@@ -80,11 +76,9 @@ function plain() returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async plain()
 	let bumped = p + 1
 	print("bumped {bumped}")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -93,7 +87,6 @@ error E2004: <fragment>:11:18: Cannot operate on Promise with int and int
 ```
 
 <!-- test: promise-typing.error.a-promise-in-an-integer-parameter -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `Integer` parameter does not take a promise. The cure is to `await` it and pass the RESULT — which is
 also the only spelling that keeps the thread's one owner intact.
@@ -110,7 +103,6 @@ function takesInt(n Integer) returns Integer
 end 'takesInt'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async plain()
 	return takesInt(p) as ExitCode
 end 'main'
@@ -120,8 +112,6 @@ error E3005: <fragment>:15:10: argument type mismatch for 'n': expected 'Integer
 ```
 
 <!-- test: promise-typing.error.clone-a-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐ The one that would be a latent double-reclaim rather than merely a wrong type. A promise owns a green
 thread that exactly one owner may reclaim; a `p.clone()` would hand back a second copy of the handle,
@@ -136,11 +126,9 @@ function plain() returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async plain()
 	let copy = p.clone()
 	print("copied {copy.isComplete()}")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -149,7 +137,6 @@ error E3141: <fragment>:11:16: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.clone-a-map-of-promises -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same refusal one container deep: a `Map` whose values are promises would hand each thread to two maps.
 ```maxon
@@ -166,7 +153,6 @@ end 'plain'
 
 function main() returns ExitCode
 	var pending = Pending.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	pending.upsert(1, value: async plain())
 	let copy = pending.clone()
 	return copy.count() as ExitCode
@@ -177,7 +163,6 @@ error E3141: <fragment>:14:22: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.clone-a-record-holding-an-array-of-promises -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 And through a record whose field is an array of promises.
 ```maxon
@@ -202,7 +187,6 @@ end 'plain'
 
 function main() returns ExitCode
 	var pending = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	pending.push(async plain())
 	let batch = Batch.create(pending)
 	let copy = batch.clone()
@@ -214,7 +198,6 @@ error E3141: <fragment>:23:20: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.append-an-array-of-promises -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `append` copies every element of its argument, so an array of promises appended to another would leave each
 thread with two arrays to reclaim it.
@@ -233,7 +216,6 @@ end 'plain'
 function main() returns ExitCode
 	var first = IntPromiseArray.create(0)
 	var second = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	second.push(async plain())
 	first.append(second)
 	return first.count() as ExitCode
@@ -244,7 +226,6 @@ error E3141: <fragment>:15:9: a promise cannot be borrowed through 'append': it 
 ```
 
 <!-- test: promise-typing.error.clone-an-array-of-records-holding-a-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 And through an array whose element is a record holding a promise: the array's copy reaches the promise
 only through the element type.
@@ -270,7 +251,6 @@ end 'plain'
 
 function main() returns ExitCode
 	var jobs = JobArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	jobs.push(Job.create(async plain()))
 	let copy = jobs.clone()
 	return copy.count() as ExitCode
@@ -281,7 +261,6 @@ error E3141: <fragment>:22:19: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.clone-a-list-of-promises -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `List` declares its own `clone`, which walks the list and appends each element to a new one. Over promises
 that walk copies every handle, so the refusal is the same one a synthesized copy gets, at the call.
@@ -299,7 +278,6 @@ end 'plain'
 
 function main() returns ExitCode
 	var pending = IntPromiseList.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	pending.append(async plain())
 	let copy = pending.clone()
 	return copy.count() as ExitCode
@@ -310,7 +288,6 @@ error E3141: <fragment>:14:22: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.filter-a-list-of-promises -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `filter` keeps each element its predicate accepts by copying it into a new array, so a list of promises
 filtered would give each kept thread two owners.
@@ -328,7 +305,6 @@ end 'plain'
 
 function main() returns ExitCode
 	var pending = IntPromiseList.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	pending.append(async plain())
 	let kept = pending.filter(function(p IntPromise) gives p.isComplete())
 	return kept.count() as ExitCode
@@ -339,7 +315,6 @@ error E3141: <fragment>:14:22: a promise cannot be borrowed through 'filter': it
 ```
 
 <!-- test: promise-typing.error.clone-a-generic-array-field-instantiated-with-a-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A generic type's shared body copies an `Array with T` field without knowing what `T` is, so the copy is
 refused at the instantiation that makes `T` a promise, as every opaque-element copy is.
@@ -378,7 +353,6 @@ end 'plain'
 
 function main() returns ExitCode
 	var bag = IntPromiseBag.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	bag.add(async plain())
 	let copy = bag.copied()
 	return copy.count() as ExitCode
@@ -390,7 +364,6 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 ```
 
 <!-- test: promise-typing.error.inner-is-library-tier -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A program has no promise → `int` conversion, and a service REPLY is a promise like any other: its handle
@@ -418,7 +391,6 @@ function main() returns ExitCode
 	let p = try h.total() otherwise panic("send total")
 	let named = p.inner > 0
 	print("names a thread {named}")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -427,7 +399,6 @@ error E3185: <fragment>:19:16: '.inner' read from outside the library tiers: a p
 ```
 
 <!-- test: promise-typing.a-promise-array-element-may-be-spelled-inline -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⛔⛔ **`Array with Promise with T` AND THE TWO-STEP ALIAS ARE ONE TYPE.**
 `typealias Ps = Promise with Integer` followed by `Array with Ps` and the element written
@@ -480,7 +451,6 @@ function main() returns ExitCode
 	let ps = IntPromiseArray.create(0)
 	ps.push(try h.double(21) otherwise panic("send double"))
 	let p = try ps.pop() otherwise panic("the push above filled it")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```

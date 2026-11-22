@@ -1,0 +1,178 @@
+// Strands and coroutines: what `async`, `await`, `sleep` and `Scheduler.yield()` lower to. An `async` call starts its
+// function as a coroutine, a green thread of the caller's strand. A strand is a green thread that made a coroutine, its
+// root, and the coroutines it and they make, and its members run one at a time, as maxon's strand of a green thread does:
+// only the member that holds the strand runs the program's code, and a member gives the strand up only where it waits
+// (park), where it yields, and where it finishes, never where it is preempted or in a blocking call. So the strand may
+// move from thread to thread between its waits, as a goroutine does, and two coroutines of it never run at once. The
+// strand is held in its root's record: the member that holds it, and the queue of the members that wait to run, under a
+// lock of its own, since a member that a timer, the poller or a finish readies takes the strand on whatever thread that
+// is. A coroutine never outlives its root: each is awaited in the frames of the strand's members, which end before the
+// root does.
+
+// lockStrand takes a strand's lock, which its holder and its queue are read and written under.
+function lockStrand(root Count)
+	while __Raw.compareExchange(root, offset: greenStrandLockOffset, expected: unset, desired: set) != unset 'spin'
+		__Raw.spinPause()
+	end 'spin'
+end 'lockStrand'
+
+function unlockStrand(root Count)
+	_ = __Raw.atomicExchange(root, offset: greenStrandLockOffset, value: unset)
+end 'unlockStrand'
+
+// strandQueue puts a member at the end of the strand's queue of the members that wait to run, under its lock.
+function strandQueue(root Count, g Count)
+	__Raw.storeWord(g, offset: greenLinkOffset, value: noGreen)
+	let tail = __Raw.loadWord(root, offset: greenStrandTailOffset)
+	if tail == noGreen 'empty'
+		__Raw.storeWord(root, offset: greenStrandHeadOffset, value: g)
+	end 'empty' else 'after'
+		__Raw.storeWord(tail, offset: greenLinkOffset, value: g)
+	end 'after'
+	__Raw.storeWord(root, offset: greenStrandTailOffset, value: g)
+end 'strandQueue'
+
+// strandNext takes the first member of the strand's queue, under its lock, or gives noGreen when none waits.
+function strandNext(root Count) returns Count
+	let next = __Raw.loadWord(root, offset: greenStrandHeadOffset)
+	if next == noGreen 'none'
+		return noGreen
+	end 'none'
+	let after = __Raw.loadWord(next, offset: greenLinkOffset)
+	__Raw.storeWord(root, offset: greenStrandHeadOffset, value: after)
+	if after == noGreen 'last'
+		__Raw.storeWord(root, offset: greenStrandTailOffset, value: noGreen)
+	end 'last'
+	return next
+end 'strandNext'
+
+// strandRelease is the member g giving up the strand it holds: to the member that waits first, which it readies, or to
+// none until a member that waits for something else is readied and takes it.
+function strandRelease(context Count, root Count, g Count)
+	lockStrand(root)
+	if __Raw.loadWord(root, offset: greenStrandHolderOffset) != g 'notHeld'
+		panic("a member of a strand gives up the strand while another holds it")
+	end 'notHeld'
+	let next = strandNext(root)
+	__Raw.storeWord(root, offset: greenStrandHolderOffset, value: next)
+	unlockStrand(root)
+	if next != noGreen 'hand'
+		ready(context, g: next)
+	end 'hand'
+end 'strandRelease'
+
+// strandAcquire has the member g, which a ready let run again, take the strand: at once when no member holds it, and else
+// once the holder hands it over, which it waits for parked in the queue.
+function strandAcquire(root Count, g Count)
+	lockStrand(root)
+	let holder = __Raw.loadWord(root, offset: greenStrandHolderOffset)
+	if holder == noGreen 'free'
+		__Raw.storeWord(root, offset: greenStrandHolderOffset, value: g)
+		unlockStrand(root)
+		return
+	end 'free'
+	if holder == g 'held'
+		panic("a member of a strand takes the strand it holds")
+	end 'held'
+	strandQueue(root, g: g)
+	unlockStrand(root)
+	waitForStrand(root, g: g)
+end 'strandAcquire'
+
+// waitForStrand parks the member g, which is in the strand's queue, until a release has made it the holder. A ready of
+// another cause cannot come: a member waits for one thing at a time.
+function waitForStrand(root Count, g Count)
+	while __Raw.atomicAdd(root, offset: greenStrandHolderOffset, value: 0) != g 'handed'
+		parkGreen(__Raw.threadContext(), g: g)
+	end 'handed'
+end 'waitForStrand'
+
+// strandYield is a yield of the member g that holds the strand: when another member waits to run, it gets the strand,
+// and g waits behind the members queued already; it gives whether it did, and so whether the yield is done.
+function strandYield(context Count, root Count, g Count) returns bool
+	lockStrand(root)
+	let next = strandNext(root)
+	if next == noGreen 'alone'
+		unlockStrand(root)
+		return false
+	end 'alone'
+	strandQueue(root, g: g)
+	__Raw.storeWord(root, offset: greenStrandHolderOffset, value: next)
+	unlockStrand(root)
+	ready(context, g: next)
+	waitForStrand(root, g: g)
+	return true
+end 'strandYield'
+
+// asyncNew is a coroutine of the running green thread's strand that runs code, the thunk of the function an `async` call
+// starts, with the coroutine: not yet runnable, for its arguments to be written. The first coroutine a green thread makes
+// makes it the root of a strand, which it holds.
+function asyncNew(code Count) returns Count
+	let parent = greenCurrent()
+	var root = __Raw.loadWord(parent, offset: greenStrandOffset)
+	if root == noGreen 'first'
+		root = parent
+		__Raw.storeWord(parent, offset: greenStrandOffset, value: parent)
+		__Raw.storeWord(parent, offset: greenStrandHolderOffset, value: parent)
+	end 'first'
+	let g = greenSpawn(code)
+	__Raw.storeWord(g, offset: greenStrandOffset, value: root)
+	return g
+end 'asyncNew'
+
+// asyncStart publishes a coroutine whose arguments are written, as maxon's __gt_ready does last: it waits to run in its
+// strand's queue, behind the members queued before it, and runs once the members that run before it wait.
+function asyncStart(g Count)
+	let root = __Raw.loadWord(g, offset: greenStrandOffset)
+	lockStrand(root)
+	strandQueue(root, g: g)
+	unlockStrand(root)
+end 'asyncStart'
+
+// asyncAwait is `await` of a promise whose function throws nothing: it waits for the coroutine to finish, gives the value its
+// function returned, and frees the coroutine.
+function asyncAwait(promise Count) returns Count
+	return greenAwait(promise)
+end 'asyncAwait'
+
+// asyncWait is the wait of `await` of a promise whose function throws, which asyncError and asyncTake then read.
+function asyncWait(promise Count)
+	greenWait(promise)
+end 'asyncWait'
+
+// asyncError is what the function of a coroutine that asyncWait waited for failed with, 0 when it returned.
+function asyncError(promise Count) returns Count
+	return __Raw.loadWord(promise, offset: greenErrorOffset)
+end 'asyncError'
+
+// asyncTake gives the value the function of a coroutine that asyncWait waited for returned, and frees the coroutine.
+function asyncTake(promise Count) returns Count
+	return greenTake(promise)
+end 'asyncTake'
+
+// longestSleepNanos is the most a sleep waits, about 146 years, so that its deadline never passes the clock's word.
+let longestSleepNanos = 0x4000000000000000 as Count
+
+// sleepMs is maxon's sleep(milliseconds): the running green thread parks for at least that long, and its strand's other
+// members run meanwhile.
+function sleepMs(milliseconds Count)
+	let asked = try milliseconds * nanosPerMilli otherwise longestSleepNanos
+	greenSleep(asked if asked < longestSleepNanos else longestSleepNanos)
+end 'sleepMs'
+
+// schedYield is maxon's Scheduler.yield(): the members of the strand that wait to run, else the green threads that are
+// runnable, run before the caller goes on.
+function schedYield()
+	greenYield()
+end 'schedYield'
+
+// mainRun is what the entry stub calls in place of main, with the code that calls main: main runs as a green thread, as Go
+// runs it as a goroutine, so that it can wait; the main thread runs the scheduler until main and every behaviour and green
+// thread it made have finished, and gives main's exit code, or the one Process.setExitCode set last.
+function mainRun(code Count) returns Count
+	let g = greenSpawn(code)
+	greenReady(g)
+	drainScheduler(__Raw.threadContext())
+	let result = greenTake(g)
+	return exitCodeAfter(__Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset), code: result)
+end 'mainRun'

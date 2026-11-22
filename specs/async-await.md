@@ -138,8 +138,6 @@ end 'demoFetch'
 ## Tests
 
 <!-- test: async-await.basic -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -149,11 +147,9 @@ function compute() returns Integer
 end 'compute'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async compute()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = await promise
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -161,8 +157,6 @@ end 'main'
 ```
 
 <!-- test: async-await.parallel -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -177,15 +171,11 @@ function taskB() returns Integer
 end 'taskB'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async taskA()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async taskB()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	return r1 + r2
+	return try r1 + r2 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -193,8 +183,6 @@ end 'main'
 ```
 
 <!-- test: async-await.void -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function setFlag(mutates flag ExitCode)
 	_ = File.exists(FilePath from "noyield.txt")
@@ -203,9 +191,7 @@ end 'setFlag'
 
 function main() returns ExitCode
 	var flag = 0 as ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async setFlag(flag)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	await p
 	return flag
 end 'main'
@@ -215,30 +201,22 @@ end 'main'
 ```
 
 <!-- test: async-await.sequence -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function step(n Integer) returns Integer
 	_ = File.exists(FilePath from "noyield.txt")
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'step'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async step(0)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async step(r1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async step(r2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r3 = await p3
-	return r3
+	return try r3 as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -246,8 +224,6 @@ end 'main'
 ```
 
 <!-- test: async-await.stack-growth -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -255,7 +231,7 @@ function deepRecurse(n Integer) returns Integer
 	if n == 0 'base'
 		return 0
 	end 'base'
-	return deepRecurse(n - 1) + 1
+	return try deepRecurse(try n - 1 otherwise panic("out of range")) + 1 otherwise panic("out of range")
 end 'deepRecurse'
 
 function yieldAndRecurse() returns Integer
@@ -264,11 +240,9 @@ function yieldAndRecurse() returns Integer
 end 'yieldAndRecurse'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async yieldAndRecurse()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = await p
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -276,8 +250,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.otherwise-default -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -294,15 +266,11 @@ function mayFail(succeed bool) returns Integer throws TestError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async mayFail(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = try await p1 otherwise 0
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async mayFail(false)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = try await p2 otherwise 80
-	return r1 + r2
+	return try r1 + r2 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -310,8 +278,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.propagate -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -328,16 +294,14 @@ function mayFail(succeed bool) returns Integer throws TestError
 end 'mayFail'
 
 function inner() returns Integer throws TestError
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = try await p
 	return result
 end 'inner'
 
 function main() returns ExitCode
 	let r = try inner() otherwise 0
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -345,8 +309,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.otherwise-panic -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -362,11 +324,9 @@ function succeeds() returns Integer throws TestError
 end 'succeeds'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async succeeds()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise panic("should not fail")
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -374,8 +334,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.void -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 enum TestError implements Error
 	failed
@@ -392,9 +350,7 @@ end 'maySetFlag'
 
 function main() returns ExitCode
 	var flag = 0 as ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async maySetFlag(true, flag: flag)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	try await p otherwise ignore
 	return flag
 end 'main'
@@ -404,8 +360,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.otherwise-bind -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `otherwise (e)` on a `try await` binds the error the awaited thunk THREW,
 at the thunk's declared `throws` type — exactly as it does on a `try` call.
 The promise carries its callee's error type, so `e` here is a `TaskError`
@@ -430,16 +384,14 @@ function mayFail(mode Integer) returns Integer throws TaskError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise (e) 'failed'
 		return match e 'why'
 			timedOut gives 7
 			crashed gives 9
 		end 'why'
 	end 'failed'
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -447,8 +399,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.otherwise-bind-assoc-value -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The bound error is an associated-value union, so the error flag IS a heap
 pointer to the payload. The binding takes ownership and scope-end releases
 it exactly once — a leak here (the payload never decref'd) or a double-free
@@ -472,9 +422,7 @@ function work(n Integer) returns Integer throws WorkError
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(-1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")
@@ -482,7 +430,7 @@ function main() returns ExitCode
 		end 'which'
 		return 0
 	end 'failed'
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -493,8 +441,6 @@ caught: negative input
 ```
 
 <!-- test: async-await.try-await.otherwise-bind-cross-block -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The `async` and its `try await` sit in different basic blocks, so the promise
 reaches the await through the cross-block variable-reference path. That path
 re-tags the promise value and must carry ALL of its metadata across — it used
@@ -516,20 +462,18 @@ function work(n Integer) returns Integer throws WorkError
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(-1)
 	var guard = 1 as Integer
 	if guard == 1 'sep'
 		guard = 2
 	end 'sep'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")
 		end 'which'
 		return 0
 	end 'failed'
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -540,8 +484,6 @@ caught: cross-block
 ```
 
 <!-- test: async-await.try-await.otherwise-bind-void -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A void-returning throwing async function has no result — only an error flag.
 The `otherwise (e)` binding must still be typed at the thunk's `throws` type.
 ```maxon
@@ -570,9 +512,7 @@ end 'maySetFlag'
 
 function main() returns ExitCode
 	var flag = 0 as Code
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async maySetFlag(false, flag: flag)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	try await p otherwise (e) 'failed'
 		flag = e.code()
 	end 'failed'
@@ -584,12 +524,10 @@ end 'main'
 ```
 
 <!-- test: async-await.error.non-promise -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let x = 42
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = await x
 	return result
 end 'main'
@@ -599,8 +537,6 @@ error E3005: specs/async-await/async-await.error.non-promise.maxon:4:16: 'await'
 ```
 
 <!-- test: async-await.error.no-yield -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -610,9 +546,7 @@ function heavyCompute(n Integer) returns Integer
 end 'heavyCompute'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async heavyCompute(5)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = await p
 	return result
 end 'main'
@@ -622,8 +556,6 @@ error E3073: specs/async-await/async-await.error.no-yield.maxon:9:11: 'async hea
 ```
 
 <!-- test: async-await.storage.bind-error-through-storage -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The error type SURVIVES storage, so an `otherwise (e)` binding on a promise pulled back out of
 an array binds the error the thunk actually throws — a `TaskError`, matched case by case. The
 storage type `Promise with (T, E)` names the error type, so `e` is typed exactly as for a direct await.
@@ -646,10 +578,8 @@ end 'mayFail'
 
 function main() returns ExitCode
 	let arr = TaskPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async mayFail())
 	let p = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise (e) 'failed'
 		return match e 'why'
 			timedOut gives 7
@@ -664,8 +594,6 @@ end 'main'
 ```
 
 <!-- test: async-await.storage.release-union-payload-through-storage -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The error carried back out of storage is an associated-value union, so its flag IS a heap pointer
 to the payload. The binding takes ownership and scope-end releases it exactly once. Only a worker that DIES
 runs this path, so nothing else in the suite shows a leak here: a flag reading "not a heap pointer" (a
@@ -693,10 +621,8 @@ end 'work'
 
 function main() returns ExitCode
 	let arr = WorkPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(-1))
 	let p = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")
@@ -715,7 +641,6 @@ caught: negative input
 ```
 
 <!-- test: async-await.error.storage-erases-error-type -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Storing a THROWING promise in a `Promise with T` is refused: that type names the result and
 nothing else, so boxing into it would erase the thunk's error type — which is what made the `(e)`
@@ -739,7 +664,6 @@ end 'mayFail'
 
 function main() returns ExitCode
 	var arr = BadPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async mayFail())
 	return 0
 end 'main'
@@ -749,7 +673,6 @@ error E3098: specs/async-await/async-await.error.storage-erases-error-type.maxon
 ```
 
 <!-- test: async-await.error.storage-names-wrong-error-type -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The storage type must name the error the thunk ACTUALLY throws. A `Promise with (T, E)` whose E
 disagrees with the callee's `throws` would hand the await site one enum's ordinals under another
@@ -776,7 +699,6 @@ end 'mayFail'
 
 function main() returns ExitCode
 	var arr = WrongPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async mayFail())
 	return 0
 end 'main'
@@ -786,8 +708,6 @@ error E3098: specs/async-await/async-await.error.storage-names-wrong-error-type.
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-an-array -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise a function was handed is the function's to store: its declared type states what it carries, so a
 container whose type agrees takes it, exactly as it takes a spawn made in the function. The array then owns
 the thread, and the loop awaits it out of the array.
@@ -803,19 +723,17 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function park(p IntPromise) returns Integer
-	let pending = IntPromiseArray.create(0)
+function park(consumes p IntPromise) returns Integer
+	var pending = IntPromiseArray.create(0)
 	pending.push(p)
 	var sum = 0 as Integer
 	for q in pending 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await q
+		sum = try sum + await q otherwise panic("out of range")
 	end 'drain'
 	return sum
 end 'park'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let total = park(async work())
 	print("{total}\n")
 	return 0
@@ -829,7 +747,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-field -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise parameter is stored in a field by a struct literal, by `self.p = next` in a method and by `h.p = next`
 in a function. Each store releases the thread the field was holding, so the two promises that were replaced are
 dropped and only the last is awaited.
@@ -846,25 +763,22 @@ end 'work'
 type Holder
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 
-	function rearm(next IntPromise)
+	function rearm(mutates self, consumes next IntPromise)
 		self.p = next
 	end 'rearm'
 end 'Holder'
 
-function swap(h Holder, next IntPromise)
+function swap(mutates h Holder, consumes next IntPromise)
 	h.p = next
 end 'swap'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let holder = Holder.of(async work())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var holder = Holder.of(async work())
 	holder.rearm(async work())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	swap(holder, next: async work())
 	print("{await holder.p}\n")
 	return 0
@@ -937,8 +851,6 @@ error E3098: specs/async-await/async-await.error.a-throwing-promise-parameter-ca
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-an-array -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise the storing function owns is storable whatever made it, so a helper's return goes into an array like a spawn made on the spot. The array then owns the thread, and the loop awaits it out of the array.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -953,18 +865,16 @@ function work() returns Integer
 end 'work'
 
 function ask() returns IntPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work()
 end 'ask'
 
 function main() returns ExitCode
-	let pending = IntPromiseArray.create(0)
+	var pending = IntPromiseArray.create(0)
 	pending.push(ask())
 	pending.push(ask())
 	var sum = 0 as Integer
 	for p in pending 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'drain'
 	print("{sum}\n")
 	return 0
@@ -978,7 +888,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-a-field -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise field takes a helper's return as it takes a spawn, and the store releases the thread the field held.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -991,21 +900,19 @@ function work() returns Integer
 end 'work'
 
 function ask() returns IntPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work()
 end 'ask'
 
 type Cell
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 end 'Cell'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let cell = Cell.of(async work())
+	var cell = Cell.of(async work())
 	cell.p = ask()
 	print("{await cell.p}\n")
 	return 0
@@ -1019,8 +926,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-an-array-held-by-a-field -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A container held in a field is the same storage.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1035,7 +940,6 @@ function work() returns Integer
 end 'work'
 
 function ask() returns IntPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work()
 end 'ask'
 
@@ -1048,12 +952,11 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	holder.pending.push(ask())
 	var sum = 0 as Integer
 	for p in holder.pending 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'drain'
 	print("{sum}\n")
 	return 0
@@ -1067,7 +970,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-a-map -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A map keeps the promises it is given and drops the ones nobody took out. A map has no slot a read could name, so the promise stays in it and the run is leak-free.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1082,14 +984,12 @@ function work() returns Integer
 end 'work'
 
 function ask() returns IntPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work()
 end 'ask'
 
 function main() returns ExitCode
 	let m = PromiseMap.create()
 	m.upsert("a", value: ask())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	m.upsert("b", value: async work())
 	print("{m.count()}\n")
 	return 0
@@ -1103,7 +1003,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-stored-in-a-map-cannot-be-read-back-out -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A map has no slot a read could name, so reading a promise value out of it would leave two owners and is refused.
 ```maxon
@@ -1120,7 +1019,6 @@ end 'work'
 
 function main() returns ExitCode
 	var m = PromiseMap.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	m.upsert("a", value: async work())
 	let p = try m.get("a") otherwise panic("a is present")
 	print("{await p}\n")
@@ -1132,7 +1030,7 @@ error E3141: <fragment>:14:16: a promise cannot be borrowed through 'get': it ow
 ```
 
 <!-- test: async-await.error.a-stored-parameter-awaited-afterwards-is-use-after-move -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Storing a parameter moves it into the container, so the function's own name for it is spent.
 ```maxon
@@ -1150,7 +1048,6 @@ end 'work'
 function park(p IntPromise) returns Integer
 	var pending = IntPromiseArray.create(0)
 	pending.push(p)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'park'
 
@@ -1164,7 +1061,6 @@ error E3102: <fragment>:14:15: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: async-await.error.a-parameter-stored-twice-is-use-after-move -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'work' -->
 <!-- positions: moved -->
 One thread has one owner, so the second store of the same parameter is refused.
 ```maxon
@@ -1179,11 +1075,11 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function park(p IntPromise) returns Integer
+function park(consumes p IntPromise) returns Integer
 	var pending = IntPromiseArray.create(0)
 	pending.push(p)
 	pending.push(p)
-	return pending.count() as Integer
+	return try pending.count() as Integer otherwise panic("out of range")
 end 'park'
 
 function main() returns ExitCode
@@ -1196,7 +1092,6 @@ error E3102: <fragment>:14:15: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: async-await.a-parameter-stored-on-one-branch-only-runs-clean -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'work' -->
 A parameter stored on one branch only is owned on the other, which drops it at the function's end: both runs leave no thread behind.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1233,7 +1128,7 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-used-after-it-was-pushed-by-a-callee-is-use-after-move -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The caller handed the promise to a function that stores it, so the caller's name for it is spent.
 ```maxon
@@ -1254,7 +1149,6 @@ end 'park'
 
 function main() returns ExitCode
 	var pending = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work()
 	park(pending, p: p)
 	print("{await p}\n")
@@ -1266,7 +1160,6 @@ error E3102: <fragment>:19:16: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: async-await.error.a-promise-used-after-it-was-stored-in-a-field-by-a-callee-is-use-after-move -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same holds for a callee that stores the promise in a field.
 ```maxon
@@ -1282,13 +1175,12 @@ end 'work'
 type Cell
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 end 'Cell'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work()
 	let cell = Cell.of(p)
 	print("{await p}\n")
@@ -1300,7 +1192,6 @@ error E3102: <fragment>:21:16: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: async-await.a-popped-promise-can-be-stored-in-a-field -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise moved out of an array by `pop` is the storing function's own, so a field takes it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1317,18 +1208,16 @@ end 'work'
 type Cell
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 end 'Cell'
 
 function main() returns ExitCode
-	let source = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var source = IntPromiseArray.create(0)
 	source.push(async work())
 	let popped = try source.pop() otherwise panic("one element was pushed")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let cell = Cell.of(async work())
+	var cell = Cell.of(async work())
 	cell.p = popped
 	print("{await cell.p}\n")
 	return 0
@@ -1342,8 +1231,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-matched-promise-payload-can-be-wrapped-in-a-union-again -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise bound by a `match` arm is moved out of the union it was in, so it can be wrapped in another.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1361,7 +1248,6 @@ union Slot
 end 'Slot'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = Slot.held(async work())
 	match first 'unwrap'
 		held(p) then print("{rewrap(p)}\n")
@@ -1370,10 +1256,9 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-function rewrap(p IntPromise) returns Integer
+function rewrap(consumes p IntPromise) returns Integer
 	let again = Slot.held(p)
 	match again 'inner'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held(q) then return await q
 		empty then return 0
 	end 'inner'
@@ -1387,8 +1272,6 @@ end 'rewrap'
 ```
 
 <!-- test: async-await.a-promise-taken-through-try-otherwise-can-be-stored -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The promise a `try … otherwise` merge yields is the function's own, so a container takes it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1403,17 +1286,14 @@ function work() returns Integer
 end 'work'
 
 function main() returns ExitCode
-	let source = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var source = IntPromiseArray.create(0)
 	source.push(async work())
-	let sink = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var sink = IntPromiseArray.create(0)
 	let moved = try source.pop() otherwise async work()
 	sink.push(moved)
 	var sum = 0 as Integer
 	for p in sink 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'drain'
 	print("{sum}\n")
 	return 0
@@ -1427,8 +1307,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-storing-function-called-through-a-function-value-takes-the-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A function value of a named function has that function's own type, and the type says which promise parameters the callee takes. A call through it hands the promise over exactly where the function takes it, so the array owns the thread and the caller does not drop it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1442,19 +1320,17 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function keep(pending IntPromiseArray, p IntPromise)
+function keep(mutates pending IntPromiseArray, consumes p IntPromise)
 	pending.push(p)
 end 'keep'
 
 function main() returns ExitCode
-	let pending = IntPromiseArray.create(0)
+	var pending = IntPromiseArray.create(0)
 	let f = keep
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	f(pending, async work())
 	var sum = 0 as Integer
 	for q in pending 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await q
+		sum = try sum + await q otherwise panic("out of range")
 	end 'drain'
 	print("{sum}\n")
 	return 0
@@ -1468,7 +1344,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-awaiting-function-called-through-a-function-value-awaits-the-promise -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same holds for a function that awaits its promise parameter: the callee reclaims the thread, and the caller must not.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1480,8 +1355,7 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function take(p IntPromise) returns Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
+function take(consumes p IntPromise) returns Integer
 	return await p
 end 'take'
 
@@ -1499,8 +1373,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-function-type-takes-a-promise-parameter -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A call through a parameter of a function-type alias hands the promise over, and a function that takes its promise converts to it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1516,12 +1388,11 @@ end 'work'
 
 typealias Sink = function(mutates IntPromiseArray, IntPromise)
 
-function keep(mutates pending IntPromiseArray, p IntPromise)
+function keep(mutates pending IntPromiseArray, consumes p IntPromise)
 	pending.push(p)
 end 'keep'
 
-function drive(sink Sink, pending IntPromiseArray)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+function drive(sink Sink, mutates pending IntPromiseArray)
 	sink(pending, async work())
 end 'drive'
 
@@ -1530,8 +1401,7 @@ function main() returns ExitCode
 	drive(keep, pending: pending)
 	var sum = 0 as Integer
 	for q in pending 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await q
+		sum = try sum + await q otherwise panic("out of range")
 	end 'drain'
 	print("{sum}\n")
 	return 0
@@ -1545,7 +1415,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-forwarded-to-a-callee-that-stores-it-is-handed-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A parameter handed to a callee that takes it is handed on itself, however many calls deep: the caller moves its promise into the outermost function, and the innermost one stores it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1560,21 +1429,20 @@ end 'work'
 type Cell
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 end 'Cell'
 
-function middle(p IntPromise) returns Cell
+function middle(consumes p IntPromise) returns Cell
 	return Cell.of(p)
 end 'middle'
 
-function outer(p IntPromise) returns Cell
+function outer(consumes p IntPromise) returns Cell
 	return middle(p)
 end 'outer'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let cell = outer(async work())
 	print("{await cell.p}\n")
 	return 0
@@ -1588,7 +1456,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-forwarded-to-a-callee-that-only-reads-it-stays-with-the-caller -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Forwarding to a callee that only reads the promise hands nothing on, so the caller still owns the promise afterwards and awaits it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1609,7 +1476,6 @@ function relay(p IntPromise) returns bool
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work()
 	_ = relay(p)
 	print("{await p}\n")
@@ -1624,7 +1490,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-user-generic-type-over-a-promise-owns-it -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A generic type instantiated at a promise owns the thread it is given: its constructor takes the promise, a reassignment of the field drops the thread it held, and the box's destructor drops the last one. The run is leak-free.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1637,7 +1502,6 @@ function work() returns Integer
 end 'work'
 
 function ask() returns IntPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work()
 end 'ask'
 
@@ -1656,10 +1520,8 @@ end 'Box'
 typealias PromiseBox = Box with IntPromise
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let box = PromiseBox.create(async work())
 	box.replace(ask())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	box.replace(async work())
 	print("{box.value.isComplete() or true}\n")
 	return 0
@@ -1673,7 +1535,6 @@ true
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-by-an-instance-method -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise parameter is stored by a struct literal in an instance method and by an assignment to a field of `self`, as it is by a static factory.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1688,25 +1549,22 @@ end 'w'
 type Cell
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 
-	function again(next IntPromise) returns Cell
+	function again(consumes next IntPromise) returns Cell
 		return Self{p: next}
 	end 'again'
 
-	function rearm(next IntPromise)
+	function rearm(mutates self, consumes next IntPromise)
 		p = next
 	end 'rearm'
 end 'Cell'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let c = Cell.of(async w())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var c = Cell.of(async w())
 	let d = c.again(async w())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	c.rearm(async w())
 	print("{await c.p} {await d.p}\n")
 	return 0
@@ -1720,7 +1578,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-tuple -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A promise parameter is stored in a tuple slot.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1732,12 +1589,11 @@ function w() returns Integer
 	return 7
 end 'w'
 
-function pair(p IntPromise) returns (IntPromise, Integer)
+function pair(consumes p IntPromise) returns (IntPromise, Integer)
 	return (p, 1)
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let (q, n) = pair(async w())
 	print("{await q} {n}\n")
 	return 0
@@ -1751,7 +1607,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-union-payload -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise parameter is stored in a union payload.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1768,10 +1623,9 @@ union Slot
 	empty
 end 'Slot'
 
-function roundTrip(p IntPromise) returns Integer
+function roundTrip(consumes p IntPromise) returns Integer
 	let s = Slot.held(p)
 	match s 'unwrap'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held(q) then return await q
 		empty then return 0
 	end 'unwrap'
@@ -1790,7 +1644,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-by-a-parenthesised-assignment -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A parenthesised right-hand side stores the parameter as the bare name does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1805,19 +1658,17 @@ end 'w'
 type Cell
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 end 'Cell'
 
-function swap(h Cell, next IntPromise)
+function swap(mutates h Cell, consumes next IntPromise)
 	h.p = (next)
 end 'swap'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let h = Cell.of(async w())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var h = Cell.of(async w())
 	swap(h, next: async w())
 	print("{await h.p}\n")
 	return 0
@@ -1831,7 +1682,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-map -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A map takes a promise parameter through `upsert`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1851,7 +1701,6 @@ end 'park'
 
 function main() returns ExitCode
 	let m = PromiseMap.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	park(m, p: async w())
 	print("{m.count()}\n")
 	return 0
@@ -1865,8 +1714,6 @@ end 'main'
 ```
 
 <!-- test: async-await.an-array-literal-of-promises-owns-its-elements -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An array literal stores its elements, so it takes ownership of each promise it is given, whatever made it. The loop awaits them out of the array, and the run is leak-free.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1881,17 +1728,14 @@ function work() returns Integer
 end 'work'
 
 function ask() returns IntPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async work()
 end 'ask'
 
-function gather(p IntPromise) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+function gather(consumes p IntPromise) returns Integer
 	let pending = IntPromiseArray from [p, ask(), async work()]
 	var sum = 0 as Integer
 	for q in pending 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await q
+		sum = try sum + await q otherwise panic("out of range")
 	end 'drain'
 	return sum
 end 'gather'
@@ -1909,7 +1753,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.an-array-literal-of-promises-must-match-the-array-type -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A promise in a literal is checked against the array's element type like a promise pushed into it.
 ```maxon
@@ -1929,7 +1772,6 @@ function mayFail() returns Integer throws TaskError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var pending = IntPromiseArray from [async mayFail()]
 	pending.clear()
 	return 0
@@ -1940,7 +1782,6 @@ error E3098: <fragment>:16:38: a promise of 'Integer' throwing 'TaskError' canno
 ```
 
 <!-- test: async-await.error.a-throwing-promise-given-to-a-map-of-plain-promises-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A map's `upsert` is an ordinary call, so the value's promise type is compared with the map's by the call's argument check, and a disagreement is the same E3098 a store reports: two promise types are one type only when their result and error are the same.
 ```maxon
@@ -1961,7 +1802,6 @@ end 'mayFail'
 
 function main() returns ExitCode
 	var m = PromiseMap.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	m.upsert("a", value: async mayFail())
 	return 0
 end 'main'
@@ -1971,7 +1811,6 @@ error E3098: <fragment>:17:4: a promise of 'Integer' throwing 'TaskError' cannot
 ```
 
 <!-- test: async-await.error.a-throwing-promise-given-to-a-parameter-that-omits-its-error-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A call's argument is compared with the parameter's promise type by the same rule a store applies, so a promise that throws is not accepted by a parameter that names no error, and the refusal says what the argument is and what the parameter holds.
 ```maxon
@@ -1993,7 +1832,6 @@ function look(p IntPromise) returns bool
 end 'look'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail()
 	_ = look(p)
 	return 0
@@ -2004,7 +1842,6 @@ error E3098: <fragment>:20:6: a promise of 'Integer' throwing 'TaskError' cannot
 ```
 
 <!-- test: async-await.error.a-promise-named-twice-in-a-call-through-a-function-type-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A promise has one owner, so a call through a function type may not name it at two positions when one of them hands it over.
 ```maxon
@@ -2027,7 +1864,6 @@ function park(mutates pending IntPromiseArray, a IntPromise, b IntPromise)
 end 'park'
 
 function drive(sink Sink, pending IntPromiseArray)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work()
 	sink(pending, p, p)
 end 'drive'
@@ -2043,8 +1879,6 @@ error E3102: <fragment>:20:19: use of moved value 'p': it is passed at two argum
 ```
 
 <!-- test: async-await.error.a-function-that-awaits-its-promise-does-not-convert-to-an-unqualified-type -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A function that awaits its promise is judged against the shape it converts to even when a second file of the directory declares an unmarked function of its own, so the conversion door reads `take`'s own declaration.
 ```maxon
@@ -2061,12 +1895,10 @@ end 'work'
 typealias Plain = function(IntPromise) returns Integer
 
 function take(p IntPromise) returns Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'take'
 
 function drive(sink Plain) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return sink(async work())
 end 'drive'
 
@@ -2085,7 +1917,6 @@ error E3210: <fragment>:22:16: function value for 'Plain' may wait (it awaits a 
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-through-self-to-a-storing-method-is-handed-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A method that hands its parameter to a sibling through `self` takes it exactly when the sibling does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2100,23 +1931,21 @@ end 'work'
 type Cell
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 
-	function hold(next IntPromise)
+	function hold(mutates self, consumes next IntPromise)
 		self.p = next
 	end 'hold'
 
-	function holdVia(next IntPromise)
+	function holdVia(mutates self, consumes next IntPromise)
 		self.hold(next)
 	end 'holdVia'
 end 'Cell'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let cell = Cell.of(async work())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var cell = Cell.of(async work())
 	cell.holdVia(async work())
 	print("{await cell.p}\n")
 	return 0
@@ -2130,7 +1959,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-to-a-method-of-another-value-is-handed-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A call through some other value takes its argument exactly when the method that value dispatches to does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2145,23 +1973,21 @@ end 'work'
 type Cell
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 
-	function hold(next IntPromise)
+	function hold(mutates self, consumes next IntPromise)
 		self.p = next
 	end 'hold'
 end 'Cell'
 
-function relay(cell Cell, next IntPromise)
+function relay(mutates cell Cell, consumes next IntPromise)
 	cell.hold(next)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let cell = Cell.of(async work())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var cell = Cell.of(async work())
 	relay(cell, next: async work())
 	print("{await cell.p}\n")
 	return 0
@@ -2175,7 +2001,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-to-an-aliased-generic-constructor-is-handed-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A generic alias names the constructor of its base type, so handing a parameter to `PromiseBox.create` hands it to `Box.create`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2202,7 +2027,6 @@ function wrap(p IntPromise) returns PromiseBox
 end 'wrap'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let box = wrap(async work())
 	print("{box.value.isComplete() or true}\n")
 	return 0
@@ -2216,8 +2040,6 @@ true
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-to-a-function-typed-parameter-is-handed-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A function-typed parameter takes the promise it is handed, so a function that forwards its own parameter to it takes it too.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2233,22 +2055,20 @@ end 'work'
 
 typealias Sink = function(mutates IntPromiseArray, IntPromise)
 
-function keep(mutates pending IntPromiseArray, p IntPromise)
+function keep(mutates pending IntPromiseArray, consumes p IntPromise)
 	pending.push(p)
 end 'keep'
 
-function relay(sink Sink, pending IntPromiseArray, p IntPromise)
+function relay(sink Sink, mutates pending IntPromiseArray, p IntPromise)
 	sink(pending, p)
 end 'relay'
 
 function main() returns ExitCode
 	let pending = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	relay(keep, pending: pending, p: async work())
 	var sum = 0 as Integer
 	for q in pending 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await q
+		sum = try sum + await q otherwise panic("out of range")
 	end 'drain'
 	print("{sum}\n")
 	return 0
@@ -2262,7 +2082,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-named-function-that-only-reads-its-promise-leaves-it-with-the-caller -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A function value of a function that only reads its promise parameter hands nothing over: the caller still owns the promise after the call and awaits it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2280,7 +2099,6 @@ end 'look'
 
 function main() returns ExitCode
 	let f = look
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work()
 	_ = f(p)
 	print("{await p}\n")
@@ -2295,7 +2113,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-forwarder-and-the-function-it-forwards-to-in-two-files-are-closed-forwarder-first -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The forwarder and the function that stores the promise live in two files, and the whole program is closed over both whichever file the compiler reads first.
 ```maxon
 // --- file: forwarder.maxon
@@ -2304,12 +2121,11 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function relay(p IntPromise) returns Cell
+function relay(consumes p IntPromise) returns Cell
 	return Cell.of(p)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let cell = relay(async work())
 	print("{await cell.p}\n")
 	return 0
@@ -2323,7 +2139,7 @@ typealias IntPromise = Promise with Integer
 type Cell
 	var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 end 'Cell'
@@ -2336,7 +2152,6 @@ end 'Cell'
 ```
 
 <!-- test: async-await.a-forwarder-and-the-function-it-forwards-to-in-two-files-are-closed-callee-first -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The same two files, read in the other order.
 ```maxon
 // --- file: callee.maxon
@@ -2347,7 +2162,7 @@ typealias IntPromise = Promise with Integer
 type Cell
 	var p as IntPromise
 
-	static function of(p IntPromise) returns Self
+	static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 end 'Cell'
@@ -2358,12 +2173,11 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function relay(p IntPromise) returns Cell
+function relay(consumes p IntPromise) returns Cell
 	return Cell.of(p)
 end 'relay'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let cell = relay(async work())
 	print("{await cell.p}\n")
 	return 0
@@ -2377,7 +2191,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-stored-through-a-conditional-expression-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A conditional expression joins two promise values with no single slot to empty, so storing its result is refused rather than leaving one branch unaccounted for.
 ```maxon
@@ -2403,9 +2216,7 @@ function choose(c Cell, a IntPromise, b IntPromise, first bool)
 end 'choose'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var cell = Cell.of(async work())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	choose(cell, a: async work(), b: async work(), first: true)
 	print("{await cell.p}\n")
 	return 0
@@ -2416,7 +2227,6 @@ error E3141: <fragment>:19:4: a promise cannot be borrowed through 'p': it owns 
 ```
 
 <!-- test: async-await.a-promise-parameter-forwarded-to-a-same-named-function-in-another-directory-is-handed-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Two directories may each export a function of one name; a forwarder that qualifies the call is judged by the function it names, and the other directory's function of that name is left out of the answer.
 ```maxon
 // --- file: alpha/lib.maxon
@@ -2427,33 +2237,32 @@ export typealias IntPromise = Promise with Integer
 export type Cell
 	export var p as IntPromise
 
-	export static function of(p IntPromise) returns Self
+	export static function of(consumes p IntPromise) returns Self
 		return Self{p: p}
 	end 'of'
 end 'Cell'
 
-export function stash(p IntPromise) returns Cell
+export function stash(consumes p IntPromise) returns Cell
 	return Cell.of(p)
 end 'stash'
 
 // --- file: beta/lib.maxon
-export function stash(n Integer) returns Integer
+export function stash(n alpha.Integer) returns alpha.Integer
 	return n
 end 'stash'
 
 // --- file: main.maxon
-function work() returns Integer
+function work() returns alpha.Integer
 	_ = File.exists(FilePath from "noyield.txt")
 	return 7
 end 'work'
 
-function relay(p IntPromise) returns Cell
+function relay(consumes p alpha.IntPromise) returns alpha.Cell
 	return alpha.stash(p)
 end 'relay'
 
 function main() returns ExitCode
 	print("{beta.stash(1)}\n")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let cell = relay(async work())
 	print("{await cell.p}\n")
 	return 0
@@ -2468,8 +2277,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.propagate-type-mismatch -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Bare `try await p` re-throws the awaited thunk's error through the enclosing
 function's error-return ABI. If the two error types differ, the caller decodes
@@ -2494,9 +2301,7 @@ function throwsA() returns Integer throws AError
 end 'throwsA'
 
 function caller() returns Integer throws BError
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async throwsA()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p
 	return r
 end 'caller'
@@ -2511,8 +2316,6 @@ error E3059: specs/async-await/async-await.error.propagate-type-mismatch.maxon:2
 ```
 
 <!-- test: async-await.error.propagate-type-mismatch-through-storage -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The propagation type check needs an error type to check, and it has one even when the promise
 came out of storage. Unchecked, this program is a SILENT MISCOMPILE: `mayFail` throws `TaskError`,
@@ -2543,10 +2346,8 @@ end 'mayFail'
 
 function viaStorage() returns Integer throws WrapError
 	var arr = TaskPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async mayFail())
 	let p = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p
 	return r
 end 'viaStorage'
@@ -2561,8 +2362,6 @@ error E3059: specs/async-await/async-await.error.propagate-type-mismatch-through
 ```
 
 <!-- test: async-await.error.double-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `await` is LINEAR: a promise is awaited exactly once. The thunk owns its result and hands it over
 at the await, so a second await takes a second reference to a payload the thunk only owned once —
@@ -2578,11 +2377,8 @@ function makeText() returns String
 end 'makeText'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeText()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await p
 	print(a)
 	print(b)
@@ -2594,8 +2390,6 @@ error E3142: specs/async-await/async-await.error.double-await.maxon:10:17: this 
 ```
 
 <!-- test: async-await.error.double-await-in-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The linear-await check is FLOW-SENSITIVE, and this is why it has to be. There is exactly ONE
 `await` here lexically, so a "have I seen this promise awaited before?" check finds nothing — but
@@ -2609,10 +2403,8 @@ function makeText() returns String
 end 'makeText'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeText()
 	for i in 0 upto 3 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let s = await p
 		print("{i}={s} ")
 	end 'each'
@@ -2624,8 +2416,6 @@ error E3100: specs/async-await/async-await.error.double-await-in-loop.maxon:10:1
 ```
 
 <!-- test: async-await.linear.await-in-exclusive-branches -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two awaits of one promise in MUTUALLY EXCLUSIVE branches are each the only await on their own
 path, and are allowed. A lexical "already awaited" check would reject this valid program; the
 reachability check does not, because neither await can reach the other.
@@ -2638,17 +2428,14 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
 	if flag 'branch'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = await p
-		return a as ExitCode
+		return try a as ExitCode otherwise panic("out of range")
 	end 'branch'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await p
-	return (b + 1) as ExitCode
+	return try (b + 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2656,8 +2443,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.double-await-through-alias -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Linearity is a property of the GREEN THREAD, not of the identifier text. `let q = p` gives one
 green thread a second name; awaiting through both names awaits it twice, and the payload the
@@ -2670,12 +2455,9 @@ function makeText() returns String
 end 'makeText'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeText()
 	let q = p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await q
 	print(a)
 	print(b)
@@ -2687,8 +2469,6 @@ error E3142: specs/async-await/async-await.error.double-await-through-alias.maxo
 ```
 
 <!-- test: async-await.error.double-await-through-alias-in-branch -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same alias, made in a DIFFERENT BLOCK from the `async` that spawned the thread. This is why
 the key cannot be the promise value's SSA id either: a cross-block read of a promise variable
@@ -2702,14 +2482,11 @@ function makeText() returns String
 end 'makeText'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeText()
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
 	if not flag 'branch'
 		let q = p
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = await p
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let b = await q
 		print(a)
 		print(b)
@@ -2722,8 +2499,6 @@ error E3142: specs/async-await/async-await.error.double-await-through-alias-in-b
 ```
 
 <!-- test: async-await.error.double-await-alias-outlives-rebind -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Re-arming `p` does NOT end the first thread's life while `q` still names it. The walk that proves
 linearity therefore cannot stop at "the binding I started from was reassigned" — it stops only
@@ -2736,16 +2511,11 @@ function makeText() returns String
 end 'makeText'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async makeText()
 	let q = p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	p = async makeText()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await q
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let c = await p
 	print(a)
 	print(b)
@@ -2758,8 +2528,6 @@ error E3142: specs/async-await/async-await.error.double-await-alias-outlives-reb
 ```
 
 <!-- test: async-await.linear.rearm-after-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Reassigning a promise binding RE-ARMS it: `p` now names a new green thread, so awaiting it again
 is the first await of that thread, not a second await of the old one. This must keep compiling —
 the linear check refuses a second await of one thread, not a second `await p` in the text.
@@ -2770,13 +2538,9 @@ function makeText() returns String
 end 'makeText'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async makeText()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	p = async makeText()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await p
 	print(a)
 	print(b)
@@ -2791,8 +2555,6 @@ hellohello
 ```
 
 <!-- test: async-await.linear.await-aliased-loop-element -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The `for p in promises` idiom with an ALIAS inside the loop. Every iteration re-arms `p` — and
 therefore `q` — so the single `await q` is one await per promise, not N awaits of one. This is
 the case an over-eager linearity check breaks: the alias makes `p` and `q` one green thread, and
@@ -2811,14 +2573,12 @@ function makeText(i Idx) returns String
 end 'makeText'
 
 function main() returns ExitCode
-	let promises = StrPromiseArray.create(0)
+	var promises = StrPromiseArray.create(0)
 	for i in 0 upto 3 'spawn'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		promises.push(async makeText(i))
 	end 'spawn'
 	for p in promises 'await'
 		let q = p
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let s = await q
 		print("{s} ")
 	end 'await'
@@ -2833,8 +2593,6 @@ t0 t1 t2
 ```
 
 <!-- test: async-await.linear.await-in-ternary-arms -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The two arms of a ternary are MUTUALLY EXCLUSIVE — only the selected arm is evaluated — so an
 `await` in each is the only await on its own path, exactly as in an `if`/`else`. This is pinned
 because the ternary's arms are a pair of blocks: a linearity check that ran against a shape with
@@ -2849,12 +2607,10 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if flag else (await p)
-	return (v + 1) as ExitCode
+	return try (v + 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2862,8 +2618,6 @@ end 'main'
 ```
 
 <!-- test: async-await.linear.await-aliased-in-ternary-arms -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same, through an ALIAS: `p` and `q` are one green thread under two names, and the two arms
 await it through different names. Linearity keys on the THREAD, so it sees one thread awaited in
 each of two exclusive arms — which is one await per path, and legal. This is the intersection of
@@ -2878,13 +2632,11 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let q = p
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if flag else (await q)
-	return (v + 1) as ExitCode
+	return try (v + 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2892,8 +2644,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.double-await-after-ternary-arm -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The other side of the ternary boundary. An `await` in one arm does NOT make the promise spent on
 the path where that arm was not taken — but the await AFTER the ternary is reachable from the arm
@@ -2908,12 +2658,9 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if flag else 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let w = await p
 	return (v + w) as ExitCode
 end 'main'
@@ -2923,8 +2670,6 @@ error E3142: specs/async-await/async-await.error.double-await-after-ternary-arm.
 ```
 
 <!-- test: async-await.error.await-without-try -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A throwing thunk hands the awaiting frame an OWNED error on its error path. A
 plain `await` has nowhere to put it: the value it yields is the undefined success
@@ -2944,9 +2689,7 @@ function mayFail() returns Integer throws TaskError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	return r
 end 'main'
@@ -2956,7 +2699,6 @@ error E3057: specs/async-await/async-await.error.await-without-try.maxon:15:11: 
 ```
 
 <!-- test: async-await.cancel -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -2968,7 +2710,6 @@ function yieldingTask() returns Integer
 end 'yieldingTask'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async yieldingTask()
 	p.cancel()
 	return 42
@@ -2979,8 +2720,6 @@ end 'main'
 ```
 
 <!-- test: async-await.trace-yield -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- AsyncTrace -->
 Verify that async I/O operations yield and resume the green thread.
 The trace output is deterministic for single-thread async: spawn, yield at I/O, resume, await with [yield].
@@ -2993,11 +2732,9 @@ function ioTask() returns Integer
 end 'ioTask'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async ioTask()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3011,8 +2748,6 @@ await #1 [yield]
 ```
 
 <!-- test: async-await.promise-array -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3026,19 +2761,15 @@ function compute(n Integer) returns Integer
 end 'compute'
 
 function main() returns ExitCode
-	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var arr = IntPromiseArray.create(0)
 	arr.push(async compute(10))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async compute(20))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async compute(12))
 	var sum = 0 as Integer
 	for p in arr 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'each'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3046,8 +2777,6 @@ end 'main'
 ```
 
 <!-- test: async-await.promise-array-throwing -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `work` throws, so the storage type names what it throws: `Promise with (Integer, WorkError)`.
 Throws-ness is a property of the TYPE and survives the box, so a stored non-throwing promise
 still takes a plain `await` (see `async-await.promise-array`) and only a genuinely throwing one
@@ -3072,19 +2801,15 @@ function work(n Integer) returns Integer throws WorkError
 end 'work'
 
 function main() returns ExitCode
-	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var arr = IntPromiseArray.create(0)
 	arr.push(async work(10))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(20))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(-1))
 	var sum = 0 as Integer
 	for p in arr 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + try await p otherwise 0
+		sum = try sum + try await p otherwise 0 otherwise panic("out of range")
 	end 'each'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3092,8 +2817,6 @@ end 'main'
 ```
 
 <!-- test: async-await.promise-array-throwing-assoc-value -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A stored promise whose thunk throws an ASSOCIATED-VALUE union: the heap-allocated error payload
 must be released on the `otherwise` path, or the third element's `WorkError.failed` allocation
 leaks. The storage type names `WorkError`, so the release is a straight-line decref emitted from
@@ -3121,19 +2844,15 @@ function work(n Integer) returns Integer throws WorkError
 end 'work'
 
 function main() returns ExitCode
-	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var arr = IntPromiseArray.create(0)
 	arr.push(async work(10))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(20))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(-1))
 	var sum = 0 as Integer
 	for p in arr 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + try await p otherwise 0
+		sum = try sum + try await p otherwise 0 otherwise panic("out of range")
 	end 'each'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3141,8 +2860,6 @@ end 'main'
 ```
 
 <!-- test: async-await.managed-args-many -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A regression guard for the spawn-site incref of managed (Struct/Enum)
 async arguments: spawn eight green threads in a row, each receiving a
 freshly built StringArray, then await them all. Without the incref the
@@ -3158,7 +2875,7 @@ typealias StrPromiseArray = Array with StrPromise
 
 function joinArgs(label String, args StringArray) returns String
 	_ = File.exists(FilePath from "noyield.txt")
-	var out = label
+	var out = label.clone()
 	for a in args 'each'
 		out = "{out}|{a}"
 	end 'each'
@@ -3166,20 +2883,18 @@ function joinArgs(label String, args StringArray) returns String
 end 'joinArgs'
 
 function main() returns ExitCode
-	let promises = StrPromiseArray.create(0)
+	var promises = StrPromiseArray.create(0)
 	for i in 0 upto 8 'spawn'
-		let argv = StringArray.create(0)
+		var argv = StringArray.create(0)
 		argv.push("arg{i}.a")
 		argv.push("arg{i}.b")
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		promises.push(async joinArgs("L{i}", args: argv.clone()))
 	end 'spawn'
 	var total = 0 as ExitCode
 	for p in promises 'await'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let s = await p
 		if not s.isEmpty() 'good'
-			total = total + 1
+			total = try total + 1 otherwise panic("out of range")
 		end 'good'
 	end 'await'
 	return total
@@ -3190,8 +2905,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `async` NESTS: a green thread may itself spawn and await another. This is the
 minimal shape — one `async` inside one `async`, where the inner one does I/O.
 The flag that says "this green thread has finished switching off its stack" must
@@ -3209,17 +2922,13 @@ function leaf(n Integer) returns Integer
 end 'leaf'
 
 function outer() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async leaf(41)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p1
 end 'outer'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async outer()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await q
+	return try (await q) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3227,8 +2936,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-two-levels -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two levels of nesting: `main` awaits a thread that awaits a thread that awaits a
 thread. Each level hands the next one its M directly out of its own `__gt_await`
 scheduling loop, so the dispatcher and the suspending thread differ at every
@@ -3238,28 +2945,22 @@ typealias Integer = int(i64.min to i64.max)
 
 function leaf(n Integer) returns Integer
 	_ = File.exists(FilePath from "noyield.txt")
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'leaf'
 
 function mid(n Integer) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async leaf(n)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'mid'
 
 function outer(n Integer) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mid(n)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'outer'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async outer(11)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await q
+	return try (await q) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3267,8 +2968,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-in-expression -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A nested `await` used as an operand rather than bound to its own `let`, and two
 of them in one expression: the value has to survive the resume, not just the
 scheduling.
@@ -3277,23 +2976,18 @@ typealias Integer = int(i64.min to i64.max)
 
 function leaf(n Integer) returns Integer
 	_ = File.exists(FilePath from "noyield.txt")
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'leaf'
 
 function outer() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let a = async leaf(3)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = async leaf(4)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return (await a) + (await b) + 1
+	return try (await a) + (await b) + 1 otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async outer()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await q
+	return try (await q) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3301,8 +2995,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-spawn-then-await-late -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The nested thread is spawned EARLY and awaited LATE — the outer thread does its
 own I/O in between, so it suspends and resumes once before it ever awaits its
 child, and the child may be picked up either by the outer thread's own await
@@ -3316,21 +3008,16 @@ function leaf(n Integer) returns Integer
 end 'leaf'
 
 function outer() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async leaf(3)
 	_ = File.exists(FilePath from "noyield.txt")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async leaf(4)
 	_ = File.exists(FilePath from "noyield.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return (await p1) + (await p2)
+	return try (await p1) + (await p2) otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async outer()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await q
+	return try (await q) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3338,8 +3025,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-void -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A nested `async` on a void function: the inner thread's completion has no result
 to publish, so the wakeup is the whole notification.
 ```maxon
@@ -3351,19 +3036,15 @@ function setFlag(mutates flag Integer)
 end 'setFlag'
 
 function bump(mutates flag Integer) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async setFlag(flag)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	await p
-	return flag + 40
+	return try flag + 40 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async bump(flag)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await q
+	return try (await q) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3371,8 +3052,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-try-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `try await` inside an `async` function, on a nested throwing thread — the
 throwing await has its own scheduling loop, distinct from plain `await`'s.
 ```maxon
@@ -3391,22 +3070,16 @@ function mayFail(succeed bool) returns Integer throws TestError
 end 'mayFail'
 
 function outer() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let good = async mayFail(true)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let bad = async mayFail(false)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = try await good otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = try await bad otherwise 5
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async outer()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await q
+	return try (await q) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3414,8 +3087,6 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-sleep -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The nested thread parks on the TIMER heap rather than on an I/O registration.
 `__gt_timer_check`'s park gate reads the same off-stack flag the I/O completer
 does, so nesting has to keep that flag honest for the timer path too.
@@ -3428,17 +3099,13 @@ function leaf(n Integer) returns Integer
 end 'leaf'
 
 function outer() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async leaf(9)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p1
 end 'outer'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async outer()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await q
+	return try (await q) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3446,8 +3113,6 @@ end 'main'
 ```
 
 <!-- test: async-await.try-await.drives-the-timer-heap -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `try await` of a coroutine that sleeps costs what an `await` of it costs. The two
 are ONE body (`buildGtAwait`, whose `throwing` flag selects only the exit): both
 park the caller and neither fires a timer itself — the `sleep()` deadline is fired
@@ -3486,21 +3151,16 @@ function foreverAsleep() returns Integer
 end 'foreverAsleep'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let holder = async foreverAsleep()
 	Scheduler.yield()
 	var plain = 0 as Integer
 	for _ in 0 upto 6 'plainRound'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async timedPlain()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		plain = plain + (await p)
 	end 'plainRound'
 	var thrown = 0 as Integer
 	for _ in 0 upto 6 'tryRound'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async timedThrowing()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		thrown = thrown + (try await p otherwise 0)
 	end 'tryRound'
 	print("plain={plain} thrown={thrown} held={not holder.isComplete()}\n")
@@ -3528,8 +3188,6 @@ answered from, so the await's result type, the spawn's carried result tag and th
 agreement check cannot come to disagree about what the callee returns.
 
 <!-- test: async-await.managed-generic-result -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 enum DrainError implements Error
 	broken
@@ -3539,16 +3197,14 @@ function drainThunk() returns StringArray throws DrainError
 	if File.exists(FilePath from "noyield.txt") 'present'
 		throw DrainError.broken
 	end 'present'
-	let lines = StringArray.create(0)
+	var lines = StringArray.create(0)
 	lines.push("one")
 	lines.push("two")
 	return lines
 end 'drainThunk'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async drainThunk()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let lines = try await p otherwise 'died'
 		return 1
 	end 'died'
@@ -3573,8 +3229,6 @@ declared one compares a REPAIRED `claimed` (through `resolvedSlotType`) against 
 promise's function returns 'int'" — a sentence naming a type the program does not contain.
 
 <!-- test: async-await.managed-generic-result-through-promise-storage -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 enum DrainError implements Error
 	broken
@@ -3589,25 +3243,22 @@ function drainThunk(n Integer) returns StringArray throws DrainError
 	if n < 0 'bad'
 		throw DrainError.broken
 	end 'bad'
-	let lines = StringArray.create(0)
+	var lines = StringArray.create(0)
 	lines.push("one")
 	lines.push("two")
 	return lines
 end 'drainThunk'
 
 function main() returns ExitCode
-	let promises = DrainPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var promises = DrainPromiseArray.create(0)
 	promises.push(async drainThunk(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async drainThunk(2))
 	var total = 0 as Count
 	for p in promises 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let lines = try await p otherwise 'died'
 			continue
 		end 'died'
-		total = total + lines.count()
+		total = try total + lines.count() otherwise panic("out of range")
 	end 'each'
 	print("{total}\n")
 	return 0
@@ -3632,8 +3283,6 @@ float alias, a function alias, a generic alias and a tuple alias — never a ran
 keeps the alias name available to every downstream range check.
 
 <!-- test: async-await.ranged-alias-result-control -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3649,9 +3298,7 @@ function countThunk() returns Tally throws DrainError
 end 'countThunk'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async countThunk()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await p otherwise 'died'
 		return 1
 	end 'died'
@@ -3675,15 +3322,10 @@ target that is not a linked function is a link failure or a wrong answer at run 
 diagnostic.
 
 <!-- test: async-await.error.qualified-spawn-compiler-owned-static-outside-the-library-tiers -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 Outside the library tiers the raw type's name is refused first, at the type the spawn names.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async __ManagedFile.readAll("x")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -3692,9 +3334,6 @@ error E3185: <fragment>:3:16: '__ManagedFile' named outside the library tiers: t
 ```
 
 <!-- test: async-await.error.qualified-spawn-compiler-owned-static -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 A static on a compiler-owned surface is served by a runtime entry the compiler emits, so there is no
 declared function whose address the scheduler could be handed. The roster (`__ManagedFile`,
@@ -3702,9 +3341,7 @@ declared function whose address the scheduler could be handed. The roster (`__Ma
 because it shares one reason.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async __ManagedFile.openRead("x")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -3713,17 +3350,12 @@ error E2015: <fragment>:3:16: Unsupported: `async __ManagedFile.…` — a stati
 ```
 
 <!-- test: async-await.error.qualified-spawn-compiler-owned-static-it-lacks -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 The spawn reads the member through the one resolution a call reads it through, so a static the surface does
 not have is refused for that, before the spawn is.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async __ManagedFile.readAll("x")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -3732,8 +3364,6 @@ error E2073: <fragment>:3:30: `__ManagedFile` static 'readAll' — the type has 
 ```
 
 <!-- test: async-await.error.qualified-spawn-container-alias-static -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A container alias reaches the same refusal through the same roster: `TallyArray.create(0)` lowers to an
 `Array` create op, not to a call to a function the program declares.
@@ -3743,9 +3373,7 @@ typealias Tally = int(0 to 1000)
 typealias TallyArray = Array with Tally
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async TallyArray.create(0)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -3754,8 +3382,6 @@ error E2015: specs/async-await/async-await.error.qualified-spawn-container-alias
 ```
 
 <!-- test: async-await.qualified-spawn-primitive-static -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'int.fromString' is not supported in minimaxon -->
 A primitive's static spawns like any other: `async int.fromString(s)` hands the scheduler the
 compiler-minted `__int_fromString`, and the spawn carries that mint as a direct call does, so every
@@ -3763,10 +3389,8 @@ reader downstream judges it as the compiler's name, not one the author wrote.
 ```maxon
 function main() returns ExitCode
 	let s = "41"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	// TODO: 'int.fromString' is not supported in minimaxon
 	let p = async int.fromString(s)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await p otherwise 0
 	return (n + 1) as ExitCode
 end 'main'
@@ -3776,17 +3400,13 @@ end 'main'
 ```
 
 <!-- test: async-await.qualified-spawn-primitive-static-throws-through-the-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'int.fromString' is not supported in minimaxon -->
 The spawned static's error reaches the awaiting caller: `"x"` does not parse, so `try await` takes the
 `otherwise` arm.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	// TODO: 'int.fromString' is not supported in minimaxon
 	let p = async int.fromString("x")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await p otherwise 7
 	return n as ExitCode
 end 'main'
@@ -3796,9 +3416,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.qualified-spawn-instance-receiver -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A base bound to a VALUE claims the whole expression before any type reading, and an instance spawn has
 nowhere to put the receiver: a spawn starts a linked function by address on the argument words it is
 handed, and nothing carries a receiver or its ownership across the green-thread boundary.
@@ -3820,9 +3437,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	var c = Counter.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async c.bump()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -3831,9 +3446,6 @@ error E2015: specs/async-await/async-await.error.qualified-spawn-instance-receiv
 ```
 
 <!-- test: async-await.error.qualified-spawn-union-case -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 `Move.walk(3)` CONSTRUCTS a union case and calls nothing, so there is no address to spawn. A payload
 construct and a static call are the same shape to the token, which is why the enum reading is asked
 before the static one.
@@ -3846,9 +3458,7 @@ union Move
 end 'Move'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Move.walk(3)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -3857,9 +3467,6 @@ error E2015: specs/async-await/async-await.error.qualified-spawn-union-case.maxo
 ```
 
 <!-- test: async-await.error.qualified-spawn-generic-instance-constructor -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 An ordinary call retypes a generic-instance constructor's result to the instance the alias fixes; a
 spawn's result is the PROMISE, whose argument comes from the callee's DECLARED return — the generic
 BASE. There is no promise-side substitution to make, so the await would hand back a value at the wrong
@@ -3876,9 +3483,7 @@ end 'Box'
 typealias StrBox = Box with String
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async StrBox.create("x")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -3887,17 +3492,12 @@ error E2015: specs/async-await/async-await.error.qualified-spawn-generic-instanc
 ```
 
 <!-- test: async-await.error.an-async-chain-naming-nothing-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A chain of any length is read the way a direct call reads it. Nothing declares `lib`, so `lib.inner`
 names no binding, directory or type, and the spawn is refused as the same call written without `async`
 would be.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async lib.inner.deep()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -3906,12 +3506,9 @@ error E3004: specs/async-await/async-await.error.an-async-chain-naming-nothing-i
 ```
 
 <!-- test: async-await.error.a-spawn-of-an-undeclared-function-that-is-never-awaited-is-undefined -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 The refusal is the call's, whether or not anything awaits the handle.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async nosuch(1)
 	return 0
 end 'main'
@@ -3921,15 +3518,10 @@ error E3004: <fragment>:3:16: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.a-try-await-of-an-undeclared-spawn-is-undefined -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A `try await` over the handle of a spawn nothing declares reports the call, not the await.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async nosuch(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await p otherwise 1
 end 'main'
 ```
@@ -3938,14 +3530,9 @@ error E3004: <fragment>:3:16: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.an-await-of-an-undeclared-spawn-written-in-place-is-undefined -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 Awaiting the spawn where it is written reports the call as well.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return await async nosuch(1)
 end 'main'
 ```
@@ -3954,12 +3541,9 @@ error E3004: <fragment>:3:21: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.a-try-await-of-a-call-nothing-declares-is-undefined -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A `try await` over a call nothing declares reports the call.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await nosuch(1) otherwise 1
 end 'main'
 ```
@@ -3968,13 +3552,10 @@ error E3004: <fragment>:3:19: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.a-try-await-of-a-binding-of-a-call-nothing-declares-is-undefined -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 A `try await` over a binding of a call nothing declares reports the call.
 ```maxon
 function main() returns ExitCode
 	let v = nosuch(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await v otherwise 1
 end 'main'
 ```
@@ -3983,8 +3564,6 @@ error E3004: <fragment>:3:10: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.a-spawn-of-nothing-stored-in-a-promise-array-is-undefined -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A spawn nothing declares, stored in a promise array and awaited from it, reports the call.
 ```maxon
@@ -3996,10 +3575,8 @@ typealias IntPromiseArray = Array with IntPromise
 
 function main() returns ExitCode
 	var promises = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async nosuch(1))
 	for p in promises 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await p
 	end 'each'
 	return 0
@@ -4010,9 +3587,6 @@ error E3004: <fragment>:8:22: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.a-promise-var-rearmed-with-a-spawn-of-nothing-is-undefined -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 Re-arming a promise var with a spawn nothing declares reports that call, and nothing at the assignment it
 feeds or at the later await.
 ```maxon
@@ -4024,13 +3598,9 @@ function f(n Integer) returns Integer
 end 'f'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async f(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	p = async nosuch(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await p
 	print("{v}\n")
 	return 0
@@ -4041,8 +3611,6 @@ error E3004: <fragment>:12:12: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.error.a-promise-var-rearmed-on-one-branch-with-a-spawn-of-nothing-is-undefined -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same re-arm on one arm of a branch reports the call, and nothing at the assignment or the merge.
 ```maxon
@@ -4054,21 +3622,15 @@ function f(n Integer) returns Integer
 end 'f'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async f(1)
 	let n = f(2)
 	if n == 2 'pick'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await p
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		p = async nosuch(2)
 	end 'pick' else 'other'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await p
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		p = async f(3)
 	end 'other'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await p
 	print("{v}\n")
 	return 0
@@ -4209,8 +3771,6 @@ error E3004: <fragment>:8:10: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-await.qualified-spawn-of-a-directory-types-static -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A static of a type declared in another directory is spawned by its qualified name, `sub.Calc.seven`, the
 spelling a direct call accepts.
 ```maxon
@@ -4225,10 +3785,8 @@ end 'Calc'
 export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let n = await async sub.Calc.seven()
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4236,8 +3794,6 @@ end 'main'
 ```
 
 <!-- test: async-await.qualified-spawn-of-a-nested-directory-free-function -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A free function two directories down is spawned through its whole qualifier, `outer.inner.six`.
 ```maxon
 // --- file: outer/inner/math.maxon
@@ -4249,8 +3805,6 @@ end 'six'
 export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let n = await async outer.inner.six()
 	return n as ExitCode
 end 'main'
@@ -4260,8 +3814,6 @@ end 'main'
 ```
 
 <!-- test: async-await.qualified-spawn-namespace-free-call -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The ACCEPT case, and the one that proves the refusals above are a boundary rather than a blanket. A
 namespace qualifier is a NAME LOOKUP resolving to a free function the program declares, so the spawn
 has exactly what it needs: a linked address and no receiver.
@@ -4271,14 +3823,12 @@ export typealias Tally = int(0 to 125)
 
 export function bump(v Tally) returns Tally
 	_ = File.exists(FilePath from "noyield.txt")
-	return v + 1
+	return try v + 1 otherwise panic("out of range")
 end 'bump'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async lib.bump(41)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'main'
 ```
@@ -4287,7 +3837,6 @@ end 'main'
 ```
 
 <!-- test: two-directories-each-spawn-their-own-file-private-function-of-one-name -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Each directory spawns its own unmarked `slowTally`, and each spawn binds the declaration its own file holds.
 ```maxon
 // --- file: a/a.maxon
@@ -4299,7 +3848,6 @@ function slowTally(n Tally) returns Tally
 end 'slowTally'
 
 export function runA()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async slowTally(1)
 	print("a {await p}\n")
 end 'runA'
@@ -4309,19 +3857,18 @@ typealias Tally = int(0 to 100)
 
 function slowTally(n Tally) returns Tally
 	sleep(1)
-	return n + 10
+	return try n + 10 otherwise panic("out of range")
 end 'slowTally'
 
 export function runB()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async slowTally(2)
 	print("b {await p}\n")
 end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```
@@ -4334,7 +3881,6 @@ b 12
 ```
 
 <!-- test: two-directories-each-spawn-their-own-file-private-function-of-one-name-and-different-signatures -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The same pair with different parameter lists: each spawn still binds its own file's declaration.
 ```maxon
 // --- file: a/a.maxon
@@ -4342,11 +3888,10 @@ typealias Tally = int(0 to 100)
 
 function fetch(n Tally) returns Tally
 	sleep(1)
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'fetch'
 
 export function runA()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async fetch(1)
 	print("a {await p}\n")
 end 'runA'
@@ -4356,19 +3901,18 @@ typealias Tally = int(0 to 100)
 
 function fetch(n Tally, extra Tally) returns Tally
 	sleep(1)
-	return n + extra
+	return try n + extra otherwise panic("out of range")
 end 'fetch'
 
 export function runB()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async fetch(2, extra: 5)
 	print("b {await p}\n")
 end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```
@@ -4381,8 +3925,6 @@ b 7
 ```
 
 <!-- test: an-awaited-range-bound-in-a-for-source -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A non-throwing `await` is a `for` range's lower bound. It is an ordinary operand: awaited once, and the loop
 counts up from the value it hands back.
 ```maxon
@@ -4394,14 +3936,12 @@ function start() returns Integer
 end 'start'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async start()
 	var total = 0 as Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	for i in await p upto 5 'each'
-		total = total + i
+		total = try total + i otherwise panic("out of range")
 	end 'each'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4409,8 +3949,6 @@ end 'main'
 ```
 
 <!-- test: an-awaited-collection-as-a-for-source -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The collection twin: the awaited value IS the collection the loop walks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4419,21 +3957,19 @@ typealias IntArray = Array with Integer
 
 function items() returns IntArray
 	Scheduler.yield()
-	let found = IntArray.create(0)
+	var found = IntArray.create(0)
 	found.push(4)
 	found.push(5)
 	return found
 end 'items'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async items()
 	var total = 0 as Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	for x in await q 'each'
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 	end 'each'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4441,8 +3977,6 @@ end 'main'
 ```
 
 <!-- test: an-awaited-range-bound-in-a-for-source-inside-a-try-block -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The try-block twin: the loop sits in a block-form `try` body whose own throwing call is routed to the block's
 handler, and the non-throwing `await` in the loop's source stays an ordinary operand.
 ```maxon
@@ -4465,11 +3999,9 @@ function check(n Integer) returns Integer throws CheckError
 end 'check'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async start()
 	var total = 0 as Integer
 	try 'work'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		for i in await p upto 5 'each'
 			total = total + i
 		end 'each'
@@ -4487,7 +4019,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-string-read-after-an-async-spawn-is-shared -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A managed `var` handed to `async` is shared with the coroutine, so the caller reads it again after the spawn.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4500,7 +4031,6 @@ end 'shout'
 
 function main() returns ExitCode
 	let word = "hello padded out long enough to heap allocate {1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
 	print("{word}\n")
 	print("{await p}\n")
@@ -4517,7 +4047,6 @@ hello padded out long enough to heap allocate 1!
 ```
 
 <!-- test: async-await.a-let-read-after-an-async-spawn-is-shared -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A managed `let` handed to `async` is shared with the coroutine exactly as a `var` is.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4530,7 +4059,6 @@ end 'shout'
 
 function main() returns ExitCode
 	let word = "hello padded out long enough to heap allocate {1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
 	print("{word}\n")
 	print("{await p}\n")
@@ -4547,7 +4075,6 @@ hello padded out long enough to heap allocate 1!
 ```
 
 <!-- test: async-await.a-let-shared-with-async-is-freed-once-by-the-coroutine -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The coroutine holds a count of its own on the shared `let` and releases it once, after the caller's frame has
 moved on.
 ```maxon
@@ -4558,12 +4085,11 @@ typealias IntPromise = Promise with Integer
 function shout(text String) returns Integer
 	Scheduler.yield()
 	print("{text}!\n")
-	return text.byteLength() as Integer
+	return try text.byteLength() as Integer otherwise panic("out of range")
 end 'shout'
 
 function spawnIt() returns IntPromise
 	let word = "hello padded out long enough to heap allocate {1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async shout(word)
 end 'spawnIt'
 
@@ -4582,8 +4108,6 @@ hello padded out long enough to heap allocate 1!
 ```
 
 <!-- test: async-await.a-let-handed-to-async-may-be-written-by-the-coroutine -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `let` only forbids reassignment, and `async` moves the record into the coroutine, so a target that writes its parameter may be handed a `let`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4596,18 +4120,16 @@ type Box
 	end 'create'
 end 'Box'
 
-function poke(p Box) returns Integer
+function poke(mutates p Box) returns Integer
 	Scheduler.yield()
-	p.n = p.n + 41
+	p.n = try p.n + 41 otherwise panic("out of range")
 	return p.n
 end 'poke'
 
 function main() returns ExitCode
-	let b = Box.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var b = Box.create()
 	let pending = async poke(b)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await pending as ExitCode
+	return try await pending as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4615,8 +4137,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-var-handed-to-async-may-be-written-by-the-coroutine -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `var` handed to `async` is shared with the coroutine, so a target that writes its parameter writes the record the
 caller's binding still holds.
 ```maxon
@@ -4630,19 +4150,17 @@ type Box
 	end 'create'
 end 'Box'
 
-function poke(p Box) returns Integer
+function poke(mutates p Box) returns Integer
 	Scheduler.yield()
-	p.n = p.n + 41
+	p.n = try p.n + 41 otherwise panic("out of range")
 	return p.n
 end 'poke'
 
 function main() returns ExitCode
-	let b = Box.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var b = Box.create()
 	let pending = async poke(b)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let written = await pending
-	return (written + b.n) as ExitCode
+	return try (written + b.n) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4650,7 +4168,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-cell-resident-var-handed-to-async-is-shared -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 `word` lives in a cell because `fill` reassigns its parameter; the coroutine shares the cell's contents.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4658,7 +4175,7 @@ typealias Integer = int(i64.min to i64.max)
 function shout(text String) returns Integer
 	Scheduler.yield()
 	print("{text}!\n")
-	return text.byteLength() as Integer
+	return try text.byteLength() as Integer otherwise panic("out of range")
 end 'shout'
 
 function fill(mutates dest String, n Integer)
@@ -4668,7 +4185,6 @@ end 'fill'
 function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate {1}"
 	fill(word, n: 2)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
 	print("{await p}\n")
 	return 0
@@ -4683,7 +4199,6 @@ filled 2 padded out long enough to heap allocate!
 ```
 
 <!-- test: async-await.a-cell-resident-var-read-after-an-async-spawn-is-shared -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The same cell-resident `var`, read after the spawn.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4691,7 +4206,7 @@ typealias Integer = int(i64.min to i64.max)
 function shout(text String) returns Integer
 	Scheduler.yield()
 	print("{text}!\n")
-	return text.byteLength() as Integer
+	return try text.byteLength() as Integer otherwise panic("out of range")
 end 'shout'
 
 function fill(mutates dest String, n Integer)
@@ -4701,7 +4216,6 @@ end 'fill'
 function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate {1}"
 	fill(word, n: 2)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
 	print("{word}\n")
 	print("{await p}\n")
@@ -4718,7 +4232,6 @@ filled 2 padded out long enough to heap allocate!
 ```
 
 <!-- test: async-await.a-var-reassigned-after-a-closure-captured-it-is-handed-to-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The closure owns the value it captured, so the `var` reassigned afterwards holds a new value of its own, and the
 coroutine shares that value while the closure goes on reading the first.
 ```maxon
@@ -4734,7 +4247,6 @@ function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate {0}"
 	let peek = function() gives word.byteLength()
 	word = "second padded out long enough to heap allocate {1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
 	print("{await p} {peek()}\n")
 	return 0
@@ -4746,7 +4258,6 @@ second padded out long enough to heap allocate 1!
 ```
 
 <!-- test: async-await.error.a-cell-resident-var-a-closure-only-reads-cannot-be-handed-to-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A closure that only READS a cell-resident `var` takes the cell's occupant, so handing the `var` to the
 coroutine afterwards is a use after move.
@@ -4756,7 +4267,7 @@ typealias Integer = int(i64.min to i64.max)
 function shout(text String) returns Integer
 	Scheduler.yield()
 	print("{text}!\n")
-	return text.byteLength() as Integer
+	return try text.byteLength() as Integer otherwise panic("out of range")
 end 'shout'
 
 function opening() returns (String, Integer)
@@ -4771,7 +4282,6 @@ function main() returns ExitCode
 	var (word, _) = opening()
 	fill(word, n: 2)
 	let peek = function() gives word.byteLength()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
 	print("{await p} {peek()}\n")
 	return 0
@@ -4782,7 +4292,6 @@ error E3102: <fragment>:22:22: use of moved value 'word': its ownership moved to
 ```
 
 <!-- test: async-await.error.a-cell-resident-var-read-after-a-nested-closure-cannot-be-handed-to-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The outer closure reads `word` after a nested closure has ended, so it still captures `word`, and handing the
 `var` to the coroutine afterwards is a use after move.
@@ -4798,7 +4307,7 @@ end 'run'
 function shout(text String) returns Integer
 	Scheduler.yield()
 	print("{text}!\n")
-	return text.byteLength() as Integer
+	return try text.byteLength() as Integer otherwise panic("out of range")
 end 'shout'
 
 function opening() returns (String, Integer)
@@ -4812,8 +4321,7 @@ end 'fill'
 function main() returns ExitCode
 	var (word, _) = opening()
 	fill(word, n: 2)
-	let peek = function() gives run(function() gives 0) + (word.byteLength() as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peek = function() gives try run(function() gives 0) + (word.byteLength() as Integer) otherwise panic("out of range")
 	let p = async shout(word)
 	print("{await p} {peek()}\n")
 	return 0
@@ -4824,7 +4332,6 @@ error E3102: <fragment>:27:22: use of moved value 'word': its ownership moved to
 ```
 
 <!-- test: async-await.error.a-cell-resident-var-read-after-a-nested-closure-across-lines-cannot-be-handed-to-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The nested closure's body ends at its own line break, and the outer closure's body goes on past it to read
 `word`.
@@ -4840,7 +4347,7 @@ end 'run'
 function shout(text String) returns Integer
 	Scheduler.yield()
 	print("{text}!\n")
-	return text.byteLength() as Integer
+	return try text.byteLength() as Integer otherwise panic("out of range")
 end 'shout'
 
 function opening() returns (String, Integer)
@@ -4854,8 +4361,7 @@ end 'fill'
 function main() returns ExitCode
 	var (word, _) = opening()
 	fill(word, n: 2)
-	let peek = function() gives [run(function() gives 0), word.byteLength() as Integer]
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peek = function() gives [run(function() gives 0), try word.byteLength() as Integer otherwise panic("out of range")]
 	let p = async shout(word)
 	print("{await p} {peek().count()}\n")
 	return 0
@@ -4866,8 +4372,6 @@ error E3102: <fragment>:30:22: use of moved value 'word': its ownership moved to
 ```
 
 <!-- test: async-await.a-let-whose-clone-a-closure-captured-is-handed-to-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The closure owns the clone it captured, so `b` is shared with the coroutine and `peek` still reads its own record.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4889,11 +4393,9 @@ function main() returns ExitCode
 	let b = Box.create()
 	let kept = b.clone()
 	let peek = function() gives kept.n
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async readIt(b)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return (r + peek()) as ExitCode
+	return try (r + peek()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4901,8 +4403,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-var-whose-clone-a-closure-captured-is-handed-to-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same capture of a clone of a `var` that stays out of a cell.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4928,11 +4428,9 @@ function main() returns ExitCode
 	let (b, _) = boxed()
 	let kept = b.clone()
 	let peek = function() gives kept.n
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async readIt(b)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return (r + peek()) as ExitCode
+	return try (r + peek()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4940,8 +4438,6 @@ end 'main'
 ```
 
 <!-- test: async-await.one-let-handed-twice-to-one-async-call-is-shared -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Both arguments name the one `let` `b`: the coroutine shares the record under both parameters.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4956,15 +4452,13 @@ end 'Box'
 
 function pair(a Box, other Box) returns Integer
 	Scheduler.yield()
-	return a.n + other.n
+	return try a.n + other.n otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let b = Box.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async pair(b, other: b)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4972,8 +4466,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-let-and-its-alias-handed-to-one-async-call-are-shared -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `c` names the record `b` holds, and both are read-only, so the coroutine shares the record under both parameters.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4988,16 +4480,14 @@ end 'Box'
 
 function pair(a Box, other Box) returns Integer
 	Scheduler.yield()
-	return a.n + other.n
+	return try a.n + other.n otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let b = Box.create()
 	let c = b
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async pair(b, other: c)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -5005,7 +4495,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-match-payload-of-a-let-union-may-be-written-by-a-coroutine -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the interpolation but got 'async' -->
 `b` is bound out of `w`, which is a `let`; a `let` only forbids reassignment, so a coroutine that writes its parameter may be handed `b`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5023,7 +4512,7 @@ union Wrap
 	empty
 end 'Wrap'
 
-function poke(p Box) returns Integer
+function poke(mutates p Box) returns Integer
 	Scheduler.yield()
 	p.n = 99
 	return p.n
@@ -5046,7 +4535,6 @@ end 'main'
 ```
 
 <!-- test: async-await.an-element-the-array-still-holds-may-be-written-by-a-coroutine -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the interpolation but got 'async' -->
 `a` is a `let` holding an element `items` still holds; a `let` only forbids reassignment, so a coroutine that writes its
 parameter may be handed it, and `items` sees the write.
 ```maxon
@@ -5062,16 +4550,16 @@ type Box
 	end 'create'
 end 'Box'
 
-function poke(p Box) returns Integer
+function poke(mutates p Box) returns Integer
 	Scheduler.yield()
 	p.n = 99
 	return p.n
 end 'poke'
 
 function main() returns ExitCode
-	let items = Boxes.create(0)
+	var items = Boxes.create(0)
 	items.push(Box.create())
-	let a = try items.get(0) otherwise panic("no box")
+	var a = try items.get(0) otherwise panic("no box")
 	print("{await async poke(a)}\n")
 	print("{items.count()}\n")
 	return 0
@@ -5086,7 +4574,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-counted-co-owner-bound-to-a-let-is-shared-with-async -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the interpolation but got 'async' -->
 `first` hands back an element `items` still holds, so `a` holds its own reference to it: the coroutine counts a
 reference of its own and the array keeps its own.
 ```maxon
@@ -5112,7 +4599,7 @@ function show(p Box) returns Integer
 end 'show'
 
 function main() returns ExitCode
-	let items = Boxes.create(0)
+	var items = Boxes.create(0)
 	items.push(Box.create())
 	let a = first(items)
 	print("{await async show(a)}\n")
@@ -5130,7 +4617,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-counted-co-owner-shared-with-async-is-read-after-the-spawn -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the interpolation but got 'async' -->
 The same `a`, read after the spawn counted its own reference.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5155,7 +4641,7 @@ function show(p Box) returns Integer
 end 'show'
 
 function main() returns ExitCode
-	let items = Boxes.create(0)
+	var items = Boxes.create(0)
 	items.push(Box.create())
 	let a = first(items)
 	print("{await async show(a)}\n")
@@ -5172,7 +4658,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-match-payload-the-union-still-holds-is-shared-with-a-reading-coroutine -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the interpolation but got 'async' -->
 `w` is a `var`, so matching it leaves its payload in place and `b` holds its own reference to the record the
 union still holds: a coroutine that only reads it counts a reference of its own.
 ```maxon
@@ -5219,7 +4704,7 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-frozen-record-cannot-be-written-by-a-coroutine -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the interpolation but got 'async' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `b` names a frozen record, so a coroutine that writes its parameter may not be handed it.
 ```maxon
@@ -5251,7 +4736,6 @@ error E3207: <fragment>:20:27: 'poke' writes 'p' (line 14: `p.n = 99`); 'b' is i
 ```
 
 <!-- test: async-await.error.a-closure-body-spanning-lines-takes-a-cell-resident-string -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The closure's body continues onto a second line inside an array literal, and still captures `word`, so handing
 `word` to the coroutine afterwards is a use after move.
@@ -5263,13 +4747,13 @@ typealias Integers = Array with Integer
 function shout(text String) returns Integer
 	Scheduler.yield()
 	print("{text}!\n")
-	return text.byteLength() as Integer
+	return try text.byteLength() as Integer otherwise panic("out of range")
 end 'shout'
 
 function total(values Integers) returns Integer
 	var sum = 0 as Integer
 	for v in values 'each'
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'each'
 	return sum
 end 'total'
@@ -5281,8 +4765,7 @@ end 'fill'
 function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate {1}"
 	fill(word, n: 2)
-	let peek = function() gives total([1, word.byteLength() as Integer])
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	let peek = function() gives total([1, try word.byteLength() as Integer otherwise panic("out of range")])
 	let p = async shout(word)
 	print("{await p} {peek()}\n")
 	return 0
@@ -5293,7 +4776,6 @@ error E3102: <fragment>:30:22: use of moved value 'word': its ownership moved to
 ```
 
 <!-- test: async-await.a-var-the-loop-iterates-is-shared-with-async-inside-the-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The loop holds its own reference to `items` and `x` its own reference to an element, so the spawn shares
 `items` with the coroutine and `x` is still readable after the coroutine has released its reference.
 ```maxon
@@ -5305,17 +4787,16 @@ function measure(words Words) returns Integer
 	Scheduler.yield()
 	var total = 0 as Integer
 	for word in words 'each'
-		total = total + (word.byteLength() as Integer)
+		total = try total + (word.byteLength() as Integer) otherwise panic("out of range")
 	end 'each'
 	return total
 end 'measure'
 
 function main() returns ExitCode
-	let items = Words.create(0)
+	var items = Words.create(0)
 	items.push("first padded out long enough to heap allocate {1}")
 	items.push("second padded out long enough to heap allocate {2}")
 	for x in items 'each'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async measure(items)
 		print("{await p} {x}\n")
 		break
@@ -5331,8 +4812,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-value-a-closure-holds-a-field-of-is-shared-with-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `inner` is a field of `b`; the closure holds a reference of its own to it, so `b` is shared with the coroutine.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5362,11 +4841,9 @@ function main() returns ExitCode
 	let b = Outer.create()
 	let inner = b.inner
 	let peek = function() gives inner.n
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async consume(b)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return (r + peek()) as ExitCode
+	return try (r + peek()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -5374,8 +4851,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-value-whose-field-is-read-after-the-call-is-shared-with-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `inner` holds its own reference to a field of `b`, so `b` is shared with the coroutine and `inner` is still
 readable after the coroutine has released `b`.
 ```maxon
@@ -5406,9 +4881,7 @@ end 'consume'
 function main() returns ExitCode
 	let b = Outer.create()
 	let inner = b.inner
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async consume(b)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("{r} {inner.n} {inner.text}\n")
 	return 0
@@ -5422,8 +4895,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-callee-that-keeps-its-argument-is-spawned-and-awaited -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `Holder.create` moves its `String` parameter into the record it returns. The spawn hands the coroutine the
 argument, the callee takes it when it runs, and the awaited record owns it from then on.
 ```maxon
@@ -5432,14 +4903,12 @@ type Holder
 
 	static function create(s String) returns Self
 		Scheduler.yield()
-		return Self{s: s}
+		return Self{s: s.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Holder.create("hello {3}")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let h = await p
 	print("{h.s}\n")
 	return 0
@@ -5453,7 +4922,6 @@ hello 3
 ```
 
 <!-- test: async-await.a-callee-that-keeps-its-argument-is-spawned-and-dropped-before-it-runs -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The same spawn dropped before the coroutine ever runs: the callee never took the argument, so the drop
 releases it.
 ```maxon
@@ -5467,7 +4935,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Holder.create("hello {3}")
 	p.cancel()
 	return 0
@@ -5478,8 +4945,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-callee-that-keeps-its-argument-completes-and-is-then-dropped -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same spawn left to complete while `main` awaits a sibling, then dropped: the callee took the argument when
 it ran, so the drop releases only the record it returned, which owns the argument.
 ```maxon
@@ -5500,11 +4965,8 @@ function ten() returns Integer
 end 'ten'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let a = async Holder.create("hello {3}")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = async ten()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await b
 	print("{n} {a.isComplete()}\n")
 	a.cancel()
@@ -5519,7 +4981,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-cell-handed-by-reference-in-one-spawn-overlaps-the-argument-read-from-it -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `word` is the first argument and is also handed by reference to `fill`, which reassigns it, inside the second:
 one call may not hand a function storage it reassigns together with another view of that storage.
@@ -5539,7 +5000,6 @@ end 'fill'
 
 function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate {1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word, n: fill(word))
 	print("{await p}\n")
 	return 0
@@ -5550,8 +5010,6 @@ error E3186: <fragment>:17:36: argument 'word' is read by another operand of thi
 ```
 
 <!-- test: async-await.storage.a-record-result-with-a-thrown-error-releases-both -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise stored as `Promise with (Box, WorkError)` carries a record result and an error whose payload is a heap String. The success path hands the record to the awaiter and the failure path hands it the error; neither leaks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5583,18 +5041,14 @@ end 'work'
 
 function main() returns ExitCode
 	let arr = BoxPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(7))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(-1))
 	let first = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let box = try await first otherwise (e) 'firstFailed'
 		return 1
 	end 'firstFailed'
 	print("got {box.n}\n")
 	let second = try arr.get(1) otherwise panic("index 1 is in bounds by construction")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let none = try await second otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")
@@ -5615,8 +5069,6 @@ caught: negative input
 ```
 
 <!-- test: async-await.storage.a-record-holding-an-array-with-a-thrown-error-releases-both -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The result record holds a heap array next to the awaited error whose payload is a heap String. Both the success value and the error are released exactly once, which a leak check at exit would otherwise turn into exit 101.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5653,18 +5105,14 @@ end 'work'
 
 function main() returns ExitCode
 	let arr = BatchPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(7))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async work(-1))
 	let first = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let batch = try await first otherwise (e) 'firstFailed'
 		return 1
 	end 'firstFailed'
 	print("got {batch.lines.count()} {batch.tally}\n")
 	let second = try arr.get(1) otherwise panic("index 1 is in bounds by construction")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let other = try await second otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")

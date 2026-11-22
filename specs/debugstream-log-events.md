@@ -126,8 +126,6 @@ log_phase_end compile unit=7
 ```
 
 <!-- test: debugstream-log-events.a-green-thread-program-logs-before-its-scheduler-exists -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 ⛔⛔ **THE CASE THAT CATCHES A PRE-INITIALIZED SCHEDULER READ, WHICH IS A SEGFAULT.** Every log
 entry stamps the green thread that authored it, which is `M->currentGt` (`sched-processor.md`) —
@@ -155,9 +153,7 @@ function main() returns ExitCode
 	__DebugStream.phaseBegin(phase, 1)
 	__DebugStream.event(phase, 1, 2, 3, 4, 5)
 	__DebugStream.phaseEnd(phase, 1)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(21)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p as ExitCode
 end 'main'
 

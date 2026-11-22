@@ -125,7 +125,6 @@ there with E3104 too, as a query about a scheduler that lane does not have.
 ## Tests
 
 <!-- test: the-default-is-every-processor -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE FLIP ITSELF, AND ITS SUBJECT IS THE ABSENCE OF A MARKER.** Every other case in this file names a
 count; this one names none, so it reads whatever `emitResolveMaxProcs` resolves with `MAXON_MAX_PROCS`
@@ -198,7 +197,6 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < serviceCount 'collect'
 		let h = try hs.get(n as ElementIndex) otherwise panic("hs.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		aggregate = aggregate + (try await h.total() otherwise 0)
 		n = n + 1
 	end 'collect'
@@ -222,7 +220,6 @@ aggregate=479997
 ```
 
 <!-- test: the-procs-marker-pins-one-processor -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE MARKER'S OWN GATE.** The same program pinned to one processor, which the scheduler takes exactly on
@@ -281,7 +278,6 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < serviceCount 'collect'
 		let h = try hs.get(n as ElementIndex) otherwise panic("hs.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		aggregate = aggregate + (try await h.total() otherwise 0)
 		n = n + 1
 	end 'collect'
@@ -299,7 +295,6 @@ aggregate=479997
 ```
 
 <!-- test: the-answer-does-not-depend-on-the-processor-count -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **THE INVARIANCE, WHICH IS THE ONE PROPERTY NO PROCESSOR COUNT MAY MOVE.** Four processors, and the
@@ -362,7 +357,6 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < serviceCount 'collect'
 		let h = try hs.get(n as ElementIndex) otherwise panic("hs.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		aggregate = aggregate + (try await h.total() otherwise 0)
 		n = n + 1
 	end 'collect'
@@ -378,7 +372,6 @@ aggregate=479997
 ```
 
 <!-- test: the-procs-marker-raises-the-processor-count -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **THE MARKER'S OWN GATE IN THE OTHER DIRECTION.** It names a count above one and asserts the scheduler
@@ -437,7 +430,6 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < serviceCount 'collect'
 		let h = try hs.get(n as ElementIndex) otherwise panic("hs.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		aggregate = aggregate + (try await h.total() otherwise 0)
 		n = n + 1
 	end 'collect'

@@ -137,8 +137,6 @@ Publishing last removes that window rather than narrowing it.
 ## Tests
 
 <!-- test: sched-processor.spawn-carries-every-argument -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE FULL INLINE ARGUMENT REGION, AND THE SUBJECT OF THE PUBLISH-LAST ORDERING.** `MaxAsyncArgs` is
 six, so this is the widest spawn the language admits: every slot of the GT struct's inline region is
 written by the lowering and read back by the trampoline. A slot missed, mis-strided or read before it
@@ -151,9 +149,7 @@ function widest(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer
 end 'widest'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async widest(1, b: 1, c: 1, d: 1, e: 1, f: 1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p as ExitCode
 end 'main'
 
@@ -164,8 +160,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: sched-processor.many-green-threads-through-one-processor -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Thirty-two coroutines spawned before any is awaited, so all thirty-two are on `main`'s strand queue at
 once and one machine runs every one of them: the scheduler's `currentGt` is written and restored around
 each switch, and an M that lost track of which thread it was running would return one thread's result
@@ -185,12 +179,10 @@ typealias CountedPromiseArray = Array with CountedPromise
 function main() returns ExitCode
 	let promises = CountedPromiseArray.create(0)
 	for i in 0 upto 32 'spawn'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		promises.push(async step(i))
 	end 'spawn'
 	var total = 0 as Counted
 	for p in promises 'await'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await p
 	end 'await'
 	if total == 1488 'expected'
@@ -204,8 +196,6 @@ end 'main'
 ```
 
 <!-- test: sched-processor.a-green-thread-kernel-call-round-trips-its-processor-stack -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE PER-M SYSCALL STACK, END TO END.** A green thread's `sleep` is a Win32 call, which the syscall
 shim runs on a scratch stack instead of the thread's own 2 KB one — and that scratch stack is reached
 through a struct field rather than a global, `M->systemStackSP`. ⚠ The case's NAME says *processor* while
@@ -216,19 +206,15 @@ returns AT ALL with its own value intact.
 ```maxon
 function napper(n Integer) returns Integer
 	sleep(2)
-	return n + 5
+	return try n + 5 otherwise panic("out of range")
 end 'napper'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async napper(1)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async napper(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await first
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await second
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -323,7 +309,6 @@ withinIdleBound=true
 ```
 
 <!-- test: sched-processor.idle-processor-count-returns-after-a-burst -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE COUNT FOLLOWS THE PROCESSORS BACK TO THE IDLE LIST.** Four services each do a share of work on
@@ -388,7 +373,6 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < shares 'collect'
 		let p = try replies.get(n as ElementIndex) otherwise panic("replies.get OOB at {n} — bounded by the pushes above")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + (await p)
 		n = n + 1
 	end 'collect'

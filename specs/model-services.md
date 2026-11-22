@@ -18,7 +18,6 @@ the day the compiler stops agreeing with a verdict the model pinned. The rule se
 ## Tests
 
 <!-- test: model-finding-z-scc-three-cycle-wait-deep -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R5-HOLDWAIT`; the compiler refuses it with E3221. Model program `scc-three-cycle-wait-deep` of redteamZ/p8.txt, in capmodel `reggio/REPORTRTZ.txt`.
@@ -71,7 +70,6 @@ function c(rV Sv.handle, nV Num) returns Num
 	if nV != 0 'i1'
 		return a(rV, nV: 0)
 	end 'i1' else 'e2'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return try await rV.ask() otherwise panic("send failed")
 	end 'e2'
 end 'c'
@@ -90,7 +88,6 @@ error E3221: <fragment>:24:18: the message 'm' may wait (it calls 'a', which cal
 ```
 
 <!-- test: model-finding-z-scc-three-cycle-wait-deep-reordered -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R5-HOLDWAIT`; the compiler refuses it with E3221. Model program `scc-three-cycle-wait-deep-reordered` of redteamZ/p8.txt, in capmodel `reggio/REPORTRTZ.txt`.
@@ -127,7 +124,6 @@ function c(rV Sv.handle, nV Num) returns Num
 	if nV != 0 'i1'
 		return a(rV, nV: 0)
 	end 'i1' else 'e2'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return try await rV.ask() otherwise panic("send failed")
 	end 'e2'
 end 'c'
@@ -162,7 +158,6 @@ error E3221: <fragment>:24:18: the message 'm' may wait (it calls 'a', which cal
 ```
 
 <!-- test: model-finding-z-scc-record-methods -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R5-HOLDWAIT`; the compiler refuses it with E3221. Model program `scc-record-methods` of redteamZ/p8.txt, in capmodel `reggio/REPORTRTZ.txt`.
@@ -199,7 +194,6 @@ type Kb
 			let k = Ka.create(0)
 			return k.m(rV, nV: 0)
 		end 'i1' else 'e2'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			return try await rV.ask() otherwise panic("send failed")
 		end 'e2'
 	end 'm'
@@ -650,7 +644,6 @@ error E3198: <fragment>:21:28: 'self.b' is isolated and cannot be read outside a
 ```
 
 <!-- test: model-finding-ae-frozen-field-iso-recv-call-waits -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -695,7 +688,6 @@ end 'S'
 
 function waitIt(s S.handle) returns Num
 	let r = try s.plain() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await r
 end 'waitIt'
 
@@ -1051,7 +1043,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ae-h-msg-await -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R5-HOLDWAIT`; the compiler refuses it with E3221. Model program `h-msg-await` of redteamAE.hand_ae3, in capmodel `reggio/REPORTRTAE.txt`.
@@ -1084,7 +1075,6 @@ type Mw
 
 	export function go(o Q.handle) returns Num
 		let r = try o.ping() otherwise panic("send failed")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await r
 		return 0
 	end 'go'
@@ -1096,7 +1086,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let m = spawn Mw.create(0)
 	let r = try m.go(q.clone()) otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -1106,7 +1095,6 @@ error E3221: <fragment>:27:18: the message 'go' may wait (it awaits a reply from
 ```
 
 <!-- test: model-hand-af-p3-holder-await-payload-direct -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R5-HOLDWAIT`; the compiler refuses it with E3221. Model program `p3-holder-await-payload-direct` of redteamAF.hand_af11, in capmodel `reggio/REPORTRTAF.txt`.
@@ -1135,7 +1123,6 @@ type D
 
 	export function go(s S2.handle)
 		let q = try s.plain() otherwise panic("send failed")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await q
 	end 'go'
 end 'D'
@@ -23563,7 +23550,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa19-arm-state-holder-to-writer -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -23649,7 +23635,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go(s.clone()) otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -24325,7 +24310,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa19-for-state-outer-write -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -24406,7 +24390,6 @@ function main() returns ExitCode
 	let v = spawn Sv.create(TqArray.create(0), k: 0)
 	try v.add() otherwise ignore
 	let r = try v.go(s.clone()) otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -24416,7 +24399,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa19-for-state-outer-call -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -24501,7 +24483,6 @@ function main() returns ExitCode
 	let v = spawn Sv.create(TqArray.create(0), k: 0)
 	try v.add() otherwise ignore
 	let r = try v.go(s.clone()) otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -24511,7 +24492,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa19-for-state-plain-part-stored -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -24592,7 +24572,6 @@ function main() returns ExitCode
 	let v = spawn Sv.create(TqArray.create(0), k: 0)
 	try v.add() otherwise ignore
 	let r = try v.go(s.clone()) otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25035,7 +25014,6 @@ error E3200: <fragment>:62:14: 'xs' crosses to the service it is sent to only as
 ```
 
 <!-- test: model-hand-fa22-nb-none-self-direct -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25093,7 +25071,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25103,7 +25080,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-nb-have-self-direct -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25161,7 +25137,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25171,7 +25146,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-nb-both-self-direct -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25229,7 +25203,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25239,7 +25212,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-nb-none-self-reassign -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25297,7 +25269,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25307,7 +25278,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-nb-have-self-reassign -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25365,7 +25335,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25375,7 +25344,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-nb-both-self-reassign -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25433,7 +25401,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25443,7 +25410,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-nb-none-self-callee -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25501,7 +25467,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25511,7 +25476,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-nb-have-self-callee -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25569,7 +25533,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'
@@ -25579,7 +25542,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-nb-both-self-callee -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -25637,7 +25599,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let v = spawn Sv.create(UQ.have(Tq.create(1, b: Bx.create(2))), k: 0)
 	let r = try v.go() otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'

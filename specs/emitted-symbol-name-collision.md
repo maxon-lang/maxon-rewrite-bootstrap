@@ -150,7 +150,6 @@ error E4015: <fragment>:5:10: declaration of 'mrt_start' collides with a symbol 
 ```
 
 <!-- test: a-service-program-refuses-the-entry-stub-name-taken-as-a-value -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -189,7 +188,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'
@@ -199,7 +197,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_start' collides with a symbol
 ```
 
 <!-- test: a-service-program-refuses-the-entry-stub-name-called-directly -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -231,7 +228,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	let walked = mrt_start(5)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (walked + t) as ExitCode
 end 'main'
@@ -241,7 +237,6 @@ error E4015: <fragment>:16:10: declaration of 'mrt_start' collides with a symbol
 ```
 
 <!-- test: a-service-program-refuses-the-preempt-handler-name-off-windows -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
@@ -280,7 +275,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'
@@ -290,7 +284,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_preempt_handler' collides wit
 ```
 
 <!-- test: a-service-program-runs-a-function-named-like-the-other-lanes-preempt-handler -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 x64-windows lays no chunk named `mrt_preempt_handler`, so the function is the program's own and its address is priced like any other function value; the other lanes refuse the name (see the neighbouring case) and wasm32-wasi answers E3104 for the `spawn`.
@@ -328,7 +321,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'
@@ -338,7 +330,6 @@ end 'main'
 ```
 
 <!-- test: a-service-program-refuses-the-fault-handler-name-off-windows -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
@@ -377,7 +368,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'
@@ -387,7 +377,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_fault_handler' collides with 
 ```
 
 <!-- test: a-service-program-runs-a-function-named-like-the-other-lanes-fault-handler -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 x64-windows lays no chunk named `mrt_fault_handler`, so the function is the program's own; the other lanes refuse the name and wasm32-wasi answers E3104 for the `spawn`.
@@ -425,7 +414,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'
@@ -435,7 +423,6 @@ end 'main'
 ```
 
 <!-- test: a-service-program-refuses-the-fault-thunk-name-on-windows -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
@@ -474,7 +461,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'
@@ -484,7 +470,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_fault_thunk' collides with a 
 ```
 
 <!-- test: a-service-program-runs-a-function-named-like-windows-fault-thunk -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-windows -->
 Only x64-windows lays a chunk named `mrt_fault_thunk`, so on every other native lane the function is the program's own; wasm32-wasi answers E3104 for the `spawn`.
@@ -522,7 +507,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'
@@ -532,7 +516,6 @@ end 'main'
 ```
 
 <!-- test: a-service-program-refuses-the-sigreturn-name-on-x64-linux -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, arm64-macos, arm64-linux, wasm32-wasi -->
@@ -571,7 +554,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'
@@ -581,7 +563,6 @@ error E4015: <fragment>:17:10: declaration of 'mrt_rt_sigreturn' collides with a
 ```
 
 <!-- test: a-service-program-runs-a-function-named-like-x64-linux-sigreturn -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux -->
 Only x64-linux lays a chunk named `mrt_rt_sigreturn`, so on every other native lane the function is the program's own; wasm32-wasi answers E3104 for the `spawn`.
@@ -619,7 +600,6 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.total() otherwise 0
 	return (hooks.emitted() + t) as ExitCode
 end 'main'

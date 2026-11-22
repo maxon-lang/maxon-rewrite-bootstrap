@@ -215,7 +215,7 @@ function checkExprStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		e = ast.tryExprE(ms.tree(), id: e)
 	end 'try'
 	let k = ms.tree().kindOf(e)
-	if not catches and k != ast.NodeKind.callExpr and k != ast.NodeKind.panicExpr 'notCall'
+	if not catches and k != ast.NodeKind.callExpr and k != ast.NodeKind.panicExpr and k != ast.NodeKind.awaitExpr 'notCall'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='", errs: errs)
 		return
 	end 'notCall'
@@ -566,6 +566,8 @@ function checkIteration(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if (factory.fn != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: factory.fn, use: "a for", errs: errs)) or (current.fn != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: current.fn, use: "a for", errs: errs)) 'borrowed'
 		return ast.noType
 	end 'borrowed'
+	// A loop of the iteration protocol calls the protocol's functions, which may wait.
+	c.waitNow = true
 	c.typing.iterations.insert(s as Count, value: info)
 	if generic 'instances'
 		recordUse(c, call: s)
@@ -751,6 +753,7 @@ function scalarTag(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Stri
 		builtinFrozen gives ""
 		builtinCown gives ""
 		builtinCursor gives ""
+		builtinPromise gives ""
 		typeParam gives ""
 		interfaceTy gives ""
 	end 'k'

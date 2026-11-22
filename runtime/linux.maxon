@@ -431,6 +431,14 @@
 		return not failed(result) and (mode and linuxModeTypeMask) == linuxModeDirectory
 	end 'osIsDirectory'
 
+	// osExists is whether a file or a directory is at a path: it has a status.
+	function osExists(path String) returns bool
+		let stat = alloc(linuxStatBytes)
+		let result = statPath(path, stat: stat)
+		free(stat)
+		return not failed(result)
+	end 'osExists'
+
 	// osCreateDirectory makes a directory and the parents it is missing, each prefix that ends before a separator first,
 	// and gives whether the directory is there after it. A directory that is there already fails to be made, which is no
 	// matter.

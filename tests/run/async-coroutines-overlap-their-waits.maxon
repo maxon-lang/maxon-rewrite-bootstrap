@@ -1,0 +1,25 @@
+// native-only
+// Two coroutines started before either is awaited sleep at once, so the shorter sleep ends first, and the caller of a
+// coroutine runs on until it waits: the coroutine runs only then, on the caller's strand. The interpreter runs no
+// coroutine.
+//> main runs on
+//> finished 20 after 20 ms
+//> finished 10 after 60 ms
+//> sum=60
+typealias Score = int(0 to 1000)
+
+function slowDouble(n Score, delay Milliseconds) returns Score
+	sleep(delay)
+	print("finished {n} after {delay} ms\n")
+	return try n * 2 otherwise 0
+end 'slowDouble'
+
+function main() returns ExitCode
+	let a = async slowDouble(10, delay: 60)
+	let b = async slowDouble(20, delay: 20)
+	print("main runs on\n")
+	let ra = await a
+	let rb = await b
+	print("sum={ra + rb}\n")
+	return 0
+end 'main'

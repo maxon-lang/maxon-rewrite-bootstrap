@@ -39,9 +39,12 @@ let unsupportedTargetsPrefix = "// unsupported-targets:"
 
 let schedulesPrefix = "// schedules:"
 
-// whenKeyword is the word that every program that schedules a behaviour has in one of its files, so that a run of the
-// behaviours alone compiles only the programs that have it.
+// whenKeyword is the word that every program that schedules a behaviour has in one of its files, and asyncKeyword the one
+// every program that starts a coroutine has, so that a run of the behaviours alone compiles only the programs that have
+// one.
 let whenKeyword = "when"
+
+let asyncKeyword = "async"
 
 // A file of this extension is a case of the fix command: a program that, fixed, must check clean and be the text of the
 // file beside it with the other extension.
@@ -91,7 +94,8 @@ type Expectation
 	// schedules is how many schedules of its behaviours the interpreter runs the program under, which a program that
 	// schedules so many that every seed would cost seconds lowers.
 	var schedules as Count
-	// mentionsWhen is whether a file of the program has the word when, without which it schedules no behaviour.
+	// mentionsWhen is whether a file of the program has the word when or async, without which it schedules no behaviour and
+	// starts no coroutine.
 	var mentionsWhen as bool
 	// unsupportedTargets are the names of the targets the program does not run on, separated by commas.
 	var unsupportedTargets as String
@@ -326,7 +330,7 @@ function readExpectation(program String) returns Expectation
 		let lines = readLines(files[f])
 		for l in 0 upto lines.count() 'lines'
 			applyDirective(expect, stdout: stdout, line: trimLeft(lines[l]), file: files[f])
-			if not expect.mentionsWhen and findText(lines[l], needle: whenKeyword).isSome() 'when'
+			if not expect.mentionsWhen and (findText(lines[l], needle: whenKeyword).isSome() or findText(lines[l], needle: asyncKeyword).isSome()) 'when'
 				expect.mentionsWhen = true
 			end 'when'
 		end 'lines'
@@ -659,7 +663,7 @@ function checkTest(expect Expectation, file String, consumes compiled CompiledPr
 	return Staged.needsRun(PendingRun.corpus(CorpusPending.make(index, exe: exe.clone(), expect: expect.clone(), compiled: compiled, runs: runs, interprets: interprets)))
 end 'checkTest'
 
-// schedulesBehaviours is whether a function that was lowered, or a body in one, has a when.
+// schedulesBehaviours is whether a function that was lowered, or a body in one, has a when or an async call.
 function schedulesBehaviours(modules backend.FunctionLists) returns bool
 	for m in 0 upto modules.count() 'modules'
 		for i in 0 upto modules[m].count() 'functions'
@@ -673,7 +677,7 @@ end 'schedulesBehaviours'
 
 function hasWhen(f ir.IrFunction) returns bool
 	for i in 0 upto f.instrs.count() 'instrs'
-		if f.instrs[i].op == ir.Opcode.opWhen 'when'
+		if f.instrs[i].op == ir.Opcode.opWhen or f.instrs[i].op == ir.Opcode.opAsync 'when'
 			return true
 		end 'when'
 	end 'instrs'

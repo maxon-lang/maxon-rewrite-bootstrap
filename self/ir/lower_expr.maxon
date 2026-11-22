@@ -200,6 +200,12 @@ function visitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if k == ast.NodeKind.closureExpr 'closureExpr'
 		return visitClosureExpr(l, p: p, ms: ms, e: e)
 	end 'closureExpr'
+	if k == ast.NodeKind.asyncExpr 'asyncExpr'
+		return visitAsyncExpr(l, p: p, ms: ms, e: e)
+	end 'asyncExpr'
+	if k == ast.NodeKind.awaitExpr 'awaitExpr'
+		return visitAwaitExpr(l, p: p, ms: ms, e: e)
+	end 'awaitExpr'
 	if k == ast.NodeKind.typeQueryExpr 'typeQueryExpr'
 		return visitTypeQueryExpr(l, p: p, ms: ms, e: e)
 	end 'typeQueryExpr'

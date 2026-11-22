@@ -32,8 +32,6 @@ done
 ```
 
 <!-- test: sleep.async-interleave -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -50,13 +48,9 @@ function fastTask() returns Integer
 end 'fastTask'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async slowTask()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async fastTask()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
 	print("r1={r1} r2={r2}\n")
 	return 0
@@ -81,8 +75,6 @@ ok
 ```
 
 <!-- test: sleep.main-thread-with-concurrent-async-io -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `sleep()` on the MAIN thread lasts its full duration even while an `async`
 worker is outstanding. The worker is expected to run *during* the sleep — that is
 what a cooperative timer is for — but parking it on I/O must not end the sleep.
@@ -107,12 +99,10 @@ function probe() returns Probe
 end 'probe'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let worker = async probe()
 	let start = Clock.nowMs()
 	sleep(300)
 	let elapsed = Clock.elapsedMs(start)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let probed = await worker
 	var score = 0 as Probe
 	if elapsed >= 250 'slept'
@@ -157,8 +147,6 @@ score=2
 ```
 
 <!-- test: sleep.trace-sleep-yields-the-green-thread -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- AsyncTrace -->
 Verify that a `sleep` inside a green thread yields and resumes it, and that the trace names the SLEEP
 rather than an I/O operation.
@@ -178,11 +166,9 @@ function napper() returns Integer
 end 'napper'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async napper()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

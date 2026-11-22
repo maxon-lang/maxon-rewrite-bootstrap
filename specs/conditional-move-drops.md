@@ -673,8 +673,6 @@ end 'main'
 ```
 
 <!-- test: a-promise-rearmed-before-its-move-on-every-trip-is-legal -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The promise form of a binding reassigned before its move on every trip, in a `for` loop.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -692,15 +690,12 @@ function keep(p IntPromise, v Integer) returns IntPromise
 end 'keep'
 
 function rearmedPromiseEachTrip(count Integer) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async work(0)
 	p.cancel()
 	var total = 0 as Integer
 	for i in 0 upto count 'trips'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		p = async work(i)
 		let q = keep(p, v: i)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await q
 	end 'trips'
 	return total
@@ -974,8 +969,6 @@ done
 ```
 
 <!-- test: a-cell-resident-var-moved-on-one-branch-is-released-once-on-every-path -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `word` lives in a cell because `fill` reassigns its parameter. It is moved by a send on one branch, shared with an `async` coroutine on another, and not handed anywhere on the third; every path releases the cell and its contents exactly once.
 ```maxon
@@ -1009,14 +1002,11 @@ function run(h Echo.handle, send bool, spawn bool) returns Integer
 	fill(word, n: 2)
 	var total = 0 as Integer
 	if send 'sendIt'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let loud = try await h.shout(word) otherwise "stopped"
 		print("{loud}\n")
 		total = total + 1
 	end 'sendIt' else if spawn 'spawnIt'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async shoutAsync(word)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + (await p)
 	end 'spawnIt'
 	return total
@@ -1043,7 +1033,6 @@ filled 2 padded out long enough to heap allocate?
 ```
 
 <!-- test: a-cell-resident-var-reassigned-and-moved-each-trip-with-a-continue -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The loop form for a cell: reassigned every trip, moved by a send on one back edge, live on the `continue` edge.
 ```maxon
@@ -1079,7 +1068,6 @@ function main() returns ExitCode
 		if i mod 2 == 0 'skip'
 			continue
 		end 'skip'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let loud = try await h.shout(word) otherwise "stopped"
 		print("{loud}\n")
 		total = total + 1
@@ -1098,8 +1086,6 @@ filled 3 padded out long enough to heap allocate!
 ```
 
 <!-- test: a-cell-resident-var-handed-to-async-each-trip-with-a-continue -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same loop with an `async` call in place of the send: the coroutine SHARES the cell's contents rather than taking them, so nothing is moved on the back edge and the cell is released once at scope exit.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1125,10 +1111,8 @@ function main() returns ExitCode
 		if i mod 2 == 0 'skip'
 			continue
 		end 'skip'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async shout(word)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		total = total + (await p)
+		total = try total + (await p) otherwise panic("out of range")
 	end 'l'
 	print("{total}\n")
 	return 0
@@ -1144,7 +1128,6 @@ filled 3 padded out long enough to heap allocate!
 ```
 
 <!-- test: a-cell-resident-var-moved-in-a-loop-and-read-next-trip-is-use-after-move -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `fill(word, …)` at the top of the next trip reads the contents the previous trip's send moved.
@@ -1177,7 +1160,6 @@ function main() returns ExitCode
 	while i < 4 'l'
 		i = i + 1
 		fill(word, n: i)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let loud = try await h.shout(word) otherwise "stopped"
 		print("{loud}\n")
 		total = total + 1
@@ -1191,8 +1173,6 @@ error E3102: <fragment>:29:8: use of moved value 'word': it was moved in an earl
 ```
 
 <!-- test: a-cell-resident-var-handed-to-async-in-a-loop-is-read-next-trip -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An `async` call shares its argument with the coroutine, so the same loop with `async` in place of the send moves nothing: `fill(word, …)` at the top of the next trip reads the contents it filled.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1214,10 +1194,8 @@ function main() returns ExitCode
 	while i < 4 'l'
 		i = i + 1
 		fill(word, n: i)
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async shout(word)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		total = total + (await p)
+		total = try total + (await p) otherwise panic("out of range")
 	end 'l'
 	print("{total}\n")
 	return 0
@@ -1235,7 +1213,6 @@ filled 4 padded out long enough to heap allocate!
 ```
 
 <!-- test: a-cell-resident-var-restored-on-some-trips-only-is-use-after-move -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The cell is re-stored on even trips only, so on an odd trip the send reads the contents the previous trip's send moved.
@@ -1271,7 +1248,6 @@ function main() returns ExitCode
 		if i mod 2 == 0 'restore'
 			word = "word {i} padded out long enough to heap allocate"
 		end 'restore'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let loud = try await h.shout(word) otherwise "stopped"
 		print("{loud}\n")
 		total = total + 1
@@ -1285,8 +1261,6 @@ error E3102: <fragment>:35:32: use of moved value 'word': it was moved in an ear
 ```
 
 <!-- test: a-cell-resident-var-restored-on-some-trips-only-and-handed-to-async-is-read-each-trip -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 With `async` in place of the send nothing is moved, so the read on an odd trip reaches the contents the previous trip handed the coroutine.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1311,10 +1285,8 @@ function main() returns ExitCode
 		if i mod 2 == 0 'restore'
 			word = "word {i} padded out long enough to heap allocate"
 		end 'restore'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async shout(word)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		total = total + (await p)
+		total = try total + (await p) otherwise panic("out of range")
 	end 'l'
 	print("{total}\n")
 	return 0

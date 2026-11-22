@@ -186,6 +186,9 @@ export let errRefIdentityOnPrimitive = "E3068"
 // A statement follows a 'return', 'throw', 'break', 'continue' or 'panic' in its block, so it never runs.
 export let errUnreachableCode = "E3071"
 
+// An async call starts a function that never waits, so there is nothing for the coroutine to overlap.
+export let errAsyncNonYielding = "E3073"
+
 // A match arm names a case of an enum or union with its type's name, which the subject already gives.
 export let errMatchQualifiedCaseName = "E3075"
 
@@ -203,6 +206,9 @@ export let errFieldNotInitialized = "E3086"
 
 // A typealias refers back to itself through the aliases it implements, or an interface through the interfaces it extends.
 export let errResolutionCycle = "E3091"
+
+// A promise started outside a loop is awaited inside it, which would await it again on the next iteration.
+export let errPromiseAlreadyAwaited = "E3100"
 
 // A function that throws is used as a value, which no function type can hold.
 export let errFunctionValueThrows = "E3101"
@@ -236,6 +242,12 @@ export let errCastTargetIsAContainer = "E3131"
 
 // A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
 export let errBoundBindingDisagrees = "E3133"
+
+// A promise is lent where it would have to be taken: an async call or an await that only borrows it.
+export let errPromiseBorrowed = "E3141"
+
+// A promise is used after an await consumed it.
+export let errPromiseConsumed = "E3142"
 
 // A bits(n) typealias has a width the language does not have.
 export let errIllegalBitWidth = "E3148"
@@ -275,6 +287,12 @@ export let errFrozenChange = "E3197"
 
 // A function value writes what it captured, which its function type does not allow.
 export let errCapabilityConversion = "E3210"
+
+// The promise of an async call that was lent the caller's data is used for more than an await in its scope, or an exit leaves it unawaited.
+export let errTiedPromise = "E3212"
+
+// A promise is dropped without being awaited.
+export let errPromiseDropped = "E3213"
 
 // An unsigned value is negated.
 export let errUnsignedNegation = "E3218"
@@ -374,6 +392,9 @@ export let errAmbiguousConformance = "E3941"
 
 // A call names a method, or a type names a typealias, that two extensions the module sees add to the type.
 export let errAmbiguousExtension = "E3942"
+
+// A place that an async call lent its coroutine to read is changed or moved before the promise is awaited (README, "Where it differs from Maxon").
+export let errLentToCoroutine = "E3943"
 
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"

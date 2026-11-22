@@ -8923,8 +8923,6 @@ end 'main'
 ```
 
 <!-- test: a-walking-frame-on-a-green-threads-stack -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `wide` reserves the SAME 4104-byte frame as the case above and opens it on a GREEN THREAD's stack rather
 than the process's: 64 spawns in turn, each on a seed stack the grower has to enlarge before the frame
 clears the guard word, each answering `138591`. The room below that frame base is the guard margin and
@@ -8939,76 +8937,76 @@ pass against an overshooting walk; 64 fresh stacks is what makes the fault the o
 typealias Integer = int(i64.min to i64.max)
 
 function sink(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'sink'
 
 function wide() returns Integer
 	Scheduler.yield()
 	let n = sink(3)
-	let v0 = n + 1
-	let v1 = n + 2
-	let v2 = n + 3
-	let v3 = n + 4
-	let v4 = n + 5
-	let v5 = n + 6
-	let v6 = n + 7
-	let v7 = n + 8
-	let v8 = n + 9
-	let v9 = n + 10
-	let v10 = n + 11
-	let v11 = n + 12
-	let v12 = n + 13
-	let v13 = n + 14
-	let v14 = n + 15
-	let v15 = n + 16
-	let v16 = n + 17
-	let v17 = n + 18
-	let v18 = n + 19
-	let v19 = n + 20
-	let v20 = n + 21
-	let v21 = n + 22
-	let v22 = n + 23
-	let v23 = n + 24
-	let v24 = n + 25
-	let v25 = n + 26
-	let v26 = n + 27
-	let v27 = n + 28
-	let v28 = n + 29
-	let v29 = n + 30
-	let v30 = n + 31
-	let v31 = n + 32
-	let v32 = n + 33
-	let v33 = n + 34
-	let v34 = n + 35
-	let v35 = n + 36
-	let v36 = n + 37
-	let v37 = n + 38
-	let v38 = n + 39
-	let v39 = n + 40
-	let v40 = n + 41
-	let v41 = n + 42
-	let v42 = n + 43
-	let v43 = n + 44
-	let v44 = n + 45
-	let v45 = n + 46
-	let v46 = n + 47
-	let v47 = n + 48
-	let v48 = n + 49
-	let v49 = n + 50
-	let v50 = n + 51
-	let v51 = n + 52
-	let v52 = n + 53
-	let v53 = n + 54
-	let v54 = n + 55
-	let v55 = n + 56
-	let v56 = n + 57
-	let v57 = n + 58
-	let v58 = n + 59
-	let v59 = n + 60
-	let v60 = n + 61
-	let v61 = n + 62
-	let v62 = n + 63
-	let v63 = n + 64
+	let v0 = try n + 1 otherwise panic("out of range")
+	let v1 = try n + 2 otherwise panic("out of range")
+	let v2 = try n + 3 otherwise panic("out of range")
+	let v3 = try n + 4 otherwise panic("out of range")
+	let v4 = try n + 5 otherwise panic("out of range")
+	let v5 = try n + 6 otherwise panic("out of range")
+	let v6 = try n + 7 otherwise panic("out of range")
+	let v7 = try n + 8 otherwise panic("out of range")
+	let v8 = try n + 9 otherwise panic("out of range")
+	let v9 = try n + 10 otherwise panic("out of range")
+	let v10 = try n + 11 otherwise panic("out of range")
+	let v11 = try n + 12 otherwise panic("out of range")
+	let v12 = try n + 13 otherwise panic("out of range")
+	let v13 = try n + 14 otherwise panic("out of range")
+	let v14 = try n + 15 otherwise panic("out of range")
+	let v15 = try n + 16 otherwise panic("out of range")
+	let v16 = try n + 17 otherwise panic("out of range")
+	let v17 = try n + 18 otherwise panic("out of range")
+	let v18 = try n + 19 otherwise panic("out of range")
+	let v19 = try n + 20 otherwise panic("out of range")
+	let v20 = try n + 21 otherwise panic("out of range")
+	let v21 = try n + 22 otherwise panic("out of range")
+	let v22 = try n + 23 otherwise panic("out of range")
+	let v23 = try n + 24 otherwise panic("out of range")
+	let v24 = try n + 25 otherwise panic("out of range")
+	let v25 = try n + 26 otherwise panic("out of range")
+	let v26 = try n + 27 otherwise panic("out of range")
+	let v27 = try n + 28 otherwise panic("out of range")
+	let v28 = try n + 29 otherwise panic("out of range")
+	let v29 = try n + 30 otherwise panic("out of range")
+	let v30 = try n + 31 otherwise panic("out of range")
+	let v31 = try n + 32 otherwise panic("out of range")
+	let v32 = try n + 33 otherwise panic("out of range")
+	let v33 = try n + 34 otherwise panic("out of range")
+	let v34 = try n + 35 otherwise panic("out of range")
+	let v35 = try n + 36 otherwise panic("out of range")
+	let v36 = try n + 37 otherwise panic("out of range")
+	let v37 = try n + 38 otherwise panic("out of range")
+	let v38 = try n + 39 otherwise panic("out of range")
+	let v39 = try n + 40 otherwise panic("out of range")
+	let v40 = try n + 41 otherwise panic("out of range")
+	let v41 = try n + 42 otherwise panic("out of range")
+	let v42 = try n + 43 otherwise panic("out of range")
+	let v43 = try n + 44 otherwise panic("out of range")
+	let v44 = try n + 45 otherwise panic("out of range")
+	let v45 = try n + 46 otherwise panic("out of range")
+	let v46 = try n + 47 otherwise panic("out of range")
+	let v47 = try n + 48 otherwise panic("out of range")
+	let v48 = try n + 49 otherwise panic("out of range")
+	let v49 = try n + 50 otherwise panic("out of range")
+	let v50 = try n + 51 otherwise panic("out of range")
+	let v51 = try n + 52 otherwise panic("out of range")
+	let v52 = try n + 53 otherwise panic("out of range")
+	let v53 = try n + 54 otherwise panic("out of range")
+	let v54 = try n + 55 otherwise panic("out of range")
+	let v55 = try n + 56 otherwise panic("out of range")
+	let v56 = try n + 57 otherwise panic("out of range")
+	let v57 = try n + 58 otherwise panic("out of range")
+	let v58 = try n + 59 otherwise panic("out of range")
+	let v59 = try n + 60 otherwise panic("out of range")
+	let v60 = try n + 61 otherwise panic("out of range")
+	let v61 = try n + 62 otherwise panic("out of range")
+	let v62 = try n + 63 otherwise panic("out of range")
+	let v63 = try n + 64 otherwise panic("out of range")
 	let v64 = n + 65
 	let v65 = n + 66
 	let v66 = n + 67
@@ -9474,12 +9472,10 @@ function main() returns ExitCode
 	var wrong = 0 as Integer
 	var i = 0 as Integer
 	while i < 64 'each'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async wide()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let s = await p
 		if s != 138591 'mismatch'
-			wrong = wrong + 1
+			wrong = try wrong + 1 otherwise panic("out of range")
 		end 'mismatch'
 		i = i + 1
 	end 'each'

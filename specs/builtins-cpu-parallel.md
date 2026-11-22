@@ -417,8 +417,6 @@ end 'main'
 ```
 
 <!-- test: builtins-cpu-parallel.sched-max-active-workers-is-one-under-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 **THE CASE THAT SAYS THE COUNTER IS MAINTAINED, AND READS 1 UNLESS THE MONITOR ACTED.** A program that
 spawns two coroutines, runs them and awaits them observes one worker M, or the system monitor stepped in: a
@@ -446,13 +444,9 @@ function work(n ExitCode) returns ExitCode
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async work(1)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async work(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await first
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await second
 	let workers = __Builtins.schedMaxActiveWorkers()
 	let monitorActions = __Builtins.schedPreemptCount() + __Builtins.schedRetakeCount() + __Builtins.schedTimerStartCount()

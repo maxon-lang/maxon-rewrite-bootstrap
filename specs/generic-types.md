@@ -6564,7 +6564,6 @@ refused
 ```
 
 <!-- test: a-generic-factory-drops-an-argument-on-every-path-that-did-not-store-it -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A generic factory that stores `item` on one branch and `spare` on the other drops whichever it did not store on
 every path, whether it returns or throws. The same body over a `String` and over a promise leaks neither the
 string nor the promise's green thread, on the path that stored the argument and on the path that did not.
@@ -6623,7 +6622,6 @@ function attemptText(keep bool, refuse bool) returns String
 end 'attemptText'
 
 function attemptPromise(keep bool, refuse bool) returns Whole
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = try PromiseHolder.create(async work(1), spare: async work(2), keep: keep, refuse: refuse) otherwise return 0
 	return built.source()
 end 'attemptPromise'
@@ -6753,7 +6751,6 @@ kept payload long enough to allocate
 ```
 
 <!-- test: a-generic-factory-drops-an-argument-stored-on-only-some-paths-into-a-join -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A generic factory that stores `item` into a local record on one branch and goes on to the code both branches
 share drops it on the path that skipped the store, whether the factory then returns or throws. The same body over
 a `String` and over a promise leaks neither the string nor the promise's green thread.
@@ -6811,7 +6808,6 @@ function attemptText(keep bool, refuse bool) returns String
 end 'attemptText'
 
 function attemptPromise(keep bool, refuse bool) returns Whole
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = try PromiseHolder.create(async work(1), spare: async work(2), keep: keep, refuse: refuse) otherwise return 0
 	return built.source()
 end 'attemptPromise'
@@ -6843,7 +6839,6 @@ refused
 ```
 
 <!-- test: a-generic-factory-drops-an-argument-stored-in-a-loop-only-when-it-breaks -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A generic factory that stores `item` in a loop only on the iteration that breaks drops it when the loop runs out
 instead, with the record it stored beforehand released either way. The same body over a `String` and over a
 promise leaks neither.
@@ -6896,7 +6891,6 @@ function attemptText(stopAt Whole) returns String
 end 'attemptText'
 
 function attemptPromise(stopAt Whole) returns Whole
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = PromiseHolder.create(async work(1), spare: async work(2), stopAt: stopAt)
 	return built.source()
 end 'attemptPromise'
@@ -6920,7 +6914,6 @@ spare payload long enough to allocate 0
 ```
 
 <!-- test: a-generic-factory-instantiated-only-at-a-promise-drops-it-when-it-throws-first -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A generic factory instantiated at a promise alone, with no managed instantiation beside it, drops the promise it
 was handed on the path that throws before storing it, and keeps it in the record on the path that stores it.
 ```maxon
@@ -6941,7 +6934,7 @@ type Holder uses T
 	public var slot as T
 	var origin as Whole
 
-	static function create(item T, refuse bool) returns Self throws KeepError
+	static function create(item T, refuse bool) returns Self throws KeepError where T implements Copyable
 		if refuse 'refused'
 			throw KeepError.refused
 		end 'refused'
@@ -6956,7 +6949,6 @@ end 'Holder'
 typealias PromiseHolder = Holder with IntPromise
 
 function attempt(refuse bool) returns Whole
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = try PromiseHolder.create(async work(1), refuse: refuse) otherwise return 0
 	return built.source()
 end 'attempt'
@@ -7120,7 +7112,7 @@ spare payload long enough to allocate
 ```
 
 <!-- test: error.a-generic-factory-over-a-promise-stores-its-argument-in-a-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A shared generic body means what it means at a concrete type: a `T` argument stored on every iteration of a loop is
 refused when some instantiation of `T` is a promise, exactly as the same body over a promise parameter is.
@@ -7152,7 +7144,6 @@ end 'Holder'
 typealias PromiseHolder = Holder with IntPromise
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = PromiseHolder.create(async work(1), spare: async work(2), n: 1)
 	return 0
 end 'main'
@@ -7162,7 +7153,7 @@ error E3102: <fragment>:19:23: use of moved value 'item': it was moved in an ear
 ```
 
 <!-- test: error.a-concrete-factory-stores-a-promise-argument-in-a-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The concrete twin of the case above, refused with the same sentence.
 ```maxon
@@ -7191,7 +7182,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = Holder.create(async work(1), spare: async work(2), n: 1)
 	return 0
 end 'main'
@@ -7201,7 +7191,7 @@ error E3102: <fragment>:19:23: use of moved value 'item': it was moved in an ear
 ```
 
 <!-- test: error.a-generic-factory-over-a-promise-stores-its-argument-twice -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `T` argument stored in two records is refused when some instantiation of `T` is a promise, as a promise
 parameter stored twice is: a green thread has one owner.
@@ -7228,7 +7218,6 @@ end 'Holder'
 typealias PromiseHolder = Holder with IntPromise
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = PromiseHolder.create(async work(1))
 	return 0
 end 'main'
@@ -7238,7 +7227,7 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 ```
 
 <!-- test: error.a-concrete-factory-stores-a-promise-argument-twice -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The concrete twin of the case above, refused with the same sentence.
 ```maxon
@@ -7262,7 +7251,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = Holder.create(async work(1))
 	return 0
 end 'main'
@@ -7272,7 +7260,6 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 ```
 
 <!-- test: error.a-generic-factory-over-a-promise-hands-its-argument-back-through-a-closure -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `T` argument captured by a closure that gives it away is refused when some instantiation of `T` is a promise,
 as a captured promise is: the closure owns its capture and its body may run any number of times.
@@ -7302,7 +7289,6 @@ end 'Holder'
 typealias PromiseHolder = Holder with IntPromise
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = PromiseHolder.create(async work(1), spare: async work(2), keep: false)
 	return 0
 end 'main'
@@ -7312,7 +7298,7 @@ error E3141: <fragment>:15:22: a promise cannot be borrowed through 'item': it o
 ```
 
 <!-- test: error.a-factory-reached-through-a-declaration-view-of-a-promise-stores-its-argument-twice -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A promise reaches a shared body only through a view: `Holder with U` inside `Outer uses U`, with `Holder` never
 written at a promise and no field of `Outer` holding one. Its factory storing the `T` argument twice is refused
@@ -7354,7 +7340,6 @@ end 'Outer'
 typealias PromiseOuter = Outer with IntPromise
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = PromiseOuter.build(async work(1))
 	print("{built.count}\n")
 	return 0
@@ -7365,7 +7350,7 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 ```
 
 <!-- test: error.a-factory-reached-through-a-declaration-view-of-a-promise-stores-its-argument-in-a-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The loop twin of the case above: a `T` argument stored on every iteration is refused through the view with the
 sentence it gets when `Holder` is written at the promise.
@@ -7411,7 +7396,6 @@ end 'Outer'
 typealias PromiseOuter = Outer with IntPromise
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = PromiseOuter.build(async work(1), spare: async work(2))
 	print("{built.count}\n")
 	return 0
@@ -7495,7 +7479,7 @@ end 'main'
 ```
 
 <!-- test: error.a-factory-reached-through-a-ring-of-flipped-declaration-views-of-a-promise-stores-its-argument-twice -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A promise reaches a shared body only around a ring: `RingLeft` and `RingRight` name each other at `(V, U)`, and
 `Holder with U` inside `RingLeft` is a promise only because `main` names `RingRight` with the promise second.
@@ -7553,7 +7537,6 @@ end 'RingRight'
 typealias PromiseRight = RingRight with (Whole, IntPromise)
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = PromiseRight.build(1, other: async work(1), deep: false)
 	print("{built.count}\n")
 	return 0
@@ -7564,7 +7547,7 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 ```
 
 <!-- test: error.a-factory-reached-through-a-ring-of-flipped-declaration-views-of-a-promise-in-another-file-stores-its-argument-twice -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same ring with the promise named only in a second file: the generics' file names no promise, and the
 refusal still lands on the factory's second store.
@@ -7621,7 +7604,6 @@ end 'work'
 typealias PromiseRight = RingRight with (Whole, IntPromise)
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let built = PromiseRight.build(1, other: async work(1), deep: false)
 	print("{built.count}\n")
 	return 0

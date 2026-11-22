@@ -606,8 +606,6 @@ end 'main'
 ```
 
 <!-- test: an-async-spawn-of-a-returning-function-hands-back-a-counted-record -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `async touch(cells)` runs the function on another green thread and `await` returns what it returned; the
 record it hands back must be counted for the awaiting `var`.
 ```maxon
@@ -623,9 +621,7 @@ end 'touch'
 function main() returns ExitCode
 	var last = TallyArray.create(0)
 	for _ in 0 upto 3 'each'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let pending = async touch(last.clone())
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		last = await pending
 	end 'each'
 	print("{last.count()}\n")

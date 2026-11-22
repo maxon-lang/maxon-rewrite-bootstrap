@@ -742,7 +742,6 @@ end 'main'
 ```
 
 <!-- test: a-function-value-that-awaits-a-service-does-not-convert-to-a-plain-function-type -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `viaService` calls `ask`, which awaits a reply, so it may wait; a function type never waits or yields.
@@ -764,7 +763,6 @@ type Doubler
 end 'Doubler'
 
 function ask(doubler Doubler.handle, n Tally) returns Tally
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await doubler.twice(n) otherwise 0
 end 'ask'
 
@@ -789,8 +787,6 @@ error E3210: <fragment>:33:15: function value for 'Step' may wait (it calls 'ask
 ```
 
 <!-- test: error.self-referential-tuple-alias-in-a-file-that-spells-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The termination case for a tuple alias that names itself, in a file the region checker has always tracked: the
 walk over the alias's items ends and the program is refused with the same sentence as without `async`.
@@ -810,9 +806,7 @@ function work() returns Int
 end 'work'
 
 function later() returns Int
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async work()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await pending
 end 'later'
 

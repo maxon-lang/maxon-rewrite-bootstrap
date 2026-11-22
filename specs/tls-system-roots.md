@@ -14,7 +14,6 @@ A client that trusts the system roots reads them from the operating system the f
 ## Tests
 
 <!-- test: tls-system-roots.the-system-roots-are-read-once-for-every-connection -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib/helpers/tls -->
 Two connections made with default options, which trust the system roots, read the roots from the operating system once between them: the second connection verifies against the roots the first one loaded. The case settles the program-wide roots from a source that answers the case's root and counts its reads.
 ```maxon
@@ -147,7 +146,6 @@ function main() returns ExitCode
 	try SystemRoots.settle(CountingTrust.create(reads.clone())) otherwise return 3
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveTwice(listener)
 	print("first: {dial(listenerPort)}\n")
 	print("second: {dial(listenerPort)}\n")
@@ -168,7 +166,6 @@ reads: 1
 
 
 <!-- test: tls-system-roots.connections-that-start-together-each-settle-the-system-roots-without-waiting -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib/helpers/tls -->
 Four connections that start together settle the system roots at once, while the roots source is still answering its first read. None waits for another: each reads the source itself, one result is kept, and all four settle. A later connection verifies against the kept roots without reading the source again.
 ```maxon
@@ -298,20 +295,15 @@ end 'settled'
 
 function main() returns ExitCode
 	let reads = ReadCountCell.create(0 as ReadCount)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async settled(reads.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async settled(reads.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let third = async settled(reads.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let fourth = async settled(reads.clone())
 	print("settlers: {await first} {await second} {await third} {await fourth}\n")
 	let readCount = reads.current()
 	print("read at least once and at most once each: {readCount >= 1 and readCount <= 4}\n")
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(listener)
 	print("client: {dial(port)}\n")
 	print("server: {await peer}\n")

@@ -299,7 +299,6 @@ end 'main'
 ```
 
 <!-- test: a-large-fixed-array-crosses-to-a-service-and-is-written-there -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -333,7 +332,6 @@ function check(count ElementIndex) returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let cells = Cells.create(count) as isolated Cells
 	try cells.set(1, value: 5) otherwise panic("set")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await keeper.adopt(cells, last: count - 1) otherwise 0
 	if total != 12 'total'
 		return 1
@@ -936,7 +934,6 @@ end 'main'
 ```
 
 <!-- test: a-co-allocated-array-crosses-to-a-service-and-is-released-there -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -976,7 +973,6 @@ function main() returns ExitCode
 	let reader = spawn Reader.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let holder = Holder.around() as isolated Holder
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await reader.read(holder) otherwise 0
 	if total != 14 'total'
 		return 1

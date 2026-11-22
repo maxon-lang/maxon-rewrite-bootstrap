@@ -1779,7 +1779,6 @@ error E3102: <fragment>:19:10: use of moved value 'first': its ownership moved t
 ```
 
 <!-- test: a-let-rebind-of-a-reply-moves-it -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1808,7 +1807,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create()
 	let asked = try desk.ask() otherwise panic("sent")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = try await asked otherwise panic("answered")
 	print("{answer}\n")
 	return 0
@@ -3864,7 +3862,6 @@ tk3 tk4
 ```
 
 <!-- test: a-fresh-result-holding-a-unique-crosses-whole -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `fresh` builds the `Conn` it returns, so its result is the whole of its region and crosses to the service.
 ```maxon
@@ -3918,10 +3915,8 @@ end 'fresh'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let svc = spawn Sink.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = try await svc.take(fresh(1)) otherwise 0
 	let c = fresh(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let more = try await svc.take(c) otherwise 0
 	print("{got} {more}\n")
 	return 0
@@ -3932,7 +3927,6 @@ end 'main'
 ```
 
 <!-- test: a-result-sharing-a-part-with-the-sender-does-not-cross -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `sharing` returns a `Conn` holding the caller's `d`, so the local bound from it is not the whole of its region and does not cross.
@@ -3989,7 +3983,6 @@ function main() returns ExitCode
 	let svc = spawn Sink.create()
 	let d = Data.create(5)
 	let c = sharing(d)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = try await svc.take(c) otherwise 0
 	d.n = 7
 	print("{got}\n")

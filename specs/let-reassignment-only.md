@@ -672,7 +672,6 @@ error E2013: <fragment>:14:2: 'v' is a let and cannot be reassigned
 ```
 
 <!-- test: a-frozen-let-is-sent-to-a-service-twice -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Sharing a frozen value rests on `freeze`, not on the `let` that names it.
@@ -706,9 +705,7 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	let cfg = freeze(Cfg.create(3))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let first = try await sink.take(cfg) otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let second = try await sink.take(cfg) otherwise 0
 	sink.shutdown()
 	print("{first} {second} {cfg.n}\n")
@@ -758,7 +755,6 @@ end 'main'
 ```
 
 <!-- test: error.an-all-let-record-holding-an-array-is-not-immutable -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -792,7 +788,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	let bag = Bag.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.take(bag) otherwise 1
 	sink.shutdown()
 	return n
@@ -803,7 +798,6 @@ error E3207: <fragment>:26:30: 'take' takes `immutable` 'bag'; 'bag' is mutable.
 ```
 
 <!-- test: an-all-let-record-of-values-is-still-immutable -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -833,7 +827,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
 	let point = Point.create(1, y: 2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.take(point) otherwise 0
 	sink.shutdown()
 	print("{n}\n")

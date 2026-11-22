@@ -26,7 +26,6 @@ for an answer. `respondLater` throws `alreadyResponded` on an exchange already a
 ## Tests
 
 <!-- test: a-handler-asks-an-auth-service-and-answers-through-the-continuation -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The handler defers the answer with `respondLater`, sends the responder to the `Auth` service in a message of its own, and returns. `Auth` answers through the responder, so the answer reaches the client from the service, and `respondWith` is the finalizer that consumes it.
@@ -98,7 +97,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let auth = spawn Auth.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, auth: auth.clone())
 	let allowed = try HttpClient.get("http://127.0.0.1:{port}/secret") otherwise 'cancelled1'
 		peer.cancel()
@@ -132,7 +130,6 @@ allowed=200 welcome denied=401 busy=503
 ```
 
 <!-- test: a-failed-send-hands-the-responder-back-and-the-handler-answers-503 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The `Auth` service is shut down, so the handler's send fails `serviceStopped` and carries the responder back. The handler's `otherwise` arm answers 503 through it.
@@ -196,7 +193,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let auth = spawn Auth.create()
 	auth.shutdown()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, auth: auth.clone())
 	let busy = try HttpClient.get("http://127.0.0.1:{port}/anything") otherwise 'cancelled'
 		peer.cancel()
@@ -221,8 +217,6 @@ busy=503 busy
 ```
 
 <!-- test: the-responder-travels-through-two-services-in-continuation-messages -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `Auth` passes the responder on to `Directory` in another message, and `Directory` answers. No message waits for the answer.
@@ -308,7 +302,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let directory = spawn Directory.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let auth = spawn Auth.create(directory.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, auth: auth.clone())
 	let first = try HttpClient.get("http://127.0.0.1:{port}/alice") otherwise 'cancelled1'
 		peer.cancel()
@@ -320,7 +313,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	end 'cancelled2'
 	peer.cancel()
 	server.close()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let looked = try await directory.lookedUp() otherwise return 4
 	print("{first.statusCode().number()} {first.body()} {second.statusCode().number()} {second.body()} looked={looked}\n")
 	return 0
@@ -339,7 +331,6 @@ end 'main'
 ```
 
 <!-- test: abandon-closes-the-connection-without-an-answer -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `abandon` is the finalizer for a responder that cannot answer: it ends the responder and the worker closes the connection, so the client sees no response.
 ```maxon
@@ -366,7 +357,6 @@ end 'serving'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	let reached = try HttpClient.get("http://127.0.0.1:{port}/nothing") otherwise (e) 'noAnswer'
 		peer.cancel()
@@ -393,8 +383,6 @@ no answer: invalidResponse
 ```
 
 <!-- test: an-exchange-from-accept-has-no-worker-to-defer-to -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `HttpServer.accept` hands out an exchange no worker serves, so `respondLater` throws `deferralUnavailable` and the handler answers directly.
 ```maxon
@@ -417,13 +405,11 @@ end 'serveOne'
 function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let client = async fetch(port)
 	let served = try serveOne(server) otherwise 'failed'
 		client.cancel()
 		return 2
 	end 'failed'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let status = await client
 	print("status {status} exit {served}\n")
 	return 0
@@ -589,7 +575,6 @@ error E3224: <fragment>:3:6: the field 'waiting' holds a linear value, and a lin
 ```
 
 <!-- test: an-invalid-response-hands-the-responder-back-and-the-service-answers-again -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `Auth` answers a `204` that carries a body, which no connection can send. `respondWith` validates the response before it sends, so it throws `invalidResponse` carrying the responder back, and `Auth` answers a valid `500` through it.
@@ -651,7 +636,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let auth = spawn Auth.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, auth: auth.clone())
 	let answer = try HttpClient.get("http://127.0.0.1:{port}/anything") otherwise 'cancelled'
 		peer.cancel()

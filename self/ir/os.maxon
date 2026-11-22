@@ -183,6 +183,16 @@ function lowerSchedulerProcessorCount(mutates l Lowerer, p ast.Project, ms ast.M
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsProcessorCount, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerSchedulerProcessorCount'
 
+function lowerSchedulerYield(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtYield, args: RegList.create(0))
+	return konst(l, value: 0 as Word)
+end 'lowerSchedulerYield'
+
+function lowerSleep(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSleep, args: argsOf1(args[0]))
+	return konst(l, value: 0 as Word)
+end 'lowerSleep'
+
 function lowerProcessSetExitCode(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsSetExitCode, args: argsOf1(args[0]))
 	return konst(l, value: 0 as Word)
@@ -307,6 +317,11 @@ function lowerFileInfo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	fields[ast.fileInfoIsReadOnlyField] = isReadOnly
 	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: fields)
 end 'lowerFileInfo'
+
+function lowerFileExists(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let path = pathText(l, path: args[0])
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsExists, kind: IrKind.kindScalar, args: argsOf1(path))
+end 'lowerFileExists'
 
 function lowerDirectoryIsDirectory(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])

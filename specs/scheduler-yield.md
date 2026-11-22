@@ -79,8 +79,6 @@ serves the lanes that have a green-thread substrate and is refused with **E3104*
 ## Tests
 
 <!-- test: scheduler-yield.sibling-runs -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The discriminating case: a yield really does hand the processor to a SIBLING that would not otherwise run
 first. `spinner` is created FIRST, so it is the member of `main`'s strand that runs first once `main` parks on
 its await; it yields a thousand times and then reports whether `setter` ever ran. `setter` sets the flag as its
@@ -115,13 +113,9 @@ end 'spinner'
 
 function main() returns ExitCode
 	let flag = FlagCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async spinner(flag.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async setter(flag.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let ack = await p2
 	return (seen + ack) as ExitCode
 end 'main'
@@ -131,8 +125,6 @@ end 'main'
 ```
 
 <!-- test: scheduler-yield.nothing-runnable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Yielding with nobody to yield to PROCEEDS rather than blocking. The coroutine is the only runnable member of
 `main`'s strand — `main` is parked on its await — so each of its yields finds nothing else to run and comes
 straight back; the thread runs to completion and its value is awaited normally.
@@ -149,10 +141,8 @@ function lonely() returns Integer
 end 'lonely'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async lonely()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await p as ExitCode
+	return try await p as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -160,8 +150,6 @@ end 'main'
 ```
 
 <!-- test: scheduler-yield.spin-wait-from-main -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **A spin-wait on the MAIN thread makes progress.** `main` is a green thread like any other, so a yield taken
 there puts it behind its strand's runnable members exactly as a yield from a coroutine does, and `worker`
 gets its turn. This is the case that makes `while not ready { Scheduler.yield() }` usable
@@ -180,12 +168,10 @@ end 'worker'
 
 function main() returns ExitCode
 	let progressed = ProgressCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async worker(progressed.clone())
 	for _ in 0 upto 1000 'spin'
 		Scheduler.yield()
 	end 'spin'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (progressed.current() + await p) as ExitCode
 end 'main'
 ```
@@ -209,8 +195,6 @@ end 'main'
 ```
 
 <!-- test: scheduler-yield.satisfies-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `Scheduler.yield()` is a yield point, so `async` over a function whose only concession to the scheduler is a
 yield is ACCEPTED — where the same function without it would be refused with E3073 (`async-await.md`'s
 `error.no-yield` pins that refusal). The value still comes back through `await` unchanged.
@@ -218,16 +202,14 @@ yield is ACCEPTED — where the same function without it would be refused with E
 typealias Integer = int(i64.min to i64.max)
 
 function computeThenYield(n Integer) returns Integer
-	let squared = n * n
+	let squared = try n * n otherwise panic("out of range")
 	Scheduler.yield()
 	return squared
 end 'computeThenYield'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async computeThenYield(6)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await p as ExitCode
+	return try await p as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -235,8 +217,6 @@ end 'main'
 ```
 
 <!-- test: scheduler-yield.managed-across-yield -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A managed value held ACROSS a yield survives it and is released exactly once. The green thread suspends and
 resumes in the middle of the String's lifetime, so a yield that lost or double-counted the frame's ownership
 would show up here as a wrong answer or as a leak (exit 101).
@@ -250,17 +230,15 @@ function held() returns Integer
 		Scheduler.yield()
 		i = i + 1
 	end 'l'
-	return label.count()
+	return try label.count() as Integer otherwise panic("out of range")
 end 'held'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async held()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await p
 	let echo = "green"
 	Scheduler.yield()
-	return (n + (echo.count() as Integer)) as ExitCode
+	return try (n + (echo.count() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -268,7 +246,6 @@ end 'main'
 ```
 
 <!-- test: scheduler-yield.spin-wait-hands-its-processor-to-a-machine-regaining-one -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
@@ -326,7 +303,6 @@ function main() returns ExitCode
 	while stage.current() < answered 'untilAnswered'
 		Scheduler.yield()
 	end 'untilAnswered'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await answer
 	print("answered {n}\n")
 	return 0
@@ -341,8 +317,6 @@ answered 5
 ```
 
 <!-- test: scheduler-yield.spin-wait-with-a-sibling-hands-its-processor-over -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
@@ -393,7 +367,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let answer = try reader.read(stage.clone()) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sibling = async spinner(stage.clone())
 	while stage.current() < reading 'untilReading'
 		Scheduler.yield()
@@ -402,9 +375,7 @@ function main() returns ExitCode
 	while stage.current() < answered 'untilAnswered'
 		Scheduler.yield()
 	end 'untilAnswered'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = await sibling
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await answer
 	print("answered {n} seen {seen}\n")
 	return 0
@@ -419,7 +390,6 @@ answered 5 seen 2
 ```
 
 <!-- test: scheduler-yield.a-preempted-spin-hands-its-processor-to-a-machine-regaining-one -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
@@ -472,7 +442,6 @@ function main() returns ExitCode
 	_ = busyUntil(stage, target: reading)
 	print("S: reader is in the kernel\n")
 	_ = busyUntil(stage, target: answered)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await answer
 	print("answered {n}\n")
 	return 0

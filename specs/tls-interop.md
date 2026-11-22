@@ -1383,8 +1383,6 @@ tls12 dropped: reply=gnip protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305S
 ```
 
 <!-- test: tls-interop.listener-against-openssl-s_client-tls13 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `TlsListener` accepts a live `openssl s_client` over loopback in TLS 1.3 under each of the three suites, the client restricted to one with `-ciphersuites`. `s_client` verifies the server's chain and name (`-verify_return_error`, `-verify_hostname`, at the case's fixed time), sends `ping` and prints the answer; the listener ends its stream with `shutdownWrite` and reads the client's close_notify as the end of the stream. A line prints what the listener negotiated, how its stream ended, and the client's exit code, verification, negotiated suite and answer.
@@ -1633,10 +1631,8 @@ function exchange(label String, directory String, serverOptions TlsServerOptions
 			return "{label}: deadline: {describe(error)}"
 		end 'unbounded'
 		let listenerPort = listener.port()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async serveOnce(listener)
 		let outcome = attemptClient(directory, port: listenerPort, options: clientOptions)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let server = await peer
 		match outcome 'outcome'
 			observed(client) then return "{label}: server[{server}] s_client[{client}]"
@@ -1667,8 +1663,6 @@ TLS_CHACHA20_POLY1305_SHA256: server[heard=ping protocol=tls13 suite=tls13/chaCh
 ```
 
 <!-- test: tls-interop.listener-against-openssl-s_client-tls12 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same in TLS 1.2 under each of the six suites: the listener holds the P-256 identity for the ECDSA suites and the RSA identity for the RSA ones.
@@ -1917,10 +1911,8 @@ function exchange(label String, directory String, serverOptions TlsServerOptions
 			return "{label}: deadline: {describe(error)}"
 		end 'unbounded'
 		let listenerPort = listener.port()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async serveOnce(listener)
 		let outcome = attemptClient(directory, port: listenerPort, options: clientOptions)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let server = await peer
 		match outcome 'outcome'
 			observed(client) then return "{label}: server[{server}] s_client[{client}]"
@@ -1964,8 +1956,6 @@ ECDHE-RSA-CHACHA20-POLY1305: server[heard=ping protocol=tls12 suite=tls12/ecdheR
 ```
 
 <!-- test: tls-interop.listener-against-openssl-s_client-mutual-tls -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 Mutual TLS with the listener requiring a client certificate under the client root and `openssl s_client` presenting its P-256 leaf (`-cert`, `-key`), in TLS 1.3 and in TLS 1.2: the listener sees one peer certificate.
@@ -2214,10 +2204,8 @@ function exchange(label String, directory String, serverOptions TlsServerOptions
 			return "{label}: deadline: {describe(error)}"
 		end 'unbounded'
 		let listenerPort = listener.port()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async serveOnce(listener)
 		let outcome = attemptClient(directory, port: listenerPort, options: clientOptions)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let server = await peer
 		match outcome 'outcome'
 			observed(client) then return "{label}: server[{server}] s_client[{client}]"
@@ -2580,7 +2568,6 @@ untrusted root: error tlsFailed(certificateRejected(unknownAuthority))
 ```
 
 <!-- test: tls-interop.http-server-against-openssl-s_client -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -2860,7 +2847,6 @@ typealias ClientRunArray = Array with ClientRun
 
 function runAll(server HttpServer, label String, directory String, runs ClientRunArray) returns String
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveInterop(server)
 	let report = StringBuilder.create()
 	report.append("{label}\n")

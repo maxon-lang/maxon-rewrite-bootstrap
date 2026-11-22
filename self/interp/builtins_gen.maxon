@@ -123,6 +123,30 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryStrUtf16Count(vm, f: f, x: x)
 		return
 	end 'rtStrUtf16Count'
+	if symbol == ir.Rt.rtAsyncAwait 'rtAsyncAwait'
+		try entryAsyncAwait(vm, f: f, x: x)
+		return
+	end 'rtAsyncAwait'
+	if symbol == ir.Rt.rtAsyncWait 'rtAsyncWait'
+		try entryAsyncWait(vm, f: f, x: x)
+		return
+	end 'rtAsyncWait'
+	if symbol == ir.Rt.rtAsyncError 'rtAsyncError'
+		try entryAsyncError(vm, f: f, x: x)
+		return
+	end 'rtAsyncError'
+	if symbol == ir.Rt.rtAsyncTake 'rtAsyncTake'
+		try entryAsyncTake(vm, f: f, x: x)
+		return
+	end 'rtAsyncTake'
+	if symbol == ir.Rt.rtSleep 'rtSleep'
+		try entrySleep(vm, f: f, x: x)
+		return
+	end 'rtSleep'
+	if symbol == ir.Rt.rtYield 'rtYield'
+		try entryYield(vm, f: f, x: x)
+		return
+	end 'rtYield'
 	if symbol == ir.Rt.rtArrayNew 'rtArrayNew'
 		try entryArrayNew(vm, f: f, x: x)
 		return
@@ -387,6 +411,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsIsDirectory(vm, f: f, x: x)
 		return
 	end 'rtOsIsDirectory'
+	if symbol == ir.Rt.rtOsExists 'rtOsExists'
+		try entryOsExists(vm, f: f, x: x)
+		return
+	end 'rtOsExists'
 	if symbol == ir.Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
 		try entryOsCreateDirectory(vm, f: f, x: x)
 		return
@@ -417,8 +445,11 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if symbol == ir.Rt.rtPreemptibleCode or symbol == ir.Rt.rtSchedDrain or symbol == ir.Rt.rtWorkerMain or symbol == ir.Rt.rtCownAcquire 'internal5'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal5'
-	if symbol == ir.Rt.rtCownRelease 'internal6'
+	if symbol == ir.Rt.rtCownRelease or symbol == ir.Rt.rtMainRun or symbol == ir.Rt.rtMainGreen or symbol == ir.Rt.rtAsyncNew 'internal6'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal6'
+	if symbol == ir.Rt.rtAsyncStart 'internal7'
+		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
+	end 'internal7'
 	panic("interp: a call of no runtime entry")
 end 'runtimeEntry'

@@ -271,7 +271,6 @@ level=INFO msg=infoFromB
 ```
 
 <!-- test: set-level-takes-effect-on-the-next-call -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The level is live: the next call on any thread obeys a change, whether `main` made it or a handler did.
 ```maxon
@@ -301,7 +300,6 @@ function main() returns ExitCode
 	Log.debug("restored")
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let tuner = spawn Tuner.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let tuned = try await tuner.lower() otherwise 0
 	Log.debug("fromHandler")
 	return tuned as ExitCode
@@ -346,7 +344,6 @@ a=WARN b=WARN min=WARN
 ```
 
 <!-- test: concurrent-set-levels-lose-nothing -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 Eight handlers each set a different group's level at once; every setter re-reads and retries until its
@@ -377,7 +374,6 @@ function main() returns ExitCode
 	end 'spawnEach'
 	var applied = 0 as Integer
 	for r in replies 'awaitEach'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		applied = applied + (await r)
 	end 'awaitEach'
 	for i in 0 upto 8 'reportEach'
@@ -486,7 +482,6 @@ level=DEBUG msg=fresh
 ```
 
 <!-- test: handlers-log-without-a-handle -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handler logs through `Log` with no handle passed to it. Worker `a` is awaited before `b` starts, so `a`'s
 record is queued first.
@@ -511,11 +506,9 @@ function main() returns ExitCode
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let a = spawn Worker.create("a")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let doneA = try await a.work() otherwise 0
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let b = spawn Worker.create("b")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let doneB = try await b.work() otherwise 0
 	return (doneA + doneB) as ExitCode
 end 'main'
@@ -531,7 +524,6 @@ level=INFO msg=working worker=b
 ```
 
 <!-- test: registering-a-sink-reroutes-every-thread -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A user handler implements `LogHandler`; once its sink is the default, records from `main` and from a worker's
@@ -572,7 +564,6 @@ function main() returns ExitCode
 	Log.info("fromMain")
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let runs = try await worker.work() otherwise 0
 	return runs as ExitCode
 end 'main'

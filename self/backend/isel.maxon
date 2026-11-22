@@ -94,6 +94,10 @@ export type Selector
 	// that the unit does not have yet, which are written after it.
 	var tables as TableSet
 	var due as ir.WitnessTableList
+	// thunks are the thunks of the functions that async calls start which the unit has, and dueThunks the functions whose
+	// thunks the function being selected needs and the unit does not have yet, which are written after it.
+	var thunks as TableSet
+	var dueThunks as ast.FuncIDList
 	// typeNames are the symbols of the data that names each type that the unit's tables hold and its casts test, which
 	// the unit defines once each.
 	var typeNames as TableSet
@@ -119,7 +123,7 @@ export type Selector
 	var system as ast.TargetSystem
 
 	static function new(verifies bool) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies), classes: ClassChoice.new(), system: ast.TargetSystem.windows}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies), classes: ClassChoice.new(), system: ast.TargetSystem.windows}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -156,7 +160,14 @@ export type Selector
 			end 'defines'
 			if op == ir.Opcode.opDrop 'drop'
 				_ = u.needed.symbol(p, ms: ms, kind: RoutineKind.dropRoutine, ty: ir.dropTy(f, x: f.instrs[k]))
-			end 'drop' else if op == ir.Opcode.opIsType 'isType'
+			end 'drop' else if op == ir.Opcode.opAsync 'async'
+				let started = ir.asyncCallee(f, x: f.instrs[k])
+				let thunk = asyncThunkSymbol(self.calleeSymbol(started))
+				if not thunks.has(thunk) 'new'
+					thunks.insert(thunk, value: true)
+					dueThunks.push(started)
+				end 'new'
+			end 'async' else if op == ir.Opcode.opIsType 'isType'
 				let ty = ir.isTypeTy(f, x: f.instrs[k])
 				let named = self.typeName(p, ms: ms, t: ty)
 				typeSymbols.insert(ty as Count, value: named)
@@ -1097,6 +1108,33 @@ function emitWhen(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.callSymbol(ir.rtSymbol(ir.Rt.rtCownAcquire))
 end 'emitWhen'
 
+// emitAsync starts a coroutine: the runtime makes its green thread with the address of the thunk of the function, the
+// arguments are written into its argument words, and the runtime then queues it in the caller's strand, publishing it
+// last as maxon's __gt_ready does. The promise is the green thread.
+function emitAsync(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let count = ir.asyncArgsCount(ins)
+	if count > greenArgWords 'words'
+		panic("backend: an async call passes more words than a coroutine holds, which the checker refuses")
+	end 'words'
+	let thunk = sel.address(asyncThunkSymbol(sel.calleeSymbol(ir.asyncCallee(fn, x: ins))))
+	sel.addArg(thunk, float: false)
+	sel.callSymbol(ir.rtSymbol(ir.Rt.rtAsyncNew))
+	sel.takeResult(ins.dst, float: false)
+	let g = vregOf(ins.dst)
+	let start = ir.asyncArgsStart(ins)
+	for i in 0 upto count 'args'
+		sel.store(g, disp: imm32Of(try greenArgsOffset + i * wordBytes otherwise panic("backend: a coroutine past memory")), src: argAt(fn, start: start, index: i))
+	end 'args'
+	sel.addArg(g, float: false)
+	sel.callSymbol(ir.rtSymbol(ir.Rt.rtAsyncStart))
+end 'emitAsync'
+
+// asyncThunkSymbol is the link name of the thunk a coroutine of the function with the link name callee runs. It starts
+// with a word and a space, as a routine's does, so no function is named like it.
+function asyncThunkSymbol(callee String) returns String
+	return "async {callee}"
+end 'asyncThunkSymbol'
+
 function emitDropValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.callRoutine(RoutineKind.dropRoutine, ty: ir.dropTy(fn, x: ins), value: vregOf(ir.dropSrc(ins)))
 end 'emitDropValue'
@@ -1419,6 +1457,11 @@ function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.
 	for i in 0 upto due.count() 'tables'
 		emitTable(sel.u, p: p, ms: ms, t: due[i], typeSymbol: typeNameSymbol(p, ms: ms, t: due[i].concrete))
 	end 'tables'
+	let thunks = exchange(sel.dueThunks, value: ast.FuncIDList.create(0))
+	for i in 0 upto thunks.count() 'thunks'
+		let started = ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: thunks[i])
+		emitAsyncThunk(sel.u, p: p, ms: ms, symbol: asyncThunkSymbol(started), callee: thunks[i], calleeSymbol: started)
+	end 'thunks'
 	for i in 0 upto f.bodies.count() 'bodies'
 		let body = bodySymbol(symbol, index: i)
 		path.push(i)

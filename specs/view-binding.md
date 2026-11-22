@@ -82,8 +82,6 @@ end 'main'
 ```
 
 <!-- test: view-binding.a-let-live-across-an-await-sees-the-coroutines-write -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The coroutine `bump` writes the record `v` names while `main` waits, and the read after the `await` sees it.
 
 ```maxon
@@ -101,22 +99,20 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
-function bump(box Box) returns Count
+function bump(mutates box Box) returns Count
 	sleep(1)
 	box.n = 5
 	return 1
 end 'bump'
 
 function main() returns ExitCode
-	let holder = Holder.create(Box.create(1))
+	var holder = Holder.create(Box.create(1))
 	let v = holder.box
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let task = async bump(holder.box)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await task
 	print("{v.n} {r}\n")
 	return 0
@@ -510,7 +506,6 @@ end 'main'
 ```
 
 <!-- test: view-binding.error.a-let-sent-to-a-service-is-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -554,7 +549,6 @@ function main() returns ExitCode
 	var holder = Holder.create(Box.create(7))
 	holder.box.n = 8
 	let v = holder.box
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await h.keep(v) otherwise 0
 	return r as ExitCode
 end 'main'

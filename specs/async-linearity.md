@@ -66,8 +66,6 @@ marker.
 ## Tests
 
 <!-- test: async-linearity.error.double-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `await` is linear: awaiting one promise twice in straight-line code is refused at the second await.
 ```maxon
@@ -77,13 +75,10 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await p
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -93,8 +88,6 @@ error E3142: <fragment>:10:16: this promise was already consumed by an earlier '
 ```
 
 <!-- test: async-linearity.error.double-await-in-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The check is flow-sensitive, and this is why it must be. There is exactly ONE `await` here lexically, so
 a "have I seen this promise awaited before?" check finds nothing — but it sits in a loop over a promise
@@ -107,17 +100,15 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	var i = 0 as Integer
 	var acc = 0 as Integer
 	while i < 3 'loop'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let s = await p
-		acc = acc + s
+		acc = try acc + s otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return acc as ExitCode
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -127,8 +118,6 @@ error E3100: <fragment>:12:11: this promise has already been awaited: 'await' is
 ```
 
 <!-- test: async-linearity.error.double-await-through-alias -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Linearity is a property of the GREEN THREAD, not of the identifier text. `let q = p` gives one green
 thread a second name; awaiting through both names awaits it twice. In the compiler `q` and `p` are the SAME SSA
@@ -140,12 +129,9 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let q = p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await q
 	return (a + b) as ExitCode
 end 'main'
@@ -157,8 +143,6 @@ error E3142: <fragment>:11:16: this promise was already consumed by an earlier '
 ```
 
 <!-- test: async-linearity.error.double-await-through-alias-in-branch -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same alias, made in a DIFFERENT block from the `async` that spawned the thread. A cross-block read
 of the promise resolves to the same SSA value it was spawned as (there is no re-tag), so `p` and `q`
@@ -174,13 +158,10 @@ function cond() returns bool
 end 'cond'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	if cond() 'branch'
 		let q = p
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = await p
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let b = await q
 		return (a + b) as ExitCode
 	end 'branch'
@@ -194,8 +175,6 @@ error E3142: <fragment>:16:17: this promise was already consumed by an earlier '
 ```
 
 <!-- test: async-linearity.error.double-await-alias-outlives-rebind -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Re-arming `p` does NOT end the first thread's life while `q` still names it. The reachability walk stops
 a path only when the promise's DEFINITION is re-passed (a re-arm); reassigning `p` mints a NEW value, so
@@ -207,16 +186,11 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async makeValue()
 	let q = p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	p = async makeValue()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await q
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let c = await p
 	return (a + b + c) as ExitCode
 end 'main'
@@ -228,8 +202,6 @@ error E3142: <fragment>:12:16: this promise was already consumed by an earlier '
 ```
 
 <!-- test: async-linearity.error.double-await-after-ternary-arm -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An `await` in one ternary arm does NOT make the promise spent on the path where that arm was not taken —
 but the await AFTER the ternary is reachable from the arm that WAS taken, so on that path the thread is
@@ -245,11 +217,8 @@ function no() returns bool
 end 'no'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if no() else 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let w = await p
 	return (v + w) as ExitCode
 end 'main'
@@ -261,8 +230,6 @@ error E3142: <fragment>:14:16: this promise was already consumed by an earlier '
 ```
 
 <!-- test: async-linearity.await-in-exclusive-branches -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two awaits of one promise in MUTUALLY EXCLUSIVE branches are each the only await on their own path, and
 are allowed. A lexical "already awaited" check would reject this valid program; reachability does not,
 because neither await can reach the other.
@@ -277,16 +244,13 @@ function no() returns bool
 end 'no'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	if no() 'branch'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = await p
-		return a as ExitCode
+		return try a as ExitCode otherwise panic("out of range")
 	end 'branch'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await p
-	return (b + 1) as ExitCode
+	return try (b + 1) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -296,8 +260,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-linearity.await-in-an-arm-that-returns -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE SAME EXCLUSIVITY, THROUGH A `match` — AND IT DEPENDS ON THE ARM ORDER FOR NOTHING.** An arm that
 awaits and then RETURNS contributes no edge to the merge, so the thread it spent is spent on ITS path and
 on no other; the `await` after the `match` is the only one on the path that reaches it.
@@ -315,17 +277,14 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	var x = 1 as Integer
 	match x 'pick'
 		1 then x = 2
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		default then return (await p) as ExitCode
+		default then return try (await p) as ExitCode otherwise panic("out of range")
 	end 'pick'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	return (a + x) as ExitCode
+	return try (a + x) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -335,8 +294,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-linearity.rearm-after-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Reassigning a promise binding RE-ARMS it: `p` now names a new green thread, so awaiting it again is the
 first await of that thread, not a second await of the old one. The linear check refuses a second await
 of one thread, not a second `await p` in the text.
@@ -347,15 +304,11 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async makeValue()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	p = async makeValue()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await p
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -365,8 +318,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-linearity.await-aliased-loop-element -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A loop that re-arms the promise each iteration, WITH an alias inside the loop. Every iteration spawns a
 fresh thread and awaits it exactly once through `q`, so the single `await q` is one await per promise,
 not N awaits of one. This is the case an over-eager check breaks: the alias unifies `p` and `q`, and the
@@ -381,15 +332,13 @@ function main() returns ExitCode
 	var i = 0 as Integer
 	var acc = 0 as Integer
 	while i < 3 'await'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async makeValue(i)
 		let q = p
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let s = await q
-		acc = acc + s
+		acc = try acc + s otherwise panic("out of range")
 		i = i + 1
 	end 'await'
-	return acc as ExitCode
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -399,8 +348,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-linearity.await-in-ternary-arms -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The two arms of a ternary are MUTUALLY EXCLUSIVE — only the selected arm is evaluated — so an `await` in
 each is the only await on its own path, exactly as in an `if`/`else`. The reachability check reads the
 arms as the separate branches they lower to, not as one straight-line block.
@@ -415,11 +362,9 @@ function no() returns bool
 end 'no'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if no() else (await p)
-	return (v + 1) as ExitCode
+	return try (v + 1) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -429,8 +374,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-linearity.await-aliased-in-ternary-arms -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same, through an ALIAS: `p` and `q` are one green thread under two names, and the two arms await it
 through different names. Linearity keys on the THREAD, so it sees one thread awaited in each of two
 exclusive arms — one await per path, and legal. This is the intersection of the two facts that must both
@@ -447,12 +390,10 @@ function no() returns bool
 end 'no'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let q = p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = (await p) if no() else (await q)
-	return (v + 1) as ExitCode
+	return try (v + 1) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -462,8 +403,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-linearity.error.use-after-await-through-alias -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐ **A CONSUME POISONS EVERY NAME THAT SPELLS THE THREAD, NOT ONLY THE ONE THAT OWNS IT.** `let q = p`
 enrols no second owner — `q` simply reads `p`'s value — so a consume that poisoned only the owned-set
@@ -480,10 +419,8 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let q = p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
 	let done = 1 if q.isComplete() else 0
 	return (a + done) as ExitCode
@@ -496,7 +433,6 @@ error E3142: <fragment>:11:18: this promise was already consumed by an earlier '
 ```
 
 <!-- test: async-linearity.error.use-after-cancel-through-alias -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same hole down the `cancel` road, and it is the same hole because `cancel` reaches the same consume
 door (`consumePromiseThread`) that `await` does, and the struct it would read is the one
@@ -510,7 +446,6 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let q = p
 	p.cancel()
@@ -525,7 +460,6 @@ error E3142: <fragment>:11:18: this promise was already consumed by an earlier '
 ```
 
 <!-- test: async-linearity.error.cancel-twice -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `cancel` is linear for the reason `await` is: it routes to `__gt_promise_drop`, which reclaims the GT
 struct and returns it to the free list, so a second one hands the allocator a slot it has already taken
@@ -537,7 +471,6 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	p.cancel()
 	p.cancel()
@@ -551,8 +484,6 @@ error E3142: <fragment>:10:2: this promise was already consumed by an earlier 'c
 ```
 
 <!-- test: async-linearity.error.await-then-cancel -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The two consumes are ONE consume between them, not one each — cancelling what you have already awaited
 is a second reclaim of one thread. This is the case that makes the rule a property of the PROMISE
@@ -564,9 +495,7 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
 	p.cancel()
 	return a as ExitCode
@@ -579,8 +508,6 @@ error E3142: <fragment>:10:2: this promise was already consumed by an earlier 'a
 ```
 
 <!-- test: async-linearity.error.cancel-then-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 And the other order. A cancelled promise has no result to hand over — awaiting it would park on a thread
 whose struct is on the free list.
@@ -591,10 +518,8 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	p.cancel()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p
 	return a as ExitCode
 end 'main'

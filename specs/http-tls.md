@@ -36,7 +36,6 @@ thread. The certificates are a P-256 root and a leaf for `localhost` and `127.0.
 ## Tests
 
 <!-- test: http-tls.get-and-post-round-trip -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 An `HttpServer` bound with TLS options answers the real `HttpClient` over `https://`: a GET with a query, a POST with a body and a GET by IP address, each against a client that trusts the case's root. The URL's host is the name the certificate is verified for (`localhost` and `127.0.0.1` are in its SAN), the handler sees `https` in `request.url()` and `HttpConnectionSecurity.tls` from `exchange.security()` with TLS 1.3 and the ALPN protocol `http/1.1`, and the response carries `Connection: close`.
@@ -178,7 +177,6 @@ end 'fetch'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	print("get: {fetch(HttpMethod.get, url: "https://localhost:{port}/hello?q=1", body: "", options: clientOptions())}\n")
 	print("post: {fetch(HttpMethod.post, url: "https://localhost:{port}/submit", body: "name=maxon", options: clientOptions())}\n")
@@ -203,7 +201,6 @@ ip: 200 connection=close [get https://127.0.0.1/ip?- body=0 tls13 alpn=http/1.1 
 ```
 
 <!-- test: http-tls.tls12-and-tls13 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 Client and server restricted to one TLS version each negotiate that version, and the handler reports it. A client that supports only TLS 1.2 against a server that supports only TLS 1.3, and the reverse, fail with the typed `HttpError.tlsFailed`, while the server keeps serving until it is closed.
@@ -345,7 +342,6 @@ end 'fetch'
 
 function fetchOver(server HttpServer, client TlsClientOptions) returns String
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	let result = fetch(HttpMethod.get, url: "https://localhost:{boundPort}/v", body: "", options: client)
 	peer.cancel()
@@ -381,7 +377,6 @@ server 1.2, client 1.3: error tlsFailed(peerAlert(protocolVersion))
 ```
 
 <!-- test: http-tls.a-large-body-round-trips -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 <!-- runs: alone -->
@@ -506,7 +501,6 @@ end 'serveEcho'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(server)
 	let sent = payload()
 	let request = try HttpRequest.create(HttpMethod.post, url: "https://localhost:{boundPort}/echo") otherwise 'refused2x158'
@@ -546,7 +540,6 @@ status=200 sent=2359296 received=2359296 identical=true
 ```
 
 <!-- test: http-tls.several-requests-are-served -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 Five requests in a row are each a connection and a handshake of their own, since the server and the client send `Connection: close` over TLS as over plain TCP: each answers `connection=close` and the server serves them all until it is closed.
@@ -688,7 +681,6 @@ end 'fetch'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	for number in 1 to 5 'eachRequest'
 		print("{number}: {fetch(HttpMethod.get, url: "https://localhost:{port}/n?{number}", body: "", options: clientOptions())}\n")
@@ -715,7 +707,6 @@ end 'main'
 ```
 
 <!-- test: http-tls.mutual-tls -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 With `requireClientCertificates` a client that presents no certificate is refused (the typed `tlsFailed` carries the alert), the server goes on, and a client with the case's client certificate is served: the handler reads the client's chain from `exchange.security()` and finds alice's leaf. With `requestClientCertificates` the anonymous client is served too, and the handler sees an empty chain.
@@ -870,7 +861,6 @@ end 'clientWithCertificate'
 
 function scenario(label String, server HttpServer) returns String
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveChains(server)
 	let anonymous = fetch(HttpMethod.get, url: "https://localhost:{port}/who", body: "", options: clientOptions())
 	let certified = fetch(HttpMethod.get, url: "https://localhost:{port}/who", body: "", options: clientWithCertificate())
@@ -904,7 +894,6 @@ requested
 ```
 
 <!-- test: http-tls.untrusted-misnamed-and-expired-certificates-are-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 A client refuses a server certificate its roots do not lead to (`unknownAuthority`), one issued for another name (`hostnameMismatch`, from the options' server name, and from the URL's host when the certificate has only a DNS name) and one that has expired at the verification time (`expired`), each as `HttpError.tlsFailed(certificateRejected(reason))`. The server survives each refused handshake and serves the trusted client that follows.
@@ -1084,7 +1073,6 @@ end 'exampleClient'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	print("untrusted root: {fetch(HttpMethod.get, url: "https://localhost:{port}/", body: "", options: untrustingClient())}\n")
 	print("another name: {fetch(HttpMethod.get, url: "https://localhost:{port}/", body: "", options: misnamingClient())}\n")
@@ -1102,7 +1090,6 @@ end 'nameFromTheUrl'
 
 function namedExchange(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	print("host from the url: {fetch(HttpMethod.get, url: "https://127.0.0.1:{port}/", body: "", options: exampleClient())}\n")
 	let named = exampleClient()
@@ -1138,7 +1125,6 @@ named in the options: 200 connection=close [get https://127.0.0.1/?- body=0 tls1
 ```
 
 <!-- test: http-tls.a-plain-peer-on-a-tls-port-is-refused-cleanly -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1329,7 +1315,6 @@ end 'plainClientOnTheTlsPort'
 
 function plainExchange(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	print("raw plain bytes: {plainBytesHeard(port)}\n")
 	let plain = try HttpClient.post("http://127.0.0.1:{port}/", body: filler()) otherwise (error) 'refused'
@@ -1355,7 +1340,6 @@ end 'tlsClientOnThePlainPort'
 
 function secureExchange(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	print("HttpClient over https to a plain server: {fetch(HttpMethod.get, url: "https://127.0.0.1:{port}/", body: "", options: clientOptions())}\n")
 	let plain = try HttpClient.get("http://127.0.0.1:{port}/still") otherwise 'refused2x240'
@@ -1388,7 +1372,6 @@ then over http: 200 [get http://127.0.0.1/still?- body=0 plaintext]
 ```
 
 <!-- test: http-tls.a-redirect-to-https-is-returned-as-is -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 `HttpClient` does not follow redirects, so a plain server's `301` to the TLS server's URL is returned as the response, with its `Location`; fetching that location is a second request that gets the TLS server's answer.
@@ -1559,10 +1542,8 @@ end 'main'
 function exchangeOver(secure HttpServer, plain HttpServer) returns ExitCode
 	let securePort = secure.port()
 	let plainPort = plain.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let securePeer = async serving(secure)
 	let location = "https://localhost:{securePort}/moved"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let plainPeer = async redirecting(plain, location: location)
 	let redirect = try HttpClient.get("http://127.0.0.1:{plainPort}/") otherwise 'refused3x192'
 		plainPeer.cancel()
@@ -1588,8 +1569,6 @@ the location, fetched: 200 connection=close [get https://localhost/moved?- body=
 ```
 
 <!-- test: http-tls.stalled-handshakes-are-bounded -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 A server that accepts the connection and never answers the ClientHello makes `HttpClient.send` throw `timedOut` once `HttpClientLimits.timeoutMs` has passed, and the server sees the client leave. A client that connects to the TLS server and sends nothing holds only its own connection: with no handshake deadline, so that nothing but the client's own `close()` can end it, the server serves the next request beside it. The accept deadline, set before `serve` starts, ends `serve` as `acceptDeadlinePassed` once no further connection arrives within it; a stalled handshake before it does not.
@@ -1750,7 +1729,6 @@ end 'holdOpen'
 function stalledServer() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async holdOpen(listener)
 	let request = try HttpRequest.create(HttpMethod.get, url: "https://127.0.0.1:{listenerPort}/") otherwise 'refused2x178'
 		peer.cancel()
@@ -1760,13 +1738,11 @@ function stalledServer() returns ExitCode
 	limits.timeoutMs = ClientBudgetMs
 	let response = try HttpClient.send(request, limits: limits, tls: clientOptions()) otherwise (error) 'failed'
 		print("a server that never answers the hello: error {describeHttp(error)}\n")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let left = await peer
 		print("the peer saw the client leave: {left}\n")
 		return 0
 	end 'failed'
 	print("a stalled server was answered {response.statusCode().number()}\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await peer
 	return 3
 end 'stalledServer'
@@ -1784,7 +1760,6 @@ end 'stalledClient'
 
 function silentExchange(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	let silent = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused5x212'
 		peer.cancel()
@@ -1805,7 +1780,6 @@ end 'acceptDeadline'
 function deadlineExchange(server HttpServer) returns ExitCode
 	let port = server.port()
 	try server.setAcceptDeadline(AcceptWindowMs) otherwise return 7
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	let silent = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused8x229'
 		peer.cancel()
@@ -1813,7 +1787,6 @@ function deadlineExchange(server HttpServer) returns ExitCode
 	end 'refused8x229'
 	print("a stalled handshake, then a request: {fetch(HttpMethod.get, url: "https://localhost:{port}/after", body: "", options: clientOptions())}\n")
 	silent.close()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let ended = await peer
 	print("with no more connections serve ended: {ended.name}\n")
 	return 0
@@ -1843,7 +1816,6 @@ with no more connections serve ended: acceptDeadlinePassed
 ```
 
 <!-- test: http-tls.alpn-and-the-request-target-follow-the-protocol -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 A `TlsClient` talking HTTP to the server by hand: ALPN `http/1.1` is negotiated when offered, nothing is negotiated when nothing is offered, `h2` alone is refused by the handshake, and the absolute-form request target must name `https` (an `http://` target is a `400`).
@@ -1988,7 +1960,6 @@ end 'rawExchange'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	let plainRequest = "GET /raw HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
 	print("offering http/1.1: {rawExchange(port, protocols: ["http/1.1"], request: plainRequest)}\n")
@@ -2020,7 +1991,6 @@ absolute-form http: alpn=http/1.1 HTTP/1.1 400 Bad Request |
 ```
 
 <!-- test: http-tls.an-ipv6-loopback-server-is-reached-over-https -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 An `https://[::1]:<port>/` URL reaches a TLS server bound on the IPv6 loopback: the client dials the bare `::1`, runs the
@@ -2137,7 +2107,6 @@ end 'fetch'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	print("trusted: {fetch("https://[::1]:{port}/hello", options: clientTrusting(ipv6LeafHex))}\n")
 	print("untrusted: {fetch("https://[::1]:{port}/hello", options: clientTrusting(otherRootHex))}\n")
@@ -2257,7 +2226,6 @@ a second bind on the same port: bindFailed
 ```
 
 <!-- test: http-tls.a-silent-client-does-not-delay-another-clients-request -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 `HttpServer.serve` serves each connection in its own coroutine, so a client that connects to a TLS server and never sends its ClientHello holds only its own connection: with no handshake deadline, so that nothing but the client's own `close()` can end the silent connection, a request made beside it is still answered, and `serve` goes on until `close()`.
@@ -2386,7 +2354,6 @@ end 'main'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveAnswers(server)
 	let silent = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused2x160'
 		peer.cancel()

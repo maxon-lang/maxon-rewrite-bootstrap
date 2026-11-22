@@ -110,7 +110,6 @@ nothing, while a bracket count of 0 says there was nothing it could have taken.
 ## Tests
 
 <!-- test: more-blocking-file-reads-than-processors-still-finish -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 **EIGHT CONCURRENT FILE ROUND-TRIPS ON TWO PROCESSORS.** Every send is posted before any reply is awaited,
@@ -197,11 +196,9 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < readerCount 'collect'
 		let p = try replies.get(n as ElementIndex) otherwise panic("replies.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		aggregate = aggregate + (await p)
 		n = n + 1
 	end 'collect'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let tail = await tailReply
 	print("aggregate={aggregate} last={tail}\n")
 	return 0
@@ -215,7 +212,6 @@ aggregate=80 last=1
 ```
 
 <!-- test: a-blocking-subprocess-wait-does-not-stall-a-sibling -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- procs: 2 -->
@@ -299,11 +295,9 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < runnerCount 'collect'
 		let p = try replies.get(n as ElementIndex) otherwise panic("replies.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		aggregate = aggregate + (await p)
 		n = n + 1
 	end 'collect'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let tail = await tailReply
 	print("aggregate={aggregate} last={tail}\n")
 	return 0
@@ -317,7 +311,6 @@ aggregate=8 last=1
 ```
 
 <!-- test: a-blocking-kernel-call-does-not-starve-an-unrelated-green-thread -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
@@ -402,7 +395,6 @@ function main() returns ExitCode
 	let sentinel = spawn Sentinel.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await reader.read(sentinel) otherwise 0
 	if n == 0 'unread'
 		return 1
@@ -421,7 +413,6 @@ done read=5
 ```
 
 <!-- test: a-spare-processor-already-carries-the-sibling -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 <!-- stdin: after "S: sentinel ran" -->
@@ -487,7 +478,6 @@ function main() returns ExitCode
 	let sentinel = spawn Sentinel.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await reader.read(sentinel) otherwise 0
 	if n == 0 'unread'
 		return 1
@@ -506,7 +496,6 @@ done read=5
 ```
 
 <!-- test: sysmon-retakes-a-processor-from-a-blocking-call -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
@@ -579,7 +568,6 @@ function main() returns ExitCode
 	let sentinel = spawn Sentinel.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await reader.read(sentinel) otherwise 0
 	if n == 0 'unread'
 		return 1
@@ -604,8 +592,6 @@ retaken=yes
 ```
 
 <!-- test: an-async-child-wait-leaves-the-sleeping-coroutine-running -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 Two `async` coroutines share one strand: a streaming child's `wait` in the first and a `sleep` in the second.
@@ -652,13 +638,9 @@ end 'nap'
 
 function main() returns ExitCode
 	let child = try spawnTimedChild() otherwise return 1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let watcher = async outlast(child)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let napper = async nap()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let slept = await napper
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let exited = await watcher
 	print("slept={slept} exited={exited}\n")
 	return 0
@@ -675,7 +657,6 @@ slept=true exited=true
 ```
 
 <!-- test: a-child-wait-parks-instead-of-holding-a-processor -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -744,7 +725,6 @@ function main() returns ExitCode
 	let sentinel = spawn Sentinel.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let waiter = spawn Waiter.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let finished = try await waiter.outlast(sentinel) otherwise 0
 	if finished == 0 'noChild'
 		return 1
@@ -763,7 +743,6 @@ done exited=true
 ```
 
 <!-- test: a-handed-off-processor-leaves-the-wake-gate-working -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 <!-- stdin: after "S: sentinel ran" -->
@@ -876,10 +855,8 @@ function main() returns ExitCode
 	while not claimed 'claim'
 		claimed = started.current()
 	end 'claim'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await reader.read(sentinel) otherwise 0
 	released.publish(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let s = await spun
 	var retaken = "no"
 	if Scheduler.counters().retakes > 0 'retaken'
@@ -897,7 +874,6 @@ function main() returns ExitCode
 	while not answered 'watch'
 		answered = reply.isComplete()
 	end 'watch'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let p = await reply
 	print("retaken={retaken} ran={n + s + p}\n")
 	return 0
@@ -915,7 +891,6 @@ retaken=yes ran=7
 ```
 
 <!-- test: a-blocking-kernel-call-on-main-hands-its-processor-off -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
@@ -954,7 +929,6 @@ function main() returns ExitCode
 	let tailReply = try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
 	let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
 	print("M: read returned\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let tail = await tailReply
 	print("done sibling={tail} read={line.count()}\n")
 	return 0
@@ -971,7 +945,6 @@ done sibling=1 read=5
 ```
 
 <!-- test: a-busy-processor-serves-a-machine-regaining-one -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
@@ -1026,7 +999,6 @@ end 'Worker'
 function scatterGather(first Worker.handle, second Worker.handle) returns Integer
 	let a = try first.work(1) otherwise panic("an open mailbox with room takes the send")
 	let b = try second.work(1) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await a) + (await b)
 end 'scatterGather'
 
@@ -1047,7 +1019,6 @@ function main() returns ExitCode
 	while stage.current() < answered 'untilAnswered'
 		total = total + scatterGather(first, second: second)
 	end 'untilAnswered'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await answer
 	print("answered {n} worked {total > 0}\n")
 	return 0

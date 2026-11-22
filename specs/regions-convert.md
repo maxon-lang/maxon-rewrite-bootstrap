@@ -143,8 +143,6 @@ end 'main'
 ```
 
 <!-- test: yielding-closure-to-function-type-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `slow` awaits a coroutine, and a function type never yields, so a call through `Step` inside a `modify` block could not be proven safe.
 
@@ -155,13 +153,11 @@ typealias Step = function(Tally) returns Tally
 
 function work(n Tally) returns Tally
 	sleep(1)
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function slow(n Tally) returns Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async work(n)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await pending
 end 'slow'
 

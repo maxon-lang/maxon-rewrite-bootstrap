@@ -1,0 +1,134 @@
+// Wait inference, maxon's: a function may wait when it awaits, sleeps, yields, does file or process I/O, calls through a
+// function value or an interface, calls a function of another module, or calls or starts with `async` one of its module's
+// functions that may. E3073 refuses an async call of a function that never waits: there is nothing for its coroutine to
+// overlap. The facts are the module's own; a function of another module is an unknown, which counts as one that may
+// wait, so a correct program is never refused for what the check cannot see.
+
+// WaitFact is what the check of a function found: whether it waits itself, and the functions of the module it calls.
+export type WaitFact
+	export var waits as bool
+	export var calls as ast.FuncIDList
+
+	export static function make(waits bool, consumes calls ast.FuncIDList) returns WaitFact
+		return WaitFact{waits: waits, calls: calls}
+	end 'make'
+end 'WaitFact'
+
+export typealias WaitFacts = table.IntMap with WaitFact
+
+// PendingAsync is an async call that E3073 asks about once every body of the module is checked: the call, and the
+// function it starts.
+export type PendingAsync
+	export var node as ast.NodeID
+	export var callee as ast.FuncID
+
+	export static function make(node ast.NodeID, callee ast.FuncID) returns PendingAsync
+		return PendingAsync{node: node, callee: callee}
+	end 'make'
+end 'PendingAsync'
+
+export typealias PendingAsyncList = Array with PendingAsync
+
+// startWaits begins the facts of a function whose body is checked.
+function startWaits(mutates c Checker)
+	c.waitNow = false
+	c.waitCalls = ast.FuncIDList.create(0)
+end 'startWaits'
+
+// finishWaits keeps the facts of the function whose body was checked.
+function finishWaits(mutates c Checker)
+	if c.rootFn == ast.noFunc 'none'
+		return
+	end 'none'
+	c.waits.insert(c.rootFn as Count, value: WaitFact.make(c.waitNow, calls: exchange(c.waitCalls, value: ast.FuncIDList.create(0))))
+end 'finishWaits'
+
+// noteCallWaits notes what a call says of whether the function being checked may wait.
+function noteCallWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID)
+	match consumes c.typing.calls.get(call as Count) 'info'
+		some(info) then noteCallInfoWaits(c, p: p, ms: ms, info: info)
+		none then _ = 0
+	end 'info'
+end 'noteCallWaits'
+
+function noteCallInfoWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, info ast.CallInfo)
+	let k = info.kind
+	if k == ast.CallKind.callValue or k == ast.CallKind.callBound 'unknown'
+		c.waitNow = true
+		return
+	end 'unknown'
+	if k != ast.CallKind.callFunction and k != ast.CallKind.callStatic and k != ast.CallKind.callMethod 'noCall'
+		return
+	end 'noCall'
+	noteCallee(c, p: p, ms: ms, callee: info.fn)
+end 'noteCallInfoWaits'
+
+// noteCallee notes a call or an async start of a function: a wait point among the built-ins, an edge to a function of the
+// module, or an unknown.
+function noteCallee(mutates c Checker, p ast.Project, ms ast.ModuleState, callee ast.FuncID)
+	let intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).intrinsic
+	if intrinsic != ast.Intrinsic.intrNone 'intrinsic'
+		if waitingIntrinsic(intrinsic) 'waits'
+			c.waitNow = true
+		end 'waits'
+		return
+	end 'intrinsic'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).module != c.modID 'otherModule'
+		c.waitNow = true
+		return
+	end 'otherModule'
+	c.waitCalls.push(callee)
+end 'noteCallee'
+
+// waitingIntrinsic is whether a built-in parks the green thread that calls it: sleep and yield, and file, directory and
+// process I/O.
+function waitingIntrinsic(op ast.Intrinsic) returns bool
+	return op == ast.Intrinsic.intrSleep or op == ast.Intrinsic.intrSchedulerYield or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileWriteText or op == ast.Intrinsic.intrFileWriteBinary or op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrFileInfo or op == ast.Intrinsic.intrFileExists or op == ast.Intrinsic.intrDirectoryIsDirectory or op == ast.Intrinsic.intrDirectoryCreate or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrSubprocessRunWithDeadline
+end 'waitingIntrinsic'
+
+// verifyAsyncs is E3073 for each async call of the module whose function never waits.
+function verifyAsyncs(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)
+	for i in 0 upto c.pendingAsyncs.count() 'asyncs'
+		var visited = BoolIntMap.new()
+		if not mayWait(c, p: p, ms: ms, f: c.pendingAsyncs[i].callee, visited: visited) 'never'
+			let e = c.pendingAsyncs[i].node
+			checkFail(c.modID, off: ms.tree().reportStartOf(e), code: diag.errAsyncNonYielding, msg: diag.asyncNeverYields(exprText(ms.tree(), e: e)), errs: errs)
+		end 'never'
+	end 'asyncs'
+end 'verifyAsyncs'
+
+// mayWait is whether a function may wait, by its facts and those of the functions it calls; one without facts is an
+// unknown, and a cycle that reaches no wait waits nowhere.
+function mayWait(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns bool
+	var fid = f
+	let origin = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).genericOrigin
+	if origin != ast.noFunc 'instance'
+		fid = origin
+	end 'instance'
+	if visited.has(fid as Count) 'seen'
+		return false
+	end 'seen'
+	visited.insert(fid as Count, value: true)
+	let fact = match consumes c.waits.get(fid as Count) 'fact'
+		some(known) gives known
+		none gives WaitFact.make(true, calls: ast.FuncIDList.create(0))
+	end 'fact'
+	if fact.waits 'waits'
+		return true
+	end 'waits'
+	for i in 0 upto fact.calls.count() 'calls'
+		if mayWait(c, p: p, ms: ms, f: fact.calls[i], visited: visited) 'reaches'
+			return true
+		end 'reaches'
+	end 'calls'
+	return false
+end 'mayWait'
+
+// exprText is the text an expression is written with, for a message that quotes it.
+function exprText(tree ast.Tree, e ast.NodeID) returns String
+	let start = ast.exprStart(tree, e: e) as Count
+	return match consumes ast.exprEnd(tree, e: e) 'end'
+		some(past) gives tree.text.sliceBytes(start, endPos: past)
+		none gives placeText(tree, e: e)
+	end 'end'
+end 'exprText'

@@ -447,8 +447,6 @@ ok
 ```
 
 <!-- test: async-argument-before -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 An `async` call takes the local and the by-reference call's result. The read runs before the write.
@@ -466,14 +464,12 @@ end 'keep'
 
 function two3(text String, k Tally) returns Tally
 	sleep(1)
-	return k + (text.byteLength() as Tally)
+	return try k + (text.byteLength() as Tally) otherwise panic("out of range")
 end 'two3'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async two3(label, k: put(label))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let k = await promise
 	keep(k)
 	print("ok\n")
@@ -485,8 +481,6 @@ error E3186: <fragment>:21:41: argument 'label' is read by another operand of th
 ```
 
 <!-- test: async-argument-after -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 An `async` call takes the local and the by-reference call's result. The read runs after the write.
 
@@ -503,14 +497,12 @@ end 'keep'
 
 function two4(k Tally, text String) returns Tally
 	sleep(1)
-	return k + (text.byteLength() as Tally)
+	return try k + (text.byteLength() as Tally) otherwise panic("out of range")
 end 'two4'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async two4(put(label), text: label)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let k = await promise
 	keep(k)
 	print("ok\n")
@@ -2696,8 +2688,6 @@ ok
 ```
 
 <!-- test: async-split-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 An `async` started in one statement, the local read beside the await of another statement.
 
@@ -2708,7 +2698,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function slow(mutates text String) returns Tally
@@ -2719,9 +2709,7 @@ end 'slow'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async slow(label)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let k = two2(await promise, text: label)
 	keep(k)
 	print("ok\n")
@@ -2736,8 +2724,6 @@ ok
 ```
 
 <!-- test: async-start-reads-before-the-wait -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 An `async` whose later operand reads the local.
 
@@ -2753,14 +2739,12 @@ end 'wrap'
 
 function two3(text String, k Tally) returns Tally
 	sleep(1)
-	return k + (text.byteLength() as Tally)
+	return try k + (text.byteLength() as Tally) otherwise panic("out of range")
 end 'two3'
 
 function main() returns ExitCode
 	let label = "original"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async two3(label, k: wrap(label.byteLength() as Tally))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let k = await promise
 	keep(k)
 	print("ok\n")
@@ -2775,8 +2759,6 @@ ok
 ```
 
 <!-- test: async-holds-the-cell-by-reference -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The `async` call hands the local by reference, and a reading operand precedes it in the statement: the coroutine's write is not ordered against any read of the statement.
@@ -2795,9 +2777,7 @@ end 'slow2'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async slow2(label.byteLength() as Tally, text: label)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let k = await promise
 	keep(k)
 	print("ok\n")
@@ -2844,8 +2824,6 @@ error E3186: <fragment>:23:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: await-of-an-async-then-a-read -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 An `async` started and awaited inside one operand, the local read by the next operand of the same statement.
@@ -2857,7 +2835,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function slow(mutates text String) returns Tally
@@ -2868,8 +2846,6 @@ end 'slow'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let k = two2(await async slow(label), text: label)
 	keep(k)
 	print("ok\n")
@@ -6087,7 +6063,6 @@ end 'main'
 ```
 
 <!-- test: view-of-a-cell-occupant-sent-after-a-store-and-a-hand-over -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `view` of a cell-resident `var` keeps the record it read after the `var` is rebound and the cell is handed by reference, and the service takes that record from the view.
 
@@ -6123,7 +6098,6 @@ function main() returns ExitCode
 	let v = a
 	a = fresh(22)
 	let k = put(a)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.keep(v) otherwise 0
 	print("{k} {n} {a}\n")
 	return 0
@@ -6137,7 +6111,6 @@ end 'main'
 ```
 
 <!-- test: let-of-a-cell-occupant-sent-after-a-store-and-a-hand-over -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `let` of a cell-resident `var` owns the record it read after the `var` is rebound and the cell is handed by reference, and the service takes that record from the `let`.
 
@@ -6173,7 +6146,6 @@ function main() returns ExitCode
 	let w = a
 	a = fresh(22)
 	let k = put(a)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.keep(w) otherwise 0
 	print("{k} {n} {a}\n")
 	return 0
@@ -6605,8 +6577,6 @@ error E3186: app/<fragment>:11:14: argument 's' is read by another operand of th
 ```
 
 <!-- test: write-based-async-callee-never-writes -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An `async` call lends its cell only if the coroutine writes the parameter.
 
 ```maxon
@@ -6614,14 +6584,12 @@ typealias Tally = int(0 to u64.max)
 
 function look(mutates a String, b String) returns Tally
 	sleep(1)
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'look'
 
 function main() returns ExitCode
 	var s = "abc"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async look(s, b: s)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let k = await promise
 	print("{k}\n")
 	return 0
@@ -6635,8 +6603,6 @@ end 'main'
 ```
 
 <!-- test: write-based-async-callee-writes -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The coroutine that writes the parameter writes the caller's local.
 
@@ -6651,9 +6617,7 @@ end 'look'
 
 function main() returns ExitCode
 	var s = "abc"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async look(s, b: s)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let k = await promise
 	print("{k}\n")
 	return 0
@@ -6708,7 +6672,6 @@ ab
 ```
 
 <!-- test: a-send-after-an-operand-read-of-the-cell-and-a-writing-hand-over-is-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A message operand reads a cell-resident `var`, and a later operand hands the same cell to a callee that overwrites it. The send would take the record the first operand read out of a cell that was stored into in between, so the statement is refused at the hand-over and never reaches the take.
@@ -6738,7 +6701,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create()
 	var a = "original"
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.keep(a, n: put(a)) otherwise 0
 	print("{n} {a}\n")
 	return 0
@@ -6749,7 +6711,6 @@ error E3186: <fragment>:27:40: argument 'a' is read by another operand of this s
 ```
 
 <!-- test: a-send-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same statement with a callee that only reads the cell lends nothing, so the send takes the record the first operand read and the cell keeps the variable usable afterwards.
 
@@ -6777,7 +6738,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create()
 	var a = "original"
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.keep(a, n: put(a)) otherwise 0
 	print("{n} {a}\n")
 	return 0
@@ -6791,7 +6751,6 @@ end 'main'
 ```
 
 <!-- test: a-spawn-after-an-operand-read-of-the-cell-and-a-writing-hand-over-is-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A service factory operand takes a cell-resident `var` the same way a message does, so a later operand that overwrites the cell is refused before the take.
@@ -6820,7 +6779,6 @@ function main() returns ExitCode
 	var a = "original"
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create(a, n: put(a))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.total() otherwise 0
 	print("{n} {a}\n")
 	return 0
@@ -6831,7 +6789,6 @@ error E3186: <fragment>:24:42: argument 'a' is read by another operand of this s
 ```
 
 <!-- test: a-spawn-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A factory operand that reads the cell and a later operand whose callee only reads it lend nothing, so the spawn takes the record.
 
@@ -6858,7 +6815,6 @@ function main() returns ExitCode
 	var a = "original"
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Store.create(a, n: put(a))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.total() otherwise 0
 	print("{n} {a}\n")
 	return 0
@@ -6872,8 +6828,6 @@ end 'main'
 ```
 
 <!-- test: an-async-after-an-operand-read-of-the-cell-and-a-writing-hand-over-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A coroutine argument takes a cell-resident `var` as a message does, so a later operand that overwrites the cell is refused before the take.
 
@@ -6891,9 +6845,7 @@ end 'put'
 
 function main() returns ExitCode
 	var a = "original"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async work(a, n: put(a))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await promise
 	print("{n} {a}\n")
 	return 0
@@ -6904,8 +6856,6 @@ error E3186: <fragment>:16:37: argument 'a' is read by another operand of this s
 ```
 
 <!-- test: an-async-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A coroutine argument that reads the cell and a later operand whose callee only reads it lend nothing, so the coroutine takes the record.
 
 ```maxon
@@ -6921,9 +6871,7 @@ end 'put'
 
 function main() returns ExitCode
 	var a = "original"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async work(a, n: put(a))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await promise
 	print("{n} {a}\n")
 	return 0
@@ -7446,7 +7394,6 @@ error E3186: <fragment>:14:15: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-isolated-occupant-at-a-send-beside-a-by-reference-hand-over-is-sent -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -7488,7 +7435,6 @@ function main() returns ExitCode
 	let sink = spawn Store.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var a = Box.create(1) as isolated Box
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await sink.keep(a, n: look(a)) otherwise 0
 	print("{n}\n")
 	return 0

@@ -2026,8 +2026,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-bound-to-the-awaited-result-of-a-promise-removed-from-a-var-array-is-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `remove` moves the promise out of `replies`, so the record `await` hands back no longer lies inside the array that `dispatch` keeps pushing to.
 
 ```maxon
@@ -2050,7 +2048,6 @@ function answer(n Count) returns Reply
 end 'answer'
 
 function dispatch(n Count, replies ReplyPromises)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	replies.push(async answer(n))
 end 'dispatch'
 
@@ -2063,7 +2060,6 @@ function drain() returns Count
 	while replies.count() > 0 'serveWhoeverFinishedFirst'
 		let ready = replies.awaitAny()
 		let reply = try replies.remove(ready) otherwise panic("awaitAny answered a slot of this very array")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let result = await reply
 		total = total + result.n
 	end 'serveWhoeverFinishedFirst'

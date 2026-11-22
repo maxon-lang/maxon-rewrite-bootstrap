@@ -311,8 +311,6 @@ end 'main'
 ```
 
 <!-- test: a-frozen-interface-holder-is-read-by-coroutines-without-a-service -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 4 -->
 <!-- process: own -->
@@ -379,13 +377,9 @@ end 'readCell'
 function main() returns ExitCode
 	let frozen = freeze(Holder.create(Tag.create("frozen-tag-with-a-heap-string")))
 	let cell = HolderCell.create(Holder.create(Tag.create("cell-tag-with-a-heap-string")))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let a = async readFrozen(frozen)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = async readCell(cell)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let ra = await a
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let rb = await b
 	print("{frozen.show()} {cell.current().show()} {ra} {rb}\n")
 	return 0
@@ -399,7 +393,6 @@ frozen-tag-with-a-heap-string:2 cell-tag-with-a-heap-string:2 1000 1000
 ```
 
 <!-- test: a-frozen-interface-holder-is-read-by-two-services -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
@@ -465,9 +458,7 @@ function main() returns ExitCode
 	let two = spawn Reader.create()
 	let first = try one.passes(frozen, rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
 	let second = try two.passes(frozen, rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await first
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await second
 	one.shutdown()
 	two.shutdown()
@@ -783,7 +774,6 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-conformer-is-refused-once-a-service-is-spawned -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -840,7 +830,6 @@ end 'Idle'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let idle = spawn Idle.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let pong = try await idle.ping() otherwise 0
 	let offset = 3 as Tally
 	let frozen = freeze(Holder.create(Closure.create("ab", step: function(n) gives n + offset)))

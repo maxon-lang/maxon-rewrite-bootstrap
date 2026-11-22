@@ -2781,8 +2781,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-block-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A bare `await` of a throwing promise inside a try block routes the awaited error to the block's handler.
 The thunk throws, so the handler's 42 is the answer; the success value is 10.
 ```maxon
@@ -2802,17 +2800,15 @@ end 'mayFail'
 
 function main() returns ExitCode
 	var result = 0 as Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(false)
 	try 'work'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		result = await p
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			failed then result = 42
 		end 'k'
 	end 'h'
-	return result as ExitCode
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

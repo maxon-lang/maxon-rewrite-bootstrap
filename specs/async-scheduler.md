@@ -68,8 +68,6 @@ of those would be hiding a green lane rather than describing a red one.
 ## Tests
 
 <!-- test: async-scheduler.basic -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An `async` coroutine runs its function and `await` collects the result.
 ```maxon
 
@@ -79,11 +77,9 @@ function compute() returns Integer
 end 'compute'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async compute()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -93,8 +89,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.parallel -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two green threads are spawned before either is awaited; both run and their results sum.
 ```maxon
 
@@ -109,15 +103,11 @@ function twenty() returns Integer
 end 'twenty'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let a = async ten()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = async twenty()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let ra = await a
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let rb = await b
-	return (ra + rb) as ExitCode
+	return try (ra + rb) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -127,26 +117,20 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.sequence -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A spawn/await chain threads a value through two green threads.
 ```maxon
 
 function inc(x Integer) returns Integer
 	Scheduler.yield()
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'inc'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async inc(40)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async inc(r1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	return r2 as ExitCode
+	return try r2 as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -156,22 +140,18 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.spawn-arg -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A scalar argument is spilled into the green thread's argument buffer and read back by the callee.
 ```maxon
 
 function sixtimes(x Integer) returns Integer
 	Scheduler.yield()
-	return x * 6
+	return try x * 6 otherwise panic("out of range")
 end 'sixtimes'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async sixtimes(7)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -181,22 +161,18 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.multiple-args -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Several scalar arguments (positional first, then labelled) fill the argument buffer in parameter order.
 ```maxon
 
 function combine(a Integer, b Integer, c Integer) returns Integer
 	Scheduler.yield()
-	return a + b * c
+	return try a + b * c otherwise panic("out of range")
 end 'combine'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async combine(2, b: 4, c: 10)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -206,8 +182,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.a-float-argument-rides-the-float-argument-registers -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `float` argument handed to a parameter the callee only reads travels in the thread's float argument region,
 which the trampoline loads into the float argument registers.
 ```maxon
@@ -221,9 +195,7 @@ function half(x Real) returns Integer
 end 'half'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async half(84.0)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -232,7 +204,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.floats-and-integers-are-counted-by-register-file -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The integer and float argument files are counted independently, so a float between two integers is float
 slot 0 and the second integer is integer slot 1. Every argument carries a distinct weight, so one landing in
 the wrong register shows in the total.
@@ -248,7 +219,6 @@ function weigh(a Integer, x Real, b Integer, y Real, c Integer) returns Integer
 end 'weigh'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async weigh(1, x: 4.5, b: 2, y: 5.5, c: 3)
 	print("{await p}\n")
 	return 0
@@ -262,8 +232,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.an-integer-argument-is-widened-to-a-float-parameter -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An integer handed to a `float` parameter is converted at the spawn, as an ordinary call converts it, so the
 float argument region holds a double.
 ```maxon
@@ -277,9 +245,7 @@ function half(x Real) returns Integer
 end 'half'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async half(84)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -288,8 +254,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-float-argument-beside-a-reassigned-float-uses-both-files -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `x` is read and travels in float slot 0; `y` is reassigned, so its cell address travels in integer slot 0.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -304,9 +268,7 @@ end 'blend'
 
 function main() returns ExitCode
 	var y = 40.5 as Real
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async blend(1.5, y: y)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -315,8 +277,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-float-argument-the-callee-reassigns-rides-a-cell -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same spawn, with a callee that reassigns its parameter: the argument rides a cell the coroutine owns, and
 the cell is one integer word whatever it holds.
 ```maxon
@@ -332,10 +292,8 @@ end 'half'
 
 function main() returns ExitCode
 	var x = 84.0 as Real
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async half(x)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -343,8 +301,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-value-held-at-an-interface-type-rides-two-integer-slots -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A value held at an interface type, handed to a parameter the callee only reads, travels as two words: the
 value in its integer slot and its witness table in the integer slot after the declared arguments.
 ```maxon
@@ -362,7 +318,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
@@ -376,10 +332,8 @@ function shapeOf(side Integer) returns Shape
 end 'shapeOf'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async measure(shapeOf(6))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -387,7 +341,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-concrete-conformer-is-widened-to-an-interface-parameter-at-the-spawn -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The spawn names the witness table of the conformer the argument widens through.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -404,7 +357,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
@@ -414,7 +367,6 @@ function measure(s Shape) returns Integer
 end 'measure'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async measure(Square.create(7))
 	print("{await p}\n")
 	return 0
@@ -428,7 +380,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.an-interface-argument-shares-the-files-with-floats-and-integers -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The witness table takes the integer slot after the last integer argument, the float between them takes
 float slot 0, and the callee reads all four.
 ```maxon
@@ -462,7 +413,6 @@ function shapeOf(side Integer) returns Shape
 end 'shapeOf'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async describe(1, s: shapeOf(3), x: 2.5, b: 4)
 	print("{await p}\n")
 	return 0
@@ -476,7 +426,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-cancelled-spawn-releases-its-interface-argument -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A spawn dropped before it runs gives back the reference it took to the interface value, through the witness
 table stored beside it. The run is leak-free.
 ```maxon
@@ -508,7 +457,6 @@ function shapeOf(side Integer) returns Shape
 end 'shapeOf'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async measure(shapeOf(5))
 	p.cancel()
 	return 0
@@ -519,7 +467,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.an-interface-argument-past-the-last-register-rides-the-thread-stack -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Five integers and an interface value need seven integer slots: the value takes the sixth and its witness
 table the seventh, which is past the six integer argument registers x64 passes and so rides the new thread's
 stack.
@@ -538,13 +485,13 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
 function wide(a Integer, b Integer, c Integer, d Integer, e Integer, s Shape) returns Integer
 	Scheduler.yield()
-	return a + b + c + d + e + s.area()
+	return try a + b + c + d + e + s.area() otherwise panic("out of range")
 end 'wide'
 
 function shapeOf(side Integer) returns Shape
@@ -552,7 +499,6 @@ function shapeOf(side Integer) returns Shape
 end 'shapeOf'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async wide(1, b: 2, c: 3, d: 4, e: 5, s: shapeOf(3))
 	print("{await p}\n")
 	return 0
@@ -566,7 +512,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.eight-integer-arguments-fill-the-argument-registers -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Eight integers are every integer argument register arm64 passes and two more than x64 has, so the last two
 ride the stack there. Every argument carries a distinct weight.
 ```maxon
@@ -574,11 +519,10 @@ typealias Integer = int(i64.min to i64.max)
 
 function weigh(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer, h Integer) returns Integer
 	Scheduler.yield()
-	return a + b * 10 + c * 100 + d * 1000 + e * 10000 + f * 100000 + g * 1000000 + h * 10000000
+	return try a + b * 10 + c * 100 + d * 1000 + e * 10000 + f * 100000 + g * 1000000 + h * 10000000 otherwise panic("out of range")
 end 'weigh'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async weigh(1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8)
 	print("{await p}\n")
 	return 0
@@ -592,7 +536,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.ten-integer-arguments-spill-onto-the-thread-stack -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Ten integers overflow both targets' integer argument registers. The overflow words are copied onto the new
 thread's stack in the order the callee reads them.
 ```maxon
@@ -604,7 +547,6 @@ function weigh(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer,
 end 'weigh'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async weigh(1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10)
 	print("{await p}\n")
 	return 0
@@ -618,7 +560,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.ten-float-arguments-spill-onto-the-thread-stack -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The same with ten floats: six or eight ride the float argument registers and the rest the stack.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -633,7 +574,6 @@ function weigh(a Real, b Real, c Real, d Real, e Real, f Real, g Real, h Real, i
 end 'weigh'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async weigh(1.5, b: 2.5, c: 3.5, d: 4.5, e: 5.5, f: 6.5, g: 7.5, h: 8.5, i: 9.5, j: 10.5)
 	print("{await p}\n")
 	return 0
@@ -647,8 +587,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.integers-floats-and-interface-values-past-both-register-files -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Ten integers, ten floats and two interface values: integers and floats overflow their own files
 independently, the overflow shares one run of stack words in argument order, and both witness tables are
 hidden integer arguments after the declared ones.
@@ -679,9 +617,7 @@ function show(i0 Integer, f0 Real, s0 Shape, i1 Integer, f1 Real, i2 Integer, f2
 end 'show'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async show(1, f0: 0.5, s0: Square.create(3), i1: 2, f1: 1.5, i2: 3, f2: 2.5, i3: 4, f3: 3.5, i4: 5, f4: 4.5, i5: 6, f5: 5.5, i6: 7, f6: 6.5, i7: 8, f7: 7.5, i8: 9, f8: 8.5, i9: 10, f9: 9.5, s1: Square.create(4))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	await p
 	return 0
 end 'main'
@@ -694,7 +630,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.managed-arguments-past-the-registers-are-released-by-the-thread -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Ten strings: the ones past the argument registers sit on the new thread's stack, and the thread's own copy of
 each is given back after the await. The run is leak-free.
 ```maxon
@@ -706,7 +641,6 @@ function total(a String, b String, c String, d String, e String, f String, g Str
 end 'total'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async total("a", b: "bb", c: "ccc", d: "dddd", e: "eeeee", f: "ffffff", g: "ggggggg", h: "hhhhhhhh", i: "iiiiiiiii", j: "jjjjjjjjjj")
 	print("{await p}\n")
 	return 0
@@ -720,7 +654,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-cancelled-spawn-releases-the-arguments-it-holds-past-the-registers -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A spawn dropped before it runs gives back the strings, the interface value and the argument image alike. The
 run is leak-free.
 ```maxon
@@ -751,7 +684,6 @@ function total(a String, b String, c String, d String, e String, f String, g Str
 end 'total'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async total("a", b: "bb", c: "ccc", d: "dddd", e: "eeeee", f: "ffffff", g: "ggggggg", x: 1.5, y: 2.5, h: "hhhhhhhh", i: "iiiiiiiii", s: Square.create(3))
 	p.cancel()
 	return 0
@@ -762,7 +694,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.parameters-the-callee-reassigns-ride-cells-past-the-registers -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Two parameters past the eighth argument are reassigned, so their cell addresses travel on the stack on both
 targets, and the coroutine owns the cells.
 ```maxon
@@ -778,7 +709,6 @@ end 'bump'
 function main() returns ExitCode
 	var i = 9 as Integer
 	var j = 10 as Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async bump(1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: i, j: j)
 	print("{await p}\n")
 	return 0
@@ -792,7 +722,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.an-interface-value-and-its-witness-both-ride-the-thread-stack -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Nine integers put the interface value on the stack on both targets, and its witness table follows it there.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -819,7 +748,6 @@ function describe(a Integer, b Integer, c Integer, d Integer, e Integer, f Integ
 end 'describe'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async describe(1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, s: Square.create(5))
 	print("{await p}\n")
 	return 0
@@ -833,7 +761,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.stack-arguments-survive-a-stack-grow-before-the-callee-reads-them -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The callee recurses far past the seed stack before it reads its last arguments, so the stack is relocated
 with the overflow words still on it.
 ```maxon
@@ -853,7 +780,6 @@ function late(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, 
 end 'late'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async late(1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10)
 	print("{await p}\n")
 	return 0
@@ -867,8 +793,6 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-generic-function-is-spawned-at-its-inferred-instance -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `async` infers a generic function's type parameters from its arguments exactly as a call does, and spawns the
 instance they fix.
 ```maxon
@@ -883,12 +807,9 @@ function larger(a T, b T) uses T returns T where T implements Comparable
 end 'larger'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async larger(30 as Integer, b: 42)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async larger("ab", b: "cd")
 	print("{await q}\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -900,8 +821,6 @@ cd
 ```
 
 <!-- test: async-scheduler.nested -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A green thread can itself spawn and await another green thread — the current-GT tracking nests correctly.
 ```maxon
 
@@ -911,19 +830,15 @@ function leaf() returns Integer
 end 'leaf'
 
 function middle() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let inner = async leaf()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = await inner
-	return got + 22
+	return try got + 22 otherwise panic("out of range")
 end 'middle'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async middle()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -933,8 +848,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.spawn-immediately-awaited -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `await async f()` — spawn and await in one expression — parses and runs.
 ```maxon
 
@@ -944,10 +857,8 @@ function answer() returns Integer
 end 'answer'
 
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = await async answer()
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -957,7 +868,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.spawn-not-awaited -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A spawned green thread that is never awaited never runs and cannot leak — its struct, stack and argument
 buffer are slab/OS allocations invisible to the leak gate, so the program exits with `main`'s own code
 rather than 101.
@@ -969,7 +879,6 @@ function compute() returns Integer
 end 'compute'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async compute()
 	p.cancel()
 	return 7
@@ -982,8 +891,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.await-loop-bounded -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A spawn/await loop stays bounded: each completed thread's record keeps its stack when it is still the
 current seed size, so the next spawn takes record and stack together from the free list, and a stack the
 relocating morestack resized is returned to the stack pool as its runner finishes with the thread. 5000 iterations
@@ -1003,14 +910,12 @@ function main() returns ExitCode
 	var i = 0 as Integer
 	var acc = 0 as Integer
 	while i < 5000 'loop'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async noop()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = await p
-		acc = acc + r
+		acc = try acc + r otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return acc as ExitCode
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1020,8 +925,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.struct-reuse -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The GT-struct free-list is exercised AND a recycled struct is reset where it must be: five spawn/awaits run
 in sequence, each reusing the struct the previous completed thread pushed onto the free-list.
 Each thread computes `2 * i` from its argument, so `2+4+6+8+10 = 30` proves every recycled struct actually RAN
@@ -1032,21 +935,19 @@ short-circuit to the PRIOR result without ever running the new thread — a wron
 
 function dbl(x Integer) returns Integer
 	Scheduler.yield()
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'dbl'
 
 function main() returns ExitCode
 	var i = 1 as Integer
 	var acc = 0 as Integer
 	while i <= 5 'loop'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async dbl(i)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = await p
-		acc = acc + r
+		acc = try acc + r otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return acc as ExitCode
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1056,8 +957,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.out-of-order-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise's struct must survive until ITS OWN `await`, even when the thread completes early while a DIFFERENT
 await is parked. While `main` is parked on `await p2`, its strand runs `p1` first, FIFO; `p1` is
 then a completed-but-un-awaited handle. Two intervening `async` spawns must NOT recycle `p1`'s struct — only `p1`'s
@@ -1068,27 +967,19 @@ answer).
 
 function w(x Integer) returns Integer
 	Scheduler.yield()
-	return x * 10
+	return try x * 10 otherwise panic("out of range")
 end 'w'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async w(1)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async w(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async w(3)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p4 = async w(4)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r3 = await p3
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r4 = await p4
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	return (r1 + r2 + r3 + r4) as ExitCode
+	return try (r1 + r2 + r3 + r4) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1098,8 +989,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.callee-saved-xmms-survive-a-context-switch -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two green threads each hold TEN f64 locals across a `sleep`, interleaved so each is suspended while
 the other is actively occupying xmm6–15.
 
@@ -1127,11 +1016,11 @@ function threadA() returns Integer
 	let a8 = 9.5
 	let a9 = 10.5
 	sleep(4)
-	let s1 = trunc(a0) + trunc(a1) + trunc(a2) + trunc(a3) + trunc(a4)
-	let s2 = trunc(a5) + trunc(a6) + trunc(a7) + trunc(a8) + trunc(a9)
+	let s1 = try trunc(a0) + trunc(a1) + trunc(a2) + trunc(a3) + trunc(a4) otherwise panic("out of range")
+	let s2 = try trunc(a5) + trunc(a6) + trunc(a7) + trunc(a8) + trunc(a9) otherwise panic("out of range")
 	sleep(4)
-	let s3 = trunc(a0 * 2.0) + trunc(a9 * 2.0)
-	return s1 + s2 + s3
+	let s3 = try trunc(a0 * 2.0) + trunc(a9 * 2.0) otherwise panic("out of range")
+	return try s1 + s2 + s3 otherwise panic("out of range")
 end 'threadA'
 
 function threadB() returns Integer
@@ -1146,25 +1035,21 @@ function threadB() returns Integer
 	let b8 = 900.5
 	let b9 = 1000.5
 	sleep(2)
-	let t1 = trunc(b0) + trunc(b1) + trunc(b2) + trunc(b3) + trunc(b4)
-	let t2 = trunc(b5) + trunc(b6) + trunc(b7) + trunc(b8) + trunc(b9)
+	let t1 = try trunc(b0) + trunc(b1) + trunc(b2) + trunc(b3) + trunc(b4) otherwise panic("out of range")
+	let t2 = try trunc(b5) + trunc(b6) + trunc(b7) + trunc(b8) + trunc(b9) otherwise panic("out of range")
 	sleep(2)
-	let t3 = trunc(b0 * 2.0) + trunc(b9 * 2.0)
-	return t1 + t2 + t3
+	let t3 = try trunc(b0 * 2.0) + trunc(b9 * 2.0) otherwise panic("out of range")
+	return try t1 + t2 + t3 otherwise panic("out of range")
 end 'threadB'
 
 function main() returns ExitCode
 	let m0 = 11.5
 	let m1 = 22.5
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pa = async threadA()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pb = async threadB()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let ra = await pa
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let rb = await pb
-	let mine = trunc(m0) + trunc(m1)
+	let mine = try trunc(m0) + trunc(m1) otherwise panic("out of range")
 	if ra == 79 and rb == 7702 and mine == 33 'ok'
 		return 0
 	end 'ok'
@@ -1178,8 +1063,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.a-float-argument-survives-a-stack-grow -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A recursive float-taking function runs on a green thread's 2 KB stack, so `__gt_morestack` fires
 part-way down the recursion and relocates the stack underneath it.
 
@@ -1199,7 +1082,7 @@ function scale(x Real, depth Integer) returns Integer
 	if depth == 0 'base'
 		return trunc(x) as Integer
 	end 'base'
-	return (trunc(x) as Integer) + scale(x * 2.0, depth: depth - 1)
+	return try (trunc(x) as Integer) + scale(x * 2.0, depth: try depth - 1 otherwise panic("out of range")) otherwise panic("out of range")
 end 'scale'
 
 function sweep() returns Integer
@@ -1224,11 +1107,9 @@ function sweep() returns Integer
 end 'sweep'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async sweep()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1240,8 +1121,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: async-scheduler.every-fp-argument-register-survives-a-stack-grow -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The sibling of the test above, widened from one FP argument register to **all six**: `six` spends
 every one of the parser's six parameter slots on a float, so xmm0–5 are ALL live at the stack guard
 when `__gt_morestack` fires. A save list that covered only some of them would still pass the
@@ -1252,11 +1131,11 @@ recursion runs while `a >= 1.0` from 6.0 down to 0.0 — seven levels, 105. A de
 recursion at the first level (15); a destroyed xmm1–5 drops that register's term from every level.
 ```maxon
 function six(a Real, b Real, c Real, d Real, e Real, f Real) returns Integer
-	let sum = (trunc(b) + trunc(c) + trunc(d) + trunc(e) + trunc(f)) as Integer
+	let sum = try (trunc(b) + trunc(c) + trunc(d) + trunc(e) + trunc(f)) as Integer otherwise panic("out of range")
 	if a < 1.0 'base'
 		return sum
 	end 'base'
-	return sum + six(a - 1.0, b: b, c: c, d: d, e: e, f: f)
+	return try sum + six(a - 1.0, b: b, c: c, d: d, e: e, f: f) otherwise panic("out of range")
 end 'six'
 
 function fpArgs() returns Integer
@@ -1265,9 +1144,7 @@ function fpArgs() returns Integer
 end 'fpArgs'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async fpArgs()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	if r == 105 'ok'
 		return 0
@@ -1284,8 +1161,6 @@ typealias Real = float(f64.min to f64.max)
 ```
 
 <!-- test: async-scheduler.gt-recycle-a-reclaimed-struct-serves-the-next-spawn -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A GREEN-THREAD STRUCT IS NEVER HANDED BACK TO THE ALLOCATOR WHILE THE SCHEDULER RUNS.** Go keeps its `g`
 records type-stable — freed onto a per-P list and reused, never returned to the heap — because the scheduler
@@ -1311,9 +1186,7 @@ function main() returns ExitCode
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 200 'rounds'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async square(i)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
 		i = i + 1
 	end 'rounds'
@@ -1329,8 +1202,6 @@ sum=2646700 recycled=199
 ```
 
 <!-- test: async-scheduler.gt-recycle-a-hundred-returned-records-serve-the-next-hundred-spawns -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **EVERY RECORD GIVEN BACK IS THERE FOR THE NEXT SPAWN.** A hundred threads are all outstanding before any is
 awaited, so no spawn in the first wave can reuse anything, and all hundred records are given back together.
@@ -1364,7 +1235,6 @@ function wave(base Integer) returns Integer
 	let ps = IntPromiseArray.create(0)
 	var i = 0 as Integer
 	while i < 100 'spawnEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		ps.push(async twice(base + i))
 		i = i + 1
 	end 'spawnEach'
@@ -1372,7 +1242,6 @@ function wave(base Integer) returns Integer
 	var k = 0 as ElementIndex
 	while k < 100 'awaitEach'
 		let p = try ps.get(k) otherwise panic("ps.get OOB at {k} — bounded by the pushes above")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
 		k = k + 1
 	end 'awaitEach'

@@ -918,7 +918,7 @@ function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.T
 	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
 		return false
 	end 'plain'
-	if kind == ast.TypeKind.builtinHandle 'handle'
+	if kind == ast.TypeKind.builtinHandle or kind == ast.TypeKind.builtinPromise 'handle'
 		return false
 	end 'handle'
 	// A function value is dropped by the routine of its closure, which the closure that owns such a value refuses.

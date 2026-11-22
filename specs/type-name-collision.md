@@ -3448,7 +3448,6 @@ error E3219: k/<fragment>:21:6: unused type: 'Handler' is not exported and nothi
 
 
 <!-- test: error.crossfile-a-service-throws-a-contested-name -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐ **A SERVICE MESSAGE IS A SIGNATURE, AND IT ANSWERS AT THE SAME DOOR.** `divide` is on `Calc`'s message
@@ -3493,7 +3492,6 @@ end 'Calc'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = try await h.divide(10, by: 2) otherwise return 70
 	return v as ExitCode
 end 'main'
@@ -3506,7 +3504,6 @@ error E3167: b/<fragment>:19:18: exported function 'b.Calc.divide' names unexpor
 ```
 
 <!-- test: a-service-throws-an-enum-qualified-past-another-directorys-alias -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An exported `typealias Fault` in `calc/` and an `enum Fault` in `faults/` coexist, because each is named by
 its directory. `calc/`'s service message writes `throws faults.Fault`, which is the enum, so the reply
@@ -3542,11 +3539,9 @@ end 'Calc'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = try await h.divide(10, by: 2) otherwise return 70
 	print("{v}\n")
 	let fallback = (v - 9) as calc.Fault
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let w = try await h.divide(1, by: 0) otherwise return fallback as ExitCode
 	return w as ExitCode
 end 'main'
@@ -3559,7 +3554,6 @@ end 'main'
 ```
 
 <!-- test: error.a-service-throws-the-alias-its-own-directory-declares -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same pair, with the message's clause naming `calc.Fault` — the ranged alias. That names no enum or union,
@@ -3592,7 +3586,6 @@ end 'Calc'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = try await h.divide(10, by: 2) otherwise return 70
 	return v as ExitCode
 end 'main'
@@ -3602,7 +3595,6 @@ error E3113: calc/<fragment>:20:18: 'throws calc.Fault' names no declared enum o
 ```
 
 <!-- test: error.a-service-throws-a-bare-name-means-the-readers-own-directorys-declaration -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The same pair, with the clause written bare in a file of `calc/`: the bare name means `calc/`'s own `Fault`,
@@ -3635,7 +3627,6 @@ end 'Calc'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = try await h.divide(10, by: 2) otherwise return 70
 	return v as ExitCode
 end 'main'
@@ -4204,7 +4195,6 @@ true
 ```
 
 <!-- test: an-authors-error-leaves-a-service-send-error-conforming -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An author `Error` beside the library's. A service message's send error still conforms to the library's
 `Error`, so a function may declare `throws Calc.divide.sendError` and propagate it.
@@ -4240,7 +4230,6 @@ end 'Calc'
 
 function divided(h Calc.handle) returns Integer throws Calc.divide.sendError
 	let p = try h.divide(3, by: 1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await p otherwise 0
 end 'divided'
 

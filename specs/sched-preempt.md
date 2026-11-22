@@ -37,7 +37,6 @@ about preemption has changed.
 ## Tests
 
 <!-- test: sched-preempt.a-cpu-bound-service-yields-to-a-bystander -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A SERVICE THAT NEVER WAITS DOES NOT HOLD THE ONLY PROCESSOR FOR EVER.** Every iteration of the spinner passes a
@@ -97,10 +96,8 @@ function main() returns ExitCode
 	let b = spawn Bystander.create()
 	let spun = try s.spin() otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let p = try await b.ping() otherwise 0
 	released.publish(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let q = await spun
 	print("ping={p} spun={q > 0} preempted={Scheduler.counters().preempts > 0}\n")
 	return 0
@@ -114,7 +111,6 @@ ping=1 spun=true preempted=true
 ```
 
 <!-- test: sched-preempt.preemption-inside-deep-recursion-is-sound -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A PREEMPTION CAN LAND ANYWHERE IN A 20,000-FRAME RECURSION**, including at a prologue whose stack must also
@@ -178,10 +174,8 @@ function main() returns ExitCode
 	let b = spawn Bystander.create()
 	let churned = try r.churn(churnRounds) otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let p = try await b.ping() otherwise 0
 	released.publish(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let wrong = await churned
 	print("ping={p} wrong={wrong}\n")
 	return 0
@@ -195,7 +189,6 @@ ping=1 wrong=0
 ```
 
 <!-- test: sched-preempt.as-many-spinners-as-processors-cannot-starve-another -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **EVERY PROCESSOR BUSY WITH A SPINNER, AND `main` AND ONE MORE SERVICE STILL GET A TURN.** No processor is ever
@@ -272,13 +265,11 @@ function main() returns ExitCode
 		k = k + 1
 	end 'sendEach'
 	sleep(20)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let p = try await b.ping() otherwise 0
 	released.publish(true)
 	var ran = 0 as Count
 	while spun.count() > 0 'collect'
 		let r = try spun.pop() otherwise panic("spun.pop on a non-empty array")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let q = await r
 		if q > 0 'spun'
 			ran = ran + 1
@@ -296,8 +287,6 @@ spinners=true ping=1
 ```
 
 <!-- test: sched-preempt.a-preempted-coroutine-resumes-before-its-strand-does-anything-else -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A PREEMPTION TAKES THE PROCESSOR, NEVER THE TURN.** A coroutine gives up its green thread only where it
 waits (`async` is a coroutine, not a thread), so its owner and its siblings may observe what it wrote only
@@ -384,15 +373,11 @@ function main() returns ExitCode
 		tries = tries + 1
 		let phase = PhaseCell.create(0 as Integer)
 		let honoured = HonouredCell.create(false)
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let a = async busy(phase.clone(), honoured: honoured.clone())
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let b = async nap(phase.clone())
 		sleep(30)
 		let seenByOwner = phase.current()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let q = await a
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let seenBySibling = await b
 		if seenByOwner == 0 and seenBySibling == 2 'neverStarted'
 			continue
@@ -412,7 +397,6 @@ owner=2 sibling=2 busy=true preempted=true
 ```
 
 <!-- test: sched-preempt.every-argument-register-survives-a-preemption -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A PREEMPTION AT A PROLOGUE FINDS EVERY ARGUMENT STILL IN ITS REGISTER.** `mix` takes
@@ -485,9 +469,7 @@ function main() returns ExitCode
 	let churned1 = try m1.churn(200) otherwise panic("an open mailbox with room takes the send")
 	let churned2 = try m2.churn(200) otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let wrong1 = await churned1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let wrong2 = await churned2
 	print("wrong={wrong1 + wrong2} preempted={Scheduler.counters().preempts > 1}\n")
 	return 0
@@ -501,7 +483,6 @@ wrong=0 preempted=true
 ```
 
 <!-- test: sched-preempt.a-call-free-loop-is-preempted-anyway -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A LOOP THAT CALLS NOTHING STILL GIVES UP ITS PROCESSOR.** A request written into the stack guard is read
@@ -562,10 +543,8 @@ function main() returns ExitCode
 	let b = spawn Bystander.create()
 	let spun = try s.spin() otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let p = try await b.ping() otherwise 0
 	released.publish(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let q = await spun
 	print("ping={p} spun={q > 0} preempted={Scheduler.counters().preempts > 0}\n")
 	return 0
@@ -579,7 +558,6 @@ ping=1 spun=true preempted=true
 ```
 
 <!-- test: sched-preempt.every-processor-in-a-call-free-loop-still-yields -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **ONE CALL-FREE SPINNER PER PROCESSOR, AND A FIFTH SERVICE STILL GETS A TURN.** No processor is ever idle and
@@ -655,13 +633,11 @@ function main() returns ExitCode
 		k = k + 1
 	end 'sendEach'
 	sleep(20)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let p = try await b.ping() otherwise 0
 	released.publish(true)
 	var ran = 0 as Count
 	while spun.count() > 0 'collect'
 		let r = try spun.pop() otherwise panic("spun.pop on a non-empty array")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let q = await r
 		if q > 0 'spun'
 			ran = ran + 1
@@ -679,7 +655,6 @@ spinners=true ping=1
 ```
 
 <!-- test: sched-preempt.every-register-survives-a-stop-anywhere -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A THREAD STOPPED MID-LOOP RESUMES WITH EVERY REGISTER IT HAD.** Eight integers and eight floats are live
@@ -787,7 +762,6 @@ function main() returns ExitCode
 	let c = spawn Churner.create()
 	let churned = try c.churn() otherwise panic("an open mailbox with room takes the send")
 	sleep(20)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let wrong = await churned
 	print("wrong={wrong} preempted={Scheduler.counters().preempts > 0}\n")
 	return 0
@@ -801,7 +775,6 @@ wrong=0 preempted=true
 ```
 
 <!-- test: sched-preempt.the-switch-keeps-the-processor-with-main -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -847,7 +820,6 @@ function main() returns ExitCode
 	while (Clock.elapsedMs(start) as Integer) < holdMs 'hold'
 		acc = step(acc, depth: 4)
 	end 'hold'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let p = await reply
 	print("ping={p} held={acc mod 2 + 1 > 0} preempted={Scheduler.counters().preempts} retaken={Scheduler.counters().retakes}\n")
 	return 0
@@ -861,7 +833,6 @@ ping=0 held=true preempted=0 retaken=0
 ```
 
 <!-- test: sched-preempt.a-main-preempted-between-two-spawns-runs-the-earlier-one-first -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A `main` PREEMPTED BETWEEN TWO `spawn`s SEES THE EARLIER SERVICE ANSWER FIRST.** This is
@@ -953,7 +924,6 @@ function attempt() returns (Integer, Integer) throws Attempt
 	let first = replies.awaitAny()
 	var sum = 0 as Integer
 	for p in replies 'drainthemall'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (await p)
 	end 'drainthemall'
 	if Scheduler.counters().preempts != c0 + 1 'late'
@@ -993,7 +963,6 @@ first=1 sum=6
 ```
 
 <!-- test: sched-preempt.a-loop-that-only-spawns-is-preempted-at-a-spawn -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A `main` THAT ONLY SPAWNS AND SENDS IS ASKED TO YIELD AT A `spawn`.** A spawn is a preemption point, as
@@ -1036,7 +1005,6 @@ function main() returns ExitCode
 	let afterSpawns = Scheduler.counters()
 	var sum = 0 as Integer
 	for reply in replies 'awaitDoublers'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (await reply)
 	end 'awaitDoublers'
 	print("preempted={afterSpawns.preempts > 0} ran={afterSpawns.recycledThreads > 0} sum={sum}\n")
@@ -1051,7 +1019,6 @@ preempted=true ran=true sum=9999900000
 ```
 
 <!-- test: sched-preempt.a-switch-value-that-is-neither-off-nor-on-is-refused-at-start -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 **A VALUE THAT IS NEITHER `off` NOR `on` ABORTS THE PROGRAM AT START WITH `RuntimeAbort.schedulerPreemptSwitchUnreadable`, EXIT 116.**
@@ -1081,7 +1048,6 @@ end 'Echo'
 function child() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let e = spawn Echo.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let p = try await e.ping() otherwise 0
 	if p != 1 'unanswered'
 		return 3

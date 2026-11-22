@@ -32,8 +32,6 @@ end 'main'
 ## Tests
 
 <!-- test: async-tcp.connect-error -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function tryConnect() returns ExitCode throws NetworkError
 	_ = try TcpClient.connect("192.0.2.1", port: 1)
@@ -41,9 +39,7 @@ function tryConnect() returns ExitCode throws NetworkError
 end 'tryConnect'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async tryConnect()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = try await p otherwise 99
 	return result
 end 'main'
@@ -53,8 +49,6 @@ end 'main'
 ```
 
 <!-- test: async-tcp.resolve-error -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function resolve() returns ExitCode throws NetworkError
 	_ = try TcpClient.connect("this.host.does.not.exist.invalid", port: 80)
@@ -62,9 +56,7 @@ function resolve() returns ExitCode throws NetworkError
 end 'resolve'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async resolve()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = try await p otherwise 42
 	return result
 end 'main'
@@ -74,8 +66,6 @@ end 'main'
 ```
 
 <!-- test: async-tcp.trace-connect-error -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- AsyncTrace -->
 Verify that a connect to a HOSTNAME parks twice, once to resolve the name and once to dial it, and that
 its failure still reaches `try await`. `localhost` is a name, so the listener's bind parks on the resolver
@@ -91,9 +81,7 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("localhost", port: 0) otherwise return 1
 	let port = listener.port()
 	listener.close()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async connect(port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = try await p otherwise 99
 	return result
 end 'main'
@@ -115,8 +103,6 @@ try_await #1 [yield]
 ```
 
 <!-- test: async-tcp.trace-mixed-io -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- AsyncTrace -->
 Verify that mixed file and network I/O shows distinct operation names in the trace. The peer is the
 program's own listener, which never accepts: the kernel completes the handshake into its backlog, so the
@@ -131,9 +117,7 @@ end 'mixedIo'
 
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mixedIo(listener.port())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = try await p otherwise 99
 	return result
 end 'main'
@@ -195,8 +179,6 @@ io_resume #1 [net_close]
 ```
 
 <!-- test: async-tcp.echo -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- network: live -->
 ```maxon
 function echo() returns ExitCode throws NetworkError
@@ -208,9 +190,7 @@ function echo() returns ExitCode throws NetworkError
 end 'echo'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async echo()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = try await p otherwise 1
 	return result
 end 'main'

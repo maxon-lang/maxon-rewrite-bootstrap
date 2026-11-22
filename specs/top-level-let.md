@@ -3618,7 +3618,6 @@ error E3064: <fragment>:10:2: result of pure function 'same' must be used
 ```
 
 <!-- test: error.a-generic-services-function-valued-reply-is-reported-once-at-the-handler -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
@@ -3642,7 +3641,6 @@ end 'Maker'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create(1 as Tally)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let op = try await h.make() otherwise panic("the maker is running")
 	return op(1) as ExitCode
 end 'main'
@@ -3652,7 +3650,6 @@ error E3217: <fragment>:19:10: the message `Maker.make` returns a function value
 ```
 
 <!-- test: error.a-spawn-refusal-beside-another-methods-abandoned-body-is-still-reported -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
@@ -3681,7 +3678,6 @@ end 'Maker'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create(MachinePin.acquire())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let items = try await h.make() otherwise panic("the maker is running")
 	print("{items.count()}\n")
 	return 0
@@ -3693,7 +3689,6 @@ error E3217: <fragment>:25:10: the message `Maker.make` returns a `Maker.Items` 
 ```
 
 <!-- test: error.a-spawn-refusal-beside-an-unrelated-error-builds-no-loop-for-the-refused-instance -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
@@ -3722,7 +3717,6 @@ end 'unrelated'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Maker.create(MachinePin.acquire())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let items = try await h.make() otherwise panic("the maker is running")
 	print("{items.count()}\n")
 	return 0

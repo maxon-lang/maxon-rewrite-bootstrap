@@ -395,6 +395,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSchedulerProcessorCount 'intrSchedulerProcessorCount'
 		return lowerSchedulerProcessorCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSchedulerProcessorCount'
+	if op == ast.Intrinsic.intrSchedulerYield 'intrSchedulerYield'
+		return lowerSchedulerYield(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerYield'
+	if op == ast.Intrinsic.intrSleep 'intrSleep'
+		return lowerSleep(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSleep'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return lowerFilePathFrom(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFilePathFrom'
@@ -419,6 +425,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFileDelete 'intrFileDelete'
 		return lowerFileDelete(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFileDelete'
+	if op == ast.Intrinsic.intrFileExists 'intrFileExists'
+		return lowerFileExists(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrFileExists'
 	if op == ast.Intrinsic.intrFileInfo 'intrFileInfo'
 		return lowerFileInfo(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFileInfo'
@@ -943,6 +952,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSchedulerProcessorCount 'intrSchedulerProcessorCount'
 		return false
 	end 'intrSchedulerProcessorCount'
+	if op == ast.Intrinsic.intrSchedulerYield 'intrSchedulerYield'
+		return false
+	end 'intrSchedulerYield'
+	if op == ast.Intrinsic.intrSleep 'intrSleep'
+		return false
+	end 'intrSleep'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return false
 	end 'intrFilePathFrom'
@@ -967,6 +982,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFileDelete 'intrFileDelete'
 		return false
 	end 'intrFileDelete'
+	if op == ast.Intrinsic.intrFileExists 'intrFileExists'
+		return false
+	end 'intrFileExists'
 	if op == ast.Intrinsic.intrFileInfo 'intrFileInfo'
 		return false
 	end 'intrFileInfo'

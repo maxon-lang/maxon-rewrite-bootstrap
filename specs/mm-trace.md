@@ -492,8 +492,6 @@ mm_free Counter #4
 ```
 
 <!-- test: an-async-spawn-with-a-float-argument-names-its-argument-image -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 An `async` call with a `float` argument cannot use the green thread's inline region, which holds integer words
 only, so its arguments go in a separate argument image, and a leak trace names that block `AsyncArgumentImage`
@@ -510,9 +508,7 @@ function scaled(count Integer, factor Factor) returns Integer
 end 'scaled'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async scaled(12, factor: 3.0)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = await p
 	return total as ExitCode
 end 'main'

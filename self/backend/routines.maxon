@@ -361,6 +361,10 @@ function emitDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 		dropCursor(u)
 		return
 	end 'cursor'
+	if kind == ast.TypeKind.builtinPromise 'promise'
+		dropPromise(u)
+		return
+	end 'promise'
 	panic("routines: no drop routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitDrop'
 
@@ -408,6 +412,21 @@ function emitCopy(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 	end 'cursor'
 	panic("routines: no copy routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitCopy'
+
+// promiseDropped is the panic of the drop of a promise that holds a coroutine.
+let promiseDropped = "a promise is dropped without being awaited"
+
+// dropPromise is the drop of a promise. The ownership pass leaves no promise to drop, since each is awaited (E3213), so the
+// routine meets only the empty place an await leaves, and a coroutine there is a broken invariant.
+function dropPromise(mutates u CodeUnit)
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 0)
+	returnIfEmpty(u, done: done)
+	u.asm.leaData(argWord(), dataOffset: u.data.textOffset(promiseDropped))
+	u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtPanic))
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropPromise'
 
 // returnIfEmpty is the start of a drop: a value that is 0 holds nothing.
 function returnIfEmpty(mutates u CodeUnit, done LabelID)
@@ -773,6 +792,51 @@ export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms
 	freeArgument(u)
 	routineEpilogue(u)
 end 'emitBehaviourThunk'
+
+// emitAsyncThunk writes the thunk a coroutine runs, which greenMain calls with the coroutine by the internal convention: it
+// calls the function an async call starts with the coroutine's argument words, a word to each parameter, keeps what the
+// function failed with in the coroutine for the await, and gives back what it returned. Every unit that starts the
+// function writes it, and the link keeps one, as it does an instance.
+export function emitAsyncThunk(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, callee ast.FuncID, calleeSymbol String)
+	let params = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).params.count()
+	let fails = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).errTy != ast.noType
+	u.beginSection()
+	u.defineFunction(symbol, instance: true)
+	routinePrologue(u, locals: 0)
+	let inRegisters = argsInRegisters(ConventionKind.internal, count: params)
+	let scratch = regMaskOf(thunkBase) or regMaskOf(thunkWord)
+	if (scratch and (wordArgRegs(ConventionKind.internal, count: inRegisters) or not x64InternalCallerSaved())) != 0 'scratch'
+		panic("routines: a thunk's scratch register passes an argument or is one a call keeps")
+	end 'scratch'
+	u.asm.load(thunkBase, base: rbp, disp: routineArg)
+	var w = params
+	while w > inRegisters 'stack'
+		w = prevCount(w)
+		u.asm.load(thunkWord, base: thunkBase, disp: coroutineWordDisp(w))
+		u.asm.push(thunkWord)
+	end 'stack'
+	for i in 0 upto inRegisters 'registers'
+		u.asm.load(argRegister(ConventionKind.internal, index: i), base: thunkBase, disp: coroutineWordDisp(i))
+	end 'registers'
+	u.asm.callSymbol(calleeSymbol)
+	let pushed = try params - inRegisters otherwise panic("routines: more arguments in registers than a function takes")
+	if pushed > 0 'pop'
+		u.asm.addImm(rsp, imm: imm32Of(try pushed * wordBytes otherwise panic("routines: a coroutine past memory")))
+	end 'pop'
+	if fails 'fails'
+		u.asm.load(thunkBase, base: rbp, disp: routineArg)
+		u.asm.store(thunkBase, disp: imm32Of(greenErrorOffset), src: x64InternalError)
+	end 'fails'
+	routineEpilogue(u)
+end 'emitAsyncThunk'
+
+// coroutineWordDisp is where a coroutine holds its argument word at index.
+function coroutineWordDisp(index Count) returns Imm32
+	if index >= greenArgWords 'past'
+		panic("routines: a coroutine has no argument word of that index")
+	end 'past'
+	return imm32Of(try greenArgsOffset + index * wordBytes otherwise panic("routines: a coroutine past memory"))
+end 'coroutineWordDisp'
 
 // loadBehaviourWord loads into a register the word of a behaviour's record, which thunkBase holds, that is the body's
 // argument at index: the address of the value of each cown, and then each capture.

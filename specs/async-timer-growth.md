@@ -30,8 +30,6 @@ the seed capacity and checks that every one of them comes back with its own valu
 ## Tests
 
 <!-- test: async-timer-growth.beyond-seed-capacity -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Five thousand green threads park on a timer simultaneously — five doublings past the 256-entry seed — and each
 returns its own index. Summing the results checks every entry individually: a copy that dropped an entry
 strands that thread and the program hangs, and one that duplicated an entry double-counts and the sum is
@@ -49,17 +47,15 @@ function sleeper(n Integer) returns Integer
 end 'sleeper'
 
 function main() returns ExitCode
-	let arr = IntPromiseArray.create(0)
+	var arr = IntPromiseArray.create(0)
 	var i = 0 as Integer
 	while i < 5000 'spawn'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		arr.push(async sleeper(i))
 		i = i + 1
 	end 'spawn'
 	var sum = 0 as Integer
 	for p in arr 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'each'
 	print("sum={sum}")
 	return 0

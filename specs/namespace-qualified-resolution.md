@@ -1919,8 +1919,6 @@ error E3095: app/<fragment>:21:17: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-when-spawned-and-awaited-under-try -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- positions: moved -->
 A spawn of the contested bare call gets the ambiguity, not a claim about whether its promise throws.
@@ -1945,9 +1943,7 @@ end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async pick()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = try await p otherwise 9
 	return v as ExitCode
 end 'main'
@@ -1958,8 +1954,6 @@ error E3095: app/<fragment>:21:16: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-when-spawned-inside-try-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same spawn written inside the `try await` gets the ambiguity.
@@ -1984,8 +1978,6 @@ end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let v = try await async pick() otherwise 9
 	return v as ExitCode
 end 'main'
@@ -1996,8 +1988,6 @@ error E3095: app/<fragment>:21:26: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-when-a-spawn-is-stored -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- positions: moved -->
 Storing the spawn's promise gets the ambiguity, not a mismatch with the storage's throws clause.
@@ -2023,10 +2013,8 @@ end 'pick'
 // --- file: app/main.maxon
 function main() returns ExitCode
 	var ps = IntPromises.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async pick())
 	let p = try ps.pop() otherwise return 8
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = try await p otherwise 9
 	return v as ExitCode
 end 'main'
@@ -3160,8 +3148,6 @@ end 'main'
 ```
 
 <!-- test: a-local-named-like-a-qualified-type-segment-leaves-an-async-static -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A spawn reads its chain as a direct call does: `async sub.Calc.seven()` spawns the directory type's static past
 a local named `Calc`, and the bare `Calc` reads the local (7 + 3 - 3).
 ```maxon
@@ -3176,8 +3162,6 @@ end 'Calc'
 // --- file: main.maxon
 function main() returns ExitCode
 	let Calc = 3
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let n = await async sub.Calc.seven()
 	return n + ((Calc as ExitCode) - 3)
 end 'main'

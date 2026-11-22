@@ -579,7 +579,6 @@ mm_free ArrayRecord #8
 ```
 
 <!-- test: builtins-mm-counters.raw-columns-count-the-scheduler-scaffolding -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
@@ -647,11 +646,9 @@ function main() returns ExitCode
 	let c = spawn Counter.create()
 	let afterSpawn = __Builtins.mmRawAllocTotal()
 	let bytesAfterSpawn = __Builtins.mmRawAllocBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = try await c.next(1) otherwise 0
 	let afterFirst = __Builtins.mmRawAllocTotal()
 	let bytesAfterFirst = __Builtins.mmRawAllocBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = try await c.next(a) otherwise 0
 	let afterSecond = __Builtins.mmRawAllocTotal()
 	let bytesAfterSecond = __Builtins.mmRawAllocBytes()
@@ -679,7 +676,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.raw-live-falls-below-raw-total -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
@@ -732,7 +728,6 @@ let yieldBudget = 10000
 function serveOnce() returns Integer
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Counter.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await c.next(1) otherwise 0
 end 'serveOnce'
 
@@ -765,7 +760,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.a-message-moves-no-tracked-allocation -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
@@ -808,17 +802,14 @@ let sumOfQueued = 28
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let c = spawn Adder.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let warm = try await c.read() otherwise -1
 	let oneBefore = __Builtins.mmAllocTotal()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let one = try await c.read() otherwise -1
 	let oneAfter = __Builtins.mmAllocTotal()
 	let manyBefore = __Builtins.mmAllocTotal()
 	for i in 0 upto queuedMessages 'queue'
 		try c.add(i) otherwise panic("an open mailbox with room takes the send")
 	end 'queue'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let many = try await c.read() otherwise -1
 	let manyAfter = __Builtins.mmAllocTotal()
 	var score = 0 as Count
@@ -882,7 +873,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.a-thread-is-billed-only-its-own-allocations -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 ⭐⭐⭐ **THE CASE THE POOL NEEDS, AND THE ONE THE SIX ABOVE STRUCTURALLY CANNOT BE.** Every column above is
@@ -939,7 +929,6 @@ end 'processWide'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Churn.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = try await h.ready() otherwise panic("an open mailbox with room takes the send")
 	let serialThreadBefore = __Builtins.threadAllocTotal()
 	let serialProcessBefore = processWide()
@@ -952,7 +941,6 @@ function main() returns ExitCode
 	let busyThreadBefore = __Builtins.threadAllocTotal()
 	let busyProcessBefore = processWide()
 	let reply = try h.churn(60000) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await reply
 	let busyThread = __Builtins.threadAllocTotal() - busyThreadBefore
 	let busyProcess = processWide() - busyProcessBefore
@@ -1025,7 +1013,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.process-totals-agree-with-the-calling-thread-while-it-is-the-only-one -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 **THE PROCESS-WIDE TOTALS AND THE PER-THREAD COLUMNS ARE ONE QUANTITY**, so a reading of one sits beside
@@ -1067,7 +1054,6 @@ end 'fillAndDrop'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Idle.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	var score = try await h.ping(0) otherwise 0
 	let threadAllocsBefore = __Builtins.threadAllocTotal()
 	let threadFreesBefore = __Builtins.threadFreeTotal()
@@ -1099,7 +1085,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.process-totals-only-rise-while-another-thread-allocates -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 ⭐⭐⭐ **THE PROPERTY A BRACKET RESTS ON: NO READING STANDS BELOW AN EARLIER ONE, WHATEVER ELSE IS RUNNING.**
@@ -1155,7 +1140,6 @@ function main() returns ExitCode
 		lastFrees = frees
 		lastBytes = bytes
 	end 'watch'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let rounds = await reply
 	var score = 0 as Count
 	if backwards == 0 'onlyRose'

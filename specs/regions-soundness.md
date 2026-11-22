@@ -272,8 +272,6 @@ error E3209: <fragment>:20:10: a return does not fit the declared result: 'self.
 ```
 
 <!-- test: an-async-over-an-expression-carrying-mutable-data-is-tied -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `same(row)` is the caller's own record, so the promise is tied and cannot be returned.
 
@@ -301,14 +299,12 @@ function same(row Row) returns Row
 end 'same'
 
 function start(row Row) returns TallyPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async bump(same(row))
 end 'start'
 
 function main() returns ExitCode
 	var row = Row.create(1)
 	let later = start(row)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await later
 	print("{n}\n")
 	return 0
@@ -403,8 +399,6 @@ error E3102: <fragment>:22:10: use of moved value 'ticket': its ownership moved 
 ```
 
 <!-- test: starting-an-async-call-inside-a-modify-window-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -433,10 +427,8 @@ function main() returns ExitCode
 	var box = Box.create(0) as isolated Box
 	// TODO: modify blocks are not supported in minimaxon
 	modify box 'window'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let later = async spin()
 		box.n = 2
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = await later
 	end 'window'
 	print("{box.n}\n")
@@ -749,7 +741,6 @@ error E3207: <fragment>:33:15: 'adopt' needs 'getPart' frozen (line 21: `self.pa
 ```
 
 <!-- test: an-async-over-a-clone-of-mutable-data-is-not-tied -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 `items.clone()` is a deep copy that shares nothing with `items`, so the promise keeps no hold on the caller's data and may be stored in an array while the caller goes on writing `items`.
 
 ```maxon
@@ -763,14 +754,13 @@ typealias TallyPromiseArray = Array with TallyPromise
 
 function countAfterYield(items TallyArray) returns Tally
 	sleep(1)
-	return items.count() as Tally
+	return try items.count() as Tally otherwise panic("out of range")
 end 'countAfterYield'
 
 function main() returns ExitCode
-	let items = TallyArray.create(0)
+	var items = TallyArray.create(0)
 	items.push(1)
-	let promises = TallyPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var promises = TallyPromiseArray.create(0)
 	promises.push(async countAfterYield(items.clone()))
 	items.push(2)
 	items.push(3)
@@ -790,7 +780,6 @@ end 'main'
 ```
 
 <!-- test: an-async-over-a-shared-value-clone-is-not-tied -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A `SharedValue` is a handle every thread reads without a lock, so the coroutine holds no mutable data of the caller and its promise may be stored.
 
 ```maxon
@@ -810,7 +799,6 @@ end 'waitForFlag'
 function main() returns ExitCode
 	let flag = Flag.create(false)
 	let promises = FlagPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async waitForFlag(flag.clone()))
 	flag.publish(true)
 	for promise in promises 'each'
@@ -860,8 +848,6 @@ error E3200: <fragment>:19:22: 'live.clone()' is used as mutable; freeze a copy:
 ```
 
 <!-- test: a-function-value-clone-of-a-capturing-closure-is-not-a-fresh-copy -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `measure.clone()` holds the same closure, which captured the caller's `counter`, so the coroutine started over it still holds the caller's data and its promise is tied.
@@ -888,7 +874,6 @@ end 'later'
 
 function start(counter Counter) returns TallyPromise
 	let measure = function() gives counter.n
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async later(measure.clone())
 end 'start'
 
@@ -896,7 +881,6 @@ function main() returns ExitCode
 	var counter = Counter.create(1)
 	let pending = start(counter)
 	counter.n = 5
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
 	print("{n}\n")
 	return 0
@@ -907,8 +891,6 @@ error E3212: <fragment>:23:2: the promise of this `async` call is tied to the mu
 ```
 
 <!-- test: a-closure-over-the-callers-data-handed-to-a-coroutine-ties-its-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The closure reads the caller's `counter`, which is not a clean input, so the promise of the `async` call is tied and may not be returned.
@@ -934,7 +916,6 @@ function later(measure Measure) returns Tally
 end 'later'
 
 function start(counter Counter) returns TallyPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async later(function() gives counter.n)
 end 'start'
 
@@ -942,7 +923,6 @@ function main() returns ExitCode
 	var counter = Counter.create(1)
 	let pending = start(counter)
 	counter.n = 5
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
 	print("{n}\n")
 	return 0
@@ -953,8 +933,6 @@ error E3212: <fragment>:21:2: the promise of this `async` call is tied to the mu
 ```
 
 <!-- test: a-closure-over-a-value-handed-to-a-coroutine-stays-untied -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 The closure captures only a value, so nothing the caller can write reaches the coroutine, and the promise may be returned.
 
@@ -971,13 +949,11 @@ function later(measure Measure) returns Tally
 end 'later'
 
 function start(base Tally) returns TallyPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	return async later(function() gives base + 1)
+	return async later(function() gives try base + 1 otherwise panic("out of range"))
 end 'start'
 
 function main() returns ExitCode
 	let pending = start(4)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
 	print("{n}\n")
 	return 0
@@ -1247,7 +1223,6 @@ error E3208: <fragment>:18:15: 'pick' returns 'a' or 'b'; they must both be muta
 ```
 
 <!-- test: a-declared-clone-result-given-to-a-coroutine-ties-its-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `Ledger.clone` is declared by the author and shares `items`, so a coroutine started over its result still holds the data `live` writes: the promise is tied and may not be stored.
@@ -1281,7 +1256,6 @@ end 'countAfterYield'
 function main() returns ExitCode
 	var live = Ledger.create()
 	var promises = TallyPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async countAfterYield(live.clone()))
 	live.items.push(1)
 	for promise in promises 'each'
@@ -1295,8 +1269,6 @@ error E3212: <fragment>:28:11: the promise of this `async` call is tied to the m
 ```
 
 <!-- test: a-function-parameter-forwarded-to-a-coroutine-ties-its-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `start` cannot tell what `measure` captured, so a function value that is not a closure literal or a named function is not a clean input and the promise is tied.
@@ -1322,14 +1294,12 @@ function later(measure Measure) returns Tally
 end 'later'
 
 function start(measure Measure) returns TallyPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async later(measure)
 end 'start'
 
 function main() returns ExitCode
 	var counter = Counter.create(1)
 	let pending = start(function() gives counter.n)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
 	print("{n}\n")
 	return 0
@@ -1340,8 +1310,6 @@ error E3212: <fragment>:21:2: the promise of this `async` call is tied to the mu
 ```
 
 <!-- test: a-named-function-handed-to-a-coroutine-stays-untied -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 `seven` captures nothing, so the coroutine holds nothing the caller can write and the promise may be returned.
 
@@ -1362,13 +1330,11 @@ function seven() returns Tally
 end 'seven'
 
 function start() returns TallyPromise
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async later(seven)
 end 'start'
 
 function main() returns ExitCode
 	let pending = start()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
 	print("{n}\n")
 	return 0
@@ -1496,8 +1462,6 @@ error E3207: <fragment>:34:20: 'bump' needs a writable receiver at line 12; the 
 ```
 
 <!-- test: the-clone-of-a-type-parameter-value-is-not-a-clean-input -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `relay` is checked once for every `T`, and what the `clone` of a `T` hands back is not known to be a copy, so the promise of the `async` call over it is tied.
@@ -1527,7 +1491,6 @@ function later(_ T) uses T returns Tally
 end 'later'
 
 function relay(item T) uses T returns TallyPromise where T implements Cloneable
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return async later(item.clone())
 end 'relay'
 
@@ -1535,7 +1498,6 @@ function main() returns ExitCode
 	var live = Ledger.create()
 	let pending = relay(live)
 	live.items.push(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
 	print("{n}\n")
 	return 0
@@ -2264,7 +2226,6 @@ error E3102: <fragment>:15:2: use of moved value 'src': its ownership moved to a
 ```
 
 <!-- test: error.array-init-over-an-isolated-local-sent-to-a-service-moves-it -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -2296,7 +2257,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let src = ByteArray.create(0) as isolated ByteArray
 	src.push(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let kept = try await keeper.keep(ByteArray.init(src)) otherwise 0
 	src.push(2)
 	print("{kept} {src.count()}\n")
@@ -2570,7 +2530,6 @@ error E3198: <fragment>:31:42: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: a-local-union-bound-from-an-awaited-call-moves-its-isolated-payload -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
@@ -2609,7 +2568,6 @@ type Collector
 end 'Collector'
 
 function gather(collector Collector.handle) returns StringArray
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let drained = try await collector.drain() otherwise panic("gather: the collector stopped while the caller held its handle")
 	match drained 'drained'
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -2748,7 +2706,6 @@ error E3102: <fragment>:35:8: use of moved value 'drained': its ownership moved 
 ```
 
 <!-- test: error.an-awaited-local-union-matched-twice-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
@@ -2797,7 +2754,6 @@ type Collector
 end 'Collector'
 
 function gather(collector Collector.handle) returns Count
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let drained = try await collector.drain() otherwise panic("gather: the collector stopped while the caller held its handle")
 	var shelf = Shelf.holding(StringArray.create(0))
 	match drained 'first'
@@ -4386,8 +4342,6 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-an-async-isolated-argument -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -4430,8 +4384,6 @@ end 'weigh'
 
 function asyncPayload(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async weigh(bytes)
 		empty then return 0
 	end 'take'
@@ -4439,22 +4391,16 @@ end 'asyncPayload'
 
 function asyncPayloadTernary(holder Holder, flag bool) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async weigh(bytes if flag else ByteArray.create(0))
 		empty then return 0
 	end 'take'
 end 'asyncPayloadTernary'
 
 function asyncField(shelf Shelf) returns Count
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return await async weigh(shelf.bytes)
 end 'asyncField'
 
 function asyncFieldTernary(shelf Shelf, flag bool) returns Count
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return await async weigh(shelf.bytes if flag else ByteArray.create(0))
 end 'asyncFieldTernary'
 
@@ -4474,8 +4420,6 @@ error E3198: <fragment>:49:27: 'shelf.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-async-call-cannot-move-a-callers-mutable-data-into-an-isolated-parameter -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -4510,8 +4454,6 @@ function grow(shelf Shelf)
 end 'grow'
 
 function fromParameter(p ByteArray) returns Shelf
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return await async adopt(p)
 end 'fromParameter'
 
@@ -4983,8 +4925,6 @@ error E3198: <fragment>:30:79: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-awaited-result-over-an-isolated-part-read-is-not-a-clean-input -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5026,8 +4966,6 @@ end 'echo'
 
 function awaitClosure(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return weigh(await async apply(function() gives bytes))
 		empty then return 0
 	end 'take'
@@ -5035,8 +4973,6 @@ end 'awaitClosure'
 
 function awaitEcho(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return weigh(await async echo(bytes))
 		empty then return 0
 	end 'take'
@@ -5054,8 +4990,6 @@ error E3207: <fragment>:41:50: 'echo' is spawned with `async`, and 'bytes' is is
 ```
 
 <!-- test: error.an-isolated-local-moved-by-an-async-call-in-a-loop-is-used-after-move -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5077,8 +5011,6 @@ function inLoop(rounds Count) returns Count
 	var total = 0 as Count
 	var lap = 0 as Count
 	while lap < rounds 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		total = total + await async weigh(mine)
 		lap = lap + 1
 	end 'each'
@@ -5088,8 +5020,6 @@ end 'inLoop'
 function afterCall() returns Count
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let mine = ByteArray.create(2) as isolated ByteArray
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let total = await async weigh(mine)
 	return total + mine.count()
 end 'afterCall'
@@ -5105,7 +5035,6 @@ error E3102: <fragment>:25:17: use of moved value 'mine': its ownership moved to
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-service-message-argument -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -5158,19 +5087,16 @@ end 'Keeper'
 
 function sendPayload(keeper Keeper.handle, holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return try await keeper.keep((bytes)) otherwise 0
 		empty then return 0
 	end 'take'
 end 'sendPayload'
 
 function sendField(keeper Keeper.handle, donor Shelf) returns Count
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await keeper.keep(donor.bytes) otherwise 0
 end 'sendField'
 
 function sendTernary(keeper Keeper.handle, donor Shelf, flag bool) returns Count
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await keeper.keep(donor.bytes if flag else ByteArray.create(0)) otherwise 0
 end 'sendTernary'
 
@@ -5703,8 +5629,6 @@ error E3200: <fragment>:43:15: 'source.make()' is not isolated: only a clean cal
 ```
 
 <!-- test: error.an-isolated-part-read-reaches-a-callee-declared-later-as-one-declared-earlier -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -5751,8 +5675,6 @@ end 'weighEarly'
 
 function asyncEarly(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async weighEarly(bytes)
 		empty then return 0
 	end 'take'
@@ -5760,8 +5682,6 @@ end 'asyncEarly'
 
 function asyncLate(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async weighLate(bytes)
 		empty then return 0
 	end 'take'
@@ -5777,8 +5697,6 @@ end 'plainLateTernary'
 
 function asyncEarlyEcho(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async weighEarly(echoEarly(bytes))
 		empty then return 0
 	end 'take'
@@ -5786,8 +5704,6 @@ end 'asyncEarlyEcho'
 
 function asyncLateEcho(holder Holder) returns Count
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async weighLate(echoLate(bytes))
 		empty then return 0
 	end 'take'
@@ -8043,8 +7959,6 @@ error E3201: <fragment>:36:28: 'echo' hands back mutable data of the isolated re
 ```
 
 <!-- test: error.a-closure-over-an-isolated-payload-given-to-an-async-call-is-a-read-of-the-part -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -8083,8 +7997,6 @@ end 'echo'
 
 function returnFromCoroutine(holder Holder) returns ByteArray
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async apply(function() gives bytes)
 		empty then return ByteArray.create(0)
 	end 'take'
@@ -8092,16 +8004,12 @@ end 'returnFromCoroutine'
 
 function returnEchoedPayload(holder Holder) returns ByteArray
 	match holder.slot 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async echo(bytes)
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnEchoedPayload'
 
 function returnEchoedField(holder Holder) returns ByteArray
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	return await async echo(holder.bytes)
 end 'returnEchoedField'
 
@@ -8118,8 +8026,6 @@ error E3207: <fragment>:44:26: 'echo' is spawned with `async`, and 'holder' is i
 ```
 
 <!-- test: a-coroutine-over-a-fresh-isolated-payload-hands-it-out-as-plain-data -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so what a coroutine hands back from a closure over it is returned as plain data without a refusal.
@@ -8149,8 +8055,6 @@ end 'apply'
 function returnFromCoroutine() returns ByteArray
 	let made = makeSlot()
 	match made 'take'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		full(bytes) then return await async apply(function() gives bytes)
 		empty then return ByteArray.create(0)
 	end 'take'
@@ -8281,8 +8185,6 @@ error E3201: <fragment>:24:66: 'echo' hands back mutable data of the isolated re
 ```
 
 <!-- test: error.an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-be-kept-by-a-call -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -8345,8 +8247,6 @@ end 'holdEach'
 
 function weighFirstAsync(bin Bin) returns Count
 	for blob in bin.blobs 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		return await async weigh(blob)
 	end 'each'
 	return 0
@@ -8515,7 +8415,6 @@ error E3201: <fragment>:46:42: one statement reaches through two isolated values
 ```
 
 <!-- test: error.a-handed-back-result-given-to-an-async-call-is-a-read-of-the-part -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call whose argument is what a method of an `isolated` field hands back would run beside the caller with the field's data, so it is refused although its promise answers a count.
@@ -8552,7 +8451,6 @@ end 'countOf'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async countOf(holder.blob.inner())
 	print("{await pending}\n")
 	return 0
@@ -10051,7 +9949,6 @@ error E3197: <fragment>:32:15: cannot write 'n' through 'bx', which is read-only
 ```
 
 <!-- test: error.a-match-arm-over-a-union-with-an-isolated-payload-cannot-wait-once-it-has-read-the-payload -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -10094,7 +9991,6 @@ type S
 end 'S'
 
 function waits(s S.handle) returns Code
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await s.plain() otherwise 0
 end 'waits'
 

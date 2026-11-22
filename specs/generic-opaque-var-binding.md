@@ -490,7 +490,6 @@ item 42 long enough for a heap record 1 other 42 long enough for a heap record 2
 ### A kept promise feed stored twice is moved
 
 <!-- test: error.kept-promise-feed-stored-twice-is-moved -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Binding `item` to `var copy` moves the promise, so storing `item` into a field as well reads it after the move, and the green thread's single owner rule refuses it.
 ```maxon
@@ -519,7 +518,6 @@ function plain(n Integer) returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let h = PromiseHolder.create(async plain(7), other: async plain(9), swap: false)
 	print("{h.held.isComplete() or true}\n")
 	return 0

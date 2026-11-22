@@ -2659,7 +2659,6 @@ error E3005: <fragment>:26:24: Value -1 is outside the range of 'Count' (int(0 t
 ```
 
 <!-- test: a-large-count-reaches-a-service-handler -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function top(one Count) returns Count
@@ -2686,7 +2685,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create()
 	try h.put(top(1)) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = try await h.get() otherwise 0
 	print("{got}\n")
 	return 0

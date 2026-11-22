@@ -68,12 +68,14 @@ ErrDuplicateTypeAlias	E3061	semanticDuplicateTypeAlias	A typealias is declared t
 ErrEnumNotComparable	E3066	semanticEnumNotComparable	A union is compared with '==' or '!='.
 ErrRefIdentityOnPrimitive	E3068	refIdentityOnPrimitive	An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a union, a function or a type parameter.
 ErrUnreachableCode	E3071	semanticUnreachableCode	A statement follows a 'return', 'throw', 'break', 'continue' or 'panic' in its block, so it never runs.
+ErrAsyncNonYielding	E3073	asyncNonYielding	An async call starts a function that never waits, so there is nothing for the coroutine to overlap.
 ErrMatchQualifiedCaseName	E3075	matchQualifiedCaseName	A match arm names a case of an enum or union with its type's name, which the subject already gives.
 ErrConstructorRestriction	E3076	semanticConstructorRestriction	A struct literal is written outside the methods of its type.
 ErrEmptyBlock	E3082	semanticEmptyBlock	A block other than a function body holds no statement.
 ErrTryBlockBindingNotMatched	E3084	tryBlockBindingNotMatched	The handler of a try block names the error but never matches on it.
 ErrFieldNotInitialized	E3086	semanticFieldNotInitialized	A struct literal omits a field that has no default.
 ErrResolutionCycle	E3091	semanticTypeResolutionCycle	A typealias refers back to itself through the aliases it implements, or an interface through the interfaces it extends.
+ErrPromiseAlreadyAwaited	E3100	promiseAlreadyAwaited	A promise started outside a loop is awaited inside it, which would await it again on the next iteration.
 ErrFunctionValueThrows	E3101	throwingFunctionAsValue	A function that throws is used as a value, which no function type can hold.
 ErrUseAfterMove	E3102	useAfterMove	A name is read after its value was moved out of it.
 ErrDivisionByZero	E3103	semanticDivisionByZero	A division or 'mod' has a constant zero divisor.
@@ -85,6 +87,8 @@ ErrStaticRequirementNotDispatchable	E3116	semanticStaticRequirementNotDispatchab
 ErrIfTryDiscardsResult	E3124	ifTryDiscardsResult	An 'if try' with no binding tests a call that returns a value, which it discards.
 ErrCastTargetIsAContainer	E3131	castTargetIsAContainer	A cast to an instance of a generic that the value's type does not retag to: the elements have a layout of their own.
 ErrBoundBindingDisagrees	E3133	semanticWhereConstraintBindingDisagreement	A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
+ErrPromiseBorrowed	E3141	semanticPromiseCannotBeBorrowed	A promise is lent where it would have to be taken: an async call or an await that only borrows it.
+ErrPromiseConsumed	E3142	semanticPromiseAlreadyConsumed	A promise is used after an await consumed it.
 ErrIllegalBitWidth	E3148	semanticIllegalBitWidth	A bits(n) typealias has a width the language does not have.
 ErrRawIntrinsicOutsideRuntime	E3152	rawIntrinsicOutsideRuntimeTier	A source file outside the runtime calls a __Raw intrinsic.
 ErrExposesHiddenType	E3167	semanticSignatureTypeLessVisibleThanDeclaration	A declaration's signature names a type less visible than the declaration.
@@ -98,6 +102,8 @@ ErrInstanceMethodWithoutReceiver	E3193	semanticInstanceMethodCalledWithoutReceiv
 ErrFixedArrayCreateForm	E3194	fixedArrayCreateLengthForm	A fixed array's create takes a length its type does not need, or lacks one it does.
 ErrFrozenChange	E3197	semanticWriteThroughReadOnly	A write or a consuming call goes through the contents of a frozen value.
 ErrCapabilityConversion	E3210	semanticCapabilityConversionRefused	A function value writes what it captured, which its function type does not allow.
+ErrTiedPromise	E3212	semanticTiedPromiseRefused	The promise of an async call that was lent the caller's data is used for more than an await in its scope, or an exit leaves it unawaited.
+ErrPromiseDropped	E3213	semanticPromiseDropped	A promise is dropped without being awaited.
 ErrUnsignedNegation	E3218	semanticUnsignedNegation	An unsigned value is negated.
 ErrModuleLetCallsFunction	E3220	semanticModuleLetCallsAFunction	The initializer of a constant calls a function.
 ErrEntryTakesParameters	E3225	entryFunctionTakesParameters	'main' declares parameters.
@@ -131,6 +137,7 @@ ErrBorrowEscapes	E3927	-	A value that holds a borrow, a buffer's cursor or a val
 ErrRawValueNotLiteral	E3940	-	A raw value is a string with an interpolated value, which a case cannot hold.
 ErrAmbiguousConformance	E3941	-	Two declarations that a module sees say one type implements one interface.
 ErrAmbiguousExtension	E3942	-	A call names a method, or a type names a typealias, that two extensions the module sees add to the type.
+ErrLentToCoroutine	E3943	-	A place that an async call lent its coroutine to read is changed or moved before the promise is awaited (README, "Where it differs from Maxon").
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrRegisterPressure	E5001	registerPressure	A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.

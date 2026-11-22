@@ -96,8 +96,6 @@ real `HttpClient` as the peer, and the method, path and query the handler read r
 body.
 
 <!-- test: http-server.get-round-trip -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -113,13 +111,11 @@ end 'serveOne'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/hello?q=1") otherwise 'cancelled16'
 		peer.cancel()
 		return 2
 	end 'cancelled16'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	let connection = try response.header("connection") otherwise "absent"
 	print("served={served} status={response.statusCode().number()} body={response.body()} connection={connection}\n")
@@ -146,8 +142,6 @@ URL. The `Host` header arrives bracketed, so the handler's `request.url()` carri
 `host()` is the bare address and `authorityHost()` keeps the brackets.
 
 <!-- test: http-server.an-ipv6-loopback-server-answers-a-bracketed-url -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -164,14 +158,12 @@ end 'serveOne'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let response = try HttpClient.get("http://[::1]:{boundPort}/hello") otherwise (e) 'failed'
 		print("failed {e.name}\n")
 		peer.cancel()
 		return 2
 	end 'failed'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	print("served={served} status={response.statusCode().number()} body={response.body()}\n")
 	server.close()
@@ -197,8 +189,6 @@ right about every short body and wrong about every real one, so the handler answ
 received and the case pins it against the count the client sent.
 
 <!-- test: http-server.post-body-arrives-whole -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -228,14 +218,12 @@ end 'serveOne'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let sent = bigBody()
 	let response = try HttpClient.post("http://127.0.0.1:{boundPort}/upload", body: sent) otherwise 'cancelled31'
 		peer.cancel()
 		return 2
 	end 'cancelled31'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	let agreed = response.body() == "{sent.byteLength()}"
 	print("served={served} status={response.statusCode().number()} agreed={agreed} sent={sent.byteLength()}\n")
@@ -258,8 +246,6 @@ served=3 status=200 agreed=true sent=21120
 ### Request headers are case-insensitive
 
 <!-- test: http-server.request-headers-are-case-insensitive -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -275,7 +261,6 @@ end 'serveOne'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{boundPort}/tagged") otherwise 'cancelled16'
 		peer.cancel()
@@ -286,7 +271,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 		peer.cancel()
 		return 3
 	end 'cancelled19'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	print("served={served} body={response.body()}\n")
 	server.close()
@@ -311,7 +295,6 @@ served=3 body=mixed/mixed
 assertion: the first handler throws, and only a loop that survived it can answer the second.
 
 <!-- test: http-server.a-throwing-handler-answers-500-and-serves-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
@@ -347,7 +330,6 @@ end 'serveUntilClosed'
 function exchangeOver(server HttpServer) returns ExitCode
 	let handler = PickyHandler.create("second")
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveUntilClosed(server, handler: handler)
 	let first = try HttpClient.get("http://127.0.0.1:{port}{BoomPath}") otherwise 'cancelled35'
 		peer.cancel()
@@ -377,7 +359,6 @@ first=500 second=200 body=second
 ```
 
 <!-- test: http-server.a-handler-that-throws-after-responding-is-reported-and-not-answered-twice -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
@@ -410,7 +391,6 @@ end 'serveUntilClosed'
 function exchangeOver(server HttpServer) returns ExitCode
 	let handler = LateThrowingHandler.create("answered")
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveUntilClosed(server, handler: handler)
 	let first = try HttpClient.get("http://127.0.0.1:{port}{LatePath}") otherwise 'cancelled31'
 		peer.cancel()
@@ -440,8 +420,6 @@ first=200 body=answered second=200
 ```
 
 <!-- test: http-server.a-second-response-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 function answerTwice(server HttpServer) returns String
@@ -455,13 +433,11 @@ end 'answerTwice'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async answerTwice(server)
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/") otherwise 'cancelled14'
 		peer.cancel()
 		return 2
 	end 'cancelled14'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let second = await peer
 	server.close()
 	print("status={response.statusCode().number()} body={response.body()} second={second}\n")
@@ -481,7 +457,6 @@ status=200 body=first second=alreadyResponded
 ```
 
 <!-- test: http-server.an-accept-deadline-ends-serve -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
@@ -512,7 +487,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let idle = server.serve(handler)
 	try server.setAcceptDeadline(0) otherwise return 3
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveUntilClosed(server, handler: handler)
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/again") otherwise 'cancelled28'
 		peer.cancel()
@@ -537,8 +511,6 @@ idle=acceptDeadlinePassed body=echo/again
 ```
 
 <!-- test: http-server.repeated-request-headers-are-combined-in-order -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -554,7 +526,6 @@ end 'acceptedHeader'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async acceptedHeader(server)
 	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled16'
 		peer.cancel()
@@ -569,7 +540,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 		return 4
 	end 'cancelled18'
 	client.close()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = await peer
 	server.close()
 	print("accept={seen}\n")
@@ -596,8 +566,6 @@ bytes itself and reads the status code back out of the status line as text. The 
 thing pinned; the reason phrase is not, because a phrase is prose and a code is the protocol.
 
 <!-- test: http-server.oversize-headers-answer-431 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -649,10 +617,8 @@ function main() returns ExitCode
 	limits.maxHeaderBytes = HeaderCap
 	server.setLimits(limits)
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let status = shout(port, block: oversizeHeaderBlock())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	print("status={status} served={served}\n")
 	return 0
@@ -672,8 +638,6 @@ The cap is checked against the DECLARED length, before the body is read, so a cl
 megabytes and sent four bytes is still refused.
 
 <!-- test: http-server.oversize-body-answers-413 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -707,10 +671,8 @@ end 'serveOne'
 function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let status = shout(port, block: "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {DeclaredBodyBytes}\r\n\r\nabcd")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	print("status={status} served={served}\n")
 	return 0
@@ -727,8 +689,6 @@ status=413 served=1
 ### A chunked request answers 501
 
 <!-- test: http-server.chunked-answers-501 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -760,10 +720,8 @@ end 'serveOne'
 function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let status = shout(port, block: "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nabcd\r\n0\r\n\r\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	print("status={status} served={served}\n")
 	return 0
@@ -785,8 +743,6 @@ connection and requires a real answer on it. The deadline belongs to the silent 
 lifts it before the second accept, so the second request is not racing a clock of its own.
 
 <!-- test: http-server.a-silent-client-answers-408-and-serves-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -827,14 +783,12 @@ function main() returns ExitCode
 	limits.readDeadlineMs = SilentReadDeadlineMs
 	server.setLimits(limits)
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveTwo(server)
 	let silent = saySilence(port)
 	let response = try HttpClient.get("http://127.0.0.1:{port}/after") otherwise 'cancelled48'
 		peer.cancel()
 		return 2
 	end 'cancelled48'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	print("silent={silent} second={response.statusCode().number()} body={response.body()} served={served}\n")
 	return 0
@@ -851,8 +805,6 @@ silent=408 second=200 body=second served=3
 ### A malformed request line answers 400
 
 <!-- test: http-server.a-malformed-request-line-answers-400 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -884,10 +836,8 @@ end 'serveOne'
 function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let status = shout(port, block: "GARBAGE\r\n\r\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	print("status={status} served={served}\n")
 	return 0
@@ -908,8 +858,6 @@ carrying such a line is `malformedRequest` and a RESPONSE carrying one is `HttpE
 A case that only asserted the server half would leave the client free to go on dropping the line.
 
 <!-- test: http-server.a-header-line-without-a-colon-is-malformed -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -948,15 +896,12 @@ end 'answerWithABadHeaderLine'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let serverPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let serverPeer = async serveOne(server)
 	let status = shout(serverPort, block: "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nBadHeaderLine\r\n\r\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await serverPeer
 	server.close()
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 2
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let clientPeer = async answerWithABadHeaderLine(listener)
 	var clientSaw = "accepted-a-bad-header-line"
 	if let response = try HttpClient.get("http://127.0.0.1:{listenerPort}/") 'answered'
@@ -964,7 +909,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	end 'answered' else (e) 'refused'
 		clientSaw = e.name
 	end 'refused'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answered = await clientPeer
 	print("status={status} served={served} clientSaw={clientSaw} answered={answered}\n")
 	return 0
@@ -991,8 +935,6 @@ its own `send` (a `\r\n` is one character, so the terminator arrives as two), an
 the server's reads come in pieces.
 
 <!-- test: http-server.a-head-block-sent-one-byte-at-a-time-is-parsed -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1029,10 +971,8 @@ end 'serveOne'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let status = trickle(boundPort)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	server.close()
 	print("status={status} served={served}\n")
@@ -1060,8 +1000,6 @@ with the SAME value has one reading and is served. A head block whose terminator
 that crosses the cap is still over the cap.
 
 <!-- test: http-server.an-ambiguous-request-answers-400 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let HeadCap = 160
@@ -1102,10 +1040,8 @@ function exchangeOver(listening HttpServer) returns ExitCode
 	let port = listening.port()
 	let blocks = ["GET / HTTP/1.1\r\n\r\n", "GET @127.0.0.1/ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n", "POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 2\r\nContent-Length: 3\r\n\r\nhi", "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nHost: 127.0.0.1\r\n\r\n", paddedHead()]
 	for block in blocks 'eachBlock'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(listening)
 		let status = shout(port, block: block)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let accepted = await peer
 		print("status={status} accept={accepted}\n")
 	end 'eachBlock'
@@ -1134,7 +1070,6 @@ status=431 accept=headersTooLarge
 ### Cancelling the serving promise ends serve
 
 <!-- test: http-server.cancel-ends-serve-and-close-releases-the-port -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 `serve` is ended by cancelling the promise that serves, and `close()` then releases the port: the first request is answered,
@@ -1168,7 +1103,6 @@ end 'serveUntilClosed'
 function exchangeOver(server HttpServer) returns ExitCode
 	let handler = PlainHandler.create("serving")
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveUntilClosed(server, handler: handler)
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/first") otherwise 'cancelled28'
 		peer.cancel()
@@ -1238,8 +1172,6 @@ ended=closed
 pass the second half of this case and say nothing about `close()`.
 
 <!-- test: http-server.accept-after-close-throws-listener-closed -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1260,13 +1192,11 @@ end 'acceptAfterClose'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/live") otherwise 'cancelled22'
 		peer.cancel()
 		return 2
 	end 'cancelled22'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	server.close()
 	let refusal = acceptAfterClose(server)
@@ -1289,8 +1219,6 @@ status=200 served=3 refusal=listenerClosed
 ### A `Host` that is not an authority answers 400
 
 <!-- test: http-server.a-host-that-is-not-an-authority-answers-400 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1328,10 +1256,8 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = [requestFor("x/admin?", target: "/public"), requestFor("x#frag", target: "/public"), requestFor("user@x", target: "/public"), requestFor("a b", target: "/public"), requestFor("", target: "/public"), requestFor("127.0.0.1:99999", target: "/public"), requestFor("127.0.0.1:8x", target: "/public"), requestFor("[::1", target: "/public"), requestFor("[1:2:3:4:5:6:7:8:9]", target: "/public"), requestFor("[1::2::3]", target: "/public"), requestFor("[::1]x", target: "/public"), requestFor("x", target: "/a%2"), requestFor("x", target: "/a#b"), requestFor("x", target: "/a b"), requestFor("x", target: "*"), requestFor("[::1]:8080", target: "/public"), requestFor("[::ffff:127.0.0.1]", target: "/public"), requestFor("[v1.fe80::a+en1]", target: "/public"), requestFor("exa%41mple.com", target: "/public"), requestFor("x:", target: "/p?q=/x?y")]
 	for block in blocks 'eachBlock'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
 		let status = shout(port, block: block)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let accepted = await peer
 		print("status={status} accept={accepted}\n")
 	end 'eachBlock'
@@ -1373,8 +1299,6 @@ status=200 accept=served x /p q=/x?y
 ### A header name is a token, and a folded line is refused
 
 <!-- test: http-server.a-header-name-is-a-token-and-a-folded-line-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1405,10 +1329,8 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = ["POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding : chunked\r\n\r\n4\r\nabcd\r\n0\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length : 5\r\n\r\nhello", "GET / HTTP/1.1\r\nHost : a\r\nHost: b\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Folded: a\r\n b\r\n\r\n", "GET / HTTP/1.1\r\n Host: x\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-B@d: 1\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Nul: a\x00b\r\n\r\n", "GET / HTTP/1.1\r\nHost: x\r\nX-Tight:packed\t \r\n\r\n"]
 	for block in blocks 'eachBlock'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
 		let status = shout(port, block: block)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let accepted = await peer
 		print("status={status} accept={accepted}\n")
 	end 'eachBlock'
@@ -1438,8 +1360,6 @@ status=200 accept=served x-tight=packed
 ### The request line is read to its grammar
 
 <!-- test: http-server.the-request-line-is-read-to-its-grammar -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1471,10 +1391,8 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = ["GET /a b HTTP/1.1\r\nHost: x\r\n\r\n", "GET  / HTTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/1.1 \r\nHost: x\r\n\r\n", "GET / FTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/1.10\r\nHost: x\r\n\r\n", "G(T / HTTP/1.1\r\nHost: x\r\n\r\n", "GET / HTTP/2.0\r\nHost: x\r\n\r\n", "get / HTTP/1.1\r\nHost: x\r\n\r\n", "BREW / HTTP/1.1\r\nHost: x\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: -0\r\n\r\n", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: +2\r\n\r\nhi", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 2 2\r\n\r\nhi", "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 99999999999999999999999999\r\n\r\nhi", "GET /old HTTP/1.0\r\nHost: x\r\n\r\n", "POST /form HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\nhi"]
 	for block in blocks 'eachBlock'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
 		let status = shout(port, block: block)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let accepted = await peer
 		print("status={status} accept={accepted}\n")
 	end 'eachBlock'
@@ -1511,8 +1429,6 @@ status=200 accept=served post /form [hi]
 ### A HEAD response carries no body
 
 <!-- test: http-server.a-head-response-carries-no-body -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 <!-- procs: 1 -->
 ```maxon
@@ -1542,7 +1458,6 @@ end 'everythingFrom'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(server)
 	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled29'
 		peer.cancel()
@@ -1554,7 +1469,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	end 'cancelled30'
 	let answer = everythingFrom(client)
 	client.close()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	server.close()
 	let parts = answer.split("\r\n\r\n")
@@ -1586,7 +1500,6 @@ served=3 Content-Length: 5 body=[]
 ### A handler that returns without responding answers 500 and is reported
 
 <!-- test: http-server.a-handler-that-returns-without-responding-answers-500 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
@@ -1619,7 +1532,6 @@ end 'serveUntilClosed'
 function exchangeOver(server HttpServer) returns ExitCode
 	let handler = ForgetfulHandler.create("remembered")
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveUntilClosed(server, handler: handler)
 	let first = try HttpClient.get("http://127.0.0.1:{port}{SilentPath}") otherwise 'cancelled31'
 		peer.cancel()
@@ -1651,7 +1563,6 @@ first=500 second=200 body=remembered
 ### A throw whose 500 cannot be sent is reported as unanswered
 
 <!-- test: http-server.a-throw-whose-500-cannot-be-sent-is-reported-as-unanswered -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1727,7 +1638,6 @@ end 'serveUntilClosed'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveUntilClosed(server, handler: ResetHandler.create())
 	let reset = sendThenReset(boundPort)
 	raiseFlag(PeerResetFlag)
@@ -1760,7 +1670,6 @@ reset=true
 ### `serve` answers a protocol fault and serves on
 
 <!-- test: http-server.serve-answers-a-protocol-fault-and-serves-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
@@ -1794,7 +1703,6 @@ end 'statusCodeOf'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveUntilClosed(server, handler: PlainHandler.create("after"))
 	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled31'
 		peer.cancel()
@@ -1835,8 +1743,6 @@ refused=400 next=200 body=after
 ### A 408 reaches a peer that is still sending
 
 <!-- test: http-server.a-408-reaches-a-peer-that-is-still-sending -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The peer sends the start of a request and then one byte of an endless header at a time, looking for an answer after
 each, so the head is never completed and the peer's loop ends only on an answer: a 408 it reads is one that reached a
@@ -1885,10 +1791,8 @@ end 'trickle'
 
 function exchangeOver(listening HttpServer) returns ExitCode
 	let client = try TcpClient.connect("127.0.0.1", port: listening.port()) otherwise return 2
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async acceptedAs(listening)
 	let status = trickle(client)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let accepted = await peer
 	listening.close()
 	print("status={status} accept={accepted}\n")
@@ -1913,8 +1817,6 @@ status=408 accept=readTimedOut
 ### A 413 reaches a peer that is still sending its body
 
 <!-- test: http-server.a-413-reaches-a-peer-that-is-still-sending-its-body -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1962,10 +1864,8 @@ end 'upload'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async acceptedAs(server)
 	let status = upload(boundPort)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let accepted = await peer
 	server.close()
 	print("status={status} accept={accepted}\n")
@@ -1987,8 +1887,6 @@ status=413 accept=bodyTooLarge
 ### A head within the cap is accepted when the body arrives in the same read
 
 <!-- test: http-server.a-head-within-the-cap-arrives-with-a-body-past-it -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let HeaderCap = 1024
@@ -2031,10 +1929,8 @@ end 'postWithBody'
 
 function exchangeOver(listening HttpServer) returns ExitCode
 	let boundPort = listening.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async acceptedAs(listening)
 	let status = shout(boundPort, block: postWithBody())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let accepted = await peer
 	listening.close()
 	print("status={status} accept={accepted}\n")
@@ -2068,7 +1964,6 @@ request and begun the answer, so closing the listener after it cannot beat the a
 connection it took has finished, which is when the write deadline has ended the send.
 
 <!-- test: http-server.a-peer-that-never-reads-is-abandoned-at-the-write-deadline -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- procs: 1 -->
 ```maxon
@@ -2110,7 +2005,6 @@ end 'serveOne'
 function exchangeOver(listening HttpServer) returns ExitCode
 	let handler = BigAnswerHandler.create(bigAnswer())
 	let boundPort = listening.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOne(listening, handler: handler)
 	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled39'
 		peer.cancel()
@@ -2152,8 +2046,6 @@ A server MUST accept an absolute-form target and take the authority from it rath
 hands no exchange to the caller; the asterisk with any other method is malformed.
 
 <!-- test: http-server.absolute-form-and-options-asterisk -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2200,18 +2092,14 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = ["GET http://origin.example:8080/p?q=1 HTTP/1.1\r\nHost: ignored.example\r\n\r\n", "GET HTTP://Origin.example HTTP/1.1\r\nHost: ignored.example\r\n\r\n", "GET https://origin.example/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET http://a b/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET http://user@origin.example/p HTTP/1.1\r\nHost: x\r\n\r\n", "GET * HTTP/1.1\r\nHost: x\r\n\r\n", "OPTIONS * HTTP/1.1\r\nHost: x\r\nContent-Length: many\r\n\r\n", "OPTIONS * HTTP/1.1\r\nHost: x\r\nContent-Length: 99999999999999\r\n\r\n"]
 	for block in blocks 'eachBlock'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
 		let status = shout(port, block: block)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let accepted = await peer
 		print("status={status} accept={accepted}\n")
 	end 'eachBlock'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let optionsPeer = async acceptedAs(server)
 	let options = shout(port, block: "OPTIONS * HTTP/1.1\r\nHost: x\r\n\r\n")
 	let after = shout(port, block: "GET /after HTTP/1.1\r\nHost: x\r\n\r\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let accepted = await optionsPeer
 	print("options={options} then={after} accept={accepted}\n")
 	server.close()
@@ -2241,8 +2129,6 @@ options=200 allow=true then=200 allow=false accept=served x 0 /after no-query
 ### An HTTP/1.0 request needs no `Host`, and a leading empty line is ignored
 
 <!-- test: http-server.http-1-0-needs-no-host-and-a-leading-empty-line-is-ignored -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2275,10 +2161,8 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let blocks = ["GET /old HTTP/1.0\r\n\r\n", "GET /new HTTP/1.1\r\n\r\n", "\r\nGET /after-one HTTP/1.1\r\nHost: x\r\n\r\n", "\r\n\r\nGET /after-two HTTP/1.1\r\nHost: x\r\n\r\n", "\r\n\r\n\r\n\r\n\r\nGET /after-five HTTP/1.1\r\nHost: x\r\n\r\n"]
 	for block in blocks 'eachBlock'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptedAs(server)
 		let status = shout(port, block: block)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let accepted = await peer
 		print("status={status} accept={accepted}\n")
 	end 'eachBlock'
@@ -2309,8 +2193,6 @@ with one is refused rather than sent. A field name must be a token, and a field 
 may carry no CR, LF or other control, or one response could be read as two.
 
 <!-- test: http-server.a-response-is-held-to-what-its-status-and-fields-allow -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2361,10 +2243,8 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	let responses = [withHeader(StatusCode.noContent, name: "x-kind", value: "empty", body: "", reason: "No Content"), withHeader(StatusCode.notModified, name: "x-kind", value: "empty", body: "", reason: "Not Modified"), withHeader(StatusCode.noContent, name: "x-kind", value: "empty", body: "stray", reason: "No Content"), withHeader(StatusCode.notModified, name: "x-kind", value: "empty", body: "stray", reason: "Not Modified"), withHeader(StatusCode.ok, name: "x-split", value: "a\r\nSet-Cookie: stolen=1", body: "ok", reason: "OK"), withHeader(StatusCode.ok, name: "x bad", value: "1", body: "ok", reason: "OK"), withHeader(StatusCode.ok, name: "x-kind", value: "fine", body: "ok", reason: "OK\r\nX-Injected: 1")]
 	for response in responses 'eachResponse'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async respondedWith(server, response: response)
 		let seen = answeredWith(port)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let outcome = await peer
 		print("status={seen} {outcome}\n")
 	end 'eachResponse'
@@ -2397,8 +2277,6 @@ answer on its way to the peer. So a server that received more than the one reque
 before it closes.
 
 <!-- test: http-server.bytes-past-the-request-are-drained-before-the-close -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2429,7 +2307,6 @@ end 'acceptedAs'
 
 function exchangeOver(server HttpServer) returns ExitCode
 	let boundPort = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async acceptedAs(server)
 	let overflow = StringBuilder.create()
 	for _ in 0 upto OverflowBytes 'fill'
@@ -2443,7 +2320,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 		peer.cancel()
 		return 3
 	end 'cancelled38'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let accepted = await peer
 	let answer = everythingFrom(client)
 	client.close()
@@ -2465,7 +2341,6 @@ accept=served /first answered=true
 ```
 
 <!-- test: http-server.a-silent-client-does-not-delay-another-request -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `serve` reads each connection's request in its own coroutine, so a client that connects and sends nothing holds only its own connection: with no read deadline, so that nothing but the silent client's own `close()` can end its connection, a request made beside it is still answered, and `serve` goes on until its promise is cancelled.
 ```maxon
@@ -2497,7 +2372,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	limits.readDeadlineMs = 0
 	server.setLimits(limits)
 	let port = server.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveAnswers(server)
 	let silent = try TcpClient.connect("127.0.0.1", port: port) otherwise 'cancelled27'
 		peer.cancel()
@@ -2525,8 +2399,6 @@ a request beside a silent client: 200 [answered]
 ```
 
 <!-- test: http-server.a-handler-that-computes-does-not-delay-another-connection -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 `serve` gives each accepted connection a green thread of its own, so a handler that computes for a long stretch without
@@ -2602,24 +2474,18 @@ function exchangeOver(server HttpServer) returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gate = spawn Gate.create()
 	let released = ReleaseCell.create(false)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, gate: gate.clone(), released: released.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let slow = async answered(port, path: "/spin")
 	var inside = false
 	while not inside 'untilInside'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		inside = try await gate.hasEntered() otherwise panic("the gate is open")
 		if not inside 'nap'
 			sleep(GatePollMs)
 		end 'nap'
 	end 'untilInside'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let quick = async answered(port, path: "/quick")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let quickAnswered = await quick
 	released.publish(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let slowAnswered = await slow
 	print("quick answered beside the loop: {quickAnswered}, spin answered once released: {slowAnswered}\n")
 	peer.cancel()
@@ -2636,8 +2502,6 @@ quick answered beside the loop: true, spin answered once released: true
 ```
 
 <!-- test: http-server.connections-share-state-through-a-service-the-handler-holds -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The handler is one read-only value every connection reads at once, so what the connections share is a service it holds
@@ -2691,7 +2555,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let tally = spawn Tally.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, tally: tally.clone())
 	for _ in 0 upto 3 'eachRequest'
 		_ = try HttpClient.get("http://127.0.0.1:{port}/count") otherwise 'cancelled48'
@@ -2701,7 +2564,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	end 'eachRequest'
 	peer.cancel()
 	server.close()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await tally.total() otherwise return 3
 	print("{total}\n")
 	return 0

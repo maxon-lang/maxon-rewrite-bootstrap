@@ -145,6 +145,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opWhen 'opcodeWhen'
 		return false
 	end 'opcodeWhen'
+	if op == ir.Opcode.opAsync 'opcodeAsync'
+		return false
+	end 'opcodeAsync'
 	if op == ir.Opcode.opClosure 'opcodeClosure'
 		return false
 	end 'opcodeClosure'

@@ -1,0 +1,67 @@
+// native-only
+// An await gives what the coroutine's function returned, and a try around the await catches what it threw. A coroutine
+// may start coroutines of its own, in the same strand, and an untied promise may be returned to be awaited by the caller.
+// The interpreter runs no coroutine.
+//> value-of-x failed
+//> inner 21
+//> total 10
+//> started 41
+//> main between
+//> noisy a
+typealias Tally = int(0 to 1000000)
+
+typealias TallyPromise = Promise with Tally
+
+enum FetchError implements Error
+	notFound
+end 'FetchError'
+
+function lookup(key String) returns String throws FetchError
+	sleep(5)
+	if key == "missing" 'absent'
+		throw FetchError.notFound
+	end 'absent'
+	return "value-of-{key}"
+end 'lookup'
+
+function nap(delay Milliseconds, tag Tally) returns Tally
+	sleep(delay)
+	return tag
+end 'nap'
+
+function inner(n Tally) returns Tally
+	let p = async nap(3, tag: n)
+	let q = async nap(1, tag: try n + 1 otherwise 0)
+	return try await p + await q otherwise 0
+end 'inner'
+
+function started(n Tally) returns TallyPromise
+	return async nap(1, tag: n)
+end 'started'
+
+function noisy(text String)
+	Scheduler.yield()
+	print("noisy {text}\n")
+end 'noisy'
+
+function main() returns ExitCode
+	let good = async lookup("x")
+	let bad = async lookup("missing")
+	let g = try await good otherwise "none"
+	let m = try await bad otherwise "failed"
+	print("{g} {m}\n")
+	let i = async inner(10)
+	print("inner {await i}\n")
+	var total = 0 as Tally
+	for k in 0 upto 5 'loop'
+		let p = async nap(1, tag: k)
+		total = try total + await p otherwise 0
+	end 'loop'
+	print("total {total}\n")
+	let u = started(41)
+	print("started {await u}\n")
+	let v = async noisy("a")
+	print("main between\n")
+	await v
+	return 0
+end 'main'

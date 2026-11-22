@@ -38,7 +38,9 @@ function emitLinuxRuntime(calls EntryCalls, options RuntimeOptions) returns Code
 	u.defineData(ir.rtSymbol(ir.Rt.rtProcessStart), size: wordBytes)
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
-	emitLinuxEntry(u, calls: calls, count: options.countAllocations)
+	emitLinuxEntry(u, count: options.countAllocations)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtMainGreen))
+	emitMainGreen(u, calls: calls)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
 	emitLinuxThreadStart(u)
 	u.defineCode(faultSymbol)
@@ -51,7 +53,7 @@ function emitLinuxRuntime(calls EntryCalls, options RuntimeOptions) returns Code
 end 'emitLinuxRuntime'
 
 // emitLinuxEntry writes the executable's entry point, where the kernel starts the process with rsp at the argument count.
-function emitLinuxEntry(mutates u CodeUnit, calls EntryCalls, count bool)
+function emitLinuxEntry(mutates u CodeUnit, count bool)
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtProcessStart), src: rsp)
 	u.asm.movImm(rax, imm: linuxStdoutFd)
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStdout), src: rax)
@@ -71,13 +73,7 @@ function emitLinuxEntry(mutates u CodeUnit, calls EntryCalls, count bool)
 	emitMainStack(u, unmapped: unmapped)
 	emitSignalStack(u)
 	emitFaultActions(u)
-	for i in 0 upto calls.symbols.count() 'calls'
-		u.asm.callSymbol(calls.symbols[i])
-	end 'calls'
-	if not calls.exitsWithResult 'passed'
-		u.asm.movImm(resultWord(), imm: 0)
-	end 'passed'
-	callRuntime(u, entry: ir.Rt.rtSchedDrain, arg: resultWord())
+	emitRunMain(u)
 	if count 'leaks'
 		callRuntime(u, entry: ir.Rt.rtCheckLeaks, arg: resultWord())
 	end 'leaks'

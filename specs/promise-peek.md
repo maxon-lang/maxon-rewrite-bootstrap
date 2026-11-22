@@ -59,8 +59,6 @@ the peek. `rejected-on-wasm` pins that attribution.
 ## Tests
 
 <!-- test: promise-peek.completes-under-the-drive -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE DISCRIMINATING CASE.** A freshly spawned thread has not run, so `isComplete()` answers `false`;
 the program's yield loop lets it run to completion, so the same peek answers `true`; and the promise is
 still awaitable afterwards. It is the `false -> true` TRANSITION that pins the mechanism rather than
@@ -81,7 +79,6 @@ end 'makeValue'
 function main() returns ExitCode
 	let maxSpins = 100
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue())
 	let p = try arr.get(0) otherwise panic("the promise was just pushed")
 	let before = p.isComplete()
@@ -99,7 +96,6 @@ function main() returns ExitCode
 	if after 'completeAfterTheDrive'
 		score = score + 2
 	end 'completeAfterTheDrive'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await p == 42 'stillAwaitable'
 		score = score + 4
 	end 'stillAwaitable'
@@ -111,8 +107,6 @@ end 'main'
 ```
 
 <!-- test: promise-peek.does-not-consume-the-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Three peeks and the promise is untouched: `await` still hands over the value, `await`'s linearity
 (E3100) counts none of them, and the run is leak-clean.
 ```maxon
@@ -129,7 +123,6 @@ end 'makeValue'
 
 function main() returns ExitCode
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue())
 	let p = try arr.get(0) otherwise panic("the promise was just pushed")
 	let a = p.isComplete()
@@ -139,7 +132,6 @@ function main() returns ExitCode
 	if a == b and b == c 'threePeeksAgree'
 		score = score + 3
 	end 'threePeeksAgree'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await p == 42 'theResultSurvived'
 		score = score + 4
 	end 'theResultSurvived'
@@ -151,8 +143,6 @@ end 'main'
 ```
 
 <!-- test: promise-peek.a-peek-through-a-function-leaves-the-promise-alone -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE PEEK BEHIND A FUNCTION, WHICH IS THE SHAPE A DISPATCHER WRITES.** Every case above peeks inline
 in `main`; `SpecWorkerPool.drainHasAnswered` takes the promise as a BY-VALUE PARAMETER and peeks it there.
 
@@ -177,7 +167,6 @@ end 'peek'
 
 function main() returns ExitCode
 	let maxSpins = 100
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let before = peek(p)
 	var spins = 0 as Count
@@ -194,7 +183,6 @@ function main() returns ExitCode
 	if after 'completeAfterTheDrive'
 		score = score + 2
 	end 'completeAfterTheDrive'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await p == 42 'stillAwaitable'
 		score = score + 4
 	end 'stillAwaitable'
@@ -206,8 +194,6 @@ end 'main'
 ```
 
 <!-- test: promise-peek.two-promises-name-two-threads -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 The handle under a promise (`.inner`, library-tier) distinguishes green threads: two spawns are two
 handles, and neither is null. This is the property a dispatcher holding N slots leans on — it peeks each slot in turn, and a handle that named
@@ -232,9 +218,7 @@ end 'makeValue'
 
 function main() returns ExitCode
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue())
 	let first = try arr.get(0) otherwise panic("both promises were just pushed")
 	let second = try arr.get(1) otherwise panic("both promises were just pushed")
@@ -247,7 +231,6 @@ function main() returns ExitCode
 	end 'twoDistinctThreads'
 	var sum = 0 as Integer
 	for p in arr 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
 	end 'each'
 	if sum == 84 'bothRan'
@@ -261,8 +244,6 @@ end 'main'
 ```
 
 <!-- test: promise-peek.the-handle-survives-a-field-chain -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ **A SECOND DOOR, PINNED ON ITS OWN.** `h.p.isComplete()` is a member call at the end of a TWO-HOP chain,
 and the parser resolves a chain through its own walk rather than through the single-hop member dispatch —
 so "the peek works on `p`" is no evidence at all about `h.p`. The peek taken THROUGH THE CHAIN must go
@@ -293,7 +274,6 @@ end 'makeValue'
 function main() returns ExitCode
 	let maxSpins = 100
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue())
 	let p = try arr.get(0) otherwise panic("the promise was just pushed")
 	let h = Holder.of(p)
@@ -312,7 +292,6 @@ function main() returns ExitCode
 	if after 'thechainreadsarealstatus'
 		score = score + 2
 	end 'thechainreadsarealstatus'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await h.p == 42 'stillawaitable'
 		score = score + 4
 	end 'stillawaitable'
@@ -324,8 +303,6 @@ end 'main'
 ```
 
 <!-- test: promise-peek.the-chain-names-the-thread-the-promise-named -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 The handle read through the two-hop chain is the handle the promise carried before it moved into the
 `Holder`: `h.p.inner` resolves through the chain walk, `p.inner` through the single-hop member dispatch,
@@ -350,7 +327,6 @@ function makeValue() returns Integer
 end 'makeValue'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async makeValue()
 	let handle = p.inner
 	let h = Holder.of(p)
@@ -361,7 +337,6 @@ function main() returns ExitCode
 	if handle != 0 'aRealHandle'
 		score = score + 2
 	end 'aRealHandle'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await h.p == 42 'stillAwaitable'
 		score = score + 4
 	end 'stillAwaitable'
@@ -403,8 +378,6 @@ error E3005: <fragment>:3:24: '__Builtins.gtIsComplete' requires an argument of 
 ```
 
 <!-- test: promise-peek.rejected-on-wasm -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 ⭐ **THE REFUSAL NAMES THE YIELD POINT, NOT THE PEEK.** `__gt_is_complete` is a load and a compare and
@@ -426,11 +399,9 @@ end 'makeValue'
 
 function main() returns ExitCode
 	var arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue())
 	let p = try arr.get(0) otherwise panic("the promise was just pushed")
 	let done = 1 if p.isComplete() else 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p + done) as ExitCode
 end 'main'
 ```

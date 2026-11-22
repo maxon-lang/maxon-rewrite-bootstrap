@@ -39,8 +39,6 @@ being pinned is target-neutral and is covered without a marker by `try-otherwise
 ## Tests
 
 <!-- test: async-try-await.otherwise-default -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two throwing async calls: one succeeds (its result flows through) and one throws (its `otherwise` fallback
 value stands in). The two `try await` sites use the ordinary `try` fallback-value desugar.
 ```maxon
@@ -57,15 +55,11 @@ function mayFail(succeed bool) returns Integer throws WorkError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async mayFail(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = try await p1 otherwise 0
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async mayFail(false)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = try await p2 otherwise 80
-	return (r1 + r2) as ExitCode
+	return try (r1 + r2) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -75,8 +69,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-try-await.propagate -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A bare `try await p` inside a throwing function propagates the awaited thunk's error to the caller — here
 the thunk succeeds, so the propagate is not taken and the result flows through.
 ```maxon
@@ -93,16 +85,14 @@ function mayFail(succeed bool) returns Integer throws WorkError
 end 'mayFail'
 
 function inner() returns Integer throws WorkError
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = try await p
 	return result
 end 'inner'
 
 function main() returns ExitCode
 	let r = try inner() otherwise 0
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -112,8 +102,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-try-await.otherwise-panic -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `otherwise panic(…)` on a succeeding `try await` — the panic is unreachable and the result flows through.
 ```maxon
 enum WorkError implements Error
@@ -129,11 +117,9 @@ function succeeds(n Integer) returns Integer throws WorkError
 end 'succeeds'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async succeeds(7)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise panic("should not fail")
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -143,8 +129,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-try-await.void -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A void-returning throwing async function has no result — only an error flag. `try await p otherwise ignore`
 awaits it for its side effect; the thunk succeeds and sets the global.
 ```maxon
@@ -163,9 +147,7 @@ end 'maySetFlag'
 
 function main() returns ExitCode
 	var flag = 0 as ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async maySetFlag(true, flag: flag)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	try await p otherwise ignore
 	return flag
 end 'main'
@@ -175,8 +157,6 @@ end 'main'
 ```
 
 <!-- test: async-try-await.otherwise-bind -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `otherwise (e)` binds the error the awaited thunk THREW, typed at the thunk's declared `throws` enum — the
 promise carries its callee's error type — so `match e` dispatches on the thrown case.
 ```maxon
@@ -197,16 +177,14 @@ function mayFail(mode Integer) returns Integer throws TaskError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise (e) 'failed'
 		return match e 'why'
 			timedOut gives 7
 			crashed gives 9
 		end 'why'
 	end 'failed'
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -216,8 +194,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-try-await.otherwise-bind-assoc-value -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The thrown error is an associated-value union, so the error flag IS a heap pointer to the payload. The
 `(e)` binding takes ownership and scope-end releases it exactly once — a leak (the payload never decref'd)
 or a double-free would surface under the runtime's allocation accounting (exit 101). The payload is a
@@ -235,9 +211,7 @@ function work(shouldFail bool) returns Integer throws WorkError
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise (e) 'failed'
 		match e 'which'
 			refused(code) then return code as ExitCode
@@ -254,8 +228,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-try-await.otherwise-bind-cross-block -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The `async` and its `try await` sit in different basic blocks — an intervening `if` separates them — so the
 promise (and its error type) must reach the await across the block boundary. In the compiler the promise is the
 same SSA value throughout, so its error type is carried with no rebuild.
@@ -273,19 +245,17 @@ function work(shouldFail bool) returns Integer throws WorkError
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(true)
 	var guard = 1 as Integer
 	if guard == 1 'sep'
 		guard = 2
 	end 'sep'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p otherwise (e) 'failed'
 		return match e 'which'
 			failed gives 0
 		end 'which'
 	end 'failed'
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -295,8 +265,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-try-await.otherwise-bind-void -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A void-returning throwing async awaited with `try await … otherwise (e)`: there is no result, only the error
 flag, and the `(e)` binding is still typed at the thunk's `throws` enum.
 ```maxon
@@ -316,9 +284,7 @@ end 'maySetFlag'
 
 function main() returns ExitCode
 	var flag = 0 as ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async maySetFlag(false, flag: flag)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	try await p otherwise (e) 'failed'
 		flag = match e 'which'
 			timedOut gives 7
@@ -333,8 +299,6 @@ end 'main'
 ```
 
 <!-- test: async-try-await.error.propagate-type-mismatch -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A bare `try await p` re-throws the awaited thunk's error through the enclosing function's error-return ABI.
 If the two error types differ the caller would decode one enum's ordinals as another's tags — a silent
@@ -354,9 +318,7 @@ function throwsA() returns Integer throws AError
 end 'throwsA'
 
 function caller() returns Integer throws BError
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async throwsA()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await p
 	return r
 end 'caller'
@@ -373,8 +335,6 @@ error E3059: <fragment>:17:10: try propagates 'AError' but enclosing function th
 ```
 
 <!-- test: async-try-await.error.double-try-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `try await` is LINEAR exactly as plain `await` is — awaiting one throwing promise twice would release its
 green thread twice. The linearity pass counts `tryAwait` sites, not only plain `await`, so the second
@@ -391,13 +351,10 @@ function compute() returns Integer throws WorkError
 end 'compute'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async compute()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = try await p otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = try await p otherwise 0
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -407,8 +364,6 @@ error E3142: <fragment>:14:20: this promise was already consumed by an earlier '
 ```
 
 <!-- test: async-try-await.parenthesized-target -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A parenthesized `await` is a `try` target like the bare one: the group's value is the await, so the
 `try` claims it and its `otherwise` catches the error.
 ```maxon
@@ -422,11 +377,9 @@ function compute() returns Integer throws WorkError
 end 'compute'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async compute()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = try (await p) otherwise 7
-	return a as ExitCode
+	return try a as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

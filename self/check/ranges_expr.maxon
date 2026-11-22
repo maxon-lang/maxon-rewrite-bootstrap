@@ -268,6 +268,13 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 	if k == ast.NodeKind.unaryExpr 'unary'
 		return rangeUnaryExpr(r, p: p, ms: ms, e: e)
 	end 'unary'
+	if k == ast.NodeKind.asyncExpr 'async'
+		rangeAsyncCall(r, p: p, ms: ms, e: ast.asyncExprCall(ms.tree(), id: e))
+		return noSpan()
+	end 'async'
+	if k == ast.NodeKind.awaitExpr 'await'
+		return rangeAwait(r, p: p, ms: ms, e: e)
+	end 'await'
 	if k == ast.NodeKind.castExpr 'cast'
 		return rangeCastExpr(r, p: p, ms: ms, e: e)
 	end 'cast'
@@ -412,6 +419,38 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 	end 'throws'
 	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeCallExpr'
+
+// rangeAsyncCall analyses the arguments of the call an async call starts, which it evaluates as the call would: it fails
+// nowhere, since what the function throws its await fails with, and what it changes is unknown until the await.
+function rangeAsyncCall(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)
+	let call = match consumes r.typing.calls.get(e as Count) 'call'
+		some(info) gives info
+		none panic("ranges: the async call at node {e} was typed without a record of what it calls")
+	end 'call'
+	for i in 0 upto call.ordered.count() 'args'
+		if call.ordered[i] != 0 'given'
+			_ = rangeEval(r, p: p, ms: ms, e: call.ordered[i])
+		end 'given'
+	end 'args'
+	for i in 0 upto call.ordered.count() 'changes'
+		let a = call.ordered[i]
+		if a != 0 and i < call.paramSpecs.count() and ast.isByAddress(call.paramSpecs[i].conv) 'byAddress'
+			rangeChangedAt(r, p: p, ms: ms, e: a)
+		end 'byAddress'
+	end 'changes'
+end 'rangeAsyncCall'
+
+// rangeAwait analyses an await, which fails with what the function of the promise's coroutine throws.
+function rangeAwait(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
+	let operand = ast.awaitExprE(ms.tree(), id: e)
+	_ = rangeEval(r, p: p, ms: ms, e: operand)
+	let err = ast.promiseError(ms.types, reads: p.types, t: typeOf(r, e: operand))
+	if err != ast.noType 'throws'
+		let why = "await' on a promise from a function that throws '{nameOfType(p, ms: ms, t: err)}' drops the error and leaks its payload — use 'try await"
+		rangeFallible(r, p: p, ms: ms, site: e, err: err, why: Unchecked.call(why))
+	end 'throws'
+	return rangeTyped(r, p: p, ms: ms, e: e)
+end 'rangeAwait'
 
 // isCountedAccess is whether a call is a get or a set of a fixed array whose type states its count, which fails only at an
 // index outside it.

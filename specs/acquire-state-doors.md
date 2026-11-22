@@ -594,8 +594,6 @@ error E3202: <fragment>:68:20: 's' is the state of an acquired service and canno
 ```
 
 <!-- test: error.a-state-sent-through-async-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -672,9 +670,7 @@ end 'main'
 function work(s Ledger.handle) returns Tally
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'held'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async touch(s)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return await p
 	end 'held' otherwise 'stopped'
 		return 0

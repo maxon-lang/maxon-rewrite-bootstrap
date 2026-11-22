@@ -3653,7 +3653,6 @@ end 'main'
 ```
 
 <!-- test: a-function-whose-record-drops-a-promise-it-made-keeps-its-result-droppable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Dropping a record that holds a promise cancels the green thread, which is more than bookkeeping: the worker below never
 runs, so the flag stays 0.
 ```maxon
@@ -3678,7 +3677,6 @@ function worker(flag FlagCell) returns Integer
 end 'worker'
 
 function keep(flag FlagCell) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async worker(flag.clone())
 	let holder = Holder.wrap(promise)
 	_ = holder
@@ -3696,7 +3694,6 @@ end 'main'
 ```
 
 <!-- test: a-function-whose-array-drops-a-promise-it-made-keeps-its-result-droppable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 An array a function fills with a promise it made drops that promise, and the thread with it, when the function ends.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3715,7 +3712,6 @@ end 'worker'
 
 function park(flag FlagCell) returns Integer
 	let parked = PromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	parked.push(async worker(flag.clone()))
 	return 1
 end 'park'

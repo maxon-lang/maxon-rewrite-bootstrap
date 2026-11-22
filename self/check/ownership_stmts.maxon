@@ -21,7 +21,7 @@ function stmt(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st
 	let mark = o.inFlight.count()
 	let out = visitStmtOwn(o, p: p, ms: ms, st: st, s: s)
 	land(o, mark: mark)
-	return out
+	return endPending(out)
 end 'stmt'
 
 function visitStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
@@ -114,7 +114,7 @@ function letStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	bindHolder(o, p: p, ms: ms, local: sym, e: init)
 	bindBorrowHolder(o, p: p, ms: ms, local: sym, e: init)
 	oblige(o, p: p, ms: ms, l: sym, site: site)
-	return without(out, l: sym)
+	return bindLends(without(out, l: sym), holder: sym)
 end 'letStmtOwn'
 
 function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
@@ -129,6 +129,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 		if name.kind == ast.NameKind.nameLocal 'local'
 			let out = consume(o, p: p, ms: ms, e: value, dest: OwnDest.make(OwnDestKind.destVariable, name: targetName), s: s)
 			requireWritable(o, p: p, ms: ms, site: site, path: AccessPath.at(name.local))
+			requireUnlent(o, p: p, ms: ms, root: name.local, site: site, s: out)
 			if not out.dead 'live'
 				requireHeld(o, p: p, ms: ms, site: site, ob: OwnObliged.make(name.local, site: 0 as diag.U32, destroys: false), s: out, kind: OwnDropKind.dropOverwrite)
 			end 'live'
@@ -138,6 +139,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 			let out = consumeInto(o, p: p, ms: ms, target: target, value: value, dest: OwnDest.make(OwnDestKind.destField, name: targetName), s: s)
 			let path = pathOf(o, p: p, ms: ms, e: target)
 			requireWritable(o, p: p, ms: ms, site: site, path: path)
+			requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 			match consumes assignPart(o, p: p, ms: ms, st: st, target: target, path: path, s: out) 'part'
 				some(next) then return next
 				none then _ = 0
@@ -164,6 +166,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 			return out
 		end 'temporary'
 		requireWritable(o, p: p, ms: ms, site: site, path: path)
+		requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 		match consumes assignPart(o, p: p, ms: ms, st: st, target: target, path: path, s: out) 'part'
 			some(next) then return next
 			none then _ = 0
@@ -183,6 +186,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 			return out
 		end 'temporary'
 		requireWritable(o, p: p, ms: ms, site: site, path: path)
+		requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 		requireOverwriteDroppable(o, p: p, ms: ms, st: st, target: target, s: out)
 		return subscript(o, p: p, ms: ms, e: target, s: out)
 	end 'index'
@@ -228,6 +232,7 @@ function behaviourOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	end 'cowns'
 	for i in 0 upto behaviour.captures.count() 'captures'
 		out = consume(o, p: p, ms: ms, e: behaviour.captures[i].refNode, dest: OwnDest.of(OwnDestKind.destBehaviour), s: out)
+		requireNoPromiseCaptured(o, p: p, ms: ms, ref: behaviour.captures[i].refNode, name: behaviour.captures[i].name, behaviour: true)
 	end 'captures'
 	runNested(o, p: p, ms: ms, fid: behaviour.fn, body: ast.whenStmtBodyRef(ms.tree(), id: st), site: st, closureTy: ast.noType)
 	return out
@@ -569,6 +574,7 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 		let site = offsetOfOwn(o, p: p, ms: ms, node: source)
 		if walksItself and held and ast.isByAddress(info.advance.selfConv) and not changesProjection(o, p: p, ms: ms, e: source, site: site, what: "moved on as the cursor of a for") 'advances'
 			requireWritable(o, p: p, ms: ms, site: site, path: path)
+			requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: start)
 		end 'advances'
 	end 'protocol'
 	var lent = ast.LocalIDList.create(0)

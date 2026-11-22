@@ -338,7 +338,6 @@ end 'main'
 ```
 
 <!-- test: a-message-with-two-defaulted-discards-fills-each-slot -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
@@ -370,7 +369,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Meter.create()
 	try h.bump(by: 4) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await h.total() otherwise panic("the service is running")
 	print("total={total}\n")
 	h.shutdown()
@@ -385,8 +383,6 @@ total=4
 ```
 
 <!-- test: a-spawned-call-fills-each-defaulted-discard-into-its-own-slot -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 `async f(tag: 5)` supplies both defaulted `_` arguments to the spawn.
@@ -403,9 +399,7 @@ function f(_ Small = 3, _ SourceLineNumber = __line__, tag Num) returns Num
 end 'f'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async f(tag: 5)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	return r as ExitCode
 end 'main'
@@ -509,7 +503,6 @@ kept
 ```
 
 <!-- test: error.a-message-whose-handler-writes-its-parameter-after-a-discard-refuses-a-shared-value -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -539,7 +532,6 @@ let Shared = [7 as Integer]
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (try await h.bump(p: Shared) otherwise 0) as ExitCode
 end 'main'
 
@@ -550,7 +542,6 @@ error E3200: <fragment>:22:30: 'Shared' is not isolated: only a clean call, a `s
 ```
 
 <!-- test: a-message-whose-handler-only-reads-its-parameter-after-a-discard-accepts-a-shared-value -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -578,7 +569,6 @@ let Shared = [7 as Integer]
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = try await h.keep(p: freeze(Shared.clone())) otherwise 0
 	print("{got}\n")
 	return 0
@@ -594,7 +584,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-message-with-an-interface-parameter-before-a-discard-refuses-a-shared-value -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -640,7 +629,6 @@ let Shared = [7 as Integer]
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (try await h.bump(Tag.create(), p: Shared) otherwise 0) as ExitCode
 end 'main'
 
@@ -651,8 +639,6 @@ error E3200: <fragment>:38:44: 'Shared' is not isolated: only a clean call, a `s
 ```
 
 <!-- test: a-promise-forwarded-by-a-method-with-discards-through-a-later-function-parameter-is-handed-on -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 An instance method with a receiver and two `_` parameters hands its promise to a function-typed parameter that comes after them. The function-typed parameter's position is read in the method's own numbering, receiver included, and the promise is taken by the function it reaches.
 ```maxon
@@ -690,11 +676,9 @@ end 'Hub'
 function main() returns ExitCode
 	let hub = Hub.create()
 	let pending = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	hub.relay(sink: keep, pending: pending, p: async work())
 	var sum = 0 as Integer
 	for q in pending 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await q
 	end 'drain'
 	print("{sum}\n")

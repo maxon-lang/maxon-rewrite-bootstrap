@@ -606,20 +606,16 @@ end 'main'
 ```
 
 <!-- test: default-values.an-async-call-may-name-a-defaulted-first-parameter -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function fetch(retries Integer = 3, delay Integer = 10) returns Integer
 	_ = File.exists(FilePath from "noyield.txt")
-	return retries * 100 + delay
+	return try retries * 100 + delay otherwise panic("out of range")
 end 'fetch'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async fetch(retries: 5)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = await promise
 	print("{result}\n")
 	return 0

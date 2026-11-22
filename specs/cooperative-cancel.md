@@ -20,7 +20,6 @@ On a tied promise it waits for the coroutine to finish.
 ## Tests
 
 <!-- test: a-cancelled-coroutine-parked-in-sleep-consumes-its-linear-value -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The coroutine builds a `Resp`, parks in `sleep(20000)`, and is cancelled. The sleep ends early, the second sleep returns at once, and the coroutine's own code consumes the value: the finalizer prints and the exit code is 0.
 ```maxon
@@ -55,7 +54,6 @@ function worker() returns Code
 end 'worker'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async worker()
 	sleep(200)
 	p.cancel()
@@ -78,7 +76,6 @@ done
 ```
 
 <!-- test: every-sleep-of-a-cancelled-coroutine-returns-at-once -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 A loop of long sleeps in a cancelled coroutine runs through every iteration without waiting.
 ```maxon
@@ -95,7 +92,6 @@ function ticker() returns Tick
 end 'ticker'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async ticker()
 	sleep(200)
 	p.cancel()
@@ -113,8 +109,6 @@ done
 ```
 
 <!-- test: a-sleep-of-a-cancelled-coroutine-lets-a-sibling-run-before-it-returns -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 One processor and no preemption leave the cancelled coroutine's own sleeps as the only point where a sibling can run. The first sleep ends early when the coroutine is cancelled, and the second returns at once but yields once first, so the sibling spawned behind the cancelled coroutine prints before the coroutine finishes its loop.
@@ -137,13 +131,10 @@ function sibling() returns Tick
 end 'sibling'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async ticker()
 	sleep(200)
 	p.cancel()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async sibling()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await q
 	sleep(300)
 	print("done\n")

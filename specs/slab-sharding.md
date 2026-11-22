@@ -83,8 +83,6 @@ excludes*). `sched-processor.md` carries the identical restriction for the ident
 ## Tests
 
 <!-- test: slab-sharding.a-green-thread-program-allocates-through-its-processor-row -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE P-OWNED ROW, HAMMERED.** A green thread's allocations run with `main` adopted as P[0], so every
 span they touch is cut, stamped, cached, drained, evicted and returned against a real owner. This builds
 and drops thousands of short-lived Strings inside green threads and then verifies a population built the
@@ -124,17 +122,14 @@ end 'survivor'
 function main() returns ExitCode
 	let churns = IntPromiseArray.create(0)
 	for i in 0 upto 40 'spawnChurn'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		churns.push(async churn(i))
 	end 'spawnChurn'
 	let kept = PromiseArray.create(0)
 	for k in 0 upto 24 'spawnKeep'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		kept.push(async survivor(k))
 	end 'spawnKeep'
 	var total = 0 as Integer
 	for c in churns 'awaitChurn'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await c
 	end 'awaitChurn'
 	if total != 2400 'churnLost'
@@ -142,7 +137,6 @@ function main() returns ExitCode
 	end 'churnLost'
 	let strings = StringArray.create(0)
 	for p in kept 'awaitKeep'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		strings.push(await p)
 	end 'awaitKeep'
 	for (iter, s) in strings.enumerated() 'check'
@@ -159,8 +153,6 @@ end 'main'
 ```
 
 <!-- test: slab-sharding.a-slot-allocated-before-the-scheduler-is-freed-after-it -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE RAW ROW, AND THE ONE ARM OF THE RAW-ROW LOCK A SINGLE-THREADED PROGRAM REACHES.** Everything allocated
 before the first `async` is allocated with NO processor: the P read answers "none", the spans
 land on the dedicated raw row and are stamped as owned by nobody. Once the scheduler exists those same
@@ -214,9 +206,7 @@ function main() returns ExitCode
 		early.push(build(k as Seed))
 	end 'preScheduler'
 	// The scheduler comes up here, and main becomes P[0].
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await p != 200 'workLost'
 		return 1
 	end 'workLost'
@@ -247,8 +237,6 @@ end 'main'
 ```
 
 <!-- test: slab-sharding.a-parked-span-is-taken-back-and-re-owned -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE UNCACHED SENTINELS, ROUND-TRIPPED.** A span whose last slot is handed OUT is unlinked from its
 owner's mcache row and stamped with an owner that is neither a processor nor "no processor"; the first
 free back into it lists it on mcentral, and the next refill takes it back and re-stamps it. This case
@@ -303,9 +291,7 @@ end 'cycle'
 function main() returns ExitCode
 	// The whole cycle runs inside a green thread, so this program carries the SHARDED allocator and its
 	// spans are parked and re-owned against a real processor.
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async cycle(3)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await p != 12000 'lostBuffers'
 		return 1
 	end 'lostBuffers'
@@ -338,8 +324,6 @@ end 'main'
 ```
 
 <!-- test: slab-sharding.a-parked-span-still-reaches-the-scavenger -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE OWNER STAMP AND THE SCAVENGER, TOGETHER.** The scavenger destroys spans off the mcentral lists, and
 every one of those carries an uncached sentinel in the field the mcache eviction wrote. This is the
 two-pass grace case run through a GREEN THREAD, so the spans it destroys were owned by a real processor
@@ -378,9 +362,7 @@ function fill() returns Integer
 end 'fill'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async fill()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await p != 16000 'lost'
 		return 1
 	end 'lost'
@@ -400,8 +382,6 @@ end 'main'
 ```
 
 <!-- test: slab-sharding.the-traffic-counters-are-exact-across-green-threads -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE COUNTERS, READ THROUGH THE SHARDED ALLOCATOR.** Every traffic column an emitted program keeps is
 stepped inside the slab's doors, and `__mm_alloc`/`__mm_free` carry the tracked doors' hit path inline in a
 build without `--debugstream` and otherwise reach `__slab_alloc_tracked`/`__slab_free_tracked`. A door's hit
@@ -455,11 +435,8 @@ function churn(seed Count) returns Integer
 end 'churn'
 
 function wave(base Count) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let a = async churn(base)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = async churn((base + 1) as Count)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await a) + (await b)
 end 'wave'
 
@@ -499,7 +476,6 @@ end 'main'
 ```
 
 <!-- test: slab-sharding.a-local-free-is-never-counted-as-a-remote-one -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 ⭐ **`HeapStats.slab().remoteFrees` IS THE CROSS-P FREE'S OBSERVER.** A
@@ -575,7 +551,6 @@ function main() returns ExitCode
 		var n = 0 as Integer
 		while n < sinkCount 'collect'
 			let p = try replies.get(n as ElementIndex) otherwise panic("replies.get OOB at {n}")
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			delivered = delivered + (await p)
 			n = n + 1
 		end 'collect'
@@ -593,7 +568,6 @@ delivered=320 remote=0
 ```
 
 <!-- test: slab-sharding.a-sole-processors-frees-onto-an-uncached-span-are-not-remote -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 Twenty thousand strings fill spans the one processor gives back to the shared list, so most of them are freed onto a span no processor caches; those frees are local too.
@@ -632,7 +606,6 @@ end 'holdThenDrop'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let first = try await sink.take("warm") otherwise 0
 	print("first={first} remote-start={HeapStats.slab().remoteFrees}\n")
 	let before = holdThenDrop(20000)
@@ -650,7 +623,6 @@ remote-after-drop=0 before=0
 ```
 
 <!-- test: slab-sharding.services-churning-different-size-classes-keep-their-sums -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **SIX SERVICES, SIX SIZE CLASSES, ONE ALLOCATOR, FOUR PROCESSORS.** Every refill, every return of an exhausted
@@ -828,7 +800,6 @@ function main() returns ExitCode
 			replies.push(try mine.round(next) otherwise panic("churn: a service's mailbox holds a round"))
 		end 'sendEach'
 		for p in replies 'join'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			roundBytes = roundBytes + (await p)
 		end 'join'
 	end 'eachRound'
@@ -837,11 +808,8 @@ function main() returns ExitCode
 	var wrong = 0 as Tally
 	for i in 0 upto ServiceCount 'collect'
 		let h = try handles.get(i) otherwise panic("churn: handles.get OOB at {i}")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let b = try await h.builtBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = try await h.absorbedBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let w = try await h.wrongCount() otherwise 1
 		print("service {i}: built={b} absorbed={a} wrong={w}\n")
 		built = built + b
@@ -869,7 +837,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800
 ```
 
 <!-- test: slab-sharding.the-same-churn-keeps-its-sums-while-another-service-scavenges -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE CHURN OF THE CASE ABOVE, WITH THE SCAVENGER RUNNING UNDER IT.** The same six services, the same six
@@ -1027,10 +994,8 @@ function main() returns ExitCode
 			replies.push(try mine.round(next) otherwise panic("churn: a service's mailbox holds a round"))
 		end 'sendEach'
 		for p in replies 'join'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			roundBytes = roundBytes + (await p)
 		end 'join'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sweeps = await sweeping
 	end 'eachRound'
 	var built = 0 as Tally
@@ -1038,11 +1003,8 @@ function main() returns ExitCode
 	var wrong = 0 as Tally
 	for i in 0 upto ServiceCount 'collect'
 		let h = try handles.get(i) otherwise panic("churn: handles.get OOB at {i}")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let b = try await h.builtBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = try await h.absorbedBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let w = try await h.wrongCount() otherwise 1
 		print("service {i}: built={b} absorbed={a} wrong={w}\n")
 		built = built + b
@@ -1070,7 +1032,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800 sweeps=360
 ```
 
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE CONTROL FOR SAME-LIST CONTENTION: SIX SERVICES, ONE SIZE CLASS.** The ring and the checks of the first
@@ -1225,7 +1186,6 @@ function main() returns ExitCode
 			replies.push(try mine.round(next) otherwise panic("churn: a service's mailbox holds a round"))
 		end 'sendEach'
 		for p in replies 'join'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			roundBytes = roundBytes + (await p)
 		end 'join'
 	end 'eachRound'
@@ -1234,11 +1194,8 @@ function main() returns ExitCode
 	var wrong = 0 as Tally
 	for i in 0 upto ServiceCount 'collect'
 		let h = try handles.get(i) otherwise panic("churn: handles.get OOB at {i}")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let b = try await h.builtBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = try await h.absorbedBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let w = try await h.wrongCount() otherwise 1
 		print("service {i}: built={b} absorbed={a} wrong={w}\n")
 		built = built + b
@@ -1266,7 +1223,6 @@ total built=261792000 absorbed=130896000 wrong=0 rounds=261792000
 ```
 
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums-while-another-service-scavenges -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE TWO CASES ABOVE, JOINED: SIX SERVICES ON ONE SIZE CLASS, A SEVENTH SCAVENGING UNDER THEM.** The ring, the
@@ -1454,10 +1410,8 @@ function main() returns ExitCode
 			replies.push(try mine.round(next) otherwise panic("churn: a service's mailbox holds a round"))
 		end 'sendEach'
 		for p in replies 'join'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			roundBytes = roundBytes + (await p)
 		end 'join'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sweeps = await sweeping
 	end 'eachRound'
 	var built = 0 as Tally
@@ -1465,11 +1419,8 @@ function main() returns ExitCode
 	var wrong = 0 as Tally
 	for i in 0 upto ServiceCount 'collect'
 		let h = try handles.get(i) otherwise panic("churn: handles.get OOB at {i}")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let b = try await h.builtBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = try await h.absorbedBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let w = try await h.wrongCount() otherwise 1
 		print("service {i}: built={b} absorbed={a} wrong={w}\n")
 		built = built + b

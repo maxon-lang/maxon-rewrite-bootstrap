@@ -317,8 +317,6 @@ error E3205: <fragment>:22:7: cannot wait inside 'edit'; another coroutine could
 ```
 
 <!-- test: a-call-through-a-function-value-that-yields-inside-a-window-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -335,9 +333,7 @@ function slow() returns Tally
 end 'slow'
 
 function pause() returns Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async slow()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await later
 end 'pause'
 
@@ -569,7 +565,6 @@ error E3200: <fragment>:21:22: 'Wrapper.around(part)' is used as mutable; freeze
 ```
 
 <!-- test: a-promise-whose-payload-is-not-sendable-is-not-a-clean-input -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Holder` holds a promise of a function value, which cannot cross a thread, so a record built from it cannot be frozen.
 
@@ -594,7 +589,6 @@ function make() returns Maker
 end 'make'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async make()
 	let held = freeze(Holder.around(pending))
 	print("{held.pending}\n")
@@ -606,7 +600,6 @@ error E3171: <fragment>:21:13: `Holder` cannot be frozen: it is a `Holder` whose
 ```
 
 <!-- test: error.a-promise-held-by-a-conformer-is-refused-without-a-service -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `async` spawn that makes the promise before the freeze is judged.
@@ -648,7 +641,6 @@ function make() returns Tally
 end 'make'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async make()
 	let held = freeze(Holder.create(Pending.around(pending)))
 	print("{held.shape.area()}\n")

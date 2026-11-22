@@ -58,6 +58,8 @@ var reservedWords = map[string]bool{
 	"fallthrough": true,
 	"gives":       true,
 	"not":         true,
+	"async":       true,
+	"await":       true,
 	"mod":         true,
 	"shl":         true,
 	"shr":         true,

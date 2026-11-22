@@ -146,16 +146,28 @@ function schedDrain(code Count) returns Count
 	if scheduler == noScheduler 'nothing'
 		return code
 	end 'nothing'
+	drainScheduler(context)
+	return exitCodeAfter(scheduler, code: code)
+end 'schedDrain'
+
+// drainScheduler has the main thread run the scheduler until no behaviour or green thread is left, and takes the exit
+// claim, since the thread that returns from it ends the process.
+function drainScheduler(context Count)
 	__Raw.storeWord(context, offset: contextDrainsOffset, value: set)
 	scheduleLoop(context)
 	__Raw.storeWord(context, offset: contextDrainsOffset, value: unset)
 	regainProc(context)
 	takeExitClaim(context)
+end 'drainScheduler'
+
+// exitCodeAfter is the code the process ends with once the scheduler is drained: the one Process.setExitCode set last, or
+// else main's.
+function exitCodeAfter(scheduler Count, code Count) returns Count
 	if __Raw.loadWord(scheduler, offset: schedExitSetOffset) == set 'exitSet'
 		return __Raw.loadWord(scheduler, offset: schedExitCodeOffset)
 	end 'exitSet'
 	return code
-end 'schedDrain'
+end 'exitCodeAfter'
 
 // regainProc gives the main thread a processor again after a drain, which may have ended with it stopped and holding none,
 // since main goes on to run as before: nothing is left, so every processor is idle or about to be.

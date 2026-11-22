@@ -174,8 +174,8 @@ function seed() returns FullRangeInt
 end 'seed'
 
 function main() returns ExitCode
-	let ms = seed() as Milliseconds
-	return ms as ExitCode
+	let ms = try seed() as Milliseconds otherwise panic("out of range")
+	return try ms as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

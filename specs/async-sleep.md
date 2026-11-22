@@ -91,23 +91,19 @@ end 'main'
 ```
 
 <!-- test: async-sleep.resume-state -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A spawned green thread's frame survives the mid-body yield: a value live across the `sleep` (the parameter
 `base`) is intact after the context switch back into the thread, so `base + 2` is correct.
 ```maxon
 
 function worker(base Integer) returns Integer
 	sleep(30)
-	return base + 2
+	return try base + 2 otherwise panic("out of range")
 end 'worker'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async worker(40)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -117,8 +113,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-sleep.interleave -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Two async threads sleep for different durations; the shorter-sleep one resumes and observes FIRST. Each
 records its completion order into a global (`order = order * 10 + tag`), so `21` proves the fast thread
 (tag 2) completed before the slow thread (tag 1) — deadline order, not spawn order.
@@ -146,13 +140,9 @@ end 'fast'
 
 function main() returns ExitCode
 	let order = OrderCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async slow(order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async fast(order.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p2
 	return order.current() as ExitCode
 end 'main'
@@ -166,8 +156,6 @@ typealias OrderCell = SharedValue with Integer
 ```
 
 <!-- test: async-sleep.coalesced-pass-fires-in-deadline-order -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **FOUR DEADLINES DUE IN ONE PASS, ARMED IN EXACTLY THE WRONG ORDER.** The four sleepers are spawned
 longest-first, so their arming order (400, 300, 200, 100) is the reverse of their deadline order, and a
@@ -213,25 +201,15 @@ end 'hog'
 
 function main() returns ExitCode
 	let order = OrderCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async sleeper(400, tag: 1, order: order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async sleeper(300, tag: 2, order: order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async sleeper(200, tag: 3, order: order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p4 = async sleeper(100, tag: 4, order: order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let busy = async hog(600000000)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p2
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p3
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p4
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await busy
 	print("order={order.current()}")
 	return 0
@@ -257,8 +235,6 @@ end 'main'
 ```
 
 <!-- test: async-sleep.spawn-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Robustness: fifty spawned threads each sleep then complete, awaited in turn. Each parks (yielded, NOT
 completed — its stack must NOT be recycled while parked) then resumes and completes (stack recycled onto the
 free-list). The sum proves all fifty ran to completion with no crash, no use-after-free, and no leak.
@@ -272,14 +248,12 @@ function main() returns ExitCode
 	var i = 0 as Integer
 	var sum = 0 as Integer
 	while i < 50 'l'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async sleeper()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = await p
-		sum = sum + r
+		sum = try sum + r otherwise panic("out of range")
 		i = i + 1
 	end 'l'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -329,7 +303,7 @@ has moved at least the requested 20 ms when it returns.
 function main() returns ExitCode
 	let start = Clock.nowNanos()
 	sleep(20)
-	if Clock.nowNanos() - start >= 20000000 'sleptTheWholeTime'
+	if (try Clock.nowNanos() - start otherwise panic("out of range")) >= 20000000 'sleptTheWholeTime'
 		return 4
 	end 'sleptTheWholeTime'
 	return 1

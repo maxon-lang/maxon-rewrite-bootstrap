@@ -879,3 +879,73 @@ end 'rawMemberOutsideLibrary'
 export function rawTypeOutsideLibrary(typeName String, what String, instead String) returns String
 	return "'{typeName}' named outside the library tiers: {what} only from a source file under stdlib/ or runtime/ — {instead}"
 end 'rawTypeOutsideLibrary'
+
+// The text of errAsyncNonYielding for: '{callee}' — function never yields; 'async' is for I/O-concurrent work only
+export function asyncNeverYields(callee String) returns String
+	return "'{callee}' — function never yields; 'async' is for I/O-concurrent work only"
+end 'asyncNeverYields'
+
+// The text of errUnsupportedFeature for: `async` must be applied to a call — `async f(…)` or `async Type.staticMethod(…)` (got '{got}')
+export function asyncNotACall(got String) returns String
+	return "`async` must be applied to a call — `async f(…)` or `async Type.staticMethod(…)` (got '{got}')"
+end 'asyncNotACall'
+
+// The text of errUnsupportedFeature for: `async {base}.…` spawns a method on a VALUE, and a spawn has no receiver: it starts a linked function by address on the argument words it is handed, and nothing carries a receiver or its ownership across the green-thread boundary. Spawn a free function or a `Type.staticMethod(…)` that takes the value as an argument
+export function asyncOnValue(base String) returns String
+	return "`async {base}.…` spawns a method on a VALUE, and a spawn has no receiver: it starts a linked function by address on the argument words it is handed, and nothing carries a receiver or its ownership across the green-thread boundary. Spawn a free function or a `Type.staticMethod(…)` that takes the value as an argument"
+end 'asyncOnValue'
+
+// The text of errUnsupportedFeature for: `async {callee}(…)` must return a value the green thread can carry in R8, or void — a `float` result is returned in XMM0, which the hand-assembled trampoline never captures, and a result held at an interface type or an opaque type parameter is released through a companion the green-thread struct does not carry. A managed String/struct/array result is accepted: it is one heap pointer, and the await takes the thread's reference
+export function asyncFloatResult(callee String) returns String
+	return "`async {callee}(…)` must return a value the green thread can carry in R8, or void — a `float` result is returned in XMM0, which the hand-assembled trampoline never captures, and a result held at an interface type or an opaque type parameter is released through a companion the green-thread struct does not carry. A managed String/struct/array result is accepted: it is one heap pointer, and the await takes the thread's reference"
+end 'asyncFloatResult'
+
+// The text of errUnsupportedFeature for: an `async` call takes only a local variable by reference, and '{root}' is not one: the coroutine writes it while the caller is free to run, and only a local can be lent until the promise is awaited. Copy it into a local `var`
+export function asyncLocalByReference(root String) returns String
+	return "an `async` call takes only a local variable by reference, and '{root}' is not one: the coroutine writes it while the caller is free to run, and only a local can be lent until the promise is awaited. Copy it into a local `var`"
+end 'asyncLocalByReference'
+
+// The text of errTypeMismatch for: 'await' requires a promise value from 'async', got {got}
+export function awaitNeedsPromise(got String) returns String
+	return "'await' requires a promise value from 'async', got {got}"
+end 'awaitNeedsPromise'
+
+// The text of errUseAfterMove for: use of moved value '{name}': it is lent to the coroutine of the `async` call at {line}:{column} until that promise is awaited or cancelled
+export function lentToCoroutine(name String, line String, column String) returns String
+	return "use of moved value '{name}': it is lent to the coroutine of the `async` call at {line}:{column} until that promise is awaited or cancelled"
+end 'lentToCoroutine'
+
+// The text of errPromiseAlreadyAwaited for: this promise has already been awaited: 'await' is linear — a promise is awaited exactly once, because the awaited thunk hands its result over and a second await would release it twice
+export function promiseAwaitedAgain() returns String
+	return "this promise has already been awaited: 'await' is linear — a promise is awaited exactly once, because the awaited thunk hands its result over and a second await would release it twice"
+end 'promiseAwaitedAgain'
+
+// The text of errPromiseConsumed for: this promise was already consumed by an earlier '{door}': a promise owns a green thread, and a green thread has exactly one owner — the consume reclaims the thread's struct, so a later use of any name that spells it reads memory the scheduler has taken back. An alias names the same thread. Re-arm the binding from a fresh `async` spawn to use the name again
+export function promiseConsumedEarlier(door String) returns String
+	return "this promise was already consumed by an earlier '{door}': a promise owns a green thread, and a green thread has exactly one owner — the consume reclaims the thread's struct, so a later use of any name that spells it reads memory the scheduler has taken back. An alias names the same thread. Re-arm the binding from a fresh `async` spawn to use the name again"
+end 'promiseConsumedEarlier'
+
+// The text of errTiedPromise for: the promise of this `async` call is tied to the mutable data it was given: it is awaited or cancelled and nothing else, never returned, stored, captured, sent or passed on, because the coroutine still holds the caller's data
+export function tiedPromiseEscapes() returns String
+	return "the promise of this `async` call is tied to the mutable data it was given: it is awaited or cancelled and nothing else, never returned, stored, captured, sent or passed on, because the coroutine still holds the caller's data"
+end 'tiedPromiseEscapes'
+
+// The text of errTiedPromise for: this exit leaves '{name}' neither awaited nor cancelled, and the coroutine of the `async` call at {line}:{column} still holds the data it was given: `await {name}` or call `{name}.cancel()` before this exit
+export function tiedPromiseExit(name String, line String, column String) returns String
+	return "this exit leaves '{name}' neither awaited nor cancelled, and the coroutine of the `async` call at {line}:{column} still holds the data it was given: `await {name}` or call `{name}.cancel()` before this exit"
+end 'tiedPromiseExit'
+
+// The text of errPromiseDropped for: this drops '{name}', which was never awaited, cancelled, stored or returned: `await {name}`, call `{name}.cancel()`, store it or return it
+export function promiseDroppedNamed(name String) returns String
+	return "this drops '{name}', which was never awaited, cancelled, stored or returned: `await {name}`, call `{name}.cancel()`, store it or return it"
+end 'promiseDroppedNamed'
+
+// The text of errPromiseDropped for: this drops a promise that was never awaited, cancelled, stored or returned: `await` it, call `.cancel()` on it, store it or return it
+export function promiseDroppedUnnamed() returns String
+	return "this drops a promise that was never awaited, cancelled, stored or returned: `await` it, call `.cancel()` on it, store it or return it"
+end 'promiseDroppedUnnamed'
+
+// The text of errUnsupportedFeature for: `async {callee}(…)` — `{callee}` is a runtime intrinsic the compiler lowers in place, so it names no function a green thread could start at; call it directly, or spawn a function that calls it
+export function asyncOfIntrinsic(callee String) returns String
+	return "`async {callee}(…)` — `{callee}` is a runtime intrinsic the compiler lowers in place, so it names no function a green thread could start at; call it directly, or spawn a function that calls it"
+end 'asyncOfIntrinsic'

@@ -218,7 +218,6 @@ child exit=0
 ```
 
 <!-- test: scheduler-processor-count.asked-before-the-first-spawn -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A pool is sized BEFORE its services exist, so the count read ahead of the first `spawn` must be the one the
 services then run on.
@@ -242,7 +241,6 @@ function main() returns ExitCode
 	let before = Scheduler.processorCount()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Worker.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let units = try await h.work(4) otherwise 0
 	let after = Scheduler.processorCount()
 	if before == after and before >= 1 'stable'

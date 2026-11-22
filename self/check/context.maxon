@@ -124,6 +124,8 @@ export enum LackReason
 	lackUnbounded
 	lackMutatesCaptures
 	lackInterface
+	// lackPromise is a promise, which owns a coroutine that one owner awaits: it is neither copied nor dropped.
+	lackPromise
 end 'LackReason'
 
 export type LackStep
@@ -226,11 +228,18 @@ export type Checker
 	export var recorded as ast.NodeIDList
 	// fnLocals are the locals of the function being checked, in the order they were declared.
 	export var fnLocals as ast.LocalIDList
+	// waitNow is whether the function being checked may wait, and waitCalls the functions of the module it calls, whose
+	// facts say whether it may; waits holds each checked function's, and pendingAsyncs the async calls that E3073 asks
+	// them of once every body is checked (waits.maxon).
+	export var waitNow as bool
+	export var waitCalls as ast.FuncIDList
+	export var waits as WaitFacts
+	export var pendingAsyncs as PendingAsyncList
 
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), pendingAsyncs: PendingAsyncList.create(0)}
 	end 'make'
 end 'Checker'
 
@@ -760,6 +769,7 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		builtinFrozen gives true
 		builtinCown gives true
 		builtinCursor gives true
+		builtinPromise gives true
 		invalid gives false
 		primBool gives false
 		primString gives false
@@ -842,6 +852,9 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 		end 'ok'
 		return LackInfo.fail(LackStep.root(t, reason: LackReason.lackUnbounded))
 	end 'tp'
+	if k == ast.TypeKind.builtinPromise 'promise'
+		return LackInfo.fail(LackStep.root(t, reason: LackReason.lackPromise))
+	end 'promise'
 	if k == ast.TypeKind.interfaceTy 'interface'
 		if wantCopy and not ast.reachesInterface(ms.types, reads: p.types, have: t, want: p.builtins.copyableTy) 'notCopyable'
 			return LackInfo.fail(LackStep.root(t, reason: LackReason.lackInterface))
@@ -940,7 +953,9 @@ export function lackWhyText(tt ast.TypeSlot, reads ast.TypeTable, info LackInfo,
 			buf.append("'{oName}' mutates captures, so its closure holds state that only one owner may change".toByteArray())
 		end 'captures' else if r == LackReason.lackInterface 'interface'
 			buf.append("a '{oName}' value holds a value of any type that implements '{oName}', which need not be Copyable".toByteArray())
-		end 'interface' else 'unb'
+		end 'interface' else if r == LackReason.lackPromise 'promise'
+			buf.append("'{oName}' owns a coroutine, which exactly one owner awaits".toByteArray())
+		end 'promise' else 'unb'
 			buf.append("the type parameter '{oName}' is not known to be {capName}".toByteArray())
 		end 'unb'
 	end 'each'
@@ -966,6 +981,9 @@ export function lackFixText(tt ast.TypeSlot, reads ast.TypeTable, info LackInfo,
 	if r == LackReason.lackInterface 'interface'
 		return "declare 'interface {oName} extends Copyable', so that only a Copyable type implements it"
 	end 'interface'
+	if r == LackReason.lackPromise 'promise'
+		return "'await' the promise, and copy or drop a value that holds its result"
+	end 'promise'
 	return ""
 end 'lackFixText'
 
@@ -1073,6 +1091,12 @@ end 'receiverOf'
 export function instantiateGeneric(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, off diag.U32, orig ast.TypeID, args ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
 	let base = ast.originOf(ms.types, reads: p.types, t: orig)
 	let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: base).typeParams)
+	if base == p.builtins.promiseOrigin and args.count() == 1 'unthrowing'
+		// `Promise with T` is the promise of a function that throws nothing: its error argument is void.
+		var both = ast.cloneTypeArgs(args)
+		both.push(p.builtins.voidTy)
+		return instantiateGeneric(c, p: p, ms: ms, off: off, orig: orig, args: both, errs: errs)
+	end 'unthrowing'
 	if args.count() != params.count() 'badCount'
 		let bName = ast.typeEntry(ms.types, reads: p.types, t: base).name.clone()
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: diag.genericArityMismatch(bName, expected: "{params.count()}", supplied: "{args.count()}"), errs: errs)

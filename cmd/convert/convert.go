@@ -1353,10 +1353,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case tokIdent:
 			switch t.text {
-			case "async", "await":
-				if i == 0 || toks[i-1].text != "." {
-					warn(line, fmt.Sprintf("'%s' is not supported in minimaxon; use cown/when concurrency", t.text))
-				}
 			case "spawn":
 				if (i == 0 || toks[i-1].text != ".") && i+1 < len(toks) && (toks[i+1].kind == tokIdent || toks[i+1].text == "(") {
 					warn(line, "spawn services are not supported in minimaxon; use cown/when concurrency")

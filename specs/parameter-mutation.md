@@ -208,8 +208,6 @@ end 'main'
 ```
 
 <!-- test: async-transitive-let-array-ok -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The same mutation, one `async` further away: a spawn hands the coroutine a reference to what its caller was
 handed, so `outer` writes `d` whether the write runs before the await or after it.
 
@@ -218,22 +216,20 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function inner(d IntArray) returns Integer
+function inner(mutates d IntArray) returns Integer
 	Scheduler.yield()
 	d.push(7)
-	return d.count() as Integer
+	return try d.count() as Integer otherwise panic("out of range")
 end 'inner'
 
-function outer(d IntArray) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+function outer(mutates d IntArray) returns Integer
 	let pending = async inner(d)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await pending
 end 'outer'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
-	return outer(a) as ExitCode
+	var a = IntArray.create(0)
+	return try outer(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

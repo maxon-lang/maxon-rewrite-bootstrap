@@ -149,8 +149,6 @@ refused resolveFailed
 ```
 
 <!-- test: tcp-client.an-ipv6-literal-binds-connects-and-echoes-in-every-spelling -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 A bare IPv6 literal is an address, not a name: `TcpListener.bind` and `TcpClient.connect` take it as `::1` and talk
 over an `AF_INET6` socket, whatever way the address is written. Every spelling below is the loopback address, so
@@ -167,7 +165,6 @@ function echoOnce(listener TcpListener) returns String
 end 'echoOnce'
 
 function reach(spelling String, port NetworkPort, listener TcpListener) returns String
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async echoOnce(listener)
 	let client = try TcpClient.connect(spelling, port: port) otherwise (e) 'refused'
 		peer.cancel()
@@ -181,7 +178,6 @@ function reach(spelling String, port NetworkPort, listener TcpListener) returns 
 		peer.cancel()
 		return "recv-failed"
 	end 'cancelled18'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let heard = await peer
 	return "{String.from(answer)}/{heard}"
 end 'reach'

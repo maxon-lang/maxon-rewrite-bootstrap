@@ -1,0 +1,56 @@
+typealias Tally = int(0 to 1000000)
+
+type Row
+	export var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+
+	function peek() returns Tally
+		sleep(1)
+		return n
+	end 'peek'
+end 'Row'
+
+typealias TallyPromise = Promise with Tally
+
+enum TaskError implements Error
+	failed
+end 'TaskError'
+
+function readRow(row Row) returns Tally
+	sleep(1)
+	return row.n
+end 'readRow'
+
+function bump(mutates row Row) returns Tally
+	sleep(1)
+	row.n = try row.n + 1 otherwise 0
+	return row.n
+end 'bump'
+
+function fails() returns Tally throws TaskError
+	sleep(1)
+	throw TaskError.failed
+end 'fails'
+
+function nap(tag Tally) returns Tally
+	sleep(1)
+	return tag
+end 'nap'
+
+function early(c bool) returns Tally
+	let row = Row.create(1)
+	let p = async readRow(row)
+	if c 'leave'
+		return 0
+	end 'leave'
+	return await p
+end 'early'
+
+function main() returns ExitCode
+	return early(true)
+end 'main'
+
+// expect-error: E3212 at 47:3

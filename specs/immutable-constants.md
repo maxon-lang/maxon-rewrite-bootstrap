@@ -1101,7 +1101,6 @@ error E3196: <fragment>:19:16: cannot store a read-only 'Credit' into 'an elemen
 ```
 
 <!-- test: immutable-names-share-across-a-service-send -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -1138,9 +1137,7 @@ end 'Sink'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sink = spawn Sink.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let first = try await sink.keep(Tok.create(Label)) otherwise panic("main: a fresh sink answers keep")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let second = try await sink.keep(Tok.create(Label)) otherwise panic("main: a fresh sink answers keep")
 	sink.shutdown()
 	print("{first} {second} {Label.count()}\n")
@@ -2192,7 +2189,6 @@ end 'main'
 ```
 
 <!-- test: a-record-of-let-values-crosses-a-message-with-no-capability-word -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Reading` holds only `let` numbers, so it is a value on a message like a `String`.
 
@@ -2225,9 +2221,7 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let meter = spawn Meter.create()
 	let reading = Reading.create("five", amount: 5)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let first = try await meter.add(reading) otherwise panic("main: a fresh meter answers add")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let second = try await meter.add(Reading.create("seven", amount: 7)) otherwise panic("main: a fresh meter answers add")
 	meter.shutdown()
 	print("{first} {second}\n")
@@ -2653,7 +2647,6 @@ end 'main'
 ```
 
 <!-- test: a-clone-of-a-record-holding-an-immutable-name-is-sent-to-an-async-worker -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -2694,12 +2687,9 @@ function main() returns ExitCode
 	let tok = Tok.create(Label)
 	let copy = tok.clone()
 	let again = copy.clone()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async measure(copy)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async measure(again)
 	let frozen = Tok.create(built())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let third = async measure(frozen.clone())
 	print("{await first} {await second} {await third} {tok.value.count()} {frozen.value.count()}\n")
 	return 0

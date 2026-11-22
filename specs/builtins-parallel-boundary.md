@@ -74,8 +74,6 @@ the library tier (`<!-- tier: stdlib -->`). A program writes `Scheduler.parallel
 ## Tests
 
 <!-- test: builtins-parallel-boundary.marks-a-cpu-bound-spawn -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 A CPU-bound function whose only concession to the scheduler is `__Builtins.parallelBoundary()` is a
 legal `async` target: the spawn compiles, runs, and hands back the value it computed.
@@ -100,9 +98,7 @@ function work(n ExitCode) returns ExitCode
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(6)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = await p
 	print("{got}")
 	return got
@@ -116,9 +112,6 @@ end 'main'
 ```
 
 <!-- test: builtins-parallel-boundary.error.the-control-still-refuses -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 **THE CONTROL, AND IT IS HALF THE PROOF.** The identical program WITHOUT the marker is refused. A
 compiler that had stopped checking, or one that treated every function as yielding, would pass the
 case above and this one too — so the marker case means something only while this one is red.
@@ -128,9 +121,7 @@ function work(n ExitCode) returns ExitCode
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(6)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = await p
 	return got
 end 'main'

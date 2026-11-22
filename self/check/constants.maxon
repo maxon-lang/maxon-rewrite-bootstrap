@@ -96,7 +96,12 @@ function constRefsOfOperands(p ast.Project, ms ast.ModuleState, tree ast.Tree, r
 		constRefsOfChain(p, ms: ms, tree: tree, res: res, e: e, out: out)
 	end 'binary' else if k == ast.NodeKind.unaryExpr 'unary'
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.unaryExprE(tree, id: e), out: out)
-	end 'unary' else if k == ast.NodeKind.tryExpr 'try'
+	end 'unary' else if k == ast.NodeKind.asyncExpr 'async'
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.asyncExprCall(tree, id: e), out: out)
+	end 'async' else if k == ast.NodeKind.awaitExpr 'await'
+		out.runs = true
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.awaitExprE(tree, id: e), out: out)
+	end 'await' else if k == ast.NodeKind.tryExpr 'try'
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.tryExprE(tree, id: e), out: out)
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.tryFallback(tree, e: e), out: out)
 	end 'try' else if k == ast.NodeKind.condExpr 'cond'

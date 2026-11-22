@@ -1729,7 +1729,6 @@ error E3106: <fragment>:5:10: 'FixedArray.create' cannot publish slots of 'Strin
 ```
 
 <!-- test: error.a-service-handle-element-is-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `<Service>.handle` is a pointer to a cown box, so `Slots.create()` would publish null handles that a send dereferences. It is refused as a `String` is, and the array starts from `create(value: h)` instead.
@@ -1752,7 +1751,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let slots = Slots.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reply = try await worker.ping() otherwise 9
 	return (reply + slots.count()) as ExitCode
 end 'main'
@@ -1762,7 +1760,6 @@ error E3106: <fragment>:18:14: 'FixedArray.create' cannot publish slots of 'Work
 ```
 
 <!-- test: a-service-handle-fixed-array-starts-from-a-value -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every slot starts as the one handle, so a send through any slot reaches the service.
 ```maxon
@@ -1785,7 +1782,6 @@ function main() returns ExitCode
 	let worker = spawn Worker.create()
 	let slots = Slots.create(value: worker)
 	let picked = slots.get(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reply = try await picked.ping() otherwise 9
 	return 0 if reply == 3 else 1
 end 'main'
@@ -3776,7 +3772,6 @@ copy true false
 ```
 
 <!-- test: fixed-array.a-record-holding-fixed-arrays-crosses-to-a-service-and-back -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
@@ -3837,7 +3832,6 @@ end 'flagsOf'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Svc.create(Cell.create(Content.marked(flagsOf(true, second: false)), mask: Flags.create()))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reply = try await h.report(Cell.create(Content.marked(flagsOf(true, second: false)), mask: flagsOf(false, second: true))) otherwise return 1
 	print("reply {reply.describe()}\n")
 	return 0

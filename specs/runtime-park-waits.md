@@ -191,8 +191,6 @@ violations=0 outstanding=0
 ```
 
 <!-- test: runtime-park-waits.a-a-coroutine-of-main-may-run-the-cown-torture -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A coroutine of `main` holds no service either, so it may run the torture.
 
 ```maxon
@@ -203,9 +201,7 @@ function stress() returns Tally
 end 'stress'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let job = async stress()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let violations = await job
 	print("violations={violations}\n")
 	return 0
@@ -337,7 +333,6 @@ error E2010: <fragment>:11:33: Expected 'a type' but got 'function'
 ```
 
 <!-- test: runtime-park-waits.a-messages-with-aliased-signatures-register-and-answer -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same shapes written through a `typealias` register as messages and answer: a ranged return, a tuple return, and a ranged and a tuple parameter.
 
@@ -372,10 +367,8 @@ end 'Account'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let account = spawn Account.create(5)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let narrowed = try await account.narrowed(3) otherwise 0
 	try account.absorb((10, 4)) otherwise ignore
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let (balance, second) = try await account.bounds() otherwise return 1
 	print("{narrowed} {balance} {second}\n")
 	return 0

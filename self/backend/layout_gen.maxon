@@ -171,6 +171,15 @@ export let tebDeallocationStackOffset = 5240
 // schedExitClaimOffset is where the scheduler's record holds the context of the thread that holds the claim of exiting and stopping threads (Go's suspendLock), 0 for none: the monitor holds it while a thread it stops is suspended, and a thread that ends the process takes it for good, so ExitProcess never meets a thread the monitor suspended.
 export let schedExitClaimOffset = 208
 
+// greenArgsOffset is where a green thread's arguments begin, greenArgWords words that its code reads: an async call's arguments, which its thunk passes to the function.
+export let greenArgsOffset = 80
+
+// greenArgWords is how many words of arguments a green thread holds, and so how many an async call passes.
+export let greenArgWords = 8
+
+// greenErrorOffset is where a coroutine holds what its function failed with, as a call that throws gives it: 0 when it returned.
+export let greenErrorOffset = 424
+
 // stackReserveBytes is the stack each thread reserves, the main thread's in the executable's header and a worker's when the runtime starts it, so a behaviour has the same stack on every thread. The compiler's passes recurse once per level of an expression, and a left-leaning chain of operators is as deep as it is long: a sum of 4,000 names takes about 22 MB. A reserve is only address space, committed a page at a time as the stack grows, so it costs a program nothing that it does not use.
 export let stackReserveBytes = 268435456
 

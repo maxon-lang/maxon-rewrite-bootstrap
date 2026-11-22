@@ -25,6 +25,7 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
 | `sched.maxon` | `schedDrain`, `workerMain`, `osSetExitCode`, `osProcessorCount` | the scheduler, Go's GMP: processors (P) with Go's local run queue and runnext, the global run queue, work stealing, the idle processors and threads, starting and stopping threads (`startThreadFor`, `stopThread`, `wakeProc`, `handOffProc`: Go's startm, stopm, wakep, handoffp), the scheduler's lock, the count of live behaviours and green threads, and the exit code. A thread the runtime starts runs the code its context names (`contextStartCodeOffset`), with the context, in place of the scheduler when that is set. `cownAcquire` calls `schedEnter` for each behaviour, before it can run, and `schedPush` with its record when it is runnable, which gives it a green thread, as `cownRelease` does for the behaviour it hands a cown to |
 | `green.maxon` | — | green threads (Go's g): their records and the pool of stacks, `execute` and the switch to a thread's scheduler (Go's mcall), park and ready with a permit, yield, finish and await, the blocking-call bracket (`enterBlocking`, `exitBlocking`: Go's entersyscall, exitsyscall), and what a preemption runs and may stop (`asyncPreempted`, `stoppable`). The API a test of the runtime calls, and the language's `async`, `await` and services are to lower to: `greenSpawn`, `greenSetArgument`, `greenArgument`, `greenReady`, `greenPark`, `greenYield`, `greenAwait`, `greenCurrent` |
 | `monitor.maxon` | — | the monitor (Go's sysmon): its thread, the poll of a poller no thread polled, retaking processors from blocking calls and preempting green threads that ran 10 ms (`retake`, `preemptOne`), the Windows stop by `SuspendThread` and `SetThreadContext`, and the exit claim (Go's suspendLock) |
+| `strand.maxon` | `asyncNew`, `asyncStart`, `asyncAwait`, `asyncWait`, `asyncError`, `asyncTake`, `sleepMs`, `schedYield`, `mainRun` | strands, maxon's: the coroutines of async calls, which run one at a time with the green thread that started them, the strand handed over where one parks, yields or finishes; what `async`, `await`, `sleep` and `Scheduler.yield()` lower to; and `mainRun`, which runs `main` as a green thread |
 | `timers.maxon` | — | `greenSleep` and the timers' heap under the scheduler's lock |
 | `poll.maxon` | — | the poller (Go's netpoll): on Windows a completion port waited on with `GetQueuedCompletionStatusEx`, broken by `PostQueuedCompletionStatus`; the poll descriptors a green thread waits on (`pollNew`, `pollWait`, `pollSignal`, `pollFree`) |
 | `linux_green.maxon` | — | the Linux part of the above, in `#if os(Linux)`: stacks by `mmap`, the clock and the monitor's sleep through the thread's block, the thread id, SIGURG's action and its handler's code (`preemptSignal`), and the poller, epoll with an eventfd |
@@ -87,10 +88,13 @@ goroutine's is. Where it differs from Go, and why:
   (await, sleep, a poll descriptor) and a test's own then need no lock of their own.
 - **Timers are one heap under the scheduler's lock**, as maxon keeps its timer store under `__sched_lock`, where Go 1.14
   keeps a heap per processor; the design's decision (`phase4/concurrency-design.md`, section 5).
-- **`main` runs on the main thread's own stack, not on a green thread.** The entry stub of every compiler since the seed
-  calls `main` itself and `schedDrain` after it, so `main` cannot park (`greenAwait`, `greenSleep` and `greenPark` panic
-  off a green thread), is never preempted, and brackets no blocking call; it hands its work to green threads, and the
-  drain runs them. A green `main` waits for the stub to call a runtime entry in its place.
+- **`main` is a green thread, as Go's is a goroutine.** The stub calls `mainRun` with the code that calls `main`, which
+  runs it on a green thread and the scheduler on the main thread until nothing is left. `schedDrain` stays for the seed's
+  stub, which calls `main` itself and the drain after it.
+- **Strands are maxon's, which Go has not**: the coroutines of an async call run one at a time with the green thread that
+  started them (`strand.maxon`), handing the strand over only where one waits, yields or finishes, as maxon's strand of a
+  green thread does; a member that parks gives the strand up inside `park`, so every wait of the runtime is one of the
+  strand's.
 - **The heap stays the thread's (the M's), not the processor's.** A green thread allocates from the heap of the thread it
   runs on and may free on another, through the heap's list of boxes other threads freed. That is sound because runtime
   code is never stopped, so an allocation ends on the thread it began on. For the page heap to come, which shards by

@@ -3394,8 +3394,6 @@ error E3008: <fragment>:13:11: typealias 'Smalls' is not exported
 ```
 
 <!-- test: a-consumed-promise-slot-read-by-a-for-reaches-the-consume-abort -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise read out of an array and awaited leaves its slot empty: the await vacates it, so the array no
 longer owns the thread. An empty slot of a managed element is a panic when it is read, but a CONSUMED
 promise slot is not that — it is a promise already given away, and awaiting it again is the
@@ -3415,15 +3413,11 @@ end 'plain'
 
 function main() returns ExitCode
 	let ps = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async plain(4))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async plain(5))
 	let first = try ps.get(0) otherwise panic("two were pushed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	var sum = await first
 	for p in ps 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
 	end 'drain'
 	return sum as ExitCode
@@ -3437,8 +3431,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: a-consumed-promise-slot-read-by-get-reaches-the-consume-abort -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `at(0)` is 0 at run time and a fresh value to the compiler, so the second `get` is a read the compiler
 cannot match to the first. It is not refused as an empty slot: it hands back the vacated handle, and the
 await aborts.
@@ -3461,15 +3453,11 @@ end 'at'
 
 function main() returns ExitCode
 	let ps = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async plain(4))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async plain(5))
 	let first = try ps.get(0) otherwise panic("two were pushed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	var sum = await first
 	let again = try ps.get(at(0)) otherwise panic("the slot is still in range")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	sum = sum + await again
 	return sum as ExitCode
 end 'main'
@@ -3482,8 +3470,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: a-consumed-promise-slot-read-by-a-cursor-reaches-the-consume-abort -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3498,16 +3484,12 @@ end 'plain'
 
 function main() returns ExitCode
 	let ps = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async plain(4))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async plain(5))
 	let first = try ps.get(0) otherwise panic("two were pushed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	var sum = await first
 	let cursor = try ps.cursor() otherwise panic("two were pushed")
 	let again = cursor.current()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	sum = sum + await again
 	return sum as ExitCode
 end 'main'
@@ -4685,7 +4667,6 @@ error E3106: <fragment>:10:13: 'create(n)' cannot publish zeroed slots of 'Held'
 ```
 
 <!-- test: error.create-with-capacity-zeroed-cannot-hold-a-service-handle -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `<Service>.handle` is a pointer to a cown box, so a zeroed slot is a null handle that a send would dereference. The default (zeroed) form is refused for it exactly as it is for a record.
@@ -4708,7 +4689,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let handles = Handles.create(2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reply = try await worker.ping() otherwise 9
 	return (reply + handles.count()) as ExitCode
 end 'main'
@@ -4718,7 +4698,6 @@ error E3106: <fragment>:18:16: 'create(n)' cannot publish zeroed slots of 'Worke
 ```
 
 <!-- test: error.create-with-capacity-explicitly-zeroed-cannot-hold-a-service-handle -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
@@ -4740,7 +4719,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let worker = spawn Worker.create()
 	let handles = Handles.create(2, zeroed: true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reply = try await worker.ping() otherwise 9
 	return (reply + handles.count()) as ExitCode
 end 'main'
@@ -4750,7 +4728,6 @@ error E3106: <fragment>:18:16: 'create(n)' cannot publish zeroed slots of 'Worke
 ```
 
 <!-- test: create-with-capacity-not-zeroed-holds-a-service-handle -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Only the not-zeroed form builds an array of handles, and `push` supplies each one. A handle read back from the array reaches its service.
 ```maxon
@@ -4777,7 +4754,6 @@ function main() returns ExitCode
 	handles.push(first)
 	handles.push(second)
 	let picked = try handles.get(1) otherwise panic("two were pushed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reply = try await picked.ping() otherwise 9
 	return 0 if reply == 3 and handles.count() == 2 else 1
 end 'main'
@@ -4787,8 +4763,6 @@ end 'main'
 ```
 
 <!-- test: error.a-handle-of-a-type-nothing-spawns-is-an-unknown-type -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 Whether a type is a service is a whole-program property, so `Worker.handle` names a type only in a program that spawns a `Worker`. Without a `spawn` the element is an unknown type, and it is refused as one rather than judged for a zero value.
 ```maxon
 export typealias Digit = int(0 to 9)
@@ -4808,7 +4782,6 @@ typealias Handles = Array with Worker.handle
 function main() returns ExitCode
 	let s = Handles.create(2)
 	let h = try s.get(0) otherwise panic("get")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await h.ping() otherwise 9
 	print("{n}\n")
 	return 0
@@ -4888,8 +4861,6 @@ error E3106: <fragment>:8:11: 'resize' cannot grow an array of 'DigitPromise': a
 ```
 
 <!-- test: create-with-capacity-not-zeroed-holds-a-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Digit = int(0 to 9)
 
@@ -4904,13 +4875,10 @@ end 'three'
 
 function main() returns ExitCode
 	let promises = DigitPromises.create(2, zeroed: false)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async three())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async three())
 	let second = try promises.pop() otherwise panic("two were pushed")
 	let first = try promises.pop() otherwise panic("two were pushed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let sum = await first + await second
 	return sum as ExitCode
 end 'main'

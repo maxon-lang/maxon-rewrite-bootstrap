@@ -136,6 +136,7 @@ end 'requireMayTakeApartFrom'
 function movePart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, path AccessPath, consumes dest OwnDest, consumes s OwnState) returns OwnState
 	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
 	requireNotProjected(o, p: p, ms: ms, path: path, site: site)
+	requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: s)
 	if not requireMayTakeApartFrom(o, p: p, ms: ms, e: e, what: "moving '{pathText(o, p: p, ms: ms, path: path)}'") 'refused'
 		return s
 	end 'refused'
@@ -268,6 +269,12 @@ end 'requireRemainder'
 function requireHeld(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, ob OwnObliged, s OwnState, kind OwnDropKind)
 	let name = o.c.typing.locals[ob.local as Count].name.clone()
 	let ty = o.c.typing.locals[ob.local as Count].ty
+	if ast.isPromiseType(ms.types, reads: p.types, t: ty) 'promise'
+		if not s.has(ob.local) 'held'
+			promiseDropped(o, p: p, ms: ms, site: site, holder: ob.local, name: name, d: OwnDrop.make(kind, name: name.clone()), s: s)
+		end 'held'
+		return
+	end 'promise'
 	if s.hasPartial(ob.local) 'partly'
 		let fact = s.factOf(ob.local)
 		requireRemainder(o, p: p, ms: ms, site: site, ty: ty, depth: 0 as Count, moves: fact.moves, name: name, kind: kind, destroys: ob.destroys)

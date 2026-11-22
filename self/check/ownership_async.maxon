@@ -1,0 +1,357 @@
+// The ownership of async calls and promises, which takes the place of maxon's reference counts (README, "Where it
+// differs from Maxon"). An async call's coroutine runs in the caller's strand while the caller goes on, so what it is
+// given must stay valid and unchanged where it needs it until the promise is awaited:
+//
+// - a scalar is copied, and a value passed to a consumes parameter moves in;
+// - a place passed to a let parameter is lent to be read: until the await the caller may read it but not change it,
+//   move it or pass it mutates;
+// - a local variable passed to a mutates parameter is lent to be changed: until the await the caller may not use it;
+// - a temporary at a let parameter is refused, since the statement would drop it while the coroutine reads it.
+//
+// A promise whose call lent anything is tied to what it borrows: it is bound by the declaration of a local, which ends
+// inside the scope of everything it borrows, and is awaited there and nowhere else, never returned, stored, captured or
+// passed on (E3212). Every promise is must-use: it is never copied and never dropped (E3213), so each coroutine is
+// awaited before the frames that lent it anything end, and the borrows it holds are the frame's own. A lend lives in the
+// state of the pass (OwnState.lends), so it ends on the path where its promise is awaited and no other.
+
+// OwnLend is a local that the coroutine of an async call borrows: to read it, or to change it when exclusive. holder is the
+// local its promise is bound to, or noLocal while the statement that made it has not bound it yet; site is the async call.
+export type OwnLend
+	export var holder as ast.LocalID
+	export var root as ast.LocalID
+	export var exclusive as bool
+	export var site as diag.U32
+
+	export static function make(holder ast.LocalID, root ast.LocalID, exclusive bool, site diag.U32) returns OwnLend
+		return OwnLend{holder: holder, root: root, exclusive: exclusive, site: site}
+	end 'make'
+
+	export function same(other OwnLend) returns bool
+		return holder == other.holder and root == other.root and exclusive == other.exclusive and site == other.site
+	end 'same'
+end 'OwnLend'
+
+export typealias OwnLends = Array with OwnLend
+
+// withLendsOf is s with the lends of other that it lacks: where two paths meet, what either lent is lent.
+function withLendsOf(consumes s OwnState, other OwnState) returns OwnState
+	var out = s
+	for i in 0 upto other.lends.count() 'each'
+		if not hasLend(out.lends, lend: other.lends[i]) 'new'
+			out.lends.push(other.lends[i].clone())
+		end 'new'
+	end 'each'
+	return out
+end 'withLendsOf'
+
+function hasLend(lends OwnLends, lend OwnLend) returns bool
+	for i in 0 upto lends.count() 'each'
+		if lends[i].same(lend) 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'hasLend'
+
+// sameLends is whether two states lend the same places.
+function sameLends(a OwnLends, b OwnLends) returns bool
+	if a.count() != b.count() 'counts'
+		return false
+	end 'counts'
+	for i in 0 upto a.count() 'each'
+		if not hasLend(b, lend: a[i]) 'missing'
+			return false
+		end 'missing'
+	end 'each'
+	return true
+end 'sameLends'
+
+// withoutLends is s with the lends of holder gone: its promise was awaited, or its local's scope ended.
+function withoutLends(consumes s OwnState, holder ast.LocalID) returns OwnState
+	var out = s
+	if out.lends.count() == 0 'none'
+		return out
+	end 'none'
+	var kept = OwnLends.create(0)
+	for i in 0 upto out.lends.count() 'each'
+		if out.lends[i].holder != holder 'other'
+			kept.push(out.lends[i].clone())
+		end 'other'
+	end 'each'
+	out.lends = kept
+	return out
+end 'withoutLends'
+
+// holdsLends is whether the promise in local holds lends, which makes it tied.
+function holdsLends(s OwnState, holder ast.LocalID) returns bool
+	return lendOf(s, holder: holder).isSome()
+end 'holdsLends'
+
+// lendOf is the first lend that holder holds, which says where its async call is.
+function lendOf(s OwnState, holder ast.LocalID) returns table.Option with OwnLend
+	for i in 0 upto s.lends.count() 'each'
+		if s.lends[i].holder == holder 'hit'
+			return table.Option.some(s.lends[i].clone())
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'lendOf'
+
+// bindLends gives the lends the statement's async call made to the local its promise is bound to.
+function bindLends(consumes s OwnState, holder ast.LocalID) returns OwnState
+	var out = s
+	for i in 0 upto out.lends.count() 'each'
+		if out.lends[i].holder == ast.noLocal 'pending'
+			out.lends[i].holder = holder
+		end 'pending'
+	end 'each'
+	return out
+end 'bindLends'
+
+// asyncExprOwn passes the call an async call starts its arguments, as the call would take them, and then lends the
+// coroutine what it borrows. The call fails nowhere: its await does.
+function asyncExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
+	let call = ast.asyncExprCall(ms.tree(), id: e)
+	let info = ownCall(o, node: call)
+	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
+	var out = passArguments(o, p: p, ms: ms, site: site, call: info, receiver: 0 as ast.NodeID, fails: false, s: s)
+	for i in 0 upto info.ordered.count() 'args'
+		let spec = info.paramSpecs[i].clone()
+		if info.ordered[i] == 0 'defaulted'
+			if spec.conv == ast.Convention.convLet and isManagedOwn(p, ms: ms, t: spec.ty) 'temporary'
+				fail(o, p: p, site: site, code: diag.errUnsupportedFeature, msg: "the coroutine of this `async` call reads its parameter '{spec.name}' until the promise is awaited, and its default is a value the statement makes and drops: pass the argument from a local")
+			end 'temporary'
+			continue 'args'
+		end 'defaulted'
+		out = lendArgument(o, p: p, ms: ms, arg: info.ordered[i], spec: spec, site: site, s: out)
+	end 'args'
+	return out
+end 'asyncExprOwn'
+
+// lendArgument lends the coroutine of the async call at site the argument arg of the parameter spec, as spec takes it.
+function lendArgument(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, arg ast.NodeID, spec ast.ParamSpec, site diag.U32, consumes s OwnState) returns OwnState
+	if s.dead 'dead'
+		return s
+	end 'dead'
+	let t = ownType(o, node: arg)
+	let argSite = offsetOfOwn(o, p: p, ms: ms, node: arg)
+	return match spec.conv 'conv'
+		convConsumes gives s
+		convDestructs gives s
+		convSets gives refuseSetsArgument(o, p: p, site: argSite, name: spec.name, s: s)
+		convLet gives lendToRead(o, p: p, ms: ms, arg: arg, t: t, name: spec.name, site: site, s: s)
+		convMutates gives lendToChange(o, p: p, ms: ms, arg: arg, site: site, s: s)
+	end 'conv'
+end 'lendArgument'
+
+function refuseSetsArgument(mutates o Ownership, p ast.Project, site diag.U32, name String, consumes s OwnState) returns OwnState
+	fail(o, p: p, site: site, code: diag.errUnsupportedFeature, msg: "an `async` call takes no argument for the `sets` parameter '{name}': the coroutine gives it a value at no point the caller can see; give the variable a value first and pass it to a `mutates` parameter")
+	return s
+end 'refuseSetsArgument'
+
+// lendToRead lends a place passed to a let parameter to be read; a scalar is a copy, and a temporary would be dropped
+// while the coroutine reads it, which a string literal, in the executable for good, is not.
+function lendToRead(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, arg ast.NodeID, t ast.TypeID, name String, site diag.U32, consumes s OwnState) returns OwnState
+	if not isManagedOwn(p, ms: ms, t: t) 'copied'
+		return s
+	end 'copied'
+	let argSite = offsetOfOwn(o, p: p, ms: ms, node: arg)
+	if ast.isPromiseType(ms.types, reads: p.types, t: t) 'promise'
+		fail(o, p: p, site: argSite, code: diag.errPromiseBorrowed, msg: "this argument is a promise, and the parameter '{name}' only reads it, while a promise has one owner that awaits it: pass it to a parameter that takes it ('consumes'), or await it and pass the result")
+		return s
+	end 'promise'
+	let path = pathOf(o, p: p, ms: ms, e: arg)
+	if path.isPlace() 'place'
+		return lend(o, p: p, ms: ms, root: path.root, exclusive: false, site: site, argSite: argSite, s: s)
+	end 'place'
+	if ms.tree().kindOf(arg) == ast.NodeKind.strLit and not hasInterpolation(ms.tree(), e: arg) 'literal'
+		return s
+	end 'literal'
+	fail(o, p: p, site: argSite, code: diag.errUnsupportedFeature, msg: "the coroutine of this `async` call reads its argument to '{name}' until the promise is awaited, and the argument is a value the statement makes and drops: bind it to a local first ('let x = ...') and pass that, or take it 'consumes'")
+	return s
+end 'lendToRead'
+
+// hasInterpolation is whether a string literal has a part that is an expression, which makes it a new string.
+function hasInterpolation(tree ast.Tree, e ast.NodeID) returns bool
+	let parts = ast.strLitPartsRef(tree, id: e)
+	for i in 0 upto tree.strPartCount(parts) 'each'
+		if tree.strPartIsExpr(parts, index: i) 'expr'
+			return true
+		end 'expr'
+	end 'each'
+	return false
+end 'hasInterpolation'
+
+// lendToChange lends a local variable passed to a mutates parameter, or a field of one, to be changed: maxon lends only a
+// local, since only a local's frame is known to outlive the await.
+function lendToChange(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, arg ast.NodeID, site diag.U32, consumes s OwnState) returns OwnState
+	let path = pathOf(o, p: p, ms: ms, e: arg)
+	if not path.isPlace() 'fresh'
+		return s
+	end 'fresh'
+	let root = o.c.typing.locals[path.root as Count].clone()
+	let argSite = offsetOfOwn(o, p: p, ms: ms, node: arg)
+	if root.isParam or root.isCapture or root.isSelf or root.projected or not root.isVar or path.crossesElement() or path.crossesFrozen() 'notLocal'
+		fail(o, p: p, site: argSite, code: diag.errUnsupportedFeature, msg: diag.asyncLocalByReference(root.name))
+		return s
+	end 'notLocal'
+	return lend(o, p: p, ms: ms, root: path.root, exclusive: true, site: site, argSite: argSite, s: s)
+end 'lendToChange'
+
+// lend records that a coroutine borrows root. A function value that borrows root and lives on would reach it while the
+// coroutine has it, so one that changes it, or any for a lend to be changed, is refused.
+function lend(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, root ast.LocalID, exclusive bool, site diag.U32, argSite diag.U32, consumes s OwnState) returns OwnState
+	let name = o.c.typing.locals[root as Count].name.clone()
+	for h in 0 upto o.holders.count() 'holders'
+		for i in 0 upto o.holders[h].borrows.roots.count() 'roots'
+			if o.holders[h].borrows.roots[i] == root and (exclusive or o.holders[h].borrows.mutable[i]) 'held'
+				let holder = o.c.typing.locals[o.holders[h].local as Count].name.clone()
+				fail(o, p: p, site: argSite, code: diag.errExclusivity, msg: "'{name}' is borrowed by '{holder}', a function value that lives while the coroutine of this `async` call has it, and could reach it then; pass the coroutine a copy, or end the function value's scope first")
+				return s
+			end 'held'
+		end 'roots'
+	end 'holders'
+	var out = s
+	out.lends.push(OwnLend.make(ast.noLocal, root: root, exclusive: exclusive, site: site))
+	return out
+end 'lend'
+
+// takePending ends the lends of the async call e, whose promise goes to dest: a binding, which bindLends gives them to, an
+// await, after which nothing is borrowed, or anything else, which a tied promise may not go to.
+function takePending(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, dest OwnDest, consumes s OwnState) returns OwnState
+	if dest.kind == OwnDestKind.destBinding or not hasPending(s) 'kept'
+		return s
+	end 'kept'
+	if dest.kind != OwnDestKind.destAwait 'escapes'
+		fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: diag.errTiedPromise, msg: diag.tiedPromiseEscapes())
+	end 'escapes'
+	return withoutLends(s, holder: ast.noLocal)
+end 'takePending'
+
+function hasPending(s OwnState) returns bool
+	for i in 0 upto s.lends.count() 'each'
+		if s.lends[i].holder == ast.noLocal 'pending'
+			return true
+		end 'pending'
+	end 'each'
+	return false
+end 'hasPending'
+
+// endPending ends what a statement's async call lent that no binding took: its promise was dropped, which is refused on
+// its own (E3213).
+function endPending(consumes s OwnState) returns OwnState
+	if s.lends.count() == 0 'none'
+		return s
+	end 'none'
+	return withoutLends(s, holder: ast.noLocal)
+end 'endPending'
+
+// releaseHolder ends the lends of the promise in the local root, which moves to dest: an await ends them; anything else
+// gives away a tied promise.
+function releaseHolder(mutates o Ownership, p ast.Project, root ast.LocalID, site diag.U32, dest OwnDest, consumes s OwnState) returns OwnState
+	if not holdsLends(s, holder: root) 'untied'
+		return s
+	end 'untied'
+	if dest.kind != OwnDestKind.destAwait 'escapes'
+		fail(o, p: p, site: site, code: diag.errTiedPromise, msg: diag.tiedPromiseEscapes())
+	end 'escapes'
+	return withoutLends(s, holder: root)
+end 'releaseHolder'
+
+// requireUnlentRead refuses a read of a local that a coroutine borrows to change.
+function requireUnlentRead(mutates o Ownership, p ast.Project, ms ast.ModuleState, root ast.LocalID, site diag.U32, s OwnState)
+	for i in 0 upto s.lends.count() 'each'
+		if s.lends[i].root == root and s.lends[i].exclusive 'lent'
+			lentFail(o, p: p, ms: ms, lend: s.lends[i].clone(), site: site)
+			return
+		end 'lent'
+	end 'each'
+end 'requireUnlentRead'
+
+// requireUnlent refuses a change or a move of a place whose root a coroutine borrows.
+function requireUnlent(mutates o Ownership, p ast.Project, ms ast.ModuleState, root ast.LocalID, site diag.U32, s OwnState)
+	for i in 0 upto s.lends.count() 'each'
+		if s.lends[i].root == root 'lent'
+			lentFail(o, p: p, ms: ms, lend: s.lends[i].clone(), site: site)
+			return
+		end 'lent'
+	end 'each'
+end 'requireUnlent'
+
+function lentFail(mutates o Ownership, p ast.Project, ms ast.ModuleState, lend OwnLend, site diag.U32)
+	let name = o.c.typing.locals[lend.root as Count].name.clone()
+	let at = ast.locateTextOffset(ms.tree().text, files: p.modules[o.c.modIdx].files, offset: lend.site)
+	if lend.exclusive 'changes'
+		fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.lentToCoroutine(name, line: "{at.line}", column: "{at.col}"))
+		return
+	end 'changes'
+	fail(o, p: p, site: site, code: diag.errLentToCoroutine, msg: "'{name}' is lent to the coroutine of the `async` call at {at.line}:{at.col}, which reads it until that promise is awaited, so it cannot be changed or moved here; change it after the await, or pass the coroutine a copy")
+end 'lentFail'
+
+// awaitExprOwn takes the promise an await consumes, and fails where its function threw.
+function awaitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
+	let operand = ast.awaitExprE(ms.tree(), id: e)
+	let mark = o.inFlight.count()
+	let out = consume(o, p: p, ms: ms, e: operand, dest: OwnDest.of(OwnDestKind.destAwait), s: s)
+	// The await has the promise by now, so its failure drops nothing of it.
+	land(o, mark: mark)
+	if ast.promiseError(ms.types, reads: p.types, t: ownType(o, node: operand)) != ast.noType 'fails'
+		failure(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: e), s: out)
+	end 'fails'
+	return out
+end 'awaitExprOwn'
+
+// isPromiseLocal is whether a local holds a promise.
+function isPromiseLocal(o Ownership, p ast.Project, ms ast.ModuleState, l ast.LocalID) returns bool
+	return ast.isPromiseType(ms.types, reads: p.types, t: o.c.typing.locals[l as Count].ty)
+end 'isPromiseLocal'
+
+// promiseDropped is E3213, or E3212 at an exit that leaves a tied promise unawaited: the promise in the local named
+// name, or in no local where name is empty, is dropped where d says.
+function promiseDropped(mutates o Ownership, p ast.Project, ms ast.ModuleState, site diag.U32, holder ast.LocalID, name String, d OwnDrop, s OwnState)
+	let tied = lendOf(s, holder: holder)
+	if holder != ast.noLocal and isExit(d.kind) and tied.isSome() 'exit'
+		let at = ast.locateTextOffset(ms.tree().text, files: p.modules[o.c.modIdx].files, offset: tied.unwrap().site)
+		fail(o, p: p, site: site, code: diag.errTiedPromise, msg: diag.tiedPromiseExit(name, line: "{at.line}", column: "{at.col}"))
+		return
+	end 'exit'
+	if name == "" 'unnamed'
+		fail(o, p: p, site: site, code: diag.errPromiseDropped, msg: diag.promiseDroppedUnnamed())
+		return
+	end 'unnamed'
+	fail(o, p: p, site: site, code: diag.errPromiseDropped, msg: diag.promiseDroppedNamed(name))
+end 'promiseDropped'
+
+// isExit is whether a drop is at a way out of the function or the loop.
+function isExit(kind OwnDropKind) returns bool
+	return kind == OwnDropKind.dropReturn or kind == OwnDropKind.dropBreak or kind == OwnDropKind.dropContinue or kind == OwnDropKind.dropFailure
+end 'isExit'
+
+// promiseUsedAgain is E3142 for a use of a promise an await consumed, and E3100 for an await of a promise started outside
+// the loop it is awaited in, which its next iteration would await again.
+function promiseUsedAgain(mutates o Ownership, p ast.Project, site diag.U32, fact OwnFact) returns bool
+	if fact.dest.kind != OwnDestKind.destAwait 'moved'
+		return false
+	end 'moved'
+	if site <= fact.site 'loop'
+		fail(o, p: p, site: site, code: diag.errPromiseAlreadyAwaited, msg: diag.promiseAwaitedAgain())
+		return true
+	end 'loop'
+	fail(o, p: p, site: site, code: diag.errPromiseConsumed, msg: diag.promiseConsumedEarlier("await"))
+	return true
+end 'promiseUsedAgain'
+
+// requireNoPromiseCaptured refuses a promise that a closure or a behaviour captures, as maxon does: a closure's body may
+// run any number of times and give it away each time, and a behaviour runs on another green thread, while a coroutine
+// belongs to the strand that started it.
+function requireNoPromiseCaptured(mutates o Ownership, p ast.Project, ms ast.ModuleState, ref ast.NodeID, name String, behaviour bool)
+	if not ast.isPromiseType(ms.types, reads: p.types, t: ownType(o, node: ref)) 'notPromise'
+		return
+	end 'notPromise'
+	let site = offsetOfOwn(o, p: p, ms: ms, node: ref)
+	if behaviour 'behaviour'
+		fail(o, p: p, site: site, code: diag.errBehaviourBorrow, msg: "the behaviour captures the promise '{name}', and a coroutine belongs to the strand that started it, which a behaviour runs apart from: await '{name}' here and capture its result")
+		return
+	end 'behaviour'
+	fail(o, p: p, site: site, code: diag.errPromiseBorrowed, msg: "the closure captures the promise '{name}', and its body may run any number of times, so no run of it may give the promise away: await it in the function that started it, or hand the closure what it needs as a parameter")
+end 'requireNoPromiseCaptured'

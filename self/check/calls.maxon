@@ -5,6 +5,7 @@ function checkCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		return ast.noType
 	end 'failed'
 	recordCallFailure(c, p: p, ms: ms, call: e)
+	noteCallWaits(c, p: p, ms: ms, call: e)
 	return t
 end 'checkCall'
 
@@ -87,6 +88,7 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		builtinFrozen gives false
 		builtinCown gives false
 		builtinCursor gives false
+		builtinPromise gives false
 		typeParam gives false
 		interfaceTy gives false
 		funcTy gives false

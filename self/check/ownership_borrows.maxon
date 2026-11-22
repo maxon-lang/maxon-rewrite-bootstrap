@@ -304,6 +304,7 @@ function requireBorrowsStay(mutates o Ownership, p ast.Project, mutates ms ast.M
 		destBinding then _ = 0
 		destCast then _ = 0
 		destBranch then _ = 0
+		destAwait then _ = 0
 	end 'kind'
 end 'requireBorrowsStay'
 

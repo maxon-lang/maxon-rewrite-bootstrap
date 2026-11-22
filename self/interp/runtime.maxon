@@ -921,3 +921,35 @@ function copyCell(mutates vm Vm, dst Count, source Count) throws Halt
 	let copy = try copyObject(vm, o: ref)
 	try adopt(vm, c: dst, o: copy, what: "the copy")
 end 'copyCell'
+
+// The interpreter runs no coroutine: an async call ends the run (asyncUnsupported) before an await of what it made can be
+// reached, so each entry of a promise ends it too.
+function entryAsyncAwait(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw asyncUnsupported(vm)
+end 'entryAsyncAwait'
+
+function entryAsyncWait(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw asyncUnsupported(vm)
+end 'entryAsyncWait'
+
+function entryAsyncError(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw asyncUnsupported(vm)
+end 'entryAsyncError'
+
+function entryAsyncTake(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw asyncUnsupported(vm)
+end 'entryAsyncTake'
+
+// asyncUnsupported ends a run that starts a coroutine, which the interpreter has no strand to run in: it says so on
+// standard error and exits as a panic does, so that the run fails where the executable would go on.
+function asyncUnsupported(mutates vm Vm) returns Halt
+	return panicLine(vm, prefix: "", message: "async calls are not supported by the interpreter")
+end 'asyncUnsupported'
+
+// A sleep or a yield changes nothing the interpreter can see: it keeps no clock that a sleep would wait on, and the
+// scheduler interleaves the threads at random whatever they do, which every order a sleep or a yield allows is among.
+function entrySleep(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+end 'entrySleep'
+
+function entryYield(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+end 'entryYield'

@@ -1,0 +1,113 @@
+// The typing of `async` and `await`. An async call starts a direct call of a function or a static function as a
+// coroutine of the caller's strand and gives its promise, `Promise with T` of a function that returns T and throws
+// nothing, `Promise with (T, E)` of one that throws E; an await of the promise gives the T, and fails with the E where the
+// function threw, which a try around the await catches as it catches a call's failure. What the coroutine may take of its
+// caller is the ownership pass's (ownership_async.maxon).
+
+// checkAsync types an async call. The call itself is typed as a call is, and fails nowhere: the await does.
+function checkAsync(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let call = ast.asyncExprCall(ms.tree(), id: e)
+	if ms.tree().kindOf(call) != ast.NodeKind.callExpr 'notCall'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: diag.asyncNotACall(placeText(ms.tree(), e: call)), errs: errs)
+		return ast.noType
+	end 'notCall'
+	let result = typeCall(c, p: p, ms: ms, call: call, errs: errs)
+	if result == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	recordType(c, e: call, t: result)
+	let info = match consumes c.typing.calls.get(call as Count) 'info'
+		some(i) gives i
+		none panic("check: an async call was typed without a record of what it calls")
+	end 'info'
+	if not requireStartable(c, p: p, ms: ms, e: e, call: call, info: info, result: result, errs: errs) 'refused'
+		return ast.noType
+	end 'refused'
+	// The coroutine runs on the caller's strand, so the caller waits where it does.
+	noteCallee(c, p: p, ms: ms, callee: info.fn)
+	c.pendingAsyncs.push(PendingAsync.make(e, callee: info.fn))
+	var args = ast.TypeIDList.create(0)
+	args.push(result)
+	let thrown = callErrorType(p, ms: ms, info: info)
+	if thrown == ast.noType 'plain'
+		args.push(p.builtins.voidTy)
+	end 'plain' else 'throws'
+		args.push(thrown)
+	end 'throws'
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: p.builtins.promiseOrigin, args: args, errs: errs)
+end 'checkAsync'
+
+// requireStartable refuses, at the async call e, what it cannot start, as maxon does: a method of a value, a function value, a
+// built-in the compiler lowers in place, a float result, and more arguments than a coroutine holds.
+function requireStartable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, call ast.NodeID, info ast.CallInfo, result ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let name = calleeText(ms.tree(), call: call)
+	if info.kind == ast.CallKind.callMethod or info.kind == ast.CallKind.callBound 'method'
+		let base = calleeBaseText(ms.tree(), call: call)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: diag.asyncOnValue(base), errs: errs)
+		return false
+	end 'method'
+	if info.kind != ast.CallKind.callFunction and info.kind != ast.CallKind.callStatic 'notFunction'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: diag.asyncNotACall(name), errs: errs)
+		return false
+	end 'notFunction'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).intrinsic != ast.Intrinsic.intrNone 'intrinsic'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: diag.asyncOfIntrinsic(name), errs: errs)
+		return false
+	end 'intrinsic'
+	if ast.isFloatType(ms.types, reads: p.types, t: result) 'float'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: diag.asyncFloatResult(name), errs: errs)
+		return false
+	end 'float'
+	for i in 0 upto info.paramSpecs.count() 'floats'
+		if ast.isFloatType(ms.types, reads: p.types, t: info.paramSpecs[i].ty) and info.paramSpecs[i].conv == ast.Convention.convLet 'float'
+			failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "`async {name}(…)` passes a float to the parameter '{info.paramSpecs[i].name}', and a coroutine is handed its arguments as words, which carry no float yet: pass the float in a record, or start a function that takes its bits", errs: errs)
+			return false
+		end 'float'
+	end 'floats'
+	for i in 0 upto info.paramSpecs.count() 'borrows'
+		if holdsBorrow(p, ms: ms, t: info.paramSpecs[i].ty) 'borrow'
+			failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "`async {name}(…)` passes a value that holds a borrow to the parameter '{info.paramSpecs[i].name}', and a coroutine outlives the call that starts it, so the buffer the value borrows may be gone by then: pass the buffer and make the cursor inside the function", errs: errs)
+			return false
+		end 'borrow'
+	end 'borrows'
+	if holdsBorrow(p, ms: ms, t: result) 'borrowResult'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "`async {name}(…)` gives a value that holds a borrow, and the promise carries it past the scope of what it borrows: give the buffer, and make the cursor where it is used", errs: errs)
+		return false
+	end 'borrowResult'
+	if info.paramSpecs.count() > backendArgWords 'tooMany'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "`async {name}(…)` passes {info.paramSpecs.count()} argument words, and a coroutine holds at most {backendArgWords}: pass a record that holds the rest", errs: errs)
+		return false
+	end 'tooMany'
+	return true
+end 'requireStartable'
+
+// backendArgWords is how many words of arguments a coroutine holds (greenArgWords of the ABI table), a word to each.
+let backendArgWords = 8 as Count
+
+// calleeBaseText is the value an async call of a method names before the method, for a message.
+function calleeBaseText(tree ast.Tree, call ast.NodeID) returns String
+	let callee = ast.callExprCallee(tree, id: call)
+	if tree.kindOf(callee) == ast.NodeKind.memberExpr 'member'
+		return placeText(tree, e: ast.memberExprObj(tree, id: callee))
+	end 'member'
+	return placeText(tree, e: callee)
+end 'calleeBaseText'
+
+// checkAwait types an await: of a promise, giving what its function returns, and failing with what it throws.
+function checkAwait(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let operand = ast.awaitExprE(ms.tree(), id: e)
+	let t = checkExpr(c, p: p, ms: ms, e: operand, errs: errs)
+	if t == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	if not ast.isPromiseType(ms.types, reads: p.types, t: t) 'notPromise'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: diag.awaitNeedsPromise(nameOfType(p, ms: ms, t: t)), errs: errs)
+		return ast.noType
+	end 'notPromise'
+	c.waitNow = true
+	let thrown = ast.promiseError(ms.types, reads: p.types, t: t)
+	if thrown != ast.noType 'throws'
+		recordFailure(c, e: thrown)
+	end 'throws'
+	return ast.promiseResult(ms.types, reads: p.types, t: t)
+end 'checkAwait'

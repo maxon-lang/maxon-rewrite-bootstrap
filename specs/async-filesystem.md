@@ -47,8 +47,6 @@ case here carries a marker.
 ## Tests
 
 <!-- test: async-filesystem.try-await-string-success -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 enum TestError implements Error
 	failed
@@ -63,9 +61,7 @@ function getName(ok bool) returns String throws TestError
 end 'getName'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async getName(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let name = try await p otherwise "unknown"
 	print("{name}")
 	return 42
@@ -79,8 +75,6 @@ Alice
 ```
 
 <!-- test: async-filesystem.try-await-string-error -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 enum TestError implements Error
 	failed
@@ -95,9 +89,7 @@ function getName(ok bool) returns String throws TestError
 end 'getName'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async getName(false)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let name = try await p otherwise "unknown"
 	print("{name}")
 	return 42
@@ -111,8 +103,6 @@ unknown
 ```
 
 <!-- test: async-filesystem.try-await-parallel-throws -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -132,19 +122,13 @@ function checkedDiv(a Integer, b Integer) returns Integer throws MathError
 end 'checkedDiv'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async checkedDiv(50, b: 2)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async checkedDiv(10, b: 0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async checkedDiv(30, b: 3)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = try await p1 otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = try await p2 otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r3 = try await p3 otherwise 0
-	return r1 + r2 + r3
+	return try r1 + r2 + r3 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -154,13 +138,9 @@ end 'main'
 The cases below exercise the actual async I/O path rather than using `File.exists` as a no-op yield point.
 
 <!-- test: async-filesystem.async-read-nonexistent -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async File.readText(FilePath from "nonexistent_async_read.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let content = try await p otherwise "FAILED"
 	if content == "FAILED" 'check'
 		return 42
@@ -173,8 +153,6 @@ end 'main'
 ```
 
 <!-- test: async-filesystem.async-write-read -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
 	let path = FilePath from "async_test_file.txt"
@@ -183,9 +161,7 @@ function main() returns ExitCode
 		return 1
 	end 'werr'
 	// Read asynchronously
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async File.readText(FilePath from "async_test_file.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let content = try await p otherwise 'rerr'
 		try File.delete(path) otherwise ignore
 		return 2
@@ -208,17 +184,11 @@ AsyncTest
 ```
 
 <!-- test: async-filesystem.async-parallel-reads -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async File.readText(FilePath from "no_file_a.txt")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async File.readText(FilePath from "no_file_b.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = try await p1 otherwise "default1"
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = try await p2 otherwise "default2"
 	print("{r1}")
 	print("{r2}")
@@ -233,13 +203,9 @@ default1default2
 ```
 
 <!-- test: async-filesystem.async-exists -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async File.exists(FilePath from "no_such_file_async.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let exists = await p
 	if exists 'found'
 		return 1
@@ -252,8 +218,6 @@ end 'main'
 ```
 
 <!-- test: async-filesystem.async-write-read-parallel -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 function main() returns ExitCode
 	let path1 = FilePath from "async_par_a.txt"
@@ -267,13 +231,9 @@ function main() returns ExitCode
 		return 2
 	end 'e2'
 	// Read both asynchronously in parallel
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async File.readText(FilePath from "async_par_a.txt")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async File.readText(FilePath from "async_par_b.txt")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let c1 = try await p1 otherwise "err"
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let c2 = try await p2 otherwise "err"
 	// Clean up
 	try File.delete(path1) otherwise ignore
@@ -290,8 +250,6 @@ FileAFileB
 ```
 
 <!-- test: async-filesystem.async-read-through-a-handle-holding-struct -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 ### A struct holding a `__ManagedFile`, spawned as an `async` argument
 ⭐ **AN `async` ARGUMENT THAT HOLDS A HANDLE IS LENT, NEVER DEEP-COPIED, AND A HANDLE BOX IS WHY THAT
@@ -337,9 +295,7 @@ function readHolder(name String) returns String
 	let holder = try Holder.openRead(name.toByteArray().managed) otherwise 'openFail'
 		return "OPENFAILED"
 	end 'openFail'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async readOn(holder)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await p otherwise "READFAILED"
 end 'readHolder'
 

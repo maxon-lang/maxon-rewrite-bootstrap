@@ -544,9 +544,6 @@ error E3004: <fragment>:4:2: call to undefined function '__mm_free': the '__' pr
 ```
 
 <!-- test: user-file-named-builtins-cannot-async-call-a-reserved-name -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 **THE SECOND DOOR.** There are exactly two source call doors — `Parser.emitCall` and
 `Parser.emitAsyncCall` — and `async __name(…)` reaches the second one from ordinary user source
 (`builtins-clock.unknown-internal-callee-async` is the plain-user-file half of it). The exemption is
@@ -555,9 +552,7 @@ one, a spawn would be the way around it.
 ```maxon
 // --- file: Builtins.maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async __int_fromString("42")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p as ExitCode
 end 'main'
 ```

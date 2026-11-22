@@ -45,8 +45,6 @@ statement of it.** `__gt_morestack` is hand-written x64 assembly and relocates a
 ## Tests
 
 <!-- test: async-stack-growth.deep-recursion -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `async deepRecurse(200)` recurses ~200 frames deep — far past the seed stack, forcing several
 grow-and-relocate rounds — and the awaited sum is exact, proving the relocated stack carried every frame's
 partial result correctly.
@@ -57,15 +55,13 @@ function deepRecurse(n Integer) returns Integer
 	if n == 0 'base'
 		return 0
 	end 'base'
-	return deepRecurse(n - 1) + 1
+	return try deepRecurse(try n - 1 otherwise panic("out of range")) + 1 otherwise panic("out of range")
 end 'deepRecurse'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async deepRecurse(200)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -75,8 +71,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-stack-growth.multi-growth -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A deeper recursion (~400 frames) forces MORE grow-and-relocate rounds and a longer saved-rbp chain to walk at
 the deepest growth — the stress case for the chain walk across multiple relocations. The awaited sum (400) is
 exact; `main` returns it less 250 to fit the exit code.
@@ -87,15 +81,13 @@ function deepRecurse(n Integer) returns Integer
 	if n == 0 'base'
 		return 0
 	end 'base'
-	return deepRecurse(n - 1) + 1
+	return try deepRecurse(try n - 1 otherwise panic("out of range")) + 1 otherwise panic("out of range")
 end 'deepRecurse'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async deepRecurse(400)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return (r - 250) as ExitCode
+	return try (r - 250) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -105,8 +97,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-stack-growth.grow-across-yield -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A thread `sleep`s (parks on the timer, context-switches back to its machine's scheduler context), RESUMES, and only THEN recurses
 deep — so the growth happens on a stack the scheduler switched out and back in. The awaited sum is exact,
 proving `gt.sp`/`gt.fp` and the saved-rbp chain are consistent across a yield followed by a relocation.
@@ -116,7 +106,7 @@ function deepRecurse(n Integer) returns Integer
 	if n == 0 'base'
 		return 0
 	end 'base'
-	return deepRecurse(n - 1) + 1
+	return try deepRecurse(try n - 1 otherwise panic("out of range")) + 1 otherwise panic("out of range")
 end 'deepRecurse'
 
 function yieldThenRecurse() returns Integer
@@ -125,11 +115,9 @@ function yieldThenRecurse() returns Integer
 end 'yieldThenRecurse'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async yieldThenRecurse()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -139,8 +127,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-stack-growth.grow-then-complete-then-respawn -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A thread grows, completes (its grown stack is released), then a SECOND thread spawns on a fresh seed and
 grows in turn — proving free-on-complete leaves no corruption for the next spawn. Both awaited sums are exact.
 ```maxon
@@ -150,19 +136,15 @@ function deepRecurse(n Integer) returns Integer
 	if n == 0 'base'
 		return 0
 	end 'base'
-	return deepRecurse(n - 1) + 1
+	return try deepRecurse(try n - 1 otherwise panic("out of range")) + 1 otherwise panic("out of range")
 end 'deepRecurse'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async deepRecurse(60)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async deepRecurse(90)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	return (r1 + r2) as ExitCode
+	return try (r1 + r2) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -172,8 +154,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-stack-growth.a-frame-larger-than-two-doublings-grows-until-it-fits -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **ONE FRAME CAN NEED MORE THAN ONE DOUBLING, AND THE GROWER KEEPS DOUBLING UNTIL IT FITS.** `wide` holds a
 thousand call results live across one more call, so its frame is about 8 KB — four times the 2 KB seed, and the whole 8 KiB seed on x64-windows. Go's
 `newstack` doubles until the requested frame fits (`vendor/go/src/runtime/stack.go`); a grower that doubles
@@ -184,11 +164,11 @@ its slot changes it.
 typealias Integer = int(i64.min to i64.max)
 
 function mix(seed Integer, k Integer) returns Integer
-	return (seed * 31 + k) mod 1000003
+	return try (seed * 31 + k) mod 1000003 otherwise panic("out of range")
 end 'mix'
 
 function touch(seed Integer) returns Integer
-	return seed + 1
+	return try seed + 1 otherwise panic("out of range")
 end 'touch'
 
 function wide(seed Integer) returns Integer
@@ -1194,56 +1174,56 @@ function wide(seed Integer) returns Integer
 	let v999 = mix(seed, k: 999)
 	let t = touch(seed)
 	var sum = t
-	sum = (sum + v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15 + v16 + v17 + v18 + v19) mod 1000003
-	sum = (sum + v20 + v21 + v22 + v23 + v24 + v25 + v26 + v27 + v28 + v29 + v30 + v31 + v32 + v33 + v34 + v35 + v36 + v37 + v38 + v39) mod 1000003
-	sum = (sum + v40 + v41 + v42 + v43 + v44 + v45 + v46 + v47 + v48 + v49 + v50 + v51 + v52 + v53 + v54 + v55 + v56 + v57 + v58 + v59) mod 1000003
-	sum = (sum + v60 + v61 + v62 + v63 + v64 + v65 + v66 + v67 + v68 + v69 + v70 + v71 + v72 + v73 + v74 + v75 + v76 + v77 + v78 + v79) mod 1000003
-	sum = (sum + v80 + v81 + v82 + v83 + v84 + v85 + v86 + v87 + v88 + v89 + v90 + v91 + v92 + v93 + v94 + v95 + v96 + v97 + v98 + v99) mod 1000003
-	sum = (sum + v100 + v101 + v102 + v103 + v104 + v105 + v106 + v107 + v108 + v109 + v110 + v111 + v112 + v113 + v114 + v115 + v116 + v117 + v118 + v119) mod 1000003
-	sum = (sum + v120 + v121 + v122 + v123 + v124 + v125 + v126 + v127 + v128 + v129 + v130 + v131 + v132 + v133 + v134 + v135 + v136 + v137 + v138 + v139) mod 1000003
-	sum = (sum + v140 + v141 + v142 + v143 + v144 + v145 + v146 + v147 + v148 + v149 + v150 + v151 + v152 + v153 + v154 + v155 + v156 + v157 + v158 + v159) mod 1000003
-	sum = (sum + v160 + v161 + v162 + v163 + v164 + v165 + v166 + v167 + v168 + v169 + v170 + v171 + v172 + v173 + v174 + v175 + v176 + v177 + v178 + v179) mod 1000003
-	sum = (sum + v180 + v181 + v182 + v183 + v184 + v185 + v186 + v187 + v188 + v189 + v190 + v191 + v192 + v193 + v194 + v195 + v196 + v197 + v198 + v199) mod 1000003
-	sum = (sum + v200 + v201 + v202 + v203 + v204 + v205 + v206 + v207 + v208 + v209 + v210 + v211 + v212 + v213 + v214 + v215 + v216 + v217 + v218 + v219) mod 1000003
-	sum = (sum + v220 + v221 + v222 + v223 + v224 + v225 + v226 + v227 + v228 + v229 + v230 + v231 + v232 + v233 + v234 + v235 + v236 + v237 + v238 + v239) mod 1000003
-	sum = (sum + v240 + v241 + v242 + v243 + v244 + v245 + v246 + v247 + v248 + v249 + v250 + v251 + v252 + v253 + v254 + v255 + v256 + v257 + v258 + v259) mod 1000003
-	sum = (sum + v260 + v261 + v262 + v263 + v264 + v265 + v266 + v267 + v268 + v269 + v270 + v271 + v272 + v273 + v274 + v275 + v276 + v277 + v278 + v279) mod 1000003
-	sum = (sum + v280 + v281 + v282 + v283 + v284 + v285 + v286 + v287 + v288 + v289 + v290 + v291 + v292 + v293 + v294 + v295 + v296 + v297 + v298 + v299) mod 1000003
-	sum = (sum + v300 + v301 + v302 + v303 + v304 + v305 + v306 + v307 + v308 + v309 + v310 + v311 + v312 + v313 + v314 + v315 + v316 + v317 + v318 + v319) mod 1000003
-	sum = (sum + v320 + v321 + v322 + v323 + v324 + v325 + v326 + v327 + v328 + v329 + v330 + v331 + v332 + v333 + v334 + v335 + v336 + v337 + v338 + v339) mod 1000003
-	sum = (sum + v340 + v341 + v342 + v343 + v344 + v345 + v346 + v347 + v348 + v349 + v350 + v351 + v352 + v353 + v354 + v355 + v356 + v357 + v358 + v359) mod 1000003
-	sum = (sum + v360 + v361 + v362 + v363 + v364 + v365 + v366 + v367 + v368 + v369 + v370 + v371 + v372 + v373 + v374 + v375 + v376 + v377 + v378 + v379) mod 1000003
-	sum = (sum + v380 + v381 + v382 + v383 + v384 + v385 + v386 + v387 + v388 + v389 + v390 + v391 + v392 + v393 + v394 + v395 + v396 + v397 + v398 + v399) mod 1000003
-	sum = (sum + v400 + v401 + v402 + v403 + v404 + v405 + v406 + v407 + v408 + v409 + v410 + v411 + v412 + v413 + v414 + v415 + v416 + v417 + v418 + v419) mod 1000003
-	sum = (sum + v420 + v421 + v422 + v423 + v424 + v425 + v426 + v427 + v428 + v429 + v430 + v431 + v432 + v433 + v434 + v435 + v436 + v437 + v438 + v439) mod 1000003
-	sum = (sum + v440 + v441 + v442 + v443 + v444 + v445 + v446 + v447 + v448 + v449 + v450 + v451 + v452 + v453 + v454 + v455 + v456 + v457 + v458 + v459) mod 1000003
-	sum = (sum + v460 + v461 + v462 + v463 + v464 + v465 + v466 + v467 + v468 + v469 + v470 + v471 + v472 + v473 + v474 + v475 + v476 + v477 + v478 + v479) mod 1000003
-	sum = (sum + v480 + v481 + v482 + v483 + v484 + v485 + v486 + v487 + v488 + v489 + v490 + v491 + v492 + v493 + v494 + v495 + v496 + v497 + v498 + v499) mod 1000003
-	sum = (sum + v500 + v501 + v502 + v503 + v504 + v505 + v506 + v507 + v508 + v509 + v510 + v511 + v512 + v513 + v514 + v515 + v516 + v517 + v518 + v519) mod 1000003
-	sum = (sum + v520 + v521 + v522 + v523 + v524 + v525 + v526 + v527 + v528 + v529 + v530 + v531 + v532 + v533 + v534 + v535 + v536 + v537 + v538 + v539) mod 1000003
-	sum = (sum + v540 + v541 + v542 + v543 + v544 + v545 + v546 + v547 + v548 + v549 + v550 + v551 + v552 + v553 + v554 + v555 + v556 + v557 + v558 + v559) mod 1000003
-	sum = (sum + v560 + v561 + v562 + v563 + v564 + v565 + v566 + v567 + v568 + v569 + v570 + v571 + v572 + v573 + v574 + v575 + v576 + v577 + v578 + v579) mod 1000003
-	sum = (sum + v580 + v581 + v582 + v583 + v584 + v585 + v586 + v587 + v588 + v589 + v590 + v591 + v592 + v593 + v594 + v595 + v596 + v597 + v598 + v599) mod 1000003
-	sum = (sum + v600 + v601 + v602 + v603 + v604 + v605 + v606 + v607 + v608 + v609 + v610 + v611 + v612 + v613 + v614 + v615 + v616 + v617 + v618 + v619) mod 1000003
-	sum = (sum + v620 + v621 + v622 + v623 + v624 + v625 + v626 + v627 + v628 + v629 + v630 + v631 + v632 + v633 + v634 + v635 + v636 + v637 + v638 + v639) mod 1000003
-	sum = (sum + v640 + v641 + v642 + v643 + v644 + v645 + v646 + v647 + v648 + v649 + v650 + v651 + v652 + v653 + v654 + v655 + v656 + v657 + v658 + v659) mod 1000003
-	sum = (sum + v660 + v661 + v662 + v663 + v664 + v665 + v666 + v667 + v668 + v669 + v670 + v671 + v672 + v673 + v674 + v675 + v676 + v677 + v678 + v679) mod 1000003
-	sum = (sum + v680 + v681 + v682 + v683 + v684 + v685 + v686 + v687 + v688 + v689 + v690 + v691 + v692 + v693 + v694 + v695 + v696 + v697 + v698 + v699) mod 1000003
-	sum = (sum + v700 + v701 + v702 + v703 + v704 + v705 + v706 + v707 + v708 + v709 + v710 + v711 + v712 + v713 + v714 + v715 + v716 + v717 + v718 + v719) mod 1000003
-	sum = (sum + v720 + v721 + v722 + v723 + v724 + v725 + v726 + v727 + v728 + v729 + v730 + v731 + v732 + v733 + v734 + v735 + v736 + v737 + v738 + v739) mod 1000003
-	sum = (sum + v740 + v741 + v742 + v743 + v744 + v745 + v746 + v747 + v748 + v749 + v750 + v751 + v752 + v753 + v754 + v755 + v756 + v757 + v758 + v759) mod 1000003
-	sum = (sum + v760 + v761 + v762 + v763 + v764 + v765 + v766 + v767 + v768 + v769 + v770 + v771 + v772 + v773 + v774 + v775 + v776 + v777 + v778 + v779) mod 1000003
-	sum = (sum + v780 + v781 + v782 + v783 + v784 + v785 + v786 + v787 + v788 + v789 + v790 + v791 + v792 + v793 + v794 + v795 + v796 + v797 + v798 + v799) mod 1000003
-	sum = (sum + v800 + v801 + v802 + v803 + v804 + v805 + v806 + v807 + v808 + v809 + v810 + v811 + v812 + v813 + v814 + v815 + v816 + v817 + v818 + v819) mod 1000003
-	sum = (sum + v820 + v821 + v822 + v823 + v824 + v825 + v826 + v827 + v828 + v829 + v830 + v831 + v832 + v833 + v834 + v835 + v836 + v837 + v838 + v839) mod 1000003
-	sum = (sum + v840 + v841 + v842 + v843 + v844 + v845 + v846 + v847 + v848 + v849 + v850 + v851 + v852 + v853 + v854 + v855 + v856 + v857 + v858 + v859) mod 1000003
-	sum = (sum + v860 + v861 + v862 + v863 + v864 + v865 + v866 + v867 + v868 + v869 + v870 + v871 + v872 + v873 + v874 + v875 + v876 + v877 + v878 + v879) mod 1000003
-	sum = (sum + v880 + v881 + v882 + v883 + v884 + v885 + v886 + v887 + v888 + v889 + v890 + v891 + v892 + v893 + v894 + v895 + v896 + v897 + v898 + v899) mod 1000003
-	sum = (sum + v900 + v901 + v902 + v903 + v904 + v905 + v906 + v907 + v908 + v909 + v910 + v911 + v912 + v913 + v914 + v915 + v916 + v917 + v918 + v919) mod 1000003
-	sum = (sum + v920 + v921 + v922 + v923 + v924 + v925 + v926 + v927 + v928 + v929 + v930 + v931 + v932 + v933 + v934 + v935 + v936 + v937 + v938 + v939) mod 1000003
-	sum = (sum + v940 + v941 + v942 + v943 + v944 + v945 + v946 + v947 + v948 + v949 + v950 + v951 + v952 + v953 + v954 + v955 + v956 + v957 + v958 + v959) mod 1000003
-	sum = (sum + v960 + v961 + v962 + v963 + v964 + v965 + v966 + v967 + v968 + v969 + v970 + v971 + v972 + v973 + v974 + v975 + v976 + v977 + v978 + v979) mod 1000003
-	sum = (sum + v980 + v981 + v982 + v983 + v984 + v985 + v986 + v987 + v988 + v989 + v990 + v991 + v992 + v993 + v994 + v995 + v996 + v997 + v998 + v999) mod 1000003
+	sum = try (sum + v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15 + v16 + v17 + v18 + v19) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v20 + v21 + v22 + v23 + v24 + v25 + v26 + v27 + v28 + v29 + v30 + v31 + v32 + v33 + v34 + v35 + v36 + v37 + v38 + v39) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v40 + v41 + v42 + v43 + v44 + v45 + v46 + v47 + v48 + v49 + v50 + v51 + v52 + v53 + v54 + v55 + v56 + v57 + v58 + v59) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v60 + v61 + v62 + v63 + v64 + v65 + v66 + v67 + v68 + v69 + v70 + v71 + v72 + v73 + v74 + v75 + v76 + v77 + v78 + v79) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v80 + v81 + v82 + v83 + v84 + v85 + v86 + v87 + v88 + v89 + v90 + v91 + v92 + v93 + v94 + v95 + v96 + v97 + v98 + v99) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v100 + v101 + v102 + v103 + v104 + v105 + v106 + v107 + v108 + v109 + v110 + v111 + v112 + v113 + v114 + v115 + v116 + v117 + v118 + v119) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v120 + v121 + v122 + v123 + v124 + v125 + v126 + v127 + v128 + v129 + v130 + v131 + v132 + v133 + v134 + v135 + v136 + v137 + v138 + v139) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v140 + v141 + v142 + v143 + v144 + v145 + v146 + v147 + v148 + v149 + v150 + v151 + v152 + v153 + v154 + v155 + v156 + v157 + v158 + v159) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v160 + v161 + v162 + v163 + v164 + v165 + v166 + v167 + v168 + v169 + v170 + v171 + v172 + v173 + v174 + v175 + v176 + v177 + v178 + v179) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v180 + v181 + v182 + v183 + v184 + v185 + v186 + v187 + v188 + v189 + v190 + v191 + v192 + v193 + v194 + v195 + v196 + v197 + v198 + v199) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v200 + v201 + v202 + v203 + v204 + v205 + v206 + v207 + v208 + v209 + v210 + v211 + v212 + v213 + v214 + v215 + v216 + v217 + v218 + v219) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v220 + v221 + v222 + v223 + v224 + v225 + v226 + v227 + v228 + v229 + v230 + v231 + v232 + v233 + v234 + v235 + v236 + v237 + v238 + v239) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v240 + v241 + v242 + v243 + v244 + v245 + v246 + v247 + v248 + v249 + v250 + v251 + v252 + v253 + v254 + v255 + v256 + v257 + v258 + v259) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v260 + v261 + v262 + v263 + v264 + v265 + v266 + v267 + v268 + v269 + v270 + v271 + v272 + v273 + v274 + v275 + v276 + v277 + v278 + v279) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v280 + v281 + v282 + v283 + v284 + v285 + v286 + v287 + v288 + v289 + v290 + v291 + v292 + v293 + v294 + v295 + v296 + v297 + v298 + v299) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v300 + v301 + v302 + v303 + v304 + v305 + v306 + v307 + v308 + v309 + v310 + v311 + v312 + v313 + v314 + v315 + v316 + v317 + v318 + v319) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v320 + v321 + v322 + v323 + v324 + v325 + v326 + v327 + v328 + v329 + v330 + v331 + v332 + v333 + v334 + v335 + v336 + v337 + v338 + v339) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v340 + v341 + v342 + v343 + v344 + v345 + v346 + v347 + v348 + v349 + v350 + v351 + v352 + v353 + v354 + v355 + v356 + v357 + v358 + v359) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v360 + v361 + v362 + v363 + v364 + v365 + v366 + v367 + v368 + v369 + v370 + v371 + v372 + v373 + v374 + v375 + v376 + v377 + v378 + v379) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v380 + v381 + v382 + v383 + v384 + v385 + v386 + v387 + v388 + v389 + v390 + v391 + v392 + v393 + v394 + v395 + v396 + v397 + v398 + v399) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v400 + v401 + v402 + v403 + v404 + v405 + v406 + v407 + v408 + v409 + v410 + v411 + v412 + v413 + v414 + v415 + v416 + v417 + v418 + v419) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v420 + v421 + v422 + v423 + v424 + v425 + v426 + v427 + v428 + v429 + v430 + v431 + v432 + v433 + v434 + v435 + v436 + v437 + v438 + v439) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v440 + v441 + v442 + v443 + v444 + v445 + v446 + v447 + v448 + v449 + v450 + v451 + v452 + v453 + v454 + v455 + v456 + v457 + v458 + v459) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v460 + v461 + v462 + v463 + v464 + v465 + v466 + v467 + v468 + v469 + v470 + v471 + v472 + v473 + v474 + v475 + v476 + v477 + v478 + v479) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v480 + v481 + v482 + v483 + v484 + v485 + v486 + v487 + v488 + v489 + v490 + v491 + v492 + v493 + v494 + v495 + v496 + v497 + v498 + v499) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v500 + v501 + v502 + v503 + v504 + v505 + v506 + v507 + v508 + v509 + v510 + v511 + v512 + v513 + v514 + v515 + v516 + v517 + v518 + v519) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v520 + v521 + v522 + v523 + v524 + v525 + v526 + v527 + v528 + v529 + v530 + v531 + v532 + v533 + v534 + v535 + v536 + v537 + v538 + v539) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v540 + v541 + v542 + v543 + v544 + v545 + v546 + v547 + v548 + v549 + v550 + v551 + v552 + v553 + v554 + v555 + v556 + v557 + v558 + v559) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v560 + v561 + v562 + v563 + v564 + v565 + v566 + v567 + v568 + v569 + v570 + v571 + v572 + v573 + v574 + v575 + v576 + v577 + v578 + v579) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v580 + v581 + v582 + v583 + v584 + v585 + v586 + v587 + v588 + v589 + v590 + v591 + v592 + v593 + v594 + v595 + v596 + v597 + v598 + v599) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v600 + v601 + v602 + v603 + v604 + v605 + v606 + v607 + v608 + v609 + v610 + v611 + v612 + v613 + v614 + v615 + v616 + v617 + v618 + v619) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v620 + v621 + v622 + v623 + v624 + v625 + v626 + v627 + v628 + v629 + v630 + v631 + v632 + v633 + v634 + v635 + v636 + v637 + v638 + v639) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v640 + v641 + v642 + v643 + v644 + v645 + v646 + v647 + v648 + v649 + v650 + v651 + v652 + v653 + v654 + v655 + v656 + v657 + v658 + v659) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v660 + v661 + v662 + v663 + v664 + v665 + v666 + v667 + v668 + v669 + v670 + v671 + v672 + v673 + v674 + v675 + v676 + v677 + v678 + v679) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v680 + v681 + v682 + v683 + v684 + v685 + v686 + v687 + v688 + v689 + v690 + v691 + v692 + v693 + v694 + v695 + v696 + v697 + v698 + v699) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v700 + v701 + v702 + v703 + v704 + v705 + v706 + v707 + v708 + v709 + v710 + v711 + v712 + v713 + v714 + v715 + v716 + v717 + v718 + v719) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v720 + v721 + v722 + v723 + v724 + v725 + v726 + v727 + v728 + v729 + v730 + v731 + v732 + v733 + v734 + v735 + v736 + v737 + v738 + v739) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v740 + v741 + v742 + v743 + v744 + v745 + v746 + v747 + v748 + v749 + v750 + v751 + v752 + v753 + v754 + v755 + v756 + v757 + v758 + v759) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v760 + v761 + v762 + v763 + v764 + v765 + v766 + v767 + v768 + v769 + v770 + v771 + v772 + v773 + v774 + v775 + v776 + v777 + v778 + v779) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v780 + v781 + v782 + v783 + v784 + v785 + v786 + v787 + v788 + v789 + v790 + v791 + v792 + v793 + v794 + v795 + v796 + v797 + v798 + v799) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v800 + v801 + v802 + v803 + v804 + v805 + v806 + v807 + v808 + v809 + v810 + v811 + v812 + v813 + v814 + v815 + v816 + v817 + v818 + v819) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v820 + v821 + v822 + v823 + v824 + v825 + v826 + v827 + v828 + v829 + v830 + v831 + v832 + v833 + v834 + v835 + v836 + v837 + v838 + v839) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v840 + v841 + v842 + v843 + v844 + v845 + v846 + v847 + v848 + v849 + v850 + v851 + v852 + v853 + v854 + v855 + v856 + v857 + v858 + v859) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v860 + v861 + v862 + v863 + v864 + v865 + v866 + v867 + v868 + v869 + v870 + v871 + v872 + v873 + v874 + v875 + v876 + v877 + v878 + v879) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v880 + v881 + v882 + v883 + v884 + v885 + v886 + v887 + v888 + v889 + v890 + v891 + v892 + v893 + v894 + v895 + v896 + v897 + v898 + v899) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v900 + v901 + v902 + v903 + v904 + v905 + v906 + v907 + v908 + v909 + v910 + v911 + v912 + v913 + v914 + v915 + v916 + v917 + v918 + v919) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v920 + v921 + v922 + v923 + v924 + v925 + v926 + v927 + v928 + v929 + v930 + v931 + v932 + v933 + v934 + v935 + v936 + v937 + v938 + v939) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v940 + v941 + v942 + v943 + v944 + v945 + v946 + v947 + v948 + v949 + v950 + v951 + v952 + v953 + v954 + v955 + v956 + v957 + v958 + v959) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v960 + v961 + v962 + v963 + v964 + v965 + v966 + v967 + v968 + v969 + v970 + v971 + v972 + v973 + v974 + v975 + v976 + v977 + v978 + v979) mod 1000003 otherwise panic("out of range")
+	sum = try (sum + v980 + v981 + v982 + v983 + v984 + v985 + v986 + v987 + v988 + v989 + v990 + v991 + v992 + v993 + v994 + v995 + v996 + v997 + v998 + v999) mod 1000003 otherwise panic("out of range")
 	return sum
 end 'wide'
 
@@ -1253,9 +1233,7 @@ function work(seed Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(7)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("r={r}\n")
 	return 0
@@ -1283,7 +1261,7 @@ function down(n Integer) returns Integer
 	if n == 0 'bottom'
 		return 0
 	end 'bottom'
-	return 1 + down(n - 1)
+	return try 1 + down(try n - 1 otherwise panic("out of range")) otherwise panic("out of range")
 end 'down'
 
 function main() returns ExitCode
@@ -1301,8 +1279,6 @@ depth=2000000
 ```
 
 <!-- test: async-stack-growth.a-stack-grown-by-deep-recursion-shrinks-once-idle -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A STACK THAT GREW FOR ONE DEEP CALL IS GIVEN BACK ONCE THE THREAD HAS BEEN IDLE.** Go halves a goroutine's
 stack when less than a quarter of it is in use (`vendor/go/src/runtime/stack.go`, `shrinkstack`). A coroutine
@@ -1332,9 +1308,7 @@ function deepThenIdle() returns Integer
 end 'deepThenIdle'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async deepThenIdle()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	return r as ExitCode
 end 'main'
@@ -1347,8 +1321,6 @@ depth=20000 shrunk=true again=20000
 ```
 
 <!-- test: async-stack-growth.a-stack-grown-in-the-current-window-is-not-shrunk -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A STACK THAT GREW A MOMENT AGO IS KEPT.** The same recursion, then a park straight away: a thread that
 just needed the stack is likely to need it again, so a shrink waits for the window to pass rather than copying
@@ -1373,9 +1345,7 @@ function deepThenPark() returns Integer
 end 'deepThenPark'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async deepThenPark()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	return r as ExitCode
 end 'main'
@@ -1388,8 +1358,6 @@ depth=20000 shrunk=false
 ```
 
 <!-- test: async-stack-growth.the-starting-stack-follows-the-stacks-threads-needed -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A NEW GREEN THREAD STARTS WITH THE STACK ITS PREDECESSORS NEEDED.** Go sizes a new goroutine's first stack
 from the average of the stacks it has seen (`stack.go`, `startingStackSize`), so a program whose threads all
@@ -1421,14 +1389,11 @@ function deep(n Integer) returns Integer
 end 'deep'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let before = await first
 	let ps = IntPromiseArray.create(0)
 	var i = 0 as Integer
 	while i < 64 'deepEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		ps.push(async deep(4000))
 		i = i + 1
 	end 'deepEach'
@@ -1436,13 +1401,10 @@ function main() returns ExitCode
 	var k = 0 as ElementIndex
 	while k < 64 'awaitEach'
 		let p = try ps.get(k) otherwise panic("ps.get OOB at {k} — bounded by the pushes above")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await p
 		k = k + 1
 	end 'awaitEach'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let after = await later
 	print("total={total} larger={after > before}\n")
 	return 0
@@ -1456,8 +1418,6 @@ total=256000 larger=true
 ```
 
 <!-- test: async-stack-growth.a-panic-after-a-shrink-prints-the-whole-backtrace -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A SHRUNK STACK STILL READS AS ONE CHAIN OF FRAMES.** Moving a stack to a smaller one rewrites every saved frame
 pointer that pointed into the old one; the panic backtrace is what reads that chain. A coroutine recurses deep,
@@ -1499,9 +1459,7 @@ function deepThenIdle() returns Integer
 end 'deepThenIdle'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async deepThenIdle()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	return r as ExitCode
 end 'main'
@@ -1523,8 +1481,7 @@ Stack trace:
 ```
 
 <!-- test: async-stack-growth.a-trace-deeper-than-the-cap-ends-with-an-elision-line -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- procs: 1 -->
 **A BACKTRACE STOPS AT 100 FRAMES AND SAYS SO.** A coroutine parks once, then recurses 150 deep — growing its
 stack several times on the way — and panics at the bottom. The walk follows the relocated chain frame by frame
@@ -1546,9 +1503,7 @@ function parkThenDescend() returns Integer
 end 'parkThenDescend'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async parkThenDescend()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	return r as ExitCode
 end 'main'
@@ -1663,8 +1618,6 @@ Stack trace:
 ```
 
 <!-- test: async-stack-growth.the-starting-stack-comes-back-down-when-threads-need-less -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE STARTING STACK FALLS AGAIN WHEN THE THREADS STOP NEEDING IT.** The average is of what each finished thread
 that parked or grew NEEDED — its final size if it had to grow, else the deepest park it was seen at — not of the stack it was handed, so a
@@ -1701,14 +1654,11 @@ function shallow(n Integer) returns Integer
 end 'shallow'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let before = await first
 	let deeps = IntPromiseArray.create(0)
 	var i = 0 as Integer
 	while i < 64 'deepEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		deeps.push(async deep(4000))
 		i = i + 1
 	end 'deepEach'
@@ -1716,18 +1666,14 @@ function main() returns ExitCode
 	var k = 0 as ElementIndex
 	while k < 64 'awaitDeep'
 		let p = try deeps.get(k) otherwise panic("deeps.get OOB at {k} — bounded by the pushes above")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		deepTotal = deepTotal + await p
 		k = k + 1
 	end 'awaitDeep'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let mid = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let raised = await mid
 	let shallows = IntPromiseArray.create(0)
 	var j = 0 as Integer
 	while j < 128 'shallowEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		shallows.push(async shallow(1))
 		j = j + 1
 	end 'shallowEach'
@@ -1735,13 +1681,10 @@ function main() returns ExitCode
 	var m = 0 as ElementIndex
 	while m < 128 'awaitShallow'
 		let p = try shallows.get(m) otherwise panic("shallows.get OOB at {m} — bounded by the pushes above")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		shallowTotal = shallowTotal + await p
 		m = m + 1
 	end 'awaitShallow'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let after = await later
 	print("deep={deepTotal} shallow={shallowTotal} raised={raised > before} restored={after == before}\n")
 	return 0
@@ -1755,8 +1698,6 @@ deep=256000 shallow=128 raised=true restored=true
 ```
 
 <!-- test: async-stack-growth.the-starting-stack-ignores-threads-that-neither-parked-nor-grew -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A THREAD THAT NEITHER PARKED NOR GREW TEACHES THE STARTING STACK NOTHING.** Go recomputes `startingStackSize`
 only at a collection, from the stacks that collection scanned, so a goroutine born and finished between two
@@ -1796,14 +1737,11 @@ function neverWaits(n Integer) returns Integer
 end 'neverWaits'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let before = await first
 	let deeps = IntPromiseArray.create(0)
 	var i = 0 as Integer
 	while i < 64 'deepEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		deeps.push(async deep(4000))
 		i = i + 1
 	end 'deepEach'
@@ -1811,18 +1749,14 @@ function main() returns ExitCode
 	var k = 0 as ElementIndex
 	while k < 64 'awaitDeep'
 		let p = try deeps.get(k) otherwise panic("deeps.get OOB at {k} — bounded by the pushes above")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		deepTotal = deepTotal + await p
 		k = k + 1
 	end 'awaitDeep'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let mid = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let raised = await mid
 	let quick = IntPromiseArray.create(0)
 	var j = 0 as Integer
 	while j < 128 'quickEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		quick.push(async neverWaits(1))
 		j = j + 1
 	end 'quickEach'
@@ -1830,13 +1764,10 @@ function main() returns ExitCode
 	var m = 0 as ElementIndex
 	while m < 128 'awaitQuick'
 		let p = try quick.get(m) otherwise panic("quick.get OOB at {m} — bounded by the pushes above")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		quickTotal = quickTotal + await p
 		m = m + 1
 	end 'awaitQuick'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let after = await later
 	print("deep={deepTotal} quick={quickTotal} raised={raised > before} kept={after == raised}\n")
 	return 0
@@ -1850,8 +1781,6 @@ deep=256000 quick=128 raised=true kept=true
 ```
 
 <!-- test: async-stack-growth.the-starting-stack-follows-the-live-threads-when-the-finishers-teach-nothing -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A RUN OF THREADS THAT NEVER PARK STILL LETS THE STARTING STACK FALL, BECAUSE THE THREADS THAT ARE ALIVE ARE SCANNED.**
 Go recomputes `startingStackSize` at each collection from every goroutine that collection scanned, parked or
@@ -1892,14 +1821,11 @@ function neverWaits(n Integer) returns Integer
 end 'neverWaits'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let before = await first
 	let deeps = IntPromiseArray.create(0)
 	var i = 0 as Integer
 	while i < 64 'deepEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		deeps.push(async deep(4000))
 		i = i + 1
 	end 'deepEach'
@@ -1907,26 +1833,19 @@ function main() returns ExitCode
 	var k = 0 as ElementIndex
 	while k < 64 'awaitDeep'
 		let p = try deeps.get(k) otherwise panic("deeps.get OOB at {k} — bounded by the pushes above")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		deepTotal = deepTotal + await p
 		k = k + 1
 	end 'awaitDeep'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let mid = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let raised = await mid
 	var quickTotal = 0 as Integer
 	var j = 0 as Integer
 	while j < 2000 'quickEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let q = async neverWaits(1)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		quickTotal = quickTotal + await q
 		j = j + 1
 	end 'quickEach'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async seedBytes()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let after = await later
 	print("deep={deepTotal} quick={quickTotal} raised={raised > before} restored={after == before}\n")
 	return 0
@@ -1940,8 +1859,6 @@ deep=256000 quick=2000 raised=true restored=true
 ```
 
 <!-- test: async-stack-growth.a-preemption-request-never-grows-a-stack-that-fits -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **A STACK GROWS ONLY WHEN THE FRAME THAT ASKED DOES NOT FIT.** The monitor poisons the guard word of a thread that
 has held its processor too long, and a guard that fails on the poison reaches the grower with a frame that
 fits. The loop calls nothing of the program's own, so it passes only the guards of the runtime bodies that
@@ -1984,9 +1901,7 @@ end 'spinAllocating'
 
 function main() returns ExitCode
 	sleep(1)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async spinAllocating()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	return r as ExitCode
 end 'main'

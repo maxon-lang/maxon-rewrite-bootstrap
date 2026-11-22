@@ -44,6 +44,7 @@ export enum TypeKind
 	builtinFrozen
 	builtinCown
 	builtinCursor
+	builtinPromise
 	typeParam
 	interfaceTy
 	funcTy
@@ -58,6 +59,7 @@ export enum TypeKind
 			builtinFrozen gives true
 			builtinCown gives true
 			builtinCursor gives true
+			builtinPromise gives true
 			invalid gives false
 			primBool gives false
 			primString gives false
@@ -1537,6 +1539,7 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		builtinFrozen gives sizeofWord
 		builtinCown gives sizeofWord
 		builtinCursor gives sizeofWord
+		builtinPromise gives sizeofWord
 		funcTy gives sizeofWord
 	end 'k'
 end 'byteSize'
@@ -1962,6 +1965,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		builtinFrozen gives true
 		builtinCown gives true
 		builtinCursor gives true
+		builtinPromise gives true
 		typeParam gives true
 		funcTy gives true
 		invalid gives false
@@ -2060,7 +2064,11 @@ export function typeName(tt TypeSlot, reads TypeTable, t TypeID) returns String
 	end 'counted'
 	if typeEntry(tt, reads: reads, t: t).typeArgs.count() > 0 'inst'
 		var argNames = StringList.create(0)
-		for i in 0 upto typeEntry(tt, reads: reads, t: t).typeArgs.count() 'each'
+		var spelled = typeEntry(tt, reads: reads, t: t).typeArgs.count()
+		if isPromiseType(tt, reads: reads, t: t) and promiseError(tt, reads: reads, t: t) == noType 'unthrowing'
+			spelled = 1
+		end 'unthrowing'
+		for i in 0 upto spelled 'each'
 			argNames.push(typeName(tt, reads: reads, t: typeEntry(tt, reads: reads, t: t).typeArgs[i]))
 		end 'each'
 		return instanceSpelling(typeEntry(tt, reads: reads, t: t).name, args: argNames)
@@ -2479,3 +2487,23 @@ export function isProjectionCall(typing Typing, call NodeID) returns bool
 		none gives false
 	end 'hit'
 end 'isProjectionCall'
+
+// isPromiseType is whether a type is a `Promise with ...`: what an async call gives, which an await consumes.
+export function isPromiseType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return t != noType and typeKind(tt, reads: reads, t: t) == TypeKind.builtinPromise
+end 'isPromiseType'
+
+// promiseResult is the type of what the function of a promise's coroutine returns, which its await gives.
+export function promiseResult(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
+	return typeEntry(tt, reads: reads, t: t).typeArgs[0]
+end 'promiseResult'
+
+// promiseError is the error the function of a promise's coroutine throws, which its await fails with: noType for a
+// `Promise with T`, whose error argument is void.
+export function promiseError(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
+	let e = typeEntry(tt, reads: reads, t: t).typeArgs[1]
+	if typeKind(tt, reads: reads, t: e) == TypeKind.primVoid 'none'
+		return noType
+	end 'none'
+	return e
+end 'promiseError'

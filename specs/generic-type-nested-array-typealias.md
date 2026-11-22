@@ -4204,7 +4204,6 @@ true false
 ```
 
 <!-- test: a-service-message-default-takes-its-subject-from-the-service-not-the-first-argument -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The message's first written argument is itself a generic instance, over a type that is not the service's. The default reads the service's own `T`.
@@ -4237,7 +4236,6 @@ end 'Sink'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Sink.create(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await h.put(IntCell.create(5)) otherwise 0
 	print("{n}\n")
 	return 0
@@ -4251,7 +4249,6 @@ end 'main'
 ```
 
 <!-- test: a-service-message-without-arguments-fills-a-default-that-reads-sizeof -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 type Sink uses T
@@ -4273,9 +4270,7 @@ function main() returns ExitCode
 	let h = spawn Sink.create(5 as Small)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let g = spawn Sink.create(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = try await h.width() otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = try await g.width() otherwise 0
 	print("{a} {b}\n")
 	return 0

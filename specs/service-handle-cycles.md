@@ -402,7 +402,6 @@ error E4014: <fragment>:23:6: type 'Echo' reaches a service handle that reaches 
 ```
 
 <!-- test: a-function-typed-field-is-accepted-when-no-closure-captures-a-handle-that-reaches-its-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -451,7 +450,6 @@ function main() returns ExitCode
 	let relay = function(by Tally) gives forward(logger, by: by)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = try await echo.ping(3) otherwise 0
 	let relayed = relay(2)
 	echo.shutdown()
@@ -533,7 +531,6 @@ chain built
 ```
 
 <!-- test: passing-the-handle-with-each-message-is-accepted -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -583,7 +580,6 @@ function main() returns ExitCode
 	var got = 0 as Tally
 	while got == 0 'untilAnswered'
 		Scheduler.yield()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		got = try await asker.result() otherwise 0
 	end 'untilAnswered'
 	print("answer {got}\n")

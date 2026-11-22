@@ -51,6 +51,8 @@ expect	E3063	language difference: another module's names are always qualified by
 expect	E3055	language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program
 first	ErrUncheckedFailure	language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
+run	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending
+first	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending
 test	fold-constants.md	a-float-division-by-a-constant-zero-is-not-folded	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero
 test	nominal-generic-alias.md	error.xs-into-ys-parameter	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
 test	nominal-generic-alias.md	error.rebind-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own

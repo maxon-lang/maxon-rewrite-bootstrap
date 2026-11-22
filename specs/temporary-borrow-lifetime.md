@@ -713,8 +713,6 @@ end 'main'
 ```
 
 <!-- test: promise-read-out-of-a-temporary-array -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A promise element is a bare word, so the accessor hands it back through the TRIVIAL arm — and the
 array's destructor still reclaims it (`__gt_promise_drop`). A temporary that hands one out must
 therefore live to the borrower's scope exactly as one holding a managed element does.
@@ -732,14 +730,12 @@ end 'plain'
 
 function make() returns IntPromiseArray
 	let s = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	s.push(async plain())
 	return s
 end 'make'
 
 function main() returns ExitCode
 	let p = try make().get(0) otherwise panic("has one")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -748,8 +744,6 @@ end 'main'
 ```
 
 <!-- test: promise-first-out-of-a-temporary-array -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `first()` takes that same trivial arm and names slot 0 without an index argument, and it owes the
 promotion for the same reason.
 ```maxon
@@ -766,14 +760,12 @@ end 'plain'
 
 function make() returns IntPromiseArray
 	let s = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	s.push(async plain())
 	return s
 end 'make'
 
 function main() returns ExitCode
 	let p = try make().first() otherwise panic("has one")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```

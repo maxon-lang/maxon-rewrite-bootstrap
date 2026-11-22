@@ -50,6 +50,8 @@ export enum NodeKind
 	callExpr
 	fromExpr
 	unaryExpr
+	asyncExpr
+	awaitExpr
 	castExpr
 	binaryExpr
 	condExpr
@@ -129,6 +131,8 @@ export function isReserved(word String) returns bool
 		"fallthrough" or
 		"gives" or
 		"not" or
+		"async" or
+		"await" or
 		"mod" or
 		"shl" or
 		"shr" or
@@ -1763,6 +1767,32 @@ end 'unaryExprE'
 export function setUnaryExprE(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setUnaryExprE'
+
+export function newAsyncExpr(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.asyncExpr, start: start)
+	return id
+end 'newAsyncExpr'
+
+export function asyncExprCall(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].a as NodeID
+end 'asyncExprCall'
+
+export function setAsyncExprCall(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].a = value as diag.U32
+end 'setAsyncExprCall'
+
+export function newAwaitExpr(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.awaitExpr, start: start)
+	return id
+end 'newAwaitExpr'
+
+export function awaitExprE(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].a as NodeID
+end 'awaitExprE'
+
+export function setAwaitExprE(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].a = value as diag.U32
+end 'setAwaitExprE'
 
 export function newCastExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.castExpr, start: start)

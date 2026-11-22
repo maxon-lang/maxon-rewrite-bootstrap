@@ -1314,8 +1314,6 @@ error E3196: <fragment>:20:17: cannot store a mutable 'Row' into 'pinned', which
 ```
 
 <!-- test: await-inside-modify-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1334,11 +1332,9 @@ end 'slow'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let batch = LineArray.create(0) as isolated LineArray
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let later = async slow()
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let n = await later
 		batch.push("{n}")
 	end 'edit'
@@ -1350,8 +1346,6 @@ error E3205: <fragment>:15:11: cannot wait inside 'edit'; another coroutine coul
 ```
 
 <!-- test: break-leaves-window-lets-sibling-run -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `editor` leaves the block by `break`, then sleeps 150 ms; `sibling` sleeps 10 ms. The window's strand guard is released on the `break` path, so `sibling` runs during the sleep and prints between `left` and `done`.
@@ -1384,13 +1378,9 @@ function editor() returns Count
 end 'editor'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let ed = async editor()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sib = async sibling()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await ed
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await sib
 	return 0
 end 'main'
@@ -2218,8 +2208,6 @@ error E3199: <fragment>:25:10: 'h.part' cannot be opened: the value that holds i
 ```
 
 <!-- test: async-call-with-an-isolated-argument-in-an-unmarked-position-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `async` call keeps its arguments alive while another coroutine runs, so it takes an isolated value only in an `isolated` parameter, never as a one-call open.
@@ -2243,9 +2231,7 @@ end 'count'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let iso = Bag.create(7) as isolated Bag
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async count(iso)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
 	print("{n}\n")
 	return 0
@@ -2439,7 +2425,6 @@ error E3196: <fragment>:15:29: cannot store an isolated 'Box' into 'an element o
 ```
 
 <!-- test: spawn-of-a-waiting-factory-inside-modify-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -2468,7 +2453,6 @@ type Relay
 	static function create() returns Self
 		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let oracle = spawn Oracle.create()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let n = try await oracle.answer() otherwise 0
 		return Self{seen: n}
 	end 'create'
@@ -2582,8 +2566,6 @@ error E3201: <fragment>:27:39: one statement reaches through two isolated values
 ```
 
 <!-- test: an-async-call-to-a-generic-callee-with-an-isolated-argument-in-an-unmarked-position-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `take` is generic, so the `async` call is to an instance of it, and the isolated `a.part` is refused in its unmarked `part` position as it is for a plain callee.
@@ -2615,9 +2597,7 @@ end 'take'
 
 function main() returns ExitCode
 	let a = Pair.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async take(1, part: a.part)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await pending
 	print("{n}\n")
 	return 0
@@ -3649,7 +3629,6 @@ error E3204: <fragment>:30:3: 'x' holds a linear value from outside 'm' and cann
 ```
 
 <!-- test: an-outer-service-handle-var-assigned-inside-a-window-is-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -3690,7 +3669,6 @@ function main() returns ExitCode
 		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		x = spawn Svc.create()
 	end 'm'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let up = try await x.ping() otherwise false
 	print("{up}\n")
 	return 0

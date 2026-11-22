@@ -69,8 +69,6 @@ error E3221: <fragment>:24:18: the message 'select' may wait (it selects over pr
 ```
 
 <!-- test: await-any-waits.error.a-select-inside-a-modify-block-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -100,7 +98,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let batch = Batch.create() as isolated Batch
 	let ps = Jobs.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async work(1))
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
@@ -108,7 +105,6 @@ function main() returns ExitCode
 		batch.done = batch.done + (ready as Tally)
 	end 'edit'
 	let winner = try ps.remove(0) otherwise return 1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await winner
 	return 0
 end 'main'
@@ -118,8 +114,6 @@ error E3205: <fragment>:24:18: cannot wait inside 'edit'; another coroutine coul
 ```
 
 <!-- test: await-any-waits.error.a-one-call-open-around-a-method-that-selects-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -139,11 +133,9 @@ type Slot
 
 	function spin() returns Tally
 		let jobs = Jobs.create(0)
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		jobs.push(async delayed())
 		let ready = jobs.awaitAny()
 		let winner = try jobs.remove(ready) otherwise return 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let got = await winner
 		self.count = got
 		return got
@@ -163,9 +155,7 @@ end 'runSlot'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let slot = Slot.create() as isolated Slot
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let work = async runSlot(slot)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let laps = await work
 	print("laps={laps}\n")
 	return 0
@@ -176,8 +166,6 @@ error E3205: <fragment>:31:14: cannot call 'spin' inside 'slot'; it may wait (it
 ```
 
 <!-- test: await-any-waits.error.a-select-inside-an-acquire-block-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -209,11 +197,9 @@ function work(s Ledger.handle) returns Tally
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire s 'held'
 		let jobs = Jobs.create(0)
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		jobs.push(async delayed())
 		let ready = jobs.awaitAny()
 		let winner = try jobs.remove(ready) otherwise return 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return await winner
 	end 'held' otherwise 'stopped'
 		return 0
@@ -232,8 +218,6 @@ error E3205: <fragment>:26:13: cannot wait inside 'held'; an acquire block holds
 ```
 
 <!-- test: await-any-waits.a-select-over-coroutines-runs-in-main-and-in-a-plain-coroutine -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `main` and `firstOf`, a coroutine of `main`, hold no service, so both may select. The index names the job that finished first, and awaiting every job afterwards drains the array.
 
 ```maxon
@@ -248,14 +232,11 @@ end 'delayed'
 
 function firstOf() returns Tally
 	let jobs = Jobs.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	jobs.push(async delayed(200, answer: 1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	jobs.push(async delayed(1, answer: 2))
 	let ready = jobs.awaitAny()
 	var sum = 0 as Tally
 	for job in jobs 'eachJob'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await job
 	end 'eachJob'
 	return ready as Tally * 100 + sum
@@ -263,19 +244,14 @@ end 'firstOf'
 
 function main() returns ExitCode
 	let jobs = Jobs.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	jobs.push(async delayed(200, answer: 3))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	jobs.push(async delayed(1, answer: 4))
 	let ready = jobs.awaitAny()
 	var sum = 0 as Tally
 	for job in jobs 'eachJob'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await job
 	end 'eachJob'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let inner = async firstOf()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let innerAnswer = await inner
 	print("main ready={ready} sum={sum} coroutine={innerAnswer}\n")
 	return 0
@@ -289,8 +265,6 @@ main ready=1 sum=7 coroutine=103
 ```
 
 <!-- test: await-any-waits.a-message-body-may-make-an-http-request -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `fetch` runs in `Fetcher`'s message body and makes an `HttpClient` request over `http` to a peer coroutine of `main`. The client reaches no wait, so the message is accepted.
 
@@ -323,11 +297,9 @@ end 'answer'
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async answer(listener)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let fetcher = spawn Fetcher.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let length = try await fetcher.fetch("http://127.0.0.1:{port}/") otherwise 'refused'
 		peer.cancel()
 		return 2

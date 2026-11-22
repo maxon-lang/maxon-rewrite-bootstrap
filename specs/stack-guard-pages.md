@@ -45,9 +45,6 @@ On `wasm32-wasi` the engine owns the stack, and running out of it is wasmtime's 
 ## Tests
 
 <!-- test: error.a-recursion-among-unguarded-functions-fails-the-build -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 `__probe_descend` is tier source, so its prologue carries no stack guard and its stack never grows; a
 recursion there would run on whatever stack it was entered from until it ran off the bottom. No margin bounds
@@ -71,9 +68,7 @@ export function probeDescend(depth ExitCode) returns ExitCode
 end 'probeDescend'
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async probeDescend(0)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reached = await p
 	print("{reached}\n")
 	return 0
@@ -84,8 +79,6 @@ error E5004: <fragment>:7:10: '__probe_descend' has no stack guard and reaches i
 ```
 
 <!-- test: error.an-unguarded-chain-wider-than-the-guard-margin-fails-the-build -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **THE BOUND IS ON THE WHOLE CHAIN, NOT ON ONE FRAME.** `__probe_wide` keeps two hundred words live across
@@ -313,9 +306,7 @@ export function probeWide(depth ExitCode) returns ExitCode
 end 'probeWide'
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async probeWide(0)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reached = await p
 	print("{reached}\n")
 	return 0
@@ -326,8 +317,6 @@ error E5004: <fragment>:3:10: the unguarded chain '__probe_enter' → '__probe_w
 ```
 
 <!-- test: an-unguarded-chain-within-the-guard-margin-builds-and-runs -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The accepted twin of the two refusals above: `__probe_enter` → `__probe_leaf` is a chain of unguarded functions
 whose frames fit the 928-byte margin and that reach no function twice, so the build proves it and the program runs.
 ```maxon
@@ -345,9 +334,7 @@ export function probeDescend(depth ExitCode) returns ExitCode
 end 'probeDescend'
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async probeDescend(41)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reached = await p
 	print("{reached}\n")
 	return 0
@@ -3157,8 +3144,7 @@ Stack trace:
 ```
 
 <!-- test: a-guarded-recursion-on-a-grown-green-thread-stack-panics-with-stack-overflow -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- runs: alone -->
 ⭐ **WITH NO GUARD PAGE UNDER IT, A GREEN THREAD'S STACK OVERFLOWS AT ITS PROLOGUE GUARD.** `descend` is the
 program's own function, so every frame's prologue checks the stack, and the spawned green thread's stack is
@@ -3178,9 +3164,7 @@ function descend(depth Depth) returns Depth
 end 'descend'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async descend(0)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let reached = await p
 	print("{reached}\n")
 	return 0

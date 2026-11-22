@@ -402,8 +402,6 @@ held
 ```
 
 <!-- test: a-static-is-read-from-a-green-thread-across-a-stack-grow -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ### A static is read from a green thread across a stack grow
 
 `Cache.value` already holds its record when the first thread starts, which is what keeps the green-thread
@@ -436,13 +434,9 @@ function deepThenRead(n Integer) returns Integer
 end 'deepThenRead'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async deepThenRead(200)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async deepThenRead(150)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let s = await q
 	print("{r} {s}")
 	return 0

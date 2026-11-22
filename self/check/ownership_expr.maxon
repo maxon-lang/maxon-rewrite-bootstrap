@@ -8,6 +8,9 @@ function readRoot(mutates o Ownership, p ast.Project, ms ast.ModuleState, l ast.
 	end 'held'
 	let fact = s.factOf(l)
 	let name = o.c.typing.locals[l as Count].name.clone()
+	if fact.kind == OwnFactKind.factMoved and promiseUsedAgain(o, p: p, site: site, fact: fact) 'awaited'
+		return without(s, l: l)
+	end 'awaited'
 	if fact.kind == OwnFactKind.factMoved 'moved'
 		if site <= fact.site 'loop'
 			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.movedInEarlierIteration(name))
@@ -39,10 +42,13 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	if isView(o, ms: ms, e: e) 'view'
 		return consume(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: e), dest: dest, s: s)
 	end 'view'
-	let out = eval(o, p: p, ms: ms, e: e, s: s)
+	var out = eval(o, p: p, ms: ms, e: e, s: s)
 	if out.dead 'dead'
 		return out
 	end 'dead'
+	if ms.tree().kindOf(e) == ast.NodeKind.asyncExpr 'async'
+		out = takePending(o, p: p, ms: ms, e: e, dest: dest, s: out)
+	end 'async'
 	o.c.typing.consumed.insert(e as Count, value: true)
 	let t = ownType(o, node: e)
 	if ast.isFunctionType(ms.types, reads: p.types, t: t) and dest.kind != OwnDestKind.destClosure and dest.kind != OwnDestKind.destBinding and dest.kind != OwnDestKind.destCast and dest.kind != OwnDestKind.destBranch 'escapes'
@@ -80,6 +86,15 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 		fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "'{text}' is part of a frozen value, which keeps its contents and shares them with its other owners, so it cannot be moved out of it into {dest.text()}; {advice}")
 		return out
 	end 'frozen'
+	if isBorrowed(o.c.typing.locals[path.root as Count]) and ast.isPromiseType(ms.types, reads: p.types, t: t) 'borrowedPromise'
+		let root = o.c.typing.locals[path.root as Count].clone()
+		var fix = diag.Fix.none()
+		if root.isParam and not root.isSelf and root.conv == ast.Convention.convLet and path.steps.count() == 0 'whole'
+			fix = conventionFix(ms.tree(), param: root.definedAt, keyword: fixKindConsumes)
+		end 'whole'
+		failFixed(o, p: p, site: site, code: diag.errPromiseBorrowed, msg: "'{text}' is a promise this function only borrows, so it cannot be moved into {dest.text()}: a promise has one owner, which awaits it; take the parameter 'consumes' to own the promise", fix: fix)
+		return out
+	end 'borrowedPromise'
 	if isBorrowed(o.c.typing.locals[path.root as Count]) 'borrowed'
 		let advice = copyAdvice(o, p: p, ms: ms, t: t, ifCopyable: "use '{text}.clone()' to give it its own copy", fallback: "")
 		let fix = borrowedMoveFix(o, p: p, ms: ms, e: e, t: t, path: path)
@@ -100,7 +115,9 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 		return out
 	end 'destructor'
 	requireNotProjected(o, p: p, ms: ms, path: path, site: site)
-	return withFact(out, fact: OwnFact.make(path.root, site: site, kind: OwnFactKind.factMoved, dest: dest))
+	requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
+	let released = releaseHolder(o, p: p, root: path.root, site: site, dest: dest, s: out)
+	return withFact(released, fact: OwnFact.make(path.root, site: site, kind: OwnFactKind.factMoved, dest: dest))
 end 'consume'
 
 // moveOfProjection refuses to move a part of a borrowed result, which its function lends from its arguments: E3900 where
@@ -379,6 +396,12 @@ function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		let out = expr(o, p: p, ms: ms, e: ast.unaryExprE(ms.tree(), id: e), s: s)
 		return failed(o, p: p, ms: ms, e: e, s: out)
 	end 'unary'
+	if k == ast.NodeKind.asyncExpr 'async'
+		return asyncExprOwn(o, p: p, ms: ms, e: e, s: s)
+	end 'async'
+	if k == ast.NodeKind.awaitExpr 'await'
+		return awaitExprOwn(o, p: p, ms: ms, e: e, s: s)
+	end 'await'
 	if k == ast.NodeKind.castExpr 'cast'
 		let operand = ast.castExprE(ms.tree(), id: e)
 		if typeHasKind(p, ms: ms, t: ownType(o, node: e), kind: ast.TypeKind.interfaceTy) or typeHasKind(p, ms: ms, t: ownType(o, node: operand), kind: ast.TypeKind.interfaceTy) 'interface'
@@ -473,6 +496,7 @@ function nameExprOwn(mutates o Ownership, p ast.Project, ms ast.ModuleState, e a
 	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
 	if name.kind == ast.NameKind.nameLocal 'local'
 		requireNotMutablyHeld(o, p: p, local: name.local, site: site)
+		requireUnlentRead(o, p: p, ms: ms, root: name.local, site: site, s: s)
 		return readRoot(o, p: p, ms: ms, l: name.local, site: site, s: s)
 	end 'local'
 	if name.kind == ast.NameKind.nameSelfField 'selfField'
@@ -594,6 +618,12 @@ function callError(p ast.Project, ms ast.ModuleState, call ast.CallInfo) returns
 end 'callError'
 
 function userCall(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, call ast.CallInfo, receiver ast.NodeID, consumes s OwnState) returns OwnState
+	return passArguments(o, p: p, ms: ms, site: site, call: call, receiver: receiver, fails: callError(p, ms: ms, call: call) != ast.noType, s: s)
+end 'userCall'
+
+// passArguments passes a call its receiver and arguments, each as its parameter takes it, and fails at site where fails
+// says the callee can fail there.
+function passArguments(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, call ast.CallInfo, receiver ast.NodeID, fails bool, consumes s OwnState) returns OwnState
 	var exclusive = receiver != 0 and call.selfConv != ast.Convention.convLet
 	for i in 0 upto call.paramSpecs.count() 'specs'
 		exclusive = exclusive or call.paramSpecs[i].conv != ast.Convention.convLet or ms.tree().kindOf(call.ordered[i]) == ast.NodeKind.closureExpr
@@ -631,7 +661,7 @@ function userCall(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 	end 'args'
 	release(o, mark: held)
 	requireAbsorbedBorrows(o, p: p, ms: ms, site: site, call: call, receiver: receiver)
-	if callError(p, ms: ms, call: call) != ast.noType 'fails'
+	if fails 'fails'
 		// The callee has its arguments by now, and ends them itself when it fails.
 		land(o, mark: arguments)
 		failure(o, p: p, ms: ms, site: site, s: out)
@@ -641,7 +671,7 @@ function userCall(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 	end 'initialised'
 	o.initialising = outer
 	return out
-end 'userCall'
+end 'passArguments'
 
 // requireNotReceiver refuses 'self' as a mutates argument. A mutates parameter may be assigned as a whole, which replaces
 // the caller's value, and 'self' is the receiver of the call that is running, not a place that can be replaced.
@@ -738,7 +768,8 @@ function closureCaptures(mutates o Ownership, p ast.Project, mutates ms ast.Modu
 		if conv == ast.Convention.convConsumes 'moved'
 			out = consume(o, p: p, ms: ms, e: ref, dest: OwnDest.of(OwnDestKind.destClosure), s: out)
 			let t = ownType(o, node: ref)
-			if isManagedOwn(p, ms: ms, t: t) and lacksDroppable(o, p: p, ms: ms, t: t) 'obliged'
+			requireNoPromiseCaptured(o, p: p, ms: ms, ref: ref, name: info.captures[i].name, behaviour: false)
+			if isManagedOwn(p, ms: ms, t: t) and lacksDroppable(o, p: p, ms: ms, t: t) and not ast.isPromiseType(ms.types, reads: p.types, t: t) 'obliged'
 				fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: ref), code: diag.errNotDroppable, msg: "'{info.captures[i].name}' has a destructor, so it must be ended by one, and a closure drops what it owns; end it before the closure, or pass it to the closure's call as an argument")
 			end 'obliged'
 		end 'moved' else if conv == ast.Convention.convMutates 'changed'
@@ -767,6 +798,7 @@ function mutatesArgument(mutates o Ownership, p ast.Project, mutates ms ast.Modu
 		return out
 	end 'fresh'
 	requireWritable(o, p: p, ms: ms, site: site, path: path)
+	requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 	return out
 end 'mutatesArgument'
 

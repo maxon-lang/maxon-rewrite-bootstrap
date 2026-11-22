@@ -1780,7 +1780,6 @@ no draw keys the process fold: true
 ```
 
 <!-- test: concurrent-pinned-draws-never-repeat-an-index -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
@@ -1847,7 +1846,6 @@ function main() returns ExitCode
 	var lines = 0 as Tally
 	var spelled = true
 	for reply in replies 'collect'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let text = await reply
 		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 		for line in text.split("\n") 'eachLine'

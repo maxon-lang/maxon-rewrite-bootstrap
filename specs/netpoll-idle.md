@@ -69,7 +69,6 @@ quiet=true
 ```
 
 <!-- test: netpoll-idle.an-earlier-timer-interrupts-a-later-wait -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 **A DEADLINE ARMED EARLIER THAN THE ONE THE POLLER WAITS FOR ENDS ITS WAIT.** `main` parks a coroutine on a
 timer without end (`ForeverMs`), so the machine that runs it settles into the poller with no deadline that could
@@ -91,7 +90,6 @@ function forever() returns Integer
 end 'forever'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sleeper = async forever()
 	Scheduler.yield()
 	var idle = 0 as SchedulerEventCount
@@ -115,8 +113,6 @@ napped parked=true
 ```
 
 <!-- test: netpoll-idle.a-break-reaches-the-poller-while-a-former-poller-runs -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 **A BREAK ENDS THE POLLER'S WAIT WHILE ANOTHER MACHINE THAT ONCE POLLED IS BUSY.** `main`'s machine waits in the
@@ -156,7 +152,6 @@ function main() returns ExitCode
 	let napped = NapCell.create(false)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shorter = spawn Napper.create(napped.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let longer = async forever()
 	Scheduler.yield()
 	// `main`'s machine is the poller for this one, and then the other machine polls on the sleeper's deadline.
@@ -171,7 +166,6 @@ function main() returns ExitCode
 	while not seen 'untilNapped'
 		seen = napped.current()
 	end 'untilNapped'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let took = await r2
 	let stillParked = not longer.isComplete()
 	longer.cancel()
@@ -187,8 +181,6 @@ napped=true took=1 parked=true
 ```
 
 <!-- test: netpoll-idle.a-close-under-a-parked-accept-from-another-owner-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 **A LISTENER HAS ONE OWNER, SO NO OTHER COROUTINE CAN CLOSE IT UNDER A PARKED ACCEPT.** `async stall(listener)`
 lends the listener to the coroutine that accepts until the promise is awaited or cancelled, so `main` closing it in
@@ -204,11 +196,9 @@ end 'stall'
 
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a loopback bind on an ephemeral port succeeds")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let accepter = async stall(listener)
 	Scheduler.yield()
 	listener.close()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await accepter
 	print("released\n")
 	return 0

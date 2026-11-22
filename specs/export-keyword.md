@@ -1171,9 +1171,6 @@ error E3008: specs/export-keyword/error.non-exported-enum-cross-file.maxon:10:10
 ```
 
 <!-- test: error.a-non-exported-unions-case-spawned-across-files -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 ```maxon
 // --- file: lib/shape.maxon
 typealias Radius = int(0 to 100)
@@ -1185,9 +1182,7 @@ end 'Shape'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Shape.circle(3)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p
 	return 0
 end 'main'

@@ -147,8 +147,6 @@ and wasm32-wasi refuses `__cown_spawn` with the same E3104, which the harness co
 ## Tests
 
 <!-- test: await-any.returns-the-first-completed-index -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE DISCRIMINATING CASE — the index returned is the one that FINISHED, not the one that is first in
 the array.** Slot 0 and slot 2 park on timers; slot 1 only yields, so it is the one that reaches
 `completed`. A scan that looked at slot 0 alone, or that returned the first slot it could read rather than
@@ -172,11 +170,8 @@ end 'quick'
 
 function main() returns ExitCode
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async slow(120))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async quick())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async slow(240))
 	let ready = arr.awaitAny()
 	var score = 0 as Integer
@@ -185,7 +180,6 @@ function main() returns ExitCode
 	end 'themiddleonefinishedfirst'
 	var sum = 0 as Integer
 	for p in arr 'drainthemall'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
 	end 'drainthemall'
 	if sum == 4 'everypromisewasstillawaitable'
@@ -199,8 +193,6 @@ end 'main'
 ```
 
 <!-- test: await-any.no-park-when-one-is-already-complete -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ **AN ALREADY-COMPLETE SLOT IS ANSWERED BY THE SCAN, BEFORE ANY PARK.** The promise runs to completion
 under `main`'s own `Scheduler.yield()` loop before `awaitAny` is called, and it is the only one in the
 program — so at the moment of the call nothing else is runnable, no timer is pending and no child is
@@ -224,7 +216,6 @@ end 'makeValue'
 function main() returns ExitCode
 	let maxSpins = 100
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue())
 	let p = try arr.get(0) otherwise panic("the promise was just pushed")
 	var spins = 0 as Integer
@@ -241,7 +232,6 @@ function main() returns ExitCode
 	if arr.awaitAny() == 0 'thecompletedslotisnamed'
 		score = score + 2
 	end 'thecompletedslotisnamed'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	if await p == 42 'stillawaitable'
 		score = score + 4
 	end 'stillawaitable'
@@ -253,8 +243,6 @@ end 'main'
 ```
 
 <!-- test: await-any.leaves-the-others-awaitable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE CENTRAL CASE.** `awaitAny` names one index and RETIRES NOTHING: every promise in the array,
 winner included, is still awaitable afterwards, and a program that awaits them all is leak-free. This is
 the shape the motivating consumer has — a pool selects, serves the ready drain, and eventually awaits
@@ -273,11 +261,8 @@ end 'value'
 
 function main() returns ExitCode
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async value(10))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async value(20))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async value(30))
 	let first = arr.awaitAny()
 	let second = arr.awaitAny()
@@ -287,7 +272,6 @@ function main() returns ExitCode
 	end 'aselectiswithoutsideeffect'
 	var sum = 0 as Integer
 	for p in arr 'awaiteveryone'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
 	end 'awaiteveryone'
 	if sum == 60 'allthreewerestillthere'
@@ -301,8 +285,6 @@ end 'main'
 ```
 
 <!-- test: await-any.over-a-mixed-array-of-sleeps -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE TIMER CASE — nothing is runnable at all, so the machine BLOCKS on the earliest deadline.** Three
 sleepers and no other work: once all three coroutines are parked on their timers and `main` is parked in
 `awaitAny`, the machine has nothing to run and parks until the nearest deadline rather than spinning
@@ -322,11 +304,8 @@ end 'nap'
 
 function main() returns ExitCode
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async nap(200, tag: 1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async nap(20, tag: 2))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async nap(400, tag: 3))
 	let ready = arr.awaitAny()
 	var score = 0 as Integer
@@ -335,7 +314,6 @@ function main() returns ExitCode
 	end 'theearliestdeadlinewon'
 	var sum = 0 as Integer
 	for p in arr 'drainthemall'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
 	end 'drainthemall'
 	if sum == 6 'everysleeperwasstillawaitable'
@@ -349,7 +327,6 @@ end 'main'
 ```
 
 <!-- test: await-any.over-service-replies -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE COMPOSITION THAT MAKES THE PRIMITIVE WORTH HAVING.** A handler reply is an ordinary `Promise`, so
 ONE waiting primitive covers service replies, file IO and subprocess drains — there is no separate "channel
@@ -407,7 +384,6 @@ function main() returns ExitCode
 	end 'thequickreplywonthoughitwassentsecond'
 	var sum = 0 as Integer
 	for p in ps 'drainbothreplies'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (await p)
 	end 'drainbothreplies'
 	if sum == 3 'bothrepliessurvivedtheselect'
@@ -421,8 +397,6 @@ end 'main'
 ```
 
 <!-- test: await-any.selects-from-inside-an-async-body -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ **A SELECT INSIDE A COROUTINE — the waiter is not its strand's owner.** `selectOver` is a coroutine of
 `main`'s green thread, and `main` is itself parked on `await outer` while it selects. So the thread the
 registration stores on each slot, the one a completer readies, and the one that withdraws on waking are all
@@ -445,23 +419,18 @@ end 'inner'
 
 function selectOver() returns Integer
 	let ps = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async inner(3))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	ps.push(async inner(4))
 	let ready = ps.awaitAny()
 	var sum = 0 as Integer
 	for p in ps 'all'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + await p
 	end 'all'
 	return sum + (ready as Integer)
 end 'selectOver'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let outer = async selectOver()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await outer as ExitCode
 end 'main'
 ```
@@ -470,8 +439,6 @@ end 'main'
 ```
 
 <!-- test: await-any.a-consumed-slot-is-skipped -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE NULL-SLOT GUARD, AND IT IS REACHABLE RATHER THAN DEFENSIVE.** Awaiting a promise read out of an
 array slot (`await first` after `arr.get(0)`) finishes the move out of that slot: the array stops naming the
 thread, and the slot inside `[0, length)` holds `0`. A zero in a promise column is an ABSENCE, not a handle:
@@ -493,21 +460,15 @@ end 'makeValue'
 
 function main() returns ExitCode
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue(10))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue(20))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async makeValue(30))
 	let first = try arr.get(0) otherwise panic("slot 0 is in range")
 	let second = try arr.get(1) otherwise panic("slot 1 is in range")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	var consumed = await first
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	consumed = consumed + await second
 	let ready = arr.awaitAny()
 	let p = try arr.get(ready) otherwise panic("awaitAny named a slot that is in range")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return ((ready as Integer) * 10 + await p + consumed - 30) as ExitCode
 end 'main'
 ```
@@ -541,8 +502,6 @@ fatal error: runtime abort 92 (schedulerDeadlock)
 ```
 
 <!-- test: await-any.the-losers-are-dropped-when-the-array-dies -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ⭐ The composition: select, serve the winner, and let the array die with the losers still in it. Exit 0
 is what a container that drops its promise elements gives; a container that did not would leave the losers
 live and exit **75**.
@@ -560,13 +519,10 @@ end 'value'
 
 function main() returns ExitCode
 	let arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async value(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async value(2))
 	let ready = arr.awaitAny()
 	let winner = try arr.get(ready) otherwise panic("awaitAny named a slot that is in range")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await winner
 	return 0
 end 'main'
@@ -576,7 +532,6 @@ end 'main'
 ```
 
 <!-- test: await-any.replies-racing-the-registration-across-many-rounds -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **A SELECT WHOSE SLOTS COMPLETE ON OTHER PROCESSORS WHILE IT REGISTERS.** Each round sends one message to
@@ -638,7 +593,6 @@ function main() returns ExitCode
 			if slot == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
 			end 'theNamedSlotHadCompleted'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			sum = sum + (await p)
 		end 'drain'
 	end 'eachRound'
@@ -654,7 +608,6 @@ picks=300 sum=719400
 ```
 
 <!-- test: await-any.replies-racing-the-registration-at-one-processor -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -707,7 +660,6 @@ function main() returns ExitCode
 			if slot == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
 			end 'theNamedSlotHadCompleted'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			sum = sum + (await p)
 		end 'drain'
 	end 'eachRound'
@@ -723,7 +675,6 @@ picks=300 sum=719400
 ```
 
 <!-- test: await-any.sixteen-replies-completing-out-of-order-across-many-rounds -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **A SELECT OVER SIXTEEN SLOTS LOCKS ALL SIXTEEN IN ONE ADDRESS ORDER, WHATEVER ORDER THE ARRAY HOLDS
@@ -796,7 +747,6 @@ function main() returns ExitCode
 			if slot == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
 			end 'theNamedSlotHadCompleted'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			sum = sum + (await p)
 		end 'drain'
 	end 'eachRound'
@@ -812,7 +762,6 @@ picks=400 sum=20476800
 ```
 
 <!-- test: await-any.sixteen-replies-completing-out-of-order-at-one-processor -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -874,7 +823,6 @@ function main() returns ExitCode
 			if slot == ready and p.isComplete() 'theNamedSlotHadCompleted'
 				completedPicks = completedPicks + 1
 			end 'theNamedSlotHadCompleted'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			sum = sum + (await p)
 		end 'drain'
 	end 'eachRound'
@@ -927,7 +875,6 @@ error E3005: <fragment>:8:25: '__Builtins.awaitAny' requires a promise array —
 ```
 
 <!-- test: await-any.error.rejected-on-wasm -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A WASI component has no addressable call stack for a context switch to move, so it has no green-thread
@@ -955,7 +902,6 @@ end 'value'
 
 function main() returns ExitCode
 	var arr = IntPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arr.push(async value(10))
 	let ready = arr.awaitAny()
 	return ready as ExitCode

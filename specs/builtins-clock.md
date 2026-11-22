@@ -360,16 +360,11 @@ error E3004: <fragment>:3:2: call to undefined function '__whatever': the '__' p
 ```
 
 <!-- test: builtins-clock.unknown-internal-callee-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 And in `async` position, which reached a DIFFERENT panic — `lowerAsyncCall`'s, whose own message
 said an unknown callee must have been rejected before lowering.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async __whatever()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p as ExitCode
 end 'main'
 ```

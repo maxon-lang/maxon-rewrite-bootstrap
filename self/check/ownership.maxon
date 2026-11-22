@@ -29,6 +29,8 @@ export enum OwnDestKind
 	// which gives the value on to what takes the whole.
 	destCast
 	destBranch
+	// destAwait is an await, which consumes the promise it waits for.
+	destAwait
 end 'OwnDestKind'
 
 // OwnDest is where a moved value went, for the message that names the move.
@@ -60,6 +62,7 @@ export type OwnDest
 			destBinding gives "variable '{name}'"
 			destCast gives "a cast"
 			destBranch gives "the result of a conditional or match"
+			destAwait gives "an 'await'"
 		end 'k'
 	end 'text'
 end 'OwnDest'
@@ -94,13 +97,16 @@ export typealias OwnFacts = Array with OwnFact
 export type OwnState
 	export var dead as bool
 	export var facts as OwnFacts
+	// lends are the places that the coroutines of async calls borrow until their promises are awaited
+	// (ownership_async.maxon).
+	export var lends as OwnLends
 
 	export static function clean() returns OwnState
-		return OwnState{dead: false, facts: OwnFacts.create(0)}
+		return OwnState{dead: false, facts: OwnFacts.create(0), lends: OwnLends.create(0)}
 	end 'clean'
 
 	export static function unreachable() returns OwnState
-		return OwnState{dead: true, facts: OwnFacts.create(0)}
+		return OwnState{dead: true, facts: OwnFacts.create(0), lends: OwnLends.create(0)}
 	end 'unreachable'
 
 	// find is the index of the fact of a local, or the count of facts when it has none.
@@ -167,7 +173,8 @@ function without(consumes s OwnState, l ast.LocalID) returns OwnState
 	return out
 end 'without'
 
-// mergeOwn is what two paths say: a local that holds nothing on either path holds nothing where they meet.
+// mergeOwn is what two paths say: a local that holds nothing on either path holds nothing where they meet, and a place
+// that a coroutine borrows on either path is borrowed where they meet.
 function mergeOwn(consumes a OwnState, consumes b OwnState) returns OwnState
 	if b.dead 'bDead'
 		return a
@@ -175,13 +182,21 @@ function mergeOwn(consumes a OwnState, consumes b OwnState) returns OwnState
 	if a.dead 'aDead'
 		return b
 	end 'aDead'
-	if b.facts.count() == 0 'bClean'
-		return a
-	end 'bClean'
-	if a.facts.count() == 0 'aClean'
-		return b
-	end 'aClean'
 	var out = a
+	if b.lends.count() > 0 'lends'
+		out = withLendsOf(out, other: b)
+	end 'lends'
+	if b.facts.count() == 0 'bClean'
+		return out
+	end 'bClean'
+	if out.facts.count() == 0 'aClean'
+		if out.lends.count() == 0 'unlent'
+			return b
+		end 'unlent'
+		var other = b
+		other.lends = exchange(out.lends, value: OwnLends.create(0))
+		return other
+	end 'aClean'
 	for i in 0 upto b.facts.count() 'each'
 		match out.find(b.facts[i].local) 'hit'
 			some(j) then out.facts[j] = mergeFacts(out.facts[j], b: b.facts[i])
@@ -193,7 +208,7 @@ end 'mergeOwn'
 
 // sameState is whether two states say the same: a loop whose next entry says nothing new needs no further walk.
 function sameState(a OwnState, b OwnState) returns bool
-	if a.dead != b.dead or a.facts.count() != b.facts.count() 'differ'
+	if a.dead != b.dead or a.facts.count() != b.facts.count() or not sameLends(a.lends, b: b.lends) 'differ'
 		return false
 	end 'differ'
 	for i in 0 upto a.facts.count() 'each'
@@ -653,6 +668,10 @@ function requireDroppable(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 	if not isManagedOwn(p, ms: ms, t: t) 'scalar'
 		return
 	end 'scalar'
+	if ast.isPromiseType(ms.types, reads: p.types, t: t) 'promise'
+		promiseDropped(o, p: p, ms: ms, site: site, holder: ast.noLocal, name: d.name, d: d, s: OwnState.clean())
+		return
+	end 'promise'
 	let l = lacksCap(o.c, p: p, ms: ms, wantCopy: false, t: t)
 	if l.missing 'lacking'
 		let why = lackWhyText(ms.types, reads: p.types, info: l, capName: "Droppable")
@@ -690,6 +709,7 @@ function strip(o Ownership, from Count, consumes s OwnState) returns OwnState
 	var out = s
 	for i in from upto o.obliged.count() 'each'
 		out = without(out, l: o.obliged[i].local)
+		out = withoutLends(out, holder: o.obliged[i].local)
 	end 'each'
 	return out
 end 'strip'
@@ -737,6 +757,10 @@ end 'join'
 function disagreeWhole(mutates o Ownership, p ast.Project, ms ast.ModuleState, ob OwnObliged, fact OwnFact)
 	let name = o.c.typing.locals[ob.local as Count].name.clone()
 	let tName = ast.typeName(ms.types, reads: p.types, t: o.c.typing.locals[ob.local as Count].ty)
+	if isPromiseLocal(o, p: p, ms: ms, l: ob.local) 'promise'
+		promiseDropped(o, p: p, ms: ms, site: fact.site, holder: ast.noLocal, name: name, d: OwnDrop.make(OwnDropKind.dropOtherPath, name: name.clone()), s: OwnState.clean())
+		return
+	end 'promise'
 	if fact.kind == OwnFactKind.factMoved 'moved'
 		fail(o, p: p, site: fact.site, code: diag.errNotDroppable, msg: "'{name}' is moved into {fact.dest.text()} here on one path only, so the other path would drop it, but '{tName}' cannot be dropped; move it on every path, or end it on every path")
 		return

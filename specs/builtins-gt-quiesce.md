@@ -133,8 +133,6 @@ outstanding 0
 ```
 
 <!-- test: builtins-gt-quiesce.a-second-waiter-aborts -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 A coroutine of `main` waits for every green thread while `main` waits too. One waiter at a time is all the
 scheduler holds, so whichever arrives second ends the program with runtime abort 123. A service message cannot be
@@ -146,11 +144,9 @@ function wait()
 end 'wait'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let waiter = async wait()
 	let outstanding = __Builtins.gtQuiesce()
 	print("main saw {outstanding}\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	await waiter
 	return 0
 end 'main'
@@ -163,8 +159,6 @@ fatal error: runtime abort 123 (schedulerQuiesceWaiterTaken)
 ```
 
 <!-- test: builtins-gt-quiesce.races-coroutine-completion-across-many-rounds -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 4 -->
@@ -208,13 +202,9 @@ function sleepingPart(v Integer) returns Integer
 end 'sleepingPart'
 
 function coroutineSum(v Integer) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let a = async yieldingPart(v)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = async sleepingPart(v)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let c = async yieldingPart(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await a) + (await b) + (await c)
 end 'coroutineSum'
 
@@ -250,7 +240,6 @@ function main() returns ExitCode
 			worker.shutdown()
 		end 'spawnEach'
 		for p in replies 'collect'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			sum = sum + (await p)
 		end 'collect'
 		outstanding = outstanding + (__Builtins.gtQuiesce() as Integer)
@@ -267,8 +256,6 @@ outstanding=0 sum=30000
 ```
 
 <!-- test: builtins-gt-quiesce.races-coroutine-completion-at-one-processor -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
@@ -297,13 +284,9 @@ function sleepingPart(v Integer) returns Integer
 end 'sleepingPart'
 
 function coroutineSum(v Integer) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let a = async yieldingPart(v)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = async sleepingPart(v)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let c = async yieldingPart(1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await a) + (await b) + (await c)
 end 'coroutineSum'
 
@@ -339,7 +322,6 @@ function main() returns ExitCode
 			worker.shutdown()
 		end 'spawnEach'
 		for p in replies 'collect'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			sum = sum + (await p)
 		end 'collect'
 		outstanding = outstanding + (__Builtins.gtQuiesce() as Integer)
@@ -356,8 +338,6 @@ outstanding=0 sum=30000
 ```
 
 <!-- test: builtins-gt-quiesce.a-dropped-coroutine-parked-in-the-wait-is-not-the-waiter-afterwards -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A coroutine that calls `Scheduler.quiesce()` parks as the scheduler's one waiter while `main` awaits a sibling. `main` then
 returns with the quiescing coroutine un-awaited, so scope exit drops its promise while it is parked in the wait. The
 drop must withdraw the waiter registration before the coroutine can be reclaimed: the deadlock check claims that
@@ -376,11 +356,8 @@ function fast() returns Integer
 end 'fast'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let waiter = async quiescer()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sibling = async fast()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = await sibling
 	let finished = 1 if waiter.isComplete() else 0
 	waiter.cancel()
@@ -392,8 +369,6 @@ end 'main'
 ```
 
 <!-- test: builtins-gt-quiesce.waits-for-a-renounced-coroutine-to-finish-unwinding -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The wait answers at the moment every machine is idle, so a coroutine whose promise was dropped holds it open until
 it has run out. `sleeper` is parked on a timer without end (`ForeverMs`) when `startAndDrop` returns and scope exit drops its promise, so only the drop can end its sleep. The
@@ -415,11 +390,8 @@ function fast() returns Integer
 end 'fast'
 
 function startAndDrop() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let s = async sleeper()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async fast()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = await q
 	let finished = 1 if s.isComplete() else 0
 	s.cancel()

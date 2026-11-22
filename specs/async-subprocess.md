@@ -92,8 +92,6 @@ marker.
 ## Tests
 
 <!-- test: async-subprocess.exit-code -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A spawned green thread runs a child that exits 3; the thread parks on the child (yielding), resumes once the child
@@ -105,9 +103,7 @@ function runChild() returns Integer
 end 'runChild'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async runChild()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let code = await p
 	return code as ExitCode
 end 'main'
@@ -119,8 +115,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.posix-exit-code -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `exit-code`'s subject on the POSIX lane, and the case that proves `__Builtins.runProcess` runs a child here
@@ -140,9 +134,7 @@ function runChild() returns Integer
 end 'runChild'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async runChild()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let code = await p
 	return code as ExitCode
 end 'main'
@@ -154,8 +146,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.sequence -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 Two children run in sequence (spawn, await, spawn, await) with distinct exit codes; each thread's exit code is
@@ -170,13 +160,9 @@ function childB() returns Integer
 end 'childB'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pa = async childA()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await pa
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pb = async childB()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await pb
 	return (a * 10 + b) as ExitCode
 end 'main'
@@ -188,8 +174,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.multi-concurrent -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 Three children are spawned BEFORE any await, so all three park on their processes SIMULTANEOUSLY — the poller
@@ -211,17 +195,11 @@ function c3() returns Integer
 end 'c3'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async c1()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async c2()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async c3()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r3 = await p3
 	return (r1 * 100 + r2 * 10 + r3) as ExitCode
 end 'main'
@@ -272,8 +250,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.posix-multi-concurrent -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐ **THE CONCURRENCY CASE — SEVERAL CHILDREN THROUGH THE NETPOLL AT ONCE.** Three children are spawned
@@ -301,17 +277,11 @@ function c3() returns Integer
 end 'c3'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async c1()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async c2()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async c3()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r3 = await p3
 	return (r1 * 100 + r2 * 10 + r3) as ExitCode
 end 'main'
@@ -323,8 +293,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.posix-children-exiting-in-reverse-order-each-resume-with-their-own-status -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐ **THREE CHILDREN WHOSE EXITS ARRIVE IN THE OPPOSITE ORDER FROM THEIR SPAWNS.** The first child outlives the
@@ -364,17 +332,11 @@ end 'quick'
 
 function main() returns ExitCode
 	let order = OrderCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async slow(order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async middle(order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async quick(order.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r3 = await p3
 	if r1 != 1 or r2 != 2 or r3 != 3 'statuses'
 		return 99
@@ -391,8 +353,6 @@ typealias OrderCell = SharedValue with Integer
 ```
 
 <!-- test: async-subprocess.posix-short-children-that-exit-before-their-waiter-parks -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐ **MANY SHORT CHILDREN IN FLIGHT AT ONCE, SO SOME EXIT BEFORE THEIR OWN WAITER HAS PARKED.** Six tasks each run
@@ -419,29 +379,17 @@ function lap(code Integer) returns Integer
 end 'lap'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async lap(1)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async lap(2)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async lap(3)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p4 = async lap(4)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p5 = async lap(5)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p6 = async lap(6)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r6 = await p6
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r5 = await p5
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r4 = await p4
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r3 = await p3
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r2 = await p2
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r1 = await p1
 	return (r1 + r2 + r3 + r4 + r5 + r6) as ExitCode
 end 'main'
@@ -453,8 +401,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.interleave-with-sleep -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A slow child and a short (50 ms) sleeper run concurrently. The child exits only once the sleeper has created a
@@ -502,13 +448,9 @@ end 'fast'
 function main() returns ExitCode
 	clearFlag()
 	let order = OrderCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async slow(order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async fast(order.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p2
 	clearFlag()
 	return order.current() as ExitCode
@@ -523,8 +465,6 @@ typealias OrderCell = SharedValue with Integer
 ```
 
 <!-- test: async-subprocess.posix-interleave-with-sleep -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐ **THE CASE THAT PROVES THE PROCESS WAIT YIELDS ON THIS LANE.** A slow child and a short 50 ms sleeper run
@@ -578,13 +518,9 @@ end 'fast'
 function main() returns ExitCode
 	clearFlag()
 	let order = OrderCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async slow(order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async fast(order.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p2
 	clearFlag()
 	return order.current() as ExitCode
@@ -599,8 +535,6 @@ typealias OrderCell = SharedValue with Integer
 ```
 
 <!-- test: async-subprocess.a-parked-child-costs-no-poll -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 <!-- procs: 1 -->
@@ -672,13 +606,9 @@ function main() returns ExitCode
 	let beforeWakes = Scheduler.counters().parkWakes
 	let beforeParks = Scheduler.counters().netpollBlocks
 	let parkedFrom = beforeParks + 1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async slow()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async release(parkedFrom)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let wakesAtRelease = await r
 	let wakes = wakesAtRelease - beforeWakes
 	let parks = Scheduler.counters().netpollBlocks - beforeParks
@@ -697,8 +627,6 @@ quiet=true onpoller=true
 ```
 
 <!-- test: async-subprocess.posix-a-parked-child-costs-no-poll -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 <!-- procs: 1 -->
@@ -754,13 +682,9 @@ function main() returns ExitCode
 	let beforeWakes = Scheduler.counters().parkWakes
 	let beforeParks = Scheduler.counters().netpollBlocks
 	let parkedFrom = beforeParks + 1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async slow()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async release(parkedFrom)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let wakesAtRelease = await r
 	let wakes = wakesAtRelease - beforeWakes
 	let parks = Scheduler.counters().netpollBlocks - beforeParks
@@ -779,8 +703,6 @@ quiet=true onpoller=true
 ```
 
 <!-- test: async-subprocess.spawn-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 Robustness: twenty-five spawned threads each run a child that exits 1, awaited in turn. Each parks on its child
@@ -795,9 +717,7 @@ function main() returns ExitCode
 	var i = 0 as Integer
 	var sum = 0 as Integer
 	while i < 25 'l'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async child()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = await p
 		sum = sum + r
 		i = i + 1
@@ -812,8 +732,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.scratch-reuse-loop -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 Fifty children each exit 1, awaited in turn, summing to 50. The value is that `__gt_process_run`'s OS scratch —
@@ -832,9 +750,7 @@ function main() returns ExitCode
 	var i = 0 as Integer
 	var sum = 0 as Integer
 	while i < 50 'l'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async child()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = await p
 		sum = sum + r
 		i = i + 1
@@ -903,8 +819,6 @@ end 'main'
 ```
 
 <!-- test: async-subprocess.sixty-five-concurrent-children-all-complete -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 ⭐ **SIXTY-FIVE CHILDREN PARKED AT ONCE, AND NOTHING IS FULL.** How many children a program may wait on
@@ -942,265 +856,135 @@ end 'child'
 
 function main() returns ExitCode
 	let done = DoneCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p00 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p01 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p02 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p03 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p04 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p05 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p06 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p07 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p08 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p09 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p10 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p11 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p12 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p13 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p14 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p15 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p16 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p17 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p18 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p19 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p20 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p21 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p22 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p23 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p24 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p25 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p26 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p27 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p28 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p29 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p30 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p31 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p32 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p33 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p34 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p35 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p36 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p37 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p38 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p39 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p40 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p41 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p42 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p43 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p44 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p45 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p46 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p47 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p48 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p49 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p50 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p51 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p52 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p53 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p54 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p55 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p56 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p57 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p58 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p59 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p60 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p61 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p62 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p63 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p64 = async child(done.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p00
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p01
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p02
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p03
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p04
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p05
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p06
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p07
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p08
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p09
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p10
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p11
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p12
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p13
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p14
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p15
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p16
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p17
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p18
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p19
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p20
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p21
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p22
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p23
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p24
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p25
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p26
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p27
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p28
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p29
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p30
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p31
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p32
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p33
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p34
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p35
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p36
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p37
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p38
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p39
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p40
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p41
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p42
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p43
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p44
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p45
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p46
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p47
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p48
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p49
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p50
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p51
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p52
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p53
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p54
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p55
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p56
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p57
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p58
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p59
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p60
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p61
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p62
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p63
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p64
 	return done.current() as ExitCode
 end 'main'
@@ -1214,8 +998,6 @@ typealias DoneCell = SharedValue with Integer
 ```
 
 <!-- test: async-subprocess.posix-sixty-five-concurrent-children-all-complete -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `sixty-five-concurrent-children-all-complete`'s subject on the POSIX lanes: sixty-five children parked
@@ -1243,265 +1025,135 @@ end 'child'
 
 function main() returns ExitCode
 	let done = DoneCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p00 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p01 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p02 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p03 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p04 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p05 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p06 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p07 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p08 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p09 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p10 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p11 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p12 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p13 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p14 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p15 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p16 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p17 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p18 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p19 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p20 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p21 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p22 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p23 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p24 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p25 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p26 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p27 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p28 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p29 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p30 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p31 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p32 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p33 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p34 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p35 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p36 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p37 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p38 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p39 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p40 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p41 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p42 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p43 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p44 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p45 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p46 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p47 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p48 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p49 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p50 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p51 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p52 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p53 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p54 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p55 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p56 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p57 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p58 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p59 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p60 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p61 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p62 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p63 = async child(done.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p64 = async child(done.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p00
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p01
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p02
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p03
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p04
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p05
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p06
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p07
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p08
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p09
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p10
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p11
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p12
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p13
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p14
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p15
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p16
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p17
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p18
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p19
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p20
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p21
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p22
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p23
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p24
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p25
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p26
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p27
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p28
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p29
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p30
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p31
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p32
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p33
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p34
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p35
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p36
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p37
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p38
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p39
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p40
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p41
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p42
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p43
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p44
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p45
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p46
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p47
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p48
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p49
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p50
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p51
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p52
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p53
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p54
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p55
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p56
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p57
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p58
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p59
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p60
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p61
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p62
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p63
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p64
 	return done.current() as ExitCode
 end 'main'

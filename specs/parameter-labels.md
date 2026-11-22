@@ -587,22 +587,18 @@ a=4 b=2
 ```
 
 <!-- test: multi-line-call-async-call -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function work(a Integer, b Integer) returns Integer
 	Scheduler.yield()
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(2, b: 1)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -610,7 +606,6 @@ end 'main'
 ```
 
 <!-- test: multi-line-call-service-send -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 // --- file: sub/calc.maxon
@@ -631,7 +626,6 @@ export typealias Integer = int(i64.min to i64.max)
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn sub.Calc.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await h.add(1, extra: 2) otherwise 0
 	return total as ExitCode
 end 'main'

@@ -2310,7 +2310,6 @@ error E3196: <fragment>:22:15: cannot store a mutable 'Box' into 'held', which h
 ```
 
 <!-- test: a-fresh-value-sent-to-an-immutable-message-parameter-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2342,7 +2341,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let reader = spawn Reader.create()
 	let first = try reader.weigh(Leaf.create(3)) otherwise panic("main: a fresh reader accepts its only request")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await first
 	reader.shutdown()
 	print("{a}\n")

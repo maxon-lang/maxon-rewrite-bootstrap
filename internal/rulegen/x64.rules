@@ -193,6 +193,7 @@
 (isType) => (emitIsType)
 (alloc) => (emitAlloc)
 (when) => (emitWhen)
+(async) => (emitAsync)
 (closure) => (emitClosure)
 (funcValue) => (emitFuncValue)
 (box) => (emitBox)

@@ -188,6 +188,7 @@ export type ClassChoice
 			opAlloc or
 			opCallRuntime or
 			opWhen or
+			opAsync or
 			opClosure or
 			opFuncValue or
 			opBox or

@@ -7542,7 +7542,6 @@ error E3204: <fragment>:45:3: 'out' holds a linear value from outside 'a1' and c
 ```
 
 <!-- test: model-hand-ad-y-state-method-await-reply -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -7576,7 +7575,6 @@ type Sm
 
 	function y(p Pl.handle) returns Num
 		let q = try p.plain() otherwise panic("send failed")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let x = await q
 		return x
 	end 'y'
@@ -7646,7 +7644,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ae-h-msg-acquire -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -7695,7 +7692,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let m = spawn Mw.create(0)
 	let r = try m.go(q.clone()) otherwise panic("send failed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await r
 	return 0
 end 'main'

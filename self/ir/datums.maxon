@@ -212,7 +212,7 @@ function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 	if k == ast.NodeKind.collectionLitExpr 'collectionLitExpr'
 		return datumArray(b, p: p, ms: ms, module: module, e: e, ty: ty, w: w)
 	end 'collectionLitExpr'
-	if k == ast.NodeKind.byteStrLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.fromExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.panicExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.matchExpr or k == ast.NodeKind.closureExpr or k == ast.NodeKind.typeQueryExpr 'perUse'
+	if k == ast.NodeKind.byteStrLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.asyncExpr or k == ast.NodeKind.awaitExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.fromExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.panicExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.matchExpr or k == ast.NodeKind.closureExpr or k == ast.NodeKind.typeQueryExpr 'perUse'
 		// Computed where it is read: a byte string is a new byte array each time, and the others run code or compute a
 		// number that the type of the expression does not hold.
 		return false

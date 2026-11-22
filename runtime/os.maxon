@@ -644,6 +644,14 @@ end 'osWriteBinary'
 		return there
 	end 'osIsDirectory'
 
+	// osExists is whether a file or a directory is at a path: it has attributes.
+	function osExists(path String) returns bool
+		let widePath = wideOf(path)
+		let attributes = dword(__Raw.callImport1("GetFileAttributesW", arg1: widePath))
+		free(widePath)
+		return attributes != invalidFileAttributes
+	end 'osExists'
+
 	// createDirectoryAt makes the directory that a zero-terminated UTF-16 path names, if it is not there.
 	function createDirectoryAt(widePath Count)
 		_ = __Raw.callImport2("CreateDirectoryW", arg1: widePath, arg2: noSecurity)

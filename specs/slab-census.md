@@ -661,8 +661,6 @@ end 'main'
 ```
 
 <!-- test: slab-census.the-tally-totals-the-live-heap-on-several-processors -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE SAME EQUALITY, ON A HEAP SEVERAL PROCESSORS BUILT.** `the-tally-totals-the-live-heap` above asks it
 of a heap one thread cut. This asks it of one where green threads on other Ps own spans, hold mcache rows,
 and carry remote-free chains the main thread pushed onto them — the three states a single-threaded program
@@ -731,12 +729,10 @@ end 'liveBytes'
 function main() returns ExitCode
 	let spawned = PromiseArray.create(0)
 	for i in 0 upto Workers 'spawn'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		spawned.push(async churn(i))
 	end 'spawn'
 	let kept = Bufs.create(0)
 	for p in spawned 'awaitAll'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		kept.push(await p)
 	end 'awaitAll'
 	if kept.count() != Workers 'populationLost'
@@ -1543,7 +1539,6 @@ error E3005: <fragment>:4:16: Value 2048 is outside the range of 'HeapBucketInde
 ```
 
 <!-- test: slab-census.a-census-read-while-classes-churn-returns-and-one-after-the-join-is-exact -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE CENSUS UNDER CONCURRENT REFILLS, AND THE EQUALITY ONCE THEY HAVE STOPPED.** Every census read takes the
@@ -1696,7 +1691,6 @@ function main() returns ExitCode
 		end 'sendEach'
 		reads = reads + readWhileChurning()
 		for p in replies 'join'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 			roundBytes = roundBytes + (await p)
 		end 'join'
 	end 'eachRound'
@@ -1705,11 +1699,8 @@ function main() returns ExitCode
 	var wrong = 0 as Tally
 	for i in 0 upto ServiceCount 'collect'
 		let h = try handles.get(i) otherwise panic("churn: handles.get OOB at {i}")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let b = try await h.builtBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let a = try await h.absorbedBytes() otherwise 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let w = try await h.wrongCount() otherwise 1
 		print("service {i}: built={b} absorbed={a} wrong={w}\n")
 		built = built + b

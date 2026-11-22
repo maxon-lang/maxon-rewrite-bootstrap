@@ -4182,11 +4182,8 @@ error E3185: <fragment>:3:10: '__ManagedMemoryCursor' named outside the library 
 
 
 <!-- test: error.the-raw-cursor-type-named-as-a-spawn-base-is-not-reachable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async __ManagedMemoryCursor.create()
 	return 0
 end 'main'
@@ -4399,7 +4396,6 @@ error E3116: <fragment>:26:11: 'T.make' is a `static` requirement, and a `static
 ```
 
 <!-- test: error.an-async-spawn-of-a-static-a-container-alias-lacks-is-refused-for-what-it-lacks -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4407,7 +4403,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias Numbers = Array with Integer
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Numbers.nope()
 	return 0
 end 'main'
@@ -4633,8 +4628,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-handed-to-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A capturing closure handed to an `async` call is held by the coroutine until it ends.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4648,10 +4641,8 @@ end 'later'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
-	let p = async later(function(n Integer) gives n + bump)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return (await p) as ExitCode
+	let p = async later(function(n Integer) gives try n + bump otherwise panic("out of range"))
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

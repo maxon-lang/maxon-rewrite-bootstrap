@@ -13,6 +13,7 @@ var builtinNames = map[string]bool{
 	"FullRangeFloat":            true,
 	"Codepoint":                 true,
 	"CodeUnit16":                true,
+	"Milliseconds":              true,
 	"Array":                     true,
 	"FixedArray":                true,
 	"__ManagedMemory":           true,
@@ -23,6 +24,7 @@ var builtinNames = map[string]bool{
 	"Handle":                    true,
 	"frozen":                    true,
 	"cown":                      true,
+	"Promise":                   true,
 	"CommandLine":               true,
 	"Process":                   true,
 	"Clock":                     true,
@@ -81,4 +83,5 @@ var builtinNames = map[string]bool{
 	"min":                       true,
 	"max":                       true,
 	"exchange":                  true,
+	"sleep":                     true,
 }

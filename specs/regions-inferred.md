@@ -351,8 +351,6 @@ error E3207: <fragment>:23:10: 'reported' is declared `immutable self`; 'live' i
 ```
 
 <!-- test: may-yield-call-inside-modify-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -369,9 +367,7 @@ function work() returns Tally
 end 'work'
 
 function settle() returns Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async work()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await pending
 end 'settle'
 
@@ -391,7 +387,6 @@ error E3205: <fragment>:19:11: cannot call 'settle' inside 'fill'; it may yield 
 ```
 
 <!-- test: may-wait-call-inside-modify-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -414,7 +409,6 @@ type Oracle
 end 'Oracle'
 
 function ask(oracle Oracle.handle) returns Tally
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await oracle.answer() otherwise 0
 end 'ask'
 
@@ -570,7 +564,6 @@ error E3207: <fragment>:23:7: 'edit' writes 'b'; 'pinned' is immutable
 ```
 
 <!-- test: call-that-only-spawns-a-waiting-factory-reports-the-chain -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -599,7 +592,6 @@ type Relay
 	static function create() returns Self
 		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		let oracle = spawn Oracle.create()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let n = try await oracle.answer() otherwise 0
 		return Self{seen: n}
 	end 'create'
@@ -2700,8 +2692,6 @@ end 'main'
 ```
 
 <!-- test: isolated-local-passed-to-an-async-call-is-moved -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2727,10 +2717,8 @@ end 'work'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(7) as isolated Box
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async work(a)
 	let again = a.n
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = await pending
 	print("{got} {again}\n")
 	return 0
@@ -2741,8 +2729,6 @@ error E3102: <fragment>:20:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: isolated-argument-of-an-async-call-is-dropped-once -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The spawned coroutine owns the isolated region it was handed, from a local and from a fresh call result alike, and releases it once when it finishes.
@@ -2767,13 +2753,9 @@ end 'work'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(7) as isolated Box
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async work(a)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async work(Box.create(8))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let one = await first
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let two = await second
 	print("{one} {two}\n")
 	return 0
@@ -2971,7 +2953,6 @@ end 'main'
 ```
 
 <!-- test: isolated-argument-of-a-message-is-moved-and-dropped-once -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -3012,7 +2993,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(3) as isolated Box
 	try sink.take(a) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await sink.size() otherwise 0
 	sink.shutdown()
 	print("{total}\n")
@@ -3480,8 +3460,7 @@ end 'main'
 ```
 
 <!-- test: frozen-argument-to-an-async-call-of-a-writer-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The coroutine takes a reference of its own to what it is handed, and that reference is the frozen record `pinned` names, so `bump` writing it is refused as it is at a direct call.
 
@@ -3504,9 +3483,7 @@ end 'bump'
 
 function main() returns ExitCode
 	var pinned = freeze(Box.create(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async bump(pinned)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = await p
 	print("{got} {pinned.n}\n")
 	return 0
@@ -4960,8 +4937,6 @@ error E3207: <fragment>:42:2: 'run' writes its receiver (it calls 'bump', which 
 ```
 
 <!-- test: a-generic-call-that-may-yield-inside-modify-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -4979,9 +4954,7 @@ function work() returns Tally
 end 'work'
 
 function settle(_ T) uses T returns Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async work()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await pending
 end 'settle'
 

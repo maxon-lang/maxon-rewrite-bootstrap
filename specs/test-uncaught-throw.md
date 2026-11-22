@@ -476,8 +476,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An `await` of a throwing promise written without `try` in a test body takes the implied handler, as a
 `try await` does.
 ```maxon
@@ -497,9 +495,7 @@ function mayFail(succeed bool) returns Integer throws WorkError
 end 'mayFail'
 
 test 'awaits a throwing promise'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(false)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("awaited {r}\n")
 end 'awaits a throwing promise'
@@ -607,8 +603,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-await-as-a-for-range-bound -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An `await` that is a range's lower bound hands the loop no cursor, so the loop absorbs nothing and the
 awaited error takes the test body's implied handler, as a bare `await` does anywhere else in the body.
 ```maxon
@@ -628,10 +622,8 @@ function start(succeed bool) returns Integer throws WorkError
 end 'start'
 
 test 'counts up from an awaited bound'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async start(true)
 	var total = 0 as Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	for i in await p upto 5 'each'
 		total = total + i
 	end 'each'
@@ -648,8 +640,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-await-receiver-of-an-explicit-try -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 An explicit `try` on `(await p).check()` covers the chain's last call. The awaited promise is the
 RECEIVER, a separate throwing operation, so its error goes to the test body's implied handler.
 ```maxon
@@ -683,9 +673,7 @@ function make(succeed bool) returns Holder throws WorkError
 end 'make'
 
 test 'checks an awaited holder'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async make(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	try (await p).check()
 end 'checks an awaited holder'
 

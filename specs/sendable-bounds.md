@@ -365,7 +365,6 @@ error E2015: <fragment>:16:32: Unsupported: a container's element type declared 
 ```
 
 <!-- test: a-sendable-bound-refuses-a-promise-alias -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 A promise is not a value: it owns a green thread that exactly one owner may reclaim. An alias of `Promise with
@@ -393,7 +392,6 @@ function seven() returns Integer
 end 'seven'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pool = PendingPool.create(async seven())
 	print("{pool.item.isComplete()}\n")
 	return 0
@@ -404,7 +402,6 @@ error E3215: <fragment>:13:11: 'Pending' is a promise, so it cannot be 'T' of 'P
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-promise-alias -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `immutable` does not make a promise a value, so `immutable Pending` is refused as `Pending` is.
@@ -431,7 +428,6 @@ function seven() returns Integer
 end 'seven'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pool = PendingPool.create(async seven())
 	print("{pool.item.isComplete()}\n")
 	return 0
@@ -485,7 +481,6 @@ error E3215: <fragment>:21:11: 'Holder' cannot be shared with another thread, so
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-whose-graph-reaches-a-promise -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `immutable Holder` stands as sendable, but a `Holder` holds a promise, which no share walk can mark, so the bound
@@ -524,7 +519,6 @@ end 'seven'
 
 function main() returns ExitCode
 	let pools = HolderPools.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let holder = Holder.create(async seven())
 	print("{pools.count()} {holder.pending.isComplete()}\n")
 	return 0
@@ -4014,7 +4008,6 @@ green
 ```
 
 <!-- test: a-sendable-bound-accepts-a-service-handle -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service handle reaches its service by message, so it is sendable as it stands.
@@ -4049,7 +4042,6 @@ typealias CounterPool = Pool with Counter.handle
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let pool = CounterPool.create(spawn Counter.create())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await pool.item.bump() otherwise 0
 	print("{seen}\n")
 	return 0
@@ -4125,7 +4117,6 @@ hello
 ```
 
 <!-- test: a-sendable-bound-accepts-the-handle-of-a-service-whose-state-holds-a-function-value -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handle reaches its service by message, so what the service's state holds, a function value here, never crosses
@@ -4162,7 +4153,6 @@ typealias StepperPool = Pool with Stepper.handle
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let pool = StepperPool.create(spawn Stepper.create())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await pool.item.apply(4) otherwise 0
 	print("{seen}\n")
 	return 0
@@ -4176,7 +4166,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-accepts-the-handle-of-a-generic-service-instance -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Keeper.handle with String` is the handle of a service instance, so it is sendable as it stands.
@@ -4213,7 +4202,6 @@ typealias KeeperPool = Pool with Keeper.handle with String
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let pool = KeeperPool.create(spawn Keeper.create("text"))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await pool.item.bump() otherwise 0
 	print("{seen}\n")
 	return 0
@@ -4227,7 +4215,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-accepts-the-handle-of-a-generic-service-over-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Counter.handle with T` is the handle of a service instance, so it is sendable as it stands, whatever `T` is. `Outer`
@@ -4276,7 +4263,6 @@ function main() returns ExitCode
 	let outers = TextOuters.create(0)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let counter = spawn Counter.create("text")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await counter.bump() otherwise 0
 	print("{outers.count()} {seen}\n")
 	return 0
@@ -4495,7 +4481,6 @@ error E3215: <fragment>:21:11: 'Token' is `unique`, so it cannot be 'T' of 'Pool
 ```
 
 <!-- test: a-sendable-service-bound-reports-a-plain-record-at-a-bare-type-parameter-once -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -4532,7 +4517,6 @@ end 'Keeper'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create(Job.create(1))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await keeper.bump() otherwise 0
 	print("{seen}\n")
 	return 0
@@ -4543,7 +4527,6 @@ error E3215: <fragment>:27:28: 'Job' is not sendable, so it cannot be 'T' of 'Ke
 ```
 
 <!-- test: a-sendable-service-bound-reports-a-record-holding-a-function-value-once -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -4585,7 +4568,6 @@ end 'bumpOne'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create(Holder.create(bumpOne))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await keeper.bump() otherwise 0
 	print("{seen}\n")
 	return 0
@@ -4596,7 +4578,6 @@ error E3215: <fragment>:32:28: 'Holder' is not sendable, so it cannot be 'T' of 
 ```
 
 <!-- test: a-sendable-service-bound-reports-a-plain-record-spawned-by-a-generic-function-once -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -4632,7 +4613,6 @@ end 'Keeper'
 function startKeeper(item U) uses U returns Tally
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create(item)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await keeper.bump() otherwise 0
 end 'startKeeper'
 
@@ -4647,7 +4627,6 @@ error E3215: <fragment>:27:28: 'Job' is not sendable, so it cannot be 'T' of 'Ke
 ```
 
 <!-- test: a-generic-function-called-with-its-callers-type-parameter-is-refused-at-the-call-before-any-bound -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -4676,7 +4655,6 @@ end 'Keeper'
 function startKeeper(item U) uses U returns Tally
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create(item)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await keeper.bump() otherwise 0
 end 'startKeeper'
 
@@ -4706,7 +4684,6 @@ error E3181: <fragment>:31:14: type parameter 'U' of 'startKeeper' cannot be 'ty
 ```
 
 <!-- test: a-sendable-service-bound-spawns-with-a-string -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `String` is a value, so `spawn Keeper.create("text")` infers `Keeper with String`, which meets the bound,
@@ -4733,7 +4710,6 @@ end 'Keeper'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create("text")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await keeper.bump() otherwise 0
 	print("{seen}\n")
 	return 0
@@ -4747,7 +4723,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-service-bound-spawns-with-a-service-handle -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service handle reaches its service by message, so `Keeper with Counter.handle` meets the bound, and the
@@ -4787,11 +4762,9 @@ end 'Keeper'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let counter = spawn Counter.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let first = try await counter.bump() otherwise 0
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create(counter)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await keeper.bump() otherwise 0
 	print("{first} {seen}\n")
 	return 0
@@ -4805,7 +4778,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-service-bound-leaves-a-type-built-over-the-parameter-to-the-crossing-rule -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -4843,7 +4815,6 @@ end 'names'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create(names())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await keeper.bump() otherwise 0
 	print("{seen}\n")
 	return 0

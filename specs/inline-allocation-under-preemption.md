@@ -17,7 +17,6 @@ slot.
 ## Tests
 
 <!-- test: eight-services-churning-constant-capacity-arrays-keep-their-sums -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 Eight services each build and drop two constant-capacity arrays per round for eight million rounds, on four
@@ -104,7 +103,6 @@ function main() returns ExitCode
 	index = 0
 	while index < ServiceCount 'checkEach'
 		let handle = try handles.get(index) otherwise panic("churn: handles.get OOB at {index}")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let got = try await handle.result() otherwise 0
 		let want = expected(Rounds, seed: (index + 1) as Word)
 		if got != want 'mismatch'

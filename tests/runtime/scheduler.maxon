@@ -1,9 +1,9 @@
 // The scheduler without `when`: behaviour records made by hand, whose run is testRun. Each behaviour adds its depth to
 // its wave's tally and, above depth 0, schedules testFanOut children a level down from the thread it runs on, so each
-// root makes a known tree of behaviours. main drains the first wave itself and reports it; the second it leaves
-// scheduled when it returns, so the entry's drain runs it, and the last of its behaviours reports it and sets the exit
-// code, which replaces main's. Run many times with MAXON_MAX_PROCS at 1, 2 and unset, it is what holds the queues and
-// the parking to losing nothing.
+// root makes a known tree of behaviours. main, a green thread, parks until the last behaviour of the first wave readies
+// it and reports the wave; the second it leaves scheduled when it returns, so the entry's drain runs it, and the last of
+// its behaviours reports it and sets the exit code, which replaces main's. Run many times with MAXON_MAX_PROCS at 1, 2
+// and unset, it is what holds the queues and the parking to losing nothing.
 // expect-exit: 5
 //> wave 1: 174760 behaviours, depth sum 58232
 //> wave 2: 174760 behaviours, depth sum 58232
@@ -22,7 +22,8 @@ let testTallyOffset = 32 as Count
 
 let testRecordBytes = 40 as Count
 
-// A wave's tally: how many of its behaviours have not finished, how many ran, the sum of their depths, and its number.
+// A wave's tally: how many of its behaviours have not finished, how many ran, the sum of their depths, its number, and the
+// green thread its last behaviour readies, or 0.
 let tallyRemainingOffset = 0 as Count
 
 let tallyBehavioursOffset = 8 as Count
@@ -31,7 +32,9 @@ let tallyDepthSumOffset = 16 as Count
 
 let tallyWaveOffset = 24 as Count
 
-let tallyBytes = 32 as Count
+let tallyWaiterOffset = 32 as Count
+
+let tallyBytes = 40 as Count
 
 let reportedWave = 2 as Count
 
@@ -41,19 +44,20 @@ function main() returns ExitCode
 	if testDepthOffset != behaviourSlotsOffset 'layout'
 		panic("the test's record does not start where the behaviour header ends")
 	end 'layout'
-	let first = testWave(1)
-	_ = schedDrain(0)
+	let first = testWave(1, waiter: greenCurrent())
+	greenPark()
 	testReport(first)
 	free(first)
-	_ = testWave(reportedWave)
+	_ = testWave(reportedWave, waiter: 0)
 	return 0
 end 'main'
 
 // testWave schedules a wave's roots and gives its tally.
-function testWave(wave Count) returns Count
+function testWave(wave Count, waiter Count) returns Count
 	let tally = alloc(tallyBytes)
 	__Raw.storeWord(tally, offset: tallyRemainingOffset, value: try testRoots * testTreeSize() otherwise panic("the waves are too large"))
 	__Raw.storeWord(tally, offset: tallyWaveOffset, value: wave)
+	__Raw.storeWord(tally, offset: tallyWaiterOffset, value: waiter)
 	for i in 0 upto testRoots 'roots'
 		testSchedule(tally, depth: testDepth)
 	end 'roots'
@@ -81,7 +85,7 @@ function testSchedule(tally Count, depth Count)
 end 'testSchedule'
 
 // testRun is a behaviour: it counts itself, schedules its children, frees its record, and when it is the last of the
-// reported wave writes the tally and sets the exit code.
+// reported wave writes the tally and sets the exit code, and the last of the other readies main.
 function testRun(record Count)
 	let depth = __Raw.loadWord(record, offset: testDepthOffset)
 	let tally = __Raw.loadWord(record, offset: testTallyOffset)
@@ -93,10 +97,14 @@ function testRun(record Count)
 			testSchedule(tally, depth: depth - 1)
 		end 'childrenBlock'
 	end 'children'
-	if __Raw.atomicAdd(tally, offset: tallyRemainingOffset, value: stepDown) == 1 and __Raw.loadWord(tally, offset: tallyWaveOffset) == reportedWave 'last'
-		testReport(tally)
-		free(tally)
-		osSetExitCode(reportedExit)
+	if __Raw.atomicAdd(tally, offset: tallyRemainingOffset, value: stepDown) == 1 'last'
+		if __Raw.loadWord(tally, offset: tallyWaveOffset) == reportedWave 'reported'
+			testReport(tally)
+			free(tally)
+			osSetExitCode(reportedExit)
+		end 'reported' else 'waited'
+			greenReady(__Raw.loadWord(tally, offset: tallyWaiterOffset))
+		end 'waited'
 	end 'last'
 end 'testRun'
 

@@ -339,7 +339,6 @@ error E3217: <fragment>:25:16: parameter `origin` of the factory `Plotter.create
 ```
 
 <!-- test: only-the-factory-the-spawn-names-is-judged -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `fromPoint` takes an unmarked record but nothing spawns through it, so the roster of `Plotter` is as acceptable as its `create` is.
 
@@ -374,7 +373,6 @@ function main() returns ExitCode
 	let local = Plotter.fromPoint(Point.create(4))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let plotter = spawn Plotter.create(local.read())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = try await plotter.read() otherwise panic("main: a fresh plotter answers its first message")
 	plotter.shutdown()
 	return answer as ExitCode
@@ -385,7 +383,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-record-parameter-of-a-default-service-is-refused -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: top-level default declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A `default` service is spawned by the declaration, and the declaration is where the refusal lands.
@@ -422,7 +419,6 @@ end 'Polite'
 default Greeter = spawn Polite.create()
 
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = try await Greeter.current().greet(Point.create(3)) otherwise 0
 	return answer as ExitCode
 end 'main'
@@ -432,7 +428,6 @@ error E3217: <fragment>:29:19: parameter `point` of the message `Polite.greet` i
 ```
 
 <!-- test: marked-parameters-replies-and-factories-run -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -491,13 +486,9 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shape = Point.create(3, y: 4) as isolated Point
 	let delta = freeze(Point.create(100, y: 200))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await plotter.plot(shape) otherwise panic("main: a fresh plotter answers plot")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let moved = try await plotter.shifted(delta) otherwise panic("main: a fresh plotter answers shifted")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let made = try await plotter.next() otherwise panic("main: a fresh plotter answers next")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let kept = try await plotter.pinned() otherwise panic("main: a fresh plotter answers pinned")
 	plotter.shutdown()
 	print("{total} {moved} {made.x} {made.y} {kept.x} {kept.y}\n")
@@ -512,7 +503,6 @@ end 'main'
 ```
 
 <!-- test: marked-union-parameters-replies-and-factories-run -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -574,13 +564,9 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let second = Outcome.found("cde".toByteArray()) as isolated Outcome
 	let shared = freeze(Outcome.found("fghij".toByteArray()))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await finder.record(second) otherwise panic("main: a fresh finder answers record")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let compared = try await finder.compare(shared) otherwise panic("main: a fresh finder answers compare")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let newest = try await finder.latest() otherwise panic("main: a fresh finder answers latest")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let kept = try await finder.pinned() otherwise panic("main: a fresh finder answers pinned")
 	finder.shutdown()
 	let newestWeight = match newest 'newest'
@@ -641,7 +627,6 @@ error E2010: <fragment>:16:30: Expected 'a type' but got 'isolated'
 ```
 
 <!-- test: values-and-handles-need-no-word -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Numbers, `bool`, `String`, `Character`, an enum, a service handle and a `SharedValue` cell cross on parameter, reply and factory with no capability word.
@@ -716,23 +701,15 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let relay = spawn Relay.create()
 	let cell = Counter.create(0 as Integer)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let text = try await echo.name("hello") otherwise panic("main: echo answers name")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let doubled = try await echo.twice(21) otherwise panic("main: echo answers twice")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let mode = try await echo.pick(Mode.slow) otherwise panic("main: echo answers pick")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let flipped = try await echo.flip(true) otherwise panic("main: echo answers flip")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	// TODO: character literals are not supported in minimaxon
 	let letter = try await echo.letter('q') otherwise panic("main: echo answers letter")
 	try echo.bump(cell.clone()) otherwise panic("main: echo takes bump")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let calls = try await echo.read() otherwise panic("main: echo answers read")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let again = try await relay.note(echo.clone()) otherwise panic("main: relay answers note")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let doubledAgain = try await again.twice(4) otherwise panic("main: the handed-back handle still reaches echo")
 	relay.shutdown()
 	echo.shutdown()
@@ -748,7 +725,6 @@ hello 42 true false q 1 4 8
 ```
 
 <!-- test: a-unique-record-needs-no-word -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A `unique` record moves on a send, so its parameter carries no capability word.
 
@@ -784,7 +760,6 @@ function main() returns ExitCode
 	let vault = spawn Vault.create()
 	let token = Token.create("secret")
 	try vault.deposit(token) otherwise panic("main: a fresh vault takes its first message")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let held = try await vault.read() otherwise panic("main: a fresh vault answers read")
 	vault.shutdown()
 	print("{held}\n")
@@ -799,7 +774,6 @@ end 'main'
 ```
 
 <!-- test: an-os-handle-needs-no-word-on-a-factory-or-a-reply -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A `TcpListener` and a `TcpClient` each own an OS socket, so each is `unique`: the listener crosses into the factory and the accepted connection crosses back as a reply, with no capability word on either.
@@ -830,7 +804,6 @@ function main() returns ExitCode
 		pending.cancel()
 		return 3
 	end 'refused3x23'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = try await pending otherwise return 4
 	_ = try out.send("handle") otherwise return 5
 	let heard = try served.readSome(64) otherwise return 6
@@ -846,7 +819,6 @@ handle
 ```
 
 <!-- test: a-record-holding-an-os-handle-needs-no-word -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A record with a field that is an OS handle is `unique` by that field, so it moves on a send and its parameter carries no capability word.
@@ -880,7 +852,6 @@ function main() returns ExitCode
 	let port = door.port()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let gatehouse = spawn Gatehouse.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = try await gatehouse.portOf(door) otherwise return 2
 	gatehouse.shutdown()
 	print("{seen == port}\n")
@@ -1112,7 +1083,6 @@ error E3217: <fragment>:30:12: parameter `x` of the message `Box.put` is an opaq
 ```
 
 <!-- test: an-isolated-interface-value-is-merged-into-an-interface-field -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -1173,10 +1143,8 @@ end 'Keeper'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let keeper = spawn Keeper.create(Square.create(1))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let first = try await keeper.sides() otherwise panic("main: a fresh keeper answers")
 	try keeper.keep(Triangle.create(2)) otherwise panic("main: a running keeper takes a shape")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let second = try await keeper.sides() otherwise panic("main: a fresh keeper answers")
 	keeper.shutdown()
 	return (first * 10 + second) as ExitCode
@@ -1187,7 +1155,6 @@ end 'main'
 ```
 
 <!-- test: an-isolated-parameter-is-sent-on-as-an-isolated-argument -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -1243,7 +1210,6 @@ function main() returns ExitCode
 		chunk.cells.push(3)
 	end 'fill'
 	forward(sink, chunk: chunk)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await sink.read() otherwise panic("main: a fresh sink answers")
 	sink.shutdown()
 	return total as ExitCode
@@ -1286,7 +1252,6 @@ error E3005: <fragment>:11:30: Cannot use bare 'int' as a type. Define a typeali
 ```
 
 <!-- test: an-isolated-parameters-number-is-read-in-the-statement-that-writes-self -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -1323,7 +1288,6 @@ function main() returns ExitCode
 	let plotter = spawn Plotter.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shape = Point.create(3, y: 4) as isolated Point
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await plotter.plot(shape) otherwise panic("main: a fresh plotter answers plot")
 	plotter.shutdown()
 	print("{total}\n")
@@ -1338,7 +1302,6 @@ end 'main'
 ```
 
 <!-- test: error.a-record-read-from-an-isolated-parameter-keeps-self-read-only-in-its-statement -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -1383,7 +1346,6 @@ function main() returns ExitCode
 	let plotter = spawn Plotter.create()
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let shape = Point.create(3) as isolated Point
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await plotter.plot(shape) otherwise panic("main: a fresh plotter answers plot")
 	plotter.shutdown()
 	print("{total}\n")

@@ -180,8 +180,6 @@ d
 ```
 
 <!-- test: withIterator.awaits-every-promise-of-an-array -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Each element a `withIterator` loop binds out of an array of promises is awaited exactly once in the body, so
 every coroutine is consumed by the time the loop ends and the array drops nothing still owed an await.
 ```maxon
@@ -204,13 +202,10 @@ function slowTally(n Tally) returns Tally throws WaitError
 end 'slowTally'
 
 function main() returns ExitCode
-	let promises = TallyPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var promises = TallyPromiseArray.create(0)
 	promises.push(async slowTally(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(2))
 	for (position, promise) in promises.enumerated() 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let value = try await promise otherwise 0
 		print("{position}: {value}\n")
 	end 'each'
@@ -226,7 +221,6 @@ end 'main'
 ```
 
 <!-- test: withIterator.awaits-every-service-reply-of-an-array -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same loop over replies to a service's throwing message, whose promise type names the handler's own error
 type, `MathError`.
@@ -264,7 +258,6 @@ function main() returns ExitCode
 	replies.push(try calc.divide(10, by: 2) otherwise panic("an open mailbox with room takes the send"))
 	replies.push(try calc.divide(10, by: 0) otherwise panic("an open mailbox with room takes the send"))
 	for (position, reply) in replies.enumerated() 'each'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let value = try await reply otherwise 0
 		print("{position}: {value}\n")
 	end 'each'
@@ -281,7 +274,6 @@ end 'main'
 ```
 
 <!-- test: withIterator.a-promise-array-it-never-awaits-is-dropped-once -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A loop that walks an array of promises and awaits none leaves every one owned by the array, so each coroutine is
 cancelled once, when the array drops, and never a second time by the loop's own element binding.
 ```maxon
@@ -297,16 +289,14 @@ function slowTally(n Tally) returns Tally
 end 'slowTally'
 
 function main() returns ExitCode
-	let promises = TallyPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var promises = TallyPromiseArray.create(0)
 	promises.push(async slowTally(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(2))
 	var seen = 0 as Tally
 	for (position, _) in promises.enumerated() 'each'
-		seen = seen + 1 + position as Tally
+		seen = try seen + 1 + position as Tally otherwise panic("out of range")
 	end 'each'
-	return seen as ExitCode
+	return try seen as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -314,8 +304,6 @@ end 'main'
 ```
 
 <!-- test: withIterator.awaits-only-some-promises-of-an-array -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A named promise the body awaits on one iteration and not the others is the array's until it is awaited: the
 awaited one empties its slot, and the array drops the rest once.
 ```maxon
@@ -331,21 +319,17 @@ function slowTally(n Tally) returns Tally
 end 'slowTally'
 
 function main() returns ExitCode
-	let promises = TallyPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var promises = TallyPromiseArray.create(0)
 	promises.push(async slowTally(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(2))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(4))
 	var total = 0 as Tally
 	for (position, promise) in promises.enumerated() 'each'
 		if position == 1 'second'
-			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-			total = total + (await promise)
+			total = try total + (await promise) otherwise panic("out of range")
 		end 'second'
 	end 'each'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -353,8 +337,6 @@ end 'main'
 ```
 
 <!-- test: withIterator.a-loop-that-breaks-before-awaiting-drops-every-promise-once -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -368,20 +350,17 @@ function slowTally(n Tally) returns Tally
 end 'slowTally'
 
 function main() returns ExitCode
-	let promises = TallyPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var promises = TallyPromiseArray.create(0)
 	promises.push(async slowTally(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async slowTally(2))
 	var total = 0 as Tally
 	for (position, promise) in promises.enumerated() 'each'
 		if position == 1 'second'
 			break
 		end 'second'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		total = total + (await promise)
+		total = try total + (await promise) otherwise panic("out of range")
 	end 'each'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -389,8 +368,6 @@ end 'main'
 ```
 
 <!-- test: withIterator.nested-loops-over-two-promise-arrays -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -404,28 +381,22 @@ function slowTally(n Tally) returns Tally
 end 'slowTally'
 
 function main() returns ExitCode
-	let outer = TallyPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var outer = TallyPromiseArray.create(0)
 	outer.push(async slowTally(1))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	outer.push(async slowTally(2))
-	let inner = TallyPromiseArray.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
+	var inner = TallyPromiseArray.create(0)
 	inner.push(async slowTally(10))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	inner.push(async slowTally(20))
 	var total = 0 as Tally
 	for (_, o) in outer.enumerated() 'eachOuter'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		total = total + (await o)
+		total = try total + (await o) otherwise panic("out of range")
 		for (position, i) in inner.enumerated() 'eachInner'
-			if position as Tally == total - 1 'matching'
-				// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-				total = total + (await i)
+			if position as Tally == (try total - 1 otherwise panic("out of range")) 'matching'
+				total = try total + (await i) otherwise panic("out of range")
 			end 'matching'
 		end 'eachInner'
 	end 'eachOuter'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

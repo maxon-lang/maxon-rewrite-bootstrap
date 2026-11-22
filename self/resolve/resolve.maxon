@@ -1023,7 +1023,11 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 		resolveChain(r, p: p, ms: ms, id: id, errs: errs)
 	end 'bin' else if k == ast.NodeKind.unaryExpr 'un'
 		resolveExpr(r, p: p, ms: ms, id: ast.unaryExprE(r.tree, id: id), errs: errs)
-	end 'un' else if k == ast.NodeKind.condExpr 'cnd'
+	end 'un' else if k == ast.NodeKind.asyncExpr 'async'
+		resolveExpr(r, p: p, ms: ms, id: ast.asyncExprCall(r.tree, id: id), errs: errs)
+	end 'async' else if k == ast.NodeKind.awaitExpr 'await'
+		resolveExpr(r, p: p, ms: ms, id: ast.awaitExprE(r.tree, id: id), errs: errs)
+	end 'await' else if k == ast.NodeKind.condExpr 'cnd'
 		resolveExpr(r, p: p, ms: ms, id: ast.condExprCond(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.condExprThen(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.condExprElse(r.tree, id: id), errs: errs)

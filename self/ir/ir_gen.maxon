@@ -74,6 +74,7 @@ export enum Opcode
 	opCall
 	opCallRuntime
 	opWhen
+	opAsync
 	opClosure
 	opFuncValue
 	opCallValue
@@ -762,6 +763,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opWhen 'opWhen'
 		return 15
 	end 'opWhen'
+	if op == Opcode.opAsync 'opAsync'
+		return 15
+	end 'opAsync'
 	if op == Opcode.opClosure 'opClosure'
 		return 13
 	end 'opClosure'
@@ -1325,6 +1329,18 @@ export function newWhen(body Count, cownsStart Reg, cownsCount Reg, capturesCoun
 	r.c = capturesCount
 	return r
 end 'newWhen'
+
+// Async starts Callee with the words Args as a coroutine of the running green thread's strand, and gives its
+// promise: the coroutine runs the thunk of Callee, which calls it with Args and keeps what it returns, and what it
+// failed with, for the await. The coroutine owns each argument a consumes parameter takes, and borrows the others.
+export function newAsync(dst Reg, callee Index, argsStart Reg, argsCount Reg) returns Instr
+	var r = Instr.make(Opcode.opAsync)
+	r.dst = dst
+	r.c = callee
+	r.a = argsStart
+	r.b = argsCount
+	return r
+end 'newAsync'
 
 // Closure gives a new closure of the body Body, holding Captures: it owns each capture that Body says it owns, and
 // borrows the others.
@@ -1987,6 +2003,20 @@ export function whenCapturesCount(x Instr) returns Count
 	return try x.c as Count otherwise panic("ir: when captures is out of range")
 end 'whenCapturesCount'
 
+export function asyncCallee(f IrFunction, x Instr) returns ast.FuncID
+	return f.calleeAt(x.c)
+end 'asyncCallee'
+
+// asyncArgsStart is where the args of an Async start in their pool.
+export function asyncArgsStart(x Instr) returns Count
+	return try x.a as Count otherwise panic("ir: async args is out of range")
+end 'asyncArgsStart'
+
+// asyncArgsCount is how many args an Async has.
+export function asyncArgsCount(x Instr) returns Count
+	return try x.b as Count otherwise panic("ir: async args is out of range")
+end 'asyncArgsCount'
+
 export function closureBody(f IrFunction, x Instr) returns Count
 	return try x.imm as Count otherwise panic("ir: closure body is out of range")
 end 'closureBody'
@@ -2351,6 +2381,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opWhen 'opWhen'
 		return table.Option.none
 	end 'opWhen'
+	if x.op == Opcode.opAsync 'opAsync'
+		return table.Option.some(x.dst)
+	end 'opAsync'
 	if x.op == Opcode.opClosure 'opClosure'
 		return table.Option.some(x.dst)
 	end 'opClosure'
@@ -2542,6 +2575,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opWhen 'opWhen'
 		return table.Option.none
 	end 'opWhen'
+	if x.op == Opcode.opAsync 'opAsync'
+		return table.Option.none
+	end 'opAsync'
 	if x.op == Opcode.opClosure 'opClosure'
 		return table.Option.none
 	end 'opClosure'
@@ -2635,6 +2671,7 @@ export function instrCanFail(x Instr) returns bool
 		opCall gives false
 		opCallRuntime gives false
 		opWhen gives false
+		opAsync gives false
 		opClosure gives false
 		opFuncValue gives false
 		opCallValue gives false
@@ -2845,6 +2882,10 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		f.regsInto(whenCapturesStart(x), count: whenCapturesCount(x), out: out)
 		return
 	end 'opWhen'
+	if x.op == Opcode.opAsync 'opAsync'
+		f.regsInto(asyncArgsStart(x), count: asyncArgsCount(x), out: out)
+		return
+	end 'opAsync'
 	if x.op == Opcode.opClosure 'opClosure'
 		f.regsInto(closureCapturesStart(x), count: closureCapturesCount(x), out: out)
 		return
@@ -3119,6 +3160,10 @@ export function instrWrites(x Instr, mutates out RegList)
 	if x.op == Opcode.opWhen 'opWhen'
 		return
 	end 'opWhen'
+	if x.op == Opcode.opAsync 'opAsync'
+		out.push(x.dst)
+		return
+	end 'opAsync'
 	if x.op == Opcode.opClosure 'opClosure'
 		out.push(x.dst)
 		return
@@ -3372,6 +3417,10 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		renameRegs(args, start: whenCapturesStart(x), count: whenCapturesCount(x), names: names)
 		return
 	end 'opWhen'
+	if x.op == Opcode.opAsync 'opAsync'
+		renameRegs(args, start: asyncArgsStart(x), count: asyncArgsCount(x), names: names)
+		return
+	end 'opAsync'
 	if x.op == Opcode.opClosure 'opClosure'
 		renameRegs(args, start: closureCapturesStart(x), count: closureCapturesCount(x), names: names)
 		return
@@ -3742,6 +3791,12 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.a = shiftedReg(x.a, by: at.args)
 		return
 	end 'opWhen'
+	if x.op == Opcode.opAsync 'opAsync'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.c = shiftedIndex(x.c, by: at.callees)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opAsync'
 	if x.op == Opcode.opClosure 'opClosure'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.imm = shiftedWord(x.imm, by: at.bodies)
@@ -3908,6 +3963,7 @@ export interface InstrVisitor
 	function visitCall(mutates self, f IrFunction, x Instr)
 	function visitCallRuntime(mutates self, f IrFunction, x Instr)
 	function visitWhen(mutates self, f IrFunction, x Instr)
+	function visitAsync(mutates self, f IrFunction, x Instr)
 	function visitClosure(mutates self, f IrFunction, x Instr)
 	function visitFuncValue(mutates self, f IrFunction, x Instr)
 	function visitCallValue(mutates self, f IrFunction, x Instr)
@@ -4113,6 +4169,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitWhen(f, x: x)
 		return
 	end 'opWhen'
+	if x.op == Opcode.opAsync 'opAsync'
+		visitor.visitAsync(f, x: x)
+		return
+	end 'opAsync'
 	if x.op == Opcode.opClosure 'opClosure'
 		visitor.visitClosure(f, x: x)
 		return
@@ -4397,6 +4457,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opWhen 'opWhen'
 		return "when {f.bodyName(whenBody(f, x: x))} cowns [{f.regsText(whenCownsStart(x), count: whenCownsCount(x))}] captures [{f.regsText(whenCapturesStart(x), count: whenCapturesCount(x))}]"
 	end 'opWhen'
+	if x.op == Opcode.opAsync 'opAsync'
+		return "{resultText(x.dst)}async {funcSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: asyncCallee(f, x: x))}({f.regsText(asyncArgsStart(x), count: asyncArgsCount(x))})"
+	end 'opAsync'
 	if x.op == Opcode.opClosure 'opClosure'
 		return "{resultText(x.dst)}closure {f.bodyName(closureBody(f, x: x))} [{f.regsText(closureCapturesStart(x), count: closureCapturesCount(x))}]"
 	end 'opClosure'

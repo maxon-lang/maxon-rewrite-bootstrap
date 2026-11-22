@@ -30,6 +30,7 @@ var primTypes = []primType{
 	{"Codepoint", "b.codepointTy"},
 	{"CodeUnit16", "b.codeUnit16Ty"},
 	{"ExitCode", "b.exitCodeTy"},
+	{"Milliseconds", "b.millisecondsTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
 	{"Float", "b.anonFloatTy"},
@@ -52,6 +53,7 @@ var stdAliases = []stdAlias{
 	{Name: "FullRangeFloat", Field: "fullRangeFloatTy", Lo: "floatNegate(floatMaxBits)", Hi: "floatMaxBits", Float: true},
 	{Name: "Codepoint", Field: "codepointTy", Lo: "I128.zero()", Hi: "I128.fromCount(1114111 as Count)"},
 	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
+	{Name: "Milliseconds", Field: "millisecondsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 }
 
 // extraField is a field of self's Builtins record that no row of the table gives it: a type that initBuiltins registers
@@ -119,6 +121,9 @@ var builtinTypes = []builtinType{
 	{Key: "Handle", Name: "Handle", Params: []string{"T"}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
 	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true},
+	// Promise is maxon's: what an async call gives, the coroutine it started, which an await consumes. `Promise with T` is of
+	// a function that throws nothing, and `Promise with (T, E)` of one that throws E, whose E is then void.
+	{Key: "Promise", Name: "Promise", Params: []string{"T", "E"}, Managed: true},
 }
 
 // typeAlias is a built-in typealias of an instance: the name and the type it is, one type and not two.
@@ -654,6 +659,12 @@ var tableFunctions = []function{
 	{Owner: "Clock", Name: "nowNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos"},
 	// processorCount is maxon's Scheduler.processorCount, whose SchedulerProcessorCount is an unsigned 64-bit integer, which Count is.
 	{Owner: "Scheduler", Name: "processorCount", Static: true, Result: "Count", Intrinsic: "SchedulerProcessorCount"},
+	// yield is maxon's Scheduler.yield: the coroutines of the caller's strand that wait to run, else the green threads that
+	// are runnable, run before the caller goes on.
+	{Owner: "Scheduler", Name: "yield", Static: true, Intrinsic: "SchedulerYield"},
+	// sleep is maxon's: the running green thread parks for at least the milliseconds, and its strand's other coroutines run
+	// meanwhile.
+	{Name: "sleep", Params: []string{"milliseconds Milliseconds"}, Intrinsic: "Sleep"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
 	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
@@ -662,6 +673,8 @@ var tableFunctions = []function{
 	{Owner: "File", Name: "writeBinary", Static: true, Params: []string{"path FilePath", "content Array with Byte", "mode FilePermission = normal"}, Throws: "FileWriteError", Intrinsic: "FileWriteBinary"},
 	{Owner: "File", Name: "rename", Static: true, Params: []string{"from FilePath", "to FilePath"}, Throws: "FileRenameError", Intrinsic: "FileRename"},
 	{Owner: "File", Name: "delete", Static: true, Params: []string{"path FilePath"}, Throws: "FileDeleteError", Intrinsic: "FileDelete"},
+	// exists is maxon's File.exists: whether a file or a directory is at the path.
+	{Owner: "File", Name: "exists", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "FileExists"},
 	{Owner: "File", Name: "info", Static: true, Params: []string{"path FilePath"}, Result: "FileInfo", Throws: "FileInfoError", Intrinsic: "FileInfo"},
 	{Owner: "Directory", Name: "isDirectory", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryIsDirectory"},
 	// create makes the missing parents too, and gives whether the directory is there after it.
@@ -777,6 +790,16 @@ var entries = []entry{
 	{"WorkerMain", "rt.workerMain", "Source", roleInternal, "(context): what a thread the runtime makes runs"},
 	{"CownAcquire", "rt.cown.acquire", "Source", roleInternal, "(behaviour record): what a when calls with the record it made, which queues the behaviour on each cown it names and makes it runnable once it holds them all"},
 	{"CownRelease", "rt.cown.release", "Source", roleInternal, "(behaviour record): what a behaviour's thunk calls after its body, which hands each cown to the behaviour queued after it"},
+	{"MainRun", "rt.mainRun", "Source", roleInternal, "(code) -> exit code: what the entry calls in place of main, with the address of rt.mainGreen: main runs as a green thread, and the main thread runs the scheduler until nothing is left"},
+	{"MainGreen", "rt.mainGreen", "Runtime", roleInternal, "(green thread) -> exit code: the stub's code that main's green thread runs, which calls main, or each test of an executable of tests"},
+	{"AsyncNew", "rt.async.new", "Source", roleInternal, "(thunk) -> coroutine: what an async call makes, a green thread of the caller's strand that runs the thunk of the function it starts, before its arguments are written"},
+	{"AsyncStart", "rt.async.start", "Source", roleInternal, "(coroutine): what an async call calls once it has written the coroutine's arguments, which queues it to run in its strand"},
+	{"AsyncAwait", "rt.async.await", "Source", roleCall, "(promise) -> value: await of a promise whose function throws nothing, which waits for the coroutine, gives what its function returned and frees it"},
+	{"AsyncWait", "rt.async.wait", "Source", roleCall, "(promise): the wait of an await of a promise whose function throws"},
+	{"AsyncError", "rt.async.error", "Source", roleCall, "(promise) -> error: what the function of a coroutine that rt.async.wait waited for failed with, 0 when it returned"},
+	{"AsyncTake", "rt.async.take", "Source", roleCall, "(promise) -> value: what the function of a coroutine that rt.async.wait waited for returned, which frees the coroutine"},
+	{"Sleep", "rt.sleep", "Source", roleCall, "(milliseconds): parks the running green thread for at least that long"},
+	{"Yield", "rt.yield", "Source", roleCall, "(): lets the members of the strand that wait, else the runnable green threads, run first"},
 
 	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
@@ -853,6 +876,7 @@ var entries = []entry{
 	{"OsDelete", "rt.os.delete", "Os", roleCall, "(path String, error)"},
 	{"OsFileInfo", "rt.os.fileInfo", "Os", roleCall, "(path String, size, created, accessed, attributes, error) -> modified: the times in Unix seconds, and the attributes as a word whose bit 0 is whether the path is a directory and bit 1 whether it is read-only"},
 	{"OsIsDirectory", "rt.os.isDirectory", "Os", roleCall, "(path String) -> bool"},
+	{"OsExists", "rt.os.exists", "Os", roleCall, "(path String) -> bool: whether a file or a directory is at the path"},
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
 	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
 	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case"},
@@ -906,6 +930,15 @@ var runtimeFunctions = []runtimeFunction{
 	{"WorkerMain", "workerMain(context Count)"},
 	{"CownAcquire", "cownAcquire(record Count)"},
 	{"CownRelease", "cownRelease(record Count)"},
+	{"MainRun", "mainRun(code Count) Count"},
+	{"AsyncNew", "asyncNew(code Count) Count"},
+	{"AsyncStart", "asyncStart(g Count)"},
+	{"AsyncAwait", "asyncAwait(promise Count) Count"},
+	{"AsyncWait", "asyncWait(promise Count)"},
+	{"AsyncError", "asyncError(promise Count) Count"},
+	{"AsyncTake", "asyncTake(promise Count) Count"},
+	{"Sleep", "sleepMs(milliseconds Count)"},
+	{"Yield", "schedYield()"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},
 	{"FrozenGet", "frozenGet(frozen Count) Count"},
 	{"Share", "share(box Count) Count"},
@@ -941,6 +974,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsDelete", "osDelete(path String, errorAddress Count)"},
 	{"OsFileInfo", "osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) Count"},
 	{"OsIsDirectory", "osIsDirectory(path String) Bool"},
+	{"OsExists", "osExists(path String) Bool"},
 	{"OsCreateDirectory", "osCreateDirectory(path String) Bool"},
 	{"OsList", "osList(path String, errorAddress Count) Count"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},

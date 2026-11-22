@@ -308,6 +308,14 @@ export type Builder
 		return newCallValue(dst, argsStart: start, argsCount: regOf(all.count()), floatResult: sig.result)
 	end 'callValueInstr'
 
+	// asyncInstr starts target with args as a coroutine and gives its promise in dst. Its arguments are words, which the
+	// checker holds to: no float is passed to a coroutine.
+	export function asyncInstr(mutates self, dst Reg, target ast.FuncID, args RegList) returns Instr
+		let at = self.callee(target)
+		let start = self.arguments(args)
+		return newAsync(dst, callee: at, argsStart: start, argsCount: regOf(args.count()))
+	end 'asyncInstr'
+
 	// whenInstr schedules a behaviour that body added.
 	export function whenInstr(mutates self, behaviour Count, cowns RegList, captures RegList) returns Instr
 		let start = self.arguments(cowns)

@@ -19,8 +19,6 @@ across every later operand that may yield, so a coroutine that replaces the fiel
 ## Tests
 
 <!-- test: strand-guard-holds-sibling-during-park -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `editor` parks in `sleep(150)` inside `modify`, and `sibling` sleeps only 10 ms; without the guard the scheduler would run `sibling` during the park and print it between `before` and `inside`. The pinned order proves no sibling ran while the block was open.
@@ -49,13 +47,9 @@ function editor() returns Count
 end 'editor'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let ed = async editor()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sib = async sibling()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await ed
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await sib
 	return 0
 end 'main'
@@ -71,7 +65,6 @@ sibling
 ```
 
 <!-- test: frozen-graph-shared-counts -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
@@ -134,9 +127,7 @@ function main() returns ExitCode
 	let two = spawn Reader.create()
 	let first = try one.passes(forest, rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
 	let second = try two.passes(forest, rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await first
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await second
 	one.shutdown()
 	two.shutdown()
@@ -202,8 +193,6 @@ end 'main'
 ```
 
 <!-- test: hold-across-may-yield-call -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 `describe` reads `shelf.cell` as its first operand, then `settle` awaits a coroutine that replaces the field with another frozen cell; the first operand is held across that call, so it still reads `old 7` and the leak gate is clean.
 
@@ -233,9 +222,7 @@ function replace(shelf Shelf) returns Tally
 end 'replace'
 
 function settle(shelf Shelf) returns Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async replace(shelf)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await pending
 end 'settle'
 
@@ -258,8 +245,6 @@ old 7 1 new
 ```
 
 <!-- test: strand-guard-holds-sibling-during-a-one-call-open -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `h.part.park()` opens the isolated `part` for that one call, and `park` sleeps 150 ms inside it while `sibling` sleeps only 10 ms; the pinned order proves no sibling ran while the region was open.
 
@@ -304,13 +289,9 @@ function editor() returns Count
 end 'editor'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let ed = async editor()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sib = async sibling()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await ed
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await sib
 	return 0
 end 'main'
@@ -326,8 +307,6 @@ sibling
 ```
 
 <!-- test: strand-guard-holds-sibling-during-a-one-statement-open -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `h.part.lines.push(pause())` reads through the isolated `part`, which the statement opens for itself, and `pause` sleeps 150 ms in the middle of it while `sibling` sleeps only 10 ms; the pinned order proves no sibling ran while the region was open.
 
@@ -372,13 +351,9 @@ function editor() returns Count
 end 'editor'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let ed = async editor()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sib = async sibling()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await ed
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await sib
 	return 0
 end 'main'
@@ -394,8 +369,6 @@ sibling
 ```
 
 <!-- test: strand-guard-is-released-when-a-one-call-open-throws -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `h.part.refuse()` throws out of its one-call open into `otherwise 0`, so the guard it took is released on the throw edge too: `sibling` then runs during the 60 ms sleep after it, and the program does not end holding a guard.
 
@@ -446,13 +419,9 @@ function editor() returns Count
 end 'editor'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let ed = async editor()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sib = async sibling()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await ed
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await sib
 	return 0
 end 'main'
@@ -467,8 +436,6 @@ after 0
 ```
 
 <!-- test: strand-guard-holds-sibling-during-an-argument-one-call-open -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 `park(part)` passes the isolated `part` in an unmarked position, which opens it for that one call, and `park` sleeps 150 ms inside it while `sibling` sleeps only 10 ms; the pinned order proves no sibling ran while the region was open.
 
@@ -505,13 +472,9 @@ function editor() returns Count
 end 'editor'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let ed = async editor()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let sib = async sibling()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await ed
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await sib
 	return 0
 end 'main'

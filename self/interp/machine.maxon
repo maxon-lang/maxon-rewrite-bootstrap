@@ -215,6 +215,11 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		try execWhen(vm, f: f, x: x) otherwise ignore
 	end 'visitWhen'
 
+	// The interpreter has no strand to run a coroutine in, so an async call ends the run (asyncUnsupported).
+	function visitAsync(mutates self, f ir.IrFunction, x ir.Instr)
+		_ = asyncUnsupported(vm)
+	end 'visitAsync'
+
 	function visitBox(mutates self, f ir.IrFunction, x ir.Instr)
 		try execBox(vm, f: f, x: x) otherwise ignore
 	end 'visitBox'

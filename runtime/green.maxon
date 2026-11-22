@@ -12,11 +12,11 @@
 // Park and ready are Go's gopark and goready with a permit, so a ready that comes before its green thread has parked is
 // not lost: ready makes a running green thread greenNotified, and its next park returns at once, consuming it.
 //
-// The API, which a test of the runtime calls and the language's async, await and services are to lower to:
-// greenSpawn(code) makes a green thread that runs code with itself as its one argument, greenSetArgument and
-// greenArgument write and read its arguments, greenReady makes it runnable (after its arguments are written, as maxon's
-// __gt_ready publishes last), greenAwait waits for it to finish and gives the word its code gave back, greenPark,
-// greenYield, greenCurrent and greenSleep (timers.maxon).
+// The API, which a test of the runtime calls and the language's async and await lower to (strand.maxon): greenSpawn(code)
+// makes a green thread that runs code with itself as its one argument, greenSetArgument and greenArgument write and read
+// its arguments, greenReady makes it runnable (after its arguments are written, as maxon's __gt_ready publishes last),
+// greenAwait waits for it to finish and gives the word its code gave back, greenPark, greenYield, greenCurrent and
+// greenSleep (timers.maxon).
 
 // A green thread's status (greenStatusOffset).
 let greenIdle = 0 as Count
@@ -73,6 +73,12 @@ function newGreen(context Count, code Count, kind Count) returns Count
 	__Raw.storeWord(g, offset: greenWaiterOffset, value: noGreen)
 	__Raw.storeWord(g, offset: greenKindOffset, value: kind)
 	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
+	__Raw.storeWord(g, offset: greenStrandOffset, value: noGreen)
+	__Raw.storeWord(g, offset: greenStrandHolderOffset, value: noGreen)
+	__Raw.storeWord(g, offset: greenStrandHeadOffset, value: noGreen)
+	__Raw.storeWord(g, offset: greenStrandTailOffset, value: noGreen)
+	__Raw.storeWord(g, offset: greenStrandLockOffset, value: unset)
+	__Raw.storeWord(g, offset: greenErrorOffset, value: 0)
 	return g
 end 'newGreen'
 
@@ -122,10 +128,15 @@ function greenPark()
 	park(__Raw.threadContext())
 end 'greenPark'
 
-// greenYield is Go's Gosched: the running green thread goes to the global run queue, and its thread runs another.
+// greenYield is Go's Gosched: the running green thread goes to the global run queue, and its thread runs another. A member
+// of a strand that others wait to run in gives them the strand first and runs again after them.
 function greenYield()
 	let context = __Raw.threadContext()
-	_ = greenCurrent()
+	let g = greenCurrent()
+	let root = __Raw.loadWord(g, offset: greenStrandOffset)
+	if root != noGreen and strandYield(context, root: root, g: g) 'strand'
+		return
+	end 'strand'
 	switchToScheduler(context, intent: intentYield)
 end 'greenYield'
 
@@ -133,6 +144,12 @@ end 'greenYield'
 // its record. The finish exchanges greenFinished into the waiter after it stored the result, so either the waiter is
 // recorded before and readied by the finish, or it sees greenFinished.
 function greenAwait(g Count) returns Count
+	greenWait(g)
+	return greenTake(g)
+end 'greenAwait'
+
+// greenWait waits for a green thread that greenSpawn made to finish, and leaves its record for greenTake.
+function greenWait(g Count)
 	let context = __Raw.threadContext()
 	let waiter = greenCurrent()
 	if __Raw.loadWord(g, offset: greenKindOffset) != greenAwaited 'kind'
@@ -144,11 +161,15 @@ function greenAwait(g Count) returns Count
 			panic("a green thread that awaits another was readied before it finished")
 		end 'early'
 	end 'wait'
+end 'greenWait'
+
+// greenTake gives the word a green thread that greenWait waited for gave back, and frees its record.
+function greenTake(g Count) returns Count
 	let result = __Raw.loadWord(g, offset: greenResultOffset)
-	let after = __Raw.threadContext()
-	putFreeGreen(__Raw.loadWord(after, offset: contextSchedulerOffset), proc: __Raw.loadWord(after, offset: contextProcOffset), g: g)
+	let context = __Raw.threadContext()
+	putFreeGreen(__Raw.loadWord(context, offset: contextSchedulerOffset), proc: __Raw.loadWord(context, offset: contextProcOffset), g: g)
 	return result
-end 'greenAwait'
+end 'greenTake'
 
 // ready is Go's goready: a parked or new green thread goes to runnext of the running thread's processor, and a thread is
 // woken for an idle processor; a running one is notified instead.
@@ -184,17 +205,30 @@ function markReady(g Count) returns bool
 	return false
 end 'markReady'
 
-// park is Go's gopark: the running green thread waits until a ready, unless one came already.
+// park is Go's gopark: the running green thread waits until a ready, unless one came already. A member of a strand gives
+// the strand to the next member that waits to run while it waits, and runs again only once it holds the strand.
 function park(context Count)
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
 	if g == noGreen 'off'
 		panic("a park off a green thread")
 	end 'off'
+	let root = __Raw.loadWord(g, offset: greenStrandOffset)
+	if root == noGreen 'alone'
+		parkGreen(context, g: g)
+		return
+	end 'alone'
+	strandRelease(context, root: root, g: g)
+	parkGreen(context, g: g)
+	strandAcquire(root, g: g)
+end 'park'
+
+// parkGreen parks the running green thread g of a thread's context until a ready, unless one came already.
+function parkGreen(context Count, g Count)
 	if __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenNotified, desired: greenRunning) == greenNotified 'permit'
 		return
 	end 'permit'
 	switchToScheduler(context, intent: intentPark)
-end 'park'
+end 'parkGreen'
 
 // switchToScheduler is Go's mcall: the running green thread saves its registers and goes to its thread's scheduler,
 // which does what intent asks on its own stack. It returns when the green thread runs again, on whatever thread.
@@ -285,6 +319,10 @@ end 'finished'
 function greenMain(g Count)
 	let result = __Raw.callCode1(__Raw.loadWord(g, offset: greenCodeOffset), arg1: __Raw.loadWord(g, offset: greenArgOffset))
 	__Raw.storeWord(g, offset: greenResultOffset, value: result)
+	let root = __Raw.loadWord(g, offset: greenStrandOffset)
+	if root != noGreen 'strand'
+		strandRelease(__Raw.threadContext(), root: root, g: g)
+	end 'strand'
 	switchToScheduler(__Raw.threadContext(), intent: intentFinish)
 	panic("a finished green thread ran again")
 end 'greenMain'

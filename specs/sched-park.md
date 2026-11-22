@@ -28,8 +28,6 @@ green thread's WAIT does not pin it: a coroutine started before a `sleep` runs d
 
 ## Tests
 <!-- test: sched-park.nested-awaits-through-three-coroutines-complete -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THREE COROUTINES, EACH AWAITING THE NEXT, AND `main` AWAITING THE FIRST.** `askW` awaits the coroutine `askY`,
@@ -52,32 +50,24 @@ type Z
 end 'Z'
 
 function askZ(zh Z.handle) returns Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await zh.get() otherwise 0
 end 'askZ'
 
 function askY(zh Z.handle) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let inner = async askZ(zh.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await inner
 end 'askY'
 
 function askW(zh Z.handle) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let inner = async askY(zh.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await inner
 end 'askW'
 
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let z = spawn Z.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let chain = async askW(z.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let direct = try await z.get() otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let viaChain = await chain
 	return (direct + viaChain) as ExitCode
 end 'main'
@@ -87,8 +77,6 @@ end 'main'
 ```
 
 <!-- test: sched-park.nested-awaits-through-three-coroutines-complete-on-four-processors -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The same chain at four processors.
@@ -108,32 +96,24 @@ type Z
 end 'Z'
 
 function askZ(zh Z.handle) returns Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await zh.get() otherwise 0
 end 'askZ'
 
 function askY(zh Z.handle) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let inner = async askZ(zh.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await inner
 end 'askY'
 
 function askW(zh Z.handle) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let inner = async askY(zh.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await inner
 end 'askW'
 
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let z = spawn Z.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let chain = async askW(z.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let direct = try await z.get() otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let viaChain = await chain
 	return (direct + viaChain) as ExitCode
 end 'main'
@@ -143,8 +123,6 @@ end 'main'
 ```
 
 <!-- test: sched-park.a-coroutine-await-that-needs-main-completes -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A COROUTINE'S AWAIT THAT ONLY `main` CAN ANSWER.** `waitFor` is a coroutine of `main` that awaits
@@ -169,7 +147,6 @@ type Waiter
 end 'Waiter'
 
 function waitFor(w Waiter.handle) returns Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await w.waitForFile() otherwise 0
 end 'waitFor'
 
@@ -177,12 +154,10 @@ function main() returns ExitCode
 	try File.delete(FilePath from "sched-park-flag-one.txt") otherwise ignore
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Waiter.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async waitFor(w.clone())
 	sleep(5)
 	print("main woke\n")
 	try File.writeText(FilePath from "sched-park-flag-one.txt", content: "x") otherwise ignore
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await r
 	print("v={v}\n")
 	try File.delete(FilePath from "sched-park-flag-one.txt") otherwise ignore
@@ -198,8 +173,6 @@ v=1
 ```
 
 <!-- test: sched-park.a-coroutine-await-that-needs-main-completes-on-four-processors -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 The same shape at four processors.
@@ -222,7 +195,6 @@ type Waiter
 end 'Waiter'
 
 function waitFor(w Waiter.handle) returns Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await w.waitForFile() otherwise 0
 end 'waitFor'
 
@@ -230,12 +202,10 @@ function main() returns ExitCode
 	try File.delete(FilePath from "sched-park-flag-four.txt") otherwise ignore
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let w = spawn Waiter.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async waitFor(w.clone())
 	sleep(5)
 	print("main woke\n")
 	try File.writeText(FilePath from "sched-park-flag-four.txt", content: "x") otherwise ignore
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await r
 	print("v={v}\n")
 	try File.delete(FilePath from "sched-park-flag-four.txt") otherwise ignore
@@ -251,8 +221,6 @@ v=1
 ```
 
 <!-- test: sched-park.main-wakes-on-time-behind-a-long-coroutine-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **`main`'s TEN-MILLISECOND SLEEP ENDS WHILE ITS OWN COROUTINE IS STILL AWAITING A REPLY** that only `main`
@@ -280,7 +248,6 @@ type Slow
 end 'Slow'
 
 function askSlow(s Slow.handle) returns Integer
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await s.get() otherwise 0
 end 'askSlow'
 
@@ -288,12 +255,10 @@ function main() returns ExitCode
 	let released = ReleaseCell.create(false)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Slow.create(released.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async askSlow(s.clone())
 	sleep(10)
 	print("woke\n")
 	released.publish(true)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let v = await r
 	print("v={v}\n")
 	return 0
@@ -308,8 +273,6 @@ v=7
 ```
 
 <!-- test: sched-park.a-service-coroutine-runs-while-its-handler-sleeps -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A HANDLER'S COROUTINE OVERLAPS THE HANDLER'S OWN WAIT.** `work` starts `flip`, then sleeps until the
@@ -332,7 +295,6 @@ type Handler
 	end 'create'
 
 	export function work() returns Integer
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async flip(41)
 		var naps = 0 as Integer
 		while not p.isComplete() 'untilFlipped'
@@ -340,7 +302,6 @@ type Handler
 			naps = naps + 1
 		end 'untilFlipped'
 		let doneDuringSleep = 1 if naps > 0 else 0
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let v = await p
 		return v * 10 + doneDuringSleep
 	end 'work'
@@ -349,7 +310,6 @@ end 'Handler'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Handler.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await h.work() otherwise 0
 	print("r={r}\n")
 	return 0
@@ -363,7 +323,6 @@ r=421
 ```
 
 <!-- test: sched-park.a-renounced-sleeper-due-at-shutdown-does-not-abort-the-exit -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **A RENOUNCED COROUTINE THAT PARKS AFTER ITS DROP IS ABANDONED AT EXIT, NOT RUN AND NOT AN ABORT.** `child`
@@ -406,7 +365,6 @@ function main() returns ExitCode
 		Scheduler.yield()
 		i = i + 1
 	end 'settle'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async child()
 	Scheduler.yield()
 	p.cancel()
@@ -418,7 +376,6 @@ end 'main'
 ```
 
 <!-- test: sched-park.a-timer-lap-that-hands-the-processor-to-a-pinned-thread-wakes-a-machine-for-the-rest -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 <!-- preempt: off -->
@@ -518,9 +475,7 @@ function handOffRound() returns bool
 	_ = handOffSpinUntil(Clock.nowMs() + 2)
 	let signalling = try signaller.signalAt(dueAt, signalled: signalled.clone()) otherwise panic("an open mailbox with room takes the send")
 	_ = handOffSpinUntil(dueAt + 2)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let arrived = await waiting
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let sent = await signalling
 	return arrived and sent
 end 'handOffRound'

@@ -1177,7 +1177,6 @@ error E3200: <fragment>:54:30: 't' crosses to the service the `spawn` starts onl
 ```
 
 <!-- test: a-unique-reply-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The behaviour keeps `t.b` and replies with `t`, which is then not the whole of its region.
@@ -1239,7 +1238,6 @@ function main() returns ExitCode
 	h.k.n = 1
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Maker.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await s.make() otherwise return 1
 	print("{t.b.n}\n")
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
@@ -2874,7 +2872,6 @@ error E3200: <fragment>:36:10: 'wrap(q) as isolated Wrap' is not isolated: only 
 ```
 
 <!-- test: a-field-write-of-a-value-keeps-a-local-fresh-for-a-send -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Writing a number into `b` takes no reference out of it, so the send still finds `b` fresh.
@@ -2908,7 +2905,6 @@ function main() returns ExitCode
 	let k = spawn Keeper.create()
 	let b = Box.create(1)
 	b.n = 4
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let got = try await k.take(b) otherwise 0
 	print("{got}\n")
 	return 0

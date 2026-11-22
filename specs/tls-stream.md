@@ -36,8 +36,6 @@ leaves for P-256, P-384, RSA and Ed25519, an expired leaf, a second root, and a 
 ## Tests
 
 <!-- test: tls-stream.echo-tls13 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A `TlsListener` and a `TlsClient` in one program: the client trusts the case's root and verifies `example.com`, the server presents the P-256 leaf, and a default configuration negotiates TLS 1.3 with the server's first suite, ChaCha20-Poly1305. The client's `ping` returns as `echo:ping`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -177,10 +175,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -199,8 +195,6 @@ client[echo:ping tls13 tls13/chaCha20Poly1305Sha256 alpn=none] server[served pin
 ```
 
 <!-- test: tls-stream.echo-tls12-only-client -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A client that enables only TLS 1.2 against a server that enables both: the handshake is TLS 1.2 with the server's first suite its key fits.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -340,10 +334,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -364,8 +356,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] server[
 ```
 
 <!-- test: tls-stream.echo-tls12-only-server -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A server that enables only TLS 1.2 against a client that enables both, with the P-384 leaf: the client offers TLS 1.3 and TLS 1.2, and the server answers with TLS 1.2.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -505,10 +495,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -528,8 +516,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] server[
 ```
 
 <!-- test: tls-stream.server-key-types -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Every private key type a server presents completes both versions: P-384 and Ed25519 (TLS 1.3 signs with the scheme of the key; TLS 1.2 needs the matching ECDHE_ECDSA suite) and RSA (RSA-PSS in TLS 1.3, TLS 1.2 ECDHE_RSA suites).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -677,10 +663,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -714,8 +698,6 @@ rsa tls12: client[echo:ping tls12 tls12/ecdheRsaChaCha20Poly1305Sha256 alpn=none
 ```
 
 <!-- test: tls-stream.mtls-required-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 Mutual TLS in both versions: the server requires a client certificate under the client root, the client presents the leaf that root signed, and the server reports one peer certificate.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -861,10 +843,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -894,8 +874,6 @@ tls12: client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] 
 ```
 
 <!-- test: tls-stream.mtls-requested-accepts-anonymous -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 With client certificates requested rather than required, a client that presents none is accepted and the server sees no peer certificate; a client that presents one is verified like a required one.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1041,10 +1019,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -1079,8 +1055,6 @@ tls12 presents=true: client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha2
 ```
 
 <!-- test: tls-stream.mtls-required-refuses-anonymous -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A server that requires client certificates refuses a client that has none with certificate_required (TLS 1.3) or handshake_failure (TLS 1.2), which the client reads as the peer's alert. In TLS 1.3 the client's handshake is complete before the server decides, so the client sees the alert on its first read.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1233,10 +1207,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -1246,10 +1218,8 @@ function silentExchange(serverOptions TlsServerOptions, clientOptions TlsClientO
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientListens(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'silentExchange'
@@ -1277,8 +1247,6 @@ tls12: client[connect: peerAlert(handshakeFailure)] server[recv: protocolError(h
 ```
 
 <!-- test: tls-stream.mtls-refuses-an-untrusted-client-certificate -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A client certificate that does not chain to the roots the server was given is refused with the verification reason, and the client reads unknown_ca from the peer.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1433,10 +1401,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -1446,10 +1412,8 @@ function silentExchange(serverOptions TlsServerOptions, clientOptions TlsClientO
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientListens(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'silentExchange'
@@ -1479,8 +1443,6 @@ tls12: client[connect: peerAlert(unknownCa)] server[recv: certificateRejected(un
 ```
 
 <!-- test: tls-stream.hostname-mismatch-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The name the client verifies is the host it dialled unless `setServerName` says otherwise. A certificate for `example.com` is refused for `other.example`, and for the IP literal the client dialled, with `hostnameMismatch`, and the server reads bad_certificate from the client.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1620,10 +1582,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -1654,8 +1614,6 @@ dialled 127.0.0.1: client[connect: certificateRejected(hostnameMismatch)] server
 ```
 
 <!-- test: tls-stream.untrusted-and-expired-certificates-are-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A client that trusts a different root refuses the server with `unknownAuthority` and the server reads unknown_ca; an expired leaf is refused with `expired` and the server reads certificate_expired.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1799,10 +1757,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -1832,7 +1788,6 @@ tls12 expired: client[connect: certificateRejected(expired)] server[recv: peerAl
 ```
 
 <!-- test: tls-stream.peer-certificates-are-the-chains-presented -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 Each side reports the chain the other presented, as DER in the order sent: the client the server's leaf, the server the client's leaf, and an unauthenticated client leaves the server's list empty.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -1942,7 +1897,6 @@ end 'main'
 
 function exchangeOver(listener TlsListener) returns ExitCode
 	let boundPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveOnce(listener)
 	let clientOptions = trustedClient(rootHex)
 	clientOptions.setIdentity(identityOf(clientLeafHex, keyHex: clientKeyHex))
@@ -1963,7 +1917,6 @@ function exchangeOver(listener TlsListener) returns ExitCode
 	stream.close()
 	let anonymous = trustedClient(rootHex)
 	let boundPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async serveOnce(listener)
 	let unauthenticated = try TlsClient.connect("127.0.0.1", port: boundPort, options: anonymous) otherwise 'refused5x236'
 		second.cancel()
@@ -1985,7 +1938,6 @@ server saw 0 client certificate(s)
 ```
 
 <!-- test: tls-stream.close-notify-is-observed-by-the-peer -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 `close` sends close_notify: the peer reads everything sent before it, then an empty `readSome`, the end of the stream. A client that drops its stream without closing leaves the TCP connection ending with no close_notify, which the peer's read throws as `StreamError.secure(truncated)`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2111,11 +2063,9 @@ end 'drops'
 
 function exchangeOver(listener TlsListener, client TlsClientOptions, protocol TlsProtocol)
 	let boundPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async readToEnd(listener)
 	let closing = closes(client, port: boundPort)
 	print("{protocol.name} {closing}: server {await first}\n")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async readToEnd(listener)
 	let dropping = drops(client, port: boundPort)
 	print("{protocol.name} {dropping}: server {await second}\n")
@@ -2143,8 +2093,6 @@ tls12 dropped: server heard [vanished] then secure(truncated)
 ```
 
 <!-- test: tls-stream.shutdown-write-half-closes -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `shutdownWrite` sends close_notify and half-closes the transport: the peer reads the request and the end of the stream, and still answers on its own half.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2251,7 +2199,6 @@ end 'answerAfterEnd'
 
 function exchangeOver(listener TlsListener, options TlsClientOptions, protocol TlsProtocol) returns bool
 	let boundPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let server = async answerAfterEnd(listener)
 	let stream = try TlsClient.connect("127.0.0.1", port: boundPort, options: options) otherwise 'refused3x132'
 		server.cancel()
@@ -2269,7 +2216,6 @@ function exchangeOver(listener TlsListener, options TlsClientOptions, protocol T
 		server.cancel()
 		return false
 	end 'refused6x137'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await server
 	let after = try stream.readSome(1024) otherwise (error) 'failed'
 		print("{protocol.name} client heard [{String.from(answer)}] then {failure(error)}; server {served}\n")
@@ -2305,8 +2251,6 @@ tls12 client heard [answer to [request] after ended] then ended; server answered
 ```
 
 <!-- test: tls-stream.alpn-is-negotiated -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The server picks the first of its protocols that the client offered (its own order wins), a server that configures none negotiates none, and a client whose only protocol the server lacks is refused with no_application_protocol.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2446,10 +2390,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -2483,8 +2425,6 @@ no overlap: client[connect: peerAlert(noApplicationProtocol)] server[recv: proto
 ```
 
 <!-- test: tls-stream.alpn-is-negotiated-in-tls12 -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ALPN in TLS 1.2: the same selection as in TLS 1.3, reported by `applicationProtocol()`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2624,10 +2564,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -2650,8 +2588,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=h2] server[se
 ```
 
 <!-- test: tls-stream.version-mismatch-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A client and a server with no TLS version in common: the server refuses with protocol_version and the client reads it from the peer, whichever side holds TLS 1.3 only.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2791,10 +2727,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -2822,7 +2756,6 @@ tls13 server, tls12 client: client[connect: peerAlert(protocolVersion)] server[r
 ```
 
 <!-- test: tls-stream.a-listener-survives-a-failed-handshake -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A handshake that fails ends that `accept` with the error and nothing else: the listener takes the next client, in TLS 1.3 and in TLS 1.2.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -2939,7 +2872,6 @@ function main() returns ExitCode
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 		let port = listener.port()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptTwice(listener)
 		let wrongRoot = trustedClient(otherRootHex)
 		try wrongRoot.setProtocols(TlsProtocolArray from [protocol]) otherwise 'refused2x140'
@@ -2977,7 +2909,6 @@ tls12 server: [recv 1: peerAlert(unknownCa)][served 2: second client]
 ```
 
 <!-- test: tls-stream.large-transfers-fragment-into-many-records -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- runs: alone -->
 A 4 MiB upload in one `send` (256 full records), a 3 MiB download, and 2000 writes of 50 bytes, in both versions: every byte arrives in order, so record framing off the socket, fragmentation and the sequence numbers hold over many records and many reads.
@@ -3141,7 +3072,6 @@ function main() returns ExitCode
 		let client = trustedClient(rootHex)
 		try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return 2
 		let listenerPort = listener.port()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async serveBulk(listener)
 		let reported = clientBulk(client, port: listenerPort)
 		print("{protocol.name}: client[{reported}] server[{await peer}]\n")
@@ -3532,8 +3462,6 @@ PKCS8 P-384 whose SEC1 names P-256: invalidPrivateKey
 ```
 
 <!-- test: tls-stream.an-identity-from-pem-serves-a-handshake -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A server built from PEM text (a P-256 key in the SEC1 form, an Ed25519 PKCS #8 key, then an RSA key in the PKCS #1 form) completes a handshake with a client that trusts the root given as PEM.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -3669,10 +3597,8 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 		return "bind: {describe(error)}"
 	end 'refused'
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let client = clientTurn(clientOptions, port: port)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = await peer
 	return "client[{client}] server[{server}]"
 end 'exchange'
@@ -3858,7 +3784,6 @@ bind a port in use: bindFailed
 ```
 
 <!-- test: tls-stream.handshakes-are-bounded-by-deadlines -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A client with a deadline gives up on a server that accepts the connection and never answers its ClientHello (`handshakeTimedOut`), and a listener with a handshake deadline gives up on a client that connects and says nothing; neither stalls the program.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -3968,7 +3893,6 @@ end 'acceptOnce'
 function main() returns ExitCode
 	let silent = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let silentPort = silent.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let holder = async holdOpen(silent)
 	let impatient = trustedClient(rootHex)
 	impatient.setHandshakeDeadline(300)
@@ -3978,7 +3902,6 @@ function main() returns ExitCode
 	options.setHandshakeDeadline(300)
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: options) otherwise return 2
 	let port = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let waiting = async acceptOnce(listener)
 	let mute = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused3x236'
 		waiting.cancel()
@@ -3998,7 +3921,6 @@ server: handshake: handshakeTimedOut
 ```
 
 <!-- test: tls-stream.input-that-is-not-tls-is-refused-before-its-body -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The server reads the 5-byte record header first and refuses what cannot be a TLS record: an HTTP request, a record of an unknown protocol version, and a record that declares a body past the bound, without waiting for a body that never comes. The peer receives the alert, a plaintext record of type 21.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -4101,7 +4023,6 @@ end 'talk'
 function main() returns ExitCode
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async refuseThree(listener)
 	print("http request: {talk(listenerPort, bytes: "GET / HTTP/1.1\r\nHost: x\r\n\r\n".toByteArray())}\n")
 	print("unknown version: {talk(listenerPort, bytes: ByteArray from [0x16, 0x04, 0x01, 0x00, 0x05])}\n")
@@ -4121,7 +4042,6 @@ server: [1: protocolError(unexpectedMessage)][2: protocolError(protocolVersion)]
 ```
 
 <!-- test: tls-stream.a-closed-stream-refuses-further-use -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 After `close`, `send`, `readSome`, `shutdownWrite` and the two deadline setters throw `closed`, and `close` again does nothing.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -4257,7 +4177,6 @@ end 'serveAndClose'
 function main() returns ExitCode
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveAndClose(listener)
 	let stream = try TlsClient.connect("127.0.0.1", port: listenerPort, options: trustedClient(rootHex)) otherwise 'refused2x243'
 		peer.cancel()
@@ -4291,7 +4210,6 @@ server: heard last words
 ```
 
 <!-- test: tls-stream.a-handshake-that-times-out-is-not-an-accept-that-times-out -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 `TlsError.timedOut` is an accept deadline that passed with no connection; `handshakeTimedOut` is a connection that was accepted and did not finish its handshake in time, for the listener and for the client. A listener goes on accepting after a stalled handshake.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -4488,7 +4406,6 @@ function phasesOver(listener TlsListener) returns ExitCode
 	print("nobody connects: {acceptOnce(listener)}\n")
 	try listener.setAcceptDeadline(0) otherwise return 3
 	let boundPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let waiting = async acceptOnce(listener)
 	let mute = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'refused4x284'
 		waiting.cancel()
@@ -4497,14 +4414,12 @@ function phasesOver(listener TlsListener) returns ExitCode
 	print("a client that says nothing: {await waiting}\n")
 	mute.close()
 	let boundPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let again = async serveEcho(listener)
 	let reply = clientTurn(trustedClient(rootHex), port: boundPort)
 	print("a client after it: {reply} | {await again}\n")
 	listener.close()
 	let silent = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 5
 	let silentPort = silent.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let holder = async holdOpen(silent)
 	print("a client dialling a server that never answers: {dialOutcome(silentPort)} {await holder}\n")
 	return 0
@@ -4530,7 +4445,6 @@ a client dialling a server that never answers: handshakeTimedOut then ended
 ```
 
 <!-- test: tls-stream.a-peer-that-sent-more-than-the-header-still-hears-the-alert -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 A peer that is not speaking TLS and has sent far more than a record header still receives the alert the listener refused it with: the refusing side shuts down its write side and drains what the peer sent, bounded, before it closes, so the close does not reset the connection ahead of the alert. The peer's whole send completes.
 ```maxon
@@ -4665,7 +4579,6 @@ end 'talkMore'
 function main() returns ExitCode
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async refuseThree(listener)
 	print("http request and more: {talkMore(listenerPort, head: "GET / HTTP/1.1\r\nHost: x\r\n\r\n")}\n")
 	print("other bytes and more: {talkMore(listenerPort, head: "hello hello hello\n")}\n")
@@ -4684,8 +4597,6 @@ server: [1: protocolError(unexpectedMessage)][2: protocolError(unexpectedMessage
 0
 ```
 <!-- test: tls-stream.a-failed-flush-fails-the-write-side-for-good -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- runs: alone -->
 A write deadline that passes while a peer that does not read holds the send in the kernel throws `timedOut`, and leaves the stream with part of its records written. The write side is then failed for good: a later `send` or `shutdownWrite` throws the same `timedOut` without writing a byte, even with the deadline cleared and the peer reading again, so the peer never reads a record out of step. `close` still closes, and the peer's read throws the end of the connection as `StreamError.secure(truncated)`.
 
@@ -4830,18 +4741,15 @@ end 'drain'
 function main() returns ExitCode
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let accepted = async acceptOne(listener)
 	let client = try TlsClient.connect("127.0.0.1", port: listenerPort, options: trustedClient(rootHex)) otherwise 'refused2x247'
 		accepted.cancel()
 		return 2
 	end 'refused2x247'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let server = try await accepted otherwise return 3
 	try client.setWriteDeadline(StalledWriteMs) otherwise return 4
 	print("first send: {sendUntilStalled(client)}\n")
 	try client.setWriteDeadline(0) otherwise return 5
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let draining = async drain(server)
 	print("send after: {laterSend(client)}\n")
 	print("shutdownWrite after: {laterShutdown(client)}\n")
@@ -4862,7 +4770,6 @@ peer read: secure(truncated)
 ```
 
 <!-- test: tls-stream.a-refused-stream-answers-closed-to-every-call -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A server that requires a client certificate answers a client that presented none after the client's handshake is complete, so the client reads the alert from its first `readSome`. That stream refused what its peer sent and is closed: every later call, the deadline setters included, throws `closed`.
 
 ```maxon
@@ -5010,7 +4917,6 @@ function main() returns ExitCode
 	try options.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 2
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: server) otherwise return 3
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
 	let stream = try TlsClient.connect("127.0.0.1", port: listenerPort, options: options) otherwise 'refused4x243'
 		peer.cancel()
@@ -5040,8 +4946,6 @@ server: recv: protocolError(certificateRequired)
 ```
 
 <!-- test: tls-stream.a-silent-client-does-not-delay-another-clients-echo -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `accept` returns once the TCP connection is accepted and the handshake runs on the stream's first use, so a server that accepts in a loop and serves each stream on its own green thread is not held up by a client that connects and says nothing: with no handshake deadline, so that nothing but the silent client's own `close()` can end its connection, the second client's echo still completes while the first connection is waiting for its ClientHello, and that connection's handshake then fails on its own when the client goes away.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -5149,17 +5053,13 @@ function acceptTwo(listener TlsListener) returns String
 	let first = try listener.accept() otherwise (error) 'firstRefused'
 		return "accept 1: {describe(error)}"
 	end 'firstRefused'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let firstTask = async echoOne(first)
 	let second = try listener.accept() otherwise (error) 'secondRefused'
 		firstTask.cancel()
 		return "accept 2: {describe(error)}"
 	end 'secondRefused'
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let secondTask = async echoOne(second)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let secondDone = await secondTask
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let firstDone = await firstTask
 	return "[silent: {firstDone}][second: {secondDone}]"
 end 'acceptTwo'
@@ -5182,7 +5082,6 @@ end 'dial'
 function main() returns ExitCode
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: patientServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 	let listenerPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let server = async acceptTwo(listener)
 	let silent = try TcpClient.connect("127.0.0.1", port: listenerPort) otherwise 'refused2x141'
 		server.cancel()

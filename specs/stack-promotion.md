@@ -225,8 +225,6 @@ end 'main'
 ```
 
 <!-- test: a-cell-lent-to-a-coroutine-stays-on-the-heap-until-it-is-drained -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `async` hands the coroutine the caller's own cell for a `mutable` parameter and runs on frames that grow by relocation, so a program with a coroutine keeps every parameter cell on the heap: the one live allocation after the await is the caller's `count`, which holds the coroutine's write.
 
 ```maxon
@@ -241,9 +239,7 @@ end 'bump'
 function main() returns ExitCode
 	let liveBefore = HeapStats.allocationsLive()
 	var count = 1 as Count
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async bump(count)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = await pending
 	let live = HeapStats.allocationsLive() - liveBefore
 	print("{result} {count} {live}\n")

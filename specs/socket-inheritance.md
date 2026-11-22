@@ -18,8 +18,6 @@ is closed, not when the last child that could have held a copy of it exits.
 ## Tests
 
 <!-- test: socket-inheritance.an-accepted-socket-closes-while-a-spawned-child-lives -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 The server accepts a connection, spawns a child that lives until the server closes the child's standard
 input, then closes the accepted socket. The client, reading to the end of the connection, must see that end
@@ -51,7 +49,6 @@ function main() returns ExitCode
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let reader = async readsItsEnd(listener.port())
 	let conn = try listener.accept() otherwise 'refused4x27'
 		reader.cancel()
@@ -64,7 +61,6 @@ function main() returns ExitCode
 		return 5
 	end 'refused5x31'
 	conn.close()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let ended = await reader
 	child.closeStdin()
 	let code = try child.wait() otherwise return 6
@@ -81,8 +77,6 @@ ended=true child=0
 ```
 
 <!-- test: socket-inheritance.a-connected-socket-closes-while-a-spawned-child-lives -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 The mirror of the case above, for the socket `TcpClient.connect` creates rather than the one `accept`
 answers. The server spawns a child that lives until the server closes the child's standard input and signals
@@ -120,7 +114,6 @@ function main() returns ExitCode
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let closer = async closesOnSignal(listener.port())
 	let conn = try listener.accept() otherwise 'refused4x34'
 		closer.cancel()
@@ -137,7 +130,6 @@ function main() returns ExitCode
 		return 6
 	end 'refused6x39'
 	let ended = readsItsEnd(conn)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let signalled = await closer
 	child.closeStdin()
 	let code = try child.wait() otherwise return 7

@@ -161,8 +161,6 @@ end 'main'
 ```
 
 <!-- test: spawn-read-line.spawned-reader -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 The read runs inside an `async` coroutine rather than in `main`, so the poller readies a member
 that is not its strand's owner: `__gt_ready_locked` appends it to the back of `main`'s strand queue under
@@ -175,9 +173,7 @@ function reader() returns Integer
 end 'reader'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async reader()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await r
 	return n as ExitCode
 end 'main'
@@ -189,8 +185,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: spawn-read-line.posix-spawned-reader -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-windows -->
 The read runs inside an `async` coroutine rather than in `main`, so its result travels back through the
 promise rather than through a plain return. `main` awaits it and returns the byte count.
@@ -208,9 +202,7 @@ function reader() returns Integer
 end 'reader'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async reader()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await r
 	return n as ExitCode
 end 'main'
@@ -222,8 +214,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: spawn-read-line.posix-a-parked-line-read-yields-to-a-sleeper -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-windows -->
 <!-- procs: 1 -->
 ⭐ **THE READ YIELDS ON THIS LANE TOO.** A slow child, which writes its line only once the sleeper has created a
@@ -283,13 +273,9 @@ end 'fast'
 function main() returns ExitCode
 	clearFlag()
 	let order = OrderCell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async slow(order.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async fast(order.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await p2
 	clearFlag()
 	return order.current() as ExitCode
@@ -304,8 +290,6 @@ typealias OrderCell = SharedValue with Integer
 ```
 
 <!-- test: spawn-read-line.interleave-with-sleep -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A concurrent `async sleep(50)` runs while the read is in flight, PROVING the read yields: if the read blocked
 the single M, the sleeper could not run. Both a parked timer and an in-flight overlapped read are pending at
@@ -322,13 +306,9 @@ function napper() returns Integer
 end 'napper'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let s = async napper()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async reader()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await s
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await r
 	return (n + a) as ExitCode
 end 'main'
@@ -340,7 +320,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: spawn-read-line.drop-in-flight -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 An `async` reader promise is DROPPED (un-awaited) while its overlapped read may still be in flight — the
 KERNEL still holds the reader's OVERLAPPED, which is embedded in its green thread. Dropping it must NOT free
@@ -354,7 +333,6 @@ function reader() returns Integer
 end 'reader'
 
 function dropInFlight() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async reader()
 	sleep(1)
 	p.cancel()

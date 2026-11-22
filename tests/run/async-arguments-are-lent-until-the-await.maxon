@@ -1,0 +1,44 @@
+// native-only
+// An async call lends its coroutine what it passes to a let parameter, to be read, and a local variable it passes to a
+// mutates parameter, to be changed: the caller may read the first while the coroutine has it, and uses either freely
+// once the promise is awaited. Two coroutines may read one place at once. The interpreter runs no coroutine.
+//> bumped 2 2
+//> before 2
+//> first reads 2
+//> second reads 2
+//> sum 4 then 7
+typealias Tally = int(0 to 1000000)
+
+type Row
+	export var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Row'
+
+function bump(mutates row Row) returns Tally
+	sleep(1)
+	row.n = try row.n + 1 otherwise 0
+	return row.n
+end 'bump'
+
+function readRow(row Row, label String, delay Milliseconds) returns Tally
+	sleep(delay)
+	print("{label} reads {row.n}\n")
+	return row.n
+end 'readRow'
+
+function main() returns ExitCode
+	var row = Row.create(1)
+	let later = async bump(row)
+	let n = await later
+	print("bumped {n} {row.n}\n")
+	let r1 = async readRow(row, label: "first", delay: 2)
+	let r2 = async readRow(row, label: "second", delay: 30)
+	print("before {row.n}\n")
+	let s = try await r1 + await r2 otherwise 0
+	row.n = 7
+	print("sum {s} then {row.n}\n")
+	return 0
+end 'main'

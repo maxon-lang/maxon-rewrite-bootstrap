@@ -1459,8 +1459,6 @@ error E3224: <fragment>:22:14: a tuple holds no linear value: a linear value liv
 ```
 
 <!-- test: an-async-call-takes-no-linear-argument -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1487,9 +1485,7 @@ function finish(r Resp)
 end 'finish'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async finish(Resp.create(1))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	await p
 	return 0
 end 'main'
@@ -1499,8 +1495,6 @@ error E3224: <fragment>:26:16: an `async` call takes no linear argument: a corou
 ```
 
 <!-- test: an-async-call-of-a-function-with-a-linear-result-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1527,9 +1521,7 @@ function make() returns Resp
 end 'make'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async make()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	r.fin()
 	return 0
@@ -1575,7 +1567,6 @@ error E3005: <fragment>:22:2: type mismatch: 'leak' declares no return type, so 
 ```
 
 <!-- test: a-message-reply-cannot-be-a-linear-value -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 
@@ -1614,7 +1605,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let f = spawn Factory.create()
 	let asked = try f.make() otherwise panic("sent")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await asked otherwise panic("answered")
 	r.fin()
 	return 0
@@ -1677,8 +1667,6 @@ error E3224: <fragment>:38:4: a linear value is never passed to an interface met
 ```
 
 <!-- test: a-linear-value-live-across-an-await-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -1708,9 +1696,7 @@ end 'slow'
 
 function main() returns ExitCode
 	let r = Resp.create(1)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async slow()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let c = await p
 	print("{c}\n")
 	r.fin()
@@ -1771,8 +1757,7 @@ error E3223: <fragment>:36:6: the linear value 'r' is live across this wait: a w
 ```
 
 <!-- test: a-linear-temporary-live-across-an-await-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -1806,9 +1791,7 @@ function use2(r Resp, c Code)
 end 'use2'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async slow()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	use2(Resp.create(1), c: await p)
 	return 0
 end 'main'
@@ -2190,7 +2173,6 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: a-reply-handed-to-a-function-that-answers-it-is-moved-not-lent -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -2240,7 +2222,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let d = spawn Dr.create()
 	let asked = try d.ask() otherwise panic("sent")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = try await asked otherwise panic("answered")
 	print("{answer}\n")
 	return 0
@@ -3074,7 +3055,6 @@ error E2015: <fragment>:69:3: Unsupported: a block-form `try` whose body MOVES a
 ```
 
 <!-- test: an-await-of-a-send-that-hands-an-outer-isolated-value-back-cannot-run-inside-a-modify-block -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
@@ -3143,7 +3123,6 @@ function main() returns ExitCode
 	let bx = Bag.create() as isolated Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		try await s.take(v) otherwise (e) 'refused'
 			match e 'why'
 				mailboxFull(back) then useS(giveS(back))
@@ -3706,7 +3685,6 @@ error E3009: <fragment>:26:11: Cannot cast from Resp to interface
 ```
 
 <!-- test: a-conformer-that-waits-is-refused-so-a-call-through-an-interface-is-no-wait -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A requirement never waits, so a conformer whose method awaits a reply is refused where it is declared, and a call through an interface is never a wait a live linear value must not cross.
@@ -3753,7 +3731,6 @@ type Waiting implements Asker
 	end 'create'
 
 	function ask(x Code) returns Code
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return try await self.d.twice(x) otherwise 0
 	end 'ask'
 end 'Waiting'
@@ -4630,7 +4607,6 @@ fin 2
 ```
 
 <!-- test: dropped-promises-and-linear-values-are-reported-in-the-order-of-the-drops -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 A linear value and a promise are each dropped twice, by an overwrite in the middle of the function and at its end. The four refusals come in the order the drops happen, whichever kind each is.
@@ -4661,9 +4637,7 @@ end 'work'
 function main() returns ExitCode
 	var r = Resp.create(1)
 	r = Resp.create(2)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async work()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	p = async work()
 	print("{p.isComplete()} {r.peek()}\n")
 	return 0

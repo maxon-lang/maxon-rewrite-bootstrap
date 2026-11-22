@@ -8497,7 +8497,6 @@ error E3223: <fragment>:39:8: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-ub-await-operand-temp -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -8541,7 +8540,6 @@ end 'mkR'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let p = spawn Pk.create(0)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = try await p.m(mkR().peek()) otherwise panic("send failed")
 	return 0
 end 'main'

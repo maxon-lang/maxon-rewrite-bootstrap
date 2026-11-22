@@ -97,8 +97,6 @@ end 'main'
 ```
 
 <!-- test: runtime-scratch-reclaim.subprocess-scratch-returns -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 **NO REUSED BUFFERS.** Fixed scratch regions taken at scheduler init and reused by every call
@@ -116,19 +114,13 @@ function child() returns Integer
 end 'child'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p0 = async child()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let w = await p0
 	let totalBefore = HeapStats.rawAllocationsMade()
 	let liveBefore = HeapStats.rawAllocationsLive()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async child()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async child()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await p2
 	let totalGrew = HeapStats.rawAllocationsMade() - totalBefore
 	let liveGrew = HeapStats.rawAllocationsLive() - liveBefore
@@ -261,8 +253,6 @@ streamingWithEnvironment: answered=true took=true gaveBack=true
 ```
 
 <!-- test: runtime-scratch-reclaim.spawn-await-loop-is-bounded -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE GT RECORD ITSELF, AND IT IS RECYCLED RATHER THAN RETURNED.** `__gt_reclaim` puts a finished
 thread's record on its processor's free list (Go's `gfput`), and `__gt_spawn` takes the next one from
@@ -290,9 +280,7 @@ function work(n Integer) returns Integer
 end 'work'
 
 function spawnAndAwait(seed Integer) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(seed)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'spawnAndAwait'
 

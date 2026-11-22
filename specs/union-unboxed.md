@@ -418,7 +418,6 @@ end 'main'
 ```
 
 <!-- test: a-service-replies-with-a-payload-free-word-and-a-constructed-one -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A service method that returns a payload-free case on one path and a constructed case on another replies with a value it solely owns on both.
@@ -457,9 +456,7 @@ end 'Counter'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let gone = try await h.count(true) otherwise FileCount.unreadable
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let there = try await h.count(false) otherwise FileCount.unreadable
 	let first = match gone 'kind'
 		counted(c) gives c.lines as ExitCode
@@ -481,7 +478,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-with-a-struct-payload-is-shared-with-a-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every payload of `Shape` is a `let` and `Point` is value-like (every field is a `let` of a value type), so `Shape` counts as a value: it needs no `freeze` (a `freeze` of it is E3200), and the send hands the word to the service by move, as it hands over a `String`, so `s` is read before the send and not after. The struct payload's header is met by one share walk, and the service reads the payload.
@@ -532,7 +528,6 @@ function main() returns ExitCode
 	let h = spawn Store.create()
 	let s = Shape.dot(Point.create(10, y: 20, label: "cde{2}"))
 	let mine = weigh(s)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await h.keep(s) otherwise 0
 	print("{r} {mine}\n")
 	return 0
@@ -546,7 +541,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-with-a-mutable-struct-payload-is-shared-with-a-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Shape`'s payloads are `let`, but the struct they hold has a `var` field, so the payload walk meets its record as owned state while the word is shared with the service and viewed by `w`.
@@ -589,7 +583,6 @@ function main() returns ExitCode
 	let h = spawn Store.create()
 	let s = freeze(Shape.cell(Cell.create(7, label: "cde{2}")))
 	let w = s
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await h.keep(s) otherwise 0
 	let mine = match w 'shape'
 		cell(c) gives c.n + c.label.byteLength() as Coord
@@ -607,7 +600,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-is-shared-while-several-words-hold-a-mutable-struct-payload -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Three words hold one `Shape` payload while a fourth reference travels with the send. The share walk meets the payload record once, as a view of an immutable union, and the owners outside the graph are tolerated exactly as they were when the payload sat behind a box.
@@ -658,7 +650,6 @@ function main() returns ExitCode
 	let s = freeze(Shape.cell(Cell.create(5, label: "ab{1}")))
 	let a = s
 	let b = s
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await h.keep(s) otherwise 0
 	print("{r} {weigh(a)} {weigh(b)} {weigh(s)}\n")
 	return 0
@@ -672,7 +663,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-is-shared-while-several-words-hold-a-string-payload -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
@@ -716,7 +706,6 @@ function main() returns ExitCode
 	let wa = weigh(a)
 	let wb = weigh(b)
 	let wn = weigh(n)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await h.keep(n) otherwise 0
 	print("{r} {wa} {wb} {wn}\n")
 	return 0
@@ -730,7 +719,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-with-an-array-payload-is-shared-with-a-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The payloads are a `ByteArray` and an `Array` of `String`, each sent to a service.
@@ -792,9 +780,7 @@ function main() returns ExitCode
 	var other = freeze(Blob.nothing)
 	other = freeze(Blob.words(twoWords()))
 	let before = weigh(blob)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = try await h.keep(blob) otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let q = try await h.keep(other) otherwise 0
 	print("{before} {r} {q}\n")
 	return 0
@@ -1675,7 +1661,6 @@ mm_free ArrayRecord #1
 ```
 
 <!-- test: a-wide-union-with-payload-free-cases-is-shared-with-a-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- MmTrace -->
@@ -1739,15 +1724,10 @@ function main() returns ExitCode
 	first = Wide.idle
 	var broken = Wide.nine
 	broken = Wide.failed
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = try await h.keep(last) otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = try await h.keep(spotted) otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let c = try await h.keep(first) otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let d = try await h.keep(texted) otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let e = try await h.keep(broken) otherwise 0
 	print("{a} {b} {c} {d} {e}\n")
 	return 0

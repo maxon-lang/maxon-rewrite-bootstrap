@@ -19,8 +19,6 @@ is counted, so it is dropped once.
 ## Tests
 
 <!-- test: an-awaited-async-result-keeps-the-immutable-return -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -45,8 +43,6 @@ end 'fetch'
 
 function main() returns ExitCode
 	let fr = freeze(Box.create(1))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = await async fetch(fr)
 	b.n = 9
 	print("{b.n}\n")
@@ -58,8 +54,6 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'b', which is immutable
 ```
 
 <!-- test: an-awaited-async-result-of-an-immutable-return-is-read -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 Reading the frozen result is fine.
@@ -83,8 +77,6 @@ end 'fetch'
 
 function main() returns ExitCode
 	let fr = freeze(Box.create(1))
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = await async fetch(fr)
 	print("{b.n}\n")
 	return 0

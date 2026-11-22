@@ -168,9 +168,6 @@ end 'main'
 ```
 
 <!-- test: error.a-promise-inner-read-is-refused-outside-the-library-tiers -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 `.inner` is a promise's raw green-thread handle. A program asks `isComplete()` instead, or awaits.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -181,11 +178,9 @@ function work() returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work()
 	let handle = p.inner
 	print("{handle > 0}\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -194,8 +189,6 @@ error E3185: <fragment>:11:17: '.inner' read from outside the library tiers: a p
 ```
 
 <!-- test: a-promise-inner-read-compiles-in-the-library-tier -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -207,11 +200,9 @@ function work() returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work()
 	let handle = p.inner
 	print("{handle > 0}\n")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return (await p) as ExitCode
 end 'main'
 ```
@@ -545,12 +536,9 @@ typealias IntBuffer = __ManagedMemory with Integer
 ```
 
 <!-- test: error.an-async-builtins-call-is-refused-outside-the-library-tiers -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 `async` is a second call door, and it asks the same question at the member it names.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async __Builtins.currentProcessId()
 	print("{(await p) > 0}\n")
 	return 0
@@ -561,14 +549,11 @@ error E3185: <fragment>:3:27: call to '__Builtins.currentProcessId' from outside
 ```
 
 <!-- test: an-async-builtins-call-in-the-library-tier-is-not-a-spawnable-function -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 In the library tier the door lets the call through, and the spawn then finds no function to start: an
 intrinsic is lowered in place and has no address a green thread could begin at.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async __Builtins.currentProcessId()
 	print("{(await p) > 0}\n")
 	return 0

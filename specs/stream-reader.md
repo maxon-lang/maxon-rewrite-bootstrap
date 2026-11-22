@@ -565,8 +565,6 @@ drained late
 ```
 
 <!-- test: a-reader-in-a-service-answers-while-the-owner-waits-on-a-timer -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -611,7 +609,6 @@ type LineService
 end 'LineService'
 
 function nextLine(name String, service LineService.handle) returns String
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let text = try await service.next() otherwise panic("the {name} service stopped while its owner held its handle")
 	return "{name}:{text}"
 end 'nextLine'
@@ -624,13 +621,11 @@ end 'timerAfter'
 function firstOf(arrivals Arrivals) returns String
 	let ready = arrivals.awaitAny()
 	let arrived = try arrivals.remove(ready) otherwise panic("awaitAny answered a slot of this array")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await arrived
 end 'firstOf'
 
 function nextInOrder(arrivals Arrivals) returns String
 	let arrived = try arrivals.remove(0) otherwise panic("a read is left in the array")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await arrived
 end 'nextInOrder'
 
@@ -653,15 +648,11 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let err = spawn LineService.create(errReader)
 	let arrivals = Arrivals.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arrivals.push(async nextLine("out", service: out.clone()))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arrivals.push(async nextLine("err", service: err))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arrivals.push(async timerAfter(200))
 	let first = firstOf(arrivals)
 	let second = firstOf(arrivals)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arrivals.push(async nextLine("out", service: out))
 	let ending = child.endTree()
 	let third = nextInOrder(arrivals)
@@ -722,8 +713,6 @@ end 'main'
 ```
 
 <!-- test: a-tcp-connection-is-read-by-line-and-by-declared-length -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 A reader over a `TcpClient` reads a header by line, the body it declares by count and the rest by line again, with no byte lost between them, and answers `ended` once the peer closes. The client sends its request through `reader.source`, so the source still sends while the reader buffers its reads, and the peer reads that request through a reader of its own.
 ```maxon
@@ -755,7 +744,6 @@ end 'heard'
 
 function exchangeOver(listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serve(listener)
 	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'refused'
 		peer.cancel()
@@ -771,7 +759,6 @@ function exchangeOver(listener TcpListener) returns ExitCode
 		print("read threw {e.name}\n")
 		return 4
 	end 'unread'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await peer
 	print("client {answer}\n")
 	print("server {served}\n")
@@ -792,7 +779,6 @@ server GET /one
 ```
 
 <!-- test: a-tls-stream-is-read-by-line-until-close-notify -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 A reader over a `TlsStream` answers `ended` once the peer's close_notify arrives, after every line sent before it. A peer that drops its stream without closing ends the TCP connection with no close_notify, and the read that meets it throws `StreamError.secure(truncated)` rather than answering `ended`.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -914,11 +900,9 @@ function main() returns ExitCode
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 	let client = trustedClient(rootHex)
 	let boundPort = listener.port()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let first = async sendsTwoLines(listener, closes: true)
 	let closing = readsLines(client, port: boundPort)
 	print("{await first}: client {closing}\n")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async sendsTwoLines(listener, closes: false)
 	let dropping = readsLines(client, port: boundPort)
 	print("{await second}: client {dropping}\n")

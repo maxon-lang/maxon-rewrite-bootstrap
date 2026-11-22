@@ -34,7 +34,6 @@ held by its cown and is not walked — the way the service handle cycle check do
 ## Tests
 
 <!-- test: a-reply-answered-later-from-a-continuation -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `ask` parks its `Reply` in the service's state and returns; `settle` is the continuation, and answers it with what the
@@ -78,7 +77,6 @@ function main() returns ExitCode
 	try ledger.deposit(40) otherwise panic("a running service with room takes the send")
 	try ledger.deposit(2) otherwise panic("a running service with room takes the send")
 	try ledger.settle() otherwise panic("a running service with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await asked otherwise panic("the continuation answered")
 	print("{total}\n")
 	return 0
@@ -89,7 +87,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-answered-by-another-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Desk.ask` hands its `Reply` to `Clerk.look` in a message of its own, and `Clerk` answers it from there. Neither message
@@ -132,7 +129,6 @@ function main() returns ExitCode
 	let clerk = spawn Clerk.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create(clerk.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let total = try await desk.ask() otherwise panic("the clerk answered")
 	print("{total}\n")
 	return 0
@@ -143,7 +139,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-parameter-answered-on-each-branch-is-answered-once -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Clerk.look` receives the `Reply` as a parameter and answers it in one arm of an `if` or in the other, so each path answers it once.
@@ -186,9 +181,7 @@ function main() returns ExitCode
 	let clerk = spawn Clerk.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create(clerk.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let first = try await desk.ask(true) otherwise panic("the clerk answered")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let second = try await desk.ask(false) otherwise panic("the clerk answered")
 	print("{first} {second}\n")
 	return 0
@@ -199,7 +192,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-parameter-answered-in-a-loop-that-returns-is-answered-once -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The loop answers the `Reply` parameter and returns in the same arm, so no path reaches an answer after one was made; the answer after the loop is reached only when the loop ran out.
@@ -244,9 +236,7 @@ function main() returns ExitCode
 	let clerk = spawn Clerk.create()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create(clerk.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let hit = try await desk.ask(10) otherwise panic("the clerk answered")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let ran = try await desk.ask(2) otherwise panic("the clerk answered")
 	print("{hit} {ran}\n")
 	return 0
@@ -288,7 +278,6 @@ error E3102: <fragment>:12:21: use of moved value 'parked': it was moved in an e
 ```
 
 <!-- test: a-reply-dropped-with-its-holder-fails-the-await-with-service-stopped -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Parker` keeps its `Reply` in its state and `main` shuts the service down without anything answering it. The service's
@@ -321,7 +310,6 @@ function main() returns ExitCode
 	let parker = spawn Parker.create()
 	let parked = try parker.park() otherwise panic("a running service with room takes the send")
 	parker.shutdown()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	try await parked otherwise (e) 'dropped'
 		match e 'why'
 			serviceStopped then return 3
@@ -335,7 +323,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-dropped-at-the-end-of-its-own-message-fails-the-await -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `ask(wake)` answers at once when told to and otherwise lets the `Reply` go out of scope with the message. The first
@@ -363,9 +350,7 @@ function main() returns ExitCode
 	let waker = spawn Waker.create()
 	let answered = try waker.ask(true) otherwise panic("a running service with room takes the send")
 	let dropped = try waker.ask(false) otherwise panic("a running service with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seven = try await answered otherwise panic("the first message answered itself")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	try await dropped otherwise (e) 'stopped'
 		match e 'why'
 			serviceStopped then return (seven + 1) as ExitCode
@@ -570,7 +555,6 @@ error E3102: <fragment>:16:8: use of moved value 'slot': its ownership moved to 
 ```
 
 <!-- test: a-reply-cannot-be-awaited -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `Reply` is an obligation to answer, not a coroutine handle, so `await` refuses it.
@@ -585,7 +569,6 @@ type Sink
 	end 'create'
 
 	export function take(waiting TallyReply)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let n = await waiting
 	end 'take'
 end 'Sink'
@@ -1032,7 +1015,6 @@ error E3222: <fragment>:24:10: 'unpark' returns a type that can hold a Reply: a 
 ```
 
 <!-- test: error.a-reply-cannot-be-handed-to-a-coroutine -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1050,7 +1032,6 @@ type Gate
 	export function ask() returns Tally throws ReplyStopped
 		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let helper = async answerLater(pending)
 		helper.cancel()
 		return

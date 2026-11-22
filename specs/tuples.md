@@ -3388,7 +3388,6 @@ error E3005: <fragment>:8:2: cannot assign a value of type '(Ys, Item)' to varia
 ```
 
 <!-- test: a-borrowed-trivial-tuple-starts-a-service-as-a-copy -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A tuple none of whose elements owns heap has value semantics, so a borrowed one handed to a service's
 factory is copied in rather than refused: the service's copy and the caller's are two values. Returns 43.
@@ -3412,7 +3411,6 @@ end 'Keeper'
 function launch(p Pair) returns Num
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Keeper.create(p)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await k.total() otherwise panic("the keeper is running")
 	k.shutdown()
 	return t
@@ -3428,7 +3426,6 @@ end 'main'
 ```
 
 <!-- test: a-trivial-tuple-read-out-of-a-field-is-sent-as-a-copy -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A trivial tuple read out of a field is sent to a service as a copy: the message carries its own value and the
 field keeps the caller's. Returns 43.
@@ -3466,7 +3463,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Tally.create()
 	try t.take(spot.pair) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
 	return sum + spot.pair.0 - 3
@@ -3477,7 +3473,6 @@ end 'main'
 ```
 
 <!-- test: a-tuple-alias-message-parameter-names-its-own-modules-alias-beside-a-sibling-of-the-same-name -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Two sibling directories each declare their own `Num` and `Pair`. `Tally.take`'s message carries the second
 directory's `Pair`, so the tuple sent is the one the message holds. Returns 46.
@@ -3520,7 +3515,6 @@ export function second() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Tally.create()
 	try t.take((3 as Num, 40 as Num)) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
 	return sum
@@ -3558,7 +3552,6 @@ end 'main'
 ```
 
 <!-- test: a-message-parameter-of-a-generic-alias-names-its-own-modules-alias-beside-a-sibling-of-the-same-name -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -3607,7 +3600,6 @@ export function second() returns ExitCode
 	let items = Nums.create(0) as isolated Nums
 	items.push(43 as Num)
 	try t.take(items) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
 	return sum
@@ -3623,7 +3615,6 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-trivial-tuple-starts-a-generic-service-as-a-copy -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Box with Pair` keeps its factory's `item` in its state; a borrowed trivial tuple handed to that factory is
 copied in, so the service owns its state alone. Returns 43.
@@ -3648,7 +3639,6 @@ end 'Box'
 function launch(p Pair) returns Num
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(p, tag: 43)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.tagOf() otherwise panic("the box is running")
 	h.shutdown()
 	return t
@@ -3663,7 +3653,6 @@ end 'main'
 ```
 
 <!-- test: a-trivial-tuple-a-call-handed-back-is-sent-as-a-copy -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `echo` hands back a tuple the compiler cannot prove this frame owns alone; a trivial tuple has no identity,
 so it is sent as a copy and `b` keeps its value. Returns 43.
@@ -3698,7 +3687,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Tally.create()
 	try t.take(b) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
 	return sum + b.0 - 3
@@ -3709,7 +3697,6 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-trivial-tuple-starts-a-generic-service-from-a-generic-body-as-a-copy -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `launch` is generic, so inside it `x` is a `T`; called with a trivial tuple, the service's factory is still
 handed a copy. Returns 43.
@@ -3732,7 +3719,6 @@ end 'Box'
 function launch(x T) uses T returns Num
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Box.create(x, tag: 43)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let t = try await h.tagOf() otherwise panic("the box is running")
 	h.shutdown()
 	return t

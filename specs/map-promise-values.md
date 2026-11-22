@@ -23,7 +23,6 @@ is where the promises' own strand drops them.
 ## Tests
 
 <!-- test: a-map-upserted-promise-is-reclaimed-at-scope-exit -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -38,7 +37,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = PromiseMap.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.upsert("a", value: async work(1))
 	return 0
 end 'main'
@@ -48,7 +46,6 @@ end 'main'
 ```
 
 <!-- test: a-map-literal-promise-is-reclaimed-at-scope-exit -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -58,7 +55,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let held = ["a": async work(1)]
 	if held.count() == 1 'one'
 		return 0
@@ -71,7 +67,6 @@ end 'main'
 ```
 
 <!-- test: a-map-literal-bound-promise-is-reclaimed-at-scope-exit -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -81,7 +76,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async work(1)
 	let held = ["a": pending]
 	if held.count() == 1 'one'
@@ -95,7 +89,6 @@ end 'main'
 ```
 
 <!-- test: a-map-upserted-record-holding-a-promise-is-reclaimed-at-scope-exit -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -118,7 +111,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = JobMap.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.upsert("a", value: Job.start(async work(1)))
 	return 0
 end 'main'
@@ -128,7 +120,6 @@ end 'main'
 ```
 
 <!-- test: a-map-upserted-union-carrying-a-promise-is-reclaimed-at-scope-exit -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -148,7 +139,6 @@ end 'work'
 
 function main() returns ExitCode
 	let held = SlotMap.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	held.upsert("a", value: Slot.running(async work(1)))
 	return 0
 end 'main'
@@ -158,7 +148,6 @@ end 'main'
 ```
 
 <!-- test: a-map-literal-record-holding-a-promise-is-reclaimed-at-scope-exit -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -167,7 +156,7 @@ typealias IntPromise = Promise with Integer
 type Job
 	var running as IntPromise
 
-	static function start(running IntPromise) returns Self
+	static function start(consumes running IntPromise) returns Self
 		return Self{running: running}
 	end 'start'
 end 'Job'
@@ -178,7 +167,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let held = ["a": Job.start(async work(1))]
 	if held.count() == 1 'one'
 		return 0
@@ -191,7 +179,6 @@ end 'main'
 ```
 
 <!-- test: a-map-literal-union-carrying-a-promise-is-reclaimed-at-scope-exit -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -208,7 +195,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let held = ["a": Slot.running(async work(1))]
 	if held.count() == 1 'one'
 		return 0
@@ -221,7 +207,6 @@ end 'main'
 ```
 
 <!-- test: a-local-map-of-promises-reclaims-a-removed-entry -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- process: own -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -237,7 +222,6 @@ end 'work'
 
 function main() returns ExitCode
 	let shelf = PromiseMap.create()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	shelf.upsert("a", value: async work(1))
 	if shelf.remove("a") 'removed'
 		return 0

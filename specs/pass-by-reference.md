@@ -660,8 +660,6 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.an-async-call-resolving-to-a-by-reference-member-writes-the-callers-variable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 `settle` assigns `dest`. The coroutine writes the caller's own `s`, which is lent to it until `p` is awaited.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -674,9 +672,7 @@ end 'settle'
 
 function main() returns ExitCode
 	var s = "a-{1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async settle(s, src: 5)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("{r} {s}\n")
 	return 0
@@ -690,7 +686,6 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.an-async-call-whose-promise-outlives-the-frame-of-a-by-reference-argument-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The coroutine holds the caller's `s` by reference, so its promise is tied to the frame: it is awaited or cancelled there and cannot be stored for a later await.
 ```maxon
@@ -707,9 +702,8 @@ function rename(mutates dest String, n Integer) returns Integer
 	return n
 end 'rename'
 
-function kick(promises IntPromiseArray)
+function kick(mutates promises IntPromiseArray)
 	var s = "orig-{1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	promises.push(async rename(s, n: 7))
 	print("kick spawned\n")
 end 'kick'
@@ -729,23 +723,19 @@ error E3212: <fragment>:15:11: the promise of this `async` call is tied to the m
 
 
 <!-- test: pass-by-reference.an-async-call-hands-the-coroutine-the-callers-scalar-cell -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The coroutine adds to the caller's own `c`: after the await `c` holds the sum.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function bump(mutates dest Integer, n Integer) returns Integer
 	Scheduler.yield()
-	dest = dest + n
+	dest = try dest + n otherwise panic("out of range")
 	return dest
 end 'bump'
 
 function main() returns ExitCode
 	var c = 100 as Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async bump(c, n: 7)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("{c} {r}\n")
 	return 0
@@ -759,7 +749,6 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.an-async-string-argument-a-callee-reassigns-is-released-on-await-and-on-cancel -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 The caller's `var` holds the coroutine's final value after the await and releases it once, and a coroutine cancelled before it starts never runs.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -773,11 +762,9 @@ end 'rename'
 
 function main() returns ExitCode
 	var first = "first padded out long enough to heap allocate {1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async rename(first, n: 7)
 	print("awaited {await p}\n")
 	var second = "second padded out long enough to heap allocate {2}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async rename(second, n: 8)
 	q.cancel()
 	return 0
@@ -792,8 +779,6 @@ awaited 7
 ```
 
 <!-- test: pass-by-reference.a-string-handed-to-an-async-callee-that-reassigns-it-holds-the-coroutines-write-after-the-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 The coroutine writes the caller's `s`, so the caller reads it after the await and sees the write.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -806,9 +791,7 @@ end 'rename'
 
 function main() returns ExitCode
 	var s = "orig-{1}"
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async rename(s, n: 7)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("{r} {s}\n")
 	return 0
@@ -1668,8 +1651,6 @@ error E3005: <fragment>:11:11: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: pass-by-reference.an-async-call-refuses-a-narrow-var-the-coroutine-could-widen -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The coroutine writes the variable itself, so a wider parameter than the variable's own type is refused.
 ```maxon
@@ -1685,9 +1666,7 @@ end 'bumpWide'
 
 function main() returns ExitCode
 	var x = 3 as Narrow
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async bumpWide(x)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("{x} {r}\n")
 	return 0
@@ -1699,7 +1678,6 @@ error E3005: <fragment>:13:25: argument type mismatch for 'n': expected 'Wide', 
 
 
 <!-- test: pass-by-reference.a-service-message-copies-a-narrow-var-so-the-handler-cannot-widen-it -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message carries its arguments by value in the request, so a handler that widens its copy of the parameter leaves the sender's narrower variable alone.
 ```maxon
@@ -1730,7 +1708,6 @@ function main() returns ExitCode
 	let h = spawn Meter.create()
 	let x = 3 as Narrow
 	try h.set(x) otherwise panic("an open mailbox with room takes the send")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let level = try await h.read() otherwise 0
 	print("{x} {level}\n")
 	return 0

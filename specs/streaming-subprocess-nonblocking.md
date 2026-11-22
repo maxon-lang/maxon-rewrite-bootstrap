@@ -155,8 +155,6 @@ runningSeen=5 exitedSeen=-1
 ```
 
 <!-- test: streaming-subprocess-nonblocking.a-read-in-a-service-leaves-the-owner-running -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -199,7 +197,6 @@ type LineService
 end 'LineService'
 
 function nextLine(service LineService.handle) returns String
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await service.next() otherwise panic("the line service stopped while its owner held its handle")
 end 'nextLine'
 
@@ -211,7 +208,6 @@ end 'timerAfter'
 function firstOf(arrivals Arrivals) returns String
 	let ready = arrivals.awaitAny()
 	let arrived = try arrivals.remove(ready) otherwise panic("awaitAny answered a slot of this array")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await arrived
 end 'firstOf'
 
@@ -232,9 +228,7 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let service = spawn LineService.create(reader)
 	let arrivals = Arrivals.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arrivals.push(async nextLine(service))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arrivals.push(async timerAfter(50))
 	let first = firstOf(arrivals)
 	try child.writeStdinLine("go") otherwise panic("the child reads its standard input before it exits")
@@ -253,8 +247,6 @@ first=timer line=latehello code=0
 ```
 
 <!-- test: streaming-subprocess-nonblocking.a-parked-read-keeps-a-partial-line -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -300,7 +292,6 @@ type LineService
 end 'LineService'
 
 function nextLine(service LineService.handle) returns String
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return try await service.next() otherwise panic("the line service stopped while its owner held its handle")
 end 'nextLine'
 
@@ -312,7 +303,6 @@ end 'timerAfter'
 function firstOf(arrivals Arrivals) returns String
 	let ready = arrivals.awaitAny()
 	let arrived = try arrivals.remove(ready) otherwise panic("awaitAny answered a slot of this array")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await arrived
 end 'firstOf'
 
@@ -339,9 +329,7 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let service = spawn LineService.create(reader)
 	let arrivals = Arrivals.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arrivals.push(async nextLine(service))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	arrivals.push(async timerAfter(50))
 	let first = firstOf(arrivals)
 	try child.writeStdinLine("go") otherwise panic("the child reads its standard input before it exits")

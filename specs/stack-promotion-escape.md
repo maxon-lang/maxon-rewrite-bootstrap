@@ -419,8 +419,6 @@ end 'main'
 ```
 
 <!-- test: green-threads-disable-promotion -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 A green thread's stack GROWS BY RELOCATION: it is copied to a larger region, rsp and the saved-frame-pointer
 chain are rebased, and the old pages are FREED. Everything addressed off the frame pointer survives that; a
 frame ADDRESS already materialized into a register does not, and nothing enumerates registers to fix. So a
@@ -446,21 +444,19 @@ function deep(n Integer) returns Integer
 	if n <= 0 'bottom'
 		return 0
 	end 'bottom'
-	return 1 + deep(n - 1)
+	return try 1 + deep(n - 1) otherwise panic("out of range")
 end 'deep'
 
 function onTheGreenThread() returns Integer
 	_ = File.exists(FilePath from "noyield.txt")
 	let p = Point.create(41, y: 1)
 	let depth = deep(400)
-	return p.x + p.y - depth
+	return try p.x + p.y - depth otherwise panic("out of range")
 end 'onTheGreenThread'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let promise = async onTheGreenThread()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	return await promise + 400
+	return try await promise + 400 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

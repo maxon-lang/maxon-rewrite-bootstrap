@@ -580,6 +580,9 @@ expr
     | callee=expr ^'(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
     | head=expr 'from' value=expr                                    # FromExpr
     | op=('-'^ | 'not') e=expr                                       # UnaryExpr
+    // An async call starts a direct call as a coroutine of the caller's strand and gives its promise, which an await waits for.
+    | 'async' call=expr                                              # AsyncExpr
+    | 'await' e=expr                                                 # AwaitExpr
     | e=expr 'as' target=typeRef                                     # CastExpr
     | l=expr op=('*' | '/' | 'mod') r=expr                           # BinaryExpr
     | l=expr op=('+' | '-') r=expr                                   # BinaryExpr

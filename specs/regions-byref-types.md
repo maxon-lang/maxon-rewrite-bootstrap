@@ -100,8 +100,6 @@ error E3005: <fragment>:20:17: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: a-narrow-variable-at-a-wider-mutable-parameter-of-an-async-callee-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The coroutine writes the variable itself, so the same rule holds.
@@ -119,9 +117,7 @@ end 'bumpWide'
 
 function main() returns ExitCode
 	var x = 3 as Narrow
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async bumpWide(x)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("{x} {r}\n")
 	return 0
@@ -132,8 +128,6 @@ error E3005: <fragment>:14:25: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: a-narrow-variable-at-a-wider-mutable-parameter-of-a-generic-async-callee-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The generic instance a coroutine runs is checked as a direct call's is: `bumpWide` writes any `Wide` into the caller's variable.
@@ -151,9 +145,7 @@ end 'bumpWide'
 
 function main() returns ExitCode
 	var x = 3 as Narrow
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async bumpWide(x, tag: "t")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let tag = await p
 	print("{x}{tag}\n")
 	return 0
@@ -187,25 +179,21 @@ error E3005: <fragment>:4:26: Cannot use bare 'int' as a type. Define a typealia
 ```
 
 <!-- test: a-variable-of-the-parameters-own-type-at-a-generic-async-callee-is-accepted -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 The control: a `Wide` variable at the generic coroutine's `mutable Wide` parameter.
 
 ```maxon
 typealias Wide = int(0 to 100)
 
-function bumpWide(mutates n Wide, tag T) uses T returns T
+function bumpWide(mutates n Wide, tag T) uses T returns T where T implements Copyable
 	Scheduler.yield()
 	n = 50
-	return tag
+	return tag.clone()
 end 'bumpWide'
 
 function main() returns ExitCode
 	var x = 3 as Wide
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async bumpWide(x, tag: "t")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let tag = await p
 	print("{x}{tag}\n")
 	return 0
@@ -303,8 +291,6 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-type-parameter-by-reference-is-refused-in-the-generic-body-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 A generic body cannot rebind a `mutable T` parameter, and the instance's own formal is `T` bound to its argument, so a variable handed there has exactly that type.
@@ -312,17 +298,15 @@ A generic body cannot rebind a `mutable T` parameter, and the instance's own for
 ```maxon
 typealias Wide = int(0 to 100)
 
-function setTo(mutates slot T, value T) uses T
+function setTo(mutates slot T, value T) uses T where T implements Droppable and Copyable
 	Scheduler.yield()
-	slot = value
+	slot = value.clone()
 end 'setTo'
 
 function main() returns ExitCode
 	var x = 3 as Wide
 	let w = 90 as Wide
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async setTo(x, value: w)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	await p
 	print("{x}\n")
 	return 0
@@ -356,8 +340,6 @@ error E2013: <fragment>:5:2: 'slot' is a generic parameter and cannot be reassig
 ```
 
 <!-- test: a-narrow-variable-at-a-type-parameter-by-reference-of-a-wider-instance-is-refused-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The other arguments make `T` `Wide`, and the instance may overwrite the `Narrow` variable with any `Wide`.
@@ -375,9 +357,7 @@ end 'pick'
 function main() returns ExitCode
 	var x = 3 as Narrow
 	let w = 90 as Wide
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async pick(x, other: w, first: false)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("{x} {r}\n")
 	return 0
@@ -413,8 +393,6 @@ error E3005: <fragment>:12:15: argument type mismatch for 'slot': expected 'Wide
 ```
 
 <!-- test: a-variable-of-the-instances-own-type-at-a-type-parameter-by-reference-is-accepted-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 The control: the variable and the value are both `Narrow`, so `T` is `Narrow`.
 
@@ -423,17 +401,15 @@ typealias Wide = int(0 to 100)
 
 typealias Narrow = int(0 to 10) implements Wide
 
-function pick(mutates slot T, other T, first bool) uses T returns T
+function pick(mutates slot T, other T, first bool) uses T returns T where T implements Copyable
 	Scheduler.yield()
-	return slot if first else other
+	return slot.clone() if first else other.clone()
 end 'pick'
 
 function main() returns ExitCode
 	var x = 3 as Narrow
 	let n = 7 as Narrow
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async pick(x, other: n, first: false)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("{x} {r}\n")
 	return 0
@@ -502,8 +478,6 @@ error E3005: <fragment>:11:15: argument type mismatch for 'slot': expected 'Wide
 ```
 
 <!-- test: a-narrow-variable-in-a-generic-body-at-a-nested-generic-by-reference-is-refused-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The coroutine twin of the nested instance above.
@@ -520,9 +494,7 @@ end 'inner'
 
 function outer(other T) uses T returns T
 	var y = 3 as Narrow
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async inner(y, other: other, first: false)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await p
 end 'outer'
 
@@ -566,8 +538,6 @@ error E3005: <fragment>:16:7: argument type mismatch for 'slot': expected 'Wide'
 ```
 
 <!-- test: a-mutable-type-parameter-handed-on-to-a-wider-formal-is-refused-at-the-caller-async -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The coroutine twin of the relay above.
@@ -589,9 +559,7 @@ end 'pass'
 function main() returns ExitCode
 	var x = 3 as Narrow
 	let w = 90 as Wide
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async pass(x, other: w)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	await p
 	print("{x}\n")
 	return 0

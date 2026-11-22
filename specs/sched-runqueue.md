@@ -150,8 +150,6 @@ section is the one statement of that gate.
 ## Tests
 
 <!-- test: sched-runqueue.a-coroutine-spawned-by-a-coroutine-joins-its-owners-queue -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE TRANSITIVITY THE WHOLE PIN RESTS ON.** A coroutine's owner is its SPAWNER'S owner, not its spawner
 — so `inner`, spawned by the coroutine `outer`, belongs to the same green thread `main` does, and lands
 in the SAME queue as `sibling`, which `main` spawned. It is the case that states the transitivity
@@ -195,9 +193,7 @@ end 'sibling'
 function outer(order Cell, posA Cell, posC Cell) returns Integer
 	Scheduler.parallelBoundary()
 	posA.publish(tick(order))
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let c = async inner(order.clone(), posC: posC.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await c
 end 'outer'
 
@@ -206,13 +202,9 @@ function main() returns ExitCode
 	let posA = Cell.create(0 as Integer)
 	let posB = Cell.create(0 as Integer)
 	let posC = Cell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let a = async outer(order.clone(), posA: posA.clone(), posC: posC.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let b = async sibling(order.clone(), posB: posB.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let ra = await a
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let rb = await b
 	print("ra={ra} rb={rb} posA={posA.current()} posB={posB.current()} posC={posC.current()}")
 	return 0
@@ -228,8 +220,6 @@ ra=1 rb=1 posA=1 posB=2 posC=3
 ```
 
 <!-- test: sched-runqueue.spawn-order-is-fifo-within-one-green-thread -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **FIFO WITHIN ONE GREEN THREAD.** A strand queue is a queue and not a stack: three coroutines spawned
 in order run in that order, whatever order their promises are awaited in. The awaits here run BACKWARDS
 on purpose — `p3` first — so a queue that handed back the newest entry would be visible as `a3=1`.
@@ -265,13 +255,9 @@ function main() returns ExitCode
 	let a1 = Cell.create(0 as Integer)
 	let a2 = Cell.create(0 as Integer)
 	let a3 = Cell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async first(order.clone(), a1: a1.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async second(order.clone(), a2: a2.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p3 = async third(order.clone(), a3: a3.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let s = (await p3) + (await p2) + (await p1)
 	print("s={s} a1={a1.current()} a2={a2.current()} a3={a3.current()}")
 	return 0
@@ -287,7 +273,6 @@ s=3 a1=1 a2=2 a3=3
 ```
 
 <!-- test: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -337,7 +322,6 @@ function main() returns ExitCode
 	let first = replies.awaitAny()
 	var sum = 0 as Integer
 	for p in replies 'drainthemall'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (await p)
 	end 'drainthemall'
 	print("first={first} sum={sum}\n")
@@ -446,8 +430,6 @@ pingpong-done
 ```
 
 <!-- test: sched-runqueue.a-yield-hands-the-processor-to-a-never-run-sibling -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE TAIL, AND THE ARM THAT DOES NOT DECIDE IT.** A yield parks the yielder and the strand runner places
 it: behind whatever its strand already has runnable, or — with nothing else runnable — at the back of its
 strand queue with the strand's token on the GLOBAL queue (`a-yield-goes-behind-the-global-queue`).
@@ -481,13 +463,9 @@ end 'sibling'
 
 function main() returns ExitCode
 	let siblingRan = Cell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let y = async yielder(siblingRan.clone())
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let s = async sibling(siblingRan.clone())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seen = await y
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let done = await s
 	print("seen={seen} done={done}")
 	return 0
@@ -503,8 +481,6 @@ seen=1 done=1
 ```
 
 <!-- test: sched-runqueue.a-dropped-coroutine-in-the-queue-is-skipped-not-run -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE POPPER'S HALF OF THE DROPPED-THREAD PROTOCOL.** `marker`'s promise is dropped while two live
 coroutines sit around it in the queue — one ahead of it, one behind — so the drop's own front-of-queue
 sweep cannot reach it and `__gt_strand_next` is what has to refuse it. While `main` is parked on its
@@ -528,16 +504,11 @@ end 'ok'
 
 function main() returns ExitCode
 	let ran = Cell.create(0 as Integer)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p1 = async ok(3)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let m = async marker(ran.clone())
 	m.cancel()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p2 = async ok(4)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await p1
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let b = await p2
 	print("ran={ran.current()}")
 	return (a + b) as ExitCode
@@ -553,7 +524,6 @@ ran=0
 ```
 
 <!-- test: sched-runqueue.a-spawn-drop-loop-stays-bounded -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE SWEEP'S HALF.** Five thousand coroutines are spawned and dropped while `main` never parks, so the
 strand runner never reaches them, nothing would pop them and the mark alone would leave five thousand
@@ -578,7 +548,6 @@ function main() returns ExitCode
 	let ran = Cell.create(0 as Integer)
 	var i = 0 as Integer
 	while i < 5000 'loop'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async neverRuns(ran.clone())
 		p.cancel()
 		i = i + 1
@@ -597,8 +566,6 @@ ran=0 recycled=4999
 ```
 
 <!-- test: sched-runqueue.a-drop-that-arrives-after-completion-reclaims -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE RUNNER-FIRST ARRIVAL ORDER.** `p` is never awaited, but while `main` is parked on `await q` its strand
 runs `p` too, so `p` runs to completion and the strand runner's `__gt_runner_done` adds the RUNNER ticket
@@ -624,11 +591,8 @@ function main() returns ExitCode
 	var finished = 0 as Integer
 	var i = 0 as Integer
 	while i < 1 'warm'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async done()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let q = async done()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await q
 		finished = finished + (1 if p.isComplete() else 0)
 		p.cancel()
@@ -637,11 +601,8 @@ function main() returns ExitCode
 	let recycledBefore = Scheduler.counters().recycledThreads
 	var j = 0 as Integer
 	while j < 3 'completedThenDropped'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async done()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let q = async done()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await q
 		finished = finished + (1 if p.isComplete() else 0)
 		p.cancel()
@@ -662,8 +623,6 @@ total=4 finished=4 recycled=6
 ```
 
 <!-- test: sched-runqueue.a-drop-of-a-parked-thread-renounces-it -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **A DROP RENOUNCES A PARKED THREAD; IT DOES NOT FREE IT.** `s` parks on a timer without end (`ForeverMs`), so
 the loop body's scope exit drops a thread that is registered in the timer store and that nothing but the drop can
@@ -713,11 +672,8 @@ function main() returns ExitCode
 	var stillParked = 0 as Integer
 	var i = 0 as Integer
 	while i < 1 'warm'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let s = async sleeper()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let f = async done()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await f
 		stillParked = stillParked + (0 if s.isComplete() else 1)
 		s.cancel()
@@ -729,11 +685,8 @@ function main() returns ExitCode
 		// The previous round's renounced sleeper is queued ahead of us on this strand; one yield lets it run
 		// out, so both records are back before the two spawns below ask for one. See the note above.
 		Scheduler.yield()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let s = async sleeper()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let f = async done()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await f
 		stillParked = stillParked + (0 if s.isComplete() else 1)
 		s.cancel()
@@ -754,8 +707,6 @@ total=4 stillParked=4 recycled=6
 ```
 
 <!-- test: sched-runqueue.a-thousand-parked-drops-carve-a-bounded-population -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 **THE PARKED DROP'S RECLAIM, READ AS A POPULATION.** The case above counts reuse, which is exact only while
 every spawn and every reclaim share one processor's free list, and it is pinned to one processor for that
@@ -800,11 +751,8 @@ function main() returns ExitCode
 	var stillParked = 0 as Integer
 	var i = 0 as Integer
 	while i < rounds 'parkedThenDropped'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let s = async sleeper()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let f = async done()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + await f
 		stillParked = stillParked + (0 if s.isComplete() else 1)
 		s.cancel()
@@ -824,8 +772,6 @@ total=1000 stillParked=1000 bounded=true
 ```
 
 <!-- test: sched-runqueue.no-coroutine-is-ever-stolen -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 **THE STEAL COUNTER, AND WHAT IT READS BY CONSTRUCTION.** `Scheduler.counters().steals` walks
 `__sched_procs` and sums every processor's steal counter, so it is the only way a Maxon program can
 observe that work stealing happened at all. A coroutine is never a token on a run queue — it waits on its
@@ -845,9 +791,7 @@ function work(v Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(5)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await p
 	print("r={r} steals={Scheduler.counters().steals}")
 	return 0
@@ -863,8 +807,6 @@ r=5 steals=0
 ```
 
 <!-- test: sched-runqueue.a-timer-readies-a-coroutine-while-its-sibling-runs -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 ⭐⭐ **A STRAND WITH COROUTINES IS READIED FROM OUTSIDE WHILE ONE OF ITS MEMBERS RUNS.** `Hub` is a service,
@@ -918,13 +860,9 @@ type Hub
 	end 'create'
 
 	export function round(r Integer) returns Integer
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let a = async napper(r)
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let b = async spinner(spinSteps)
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let c = async napper(1)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return (await a) + (await b) + (await c)
 	end 'round'
 
@@ -944,10 +882,8 @@ function main() returns ExitCode
 	for r in 0 upto rounds 'eachRound'
 		let reply = try hub.round(r) otherwise panic("an open mailbox with room takes the send")
 		try hub.poke() otherwise panic("an open mailbox with room takes the send")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + (await reply)
 	end 'eachRound'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let pokes = try await hub.pokeCount() otherwise 0
 	print("total={total} pokes={pokes}\n")
 	return 0
@@ -961,8 +897,6 @@ total=79960820 pokes=40
 ```
 
 <!-- test: sched-runqueue.a-timer-readies-a-coroutine-while-its-sibling-runs-at-one-processor -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE ONE-PROCESSOR TWIN OF `a-timer-readies-a-coroutine-while-its-sibling-runs`.** With one processor
@@ -1002,13 +936,9 @@ type Hub
 	end 'create'
 
 	export function round(r Integer) returns Integer
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let a = async napper(r)
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let b = async spinner(spinSteps)
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let c = async napper(1)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		return (await a) + (await b) + (await c)
 	end 'round'
 
@@ -1028,10 +958,8 @@ function main() returns ExitCode
 	for r in 0 upto rounds 'eachRound'
 		let reply = try hub.round(r) otherwise panic("an open mailbox with room takes the send")
 		try hub.poke() otherwise panic("an open mailbox with room takes the send")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		total = total + (await reply)
 	end 'eachRound'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let pokes = try await hub.pokeCount() otherwise 0
 	print("total={total} pokes={pokes}\n")
 	return 0
@@ -1045,7 +973,6 @@ total=79960820 pokes=40
 ```
 
 <!-- test: sched-runqueue.ring-overflow-runs-every-spawned-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -1107,7 +1034,6 @@ function main() returns ExitCode
 	// Sink #1 is the thread the 257th push moved to the global queue. Nothing has been sent yet, so this
 	// asks the overflow's own victim to answer 0 — see the note above.
 	let first = try sinks.get(0) otherwise panic("sinks.get OOB at 0 — the loop above pushed 300")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let beforeAnyRan = try await first.total() otherwise 0
 	print("beforeAnyRan={beforeAnyRan}\n")
 	var k = 0 as Integer
@@ -1120,7 +1046,6 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < 300 'collect'
 		let sink = try sinks.get(n as ElementIndex) otherwise panic("sinks.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		ran = ran + (try await sink.total() otherwise 0)
 		n = n + 1
 	end 'collect'
@@ -1139,7 +1064,6 @@ ran=300
 ```
 
 <!-- test: sched-runqueue.the-ring-index-wraps-past-its-capacity -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE WRAP.** `runqhead`/`runqtail` are monotonic counters, not indices. One service takes six thousand
@@ -1202,7 +1126,6 @@ function main() returns ExitCode
 		try h.tick() otherwise panic("an open mailbox with room takes the send")
 		// Queued behind the tick, so this IS the settle: the service is drained and re-published once more
 		// per round, which is what drives both monotonic counters far past 256 slots.
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = try await h.total() otherwise 0
 		i = i + 1
 	end 'rounds'
@@ -1220,7 +1143,6 @@ sum=6000
 ```
 
 <!-- test: sched-runqueue.the-global-queue-is-consulted-within-sixty-one-slices -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -1331,7 +1253,6 @@ function main() returns ExitCode
 	var h = 0 as Integer
 	while h < leafCount 'helloEach'
 		let leaf = try leaves.get(h as ElementIndex) otherwise panic("leaves.get OOB at {h} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		_ = try await leaf.hello() otherwise panic("a leaf answers while its handle is held")
 		h = h + 1
 	end 'helloEach'
@@ -1347,10 +1268,8 @@ function main() returns ExitCode
 	var runCount = 0 as Integer
 	while runCount < leafCount 'drain'
 		sleep(drainPollMs)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		runCount = try await tally.count() otherwise 0
 	end 'drain'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let waited = try await tally.slicesWaited() otherwise 0 - 1
 	print("runCount={runCount} pushed={burstPushes > 0} within={waited <= fairnessInterval}\n")
 	return 0
@@ -1365,7 +1284,6 @@ runCount=300 pushed=true within=true
 0
 ```
 <!-- test: sched-runqueue.a-yield-goes-behind-the-global-queue -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -1496,12 +1414,9 @@ function main() returns ExitCode
 	var order = 0 as Integer
 	while order < 2 'drain'
 		sleep(drainPollMs)
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		order = try await tally.count() otherwise 0
 	end 'drain'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let sPos = try await tally.spawneePosition() otherwise 0
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let yPos = try await tally.yielderPosition() otherwise 0
 	print("sPos={sPos} yPos={yPos}")
 	return 0
@@ -1517,7 +1432,6 @@ sPos=1 yPos=2
 ```
 
 <!-- test: sched-runqueue.nothing-is-stolen-on-one-processor -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 **THE STEAL COUNTER, AND THE ONE ANSWER A SPEC CAN PIN — the SERVICE twin of
@@ -1590,7 +1504,6 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < 12 'collect'
 		let worker = try workers.get(n as ElementIndex) otherwise panic("workers.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		done = done + (try await worker.total() otherwise 0)
 		n = n + 1
 	end 'collect'

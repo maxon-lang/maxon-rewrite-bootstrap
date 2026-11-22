@@ -2895,7 +2895,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-borrowed-field-is-run-by-a-coroutine-after-its-block -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ### A coroutine runs a closure capturing a field read after the closure's block
 The coroutine owns the closure, whose environment holds `inner` past the rebind of `b`.
 ```maxon
@@ -2932,12 +2931,10 @@ end 'nothing'
 function main() returns ExitCode
 	var b = Outer.create(1)
 	let inner = b.inner
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var p = async nothing()
 	if inner.label.byteLength() > 0 'nested'
 		let peek = function() gives inner.label.byteLength() as Integer
 		p.cancel()
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		p = async later(peek)
 	end 'nested'
 	b = Outer.create(22)
@@ -3625,8 +3622,6 @@ end 'main'
 ```
 
 <!-- test: an-async-argument-read-survives-a-later-argument-reassigning-the-field -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 ### … as an argument of an `async` call, beside a later argument that reassigns it
 ```maxon
 type Holder
@@ -3649,9 +3644,7 @@ end 'join'
 
 function main() returns ExitCode
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async join(x.label, second: x.reset())
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let text = await p
 	print("{text} [{x.label}]\n")
 	return 0
@@ -3665,7 +3658,6 @@ end 'main'
 ```
 
 <!-- test: a-service-send-argument-read-survives-a-later-argument-reassigning-the-field -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ### … as an argument of a message to a service, beside a later argument that reassigns it
 ```maxon
@@ -3699,7 +3691,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Joiner.create()
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let text = try await h.take(x.label, second: x.reset()) otherwise "failed"
 	print("{text} [{x.label}]\n")
 	return 0
@@ -4017,7 +4008,6 @@ end 'main'
 ```
 
 <!-- test: a-service-send-interface-let-field-read-through-a-var-field-survives-a-later-argument-rebinding-it -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -4081,7 +4071,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Joiner.create()
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let text = try await h.take(x.inner.shape, second: x.reset()) otherwise "failed"
 	print("{text} [{x.inner.shape.name()}]\n")
 	return 0
@@ -4095,7 +4084,6 @@ end 'main'
 ```
 
 <!-- test: a-bound-read-only-interface-field-is-shared-with-a-service-as-its-struct-twin-is -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -4159,7 +4147,6 @@ function main() returns ExitCode
 	let h = spawn Joiner.create()
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let v = x.inner.shape
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let text = try await h.take(v, second: x.reset()) otherwise "failed"
 	print("{text} [{x.inner.shape.name()}]\n")
 	return 0
@@ -4173,7 +4160,6 @@ end 'main'
 ```
 
 <!-- test: a-bound-read-only-struct-field-is-shared-with-a-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -4231,7 +4217,6 @@ function main() returns ExitCode
 	let h = spawn Joiner.create()
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let v = x.inner.shape
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let text = try await h.take(v, second: x.reset()) otherwise "failed"
 	print("{text} [{x.inner.shape.name()}]\n")
 	return 0

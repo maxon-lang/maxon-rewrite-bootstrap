@@ -1087,7 +1087,6 @@ Stack trace:
 ```
 
 <!-- test: a-signed-counter-into-an-async-unsigned-quantity-parameter-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 On wasm32-wasi this case's expected diagnostic is displaced by the E3104 its `async` call earns (wasm32-wasi has no green threads), so the lane is excluded.
@@ -1105,7 +1104,6 @@ end 'half'
 
 function main() returns ExitCode
 	for i in -2 upto 1 'each'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let p = async half(i)
 		print("{await p}\n")
 	end 'each'
@@ -1268,7 +1266,6 @@ Stack trace:
 ```
 
 <!-- test: a-folded-negative-into-an-async-unsigned-quantity-parameter-panics-at-the-call -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 ### …and at an `async` call, where the call site refuses it
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1281,7 +1278,6 @@ function half(n Count) returns Integer
 end 'half'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async half(0 - 1)
 	print("{await p}\n")
 	return 0

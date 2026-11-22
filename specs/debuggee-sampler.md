@@ -884,8 +884,7 @@ depth after the drop 0
 ```
 
 <!-- test: a-process-sampling-its-own-threads-never-suspends-its-caller -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '_' -->
 <!-- unsupported-targets: x64-linux, arm64-linux, wasm32-wasi -->
 <!-- procs: 4 -->
 <!-- process: own -->
@@ -920,13 +919,11 @@ end 'captureEverything'
 
 function main() returns ExitCode
 	let sampled = try SampledProcess.open(Process.id()) otherwise return 1
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let work = async captureEverything(sampled)
 	let started = Clock.nowNanos()
 	while Clock.elapsedNanos(started) < HeldNanos 'holdTheMachine'
 		_ = started
 	end 'holdTheMachine'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let refusals = await work
 	print("survived {refusals > 0}\n")
 	return 0

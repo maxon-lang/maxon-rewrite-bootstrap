@@ -14,8 +14,6 @@ A call that passes an `isolated` value in an unmarked position, as receiver or a
 ## Tests
 
 <!-- test: error.a-one-call-open-around-a-method-that-awaits-a-coroutine-is-refused -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -32,9 +30,7 @@ type Slot
 	end 'create'
 
 	function spin() returns Tally
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let helper = async delayed()
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let got = await helper
 		self.count = got
 		return got
@@ -54,9 +50,7 @@ end 'runSlot'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let slot = Slot.create() as isolated Slot
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let work = async runSlot(slot)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let laps = await work
 	print("laps={laps}\n")
 	return 0
@@ -67,8 +61,6 @@ error E3205: <fragment>:27:14: cannot call 'spin' inside 'slot'; it may yield (i
 ```
 
 <!-- test: error.a-one-call-open-reaches-an-await-through-a-helper -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -90,9 +82,7 @@ type Slot
 end 'Slot'
 
 function relay() returns Tally
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let helper = async delayed()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	return await helper
 end 'relay'
 
@@ -109,9 +99,7 @@ end 'runSlot'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let slot = Slot.create() as isolated Slot
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let work = async runSlot(slot)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let laps = await work
 	print("laps={laps}\n")
 	return 0
@@ -122,8 +110,6 @@ error E3205: <fragment>:29:14: cannot call 'spin' inside 'slot'; it may yield (i
 ```
 
 <!-- test: a-one-call-open-around-a-method-that-only-sleeps-runs -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 Sleeping blocks the strand for the call and switches to no sibling, so it is not a yield.
@@ -153,9 +139,7 @@ end 'runSlot'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let slot = Slot.create() as isolated Slot
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let work = async runSlot(slot)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let laps = await work
 	print("laps={laps}\n")
 	return 0

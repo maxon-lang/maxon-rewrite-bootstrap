@@ -195,8 +195,6 @@ rescued=false brackets=0
 ```
 
 <!-- test: streaming-subprocess.posix-a-drained-child-costs-no-timer-scan -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-windows -->
 <!-- procs: 1 -->
 ⭐ **DRAINING A CHILD MUST NOT COST ANYTHING PER LIVE SLEEPER, AND `Scheduler.counters().timerScanSteps` IS THE ONLY
@@ -245,11 +243,8 @@ function fast() returns Integer
 end 'fast'
 
 function dropAParkedSleeper() returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let victim = async sleeper()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let q = async fast()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let r = await q
 	let done = 1 if victim.isComplete() else 0
 	victim.cancel()
@@ -259,7 +254,6 @@ end 'dropAParkedSleeper'
 function main() returns ExitCode
 	let sleepers = SleeperPromiseArray.create(0)
 	for _ in 0 upto 8 'parkEach'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		sleepers.push(async sleeper())
 	end 'parkEach'
 	Scheduler.yield()
@@ -346,8 +340,6 @@ end 'main'
 ```
 
 <!-- test: streaming-subprocess.spawned-reader -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 The read runs inside an `async` coroutine rather than in `main`, so its resume is a cross-thread ready of a
 coroutine: the machine draining the poller readies the reader onto `main`'s strand queue under that
@@ -365,9 +357,7 @@ function reader() returns Integer
 end 'reader'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async reader()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await r
 	return n as ExitCode
 end 'main'
@@ -383,8 +373,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: streaming-subprocess.interleave-with-sleep -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A concurrent `async sleep` runs while the streaming read is in flight, PROVING the read yields: if the read
 blocked the single M, the sleeper could not run. The read (7 bytes) plus the sleeper's `1` sum to 8.
@@ -405,13 +393,9 @@ function napper() returns Integer
 end 'napper'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let s = async napper()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async reader()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let a = await s
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = await r
 	return (n + a) as ExitCode
 end 'main'
@@ -523,7 +507,6 @@ end 'main'
 ```
 
 <!-- test: streaming-subprocess.drop-reader-then-reread -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A streaming reader is DROPPED mid-read, then the SAME handle is re-read and must still work. `reader(h)` runs
 `subpReadLine(h)` in an `async` GT; the child (`set /p` then `echo hi`) writes nothing until the parent sends
@@ -541,7 +524,6 @@ function reader(h FullRangeInt) returns Integer
 end 'reader'
 
 function dropIt(h FullRangeInt) returns Integer
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async reader(h)
 	sleep(200)
 	p.cancel()
@@ -569,8 +551,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: streaming-subprocess.release-while-parked-then-reuse-slot -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `subpRelease(h)` runs while an `async` reader is still PARKED on `h`, and the freed slot is then immediately
 reused by a new `subpSpawn` — the new handle must read correctly. The reader parks on a child that writes
@@ -588,12 +568,10 @@ end 'reader'
 
 function main() returns ExitCode
 	let h = subpSpawn("cmd /c set /p released=& echo hi")
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let r = async reader(h)
 	sleep(300)
 	subpRelease(h)
 	let h2 = subpSpawn("cmd /c echo second")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let rn = await r
 	let l2 = subpReadLine(h2)
 	let n2 = l2.byteLength()
@@ -736,8 +714,6 @@ first=3 firstLine=6 stale=-1 staleLine=0 fresh=7 freshLine=7
 ```
 
 <!-- test: streaming-subprocess.windows-a-parked-line-read-is-on-the-poller -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 <!-- procs: 1 -->
 ⭐ **A PIPE READ THAT WAITS MUST WAIT ON THE SCHEDULER'S POLLER, AND `Scheduler.counters().netpollBlocks` IS WHAT
@@ -760,11 +736,9 @@ end 'release'
 function main() returns ExitCode
 	let h = subpSpawn("cmd /c set /p released=& echo hi")
 	let before = Scheduler.counters().netpollBlocks
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let releaser = async release(h)
 	let line = subpReadLine(h)
 	let parks = Scheduler.counters().netpollBlocks - before
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	_ = await releaser
 	let n = line.byteLength()
 	_ = subpWait(h)

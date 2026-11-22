@@ -1,0 +1,71 @@
+// async and await. An async call is one instruction, `async f(args)`, which gives the promise: the coroutine, a green
+// thread of the caller's strand whose thunk calls f with the argument words (backend.emitAsync). An await is the runtime's:
+// rt.async.await gives what f returned and frees the coroutine; for a function that throws, rt.async.wait waits,
+// rt.async.error gives what f failed with and rt.async.take what it returned, and the failure goes where a call's does.
+
+// visitAsyncExpr starts the call of an async call as a coroutine. Its arguments are lowered as the call's would be: by
+// address where the parameter takes its argument's place, and by value otherwise; what a consumes parameter takes moves
+// into the coroutine, which owns it from here on.
+function visitAsyncExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	let node = ast.asyncExprCall(p.modules[l.mi].tree, id: e)
+	let c = callSite(l, p: p, node: node)
+	let target = callee(l, p: p, ms: ms, node: node, info: c.info, receiver: 0 as ast.NodeID)
+	let mark = l.pending.count()
+	let base = l.args.count()
+	let places = l.writeBacks.count()
+	pushOrderedArgs(l, p: p, ms: ms, c: c)
+	if l.writeBacks.count() != places 'writeBack'
+		panic("lower: an async call passes an element by address, which the ownership pass lends only from a local")
+	end 'writeBack'
+	let promise = newReg(l, kind: IrKind.kindManaged)
+	let instr = l.b.asyncInstr(promise, target: target, args: argsSince(l, base: base))
+	emit(l, i: instr)
+	popArgs(l, n: base)
+	popPending(l, n: mark)
+	return promise
+end 'visitAsyncExpr'
+
+// visitAwaitExpr waits for the coroutine of a promise and gives what its function returned; a failure of the function
+// goes to the try around the await.
+function visitAwaitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	let operand = ast.awaitExprE(p.modules[l.mi].tree, id: e)
+	let site = siteOf(l, p: p, node: e)
+	let mark = l.pending.count()
+	let promise = lowerExpr(l, p: p, ms: ms, e: operand)
+	// The await consumes the promise, so no failure after it drops it.
+	popPending(l, n: mark)
+	let t = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: operand))
+	let result = ast.promiseResult(ms.types, reads: p.types, t: t)
+	let errTy = ast.promiseError(ms.types, reads: p.types, t: t)
+	var dst = noReg
+	if result != p.builtins.voidTy 'value'
+		dst = newReg(l, kind: kindOf(l, p: p, ms: ms, t: result))
+	end 'value'
+	if errTy == ast.noType 'plain'
+		emitEntry(l, p: p, site: site, dst: dst, symbol: Rt.rtAsyncAwait, args: argsOf1(promise), routine: ast.noFunc)
+		return awaited(l, dst: dst)
+	end 'plain'
+	entryVoid(l, p: p, site: site, symbol: Rt.rtAsyncWait, args: argsOf1(promise))
+	var errKind = IrKind.kindScalar
+	if ast.isUnionError(ms.types, reads: p.types, t: errTy) 'union'
+		errKind = IrKind.kindManaged
+	end 'union'
+	let err = entry(l, p: p, site: site, symbol: Rt.rtAsyncError, kind: errKind, args: argsOf1(promise))
+	emitEntry(l, p: p, site: site, dst: dst, symbol: Rt.rtAsyncTake, args: argsOf1(promise), routine: ast.noFunc)
+	let ok = l.b.newBlock()
+	let zero = konst(l, value: 0 as Word)
+	let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
+	let errDrop = errorDropType(l, p: p, ms: ms, t: errTy)
+	let stub = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: errDrop)
+	l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stub, ifFalse: ok))
+	l.cur = ok
+	return awaited(l, dst: dst)
+end 'visitAwaitExpr'
+
+// awaited is the value of an await: what dst holds, or nothing for a function that returns nothing.
+function awaited(mutates l Lowerer, dst Reg) returns Reg
+	if dst == noReg 'none'
+		return konst(l, value: 0 as Word)
+	end 'none'
+	return dst
+end 'awaited'

@@ -184,6 +184,7 @@ end 'noteCaller'
 function checkFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
 	enterContext(c, p: p, ms: ms, f: fid, owner: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).ownerTy, calls: true)
 	startUses(c, node: f.id, inField: false)
+	startWaits(c)
 	let mark = errs.count()
 	declareReceiverAndParams(c, p: p, ms: ms, f: f, fid: fid, errs: errs)
 	if failedSince(errs, mark: mark) 'badParams'
@@ -200,6 +201,7 @@ end 'checkFunction'
 // finishFunction keeps what the check of a function recorded with the function.
 function finishFunction(mutates c Checker, node ast.NodeID)
 	finishUses(c)
+	finishWaits(c)
 	if c.fnLocals.count() > 0 'locals'
 		c.typing.funcLocals.insert(node as Count, value: c.fnLocals.clone())
 	end 'locals'

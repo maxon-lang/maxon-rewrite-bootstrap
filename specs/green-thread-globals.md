@@ -45,7 +45,6 @@ the case.
 ## Tests
 
 <!-- test: a-handler-may-write-its-own-field -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE OVER-REFUSAL GUARD THAT MATTERS MOST — the cure the two refusals above prescribe must itself
 compile.** `self.count = self.count + by` is a store to a word owned by ONE green thread: the service's
@@ -78,7 +77,6 @@ function main() returns ExitCode
 	let h = spawn Counter.create()
 	try h.add(3) otherwise panic("add 3")
 	try h.add(4) otherwise panic("add 4")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await h.total() otherwise 0
 	print("count={n}\n")
 	return n as ExitCode
@@ -94,7 +92,6 @@ count=7
 ```
 
 <!-- test: a-handler-may-sort-its-own-field -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE STANDARD LIBRARY'S LARGEST ALGORITHM RUNS ON A MESSAGE.** `Array.sort` reaches no module storage, so
 sorting a field of `self` is the cure this rule prescribes rather than something it refuses. All four entries
@@ -135,7 +132,6 @@ function main() returns ExitCode
 		try h.add(n) otherwise panic("add")
 		n = n - 1
 	end 'fill'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let span = try await h.arrange() otherwise 0
 	print("span={span}\n")
 	return span as ExitCode
@@ -153,7 +149,6 @@ span=41
 ```
 
 <!-- test: a-handler-may-read-an-immutable-global -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE RULE IS ABOUT THE WRITE, AND A `let` HAS NONE.** A module-level `let` is written once before any
 green thread exists and never again, so every M that reads it reads the same word and no interleaving can
@@ -177,7 +172,6 @@ end 'Scaler'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Scaler.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await h.scale(6) otherwise 0
 	print("scaled={n}\n")
 	return n as ExitCode
@@ -193,7 +187,6 @@ scaled=42
 ```
 
 <!-- test: every-handler-may-co-own-a-module-let -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **A MODULE `let` ARRAY IS READ BY EVERY THREAD, AND NO HANDLER STEPS A COUNT ON IT.** A handler that puts it
 somewhere that outlives a statement keeps a reference to image data and gives it back. Eight handlers doing that at
@@ -228,7 +221,6 @@ function main() returns ExitCode
 	end 'eachChurner'
 	var held = 0 as Integer
 	for r in replies 'eachReply'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held = held + (await r)
 	end 'eachReply'
 	print("held={held} names={roster.count()}\n")
@@ -255,7 +247,6 @@ held=1600000 names=4
 ```
 
 <!-- test: lets-reaching-one-array-are-read-through-one-table -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **ONE ARRAY BEHIND SEVERAL `let`s.** `table` holds `names` twice and `names`'s own slot holds it too, so the
 array is reached through three `let`s, and the handler reads it through each of them.
@@ -281,7 +272,6 @@ end 'Reader'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Reader.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await h.read() otherwise 0
 	print("n={n}\n")
 	return 0
@@ -301,7 +291,6 @@ n=8
 ```
 
 <!-- test: error.a-global-initializer-may-not-start-a-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 **A GLOBAL INITIALIZER MAY NOT START A SERVICE.** `Box.start` spawns `Reader`, and a spawn is a call: no initializer
@@ -336,7 +325,6 @@ end 'Box'
 let box = Box.start()
 
 function main() returns ExitCode
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await box.h.read() otherwise 0
 	print("n={n}\n")
 	return 0
@@ -351,7 +339,6 @@ error E3220: <fragment>:27:11: the initializer of 'box' calls 'Box.start': a mod
 ```
 
 <!-- test: a-service-program-may-use-the-stdlibs-trace-capture -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE LIBRARY CODE A MESSAGE RUNS KEEPS ITS STATE IN A SERVICE AND A `SharedValue`.** `TraceCapture` holds
 its state in a service of its own and a `SharedValue`, and this program — which spawns `Counter` and starts
@@ -397,7 +384,6 @@ function main() returns ExitCode
 	TraceCapture.startCapture()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await h.add(5) otherwise 0
 	let keys = TraceCapture.stopCapture()
 	print("n={n} keys={keys.count()}\n")
@@ -504,7 +490,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-static-let-in-a-program-that-spawns-a-service -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The `let` twin of the case above: a `static let` is written once before any green thread exists, so a
 message may read it.
@@ -526,7 +511,6 @@ end 'Counter'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Counter.create()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let n = try await h.add(7) otherwise 0
 	return n as ExitCode
 end 'main'

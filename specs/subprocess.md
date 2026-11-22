@@ -452,8 +452,7 @@ I/O failed: a payload is already queued for the child's stdin
 ```
 
 <!-- test: subprocess-streaming-spawn-from-green-thread -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-a' -->
 <!-- unsupported-targets: wasm32-wasi -->
 The case above spawns from `main`, i.e. from the OS thread's own stack. This
 one spawns the identical child from inside an `async` body, i.e. from a GREEN
@@ -504,9 +503,7 @@ function echoFromGreenThread() returns StepCode
 end 'echoFromGreenThread'
 
 function main() returns ExitCode
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let g = async echoFromGreenThread()
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let step = await g
 	print("step={step}\n")
 	if step != 0 'failed'
@@ -2261,8 +2258,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-async-await -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 Async round-trip: spawn `cmd /c echo hello` as a green thread via
 `async Subprocess.run(...)` and consume the result through `try await`.
@@ -2285,9 +2281,7 @@ function main() returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push("hello")
 	#endif
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Subprocess.run(exe, arguments: argv)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let result = try await p otherwise return 2
 	if not result.succeeded() 'check-success'
 		return 3
@@ -2306,8 +2300,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-async-multi -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 Spawn four `async Subprocess.run(...)` calls back-to-back, store the
 promises in an array, then drain them in order. Each child is a
@@ -2341,13 +2334,11 @@ function main() returns ExitCode
 		argv.push("echo")
 		#endif
 		argv.push("child-{i}")
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		promises.push(async Subprocess.run(exe.clone(), arguments: argv.clone()))
 		i = i + 1
 	end 'spawn'
 	var j = 0 as FullRangeInt
 	for p in promises 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = try await p otherwise return 2
 		if not r.succeeded() 'check-success'
 			return 3
@@ -2371,8 +2362,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-async-parallel -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 Spawn four `async Subprocess.run(...)` calls that each sleep ~1 second
 (`ping 127.0.0.1 -n 2` does one ping immediately, waits ~1s, then a
@@ -2432,7 +2422,6 @@ function main() returns ExitCode
 	let start = Clock.nowMs()
 	var spawned = 0 as ChildTally
 	while spawned < ChildCount 'spawn'
-		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		promises.push(async Subprocess.run(exe.clone(), arguments: sleepArgs()))
 		spawned = spawned + 1
 	end 'spawn'
@@ -2440,7 +2429,6 @@ function main() returns ExitCode
 	var firstCompletion = 0 as DurationMs
 	var lastCompletion = 0 as DurationMs
 	for p in promises 'drain'
-		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = try await p otherwise return 2
 		if not r.succeeded() 'check-success'
 			return 3
@@ -3166,7 +3154,6 @@ child read 262144 bytes
 ```
 
 <!-- test: subprocess-a-child-inherits-no-other-spawns-pipe-ends -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 A child inherits only the three standard handles its own spawn gives it, never the pipe ends another spawn is
@@ -3256,9 +3243,7 @@ function main() returns ExitCode
 			slow = slow + 1
 		end 'late'
 	end 'collect'
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let started = try await spawner.count() otherwise return 3
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let running = try await spawner.stillRunningAfterWaiting() otherwise return 4
 	print("pings={started} collects={rounds} answered={answered} slow={slow} running={running}\n")
 	return 0
@@ -3334,8 +3319,6 @@ alpha beta
 ```
 
 <!-- test: subprocess-a-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A coroutine drains a taken reader, moved into it through an `isolated` parameter, to the end of the stream; the child is waited for and released once the drain has been awaited, on the error path and the plain path alike. The lines are written and the child's stdin closed before the coroutine starts, so every read the coroutine makes has its answer on the way.
@@ -3370,9 +3353,7 @@ function main() returns ExitCode
 	try child.writeStdinLine("one") otherwise panic("a live child takes a line on its stdin")
 	try child.writeStdinLine("two") otherwise panic("a live child takes a line on its stdin")
 	child.closeStdin()
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let drain = async drainOf(reader)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let lines = try await drain otherwise (e) 'drainFailed'
 		child.release()
 		print("{e.name}\n")
@@ -3392,8 +3373,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-taken-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken reader moved into a coroutine through an `isolated` parameter leaves the caller nothing the coroutine holds, so the promise of the coroutine that drains it may be stored and awaited later.
@@ -3433,10 +3412,8 @@ function main() returns ExitCode
 	try child.writeStdinLine("two") otherwise panic("a live child takes a line on its stdin")
 	child.closeStdin()
 	let drains = LinePromises.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	drains.push(async drainOf(reader))
 	let drain = try drains.pop() otherwise panic("one drain was pushed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let lines = try await drain otherwise (e) 'drainFailed'
 		child.release()
 		print("{e.name}\n")
@@ -3784,8 +3761,6 @@ out-2
 ```
 
 <!-- test: subprocess-a-stderr-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A coroutine drains a taken stderr reader, moved into it through an `isolated` parameter, to the end of the stream; the child is waited for and released once the drain has been awaited, on the error path and the plain path alike.
@@ -3815,9 +3790,7 @@ function main() returns ExitCode
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
 	let reader = try child.takeStderr() otherwise return 4
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let drain = async drainOf(reader)
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let lines = try await drain otherwise (e) 'drainFailed'
 		child.release()
 		print("{e.name}\n")
@@ -3837,8 +3810,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-taken-stderr-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken stderr reader moved into a coroutine through an `isolated` parameter leaves the caller nothing the coroutine holds, so the promise of the coroutine that drains it may be stored and awaited later.
@@ -3873,10 +3844,8 @@ function main() returns ExitCode
 	child.closeStdin()
 	let reader = try child.takeStderr() otherwise return 4
 	let drains = LinePromises.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	drains.push(async drainOf(reader))
 	let drain = try drains.pop() otherwise panic("one drain was pushed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let lines = try await drain otherwise (e) 'drainFailed'
 		child.release()
 		print("{e.name}\n")
@@ -3896,8 +3865,6 @@ end 'main'
 ```
 
 <!-- test: a-reader-moved-into-a-coroutine-comes-back-with-its-line-and-its-promise-is-storable -->
-<!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
@@ -3946,10 +3913,8 @@ function main() returns ExitCode
 	child.closeStdin()
 	let reader = try child.takeStdout() otherwise return 4
 	let reads = CarriedPromises.create(0)
-	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	reads.push(async readOne(reader))
 	let pending = try reads.pop() otherwise panic("one read was pushed")
-	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let carried = try await pending otherwise (e) 'unread'
 		child.release()
 		print("read threw {e.name}\n")

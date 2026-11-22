@@ -192,6 +192,10 @@ export function selectInstr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr
 		selectWhen(sel, fn: fn, ins: ins)
 		return
 	end 'opcodeWhen'
+	if op == ir.Opcode.opAsync 'opcodeAsync'
+		selectAsync(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeAsync'
 	if op == ir.Opcode.opClosure 'opcodeClosure'
 		selectClosure(sel, fn: fn, ins: ins)
 		return
@@ -975,19 +979,27 @@ function selectWhen(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	panic("backend: no rule of x64.rules selects this when")
 end 'selectWhen'
 
-// selectClosure writes the machine instructions of closure by the first of its rules that matches.
-function selectClosure(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+// selectAsync writes the machine instructions of async by the first of its rules that matches.
+function selectAsync(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if rule196(sel, fn: fn, ins: ins) 'rule196'
 		return
 	end 'rule196'
+	panic("backend: no rule of x64.rules selects this async")
+end 'selectAsync'
+
+// selectClosure writes the machine instructions of closure by the first of its rules that matches.
+function selectClosure(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if rule197(sel, fn: fn, ins: ins) 'rule197'
+		return
+	end 'rule197'
 	panic("backend: no rule of x64.rules selects this closure")
 end 'selectClosure'
 
 // selectFuncValue writes the machine instructions of funcValue by the first of its rules that matches.
 function selectFuncValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if rule197(sel, fn: fn, ins: ins) 'rule197'
+	if rule198(sel, fn: fn, ins: ins) 'rule198'
 		return
-	end 'rule197'
+	end 'rule198'
 	panic("backend: no rule of x64.rules selects this funcValue")
 end 'selectFuncValue'
 
@@ -1001,17 +1013,17 @@ end 'selectCallValue'
 
 // selectBox writes the machine instructions of box by the first of its rules that matches.
 function selectBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if rule198(sel, fn: fn, ins: ins) 'rule198'
+	if rule199(sel, fn: fn, ins: ins) 'rule199'
 		return
-	end 'rule198'
+	end 'rule199'
 	panic("backend: no rule of x64.rules selects this box")
 end 'selectBox'
 
 // selectFrameBox writes the machine instructions of frameBox by the first of its rules that matches.
 function selectFrameBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if rule199(sel, fn: fn, ins: ins) 'rule199'
+	if rule200(sel, fn: fn, ins: ins) 'rule200'
 		return
-	end 'rule199'
+	end 'rule200'
 	panic("backend: no rule of x64.rules selects this frameBox")
 end 'selectFrameBox'
 
@@ -1033,25 +1045,25 @@ end 'selectIsType'
 
 // selectDrop writes the machine instructions of drop by the first of its rules that matches.
 function selectDrop(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if rule200(sel, fn: fn, ins: ins) 'rule200'
+	if rule201(sel, fn: fn, ins: ins) 'rule201'
 		return
-	end 'rule200'
+	end 'rule201'
 	panic("backend: no rule of x64.rules selects this drop")
 end 'selectDrop'
 
 // selectDropSlot writes the machine instructions of dropSlot by the first of its rules that matches.
 function selectDropSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if rule201(sel, fn: fn, ins: ins) 'rule201'
+	if rule202(sel, fn: fn, ins: ins) 'rule202'
 		return
-	end 'rule201'
+	end 'rule202'
 	panic("backend: no rule of x64.rules selects this dropSlot")
 end 'selectDropSlot'
 
 // selectDropAt writes the machine instructions of dropAt by the first of its rules that matches.
 function selectDropAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if rule202(sel, fn: fn, ins: ins) 'rule202'
+	if rule203(sel, fn: fn, ins: ins) 'rule203'
 		return
-	end 'rule202'
+	end 'rule203'
 	panic("backend: no rule of x64.rules selects this dropAt")
 end 'selectDropAt'
 
@@ -1073,40 +1085,37 @@ end 'selectMoveAt'
 
 // selectCopy writes the machine instructions of copy by the first of its rules that matches.
 function selectCopy(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if rule203(sel, fn: fn, ins: ins) 'rule203'
+	if rule204(sel, fn: fn, ins: ins) 'rule204'
 		return
-	end 'rule203'
+	end 'rule204'
 	panic("backend: no rule of x64.rules selects this copy")
 end 'selectCopy'
 
 // selectJump writes the machine instructions of jump by the first of its rules that matches.
 function selectJump(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if rule208(sel, fn: fn, ins: ins) 'rule208'
+	if rule209(sel, fn: fn, ins: ins) 'rule209'
 		return
-	end 'rule208'
+	end 'rule209'
 	panic("backend: no rule of x64.rules selects this jump")
 end 'selectJump'
 
 // selectBranch writes the machine instructions of branch by the first of its rules that matches.
 function selectBranch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if rule209(sel, fn: fn, ins: ins) 'rule209'
-		return
-	end 'rule209'
 	if rule210(sel, fn: fn, ins: ins) 'rule210'
 		return
 	end 'rule210'
-	if rule212(sel, fn: fn, ins: ins) 'rule212'
+	if rule211(sel, fn: fn, ins: ins) 'rule211'
 		return
-	end 'rule212'
-	if rule214(sel, fn: fn, ins: ins) 'rule214'
+	end 'rule211'
+	if rule213(sel, fn: fn, ins: ins) 'rule213'
 		return
-	end 'rule214'
-	if rule216(sel, fn: fn, ins: ins) 'rule216'
+	end 'rule213'
+	if rule215(sel, fn: fn, ins: ins) 'rule215'
 		return
-	end 'rule216'
-	if rule219(sel, fn: fn, ins: ins) 'rule219'
+	end 'rule215'
+	if rule217(sel, fn: fn, ins: ins) 'rule217'
 		return
-	end 'rule219'
+	end 'rule217'
 	if rule220(sel, fn: fn, ins: ins) 'rule220'
 		return
 	end 'rule220'
@@ -1119,38 +1128,41 @@ function selectBranch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	if rule223(sel, fn: fn, ins: ins) 'rule223'
 		return
 	end 'rule223'
+	if rule224(sel, fn: fn, ins: ins) 'rule224'
+		return
+	end 'rule224'
 	panic("backend: no rule of x64.rules selects this branch")
 end 'selectBranch'
 
 // selectSwitch writes the machine instructions of switch by the first of its rules that matches.
 function selectSwitch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if rule224(sel, fn: fn, ins: ins) 'rule224'
+	if rule225(sel, fn: fn, ins: ins) 'rule225'
 		return
-	end 'rule224'
+	end 'rule225'
 	panic("backend: no rule of x64.rules selects this switch")
 end 'selectSwitch'
 
 // selectRet writes the machine instructions of ret by the first of its rules that matches.
 function selectRet(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if rule225(sel, fn: fn, ins: ins) 'rule225'
+	if rule226(sel, fn: fn, ins: ins) 'rule226'
 		return
-	end 'rule225'
+	end 'rule226'
 	panic("backend: no rule of x64.rules selects this ret")
 end 'selectRet'
 
 // selectTrap writes the machine instructions of trap by the first of its rules that matches.
 function selectTrap(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if rule227(sel, fn: fn, ins: ins) 'rule227'
+	if rule228(sel, fn: fn, ins: ins) 'rule228'
 		return
-	end 'rule227'
+	end 'rule228'
 	panic("backend: no rule of x64.rules selects this trap")
 end 'selectTrap'
 
 // selectThrow writes the machine instructions of throw by the first of its rules that matches.
 function selectThrow(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if rule226(sel, fn: fn, ins: ins) 'rule226'
+	if rule227(sel, fn: fn, ins: ins) 'rule227'
 		return
-	end 'rule226'
+	end 'rule227'
 	panic("backend: no rule of x64.rules selects this throw")
 end 'selectThrow'
 
@@ -4063,56 +4075,62 @@ function rule195(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns b
 	return true
 end 'rule195'
 
-// x64.rules:196: (closure) => (emitClosure)
+// x64.rules:196: (async) => (emitAsync)
 function rule196(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitClosure(sel, fn: fn, ins: ins)
+	emitAsync(sel, fn: fn, ins: ins)
 	return true
 end 'rule196'
 
-// x64.rules:197: (funcValue) => (emitFuncValue)
+// x64.rules:197: (closure) => (emitClosure)
 function rule197(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitFuncValue(sel, fn: fn, ins: ins)
+	emitClosure(sel, fn: fn, ins: ins)
 	return true
 end 'rule197'
 
-// x64.rules:198: (box) => (emitBox)
+// x64.rules:198: (funcValue) => (emitFuncValue)
 function rule198(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitBox(sel, fn: fn, ins: ins)
+	emitFuncValue(sel, fn: fn, ins: ins)
 	return true
 end 'rule198'
 
-// x64.rules:199: (frameBox) => (emitFrameBox)
+// x64.rules:199: (box) => (emitBox)
 function rule199(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitFrameBox(sel, fn: fn, ins: ins)
+	emitBox(sel, fn: fn, ins: ins)
 	return true
 end 'rule199'
 
-// x64.rules:200: (drop) => (emitDropValue)
+// x64.rules:200: (frameBox) => (emitFrameBox)
 function rule200(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitDropValue(sel, fn: fn, ins: ins)
+	emitFrameBox(sel, fn: fn, ins: ins)
 	return true
 end 'rule200'
 
-// x64.rules:201: (dropSlot) => (emitDropSlot)
+// x64.rules:201: (drop) => (emitDropValue)
 function rule201(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitDropSlot(sel, fn: fn, ins: ins)
+	emitDropValue(sel, fn: fn, ins: ins)
 	return true
 end 'rule201'
 
-// x64.rules:202: (dropAt) => (emitDropAt)
+// x64.rules:202: (dropSlot) => (emitDropSlot)
 function rule202(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitDropAt(sel, fn: fn, ins: ins)
+	emitDropSlot(sel, fn: fn, ins: ins)
 	return true
 end 'rule202'
 
-// x64.rules:203: (copy) => (emitCopyValue)
+// x64.rules:203: (dropAt) => (emitDropAt)
 function rule203(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCopyValue(sel, fn: fn, ins: ins)
+	emitDropAt(sel, fn: fn, ins: ins)
 	return true
 end 'rule203'
 
-// x64.rules:208: (jump [b]) => (JmpRel32 [b])
-function rule208(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:204: (copy) => (emitCopyValue)
+function rule204(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitCopyValue(sel, fn: fn, ins: ins)
+	return true
+end 'rule204'
+
+// x64.rules:209: (jump [b]) => (JmpRel32 [b])
+function rule209(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let vB = ir.jumpTarget(ins)
 	let r1 = sel.edgeTo(fn, target: vB, start: ir.jumpArgsStart(ins), count: ir.jumpArgsCount(ins))
 	var mi2 = newTarget(X64Form.jmpRel32, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
@@ -4120,10 +4138,10 @@ function rule208(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi2.aux = r1.aux
 	sel.emit(mi2)
 	return true
-end 'rule208'
+end 'rule209'
 
-// x64.rules:209: (branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
-function rule209(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:210: (branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+function rule210(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -4158,10 +4176,10 @@ function rule209(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi9.aux = r8.aux
 	sel.emit(mi9)
 	return true
-end 'rule209'
+end 'rule210'
 
-// x64.rules:210: (branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
-function rule210(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:211: (branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
+function rule211(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -4196,10 +4214,10 @@ function rule210(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi9.aux = r8.aux
 	sel.emit(mi9)
 	return true
-end 'rule210'
+end 'rule211'
 
-// x64.rules:212: (branch c:(cmp x (const [k])) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
-function rule212(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:213: (branch c:(cmp x (const [k])) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+function rule213(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -4218,7 +4236,7 @@ function rule212(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	if not (fitsImm32(vK) and sel.fuses(fn, r: vC)) 'm3'
 		return false
 	end 'm3'
-	let i5 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:212 does not fit Imm32")
+	let i5 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:213 does not fit Imm32")
 	var mi6 = newTarget(chooseCmpRegImm(i5), a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
 	sel.emit(mi6)
 	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
@@ -4233,10 +4251,10 @@ function rule212(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi10.aux = r9.aux
 	sel.emit(mi10)
 	return true
-end 'rule212'
+end 'rule213'
 
-// x64.rules:214: (branch c:(cmp (const [k]) x) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
-function rule214(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:215: (branch c:(cmp (const [k]) x) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
+function rule215(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -4255,7 +4273,7 @@ function rule214(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	if not (fitsImm32(vK) and sel.fuses(fn, r: vC)) 'm3'
 		return false
 	end 'm3'
-	let i5 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:214 does not fit Imm32")
+	let i5 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:215 does not fit Imm32")
 	var mi6 = newTarget(chooseCmpRegImm(i5), a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
 	sel.emit(mi6)
 	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
@@ -4270,10 +4288,10 @@ function rule214(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi10.aux = r9.aux
 	sel.emit(mi10)
 	return true
-end 'rule214'
+end 'rule215'
 
-// x64.rules:216: (branch c:(cmp x y) [yes] [no]) && sel.fuses(fn, r: c) => (CmpRegReg x y) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
-function rule216(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:217: (branch c:(cmp x y) [yes] [no]) && sel.fuses(fn, r: c) => (CmpRegReg x y) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+function rule217(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -4301,10 +4319,10 @@ function rule216(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'rule216'
+end 'rule217'
 
-// x64.rules:219: (branch c:(fCmp.lt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [X64CondCode.belowEqual] [no]) (JmpRel32 [yes])
-function rule219(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:220: (branch c:(fCmp.lt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [X64CondCode.belowEqual] [no]) (JmpRel32 [yes])
+function rule220(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -4335,10 +4353,10 @@ function rule219(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'rule219'
+end 'rule220'
 
-// x64.rules:220: (branch c:(fCmp.le x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [X64CondCode.below] [no]) (JmpRel32 [yes])
-function rule220(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:221: (branch c:(fCmp.le x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [X64CondCode.below] [no]) (JmpRel32 [yes])
+function rule221(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -4369,10 +4387,10 @@ function rule220(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'rule220'
+end 'rule221'
 
-// x64.rules:221: (branch c:(fCmp.gt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [X64CondCode.belowEqual] [no]) (JmpRel32 [yes])
-function rule221(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:222: (branch c:(fCmp.gt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [X64CondCode.belowEqual] [no]) (JmpRel32 [yes])
+function rule222(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -4403,10 +4421,10 @@ function rule221(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'rule221'
+end 'rule222'
 
-// x64.rules:222: (branch c:(fCmp.ge x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [X64CondCode.below] [no]) (JmpRel32 [yes])
-function rule222(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:223: (branch c:(fCmp.ge x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [X64CondCode.below] [no]) (JmpRel32 [yes])
+function rule223(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -4437,10 +4455,10 @@ function rule222(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'rule222'
+end 'rule223'
 
-// x64.rules:223: (branch c [yes] [no]) => (TestRegReg c c) (JccRel32 [X64CondCode.equal] [no]) (JmpRel32 [yes])
-function rule223(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:224: (branch c [yes] [no]) => (TestRegReg c c) (JccRel32 [X64CondCode.equal] [no]) (JmpRel32 [yes])
+function rule224(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let vC = ir.branchCond(ins)
 	let vYes = ir.branchIfTrue(ins)
 	let vNo = ir.branchIfFalse(ins)
@@ -4458,29 +4476,29 @@ function rule223(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bo
 	mi5.aux = r4.aux
 	sel.emit(mi5)
 	return true
-end 'rule223'
-
-// x64.rules:224: (switch) => (emitSwitch)
-function rule224(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
-	emitSwitch(sel, fn: fn, ins: ins)
-	return true
 end 'rule224'
 
-// x64.rules:225: (ret) => (emitRet)
+// x64.rules:225: (switch) => (emitSwitch)
 function rule225(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
-	emitRet(sel, fn: fn, ins: ins)
+	emitSwitch(sel, fn: fn, ins: ins)
 	return true
 end 'rule225'
 
-// x64.rules:226: (throw) => (emitThrow)
+// x64.rules:226: (ret) => (emitRet)
 function rule226(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
-	emitThrow(sel, fn: fn, ins: ins)
+	emitRet(sel, fn: fn, ins: ins)
 	return true
 end 'rule226'
 
-// x64.rules:227: (trap) => (Ud2)
+// x64.rules:227: (throw) => (emitThrow)
 function rule227(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+	emitThrow(sel, fn: fn, ins: ins)
+	return true
+end 'rule227'
+
+// x64.rules:228: (trap) => (Ud2)
+function rule228(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	var mi1 = newTarget(X64Form.ud2, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi1)
 	return true
-end 'rule227'
+end 'rule228'
