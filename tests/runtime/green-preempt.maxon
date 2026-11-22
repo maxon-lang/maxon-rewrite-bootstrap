@@ -1,0 +1,72 @@
+// Preemption: as many busy green threads as there are processors spin, calling nothing, until a green thread that sleeps
+// sets their flag once they have all started. Every processor is then held by a spinner, so the setter runs only once the
+// monitor stops a spinner that has run past its slice; the spinners then see the flag and end.
+//> every processor's spinner was stopped for the setter
+
+// testSleepNanos is how long the setter sleeps before it looks again whether every spinner has started.
+let testSleepNanos = 10000000 as Count
+
+// The record the green threads share: the flag, and how many spinners are spinning.
+let testFlagOffset = 0 as Count
+
+let testSpinningOffset = 8 as Count
+
+let testRecordBytes = 16 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let shared = alloc(testRecordBytes)
+	let spinners = osProcessorCount()
+	let list = alloc(try spinners * wordBytes otherwise panic("too many processors"))
+	for i in 0 upto spinners 'spawn'
+		let spinner = greenSpawn(__Raw.codeAddress("testSpinner"))
+		greenSetArgument(spinner, index: 0, value: shared)
+		__Raw.storeWord(list, offset: try i * wordBytes otherwise panic("too many processors"), value: spinner)
+		greenReady(spinner)
+	end 'spawn'
+	let setter = greenSpawn(__Raw.codeAddress("testSetter"))
+	greenSetArgument(setter, index: 0, value: shared)
+	greenReady(setter)
+	_ = greenAwait(setter)
+	for i in 0 upto spinners 'await'
+		if greenAwait(__Raw.loadWord(list, offset: try i * wordBytes otherwise panic("too many processors"))) == 0 'idle'
+			panic("a spinner never spun")
+		end 'idle'
+	end 'await'
+	free(list)
+	free(shared)
+	testWrite("every processor's spinner was stopped for the setter\n")
+	return 0
+end 'testCoordinator'
+
+// testSpinner spins on the flag with no call, which only the monitor can stop, and gives how many times it looked.
+function testSpinner(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	_ = __Raw.atomicAdd(shared, offset: testSpinningOffset, value: 1)
+	var looks = 0 as Count
+	while __Raw.loadWord(shared, offset: testFlagOffset) == 0 'spin'
+		__Raw.spinPause()
+		looks = __Raw.wrappingAdd(looks, right: 1)
+	end 'spin'
+	return looks
+end 'testSpinner'
+
+// testSetter sleeps until every spinner has started, then sets the flag: from then on every processor runs a spinner until the
+// flag is set, so the setter runs again only once the monitor has stopped one.
+function testSetter(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	greenSleep(testSleepNanos)
+	while __Raw.loadWord(shared, offset: testSpinningOffset) != osProcessorCount() 'started'
+		greenSleep(testSleepNanos)
+	end 'started'
+	__Raw.storeWord(shared, offset: testFlagOffset, value: 1)
+	return 0
+end 'testSetter'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

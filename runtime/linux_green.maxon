@@ -1,0 +1,187 @@
+// The Linux part of green threads and the scheduler, by system calls: a green thread's stack, the clock and the monitor's
+// sleep through the thread's block, the thread id the monitor signals, the preemption signal's action and its handler's
+// code, and the poller, epoll with an eventfd that breaks its wait and an eventfd for each poll descriptor.
+
+#if os(Linux)
+	// stackGuardBytes is the guard page at the bottom of a stack's reserve.
+	let stackGuardBytes = linuxPageBytes
+
+	// pollForeverMillis is epoll_wait's timeout of a wait with no end, -1.
+	let pollForeverMillis = 0xFFFFFFFFFFFFFFFF as Count
+
+	// eventfdWordBytes is what a read or a write of an eventfd moves, its 64-bit count.
+	let eventfdWordBytes = 8 as Count
+
+	let noRemaining = 0 as Count
+
+	let microsPerSecond = 1000000 as Count
+
+	// newStack maps a stack whose pages the kernel commits as they are touched, its lowest page the guard, as a worker
+	// thread's (startThread).
+	function newStack(scheduler Count) returns Count
+		let low = __Raw.syscall6(linuxSysMmap, arg1: 0, arg2: stackReserveBytes, arg3: linuxProtReadWrite, arg4: linuxMapAnonPrivate or linuxMapNoReserve, arg5: noFd, arg6: noMappingOffset)
+		if failed(low) 'unmapped'
+			panic("out of memory: no address space for a green thread's stack")
+		end 'unmapped'
+		if failed(__Raw.syscall3(linuxSysMprotect, arg1: low, arg2: stackGuardBytes, arg3: linuxProtNone)) 'unguarded'
+			panic("cannot guard a green thread's stack")
+		end 'unguarded'
+		return stackRecord(scheduler, low: low, high: __Raw.wrappingAdd(low, right: stackReserveBytes), limit: low)
+	end 'newStack'
+
+	// nanotime is the monotonic clock in nanoseconds, read into the thread's block, so it allocates nothing.
+	function nanotime(context Count) returns Count
+		let time = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
+		_ = __Raw.syscall2(linuxSysClockGettime, arg1: linuxClockMonotonic, arg2: time)
+		let wholeNanos = try __Raw.loadWord(time, offset: 0) * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
+		return try wholeNanos + __Raw.loadWord(time, offset: wordBytes) otherwise panic("the monotonic clock is past a word of nanoseconds")
+	end 'nanotime'
+
+	// sleepMicros sleeps the monitor for a number of microseconds, through the timespec of its block; a signal that ends the
+	// sleep early only shortens the round.
+	function sleepMicros(context Count, micros Count)
+		let time = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
+		__Raw.storeWord(time, offset: 0, value: micros / microsPerSecond)
+		__Raw.storeWord(time, offset: wordBytes, value: try (micros mod microsPerSecond) * nanosPerMicro otherwise panic("a sleep past a word of nanoseconds"))
+		_ = __Raw.syscall2(linuxSysNanosleep, arg1: time, arg2: noRemaining)
+	end 'sleepMicros'
+
+	// setThreadIdentity keeps what the monitor signals the running thread by: its thread id.
+	function setThreadIdentity(context Count)
+		__Raw.storeWord(context, offset: contextThreadOffset, value: __Raw.syscall0(linuxSysGettid))
+	end 'setThreadIdentity'
+
+	// initPreemption makes rt.preemptHandler the action of the preemption signal for every thread, on the thread's signal
+	// stack, with the system calls it breaks off made again where the kernel can.
+	function initPreemption()
+		let action = alloc(linuxSigactionBytes)
+		__Raw.storeWord(action, offset: linuxSigactionHandlerOffset, value: __Raw.preemptHandlerAddress())
+		__Raw.storeWord(action, offset: linuxSigactionFlagsOffset, value: linuxPreemptActionFlags)
+		__Raw.storeWord(action, offset: linuxSigactionRestorerOffset, value: __Raw.signalReturnAddress())
+		if failed(__Raw.syscall4(linuxSysRtSigaction, arg1: linuxSigurg, arg2: action, arg3: 0, arg4: linuxSignalMaskBytes)) 'refused'
+			panic("cannot set the preemption signal's action")
+		end 'refused'
+		free(action)
+	end 'initPreemption'
+
+	// preemptThread stops a thread on Linux: it sends it the preemption signal, unless one is not yet answered, as Go's
+	// preemptM does.
+	function preemptThread(scheduler Count, context Count, g Count)
+		if __Raw.compareExchange(context, offset: contextSignalPendingOffset, expected: unset, desired: set) != unset 'pending'
+			return
+		end 'pending'
+		_ = __Raw.syscall3(linuxSysTgkill, arg1: __Raw.syscall0(linuxSysGetpid), arg2: __Raw.loadWord(context, offset: contextThreadOffset), arg3: linuxSigurg)
+	end 'preemptThread'
+
+	// preemptSignal is the code the preemption signal's handler calls (contextSignalCodeOffset) with the signal's context,
+	// on the thread's signal stack: Go's doSigPreempt, which makes the stopped code return into rt.asyncPreempt when it may
+	// be stopped there, and answers the signal.
+	function preemptSignal(signalContext Count)
+		let context = __Raw.threadContext()
+		let rip = __Raw.loadWord(signalContext, offset: linuxUcontextRipOffset)
+		let rsp = __Raw.loadWord(signalContext, offset: linuxUcontextRspOffset)
+		if stoppable(context, g: __Raw.loadWord(context, offset: contextGreenOffset), instruction: rip, stackPointer: rsp) 'stop'
+			__Raw.storeWord(signalContext, offset: linuxUcontextRspOffset, value: pushReturnInto(rip, stackPointer: rsp))
+			__Raw.storeWord(signalContext, offset: linuxUcontextRipOffset, value: __Raw.asyncPreemptAddress())
+		end 'stop'
+		_ = __Raw.atomicExchange(context, offset: contextSignalPendingOffset, value: unset)
+	end 'preemptSignal'
+
+	// initPoller makes the epoll fd and the eventfd that breaks its wait.
+	function initPoller(scheduler Count)
+		let poller = __Raw.syscall1(linuxSysEpollCreate1, arg1: linuxEpollCloexec)
+		if failed(poller) 'poller'
+			panic("cannot make the poller")
+		end 'poller'
+		__Raw.storeWord(scheduler, offset: schedPollerOffset, value: poller)
+		let breaker = newEventfd()
+		__Raw.storeWord(scheduler, offset: schedPollBreakOffset, value: breaker)
+		register(scheduler, fd: breaker, key: pollBreakKey)
+	end 'initPoller'
+
+	function newEventfd() returns Count
+		let fd = __Raw.syscall2(linuxSysEventfd2, arg1: 0, arg2: linuxEventfdFlags)
+		if failed(fd) 'refused'
+			panic("cannot make an eventfd")
+		end 'refused'
+		return fd
+	end 'newEventfd'
+
+	// register has the poller report an fd readable with a key, through an event in the running thread's block.
+	function register(scheduler Count, fd Count, key Count)
+		let event = __Raw.wrappingAdd(threadBlockSwitch(__Raw.threadContext()), right: threadBlockClockOffset)
+		__Raw.storeWord32(event, offset: 0, value: linuxEpollIn)
+		__Raw.storeWord(event, offset: linuxEpollEventDataOffset, value: key)
+		if failed(__Raw.syscall4(linuxSysEpollCtl, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: linuxEpollCtlAdd, arg3: fd, arg4: event)) 'refused'
+			panic("cannot register an fd with the poller")
+		end 'refused'
+	end 'register'
+
+	// netpoll takes what is ready, waiting up to delay nanoseconds for something when nothing is, into the thread's block,
+	// and gives the list of the green threads it readied. An eventfd that was readable is read, so it is not reported
+	// again.
+	function netpoll(context Count, delay Count) returns Count
+		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+		let events = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
+		let got = __Raw.syscall4(linuxSysEpollWait, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: events, arg3: pollEventSlots, arg4: pollWaitMillis(delay, forever: pollForeverMillis))
+		if failed(got) 'failed'
+			if errnoOf(got) == linuxEintr 'interrupted'
+				return noGreen
+			end 'interrupted'
+			panic("the poller's wait failed")
+		end 'failed'
+		var list = noGreen
+		var event = events
+		for i in 0 upto got 'events'
+			let key = __Raw.loadWord(event, offset: linuxEpollEventDataOffset)
+			if key == pollBreakKey 'break'
+				drainEventfd(context, fd: __Raw.loadWord(scheduler, offset: schedPollBreakOffset))
+				__Raw.storeWord(scheduler, offset: schedPollWakeSigOffset, value: unset)
+			end 'break' else 'descriptor'
+				drainEventfd(context, fd: __Raw.loadWord(key, offset: pollFdOffset))
+				list = pollSignalledInto(key, list: list)
+			end 'descriptor'
+			event = __Raw.wrappingAdd(event, right: linuxEpollEventBytes)
+		end 'events'
+		return list
+	end 'netpoll'
+
+	// drainEventfd reads an eventfd's count to 0, into the thread's block.
+	function drainEventfd(context Count, fd Count)
+		_ = __Raw.syscall3(linuxSysRead, arg1: fd, arg2: __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset), arg3: eventfdWordBytes)
+	end 'drainEventfd'
+
+	// signalEventfd adds 1 to an eventfd's count, which makes it readable.
+	function signalEventfd(fd Count)
+		var one = 1 as Count
+		_ = __Raw.syscall3(linuxSysWrite, arg1: fd, arg2: __Raw.addressOf(one), arg3: eventfdWordBytes)
+	end 'signalEventfd'
+
+	// netpollBreak ends the wait of the thread in the poller, once for any number of breaks before it takes one.
+	function netpollBreak(scheduler Count)
+		if __Raw.compareExchange(scheduler, offset: schedPollWakeSigOffset, expected: unset, desired: set) != unset 'sent'
+			return
+		end 'sent'
+		signalEventfd(__Raw.loadWord(scheduler, offset: schedPollBreakOffset))
+	end 'netpollBreak'
+
+	// pollNew is a poll descriptor with an eventfd of its own, registered with the poller, which pollFree closes.
+	function pollNew() returns Count
+		let scheduler = schedulerOf(__Raw.threadContext())
+		let descriptor = alloc(pollDescriptorBytes)
+		let fd = newEventfd()
+		__Raw.storeWord(descriptor, offset: pollFdOffset, value: fd)
+		register(scheduler, fd: fd, key: descriptor)
+		return descriptor
+	end 'pollNew'
+
+	// pollSignal signals a poll descriptor through its eventfd, from any thread.
+	function pollSignal(descriptor Count)
+		signalEventfd(__Raw.loadWord(descriptor, offset: pollFdOffset))
+	end 'pollSignal'
+
+	function pollFree(descriptor Count)
+		closeFd(__Raw.loadWord(descriptor, offset: pollFdOffset))
+		free(descriptor)
+	end 'pollFree'
+#endif

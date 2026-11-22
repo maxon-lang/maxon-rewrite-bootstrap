@@ -1,0 +1,29 @@
+// preemptibleFunction is whether the monitor may stop a green thread anywhere in the code of a function: in the program's
+// code, which holds nothing of the OS thread it runs on, it may; in the runtime's own source, which works on the thread's
+// heap, queues and scheduler, calls the system and switches stacks, it may not (Go's and maxon's rule: a function of the
+// runtime is not asynchronously preemptible). A test of the runtime is compiled into the runtime's module but is not of
+// its source, so its own functions are the program's. The backend marks each function's code by it, and the leaf
+// inliner copies no leaf that is not preemptible into a function that is, which would make the leaf's code preemptible.
+export function preemptibleFunction(p Project, ms ModuleState, fid FuncID) returns bool
+	let mi = modIndex(funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module)
+	if not p.modules[mi].isRuntime 'program'
+		return true
+	end 'program'
+	let offset = p.modules[mi].tree.startOf(funcEntry(ms.funcs, funcReads: p.funcs, f: fid).nodeID)
+	for i in 0 upto p.modules[mi].files.count() 'files'
+		if p.modules[mi].files[i].start <= offset and offset < p.modules[mi].files[i].endOff 'holds'
+			return not directoryHolds(p.modules[mi].dir, path: p.modules[mi].files[i].path)
+		end 'holds'
+	end 'files'
+	panic("ast: a function of the runtime in none of its files")
+end 'preemptibleFunction'
+
+// directoryHolds is whether a path is of a file directly or deeper under a directory.
+function directoryHolds(dir String, path String) returns bool
+	let n = dir.byteLength()
+	if path.byteLength() <= n or path.sliceBytes(0, endPos: n) != dir 'outside'
+		return false
+	end 'outside'
+	let separator = path.byteAt(n)
+	return separator == slashByte or separator == backslashByte
+end 'directoryHolds'

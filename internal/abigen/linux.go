@@ -42,6 +42,19 @@ var linuxABI = []layoutConst{
 	{"linuxSysPipe2", 293, true, toRuntime, "pipe2(fds, flags)."},
 	{"linuxSysGettid", 186, true, toRuntime, "gettid(): the calling thread's id, which a signal is sent to."},
 	{"linuxSysTgkill", 234, true, toRuntime, "tgkill(process id, thread id, signal): a signal to one thread of a process."},
+	{"linuxSysNanosleep", 35, true, toRuntime, "nanosleep(timespec, remaining)."},
+	{"linuxSysEpollCreate1", 291, true, toRuntime, "epoll_create1(flags): the poller."},
+	{"linuxSysEpollCtl", 233, true, toRuntime, "epoll_ctl(epoll fd, operation, fd, event)."},
+	{"linuxSysEpollWait", 232, true, toRuntime, "epoll_wait(epoll fd, events, most events, timeout in milliseconds)."},
+	{"linuxSysEventfd2", 290, true, toRuntime, "eventfd2(initial count, flags): a counter that the poller sees readable while it is above 0."},
+
+	// epoll and eventfd.
+	{"linuxEpollCloexec", 0x80000, true, toRuntime, "EPOLL_CLOEXEC: the poller is closed in a child that execs."},
+	{"linuxEventfdFlags", 0x80800, true, toRuntime, "EFD_CLOEXEC | EFD_NONBLOCK: an eventfd closed in a child that execs, whose read of a count of 0 fails at once."},
+	{"linuxEpollCtlAdd", 1, true, toRuntime, "EPOLL_CTL_ADD: registers an fd with the poller."},
+	{"linuxEpollIn", 1, true, toRuntime, "EPOLLIN: an event for an fd that has something to read."},
+	{"linuxEpollEventDataOffset", 4, true, toRuntime, "where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events."},
+	{"linuxEpollEventBytes", 12, true, toRuntime, "the size of a packed struct epoll_event."},
 
 	// The kernel's struct sigaction: the handler, the flags, the restorer and the mask, a word each.
 	{"linuxSigactionHandlerOffset", 0, true, toRuntime | toSelfBack, "where a struct sigaction holds the handler."},

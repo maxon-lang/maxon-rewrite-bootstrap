@@ -97,11 +97,11 @@
 		return 0
 	end 'writeAll'
 
-	// write writes a string to an fd, all of it.
-	function write(handle Count, text String)
+	// writeHandle writes a string to an fd, all of it.
+	function writeHandle(handle Count, text String)
 		let box = __Raw.stringAddress(text)
 		_ = writeAll(handle, data: bytesOf(box), length: boxLength(box))
-	end 'write'
+	end 'writeHandle'
 
 	// exitProcess ends the process, every thread of it, with a code; it does not return.
 	function exitProcess(code Count)
@@ -315,6 +315,7 @@
 		var done = 0 as Count
 		var readError = 0 as Count
 		var reading = true
+		enterBlocking()
 		while done < size and reading 'read'
 			let chunk = __Raw.syscall3(linuxSysRead, arg1: fd, arg2: __Raw.wrappingAdd(bytes, right: done), arg3: size - done)
 			if failed(chunk) 'failed'
@@ -328,6 +329,7 @@
 				done = __Raw.wrappingAdd(done, right: chunk)
 			end 'more'
 		end 'read'
+		exitBlocking()
 		closeFd(fd)
 		if readError != 0 'failedRead'
 			free(box)
@@ -346,7 +348,9 @@
 		if failed(fd) 'open'
 			return errnoOf(fd)
 		end 'open'
+		enterBlocking()
 		let errno = writeAll(fd, data: data, length: length)
+		exitBlocking()
 		closeFd(fd)
 		return errno
 	end 'writeFile'

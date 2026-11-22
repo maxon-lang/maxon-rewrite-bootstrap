@@ -1,0 +1,102 @@
+// Float state across preemption: more busy green threads than processors each add their own steps to four floats and
+// two integers, calling nothing, until a green thread sets their flag a while after they have all started, so the monitor stops each of them
+// many times in the middle of its loop, with its values in registers, and runs another with other values there. Each
+// checks at the end that its values are the multiples of its steps that its count says, which holds only if every stop
+// gave every register, xmm0 to xmm15 whole among them, back as it was.
+//> every worker's floats and integers survived its preemptions
+
+// testRunNanos is how long the workers run: many slices each.
+let testRunNanos = 200000000 as Count
+
+// testExtraWorkers is how many workers there are beyond the processors, so that some always wait for one.
+let testExtraWorkers = 2 as Count
+
+// The record the green threads share: the flag, and how many workers have started.
+let testFlagOffset = 0 as Count
+
+let testStartedOffset = 8 as Count
+
+let testRecordBytes = 16 as Count
+
+// testLookNanos is how often the stopper looks whether every worker has started.
+let testLookNanos = 10000000 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let shared = alloc(testRecordBytes)
+	let workers = try osProcessorCount() + testExtraWorkers otherwise panic("too many processors")
+	let list = alloc(try workers * wordBytes otherwise panic("too many processors"))
+	for i in 0 upto workers 'spawn'
+		let worker = greenSpawn(__Raw.codeAddress("testWorker"))
+		greenSetArgument(worker, index: 0, value: shared)
+		greenSetArgument(worker, index: 1, value: __Raw.wrappingAdd(i, right: 1))
+		__Raw.storeWord(list, offset: try i * wordBytes otherwise panic("too many processors"), value: worker)
+		greenReady(worker)
+	end 'spawn'
+	let stopper = greenSpawn(__Raw.codeAddress("testStopper"))
+	greenSetArgument(stopper, index: 0, value: shared)
+	greenReady(stopper)
+	_ = greenAwait(stopper)
+	for i in 0 upto workers 'await'
+		_ = greenAwait(__Raw.loadWord(list, offset: try i * wordBytes otherwise panic("too many processors")))
+	end 'await'
+	free(list)
+	free(shared)
+	testWrite("every worker's floats and integers survived its preemptions\n")
+	return 0
+end 'testCoordinator'
+
+// testWorker steps its values by multiples of its own number until the flag is set, then checks them against its count.
+// The steps are multiples of a half, so every sum is exact.
+function testWorker(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	let k = greenArgument(g, index: 1)
+	_ = __Raw.atomicAdd(shared, offset: testStartedOffset, value: 1)
+	let unit = 0.5 * k
+	var a = 0.0 as FullRangeFloat
+	var b = 0.0 as FullRangeFloat
+	var c = 0.0 as FullRangeFloat
+	var d = 0.0 as FullRangeFloat
+	var i = 0 as Count
+	var j = 0 as Count
+	var n = 0 as Count
+	while __Raw.loadWord(shared, offset: testFlagOffset) == 0 'run'
+		a = a + unit
+		b = b + unit + unit
+		c = c + unit * 3.0
+		d = d - unit
+		i = __Raw.wrappingAdd(i, right: k)
+		j = __Raw.wrappingAdd(j, right: __Raw.wrappingAdd(k, right: k))
+		n = __Raw.wrappingAdd(n, right: 1)
+		__Raw.spinPause()
+	end 'run'
+	if n == 0 'idle'
+		panic("a worker never ran")
+	end 'idle'
+	if a != unit * n or b != a + a or c != a * 3.0 or d != 0.0 - a 'floats'
+		panic("a worker's floats changed under it")
+	end 'floats'
+	if i != (try k * n otherwise 0) or j != __Raw.wrappingAdd(i, right: i) 'integers'
+		panic("a worker's integers changed under it")
+	end 'integers'
+	return n
+end 'testWorker'
+
+// testStopper sets the flag a while after every worker has started.
+function testStopper(g Count) returns Count
+	let workers = try osProcessorCount() + testExtraWorkers otherwise panic("too many processors")
+	while __Raw.loadWord(greenArgument(g, index: 0), offset: testStartedOffset) != workers 'started'
+		greenSleep(testLookNanos)
+	end 'started'
+	greenSleep(testRunNanos)
+	__Raw.storeWord(greenArgument(g, index: 0), offset: testFlagOffset, value: 1)
+	return 0
+end 'testStopper'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

@@ -200,14 +200,6 @@ function writeBinaryEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FileP
 	try errorWord(vm, f: f, x: x, word: word)
 end 'writeBinaryEntry'
 
-function entryOsWriteText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	try writeTextEntry(vm, f: f, x: x, mode: FilePermission.normal)
-end 'entryOsWriteText'
-
-function entryOsWriteBinary(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	try writeBinaryEntry(vm, f: f, x: x, mode: FilePermission.normal)
-end 'entryOsWriteBinary'
-
 function entryOsWriteTextMode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try writeTextEntry(vm, f: f, x: x, mode: writeMode(vm, f: f, x: x, i: 2))
 end 'entryOsWriteTextMode'

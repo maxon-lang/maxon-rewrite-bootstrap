@@ -108,6 +108,9 @@ export let requestOwnerOffset = 24
 // requestSlotBytes is the size of a request slot.
 export let requestSlotBytes = 32
 
+// contextSchedulerOffset is where a thread's context holds the address of the scheduler's record, 0 on the main thread until the first behaviour or green thread is made.
+export let contextSchedulerOffset = 0
+
 // contextSwitchFromOffset is where a thread's context holds the switch record that rt.stackSwitch saves the running stack's registers into.
 export let contextSwitchFromOffset = 64
 
@@ -164,6 +167,9 @@ export let tebStackLimitOffset = 16
 
 // tebDeallocationStackOffset is where the TEB holds the lowest address of the running stack's reserve (DeallocationStack, 0x1478).
 export let tebDeallocationStackOffset = 5240
+
+// schedExitClaimOffset is where the scheduler's record holds the context of the thread that holds the claim of exiting and stopping threads (Go's suspendLock), 0 for none: the monitor holds it while a thread it stops is suspended, and a thread that ends the process takes it for good, so ExitProcess never meets a thread the monitor suspended.
+export let schedExitClaimOffset = 208
 
 // stackReserveBytes is the stack each thread reserves, the main thread's in the executable's header and a worker's when the runtime starts it, so a behaviour has the same stack on every thread. The compiler's passes recurse once per level of an expression, and a left-leaning chain of operators is as deep as it is long: a sum of 4,000 names takes about 22 MB. A reserve is only address space, committed a page at a time as the stack grows, so it costs a program nothing that it does not use.
 export let stackReserveBytes = 268435456

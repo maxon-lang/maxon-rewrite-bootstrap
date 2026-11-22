@@ -363,14 +363,6 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsReadText(vm, f: f, x: x)
 		return
 	end 'rtOsReadText'
-	if symbol == ir.Rt.rtOsWriteText 'rtOsWriteText'
-		try entryOsWriteText(vm, f: f, x: x)
-		return
-	end 'rtOsWriteText'
-	if symbol == ir.Rt.rtOsWriteBinary 'rtOsWriteBinary'
-		try entryOsWriteBinary(vm, f: f, x: x)
-		return
-	end 'rtOsWriteBinary'
 	if symbol == ir.Rt.rtOsWriteTextMode 'rtOsWriteTextMode'
 		try entryOsWriteTextMode(vm, f: f, x: x)
 		return

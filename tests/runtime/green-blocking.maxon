@@ -1,0 +1,76 @@
+// The blocking-call hand-off: a green thread sleeps in a bracketed blocking call (enterBlocking, the system's sleep,
+// exitBlocking) while another waits for it to be in the call and then sets a flag. Under one processor the other runs only
+// if the monitor takes the processor from the blocked thread and hands it to another thread, so the sleeper finds the
+// flag set when its call returns.
+//> the processor was handed off during the blocking call
+
+let testBlockMillis = 300 as Count
+
+// The record the two share: 1 once the sleeper is in its call, and 1 once the other has run meanwhile.
+let testInCallOffset = 0 as Count
+
+let testRanOffset = 8 as Count
+
+let testRecordBytes = 16 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let shared = alloc(testRecordBytes)
+	let sleeper = greenSpawn(__Raw.codeAddress("testSleeper"))
+	greenSetArgument(sleeper, index: 0, value: shared)
+	let other = greenSpawn(__Raw.codeAddress("testOther"))
+	greenSetArgument(other, index: 0, value: shared)
+	greenReady(sleeper)
+	greenReady(other)
+	_ = greenAwait(sleeper)
+	_ = greenAwait(other)
+	free(shared)
+	testWrite("the processor was handed off during the blocking call\n")
+	return 0
+end 'testCoordinator'
+
+function testSleeper(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	enterBlocking()
+	__Raw.storeWord(shared, offset: testInCallOffset, value: 1)
+	testBlock()
+	exitBlocking()
+	if __Raw.loadWord(shared, offset: testRanOffset) != 1 'kept'
+		panic("the blocking call kept its processor")
+	end 'kept'
+	return 0
+end 'testSleeper'
+
+// testOther yields until the sleeper is in its call, then says it ran.
+function testOther(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	while __Raw.loadWord(shared, offset: testInCallOffset) == 0 'wait'
+		greenYield()
+	end 'wait'
+	__Raw.storeWord(shared, offset: testRanOffset, value: 1)
+	return 0
+end 'testOther'
+
+// testBlock sleeps in the system for testBlockMillis.
+function testBlock()
+	#if os(Windows)
+		_ = __Raw.callImport1("Sleep", arg1: testBlockMillis)
+	#else
+		let time = alloc(linuxTimespecBytes)
+		__Raw.storeWord(time, offset: 0, value: 0)
+		__Raw.storeWord(time, offset: wordBytes, value: testBlockMillis * nanosPerMilli)
+		var slept = __Raw.syscall2(linuxSysNanosleep, arg1: time, arg2: time)
+		while slept != 0 'again'
+			slept = __Raw.syscall2(linuxSysNanosleep, arg1: time, arg2: time)
+		end 'again'
+		free(time)
+	#endif
+end 'testBlock'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

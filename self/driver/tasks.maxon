@@ -474,7 +474,7 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 			end 'verifyLowered'
 			var optimizer = opt.Optimizer.new()
 			opt.optimizeModule(optimizer, fns: lowered)
-			inlineModule(c, work: work, p: view, m: m, known: known, fns: lowered, optimizer: optimizer, timing: timing)
+			inlineModule(c, work: work, p: view, ms: ms, m: m, known: known, fns: lowered, optimizer: optimizer, timing: timing)
 			if c.cache.enabled() 'summary'
 				let summary = summaryOf(c, p: view, m: m, own: work.digests, leaves: leafDigest(view, ms: ms, fns: lowered, leaves: work.leaves), summaries: summariesOf(known))
 				if (work.found.isSome() or work.speculated) and not summary.equals(work.digests.summary) 'differs'
@@ -511,8 +511,10 @@ end 'keepsChecked'
 // inlineModule finds the leaves of module m, whose functions fns the optimizer has run on, and replaces the calls of leaves in
 // them: of its own, and of the modules it names (in p, the task's view) that this compile lowers, whose lower its own waited
 // for, and whose code and leaves it knows.
-function inlineModule(c Compile, mutates work ModuleWork, p ast.Project, m Count, known Known, mutates fns ir.IrFunctionList, mutates optimizer opt.Optimizer, mutates timing TaskTiming)
-	let leaves = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module))
+function inlineModule(c Compile, mutates work ModuleWork, p ast.Project, ms ast.ModuleState, m Count, known Known, mutates fns ir.IrFunctionList, mutates optimizer opt.Optimizer, mutates timing TaskTiming)
+	let preemptible = preemptibleFunctions(p, ms: ms, m: m, fns: fns)
+	let leaves = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module), preemptible: preemptible, preemptibleOnly: false)
+	let ownPreemptible = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module), preemptible: preemptible, preemptibleOnly: true)
 	var reads as Array with bool
 	reads = Array.create(0)
 	var lowered as opt.LoweredLists
@@ -531,10 +533,24 @@ function inlineModule(c Compile, mutates work ModuleWork, p ast.Project, m Count
 		end 'compiled'
 	end 'deps'
 	let before = optimizer.inliner.sites
-	opt.inlineModule(optimizer, fns: fns, own: leaves, lowered: lowered, leaves: named, reads: reads, first: c.first)
+	opt.inlineModule(optimizer, fns: fns, own: leaves, ownPreemptible: ownPreemptible, preemptible: preemptible, lowered: lowered, leaves: named, reads: reads, first: c.first)
 	work.leaves = freeze(leaves)
 	timing.inlined = try timing.inlined + (optimizer.inliner.sites - before) otherwise panic("driver: more calls inlined than memory")
 end 'inlineModule'
+
+// preemptibleFunctions says which of a module's functions are preemptible: all of a program's module's, and of the runtime's
+// only its tests'.
+function preemptibleFunctions(p ast.Project, ms ast.ModuleState, m Count, fns ir.IrFunctionList) returns opt.Preemptible
+	if not p.modules[m].isRuntime 'program'
+		return opt.Preemptible.every()
+	end 'program'
+	var marks as Array with bool
+	marks = Array.create(0)
+	for i in 0 upto fns.count() 'functions'
+		marks.push(ast.preemptibleFunction(p, ms: ms, fid: fns[i].decl))
+	end 'functions'
+	return opt.Preemptible.of(marks)
+end 'preemptibleFunctions'
 
 // emitModule compiles the module's code to its unit, which carries the routines it asks for, or links the unit that the cache
 // holds under the module's key: the one the order found, or, for a module whose key the order could not know, the one found

@@ -351,9 +351,34 @@ function emitFaultHandler(mutates u CodeUnit)
 	u.asm.lea(rdx, base: rsp, disp: faultDigitsSlot)
 	u.asm.movImm(r8, imm: addressDigits + 1)
 	emitStderrWrite(u)
+	emitExitClaim(u)
 	u.asm.movImm(rcx, imm: faultExitCode)
 	u.asm.callImport(impExitProcess)
 end 'emitFaultHandler'
+
+// emitExitClaim takes the exit claim of the scheduler for the faulting thread before it ends the process, as the runtime's
+// exitProcess does (runtime/monitor.maxon), waiting out a suspension the monitor has under way, so that ExitProcess never
+// meets a thread the monitor suspended, which may hold a lock of the system's that ExitProcess takes (Go's suspendLock). A
+// thread with no context yet, or a process with no scheduler, has no monitor to wait out. It works in rax, rdx and r10.
+function emitExitClaim(mutates u CodeUnit)
+	let claimed = u.asm.newLabel()
+	let retry = u.asm.newLabel()
+	emitLoadContext(u, system: ast.TargetSystem.windows, dst: rdx)
+	u.asm.test(rdx, right: rdx)
+	u.asm.jcc(X64CondCode.equal, label: claimed)
+	u.asm.load(r10, base: rdx, disp: imm32Of(contextSchedulerOffset))
+	u.asm.test(r10, right: r10)
+	u.asm.jcc(X64CondCode.equal, label: claimed)
+	u.asm.bind(retry)
+	u.asm.movImm(rax, imm: 0)
+	u.asm.lockCmpxchg(r10, disp: imm32Of(schedExitClaimOffset), src: rdx)
+	u.asm.jcc(X64CondCode.equal, label: claimed)
+	u.asm.cmp(rax, right: rdx)
+	u.asm.jcc(X64CondCode.equal, label: claimed)
+	u.asm.pause()
+	u.asm.jmp(retry)
+	u.asm.bind(claimed)
+end 'emitExitClaim'
 
 // emitAddressDigits writes the faulting address, in the handler's frame, as addressDigits hexadecimal digits and a newline
 // at faultDigitsSlot, with rax, rcx, rdx, r10 and r11.

@@ -1,0 +1,254 @@
+// The monitor, Go's sysmon: a thread of its own that holds no processor, runs no green thread and allocates nothing, and
+// wakes every monitorFirstMicros, sleeping longer while it finds nothing to do, up to monitorLongestMicros. Each round it
+// polls when no thread has for pollStaleNanos, starts a thread for a timer that is due when no thread waits in the
+// poller, and retakes processors: a processor whose green thread has run for preemptNanos is asked to stop it, and one
+// whose thread has been in a blocking call since the monitor's last look, while there is other work or no thread to do
+// it, is taken and handed to another thread.
+//
+// Preemption is asynchronous only, Go's since 1.14, with no check in the compiled code: on Windows the monitor suspends
+// the thread, reads its registers, and when it may stop it there (stoppable) pushes the address it stopped at and sets
+// rip to rt.asyncPreempt, then resumes it; on Linux it sends the thread SIGURG, whose handler does the same to the
+// signal's context (preemptSignal, linux_green.maxon).
+
+// monitorFirstMicros and monitorLongestMicros are Go's bounds of sysmon's sleep, and monitorIdleRounds how many rounds
+// with nothing to do it waits before it doubles it.
+let monitorFirstMicros = 20 as Count
+
+let monitorLongestMicros = 10000 as Count
+
+let monitorIdleRounds = 50 as Count
+
+// preemptNanos is how long a green thread runs before the monitor stops it, Go's forcePreemptNS.
+let preemptNanos = 10000000 as Count
+
+// pollStaleNanos is how long the poller may go unpolled before the monitor polls it.
+let pollStaleNanos = 10000000 as Count
+
+// syscallRetakeNanos is how long a thread may stay in a blocking call with its processor while there is nothing else to
+// do and a thread to do it, Go's 10 ms.
+let syscallRetakeNanos = 10000000 as Count
+
+let nanosPerMicro = 1000 as Count
+
+// startMonitor starts the monitor's thread once, by whichever thread makes the first behaviour or green thread.
+function startMonitor(scheduler Count)
+	if __Raw.loadWord(scheduler, offset: schedStartedOffset) == set 'started'
+		return
+	end 'started'
+	if __Raw.compareExchange(scheduler, offset: schedStartedOffset, expected: unset, desired: set) != unset 'another'
+		return
+	end 'another'
+	let context = keep(contextBytes)
+	__Raw.storeWord(context, offset: contextSchedulerOffset, value: scheduler)
+	__Raw.storeWord(context, offset: contextSchedSwitchOffset, value: keep(threadBlockBytes))
+	__Raw.storeWord(context, offset: contextStartCodeOffset, value: __Raw.codeAddress("monitorMain"))
+	#if os(Windows)
+		__Raw.storeWord(scheduler, offset: schedRegistersOffset, value: keep(__Raw.wrappingAdd(windowsContextBytes, right: windowsContextAlignment)))
+	#else
+		__Raw.storeWord(context, offset: contextSignalCodeOffset, value: __Raw.codeAddress("preemptSignal"))
+	#endif
+	__Raw.storeWord(scheduler, offset: schedMonitorOffset, value: context)
+	startThread(context)
+end 'startMonitor'
+
+// monitorMain is the monitor's loop, which never returns: the process ends with ExitProcess or exit_group.
+function monitorMain(context Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	var idle = 0 as Count
+	var delay = monitorFirstMicros
+	while true 'rounds'
+		if idle == 0 'busy'
+			delay = monitorFirstMicros
+		end 'busy' else if idle > monitorIdleRounds 'idle'
+			delay = __Raw.wrappingAdd(delay, right: delay)
+		end 'idle'
+		if delay > monitorLongestMicros 'longest'
+			delay = monitorLongestMicros
+		end 'longest'
+		sleepMicros(context, micros: delay)
+		let now = nanotime(context)
+		pollIfStale(context, scheduler: scheduler, now: now)
+		let next = __Raw.loadWord(scheduler, offset: schedTimerNextOffset)
+		if next != noTimer and next <= now and __Raw.loadWord(scheduler, offset: schedLastPollOffset) != 0 'timer'
+			startThreadFor(scheduler, proc: noProc, spinning: false)
+		end 'timer'
+		if retake(scheduler, now: now) 'retook'
+			idle = 0
+		end 'retook' else 'none'
+			idle = __Raw.wrappingAdd(idle, right: 1)
+		end 'none'
+	end 'rounds'
+end 'monitorMain'
+
+// pollIfStale is Go's sysmon poll: when no thread has polled for pollStaleNanos, the monitor polls without waiting and
+// puts what that readied on the global run queue, with a thread for each idle processor it can use.
+function pollIfStale(context Count, scheduler Count, now Count)
+	let last = __Raw.loadWord(scheduler, offset: schedLastPollOffset)
+	if last == 0 or __Raw.wrappingAdd(last, right: pollStaleNanos) > now 'fresh'
+		return
+	end 'fresh'
+	if __Raw.compareExchange(scheduler, offset: schedLastPollOffset, expected: last, desired: now) != last 'raced'
+		return
+	end 'raced'
+	let list = netpoll(context, delay: netpollNoWait)
+	if list == noGreen 'none'
+		return
+	end 'none'
+	var count = 0 as Count
+	var g = list
+	while g != noGreen 'count'
+		count = __Raw.wrappingAdd(count, right: 1)
+		g = __Raw.loadWord(g, offset: greenLinkOffset)
+	end 'count'
+	lockScheduler(scheduler)
+	globalPutList(scheduler, list: list)
+	unlockScheduler(scheduler)
+	for i in 0 upto count 'threads'
+		if __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) == 0 'busy'
+			return
+		end 'busy'
+		startThreadFor(scheduler, proc: noProc, spinning: false)
+	end 'threads'
+end 'pollIfStale'
+
+// retake is Go's: for each processor, a green thread running since the monitor's look preemptNanos ago is asked to stop,
+// and a processor in a blocking call since the monitor's last look is taken from it, unless it has nothing queued, a
+// thread spins or a processor is idle, and the call is younger than syscallRetakeNanos. It says whether it did anything.
+function retake(scheduler Count, now Count) returns bool
+	var acted = false
+	for i in 0 upto procCount(scheduler) 'procs'
+		let proc = procAt(scheduler, index: i)
+		let status = __Raw.loadWord(proc, offset: procStatusOffset)
+		if status == procRunning or status == procSyscall 'held'
+			let tick = __Raw.loadWord(proc, offset: procSchedTickOffset)
+			if __Raw.loadWord(proc, offset: procSeenTickOffset) != tick 'moved'
+				__Raw.storeWord(proc, offset: procSeenTickOffset, value: tick)
+				__Raw.storeWord(proc, offset: procSeenWhenOffset, value: now)
+			end 'moved' else if __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSeenWhenOffset), right: preemptNanos) <= now 'long'
+				if preemptOne(scheduler, proc: proc) 'asked'
+					acted = true
+				end 'asked'
+			end 'long'
+		end 'held'
+		if status == procSyscall 'blocked'
+			let tick = __Raw.loadWord(proc, offset: procSyscallTickOffset)
+			if __Raw.loadWord(proc, offset: procSeenSyscallTickOffset) != tick 'moved'
+				__Raw.storeWord(proc, offset: procSeenSyscallTickOffset, value: tick)
+				__Raw.storeWord(proc, offset: procSeenSyscallWhenOffset, value: now)
+				continue 'procs'
+			end 'moved'
+			let helpers = __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedSpinningOffset), right: __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset))
+			let young = __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSeenSyscallWhenOffset), right: syscallRetakeNanos) > now
+			if runqEmpty(proc) and helpers > 0 and young 'leave'
+				continue 'procs'
+			end 'leave'
+			if __Raw.compareExchange(proc, offset: procStatusOffset, expected: procSyscall, desired: procIdle) == procSyscall 'taken'
+				__Raw.storeWord(proc, offset: procSyscallTickOffset, value: __Raw.wrappingAdd(tick, right: 1))
+				handOffProc(scheduler, proc: proc)
+				acted = true
+			end 'taken'
+		end 'blocked'
+	end 'procs'
+	return acted
+end 'retake'
+
+// preemptOne is Go's preemptone: the green thread of the thread that holds the processor is asked to stop, and the thread
+// is stopped where it may be. It says whether there was one to ask.
+function preemptOne(scheduler Count, proc Count) returns bool
+	let thread = __Raw.loadWord(proc, offset: procThreadOffset)
+	if thread == noThread 'none'
+		return false
+	end 'none'
+	let g = __Raw.loadWord(thread, offset: contextGreenOffset)
+	if g == noGreen 'scheduler'
+		return false
+	end 'scheduler'
+	__Raw.storeWord(g, offset: greenPreemptOffset, value: set)
+	preemptThread(scheduler, context: thread, g: g)
+	return true
+end 'preemptOne'
+
+// The exit claim, Go's suspendLock on Windows: a thread the monitor has suspended may hold a lock of the system's that
+// ExitProcess takes, so the monitor suspends a thread only while it holds the claim, and a thread that ends the process
+// takes the claim for good first; once it has, the monitor stops no thread again. The claim holds the claimer's context,
+// so a thread that has it may end the process again (checkLeaks after schedDrain).
+
+// takeExitClaim takes the exit claim for good for the running thread, waiting out a suspension the monitor has under way.
+function takeExitClaim(context Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler == noScheduler 'oneThread'
+		return
+	end 'oneThread'
+	while true 'claim'
+		let holder = __Raw.compareExchange(scheduler, offset: schedExitClaimOffset, expected: noThread, desired: context)
+		if holder == noThread or holder == context 'held'
+			return
+		end 'held'
+		__Raw.spinPause()
+	end 'claim'
+end 'takeExitClaim'
+
+#if os(Windows)
+	let suspendFailed = 0xFFFFFFFF as Count
+
+	// preemptThread stops a thread on Windows: it suspends it while it holds the exit claim, reads its registers, and when
+	// it may stop the green thread there has it return into rt.asyncPreempt, then resumes it. GetThreadContext returns
+	// only once the thread is suspended.
+	function preemptThread(scheduler Count, context Count, g Count)
+		let monitor = __Raw.loadWord(scheduler, offset: schedMonitorOffset)
+		if __Raw.compareExchange(scheduler, offset: schedExitClaimOffset, expected: noThread, desired: monitor) != noThread 'exiting'
+			return
+		end 'exiting'
+		let handle = __Raw.loadWord(context, offset: contextThreadOffset)
+		if handle != 0 and dword(__Raw.callImport1("SuspendThread", arg1: handle)) != suspendFailed 'suspended'
+			let buffer = __Raw.loadWord(scheduler, offset: schedRegistersOffset)
+			let registers = __Raw.wrappingAdd(buffer, right: __Raw.wrappingSub(windowsContextAlignment, right: buffer mod windowsContextAlignment))
+			__Raw.storeWord32(registers, offset: windowsContextFlagsOffset, value: windowsContextControl)
+			if __Raw.callImport2("GetThreadContext", arg1: handle, arg2: registers) != 0 'read'
+				let rip = __Raw.loadWord(registers, offset: windowsContextRipOffset)
+				let rsp = __Raw.loadWord(registers, offset: windowsContextRspOffset)
+				if stoppable(context, g: g, instruction: rip, stackPointer: rsp) 'stop'
+					__Raw.storeWord(registers, offset: windowsContextRspOffset, value: pushReturnInto(rip, stackPointer: rsp))
+					__Raw.storeWord(registers, offset: windowsContextRipOffset, value: __Raw.asyncPreemptAddress())
+					if __Raw.callImport2("SetThreadContext", arg1: handle, arg2: registers) == 0 'set'
+						panic("cannot set the registers of a thread the monitor stops")
+					end 'set'
+				end 'stop'
+			end 'read'
+			_ = __Raw.callImport1("ResumeThread", arg1: handle)
+		end 'suspended'
+		_ = __Raw.atomicExchange(scheduler, offset: schedExitClaimOffset, value: noThread)
+	end 'preemptThread'
+
+	// sleepMicros sleeps the monitor for at least a number of microseconds: Sleep counts milliseconds, at the system's
+	// timer resolution.
+	function sleepMicros(context Count, micros Count)
+		var millis = (__Raw.wrappingAdd(micros, right: nanosPerMicro - 1) / nanosPerMicro) as Count
+		if millis == 0 'least'
+			millis = 1
+		end 'least'
+		_ = __Raw.callImport1("Sleep", arg1: millis)
+	end 'sleepMicros'
+
+	// nanotime is the monotonic clock in nanoseconds.
+	function nanotime(context Count) returns Count
+		return osClockNanos()
+	end 'nanotime'
+
+	// setThreadIdentity keeps what the monitor stops the running thread by: a handle of its own, with the access to
+	// suspend it and read and set its registers.
+	function setThreadIdentity(context Count)
+		var handle = 0 as Count
+		let process = __Raw.callImport0("GetCurrentProcess")
+		if __Raw.callImport7("DuplicateHandle", arg1: process, arg2: __Raw.callImport0("GetCurrentThread"), arg3: process, arg4: __Raw.addressOf(handle), arg5: 0, arg6: 0, arg7: duplicateSameAccess) == 0 'refused'
+			panic("cannot make a handle of a thread")
+		end 'refused'
+		__Raw.storeWord(context, offset: contextThreadOffset, value: handle)
+	end 'setThreadIdentity'
+
+	let duplicateSameAccess = 2 as Count
+
+	// initPreemption has nothing to set up on Windows, where the monitor stops a thread from outside.
+	function initPreemption()
+	end 'initPreemption'
+#endif

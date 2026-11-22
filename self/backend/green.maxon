@@ -3,39 +3,6 @@
 // is made to return into, which keeps every register (README, "Green threads"). Each is a section of its own, so an
 // executable has it only when the runtime's code that names it is linked.
 
-// preemptibleFunction is whether the monitor may stop a green thread anywhere in the code of a function: in the program's
-// code, which holds nothing of the OS thread it runs on, it may; in the runtime's own source, which works on the thread's
-// heap, queues and scheduler, calls the system and switches stacks, it may not (Go's and maxon's rule: a function of the
-// runtime is not asynchronously preemptible). A test of the runtime is compiled into the runtime's module but is not of
-// its source, so its own functions are the program's.
-function preemptibleFunction(p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns bool
-	let mi = ast.modIndex(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module)
-	if not p.modules[mi].isRuntime 'program'
-		return true
-	end 'program'
-	let offset = p.modules[mi].tree.startOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).nodeID)
-	for i in 0 upto p.modules[mi].files.count() 'files'
-		if p.modules[mi].files[i].start <= offset and offset < p.modules[mi].files[i].endOff 'holds'
-			return not directoryHolds(p.modules[mi].dir, path: p.modules[mi].files[i].path)
-		end 'holds'
-	end 'files'
-	panic("backend: a function of the runtime in none of its files")
-end 'preemptibleFunction'
-
-// directoryHolds is whether a path is of a file directly or deeper under a directory.
-function directoryHolds(dir String, path String) returns bool
-	let n = dir.byteLength()
-	if path.byteLength() <= n or path.sliceBytes(0, endPos: n) != dir 'outside'
-		return false
-	end 'outside'
-	let separator = path.byteAt(n)
-	return separator == slashByte or separator == backslashByte
-end 'directoryHolds'
-
-let slashByte = 0x2F as Byte
-
-let backslashByte = 0x5C as Byte
-
 // switchedStackRegisters are the general registers a switch record holds, in the order of its slots from
 // switchRbxOffset: those the internal convention keeps, which the code that calls the switch expects back as from any
 // call, and the frame pointer.

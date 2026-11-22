@@ -1,0 +1,138 @@
+// The poller, Go's netpoll: one per process, an I/O completion port on Windows (GetQueuedCompletionStatusEx) and epoll with
+// an eventfd to break its wait on Linux (linux_green.maxon). At most one thread waits in it at a time, the one that took
+// schedLastPollOffset to 0, until the earliest timer; others poll it without waiting. A completion's key names what it
+// completes: the break of a wait, or a poll descriptor, which readies the green thread that waits on it. A poll descriptor
+// is signalled by a completion packet on Windows and by its eventfd on Linux, which is how a completion of the system's
+// reaches a green thread.
+
+// netpollForever and netpollNoWait are the delays of a poll that waits until something comes and of one that does not wait.
+let netpollForever = 0xFFFFFFFFFFFFFFFF as Count
+
+let netpollNoWait = 0 as Count
+
+// pollBreakKey is the key of a break of the poller's wait: no descriptor's address.
+let pollBreakKey = 1 as Count
+
+// pollSignalled is a poll descriptor's state once a completion came that no green thread has taken.
+let pollSignalled = 1 as Count
+
+let pollNobody = 0 as Count
+
+let nanosPerMilli = 1000000 as Count
+
+// pollWait parks the running green thread until the poll descriptor is signalled, or takes a signal that came already.
+function pollWait(descriptor Count)
+	let context = __Raw.threadContext()
+	let g = greenCurrent()
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	_ = __Raw.atomicAdd(scheduler, offset: schedPollWaitersOffset, value: 1)
+	if __Raw.compareExchange(descriptor, offset: pollStateOffset, expected: pollNobody, desired: g) == pollNobody 'wait'
+		park(context)
+		if __Raw.loadWord(descriptor, offset: pollStateOffset) != pollSignalled 'early'
+			panic("a green thread that waits on a poll descriptor was readied before it was signalled")
+		end 'early'
+	end 'wait'
+	__Raw.storeWord(descriptor, offset: pollStateOffset, value: pollNobody)
+	_ = __Raw.atomicAdd(scheduler, offset: schedPollWaitersOffset, value: stepDown)
+end 'pollWait'
+
+// pollSignalledInto is what a completion of a descriptor does: the descriptor is signalled, and the green thread that
+// waits on it, when one does and it was parked, joins the list of what the poll readied, which it gives back.
+function pollSignalledInto(descriptor Count, list Count) returns Count
+	let waiter = __Raw.atomicExchange(descriptor, offset: pollStateOffset, value: pollSignalled)
+	if waiter == pollNobody or waiter == pollSignalled 'nobody'
+		return list
+	end 'nobody'
+	if not markReady(waiter) 'running'
+		return list
+	end 'running'
+	__Raw.storeWord(waiter, offset: greenLinkOffset, value: list)
+	return waiter
+end 'pollSignalledInto'
+
+// pollWaitMillis is a poll's delay in nanoseconds as the milliseconds the system waits, rounded up so that a timer is never
+// woken for early, below the system's forever.
+function pollWaitMillis(delay Count, forever Count) returns Count
+	if delay == netpollForever 'forever'
+		return forever
+	end 'forever'
+	let millis = __Raw.wrappingAdd(delay, right: nanosPerMilli - 1) / nanosPerMilli
+	if millis >= forever 'long'
+		return __Raw.wrappingSub(forever, right: 1)
+	end 'long'
+	return millis
+end 'pollWaitMillis'
+
+#if os(Windows)
+	// The Win32 values of the poller.
+	let anyConcurrency = 0 as Count
+
+	let waitTimeout = 258 as Count
+
+	let notAlertable = 0 as Count
+
+	// initPoller makes the completion port.
+	function initPoller(scheduler Count)
+		let port = __Raw.callImport4("CreateIoCompletionPort", arg1: invalidHandle, arg2: 0, arg3: 0, arg4: anyConcurrency)
+		if port == 0 'failed'
+			panic("cannot make the poller's completion port")
+		end 'failed'
+		__Raw.storeWord(scheduler, offset: schedPollerOffset, value: port)
+	end 'initPoller'
+
+	// netpoll takes what has completed, waiting up to delay nanoseconds for something when nothing has, into the thread's
+	// block, and gives the list of the green threads it readied.
+	function netpoll(context Count, delay Count) returns Count
+		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+		let entries = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
+		var got = 0 as Count
+		let wait = pollWaitMillis(delay, forever: waitForever)
+		if __Raw.callImport6("GetQueuedCompletionStatusEx", arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: entries, arg3: pollEventSlots, arg4: __Raw.addressOf(got), arg5: wait, arg6: notAlertable) == 0 'none'
+			if dword(__Raw.callImport0("GetLastError")) == waitTimeout 'timedOut'
+				return noGreen
+			end 'timedOut'
+			panic("the poller's wait failed")
+		end 'none'
+		var list = noGreen
+		var entry = entries
+		for i in 0 upto dword(got) 'entries'
+			let key = __Raw.loadWord(entry, offset: windowsEntryKeyOffset)
+			if key == pollBreakKey 'break'
+				__Raw.storeWord(scheduler, offset: schedPollWakeSigOffset, value: unset)
+			end 'break' else 'descriptor'
+				list = pollSignalledInto(key, list: list)
+			end 'descriptor'
+			entry = __Raw.wrappingAdd(entry, right: windowsEntryBytes)
+		end 'entries'
+		return list
+	end 'netpoll'
+
+	// netpollBreak ends the wait of the thread in the poller, once for any number of breaks before it takes one.
+	function netpollBreak(scheduler Count)
+		if __Raw.compareExchange(scheduler, offset: schedPollWakeSigOffset, expected: unset, desired: set) != unset 'sent'
+			return
+		end 'sent'
+		postCompletion(scheduler, key: pollBreakKey)
+	end 'netpollBreak'
+
+	function postCompletion(scheduler Count, key Count)
+		if __Raw.callImport4("PostQueuedCompletionStatus", arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: 0, arg3: key, arg4: 0) == 0 'failed'
+			panic("cannot post a completion to the poller")
+		end 'failed'
+	end 'postCompletion'
+
+	// pollNew is a poll descriptor, which pollFree frees.
+	function pollNew() returns Count
+		_ = schedulerOf(__Raw.threadContext())
+		return alloc(pollDescriptorBytes)
+	end 'pollNew'
+
+	// pollSignal signals a poll descriptor with a completion packet whose key is the descriptor, from any thread.
+	function pollSignal(descriptor Count)
+		postCompletion(__Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset), key: descriptor)
+	end 'pollSignal'
+
+	function pollFree(descriptor Count)
+		free(descriptor)
+	end 'pollFree'
+#endif

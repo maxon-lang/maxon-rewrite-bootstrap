@@ -487,6 +487,7 @@ let nanosPerSecond = 1000000000 as Count
 		var done = 0 as Count
 		var readError = 0 as Count
 		var reading = true
+		enterBlocking()
 		while done < size and reading 'read'
 			var chunk = 0 as Count
 			let ok = __Raw.callImport5("ReadFile", arg1: file, arg2: __Raw.wrappingAdd(bytes, right: done), arg3: size - done, arg4: __Raw.addressOf(chunk), arg5: noOverlapped)
@@ -499,6 +500,7 @@ let nanosPerSecond = 1000000000 as Count
 				done = __Raw.wrappingAdd(done, right: chunk)
 			end 'more'
 		end 'read'
+		exitBlocking()
 		closeHandle(file)
 		if readError != 0 'failedRead'
 			free(box)
@@ -519,6 +521,7 @@ let nanosPerSecond = 1000000000 as Count
 			return win32
 		end 'open'
 		var done = 0 as Count
+		enterBlocking()
 		while done < length and win32 == 0 'write'
 			var written = 0 as Count
 			let ok = __Raw.callImport5("WriteFile", arg1: file, arg2: __Raw.wrappingAdd(data, right: done), arg3: length - done, arg4: __Raw.addressOf(written), arg5: noOverlapped)
@@ -528,6 +531,7 @@ let nanosPerSecond = 1000000000 as Count
 				done = __Raw.wrappingAdd(done, right: written)
 			end 'more'
 		end 'write'
+		exitBlocking()
 		closeHandle(file)
 		return win32
 	end 'writeFile'
@@ -546,6 +550,8 @@ function osWriteBinaryMode(path String, content Count, executable bool, errorAdd
 	endWithError(errorAddress, osError: writeFile(path, data: data, length: length, executable: executable), table: writeFailures())
 end 'osWriteBinaryMode'
 
+// osWriteText and osWriteBinary are entries of the seed's table, which holds the runtime it compiles to every entry it
+// names (E3004), though no compiler since it calls them; they go with the next seed.
 function osWriteText(path String, content String, errorAddress Count)
 	osWriteTextMode(path, content: content, executable: false, errorAddress: errorAddress)
 end 'osWriteText'

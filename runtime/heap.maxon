@@ -18,12 +18,13 @@
 // alone; a mask over the box's address would save the word, but only with chunks aligned to their size, which HeapAlloc
 // does not give. A slot keeps its class and heap for good, so a reused slot's header is never written again.
 //
-// A behaviour can free what another worker allocated. A box that the freeing thread's heap does not own goes on its own
-// heap's list of remote frees (heapRemoteOffset), pushed with a compare-exchange and linked through the dead box's first
-// word, as mimalloc's thread-free list is; the owner takes the whole list with one exchange when a class of its heap runs
-// out, and frees each box there into its class. Only the owner takes from the list and it takes everything, so a push
-// cannot see a box that was taken and pushed again under it. A large box's block, whichever thread made it, goes back from
-// the thread that frees it: on Linux to that thread's kept blocks, which only it reads and writes.
+// A green thread can free what another thread allocated, since it runs on whichever thread holds a processor when it runs.
+// A box that the freeing thread's heap does not own goes on its own heap's list of remote frees (heapRemoteOffset), pushed
+// with a compare-exchange and linked through the dead box's first word, as mimalloc's thread-free list is; the owner takes
+// the whole list with one exchange when a class of its heap runs out, and frees each box there into its class. Only the
+// owner takes from the list and it takes everything, so a push cannot see a box that was taken and pushed again under it.
+// A large box's block, whichever thread made it, goes back from the thread that frees it: on Linux to that thread's kept
+// blocks, which only it reads and writes.
 //
 // The runtime is the same code whatever the build: the heap counts the slots it carves and the large boxes it holds, less
 // those it freed, and the live boxes are that sum over the threads' heaps less the slots on their stacks and their lists
@@ -219,8 +220,9 @@ function heapMade(heap Count) returns Count
 	return heap
 end 'heapMade'
 
-// liveBoxes is the number of boxes allocated and not yet freed, summed over the threads' heaps: read when no behaviour
-// runs, so no heap changes meanwhile.
+// liveBoxes is the number of boxes allocated and not yet freed, summed over the heaps of every thread that runs green
+// threads, the main thread among them (the monitor allocates nothing): read when nothing runs, so no heap changes
+// meanwhile.
 function liveBoxes() returns Count
 	let context = __Raw.threadContext()
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
@@ -228,9 +230,10 @@ function liveBoxes() returns Count
 		return heapLive(__Raw.loadWord(context, offset: contextHeapOffset))
 	end 'oneThread'
 	var live = 0 as Count
-	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
-	for i in 0 upto workers 'threads'
-		live = __Raw.wrappingAdd(live, right: heapLive(__Raw.loadWord(workerContext(scheduler, worker: i), offset: contextHeapOffset)))
+	var thread = __Raw.loadWord(scheduler, offset: schedAllThreadsOffset)
+	while thread != noThread 'threads'
+		live = __Raw.wrappingAdd(live, right: heapLive(__Raw.loadWord(thread, offset: contextHeapOffset)))
+		thread = __Raw.loadWord(thread, offset: contextAllNextOffset)
 	end 'threads'
 	return live
 end 'liveBoxes'
@@ -515,7 +518,7 @@ end 'allocLarge'
 	end 'processHeap'
 #endif
 
-// keep is a zeroed block that the runtime keeps until the process ends, such as a worker's context and queue, which no
+// keep is a zeroed block that the runtime keeps until the process ends, such as a thread's context and a processor, which no
 // program drops: it is not one of the program's boxes, so the leak check does not count it.
 function keep(bytes Count) returns Count
 	#if os(Windows)
@@ -524,3 +527,12 @@ function keep(bytes Count) returns Count
 		return mapPages(bytes)
 	#endif
 end 'keep'
+
+// unkeep gives back a block of a number of bytes that keep made, which nothing reads again, as a grown table's old one.
+function unkeep(block Count, bytes Count)
+	#if os(Windows)
+		_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: block)
+	#else
+		unmapPages(block, bytes: bytes)
+	#endif
+end 'unkeep'

@@ -362,10 +362,12 @@ end 'argumentBox'
 		__Raw.storeWord(output, offset: pipeOpenOffset, value: 1)
 		__Raw.storeWord(errors, offset: pipeOpenOffset, value: 1)
 		let child = wordAt(process, offset: processHandleOffset)
+		enterBlocking()
 		let startedAt = __Raw.callImport0("GetTickCount64")
 		var draining = true
 		while draining 'drain'
 			if deadlineMs != noDeadline and __Raw.wrappingSub(__Raw.callImport0("GetTickCount64"), right: startedAt) >= deadlineMs 'late'
+				exitBlocking()
 				endAtDeadline(child, output: output, errors: errors, frame: frame, errorAddress: errorAddress)
 				return 0
 			end 'late'
@@ -380,6 +382,7 @@ end 'argumentBox'
 			end 'idle'
 		end 'drain'
 		_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
+		exitBlocking()
 		var exitCode = 0 as Count
 		_ = __Raw.callImport2("GetExitCodeProcess", arg1: child, arg2: __Raw.addressOf(exitCode))
 		closeHandle(child)

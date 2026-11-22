@@ -1,0 +1,90 @@
+// Green threads that ping-pong: testPairs pairs, each passing a turn back and forth testRounds times by greenPark and
+// greenReady, and a coordinator that awaits every player and checks the turns each pair counted. Under two processors the
+// two of a pair park and ready each other across threads.
+//> 64 pairs played 500 rounds each: 64000 turns
+
+let testPairs = 64 as Count
+
+let testRounds = 500 as Count
+
+// A pair's record: whose turn it is (0 or 1), how many turns were played, and the two players.
+let testTurnOffset = 0 as Count
+
+let testTurnsOffset = 8 as Count
+
+let testPlayersOffset = 16 as Count
+
+let testPairBytes = 32 as Count
+
+// A player's arguments: its pair and its side.
+let testPairArgument = 0 as Count
+
+let testSideArgument = 1 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let pairs = alloc(testPairs * wordBytes)
+	for i in 0 upto testPairs 'pairs'
+		let pair = alloc(testPairBytes)
+		__Raw.storeWord(pairs, offset: i * wordBytes, value: pair)
+		for side in 0 upto 2 'players'
+			let player = greenSpawn(__Raw.codeAddress("testPlayer"))
+			greenSetArgument(player, index: testPairArgument, value: pair)
+			greenSetArgument(player, index: testSideArgument, value: side)
+			__Raw.storeWord(pair, offset: testPlayerOffset(side), value: player)
+		end 'players'
+		for side in 0 upto 2 'start'
+			greenReady(__Raw.loadWord(pair, offset: testPlayerOffset(side)))
+		end 'start'
+	end 'pairs'
+	var turns = 0 as Count
+	for i in 0 upto testPairs 'await'
+		let pair = __Raw.loadWord(pairs, offset: i * wordBytes)
+		for side in 0 upto 2 'players'
+			let played = greenAwait(__Raw.loadWord(pair, offset: testPlayerOffset(side)))
+			if played != testRounds 'short'
+				panic("a player played another number of rounds")
+			end 'short'
+		end 'players'
+		if __Raw.loadWord(pair, offset: testTurnsOffset) != testRounds * 2 'count'
+			panic("a pair counted another number of turns")
+		end 'count'
+		turns = __Raw.wrappingAdd(turns, right: __Raw.loadWord(pair, offset: testTurnsOffset))
+		free(pair)
+	end 'await'
+	free(pairs)
+	testWrite("{testPairs} pairs played {testRounds} rounds each: {turns} turns\n")
+	return 0
+end 'testCoordinator'
+
+// testPlayer waits for its side's turn, counts it, hands the turn over and readies the other side, testRounds times.
+function testPlayer(g Count) returns Count
+	let pair = greenArgument(g, index: testPairArgument)
+	let side = greenArgument(g, index: testSideArgument)
+	let other = __Raw.loadWord(pair, offset: testPlayerOffset(__Raw.wrappingSub(1, right: side)))
+	for round in 0 upto testRounds 'rounds'
+		while __Raw.loadWord(pair, offset: testTurnOffset) != side 'wait'
+			greenPark()
+		end 'wait'
+		__Raw.storeWord(pair, offset: testTurnsOffset, value: __Raw.wrappingAdd(__Raw.loadWord(pair, offset: testTurnsOffset), right: 1))
+		__Raw.storeWord(pair, offset: testTurnOffset, value: __Raw.wrappingSub(1, right: side))
+		// The other side's last round comes before this side's when this is side 1, which has then no one to ready.
+		if side == 0 or round + 1 < testRounds 'more'
+			greenReady(other)
+		end 'more'
+	end 'rounds'
+	return testRounds
+end 'testPlayer'
+
+// testPlayerOffset is where a pair holds the player of a side.
+function testPlayerOffset(side Count) returns Count
+	return try testPlayersOffset + side * wordBytes otherwise panic("a side past the pair")
+end 'testPlayerOffset'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

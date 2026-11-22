@@ -1,0 +1,38 @@
+// The poller: a green thread waits on a poll descriptor until another, after a sleep, signals it (a completion packet on
+// Windows, the descriptor's eventfd on Linux), and the poller readies the waiter; then a signal that comes before the wait
+// is taken by the wait at once.
+//> a completion readied its waiter
+//> a completion before the wait was taken
+
+let testSleepNanos = 20000000 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let descriptor = pollNew()
+	let signaller = greenSpawn(__Raw.codeAddress("testSignaller"))
+	greenSetArgument(signaller, index: 0, value: descriptor)
+	greenReady(signaller)
+	pollWait(descriptor)
+	testWrite("a completion readied its waiter\n")
+	_ = greenAwait(signaller)
+	pollSignal(descriptor)
+	greenSleep(testSleepNanos)
+	pollWait(descriptor)
+	testWrite("a completion before the wait was taken\n")
+	pollFree(descriptor)
+	return 0
+end 'testCoordinator'
+
+function testSignaller(g Count) returns Count
+	greenSleep(testSleepNanos)
+	pollSignal(greenArgument(g, index: 0))
+	return 0
+end 'testSignaller'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

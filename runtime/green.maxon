@@ -1,0 +1,551 @@
+// Green threads (Go's g): a record (greenBytes) with the code it runs, its arguments, its status and the registers of its
+// stack while it does not run, and a stack from a pool, taken when it first runs and given back when it finishes, so a
+// green thread that is made and queued holds no stack. A thread runs one by switching from its scheduler's stack onto the
+// green thread's (execute), and the green thread comes back by switching to its thread's scheduler with what it asks of
+// it (the context's intent): to park it, to requeue it (a yield, or a preemption), to take it off a processor it lost in a
+// blocking call, or to finish it. The scheduler does that on its own stack, once the green thread's registers are saved,
+// so a green thread is never queued or readied while it still runs on its stack, as Go's mcall has it.
+//
+// Stacks never move, since a borrow is an address in a frame: each is a reserve of stackReserveBytes, the main thread's,
+// that the system commits a page at a time, its lowest page a guard, so a stack overflow faults as a thread's does.
+//
+// Park and ready are Go's gopark and goready with a permit, so a ready that comes before its green thread has parked is
+// not lost: ready makes a running green thread greenNotified, and its next park returns at once, consuming it.
+//
+// The API, which a test of the runtime calls and the language's async, await and services are to lower to:
+// greenSpawn(code) makes a green thread that runs code with itself as its one argument, greenSetArgument and
+// greenArgument write and read its arguments, greenReady makes it runnable (after its arguments are written, as maxon's
+// __gt_ready publishes last), greenAwait waits for it to finish and gives the word its code gave back, greenPark,
+// greenYield, greenCurrent and greenSleep (timers.maxon).
+
+// A green thread's status (greenStatusOffset).
+let greenIdle = 0 as Count
+
+let greenRunnable = 1 as Count
+
+let greenRunning = 2 as Count
+
+let greenWaiting = 3 as Count
+
+let greenNotified = 4 as Count
+
+let greenDead = 5 as Count
+
+// A green thread's kind (greenKindOffset).
+let greenBehaviour = 0 as Count
+
+let greenAwaited = 1 as Count
+
+// greenFinished is a green thread's waiter once it has finished: no record's address.
+let greenFinished = 1 as Count
+
+// What a green thread asks of its scheduler when it switches to it (contextIntentOffset).
+let intentPark = 1 as Count
+
+let intentYield = 2 as Count
+
+let intentPreempted = 3 as Count
+
+let intentFinish = 4 as Count
+
+let intentNoProc = 5 as Count
+
+// A processor keeps up to freeGreensKept free green threads' records and freeStacksKept free stacks, and sends half of
+// them to the scheduler's lists when it has more, as Go's gfput does; a processor with none takes freeBatch at once.
+let freeGreensKept = 64 as Count
+
+let freeStacksKept = 16 as Count
+
+let freeBatch = 8 as Count
+
+// newGreen is a green thread of a kind that runs code, not yet runnable: from the processor's free records, the
+// scheduler's, or a new one. It counts among the live ones until it finishes.
+function newGreen(context Count, code Count, kind Count) returns Count
+	let scheduler = schedulerOf(context)
+	let proc = __Raw.loadWord(context, offset: contextProcOffset)
+	let g = takeFreeGreen(scheduler, proc: proc)
+	__Raw.storeWord(g, offset: greenStatusOffset, value: greenIdle)
+	__Raw.storeWord(g, offset: greenLinkOffset, value: noGreen)
+	__Raw.storeWord(g, offset: greenStackOffset, value: noStack)
+	__Raw.storeWord(g, offset: greenCodeOffset, value: code)
+	__Raw.storeWord(g, offset: greenArgOffset, value: g)
+	__Raw.storeWord(g, offset: greenResultOffset, value: 0)
+	__Raw.storeWord(g, offset: greenWaiterOffset, value: noGreen)
+	__Raw.storeWord(g, offset: greenKindOffset, value: kind)
+	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
+	return g
+end 'newGreen'
+
+// greenSpawn makes a green thread that runs code, a function of one word, with the green thread itself, once it is
+// readied, and counts it among the live ones, so the program does not end before it has finished.
+function greenSpawn(code Count) returns Count
+	let context = __Raw.threadContext()
+	let scheduler = schedulerOf(context)
+	startMonitor(scheduler)
+	_ = __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: 1)
+	return newGreen(context, code: code, kind: greenAwaited)
+end 'greenSpawn'
+
+// greenSetArgument writes a green thread's argument of an index, before it is readied.
+function greenSetArgument(g Count, index Count, value Count)
+	__Raw.storeWord(g, offset: greenArgumentOffset(index), value: value)
+end 'greenSetArgument'
+
+// greenArgument is a green thread's argument of an index.
+function greenArgument(g Count, index Count) returns Count
+	return __Raw.loadWord(g, offset: greenArgumentOffset(index))
+end 'greenArgument'
+
+function greenArgumentOffset(index Count) returns Count
+	if index >= greenArgWords 'past'
+		panic("a green thread has no argument of that index")
+	end 'past'
+	return __Raw.wrappingAdd(greenArgsOffset, right: index * wordBytes)
+end 'greenArgumentOffset'
+
+// greenCurrent is the green thread the running thread runs.
+function greenCurrent() returns Count
+	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
+	if g == noGreen 'off'
+		panic("a green thread's operation is called off a green thread")
+	end 'off'
+	return g
+end 'greenCurrent'
+
+// greenReady makes a green thread runnable, or, when it runs and has not parked yet, has its next park return at once.
+function greenReady(g Count)
+	ready(__Raw.threadContext(), g: g)
+end 'greenReady'
+
+// greenPark parks the running green thread until a ready, which may have come already.
+function greenPark()
+	park(__Raw.threadContext())
+end 'greenPark'
+
+// greenYield is Go's Gosched: the running green thread goes to the global run queue, and its thread runs another.
+function greenYield()
+	let context = __Raw.threadContext()
+	_ = greenCurrent()
+	switchToScheduler(context, intent: intentYield)
+end 'greenYield'
+
+// greenAwait waits for a green thread that greenSpawn made to finish, gives back the word its code gave back, and frees
+// its record. The finish exchanges greenFinished into the waiter after it stored the result, so either the waiter is
+// recorded before and readied by the finish, or it sees greenFinished.
+function greenAwait(g Count) returns Count
+	let context = __Raw.threadContext()
+	let waiter = greenCurrent()
+	if __Raw.loadWord(g, offset: greenKindOffset) != greenAwaited 'kind'
+		panic("a green thread that is not awaited is awaited")
+	end 'kind'
+	if __Raw.compareExchange(g, offset: greenWaiterOffset, expected: noGreen, desired: waiter) == noGreen 'wait'
+		park(context)
+		if __Raw.loadWord(g, offset: greenWaiterOffset) != greenFinished 'early'
+			panic("a green thread that awaits another was readied before it finished")
+		end 'early'
+	end 'wait'
+	let result = __Raw.loadWord(g, offset: greenResultOffset)
+	let after = __Raw.threadContext()
+	putFreeGreen(__Raw.loadWord(after, offset: contextSchedulerOffset), proc: __Raw.loadWord(after, offset: contextProcOffset), g: g)
+	return result
+end 'greenAwait'
+
+// ready is Go's goready: a parked or new green thread goes to runnext of the running thread's processor, and a thread is
+// woken for an idle processor; a running one is notified instead.
+function ready(context Count, g Count)
+	if markReady(g) 'queue'
+		runqPut(__Raw.loadWord(context, offset: contextProcOffset), g: g, next: true)
+		wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
+	end 'queue'
+end 'ready'
+
+// markReady moves a green thread's status for a ready and says whether the caller is to queue it: from parked or new to
+// runnable, it is; from running to notified, or when a ready already came, it is not. The status is read by a locked add of
+// 0, a full fence: what the readier stored before the ready (the condition the green thread waits on) must be seen by the
+// green thread whenever the readier finds it runnable and leaves it so. A plain load could pass those stores on x64, see a
+// runnable green thread that then starts, reads the old condition and parks, and the ready would be lost.
+function markReady(g Count) returns bool
+	while true 'status'
+		let status = __Raw.atomicAdd(g, offset: greenStatusOffset, value: 0)
+		if status == greenWaiting or status == greenIdle 'parked'
+			if __Raw.compareExchange(g, offset: greenStatusOffset, expected: status, desired: greenRunnable) == status 'made'
+				return true
+			end 'made'
+		end 'parked' else if status == greenRunning 'running'
+			if __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenNotified) == greenRunning 'notified'
+				return false
+			end 'notified'
+		end 'running' else if status == greenNotified or status == greenRunnable 'already'
+			return false
+		end 'already' else 'dead'
+			panic("a green thread that finished is readied")
+		end 'dead'
+	end 'status'
+	return false
+end 'markReady'
+
+// park is Go's gopark: the running green thread waits until a ready, unless one came already.
+function park(context Count)
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	if g == noGreen 'off'
+		panic("a park off a green thread")
+	end 'off'
+	if __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenNotified, desired: greenRunning) == greenNotified 'permit'
+		return
+	end 'permit'
+	switchToScheduler(context, intent: intentPark)
+end 'park'
+
+// switchToScheduler is Go's mcall: the running green thread saves its registers and goes to its thread's scheduler,
+// which does what intent asks on its own stack. It returns when the green thread runs again, on whatever thread.
+function switchToScheduler(context Count, intent Count)
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	__Raw.storeWord(context, offset: contextIntentOffset, value: intent)
+	switchStacks(context, from: __Raw.wrappingAdd(g, right: greenSwitchOffset), onto: threadBlockSwitch(context))
+end 'switchToScheduler'
+
+// switchStacks saves the running stack's registers into from and goes on the stack of onto (rt.stackSwitch).
+function switchStacks(context Count, from Count, onto Count)
+	__Raw.storeWord(context, offset: contextSwitchFromOffset, value: from)
+	__Raw.storeWord(context, offset: contextSwitchToOffset, value: onto)
+	_ = __Raw.callCode1(__Raw.stackSwitchAddress(), arg1: __Raw.wrappingAdd(context, right: contextSwitchFromOffset))
+end 'switchStacks'
+
+// execute is Go's execute: the thread runs a green thread on its stack, giving it one when it first runs, until it
+// switches back, then does what it asked.
+function execute(context Count, g Count)
+	let proc = __Raw.loadWord(context, offset: contextProcOffset)
+	__Raw.storeWord(proc, offset: procSchedTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSchedTickOffset), right: 1))
+	_ = __Raw.atomicExchange(g, offset: greenStatusOffset, value: greenRunning)
+	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
+	if __Raw.loadWord(g, offset: greenStackOffset) == noStack 'first'
+		giveStack(context, g: g)
+	end 'first'
+	__Raw.storeWord(context, offset: contextGreenOffset, value: g)
+	switchStacks(context, from: threadBlockSwitch(context), onto: __Raw.wrappingAdd(g, right: greenSwitchOffset))
+	__Raw.storeWord(context, offset: contextGreenOffset, value: noGreen)
+	let intent = __Raw.loadWord(context, offset: contextIntentOffset)
+	if intent == intentPark 'park'
+		parked(context, g: g)
+	end 'park' else if intent == intentYield or intent == intentPreempted or intent == intentNoProc 'requeue'
+		requeue(context, g: g)
+	end 'requeue' else if intent == intentFinish 'finish'
+		finished(context, g: g)
+	end 'finish' else 'unknown'
+		panic("a green thread asks its scheduler for what it does not do")
+	end 'unknown'
+end 'execute'
+
+// parked is Go's park_m, the scheduler's half of a park: the green thread waits, unless a ready came while it switched, and
+// then it runs next.
+function parked(context Count, g Count)
+	if __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenWaiting) == greenRunning 'waits'
+		return
+	end 'waits'
+	__Raw.storeWord(g, offset: greenStatusOffset, value: greenRunnable)
+	runqPut(__Raw.loadWord(context, offset: contextProcOffset), g: g, next: true)
+end 'parked'
+
+// requeue is Go's goschedImpl, for a yield, a preemption, and a green thread whose thread lost its processor in a blocking
+// call: the green thread goes to the global run queue, and a thread is woken for an idle processor.
+function requeue(context Count, g Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	__Raw.storeWord(g, offset: greenStatusOffset, value: greenRunnable)
+	lockScheduler(scheduler)
+	globalPut(scheduler, g: g)
+	unlockScheduler(scheduler)
+	wakeProc(scheduler)
+end 'requeue'
+
+// finished is Go's goexit0: the green thread's stack goes back to the pool, a behaviour's record is freed and an awaited
+// one's waiter readied, and the count of live ones drops, the last one ending the main thread's drain.
+function finished(context Count, g Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	let proc = __Raw.loadWord(context, offset: contextProcOffset)
+	let stack = __Raw.loadWord(g, offset: greenStackOffset)
+	__Raw.storeWord(stack, offset: pooledStackLimitOffset, value: __Raw.loadWord(g, offset: __Raw.wrappingAdd(greenSwitchOffset, right: switchStackLimitOffset)))
+	__Raw.storeWord(g, offset: greenStackOffset, value: noStack)
+	putFreeStack(scheduler, proc: proc, stack: stack)
+	__Raw.storeWord(g, offset: greenStatusOffset, value: greenDead)
+	if __Raw.loadWord(g, offset: greenKindOffset) == greenBehaviour 'behaviour'
+		putFreeGreen(scheduler, proc: proc, g: g)
+	end 'behaviour' else 'awaited'
+		let waiter = __Raw.atomicExchange(g, offset: greenWaiterOffset, value: greenFinished)
+		if waiter != noGreen 'waiter'
+			ready(context, g: waiter)
+		end 'waiter'
+	end 'awaited'
+	if __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: stepDown) == 1 'last'
+		endDrain(scheduler)
+	end 'last'
+end 'finished'
+
+// greenMain is the code a green thread's stack starts in (rt.greenStart, with the green thread): it runs the green
+// thread's code, keeps the word that gave back, and finishes it, never to return.
+function greenMain(g Count)
+	let result = __Raw.callCode1(__Raw.loadWord(g, offset: greenCodeOffset), arg1: __Raw.loadWord(g, offset: greenArgOffset))
+	__Raw.storeWord(g, offset: greenResultOffset, value: result)
+	switchToScheduler(__Raw.threadContext(), intent: intentFinish)
+	panic("a finished green thread ran again")
+end 'greenMain'
+
+// giveStack gives a green thread that has not run a stack, and seeds the stack's switch record so that the first switch
+// onto it returns into rt.greenStart, which calls greenMain with the green thread.
+function giveStack(context Count, g Count)
+	let stack = takeFreeStack(__Raw.loadWord(context, offset: contextSchedulerOffset), proc: __Raw.loadWord(context, offset: contextProcOffset))
+	__Raw.storeWord(g, offset: greenStackOffset, value: stack)
+	let record = __Raw.wrappingAdd(g, right: greenSwitchOffset)
+	let high = __Raw.loadWord(stack, offset: pooledStackHighOffset)
+	let sp = __Raw.wrappingSub(high, right: __Raw.wrappingAdd(wordBytes, right: wordBytes))
+	__Raw.storeWord(sp, offset: 0, value: __Raw.greenStartAddress())
+	__Raw.storeWord(record, offset: switchSpOffset, value: sp)
+	__Raw.storeWord(record, offset: switchRbxOffset, value: g)
+	__Raw.storeWord(record, offset: switchRbpOffset, value: 0)
+	__Raw.storeWord(record, offset: switchR12Offset, value: __Raw.codeAddress("greenMain"))
+	__Raw.storeWord(record, offset: switchStackBaseOffset, value: high)
+	__Raw.storeWord(record, offset: switchStackLimitOffset, value: __Raw.loadWord(stack, offset: pooledStackLimitOffset))
+	__Raw.storeWord(record, offset: switchStackLowOffset, value: __Raw.loadWord(stack, offset: pooledStackLowOffset))
+end 'giveStack'
+
+// noStack is a green thread's stack before it first runs and after it finished.
+let noStack = 0 as Count
+
+// takeFreeGreen is a free green thread's record: the processor's, a batch of the scheduler's, or a new one. A thread
+// with no processor (none before the scheduler) takes the scheduler's.
+function takeFreeGreen(scheduler Count, proc Count) returns Count
+	if proc != noProc 'own'
+		let g = __Raw.loadWord(proc, offset: procFreeGreensOffset)
+		if g != noGreen 'kept'
+			__Raw.storeWord(proc, offset: procFreeGreensOffset, value: __Raw.loadWord(g, offset: greenLinkOffset))
+			__Raw.storeWord(proc, offset: procFreeGreenCountOffset, value: __Raw.wrappingSub(__Raw.loadWord(proc, offset: procFreeGreenCountOffset), right: 1))
+			return g
+		end 'kept'
+	end 'own'
+	lockScheduler(scheduler)
+	let g = __Raw.loadWord(scheduler, offset: schedFreeGreensOffset)
+	if g != noGreen 'shared'
+		__Raw.storeWord(scheduler, offset: schedFreeGreensOffset, value: __Raw.loadWord(g, offset: greenLinkOffset))
+	end 'shared'
+	unlockScheduler(scheduler)
+	if g != noGreen 'reused'
+		return g
+	end 'reused'
+	return carve(scheduler, bytes: greenBytes)
+end 'takeFreeGreen'
+
+// putFreeGreen keeps a green thread's record for reuse on the processor, and sends half of what it keeps to the
+// scheduler's list when it keeps too many.
+function putFreeGreen(scheduler Count, proc Count, g Count)
+	if proc == noProc 'shared'
+		lockScheduler(scheduler)
+		__Raw.storeWord(g, offset: greenLinkOffset, value: __Raw.loadWord(scheduler, offset: schedFreeGreensOffset))
+		__Raw.storeWord(scheduler, offset: schedFreeGreensOffset, value: g)
+		unlockScheduler(scheduler)
+		return
+	end 'shared'
+	__Raw.storeWord(g, offset: greenLinkOffset, value: __Raw.loadWord(proc, offset: procFreeGreensOffset))
+	__Raw.storeWord(proc, offset: procFreeGreensOffset, value: g)
+	let kept = __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procFreeGreenCountOffset), right: 1)
+	__Raw.storeWord(proc, offset: procFreeGreenCountOffset, value: kept)
+	if kept <= freeGreensKept 'few'
+		return
+	end 'few'
+	lockScheduler(scheduler)
+	for i in 0 upto freeGreensKept / 2 'spill'
+		let spilled = __Raw.loadWord(proc, offset: procFreeGreensOffset)
+		__Raw.storeWord(proc, offset: procFreeGreensOffset, value: __Raw.loadWord(spilled, offset: greenLinkOffset))
+		__Raw.storeWord(spilled, offset: greenLinkOffset, value: __Raw.loadWord(scheduler, offset: schedFreeGreensOffset))
+		__Raw.storeWord(scheduler, offset: schedFreeGreensOffset, value: spilled)
+	end 'spill'
+	unlockScheduler(scheduler)
+	__Raw.storeWord(proc, offset: procFreeGreenCountOffset, value: __Raw.wrappingSub(kept, right: freeGreensKept / 2))
+end 'putFreeGreen'
+
+// takeFreeStack is a free stack: the processor's, the scheduler's, or a new one.
+function takeFreeStack(scheduler Count, proc Count) returns Count
+	let kept = __Raw.loadWord(proc, offset: procFreeStacksOffset)
+	if kept != noStack 'kept'
+		__Raw.storeWord(proc, offset: procFreeStacksOffset, value: __Raw.loadWord(kept, offset: pooledStackNextOffset))
+		__Raw.storeWord(proc, offset: procFreeStackCountOffset, value: __Raw.wrappingSub(__Raw.loadWord(proc, offset: procFreeStackCountOffset), right: 1))
+		return kept
+	end 'kept'
+	lockScheduler(scheduler)
+	let shared = __Raw.loadWord(scheduler, offset: schedFreeStacksOffset)
+	if shared != noStack 'shared'
+		__Raw.storeWord(scheduler, offset: schedFreeStacksOffset, value: __Raw.loadWord(shared, offset: pooledStackNextOffset))
+	end 'shared'
+	unlockScheduler(scheduler)
+	if shared != noStack 'reused'
+		return shared
+	end 'reused'
+	return newStack(scheduler)
+end 'takeFreeStack'
+
+// putFreeStack keeps a stack for reuse on the processor, and sends half of what it keeps to the scheduler's list when it
+// keeps too many. A stack keeps the pages its last green thread committed.
+function putFreeStack(scheduler Count, proc Count, stack Count)
+	__Raw.storeWord(stack, offset: pooledStackNextOffset, value: __Raw.loadWord(proc, offset: procFreeStacksOffset))
+	__Raw.storeWord(proc, offset: procFreeStacksOffset, value: stack)
+	let kept = __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procFreeStackCountOffset), right: 1)
+	__Raw.storeWord(proc, offset: procFreeStackCountOffset, value: kept)
+	if kept <= freeStacksKept 'few'
+		return
+	end 'few'
+	lockScheduler(scheduler)
+	for i in 0 upto freeStacksKept / 2 'spill'
+		let spilled = __Raw.loadWord(proc, offset: procFreeStacksOffset)
+		__Raw.storeWord(proc, offset: procFreeStacksOffset, value: __Raw.loadWord(spilled, offset: pooledStackNextOffset))
+		__Raw.storeWord(spilled, offset: pooledStackNextOffset, value: __Raw.loadWord(scheduler, offset: schedFreeStacksOffset))
+		__Raw.storeWord(scheduler, offset: schedFreeStacksOffset, value: spilled)
+	end 'spill'
+	unlockScheduler(scheduler)
+	__Raw.storeWord(proc, offset: procFreeStackCountOffset, value: __Raw.wrappingSub(kept, right: freeStacksKept / 2))
+end 'putFreeStack'
+
+// The blocking-call hand-off, Go's entersyscall and exitsyscall. A runtime function that makes a system call that may
+// block brackets it, so that the monitor can take the processor from the thread meanwhile and hand it to another thread
+// (retake, handOffProc). The bracket's exit may switch the green thread to another thread, so a function that brackets a
+// call holds nothing of the running thread across it. Off a green thread (main, before the drain) it does nothing: the
+// thread then keeps its processor, as before there were green threads.
+
+// enterBlocking is Go's entersyscall: the processor is marked as in a blocking call, which the monitor may take it from.
+function enterBlocking()
+	let context = __Raw.threadContext()
+	if __Raw.loadWord(context, offset: contextGreenOffset) == noGreen 'off'
+		return
+	end 'off'
+	let proc = __Raw.loadWord(context, offset: contextProcOffset)
+	__Raw.storeWord(context, offset: contextSyscallOffset, value: set)
+	__Raw.storeWord(proc, offset: procSyscallTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSyscallTickOffset), right: 1))
+	__Raw.storeWord(proc, offset: procThreadOffset, value: noThread)
+	_ = __Raw.atomicExchange(proc, offset: procStatusOffset, value: procSyscall)
+end 'enterBlocking'
+
+// exitBlocking is Go's exitsyscall: the thread takes its processor back when the monitor did not take it, or else an idle
+// one, or else the green thread goes to the global run queue and the thread stops until it is handed a processor.
+function exitBlocking()
+	let context = __Raw.threadContext()
+	if __Raw.loadWord(context, offset: contextSyscallOffset) == unset 'unbracketed'
+		return
+	end 'unbracketed'
+	let proc = __Raw.loadWord(context, offset: contextProcOffset)
+	if __Raw.compareExchange(proc, offset: procStatusOffset, expected: procSyscall, desired: procRunning) == procSyscall 'kept'
+		__Raw.storeWord(proc, offset: procThreadOffset, value: context)
+		__Raw.storeWord(context, offset: contextSyscallOffset, value: unset)
+		return
+	end 'kept'
+	__Raw.storeWord(context, offset: contextProcOffset, value: noProc)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	lockScheduler(scheduler)
+	let idle = idleProcGet(scheduler)
+	unlockScheduler(scheduler)
+	__Raw.storeWord(context, offset: contextSyscallOffset, value: unset)
+	if idle != noProc 'idle'
+		acquireProc(context, proc: idle)
+		return
+	end 'idle'
+	switchToScheduler(context, intent: intentNoProc)
+end 'exitBlocking'
+
+// asyncPreempted is the code rt.asyncPreempt calls (contextPreemptCodeOffset), on the stack of the green thread the
+// monitor stopped, once every register is saved: Go's asyncPreempt2 and gopreempt_m, the green thread goes to the global
+// run queue, and returns into rt.asyncPreempt when it runs again, perhaps on another thread.
+function asyncPreempted(context Count)
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
+	switchToScheduler(context, intent: intentPreempted)
+end 'asyncPreempted'
+
+// stoppable is whether a thread the monitor has stopped (suspended on Windows, in the preemption signal's handler on
+// Linux), at an instruction and a stack pointer, may be made to return into rt.asyncPreempt: it runs a green thread that
+// the monitor asked to stop, it is not in a blocking call, the instruction is of the code that the link marks
+// preemptible (the program's, never the runtime's, a routine, the stub or a DLL's), and the stack pointer is within the
+// green thread's stack, above its guard page.
+function stoppable(context Count, g Count, instruction Count, stackPointer Count) returns bool
+	if g == noGreen or __Raw.loadWord(context, offset: contextGreenOffset) != g 'notRunning'
+		return false
+	end 'notRunning'
+	if __Raw.loadWord(g, offset: greenPreemptOffset) != set or __Raw.loadWord(context, offset: contextSyscallOffset) != unset 'notAsked'
+		return false
+	end 'notAsked'
+	let stack = __Raw.loadWord(g, offset: greenStackOffset)
+	if stack == noStack 'noStack'
+		return false
+	end 'noStack'
+	let lowest = __Raw.wrappingAdd(__Raw.loadWord(stack, offset: pooledStackLowOffset), right: stackGuardBytes)
+	if stackPointer <= lowest or stackPointer > __Raw.loadWord(stack, offset: pooledStackHighOffset) 'offStack'
+		return false
+	end 'offStack'
+	return preemptibleAt(instruction)
+end 'stoppable'
+
+// preemptibleAt is whether an address is in a range of the link's table of preemptible code, whose words say how far
+// below the table each range starts and ends.
+function preemptibleAt(address Count) returns bool
+	let table = __Raw.preemptibleCodeAddress()
+	let below = __Raw.wrappingSub(table, right: address)
+	let ranges = __Raw.loadWord(table, offset: 0)
+	var slot = __Raw.wrappingAdd(table, right: wordBytes)
+	for i in 0 upto ranges 'ranges'
+		if below <= __Raw.loadWord(slot, offset: 0) and below > __Raw.loadWord(slot, offset: wordBytes) 'inside'
+			return true
+		end 'inside'
+		slot = __Raw.wrappingAdd(slot, right: wordBytes + wordBytes)
+	end 'ranges'
+	return false
+end 'preemptibleAt'
+
+// pushReturnInto makes stopped code, at an instruction and a stack pointer, return into code: it pushes the instruction as
+// the return address, which no code's data is below the stack pointer to be overwritten by, and gives the new stack
+// pointer.
+function pushReturnInto(instruction Count, stackPointer Count) returns Count
+	let sp = __Raw.wrappingSub(stackPointer, right: wordBytes)
+	__Raw.storeWord(sp, offset: 0, value: instruction)
+	return sp
+end 'pushReturnInto'
+
+#if os(Windows)
+	// The Win32 values a stack is reserved and committed with.
+	let memReserve = 0x2000 as Count
+
+	let memCommit = 0x1000 as Count
+
+	let pageReadWrite = 4 as Count
+
+	let pageGuard = 0x100 as Count
+
+	// stackFirstCommitBytes is what a new stack commits at its top; the guard page below it grows the stack on its first
+	// touch, as the system grows a thread's.
+	let stackFirstCommitBytes = 16384 as Count
+
+	// stackGuardBytes is the guard page at the bottom of a stack's reserve.
+	let stackGuardBytes = 4096 as Count
+
+	// newStack reserves a stack and commits its top, with a guard page below the committed part, so that the kernel
+	// commits a page more each time the stack reaches the guard, by the TEB's bounds that rt.stackSwitch moves with it.
+	function newStack(scheduler Count) returns Count
+		let low = __Raw.callImport4("VirtualAlloc", arg1: 0, arg2: stackReserveBytes, arg3: memReserve, arg4: pageReadWrite)
+		if low == 0 'reserve'
+			panic("out of memory: no address space for a green thread's stack")
+		end 'reserve'
+		let high = __Raw.wrappingAdd(low, right: stackReserveBytes)
+		let committed = __Raw.wrappingSub(high, right: stackFirstCommitBytes)
+		if __Raw.callImport4("VirtualAlloc", arg1: committed, arg2: stackFirstCommitBytes, arg3: memCommit, arg4: pageReadWrite) == 0 'commit'
+			panic("out of memory: cannot commit a green thread's stack")
+		end 'commit'
+		if __Raw.callImport4("VirtualAlloc", arg1: __Raw.wrappingSub(committed, right: stackGuardBytes), arg2: stackGuardBytes, arg3: memCommit, arg4: pageReadWrite or pageGuard) == 0 'guard'
+			panic("out of memory: cannot guard a green thread's stack")
+		end 'guard'
+		return stackRecord(scheduler, low: low, high: high, limit: committed)
+	end 'newStack'
+#endif
+
+// stackRecord is the record of a new stack.
+function stackRecord(scheduler Count, low Count, high Count, limit Count) returns Count
+	let stack = carve(scheduler, bytes: pooledStackBytes)
+	__Raw.storeWord(stack, offset: pooledStackLowOffset, value: low)
+	__Raw.storeWord(stack, offset: pooledStackHighOffset, value: high)
+	__Raw.storeWord(stack, offset: pooledStackLimitOffset, value: limit)
+	__Raw.storeWord(stack, offset: pooledStackNextOffset, value: noStack)
+	return stack
+end 'stackRecord'

@@ -29,33 +29,42 @@ let leakMessageEnd = "\n"
 	// noOverlapped is WriteFile's lpOverlapped for a handle that is written in order.
 	let noOverlapped = 0 as Count
 
-	// write writes a string to a handle, all of it in one WriteFile, which a console or a pipe takes whole.
-	function write(handle Count, text String)
+	// writeHandle writes a string to a handle, all of it in one WriteFile, which a console or a pipe takes whole.
+	function writeHandle(handle Count, text String)
 		var written = 0 as Count
 		let box = __Raw.stringAddress(text)
 		let length = __Raw.loadWord(box, offset: stringLengthOffset)
 		let bytes = __Raw.wrappingAdd(box, right: stringBytesOffset)
 		_ = __Raw.callImport5("WriteFile", arg1: handle, arg2: bytes, arg3: length, arg4: __Raw.addressOf(written), arg5: noOverlapped)
-	end 'write'
+	end 'writeHandle'
 #endif
+
+// write is the program's write to a handle, which a pipe or a console may block: a blocking call, whose thread's processor
+// the monitor may hand to another thread meanwhile. A panic writes with writeHandle alone, since it may come from code that
+// holds the scheduler's lock.
+function write(handle Count, text String)
+	enterBlocking()
+	writeHandle(handle, text: text)
+	exitBlocking()
+end 'write'
 
 // panicWith is what a panic runs: it writes the message to standard error and exits.
 function panicWith(message String)
 	let handle = standardError()
-	write(handle, text: panicPrefix)
-	write(handle, text: message)
-	write(handle, text: panicEnd)
+	writeHandle(handle, text: panicPrefix)
+	writeHandle(handle, text: message)
+	writeHandle(handle, text: panicEnd)
 	exitProcess(panicExitCode)
 end 'panicWith'
 
 // panicAt is what the program's own panic runs: the message after the file and line of the call.
 function panicAt(location String, message String)
 	let handle = standardError()
-	write(handle, text: panicAtPrefix)
-	write(handle, text: location)
-	write(handle, text: panicAtSeparator)
-	write(handle, text: message)
-	write(handle, text: panicEnd)
+	writeHandle(handle, text: panicAtPrefix)
+	writeHandle(handle, text: location)
+	writeHandle(handle, text: panicAtSeparator)
+	writeHandle(handle, text: message)
+	writeHandle(handle, text: panicEnd)
 	exitProcess(panicExitCode)
 end 'panicAt'
 
@@ -73,9 +82,9 @@ function checkLeaks(code Count) returns Count
 		return code
 	end 'clean'
 	let handle = standardError()
-	write(handle, text: leakMessage)
-	write(handle, text: itoa(live, unsigned: true))
-	write(handle, text: leakMessageEnd)
+	writeHandle(handle, text: leakMessage)
+	writeHandle(handle, text: itoa(live, unsigned: true))
+	writeHandle(handle, text: leakMessageEnd)
 	exitProcess(leakExitCode)
 	return code
 end 'checkLeaks'
@@ -85,8 +94,10 @@ function standardError() returns Count
 end 'standardError'
 
 #if os(Windows)
-	// exitProcess ends the process with a code; it does not return.
+	// exitProcess ends the process with a code; it does not return. It takes the exit claim first, so that ExitProcess
+	// never meets a thread the monitor has suspended.
 	function exitProcess(code Count)
+		takeExitClaim(__Raw.threadContext())
 		_ = __Raw.callImport1("ExitProcess", arg1: code)
 	end 'exitProcess'
 #endif

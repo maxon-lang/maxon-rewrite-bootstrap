@@ -1,53 +1,70 @@
-// The scheduler: the behaviours that `when` schedules, run to completion by worker threads. The main thread is worker 0;
-// the others start all at once when the first behaviour is scheduled, so a program that schedules none starts no
-// thread. Each worker owns a queue of runnable behaviours (a Chase-Lev deque): a behaviour that a thread schedules or
-// makes runnable goes on that thread's queue, whose owner takes the newest first, so the work it just made runs next on
-// the core that has its data, while an idle worker steals the oldest of another's. A worker that finds nothing parks on
-// its event (on Linux, a futex on its sleeping flag) until a push wakes it. The program ends when main has returned and no
-// behaviour is left.
+// The scheduler, Go's: green threads (G) run by threads (M, a thread's context) that each hold a processor (P) while
+// they run one, with Go's run queues (runtime/proc.go). Each processor has a local run queue, a ring of procRunqSlots
+// that its owner puts at the tail of and takes from the head of, beside runnext, the green thread readied last, which
+// runs next, so the work a green thread just made runs on the core that has its data; a full ring sends half of itself to
+// the global run queue, which every processor takes from once in fairnessTicks schedules and when its own is empty. A
+// thread with nothing to run steals half of another processor's ring, and a thread that still finds nothing gives up its
+// processor and stops, or waits in the poller when a timer or a poll descriptor is pending. Threads are started by work,
+// not by the processor count: a green thread readied while a processor is idle and no thread is spinning starts one
+// (wakep), and the monitor (monitor.maxon) starts one for a processor it takes from a blocking call.
 //
-// What a behaviour is to the scheduler: a record whose run field (behaviourRunOffset) is the address of code that takes
-// the record, runs the behaviour, and is done with the record when it returns, having released and freed what it holds.
-// `when` calls schedEnter once for each behaviour it makes, before the behaviour can run, and schedPush when it becomes
-// runnable, on whichever thread that happens.
+// A behaviour is a green thread: `when` calls schedEnter once for each behaviour it makes, before the behaviour can run,
+// and schedPush when it becomes runnable, which gives it a green thread that runs the record's run with the record. The
+// main thread is thread 0 with processor 0 from the start, and runs main on its own stack; after main, schedDrain runs
+// the scheduler on that stack until no behaviour or green thread is left. The program then ends with ExitProcess, which
+// ends the other threads wherever they are.
 
-// noScheduler is the scheduler field of the main thread's context until a behaviour is scheduled or an exit code set.
+// noScheduler is the scheduler field of the main thread's context until the first behaviour or green thread is made or an
+// exit code set.
 let noScheduler = 0 as Count
 
-// noBehaviour is what a queue gives when it has nothing to give.
-let noBehaviour = 0 as Count
+let noProc = 0 as Count
 
-// mainWorker is the main thread's index among the workers.
-let mainWorker = 0 as Count
+let noThread = 0 as Count
+
+let noGreen = 0 as Count
+
+let mainProc = 0 as Count
 
 // stepDown added to a count lowers it by one, since the atomic add takes a word.
 let stepDown = 0xFFFFFFFFFFFFFFFF as Count
 
-// The values of a queue's sleeping flag.
-let awake = 0 as Count
+// The values of the scheduler's and a context's flags.
+let unset = 0 as Count
 
-let sleeping = 1 as Count
+let set = 1 as Count
 
-// queueFirstCapacity is a new queue's ring: 2 KB, which holds the fan-out of a burst of behaviours without growing, and
-// doubles when it does not.
-let queueFirstCapacity = 256 as Count
+// What a processor is doing (procStatusOffset).
+let procIdle = 0 as Count
 
-// An idle worker tries to steal stealRounds times before it parks, pausing for pausesPerRound pause instructions after
-// each of the first spinRounds and yielding its processor after the others: a park and a wake cost a system call each
-// and some microseconds, and work often comes again within that, while yielding keeps a spinning worker from holding a
-// core that another thread needs.
-let stealRounds = 8 as Count
+let procRunning = 1 as Count
 
-let spinRounds = 4 as Count
+let procSyscall = 2 as Count
 
-let pausesPerRound = 64 as Count
+// fairnessTicks is Go's: once in so many schedules a processor takes from the global run queue first, so a pair of green
+// threads that keep readying each other cannot keep the global queue from running.
+let fairnessTicks = 61 as Count
 
-// randomStep is the increment of each worker's Weyl sequence, which picks the queue a steal tries first: 2^64 over the
-// golden ratio, odd, so the sequence goes through every word before it repeats and the workers' sequences start apart.
+// stealTries is how many rounds a spinning thread tries every other processor, the last taking runnext too, as Go's
+// stealWork does.
+let stealTries = 4 as Count
+
+// A thread that waits for the scheduler's lock pauses for lockPauses pause instructions between tries for lockSpinRounds
+// rounds, then yields its processor between them: the lock is held for a few loads and stores.
+let lockSpinRounds = 4 as Count
+
+let lockPauses = 64 as Count
+
+// randomStep is the increment of each thread's Weyl sequence, which picks the processor a steal tries first: 2^64 over the
+// golden ratio, odd, so the sequence goes through every word before it repeats.
 let randomStep = 0x9E3779B97F4A7C15 as Count
 
 // randomShift keeps the high half of the sequence's word, which varies more from one step to the next than the low.
 let randomShift = 32 as Count
+
+// carveBlockBytes is the block of the process that green threads' and stacks' records are carved from, which the runtime
+// keeps for the life of the process as Go keeps its g records.
+let carveBlockBytes = 65536 as Count
 
 #if os(Windows)
 	// The Win32 values the scheduler passes.
@@ -70,7 +87,7 @@ let randomShift = 32 as Count
 	let waitForever = 0xFFFFFFFF
 #endif
 
-// The number of workers is the number of processors, or MAXON_MAX_PROCS when it holds a decimal count in
+// The number of processors is the number of the machine's, or MAXON_MAX_PROCS when it holds a decimal count in
 // [fewestWorkers, mostRequestedWorkers], with an optional leading '+', as maxon's runtime reads it; any other value is
 // ignored.
 let maxProcsVariable = "MAXON_MAX_PROCS"
@@ -85,25 +102,25 @@ let plusSign = 0x2B as Byte
 
 let digitNine = 0x39 as Byte
 
-// The values of the scheduler's flags.
-let unset = 0 as Count
-
-let set = 1 as Count
-
-// schedEnter counts one more behaviour, which `when` calls before the behaviour can run. The first one starts the
-// workers' threads: until then only the main thread runs.
+// schedEnter counts one more behaviour, which `when` calls before the behaviour can run.
 function schedEnter()
 	let scheduler = schedulerOf(__Raw.threadContext())
-	if __Raw.loadWord(scheduler, offset: schedStartedOffset) == unset 'first'
-		__Raw.storeWord(scheduler, offset: schedStartedOffset, value: set)
-		startThreads(scheduler)
-	end 'first'
+	startMonitor(scheduler)
 	_ = __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: 1)
 end 'schedEnter'
 
+// schedPush makes a behaviour runnable: a green thread runs its record's run with the record, next on the running
+// thread's processor, and a thread is woken for the processors that are idle.
+function schedPush(record Count)
+	let context = __Raw.threadContext()
+	let g = newGreen(context, code: __Raw.loadWord(record, offset: behaviourRunOffset), kind: greenBehaviour)
+	__Raw.storeWord(g, offset: greenArgOffset, value: record)
+	ready(context, g: g)
+end 'schedPush'
+
 // osSetExitCode is Process.setExitCode: the process ends with the last code set, in place of main's, when main has
-// returned and no behaviour is left. The code is read only then, after every behaviour has finished, so a plain store
-// is enough.
+// returned and nothing is left. The code is read only then, after every behaviour has finished, so a plain store is
+// enough.
 function osSetExitCode(code Count)
 	let scheduler = schedulerOf(__Raw.threadContext())
 	__Raw.storeWord(scheduler, offset: schedExitCodeOffset, value: code)
@@ -120,374 +137,840 @@ function schedulerOf(context Count) returns Count
 	return makeScheduler(context)
 end 'schedulerOf'
 
-// schedPush puts a runnable behaviour on the running thread's queue and wakes a parked worker if there is one, which
-// may then steal it or what else the queue holds.
-function schedPush(record Count)
-	let context = __Raw.threadContext()
-	queuePush(__Raw.loadWord(context, offset: contextQueueOffset), record: record)
-	wakeOne(__Raw.loadWord(context, offset: contextSchedulerOffset))
-end 'schedPush'
-
-// schedDrain is what the entry stub calls after main: the main thread runs behaviours as worker 0 until none is left, and
-// gives back the exit code, main's or the one set last. When nothing was ever scheduled it returns at once.
+// schedDrain is what the entry stub calls after main: the main thread runs the scheduler until no behaviour or green
+// thread is left, and gives back the exit code, main's or the one set last. When nothing was ever made it returns at once.
+// The thread that returns from it ends the process, so it takes the exit claim, after which the monitor stops no thread.
 function schedDrain(code Count) returns Count
 	let context = __Raw.threadContext()
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	if scheduler == noScheduler 'nothing'
 		return code
 	end 'nothing'
-	runWorker(context, watchesEnd: true)
-	if __Raw.loadWord(scheduler, offset: schedExitSetOffset) == set 'set'
+	__Raw.storeWord(context, offset: contextDrainsOffset, value: set)
+	scheduleLoop(context)
+	__Raw.storeWord(context, offset: contextDrainsOffset, value: unset)
+	regainProc(context)
+	takeExitClaim(context)
+	if __Raw.loadWord(scheduler, offset: schedExitSetOffset) == set 'exitSet'
 		return __Raw.loadWord(scheduler, offset: schedExitCodeOffset)
-	end 'set'
+	end 'exitSet'
 	return code
 end 'schedDrain'
 
+// regainProc gives the main thread a processor again after a drain, which may have ended with it stopped and holding none,
+// since main goes on to run as before: nothing is left, so every processor is idle or about to be.
+function regainProc(context Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	while __Raw.loadWord(context, offset: contextProcOffset) == noProc 'regain'
+		lockScheduler(scheduler)
+		let proc = idleProcGet(scheduler)
+		unlockScheduler(scheduler)
+		if proc != noProc 'got'
+			acquireProc(context, proc: proc)
+		end 'got' else 'wait'
+			yieldThread()
+		end 'wait'
+	end 'regain'
+end 'regainProc'
+
 // workerMain is what a thread the runtime makes runs, with its context, which rt.threadStart has stored in the
-// thread-local slot: the code the context names, after which the thread ends, or else a worker's loop, which never
-// returns, since the process ends with ExitProcess, which ends the workers wherever they are.
+// thread-local slot: the code the context names, after which the thread ends, or else Go's mstart, the scheduler with the
+// processor its starter handed it, which never returns.
 function workerMain(context Count)
 	let code = __Raw.loadWord(context, offset: contextStartCodeOffset)
 	if code != workerLoop 'own'
 		_ = __Raw.callCode1(code, arg1: context)
 		return
 	end 'own'
-	runWorker(context, watchesEnd: false)
+	setThreadIdentity(context)
+	acquireProc(context, proc: __Raw.atomicExchange(context, offset: contextNextProcOffset, value: noProc))
+	scheduleLoop(context)
+	panic("a thread's scheduler returned")
 end 'workerMain'
 
 // workerLoop is the start code of a worker's context: none of its own.
 let workerLoop = 0 as Count
 
-// runWorker runs behaviours until the program ends: on a worker the runtime made, for good, and on the main thread
-// (watchesEnd) until no behaviour is left.
-function runWorker(context Count, watchesEnd bool)
-	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
-	while true 'work'
-		if watchesEnd and liveBehaviours(scheduler) == 0 'ended'
+// scheduleLoop is Go's schedule, on the thread's own stack: it finds a green thread and runs it until it switches back,
+// for good, or on the main thread after main until nothing is left.
+function scheduleLoop(context Count)
+	while true 'schedule'
+		if __Raw.loadWord(context, offset: contextProcOffset) == noProc 'noProc'
+			if not stopThread(context) 'ended'
+				return
+			end 'ended'
+		end 'noProc'
+		let g = findRunnable(context)
+		if g == noGreen 'ended'
 			return
 		end 'ended'
-		let record = findWork(context, scheduler: scheduler)
-		if record != noBehaviour 'found'
-			runBehaviour(scheduler, record: record)
-		end 'found' else 'idle'
-			park(context, scheduler: scheduler, watchesEnd: watchesEnd)
-		end 'idle'
-	end 'work'
-end 'runWorker'
+		if __Raw.loadWord(context, offset: contextSpinningOffset) == set 'spinning'
+			resetSpinning(context)
+		end 'spinning'
+		execute(context, g: g)
+	end 'schedule'
+end 'scheduleLoop'
 
-// runBehaviour runs a behaviour to completion and counts it finished. The one that leaves none wakes the main thread,
-// which may be parked waiting for that.
-function runBehaviour(scheduler Count, record Count)
-	_ = __Raw.callCode1(__Raw.loadWord(record, offset: behaviourRunOffset), arg1: record)
-	if __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: stepDown) == 1 'last'
-		_ = wakeWorker(scheduler, context: workerContext(scheduler, worker: mainWorker))
-	end 'last'
-end 'runBehaviour'
-
-function liveBehaviours(scheduler Count) returns Count
-	return __Raw.loadWord(scheduler, offset: schedLiveOffset)
-end 'liveBehaviours'
-
-// findWork is the next behaviour for a worker: its own newest, or else one stolen from another worker within a few
-// rounds, or noBehaviour.
-function findWork(context Count, scheduler Count) returns Count
-	let own = queueTake(__Raw.loadWord(context, offset: contextQueueOffset))
-	if own != noBehaviour 'own'
-		return own
-	end 'own'
-	for round in 0 upto stealRounds 'rounds'
-		let stolen = stealAny(context, scheduler: scheduler)
-		if stolen != noBehaviour 'stolen'
-			return stolen
-		end 'stolen'
-		if round < spinRounds 'spin'
-			for i in 0 upto pausesPerRound 'pauses'
-				__Raw.spinPause()
-			end 'pauses'
-		end 'spin' else 'yield'
-			#if os(Windows)
-				_ = __Raw.callImport0("SwitchToThread")
-			#else
-				_ = __Raw.syscall0(linuxSysSchedYield)
-			#endif
-		end 'yield'
-	end 'rounds'
-	return noBehaviour
-end 'findWork'
-
-// stealAny tries the queue of every other worker once, from one picked at random, so that thieves spread over the
-// workers rather than all trying the same one first.
-function stealAny(context Count, scheduler Count) returns Count
-	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
-	var victim = (try nextRandom(context) mod workers otherwise 0) as Count
-	for i in 0 upto workers 'victims'
-		let other = workerContext(scheduler, worker: victim)
-		if other != context 'other'
-			let stolen = queueSteal(__Raw.loadWord(other, offset: contextQueueOffset))
-			if stolen != noBehaviour 'stolen'
+// findRunnable is Go's: the next green thread for the thread's processor, from its timers, its run queue, the global run
+// queue, the poller and the other processors' queues, or else the processor goes idle and the thread waits, in the poller
+// when something is pending there, until it is handed a processor. It gives noGreen only on the main thread's drain,
+// once nothing is left.
+function findRunnable(context Count) returns Count
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	while true 'top'
+		let proc = __Raw.loadWord(context, offset: contextProcOffset)
+		if __Raw.loadWord(proc, offset: procSchedTickOffset) mod fairnessTicks == 0 and globalQueued(scheduler) 'fair'
+			lockScheduler(scheduler)
+			let fair = globalGet(scheduler, proc: proc, most: 1)
+			unlockScheduler(scheduler)
+			if fair != noGreen 'found'
+				return fair
+			end 'found'
+		end 'fair'
+		runTimers(context, proc: proc)
+		let own = runqGet(proc)
+		if own != noGreen 'own'
+			return own
+		end 'own'
+		if globalQueued(scheduler) 'global'
+			lockScheduler(scheduler)
+			let global = globalGet(scheduler, proc: proc, most: 0)
+			unlockScheduler(scheduler)
+			if global != noGreen 'found'
+				return global
+			end 'found'
+		end 'global'
+		if __Raw.loadWord(scheduler, offset: schedPollWaitersOffset) > 0 and __Raw.loadWord(scheduler, offset: schedLastPollOffset) != 0 'poll'
+			let polled = pollReadied(context, proc: proc, list: netpoll(context, delay: netpollNoWait))
+			if polled != noGreen 'found'
+				return polled
+			end 'found'
+		end 'poll'
+		if mayStartSpinning(context, scheduler: scheduler) 'steal'
+			let stolen = stealWork(context, proc: proc)
+			if stolen != noGreen 'found'
 				return stolen
-			end 'stolen'
-		end 'other'
-		victim = __Raw.wrappingAdd(victim, right: 1)
-		if victim == workers 'wrap'
-			victim = 0
-		end 'wrap'
-	end 'victims'
-	return noBehaviour
-end 'stealAny'
+			end 'found'
+		end 'steal'
+		lockScheduler(scheduler)
+		if globalQueued(scheduler) 'late'
+			let late = globalGet(scheduler, proc: proc, most: 0)
+			unlockScheduler(scheduler)
+			return late
+		end 'late'
+		idleProcPut(scheduler, proc: releaseProc(context))
+		unlockScheduler(scheduler)
+		if __Raw.loadWord(context, offset: contextSpinningOffset) == set 'wasSpinning'
+			__Raw.storeWord(context, offset: contextSpinningOffset, value: unset)
+			_ = __Raw.atomicAdd(scheduler, offset: schedSpinningOffset, value: stepDown)
+			if takeProcForQueued(context, scheduler: scheduler) 'again'
+				continue 'top'
+			end 'again'
+		end 'wasSpinning'
+		if pollPending(scheduler) and __Raw.atomicExchange(scheduler, offset: schedLastPollOffset, value: 0) != 0 'wait'
+			if waitInPoller(context, scheduler: scheduler) 'handed'
+				continue 'top'
+			end 'handed'
+		end 'wait'
+		if not stopThread(context) 'ended'
+			return noGreen
+		end 'ended'
+	end 'top'
+	panic("the scheduler's search for work ended")
+end 'findRunnable'
 
-// nextRandom steps the worker's Weyl sequence.
+// mayStartSpinning is whether the thread may look for work on the other processors, which it marks itself as doing: Go
+// limits the spinning threads to half the busy processors, so that a burst of wakes does not have every idle thread
+// steal at once.
+function mayStartSpinning(context Count, scheduler Count) returns bool
+	if __Raw.loadWord(context, offset: contextSpinningOffset) == set 'already'
+		return true
+	end 'already'
+	let busy = __Raw.wrappingSub(procCount(scheduler), right: __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset))
+	let spinning = __Raw.loadWord(scheduler, offset: schedSpinningOffset)
+	if __Raw.wrappingAdd(spinning, right: spinning) >= busy 'enough'
+		return false
+	end 'enough'
+	__Raw.storeWord(context, offset: contextSpinningOffset, value: set)
+	_ = __Raw.atomicAdd(scheduler, offset: schedSpinningOffset, value: 1)
+	return true
+end 'mayStartSpinning'
+
+// takeProcForQueued is Go's check of every run queue after a thread stops spinning: work that was readied while it
+// spun, whose readier saw a spinning thread and woke none, would otherwise wait. When some queue holds work the thread
+// takes an idle processor and spins again.
+function takeProcForQueued(context Count, scheduler Count) returns bool
+	let procs = procCount(scheduler)
+	for i in 0 upto procs 'procs'
+		if not runqEmpty(procAt(scheduler, index: i)) 'queued'
+			lockScheduler(scheduler)
+			let proc = idleProcGet(scheduler)
+			unlockScheduler(scheduler)
+			if proc == noProc 'none'
+				return false
+			end 'none'
+			acquireProc(context, proc: proc)
+			__Raw.storeWord(context, offset: contextSpinningOffset, value: set)
+			_ = __Raw.atomicAdd(scheduler, offset: schedSpinningOffset, value: 1)
+			return true
+		end 'queued'
+	end 'procs'
+	return false
+end 'takeProcForQueued'
+
+// resetSpinning is Go's: a spinning thread that found work stops spinning, and when it was the last one and a processor
+// is idle it wakes another, which may find more.
+function resetSpinning(context Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	__Raw.storeWord(context, offset: contextSpinningOffset, value: unset)
+	if __Raw.atomicAdd(scheduler, offset: schedSpinningOffset, value: stepDown) == 1 and __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) > 0 'last'
+		wakeProc(scheduler)
+	end 'last'
+end 'resetSpinning'
+
+// stealWork is Go's: stealTries rounds over the other processors from one picked at random, the last taking a victim's
+// runnext too, which gives one of the green threads taken and puts the rest on the thief's ring.
+function stealWork(context Count, proc Count) returns Count
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	let procs = procCount(scheduler)
+	for round in 0 upto stealTries 'rounds'
+		let last = round == stealTries - 1
+		var victim = (try nextRandom(context) mod procs otherwise 0) as Count
+		for i in 0 upto procs 'victims'
+			let other = procAt(scheduler, index: victim)
+			if other != proc 'other'
+				let stolen = runqSteal(proc, victim: other, takesNext: last)
+				if stolen != noGreen 'stolen'
+					return stolen
+				end 'stolen'
+			end 'other'
+			victim = __Raw.wrappingAdd(victim, right: 1)
+			if victim == procs 'wrap'
+				victim = 0
+			end 'wrap'
+		end 'victims'
+	end 'rounds'
+	return noGreen
+end 'stealWork'
+
+// nextRandom steps the thread's Weyl sequence.
 function nextRandom(context Count) returns Count
 	let state = __Raw.wrappingAdd(__Raw.loadWord(context, offset: contextRandomOffset), right: randomStep)
 	__Raw.storeWord(context, offset: contextRandomOffset, value: state)
 	return state shr randomShift
 end 'nextRandom'
 
-// Parking and waking. A worker that found nothing parks so:
-//
-//	park:   sleeping = 1; sleepers += 1 (lock xadd);   then it reads every queue, and the main thread the live count
-//	push:   bottom = b + 1 (xchg);                     then it reads sleepers
-//
-// Each side's store is followed by a locked operation, a full fence on x64, before its read, so the two cannot both miss
-// the other's store (a Dekker pair): either the parking worker sees the new behaviour and does not wait, or the pusher
-// sees sleepers above 0 and wakes a sleeping worker by claiming its flag (1 to 0 by compare-exchange, which also takes
-// it out of sleepers) and setting its event. A worker that the pusher finds no flag to claim of has stopped sleeping on
-// its own or by another waker, and looks at every queue again before it next parks, which is after the push. The last
-// behaviour to finish and the main thread are the same pair over the live count and the main thread's flag. A worker
-// that a waker claims just as it finds work on its own does not wait, and its event stays set; its next wait returns at
-// once, it claims its own flag back, and looks again, which costs a round and loses nothing.
-function park(context Count, scheduler Count, watchesEnd bool)
-	let queue = __Raw.loadWord(context, offset: contextQueueOffset)
-	__Raw.storeWord(queue, offset: queueSleepingOffset, value: sleeping)
-	_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: 1)
-	let ended = watchesEnd and liveBehaviours(scheduler) == 0
-	if not ended and not anyQueued(scheduler) 'wait'
+// waitInPoller is the wait of the one thread in the poller, which has stored 0 in schedLastPollOffset to claim it: until
+// the earliest timer, or a completion, or a break. Then it takes an idle processor for what the poller readied, and says
+// whether it got one; when there is none, what was readied goes on the global run queue, and the thread stops.
+function waitInPoller(context Count, scheduler Count) returns bool
+	let next = __Raw.loadWord(scheduler, offset: schedTimerNextOffset)
+	var delay = netpollForever
+	if next != noTimer 'timer'
+		let now = nanotime(context)
+		delay = __Raw.wrappingSub(next, right: now) if next > now else netpollNoWait
+	end 'timer'
+	__Raw.storeWord(scheduler, offset: schedPollUntilOffset, value: next)
+	let list = netpoll(context, delay: delay)
+	__Raw.storeWord(scheduler, offset: schedPollUntilOffset, value: noTimer)
+	__Raw.storeWord(scheduler, offset: schedLastPollOffset, value: nanotime(context))
+	lockScheduler(scheduler)
+	let proc = idleProcGet(scheduler)
+	if proc == noProc 'none'
+		globalPutList(scheduler, list: list)
+		unlockScheduler(scheduler)
+		return false
+	end 'none'
+	unlockScheduler(scheduler)
+	acquireProc(context, proc: proc)
+	var g = list
+	while g != noGreen 'readied'
+		let after = __Raw.loadWord(g, offset: greenLinkOffset)
+		runqPut(proc, g: g, next: false)
+		g = after
+	end 'readied'
+	return true
+end 'waitInPoller'
+
+// pollPending is whether a thread should wait in the poller rather than stop: a timer is armed or a green thread waits
+// on a poll descriptor.
+function pollPending(scheduler Count) returns bool
+	return __Raw.loadWord(scheduler, offset: schedTimerNextOffset) != noTimer or __Raw.loadWord(scheduler, offset: schedPollWaitersOffset) > 0
+end 'pollPending'
+
+// pollReadied puts what a poll that did not wait readied on the thread's processor and gives the first of it to run.
+function pollReadied(context Count, proc Count, list Count) returns Count
+	if list == noGreen 'none'
+		return noGreen
+	end 'none'
+	var g = __Raw.loadWord(list, offset: greenLinkOffset)
+	while g != noGreen 'rest'
+		let next = __Raw.loadWord(g, offset: greenLinkOffset)
+		runqPut(proc, g: g, next: false)
+		g = next
+	end 'rest'
+	return list
+end 'pollReadied'
+
+// stopThread is Go's stopm: the thread, holding no processor, waits on the list of idle threads until a thread that
+// starts work hands it a processor (startThreadFor), which it takes. It says false on the main thread's drain when
+// nothing is left, which is checked under the lock that endDrain takes, so the last finish cannot be missed.
+function stopThread(context Count) returns bool
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	lockScheduler(scheduler)
+	if drainEnded(context, scheduler: scheduler) 'ended'
+		unlockScheduler(scheduler)
+		return false
+	end 'ended'
+	__Raw.storeWord(context, offset: contextStoppedOffset, value: set)
+	__Raw.storeWord(context, offset: contextIdleNextOffset, value: __Raw.loadWord(scheduler, offset: schedIdleThreadsOffset))
+	__Raw.storeWord(scheduler, offset: schedIdleThreadsOffset, value: context)
+	unlockScheduler(scheduler)
+	waitStopped(context)
+	let proc = __Raw.atomicExchange(context, offset: contextNextProcOffset, value: noProc)
+	if proc == noProc 'unhanded'
+		if __Raw.loadWord(context, offset: contextDrainsOffset) == set 'drain'
+			return false
+		end 'drain'
+		panic("a thread was woken with no processor")
+	end 'unhanded'
+	acquireProc(context, proc: proc)
+	return true
+end 'stopThread'
+
+// drainEnded is whether the thread is the main thread after main and nothing is left.
+function drainEnded(context Count, scheduler Count) returns bool
+	return __Raw.loadWord(context, offset: contextDrainsOffset) == set and __Raw.loadWord(scheduler, offset: schedLiveOffset) == 0
+end 'drainEnded'
+
+// endDrain is what the finish of the last behaviour or green thread does: it wakes the main thread when it is stopped,
+// taking it off the idle list, and breaks the poller's wait, where the main thread may wait, so that schedDrain returns.
+function endDrain(scheduler Count)
+	let main = __Raw.loadWord(scheduler, offset: schedMainThreadOffset)
+	lockScheduler(scheduler)
+	var woken = false
+	if __Raw.loadWord(main, offset: contextStoppedOffset) == set and takeIdleThread(scheduler, context: main) 'stopped'
+		woken = true
+	end 'stopped'
+	unlockScheduler(scheduler)
+	if woken 'wake'
+		wakeThread(main)
+	end 'wake'
+	if __Raw.loadWord(scheduler, offset: schedLastPollOffset) == 0 'polling'
+		netpollBreak(scheduler)
+	end 'polling'
+end 'endDrain'
+
+// takeIdleThread takes a thread off the idle list, under the lock, and says whether it was on it.
+function takeIdleThread(scheduler Count, context Count) returns bool
+	var previous = noThread
+	var at = __Raw.loadWord(scheduler, offset: schedIdleThreadsOffset)
+	while at != noThread 'walk'
+		let next = __Raw.loadWord(at, offset: contextIdleNextOffset)
+		if at == context 'found'
+			if previous == noThread 'head'
+				__Raw.storeWord(scheduler, offset: schedIdleThreadsOffset, value: next)
+			end 'head' else 'inner'
+				__Raw.storeWord(previous, offset: contextIdleNextOffset, value: next)
+			end 'inner'
+			return true
+		end 'found'
+		previous = at
+		at = next
+	end 'walk'
+	return false
+end 'takeIdleThread'
+
+// startThreadFor is Go's startm: a stopped thread, or a new one, runs proc, or an idle processor when proc is noProc;
+// spinning says it starts by looking for work, for which the caller counted it among the spinning threads already.
+function startThreadFor(scheduler Count, proc Count, spinning bool)
+	lockScheduler(scheduler)
+	var p = proc
+	if p == noProc 'any'
+		p = idleProcGet(scheduler)
+		if p == noProc 'none'
+			unlockScheduler(scheduler)
+			if spinning 'uncount'
+				_ = __Raw.atomicAdd(scheduler, offset: schedSpinningOffset, value: stepDown)
+			end 'uncount'
+			return
+		end 'none'
+	end 'any'
+	let thread = __Raw.loadWord(scheduler, offset: schedIdleThreadsOffset)
+	if thread != noThread 'idle'
+		__Raw.storeWord(scheduler, offset: schedIdleThreadsOffset, value: __Raw.loadWord(thread, offset: contextIdleNextOffset))
+	end 'idle'
+	unlockScheduler(scheduler)
+	if thread == noThread 'new'
+		newThread(scheduler, proc: p, spinning: spinning)
+		return
+	end 'new'
+	__Raw.storeWord(thread, offset: contextSpinningOffset, value: set if spinning else unset)
+	__Raw.storeWord(thread, offset: contextNextProcOffset, value: p)
+	wakeThread(thread)
+end 'startThreadFor'
+
+// wakeProc is Go's wakep: when a processor is idle and no thread spins, a thread starts spinning on it, which steals what
+// was just readied or finds it on the global queue.
+function wakeProc(scheduler Count)
+	if __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) == 0 or __Raw.loadWord(scheduler, offset: schedSpinningOffset) != 0 'busy'
+		return
+	end 'busy'
+	if __Raw.compareExchange(scheduler, offset: schedSpinningOffset, expected: 0, desired: 1) != 0 'another'
+		return
+	end 'another'
+	startThreadFor(scheduler, proc: noProc, spinning: true)
+end 'wakeProc'
+
+// handOffProc is Go's handoffp, for a processor the monitor took from a thread in a blocking call: a thread runs it when
+// it has work or work waits globally, or when no thread spins and none is idle; otherwise it goes idle, but the last one
+// to go idle while a timer or a poll descriptor is pending and no thread waits in the poller gets a thread to wait there.
+function handOffProc(scheduler Count, proc Count)
+	if not runqEmpty(proc) or globalQueued(scheduler) 'work'
+		startThreadFor(scheduler, proc: proc, spinning: false)
+		return
+	end 'work'
+	if __Raw.loadWord(scheduler, offset: schedSpinningOffset) == 0 and __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) == 0 'nobody'
+		if __Raw.compareExchange(scheduler, offset: schedSpinningOffset, expected: 0, desired: 1) == 0 'spin'
+			startThreadFor(scheduler, proc: proc, spinning: true)
+			return
+		end 'spin'
+	end 'nobody'
+	lockScheduler(scheduler)
+	if globalQueued(scheduler) 'late'
+		unlockScheduler(scheduler)
+		startThreadFor(scheduler, proc: proc, spinning: false)
+		return
+	end 'late'
+	let lastBusy = __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) == __Raw.wrappingSub(procCount(scheduler), right: 1)
+	if lastBusy and pollPending(scheduler) and __Raw.loadWord(scheduler, offset: schedLastPollOffset) != 0 'poller'
+		unlockScheduler(scheduler)
+		startThreadFor(scheduler, proc: proc, spinning: false)
+		return
+	end 'poller'
+	idleProcPut(scheduler, proc: proc)
+	unlockScheduler(scheduler)
+end 'handOffProc'
+
+// acquireProc is Go's acquirep: the thread holds the processor and runs its queues.
+function acquireProc(context Count, proc Count)
+	if proc == noProc 'none'
+		panic("a thread acquires no processor")
+	end 'none'
+	__Raw.storeWord(context, offset: contextProcOffset, value: proc)
+	__Raw.storeWord(proc, offset: procThreadOffset, value: context)
+	__Raw.storeWord(proc, offset: procStatusOffset, value: procRunning)
+end 'acquireProc'
+
+// releaseProc is Go's releasep: the thread gives up its processor, which it gives back.
+function releaseProc(context Count) returns Count
+	let proc = __Raw.loadWord(context, offset: contextProcOffset)
+	__Raw.storeWord(context, offset: contextProcOffset, value: noProc)
+	__Raw.storeWord(proc, offset: procThreadOffset, value: noThread)
+	return proc
+end 'releaseProc'
+
+// idleProcPut is Go's pidleput, under the lock: the processor, whose queue is empty, joins the idle ones.
+function idleProcPut(scheduler Count, proc Count)
+	__Raw.storeWord(proc, offset: procStatusOffset, value: procIdle)
+	__Raw.storeWord(proc, offset: procThreadOffset, value: noThread)
+	__Raw.storeWord(proc, offset: procLinkOffset, value: __Raw.loadWord(scheduler, offset: schedIdleProcsOffset))
+	__Raw.storeWord(scheduler, offset: schedIdleProcsOffset, value: proc)
+	_ = __Raw.atomicAdd(scheduler, offset: schedIdleProcCountOffset, value: 1)
+end 'idleProcPut'
+
+// idleProcGet is Go's pidleget, under the lock: an idle processor, or noProc.
+function idleProcGet(scheduler Count) returns Count
+	let proc = __Raw.loadWord(scheduler, offset: schedIdleProcsOffset)
+	if proc != noProc 'one'
+		__Raw.storeWord(scheduler, offset: schedIdleProcsOffset, value: __Raw.loadWord(proc, offset: procLinkOffset))
+		_ = __Raw.atomicAdd(scheduler, offset: schedIdleProcCountOffset, value: stepDown)
+	end 'one'
+	return proc
+end 'idleProcGet'
+
+function procCount(scheduler Count) returns Count
+	return __Raw.loadWord(scheduler, offset: schedProcsOffset)
+end 'procCount'
+
+// procAt is the processor of an index.
+function procAt(scheduler Count, index Count) returns Count
+	return __Raw.loadWord(scheduler, offset: try schedProcessorsOffset + index * wordBytes otherwise panic("a processor past the scheduler's record"))
+end 'procAt'
+
+// The local run queue, Go's runq: the owner writes the tail, and the owner and thieves take from the head by advancing it
+// with a compare-exchange, so a slot is read before the exchange that claims it, and the owner writes a slot again only
+// once the head has passed it. On x64 a plain load is an acquire and a plain store a release, which are the orderings Go
+// asks for.
+
+// runqPut is Go's runqput: next makes g the processor's runnext, and the green thread it displaces goes to the tail.
+function runqPut(proc Count, g Count, next bool)
+	var put = g
+	if next 'next'
+		while true 'swap'
+			let old = __Raw.loadWord(proc, offset: procRunNextOffset)
+			if __Raw.compareExchange(proc, offset: procRunNextOffset, expected: old, desired: g) == old 'swapped'
+				if old == noGreen 'first'
+					return
+				end 'first'
+				put = old
+				break 'swap'
+			end 'swapped'
+		end 'swap'
+	end 'next'
+	while true 'retry'
+		let head = __Raw.loadWord(proc, offset: procRunqHeadOffset)
+		let tail = __Raw.loadWord(proc, offset: procRunqTailOffset)
+		if __Raw.wrappingSub(tail, right: head) < procRunqSlots 'room'
+			__Raw.storeWord(runqSlot(proc, index: tail), offset: 0, value: put)
+			__Raw.storeWord(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: 1))
+			return
+		end 'room'
+		if runqPutSlow(proc, g: put, head: head, tail: tail) 'spilled'
+			return
+		end 'spilled'
+	end 'retry'
+end 'runqPut'
+
+// runqPutSlow is Go's runqputslow: half of the full ring and g go to the global run queue, in their order, or false when
+// a thief took from the ring meanwhile, which makes room.
+function runqPutSlow(proc Count, g Count, head Count, tail Count) returns bool
+	let half = procRunqSlots / 2
+	if __Raw.wrappingSub(tail, right: head) != procRunqSlots 'notFull'
+		panic("the run queue is not full")
+	end 'notFull'
+	var first = __Raw.loadWord(runqSlot(proc, index: head), offset: 0)
+	var last = first
+	for i in 1 upto half 'batch'
+		let at = __Raw.loadWord(runqSlot(proc, index: __Raw.wrappingAdd(head, right: i)), offset: 0)
+		__Raw.storeWord(last, offset: greenLinkOffset, value: at)
+		last = at
+	end 'batch'
+	if __Raw.compareExchange(proc, offset: procRunqHeadOffset, expected: head, desired: __Raw.wrappingAdd(head, right: half)) != head 'lost'
+		return false
+	end 'lost'
+	__Raw.storeWord(last, offset: greenLinkOffset, value: g)
+	__Raw.storeWord(g, offset: greenLinkOffset, value: noGreen)
+	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+	lockScheduler(scheduler)
+	globalPutBatch(scheduler, first: first, last: g, count: __Raw.wrappingAdd(half, right: 1))
+	unlockScheduler(scheduler)
+	return true
+end 'runqPutSlow'
+
+// runqGet is Go's runqget: runnext first, then the head of the ring, or noGreen.
+function runqGet(proc Count) returns Count
+	let next = __Raw.loadWord(proc, offset: procRunNextOffset)
+	if next != noGreen and __Raw.compareExchange(proc, offset: procRunNextOffset, expected: next, desired: noGreen) == next 'next'
+		return next
+	end 'next'
+	while true 'take'
+		let head = __Raw.loadWord(proc, offset: procRunqHeadOffset)
+		let tail = __Raw.loadWord(proc, offset: procRunqTailOffset)
+		if head == tail 'empty'
+			return noGreen
+		end 'empty'
+		let g = __Raw.loadWord(runqSlot(proc, index: head), offset: 0)
+		if __Raw.compareExchange(proc, offset: procRunqHeadOffset, expected: head, desired: __Raw.wrappingAdd(head, right: 1)) == head 'taken'
+			return g
+		end 'taken'
+	end 'take'
+	return noGreen
+end 'runqGet'
+
+// runqEmpty is whether a processor has nothing queued.
+function runqEmpty(proc Count) returns bool
+	return __Raw.loadWord(proc, offset: procRunqHeadOffset) == __Raw.loadWord(proc, offset: procRunqTailOffset) and __Raw.loadWord(proc, offset: procRunNextOffset) == noGreen
+end 'runqEmpty'
+
+// runqSteal is Go's runqsteal: half of a victim's ring goes onto the thief's, past its tail, and the last of it is given
+// to run; takesNext takes the victim's runnext when its ring is empty.
+function runqSteal(proc Count, victim Count, takesNext bool) returns Count
+	let tail = __Raw.loadWord(proc, offset: procRunqTailOffset)
+	var n = runqGrab(victim, into: proc, at: tail, takesNext: takesNext)
+	if n == 0 'none'
+		return noGreen
+	end 'none'
+	n = __Raw.wrappingSub(n, right: 1)
+	let g = __Raw.loadWord(runqSlot(proc, index: __Raw.wrappingAdd(tail, right: n)), offset: 0)
+	if n == 0 'one'
+		return g
+	end 'one'
+	let head = __Raw.loadWord(proc, offset: procRunqHeadOffset)
+	if __Raw.wrappingAdd(__Raw.wrappingSub(tail, right: head), right: n) >= procRunqSlots 'overflow'
+		panic("a steal overflows the thief's run queue")
+	end 'overflow'
+	__Raw.storeWord(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: n))
+	return g
+end 'runqSteal'
+
+// runqGrab is Go's runqgrab: it copies half of the victim's ring into the thief's from index at and claims them with a
+// compare-exchange of the victim's head, or the victim's runnext when the ring is empty, and says how many it took.
+function runqGrab(victim Count, into Count, at Count, takesNext bool) returns Count
+	while true 'grab'
+		let head = __Raw.loadWord(victim, offset: procRunqHeadOffset)
+		let tail = __Raw.loadWord(victim, offset: procRunqTailOffset)
+		let queued = __Raw.wrappingSub(tail, right: head)
+		let n = __Raw.wrappingSub(queued, right: queued / 2)
+		if n == 0 'empty'
+			if takesNext 'next'
+				let next = __Raw.loadWord(victim, offset: procRunNextOffset)
+				if next != noGreen and __Raw.compareExchange(victim, offset: procRunNextOffset, expected: next, desired: noGreen) == next 'taken'
+					__Raw.storeWord(runqSlot(into, index: at), offset: 0, value: next)
+					return 1
+				end 'taken'
+			end 'next'
+			return 0
+		end 'empty'
+		if n > procRunqSlots / 2 'inconsistent'
+			continue 'grab'
+		end 'inconsistent'
+		for i in 0 upto n 'copy'
+			let g = __Raw.loadWord(runqSlot(victim, index: __Raw.wrappingAdd(head, right: i)), offset: 0)
+			__Raw.storeWord(runqSlot(into, index: __Raw.wrappingAdd(at, right: i)), offset: 0, value: g)
+		end 'copy'
+		if __Raw.compareExchange(victim, offset: procRunqHeadOffset, expected: head, desired: __Raw.wrappingAdd(head, right: n)) == head 'claimed'
+			return n
+		end 'claimed'
+	end 'grab'
+	return 0
+end 'runqGrab'
+
+// runqSlot is the address of the slot of a processor's ring that holds an index.
+function runqSlot(proc Count, index Count) returns Count
+	return __Raw.wrappingAdd(proc, right: __Raw.wrappingAdd(procRunqOffset, right: (index mod procRunqSlots) * wordBytes))
+end 'runqSlot'
+
+// The global run queue, Go's sched.runq, under the scheduler's lock: green threads linked through greenLinkOffset.
+
+// globalQueued is whether the global run queue holds anything, read without the lock to choose whether to take it.
+function globalQueued(scheduler Count) returns bool
+	return __Raw.loadWord(scheduler, offset: schedRunqSizeOffset) > 0
+end 'globalQueued'
+
+function globalPut(scheduler Count, g Count)
+	__Raw.storeWord(g, offset: greenLinkOffset, value: noGreen)
+	globalPutBatch(scheduler, first: g, last: g, count: 1)
+end 'globalPut'
+
+// globalPutBatch puts a linked list of count green threads, whose last links to nothing, at the tail.
+function globalPutBatch(scheduler Count, first Count, last Count, count Count)
+	let tail = __Raw.loadWord(scheduler, offset: schedRunqTailOffset)
+	if tail == noGreen 'empty'
+		__Raw.storeWord(scheduler, offset: schedRunqHeadOffset, value: first)
+	end 'empty' else 'after'
+		__Raw.storeWord(tail, offset: greenLinkOffset, value: first)
+	end 'after'
+	__Raw.storeWord(scheduler, offset: schedRunqTailOffset, value: last)
+	__Raw.storeWord(scheduler, offset: schedRunqSizeOffset, value: __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedRunqSizeOffset), right: count))
+end 'globalPutBatch'
+
+// globalPutList puts a list of green threads that a poll readied at the tail, under the lock.
+function globalPutList(scheduler Count, list Count)
+	var g = list
+	while g != noGreen 'each'
+		let next = __Raw.loadWord(g, offset: greenLinkOffset)
+		globalPut(scheduler, g: g)
+		g = next
+	end 'each'
+end 'globalPutList'
+
+// globalGet is Go's globrunqget, under the lock: a green thread to run, and a share of the rest onto the processor's
+// ring, at most a share per processor and half a ring, or most when it is not 0. The ring is empty, or most is 1.
+function globalGet(scheduler Count, proc Count, most Count) returns Count
+	let size = __Raw.loadWord(scheduler, offset: schedRunqSizeOffset)
+	if size == 0 'empty'
+		return noGreen
+	end 'empty'
+	var n = __Raw.wrappingAdd(try size / procCount(scheduler) otherwise panic("a scheduler of no processor"), right: 1)
+	if n > size 'size'
+		n = size
+	end 'size'
+	if most > 0 and n > most 'most'
+		n = most
+	end 'most'
+	if n > procRunqSlots / 2 'half'
+		n = procRunqSlots / 2
+	end 'half'
+	__Raw.storeWord(scheduler, offset: schedRunqSizeOffset, value: __Raw.wrappingSub(size, right: n))
+	let g = globalPop(scheduler)
+	for i in 1 upto n 'rest'
+		runqPutUnspilled(proc, g: globalPop(scheduler))
+	end 'rest'
+	return g
+end 'globalGet'
+
+// globalPop takes the head of the global run queue, whose size the caller has lowered.
+function globalPop(scheduler Count) returns Count
+	let g = __Raw.loadWord(scheduler, offset: schedRunqHeadOffset)
+	let next = __Raw.loadWord(g, offset: greenLinkOffset)
+	__Raw.storeWord(scheduler, offset: schedRunqHeadOffset, value: next)
+	if next == noGreen 'last'
+		__Raw.storeWord(scheduler, offset: schedRunqTailOffset, value: noGreen)
+	end 'last'
+	return g
+end 'globalPop'
+
+// runqPutUnspilled puts at the tail of a ring that has room, as globalGet's share does: a spill would take the lock it
+// holds.
+function runqPutUnspilled(proc Count, g Count)
+	let tail = __Raw.loadWord(proc, offset: procRunqTailOffset)
+	if __Raw.wrappingSub(tail, right: __Raw.loadWord(proc, offset: procRunqHeadOffset)) >= procRunqSlots 'full'
+		panic("the global run queue's share overflows a processor's run queue")
+	end 'full'
+	__Raw.storeWord(runqSlot(proc, index: tail), offset: 0, value: g)
+	__Raw.storeWord(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: 1))
+end 'runqPutUnspilled'
+
+// The scheduler's lock: a word taken by a compare-exchange from 0 to 1 and given back by a store, held for a few loads and
+// stores and never across a wait. Runtime code is never stopped by the monitor, so a holder is only ever descheduled by the
+// system, and a waiter yields after a few rounds so as not to keep it from running.
+function lockScheduler(scheduler Count)
+	var round = 0 as Count
+	while __Raw.compareExchange(scheduler, offset: schedLockOffset, expected: unset, desired: set) != unset 'take'
+		if round < lockSpinRounds 'spin'
+			for i in 0 upto lockPauses 'pauses'
+				__Raw.spinPause()
+			end 'pauses'
+			round = __Raw.wrappingAdd(round, right: 1)
+		end 'spin' else 'yield'
+			yieldThread()
+		end 'yield'
+	end 'take'
+end 'lockScheduler'
+
+function unlockScheduler(scheduler Count)
+	_ = __Raw.atomicExchange(scheduler, offset: schedLockOffset, value: unset)
+end 'unlockScheduler'
+
+// yieldThread gives the processor the thread runs on to another thread of the system.
+function yieldThread()
+	#if os(Windows)
+		_ = __Raw.callImport0("SwitchToThread")
+	#else
+		_ = __Raw.syscall0(linuxSysSchedYield)
+	#endif
+end 'yieldThread'
+
+// waitStopped waits until a waker clears the context's stopped flag (wakeThread). A wake before the wait makes the wait
+// return at once: on Windows the auto-reset event stays set, and on Linux the futex sees the flag already 0.
+function waitStopped(context Count)
+	while __Raw.loadWord(context, offset: contextStoppedOffset) == set 'wait'
 		#if os(Windows)
 			_ = __Raw.callImport2("WaitForSingleObject", arg1: __Raw.loadWord(context, offset: contextParkEventOffset), arg2: waitForever)
 		#else
-			futexWait(__Raw.wrappingAdd(queue, right: queueSleepingOffset), value: sleeping)
+			futexWait(__Raw.wrappingAdd(context, right: contextStoppedOffset), value: set)
 		#endif
 	end 'wait'
-	if __Raw.compareExchange(queue, offset: queueSleepingOffset, expected: sleeping, desired: awake) == sleeping 'ownWake'
-		_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: stepDown)
-	end 'ownWake'
-end 'park'
+end 'waitStopped'
 
-// wakeOne wakes one parked worker, when there is one, after a push.
-function wakeOne(scheduler Count)
-	if __Raw.loadWord(scheduler, offset: schedSleepersOffset) == 0 'noneParked'
-		return
-	end 'noneParked'
-	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
-	for i in 0 upto workers 'workers'
-		if wakeWorker(scheduler, context: workerContext(scheduler, worker: i)) 'woken'
-			return
-		end 'woken'
-	end 'workers'
-end 'wakeOne'
-
-// wakeWorker wakes the worker of a context when it is parked or about to park, and says whether it did: the flag is
-// read before it is claimed, so that a worker that is awake costs no locked operation.
-function wakeWorker(scheduler Count, context Count) returns bool
-	let queue = __Raw.loadWord(context, offset: contextQueueOffset)
-	if __Raw.loadWord(queue, offset: queueSleepingOffset) != sleeping 'awake'
-		return false
-	end 'awake'
-	if __Raw.compareExchange(queue, offset: queueSleepingOffset, expected: sleeping, desired: awake) != sleeping 'claimed'
-		return false
-	end 'claimed'
-	_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: stepDown)
+// wakeThread wakes a stopped thread, which the waker has taken off the idle list.
+function wakeThread(context Count)
+	_ = __Raw.atomicExchange(context, offset: contextStoppedOffset, value: unset)
 	#if os(Windows)
 		_ = __Raw.callImport1("SetEvent", arg1: __Raw.loadWord(context, offset: contextParkEventOffset))
 	#else
-		futexWakeOne(__Raw.wrappingAdd(queue, right: queueSleepingOffset))
+		futexWakeOne(__Raw.wrappingAdd(context, right: contextStoppedOffset))
 	#endif
-	return true
-end 'wakeWorker'
+end 'wakeThread'
 
-// anyQueued is whether some worker's queue holds a behaviour. A queue whose owner is taking from it may look empty for a
-// moment, but then its owner is awake and runs what it takes.
-function anyQueued(scheduler Count) returns bool
-	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
-	for i in 0 upto workers 'workers'
-		let queue = __Raw.loadWord(workerContext(scheduler, worker: i), offset: contextQueueOffset)
-		if __Raw.loadWord(queue, offset: queueBottomOffset) > __Raw.loadWord(queue, offset: queueTopOffset) 'queued'
-			return true
-		end 'queued'
-	end 'workers'
-	return false
-end 'anyQueued'
-
-// The queue: the work-stealing deque of Chase and Lev, "Dynamic Circular Work-Stealing Deque" (SPAA 2005), with the
-// memory orderings of Le, Pop, Cohen and Zappa Nardelli, "Correct and Efficient Work-Stealing for Weak Memory Models"
-// (PPoPP 2013, figure 1). The owner pushes and takes at the bottom; a thief takes at the top by advancing it with a
-// compare-exchange, which is also how the owner takes the last behaviour when a thief may want it. top and bottom only
-// grow, so an index names one behaviour for the life of the queue, and slot index mod capacity holds it. On x64 a
-// plain load is an acquire and a plain store a release, which are all the orderings Le et al. ask for but one, the
-// store-load fence in take, which the exchange that stores bottom gives.
-
-// queuePush is the owner's push. When the ring is full the owner makes one twice as large; a thief that read the old
-// one still finds there what it read the indices for, since the old ring is never written again or freed. The top it
-// reads may be behind the thieves', which only grows the ring sooner: the slot it writes, of index b, is never one a
-// thief may still take, of an index from the true top up to b, all less than one ring past it.
-function queuePush(queue Count, record Count)
-	let b = __Raw.loadWord(queue, offset: queueBottomOffset)
-	let t = __Raw.loadWord(queue, offset: queueTopOffset)
-	var ring = __Raw.loadWord(queue, offset: queueRingOffset)
-	if __Raw.wrappingSub(b, right: t) >= __Raw.loadWord(ring, offset: ringCapacityOffset) 'full'
-		ring = queueGrow(queue, ring: ring, top: t, bottom: b)
-	end 'full'
-	__Raw.storeWord(ringSlot(ring, index: b), offset: 0, value: record)
-	// Le et al. publish bottom with a release; the exchange is one and a full fence besides, which orders it before the
-	// pusher's read of sleepers (see park).
-	_ = __Raw.atomicExchange(queue, offset: queueBottomOffset, value: __Raw.wrappingAdd(b, right: 1))
-end 'queuePush'
-
-// queueTake is the owner's take of its newest behaviour, or noBehaviour.
-function queueTake(queue Count) returns Count
-	let oldBottom = __Raw.loadWord(queue, offset: queueBottomOffset)
-	// Only the owner moves bottom, and top never passes it, so a queue whose top is its bottom is empty however the
-	// thieves race; that is the common case of an idle worker, which then pays no fence.
-	if oldBottom == __Raw.loadWord(queue, offset: queueTopOffset) 'empty'
-		return noBehaviour
-	end 'empty'
-	let b = __Raw.wrappingSub(oldBottom, right: 1)
-	let ring = __Raw.loadWord(queue, offset: queueRingOffset)
-	// The store of bottom must be seen before top is read, or a thief and the owner could both take the last behaviour:
-	// the exchange is the full fence that Le et al. put between them.
-	_ = __Raw.atomicExchange(queue, offset: queueBottomOffset, value: b)
-	let t = __Raw.loadWord(queue, offset: queueTopOffset)
-	if t > b 'stolen'
-		__Raw.storeWord(queue, offset: queueBottomOffset, value: oldBottom)
-		return noBehaviour
-	end 'stolen'
-	let record = __Raw.loadWord(ringSlot(ring, index: b), offset: 0)
-	if t != b 'more'
-		return record
-	end 'more'
-	var taken = record
-	if __Raw.compareExchange(queue, offset: queueTopOffset, expected: t, desired: oldBottom) != t 'lost'
-		taken = noBehaviour
-	end 'lost'
-	__Raw.storeWord(queue, offset: queueBottomOffset, value: oldBottom)
-	return taken
-end 'queueTake'
-
-// queueSteal is a thief's take of a queue's oldest behaviour, or noBehaviour when the queue is empty or another took it
-// first. Le et al. put a full fence between the reads of top and bottom; x64 does not reorder a load with a later load,
-// and the compare-exchange that claims the behaviour is locked, so the plain loads are enough.
-//
-// What the thief reads from the slot is right whenever its compare-exchange wins, so it can be read before: the
-// exchange wins only while top is still t, so no one has taken index t, the owner's take of the last behaviour
-// included, which moves top by the same exchange; the push of index t was published by the bottom the thief read after
-// t, and the owner writes the slot again only for index t plus the ring's capacity, which it pushes only once top has
-// passed t. When the exchange loses, the record it read may already have run and been freed, so it is dropped unread.
-function queueSteal(queue Count) returns Count
-	let t = __Raw.loadWord(queue, offset: queueTopOffset)
-	let b = __Raw.loadWord(queue, offset: queueBottomOffset)
-	if t >= b 'empty'
-		return noBehaviour
-	end 'empty'
-	let ring = __Raw.loadWord(queue, offset: queueRingOffset)
-	let record = __Raw.loadWord(ringSlot(ring, index: t), offset: 0)
-	if __Raw.compareExchange(queue, offset: queueTopOffset, expected: t, desired: __Raw.wrappingAdd(t, right: 1)) != t 'lost'
-		return noBehaviour
-	end 'lost'
-	return record
-end 'queueSteal'
-
-// queueGrow gives the queue a ring twice as large holding the same behaviours, and publishes it after filling it.
-function queueGrow(queue Count, ring Count, top Count, bottom Count) returns Count
-	let capacity = __Raw.loadWord(ring, offset: ringCapacityOffset)
-	let grown = newRing(try capacity + capacity otherwise panic("a worker's queue outgrows memory"))
-	var i = top
-	while i != bottom 'copy'
-		__Raw.storeWord(ringSlot(grown, index: i), offset: 0, value: __Raw.loadWord(ringSlot(ring, index: i), offset: 0))
-		i = __Raw.wrappingAdd(i, right: 1)
-	end 'copy'
-	__Raw.storeWord(queue, offset: queueRingOffset, value: grown)
-	return grown
-end 'queueGrow'
-
-// ringSlot is the address of the slot that holds a queue's index.
-function ringSlot(ring Count, index Count) returns Count
-	let mask = __Raw.wrappingSub(__Raw.loadWord(ring, offset: ringCapacityOffset), right: 1)
-	let offset = try (index and mask) * wordBytes + ringSlotsOffset otherwise panic("a worker's queue outgrows memory")
-	return __Raw.wrappingAdd(ring, right: offset)
-end 'ringSlot'
-
-function newRing(capacity Count) returns Count
-	let ring = keep(try capacity * wordBytes + ringSlotsOffset otherwise panic("a worker's queue outgrows memory"))
-	__Raw.storeWord(ring, offset: ringCapacityOffset, value: capacity)
-	return ring
-end 'newRing'
-
-function newQueue() returns Count
-	let queue = keep(queueBytes)
-	__Raw.storeWord(queue, offset: queueRingOffset, value: newRing(queueFirstCapacity))
-	return queue
-end 'newQueue'
-
-// workerContext is the context of the worker of an index.
-function workerContext(scheduler Count, worker Count) returns Count
-	return __Raw.loadWord(scheduler, offset: try schedContextsOffset + worker * wordBytes otherwise panic("a worker past the scheduler's record"))
-end 'workerContext'
-
-// makeScheduler makes the scheduler's record and gives each worker a context, a queue and an event, the main thread the
-// context the entry stub made.
+// makeScheduler makes the scheduler's record and the processors, the poller, and the main thread's part as thread 0 with
+// processor 0.
 function makeScheduler(mainContext Count) returns Count
-	let workers = workerCount()
-	let scheduler = keep(try schedContextsOffset + workers * wordBytes otherwise panic("too many workers for memory"))
-	__Raw.storeWord(scheduler, offset: schedWorkersOffset, value: workers)
-	var seed = 0 as Count
-	for i in 0 upto workers 'contexts'
-		var context = mainContext
-		if i != mainWorker 'made'
-			context = keep(contextBytes)
-		end 'made'
-		seed = __Raw.wrappingAdd(seed, right: randomStep)
-		__Raw.storeWord(context, offset: contextSchedulerOffset, value: scheduler)
-		__Raw.storeWord(context, offset: contextQueueOffset, value: newQueue())
-		#if os(Windows)
-			__Raw.storeWord(context, offset: contextParkEventOffset, value: newEvent())
-		#endif
-		__Raw.storeWord(context, offset: contextRandomOffset, value: seed)
-		__Raw.storeWord(scheduler, offset: try schedContextsOffset + i * wordBytes otherwise panic("too many workers for memory"), value: context)
-	end 'contexts'
+	let procs = workerCount()
+	let scheduler = keep(try schedProcessorsOffset + procs * wordBytes otherwise panic("too many processors for memory"))
+	__Raw.storeWord(scheduler, offset: schedProcsOffset, value: procs)
+	__Raw.storeWord(scheduler, offset: schedMainThreadOffset, value: mainContext)
+	__Raw.storeWord(scheduler, offset: schedLastPollOffset, value: 1)
+	var i = procs
+	while i > 0 'procs'
+		i = __Raw.wrappingSub(i, right: 1)
+		let proc = keep(procBytes)
+		__Raw.storeWord(proc, offset: procIdOffset, value: i)
+		__Raw.storeWord(scheduler, offset: try schedProcessorsOffset + i * wordBytes otherwise panic("too many processors for memory"), value: proc)
+		if i != mainProc 'idle'
+			idleProcPut(scheduler, proc: proc)
+		end 'idle'
+	end 'procs'
+	initThread(scheduler, context: mainContext)
+	setThreadIdentity(mainContext)
+	initPoller(scheduler)
+	initPreemption()
+	acquireProc(mainContext, proc: procAt(scheduler, index: mainProc))
 	return scheduler
 end 'makeScheduler'
 
-// startThreads starts the threads of the workers other than the main thread, which park until something is pushed.
-function startThreads(scheduler Count)
-	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
-	for i in 1 upto workers 'threads'
-		startThread(workerContext(scheduler, worker: i))
-	end 'threads'
-end 'startThreads'
+// initThread gives a thread's context what the scheduler reads of it, before the thread runs green threads: its block,
+// its event, the code a preemption calls, its random state, and its place on the list of every such thread.
+function initThread(scheduler Count, context Count)
+	__Raw.storeWord(context, offset: contextSchedulerOffset, value: scheduler)
+	__Raw.storeWord(context, offset: contextSchedSwitchOffset, value: keep(threadBlockBytes))
+	#if os(Windows)
+		__Raw.storeWord(context, offset: contextParkEventOffset, value: newEvent())
+	#endif
+	__Raw.storeWord(context, offset: contextPreemptCodeOffset, value: __Raw.codeAddress("asyncPreempted"))
+	#if os(Linux)
+		__Raw.storeWord(context, offset: contextSignalCodeOffset, value: __Raw.codeAddress("preemptSignal"))
+	#endif
+	__Raw.storeWord(context, offset: contextRandomOffset, value: __Raw.wrappingAdd(context, right: randomStep))
+	lockScheduler(scheduler)
+	__Raw.storeWord(context, offset: contextAllNextOffset, value: __Raw.loadWord(scheduler, offset: schedAllThreadsOffset))
+	__Raw.storeWord(scheduler, offset: schedAllThreadsOffset, value: context)
+	unlockScheduler(scheduler)
+end 'initThread'
+
+// newThread is Go's newm: a thread of its own context that runs proc, started at once.
+function newThread(scheduler Count, proc Count, spinning bool)
+	let context = keep(contextBytes)
+	initThread(scheduler, context: context)
+	__Raw.storeWord(context, offset: contextNextProcOffset, value: proc)
+	__Raw.storeWord(context, offset: contextSpinningOffset, value: set if spinning else unset)
+	startThread(context)
+end 'newThread'
+
+// threadBlockSwitch is the switch record of a thread's scheduler, at the start of its block.
+function threadBlockSwitch(context Count) returns Count
+	return __Raw.loadWord(context, offset: contextSchedSwitchOffset)
+end 'threadBlockSwitch'
+
+// carve is a record of a number of bytes from the scheduler's carving block, which the runtime keeps for good: the
+// records of green threads and of stacks, which free lists reuse, so the leak check does not count them.
+function carve(scheduler Count, bytes Count) returns Count
+	lockScheduler(scheduler)
+	var next = __Raw.loadWord(scheduler, offset: schedCarveNextOffset)
+	if __Raw.wrappingAdd(next, right: bytes) > __Raw.loadWord(scheduler, offset: schedCarveEndOffset) or next == 0 'block'
+		next = keep(carveBlockBytes)
+		__Raw.storeWord(scheduler, offset: schedCarveEndOffset, value: __Raw.wrappingAdd(next, right: carveBlockBytes))
+	end 'block'
+	__Raw.storeWord(scheduler, offset: schedCarveNextOffset, value: __Raw.wrappingAdd(next, right: bytes))
+	unlockScheduler(scheduler)
+	return next
+end 'carve'
 
 #if os(Windows)
-	// startThread starts a worker's thread at once, with the main thread's stack reserve, which CreateThread reserves rather
-	// than commits when told so. The thread's handle is closed, since nothing waits for a worker to end.
+	// startThread starts a thread at once, with the main thread's stack reserve, which CreateThread reserves rather than
+	// commits when told so. The thread's handle is closed: a thread that the monitor may stop makes a handle of its own
+	// (setThreadIdentity).
 	function startThread(context Count)
 		let thread = __Raw.callImport6("CreateThread", arg1: noThreadAttributes, arg2: stackReserveBytes, arg3: __Raw.threadStartAddress(), arg4: context, arg5: stackSizeIsReservation, arg6: noThreadId)
 		if thread == 0 'failed'
-			panic("cannot start a worker thread")
+			panic("cannot start a thread")
 		end 'failed'
 		closeHandle(thread)
 	end 'startThread'
 
-	// newEvent is a worker's park event: auto-reset, so that a wait consumes the wake that ended it, and unset.
+	// newEvent is a thread's event: auto-reset, so that a wait consumes the wake that ended it, and unset.
 	function newEvent() returns Count
 		let event = __Raw.callImport4("CreateEventW", arg1: noEventAttributes, arg2: autoReset, arg3: startsUnset, arg4: noEventName)
 		if event == 0 'failed'
-			panic("cannot make a worker's event")
+			panic("cannot make a thread's event")
 		end 'failed'
 		return event
 	end 'newEvent'
 #endif
 
-// workerCount is how many workers run behaviours: the processors of every group, which Windows may fail to count, or the
-// count MAXON_MAX_PROCS asks for.
+// workerCount is how many processors run green threads: the processors of every group, which Windows may fail to
+// count, or the count MAXON_MAX_PROCS asks for.
 function workerCount() returns Count
 	let requested = requestedWorkers()
 	if requested != noRequest 'requested'
@@ -504,8 +987,8 @@ function workerCount() returns Count
 	return processors
 end 'workerCount'
 
-// osProcessorCount is Scheduler.processorCount: the workers the runtime runs behaviours on, which is fixed by the machine and
-// the environment alone, so it is the same before the first behaviour is scheduled as after it.
+// osProcessorCount is Scheduler.processorCount: the processors the runtime runs green threads on, which is fixed by the
+// machine and the environment alone, so it is the same before the first behaviour is scheduled as after it.
 function osProcessorCount() returns Count
 	return workerCount()
 end 'osProcessorCount'

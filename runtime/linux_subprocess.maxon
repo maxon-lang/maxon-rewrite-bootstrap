@@ -56,8 +56,6 @@
 	// pollForever is poll's timeout of a run with no deadline, -1.
 	let pollForever = 0xFFFFFFFFFFFFFFFF as Count
 
-	let nanosPerMilli = 1000000 as Count
-
 	// Decoding a wait status: the low seven bits are the signal that ended the child, 0 when it exited, with its code in
 	// the eight bits after them; a child that a signal ended reports 128 plus the signal, the POSIX shell's convention, as
 	// maxon's runtime does.
@@ -366,6 +364,7 @@
 			endWithError(errorAddress, osError: unexecuted, table: spawnFailures())
 			return 0
 		end 'unexecuted'
+		enterBlocking()
 		let startedAt = osClockNanos()
 		while wordAt(fieldAt(run, offset: runOutputOffset), offset: streamOpenOffset) != 0 or wordAt(fieldAt(run, offset: runErrorOffset), offset: streamOpenOffset) != 0 'drain'
 			var timeout = pollForever
@@ -373,6 +372,7 @@
 				let elapsedMs = __Raw.wrappingSub(osClockNanos(), right: startedAt) / nanosPerMilli
 				if elapsedMs >= deadlineMs 'late'
 					_ = __Raw.syscall2(linuxSysKill, arg1: pid, arg2: linuxSigkill)
+					exitBlocking()
 					_ = reap(run, pid: pid)
 					closeStreams(run)
 					freeTexts(run)
@@ -385,6 +385,7 @@
 			pollStreams(run, timeout: timeout)
 		end 'drain'
 		let code = exitCodeOf(reap(run, pid: pid))
+		exitBlocking()
 		closeStreams(run)
 		__Raw.storeWord(stdout, offset: 0, value: wordAt(fieldAt(run, offset: runOutputOffset), offset: streamTextOffset))
 		__Raw.storeWord(stderr, offset: 0, value: wordAt(fieldAt(run, offset: runErrorOffset), offset: streamTextOffset))

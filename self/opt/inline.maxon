@@ -85,16 +85,46 @@ end 'Leaves'
 
 export typealias LeavesList = Array with frozen with Leaves
 
+typealias Marks = Array with bool
+
+// Preemptible says which of a module's functions are preemptible (ast.preemptibleFunction), by their index in the
+// module's list: every one of a program's module, and in the runtime's module only those of its tests. A leaf of the
+// runtime's own source is never copied into a preemptible function, where the monitor could stop the thread in the
+// middle of the copy, holding what the runtime's code holds of the thread.
+export type Preemptible
+	// marks is empty when every function is preemptible.
+	var marks as Marks
+
+	export static function every() returns Preemptible
+		return Preemptible{marks: Marks.create(0)}
+	end 'every'
+
+	export static function of(consumes marks Array with bool) returns Preemptible
+		return Preemptible{marks: marks}
+	end 'of'
+
+	// all is whether every function is preemptible.
+	export function all() returns bool
+		return marks.count() == 0
+	end 'all'
+
+	// holds is whether the function of an index is preemptible.
+	export function holds(index Count) returns bool
+		return marks.count() == 0 or marks[index]
+	end 'holds'
+end 'Preemptible'
+
 // LoweredLists are the functions of the modules a compile lowers, by module, each frozen once its lower ended.
 export typealias LoweredLists = Array with frozen with ir.IrFunctionList
 
 // findLeaves finds the leaves among fns, the functions of the module whose entries the slot slot of the function table
-// holds, once the optimizer has run on them.
-export function findLeaves(fns ir.IrFunctionList, slot Count) returns Leaves
+// holds, once the optimizer has run on them; with preemptibleOnly, only those that preemptible marks (Preemptible), the
+// ones a preemptible function may copy.
+export function findLeaves(fns ir.IrFunctionList, slot Count, preemptible Preemptible, preemptibleOnly bool) returns Leaves
 	var places as PlaceLists
 	places = PlaceLists.create(0)
 	for i in 0 upto fns.count() 'functions'
-		if ast.funcSlotOf(fns[i].decl) == slot and isLeaf(fns[i]) 'leaf'
+		if ast.funcSlotOf(fns[i].decl) == slot and isLeaf(fns[i]) and (not preemptibleOnly or preemptible.holds(i)) 'leaf'
 			let list = ast.funcListOf(fns[i].decl)
 			let at = ast.funcPlaceOf(fns[i].decl)
 			while places.count() <= list 'growLists'
@@ -462,10 +492,11 @@ end 'inlineInto'
 // then replaces their calls of leaves, folds again each function that got a copy, and runs the passes after inlining; a
 // function that may hold a loop has the IR it had before all of them as its fallback (fallbackOf), since each can make a
 // loop need more registers. Every function is expanded and folded before any is copied, so every copy of a leaf is the
-// same body. own are the module's leaves; lowered and leaves are the
+// same body. own are the module's leaves, and ownPreemptible those that a function preemptible marks may copy;
+// lowered and leaves are the
 // functions and leaves of the modules this compile lowers, by their index from first, of which the module may read those
 // reads marks: the ones it names, whose lower its own waited for. The module's own entry in lowered is not read.
-export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, own Leaves, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
+export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, own Leaves, ownPreemptible Leaves, preemptible Preemptible, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
 	for i in 0 upto fns.count() 'expand'
 		_ = o.expander.expandFunction(fns[i])
 		if holdsRaising(fns[i]) 'raising'
@@ -474,7 +505,13 @@ export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList,
 	end 'expand'
 	for i in 0 upto fns.count() 'functions'
 		var f = exchange(fns[i], value: ir.IrFunction.new(ast.noFunc, name: "", paramCount: 0))
-		if inlineInto(o, f: f, own: own, ownFns: fns, lowered: lowered, leaves: leaves, reads: reads, first: first) 'changed'
+		var changed as bool
+		if preemptible.all() or not preemptible.holds(i) 'every'
+			changed = inlineInto(o, f: f, own: own, ownFns: fns, lowered: lowered, leaves: leaves, reads: reads, first: first)
+		end 'every' else 'preemptibleOnly'
+			changed = inlineInto(o, f: f, own: ownPreemptible, ownFns: fns, lowered: lowered, leaves: leaves, reads: reads, first: first)
+		end 'preemptibleOnly'
+		if changed 'changed'
 			o.fold.foldFunction(f, raises: true)
 		end 'changed'
 		fns[i] = f

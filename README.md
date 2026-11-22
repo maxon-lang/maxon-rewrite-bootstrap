@@ -1891,7 +1891,8 @@ back. A thread the runtime makes starts at `rt.threadStart`, which `CreateThread
 context: it saves the registers Win64 keeps that the internal convention does not (`rsi`, `rdi`) and the one it holds
 the context in (`rbx`), keeps the fault handler's stack (`SetThreadStackGuarantee`), stores the
 context with `TlsSetValue` and calls the runtime's `workerMain` with it. `abigen` also has the layouts of a frozen
-value's box, a cown and a behaviour's record with its request slots, the scheduler's record and a worker's queue.
+value's box, a cown and a behaviour's record with its request slots, the scheduler's record, a processor, a green thread's
+record, a pooled stack and a thread's block.
 
 **Threads on Linux.** The context of a thread is the word that its `fs` points at, as maxon's runtime keeps its slot block: the entry
 makes `fs` point at `g.tlsSlot`, which holds the address of `g.mainContext` (`arch_prctl(ARCH_SET_FS)`), and moves the main
@@ -1900,20 +1901,21 @@ the kernel's is as large as the shell's soft limit. To start a worker the runtim
 context in the stack's top word and calls `rt.threadStart` with that word's address (`callCode1`), which clones the thread
 (`CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS`, maxon's worker flags but the join) with the
 word as both its stack and its thread pointer; the new thread starts after the `clone`, gives itself a signal stack and calls
-`workerMain` with the word it finds at its stack pointer. A worker parks on a futex on its queue's sleeping flag in place of an
-event (`FUTEX_WAIT_PRIVATE` while the flag is 1, and a waker's `FUTEX_WAKE_PRIVATE` after its compare-exchange takes the flag
-to 0, so a wake before the wait makes the wait return at once, as a set event does), yields with `sched_yield`, and counts the
+`workerMain` with the word it finds at its stack pointer. A thread with no processor waits on a futex on its context's stopped
+flag in place of an event (`FUTEX_WAIT_PRIVATE` while the flag is 1, and a waker's `FUTEX_WAKE_PRIVATE` after it puts 0 there, so
+a wake before the wait makes the wait return at once, as a set event does), yields with `sched_yield`, and counts the
 processors by its affinity mask (`sched_getaffinity`), as maxon's does. The process ends with `exit_group`.
 
-**Green threads.** The compiler holds what green threads need of it; the runtime that schedules them on the workers
-(`phase4/concurrency-design.md`, task 2) is written on it once the seed compiles these intrinsics. A thread's context is
-Go's M, the OS thread: beside its scheduler, queue, event, heap and random state it has the processor it runs (Go's P),
-the green thread it runs, the switch record of its scheduler (Go's g0), the pair of switch records a switch is given,
-the state of a blocking call with its generation, the monitor's notes, the pending preemption, what stops the thread
-(a handle on Windows, the thread id on Linux), the code `rt.asyncPreempt` and the preemption signal call, the processor
-it is handed, the idle list's link, and the code a thread the runtime starts runs (`contextStartCodeOffset`, which
-`workerMain` calls with the context in place of a worker's loop when it is set). `contextBytes` is 22 words, which the
-entry reserves for the main thread. The entry stub of either system has three routines for them, each a section that the
+**Green threads.** The compiler holds what green threads need of it, and the runtime schedules them (`runtime/README.md`,
+"The scheduler and Go's"). A thread's context is Go's M, the OS thread: beside its scheduler, the link of every such
+thread, its event, heap and random state it has the processor it runs (Go's P), the green thread it runs, its block (the
+switch record of its scheduler, Go's g0, and the room its clock and its poll go through), the pair of switch records a
+switch is given, whether it is in a blocking call, whether it spins, whether it is the main thread's drain, the pending
+preemption, what stops the thread (a handle on Windows, the thread id on Linux), the code `rt.asyncPreempt` and the
+preemption signal call, the processor it is handed, the idle list's link, and the code a thread the runtime starts runs
+(`contextStartCodeOffset`, which `workerMain` calls with the context in place of the scheduler when it is set).
+`contextBytes` is 22 words, which the entry reserves for the main thread, so the stub of the compiler that built a
+program fixes it and the offsets the stub reads. The entry stub of either system has three routines for them, each a section that the
 link keeps only when the runtime's code names it (`self/backend/green.maxon`):
 
 - `rt.stackSwitch`, called by the internal convention with the address of the context's pair of switch records, saves
@@ -1935,29 +1937,57 @@ link keeps only when the runtime's code names it (`self/backend/green.maxon`):
 The monitor may stop a green thread only in code that holds nothing of the OS thread it runs on, which is maxon's and
 Go's rule that the runtime's own functions are not asynchronously preemptible: a section of code is preemptible when it
 is a function of a program's module, or of a test of the runtime, and not when it is of the runtime's own source, a
-drop or copy routine, or the stub (`CodeSection.preemptible`, set by `preemptibleFunction` and kept in the build cache).
+drop or copy routine, or the stub (`CodeSection.preemptible`, set by `ast.preemptibleFunction` and kept in the build
+cache). The leaf inliner holds to the same rule: it copies no leaf of the runtime's own source into a preemptible function
+(`opt.Preemptible`), whose copy would make that code preemptible.
 Code outside the image, a DLL's, never is. When live code names `g.preemptibleCode`, the link writes after the data of
 every unit the table of the preemptible code: the count of ranges, then each range's start and end as how far below the
 table they are, sections next to each other in the layout as one range, which the monitor searches with the address it
 stopped a thread at. `tests/runtime/stack-switch.maxon` switches between two stacks by hand, reads the table, and stops
 the main thread from another thread on both systems.
 
-**The scheduler** (`runtime/sched.maxon`) runs behaviours to completion on worker threads, Verona's model with no green
-thread and no stack switch. The main thread is worker 0; the first behaviour scheduled (`schedEnter`) starts the other
-workers at once, as many as `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` says (1 when it says 0) or as
-`MAXON_MAX_PROCS` asks (a decimal count from 1 to 2^31 - 1 with an optional `+`, as maxon reads it; any other value is
-ignored), each with the main thread's 256 MB stack reserve. `Scheduler.processorCount()` is that count (`osProcessorCount`), the same before the first behaviour as after it. A program that schedules nothing starts no thread. Each
-worker owns a Chase-Lev deque of behaviour records whose ring doubles when full (the old rings are kept, as Chase and
-Lev's are, since a thief may still read one); a behaviour pushed (`schedPush`) goes on the pushing thread's deque, whose
-owner takes the newest first, and an idle worker steals the oldest of another's, trying every other deque from a random
-start for a few rounds (`pause`, then `SwitchToThread`) before it parks. Parking is a Dekker pair over the worker's flag
-and a count of sleepers, each side fenced by a locked operation, and waits on the worker's auto-reset event; a push
-that sees a sleeper claims one's flag and sets its event. A worker runs a behaviour by calling its record's `run` with
-the record (`callCode1`), and counts it finished when that returns, so the code at `run` must have released and freed
-what the behaviour holds by then. After `main`, `schedDrain` has the main thread work until the count of live
-behaviours is 0 (the last to finish wakes it), and gives back `main`'s code, or the code that `Process.setExitCode` set
-last; then `ExitProcess` ends the parked workers. A panic or a trap on any thread writes its line and exits with 1 at
-once.
+**The scheduler** (`runtime/sched.maxon`, `green.maxon`, `monitor.maxon`, `timers.maxon`, `poll.maxon`) is Go's: green
+threads (G) run by threads (M) that each hold a processor (P) while they run one. There are as many processors as
+`GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` says (1 when it says 0) or as `MAXON_MAX_PROCS` asks (a decimal count from 1
+to 2^31 - 1 with an optional `+`, as maxon reads it; any other value is ignored); `Scheduler.processorCount()` is that count
+(`osProcessorCount`), the same before the first behaviour as after it. The main thread is thread 0 with processor 0 from the
+first behaviour or green thread on, which also starts the monitor; other threads are started by work, each with the main
+thread's 256 MB stack reserve, and a program that schedules nothing starts no thread. A behaviour is a green thread:
+`schedPush` gives its record a green thread that calls its `run` with the record, and counts it finished when that returns,
+so the code at `run` must have released and freed what the behaviour holds by then.
+
+- **Run queues.** Each processor has Go's local run queue, a ring of 256 that its owner puts at the tail of and that the
+  owner and thieves take from the head of with a compare-exchange, and runnext, the green thread readied last, which runs
+  next, so the work a green thread just made runs on the core that has its data; a full ring sends half of itself to the
+  global run queue, under the scheduler's lock, which a processor takes from once in 61 schedules and when its own is
+  empty. A thread with nothing to run spins, stealing half of another processor's ring (at most half the busy processors'
+  worth of threads spin), and then gives its processor back and stops on its event, or waits in the poller when a timer
+  or a poll descriptor is pending. A green thread readied while a processor is idle and no thread spins starts one.
+- **Stacks.** A green thread takes a stack from a pool when it first runs and gives it back when it finishes: a reserve of
+  256 MB that the system commits a page at a time, with a guard page, never moved. A thread runs one by `rt.stackSwitch`
+  from its own stack (its scheduler's, Go's g0), and the green thread comes back by the same switch with what it asks: to
+  park, to be requeued (a yield or a preemption, onto the global queue as Go's are), to wait for a processor it lost in a
+  blocking call, or to finish, which its thread's scheduler then does on its own stack.
+- **The monitor** (Go's sysmon) is a thread of its own that holds no processor and allocates nothing. It wakes every 20 µs
+  to 10 ms; asks a green thread that has run 10 ms to stop and stops its thread from outside, on Windows by
+  `SuspendThread`, `GetThreadContext` and `SetThreadContext`, on Linux by SIGURG, when the thread is in the program's code,
+  on the green thread's stack and not in a blocking call; takes a processor from a thread in a bracketed blocking call
+  (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, `write` and the wait for a child)
+  and hands it to another thread; and polls a poller no thread has polled for 10 ms. On Windows it holds the exit claim
+  while a thread it stopped is suspended, which a thread that ends the process takes for good first (the runtime's
+  `exitProcess`, `schedDrain` and the stub's fault handler), so `ExitProcess` never meets a suspended thread (Go's
+  suspendLock).
+- **Timers and the poller.** A sleeping green thread (`greenSleep`) is on one heap under the scheduler's lock; the thread
+  that waits in the poller waits until the earliest timer, and a new earlier one breaks its wait. The poller is a
+  completion port on Windows (`GetQueuedCompletionStatusEx`, broken by `PostQueuedCompletionStatus`) and epoll with an
+  eventfd on Linux; a completion whose key is a poll descriptor readies the green thread that waits on it.
+
+After `main`, `schedDrain` has the main thread run the scheduler until no behaviour or green thread is left (the last to
+finish wakes it), and gives back `main`'s code, or the code that `Process.setExitCode` set last; then `ExitProcess` ends the
+other threads wherever they are. `main` itself runs on the main thread's own stack, not on a green thread, so it cannot
+park. A panic or a trap on any thread writes its line and exits with 1 at once. The tests of `tests/runtime/` that start
+with `green-` hold the scheduler to many green threads ping-ponging, a busy loop stopped for another, the float state
+across a preemption, a blocking call handed off, timers and a completion of the poller.
 
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
 `self/backend/pe.maxon`): the compiler's passes recurse once per level of nesting of an expression, except down a chain of
@@ -3553,10 +3583,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   free and no reference counting; Maxon counts references. A panic and a fault print no backtrace after their line
   (the spec runner leaves maxon's `Stack trace:` lines out of what it compares). A frozen value, a cown and a function
   value are the values with a count of owners, always stepped by one locked add, whatever the program. Behaviours run
-  to completion on a scheduler of worker threads of minimaxon's own (`runtime/sched.maxon`, `runtime/cown.maxon`),
-  with no green threads, since there is no `await`: maxon's runtime of green threads, strands and services is not
-  ported, only its work-stealing queues, `MAXON_MAX_PROCS` and its acquire of several cowns in address order, which
-  minimaxon does with no lock per cown. The interpreter schedules behaviours too, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
+  as green threads on Go's scheduler, as maxon's do (`runtime/sched.maxon`, `green.maxon`, `monitor.maxon`; see "The
+  scheduler"), with `MAXON_MAX_PROCS` and its acquire of several cowns in address order, which minimaxon does with no
+  lock per cown; there is no `async`, `await` or service yet, so no strand. Stacks never move, since a borrow is an
+  address in a frame: a green thread's stack is a fixed reserve with a guard page, where maxon's grow by moving up to 1
+  GiB. Preemption is asynchronous only, with no check in the compiled code, where maxon's prologues test a guard word.
+  The interpreter schedules behaviours too, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.
 - Errors (see "Errors of the program"): a `try` block's handler names
   one error, not the combined error of several (refused with `E3059`), and has no terminal `otherwise panic(...)` or

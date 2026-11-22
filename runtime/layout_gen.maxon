@@ -78,28 +78,28 @@ let requestOwnerOffset = 24 as Count
 // requestSlotBytes is the size of a request slot.
 let requestSlotBytes = 32 as Count
 
-// contextSchedulerOffset is where a thread's context holds the address of the scheduler's record, 0 on the main thread until the first behaviour is scheduled.
+// contextSchedulerOffset is where a thread's context holds the address of the scheduler's record, 0 on the main thread until the first behaviour or green thread is made.
 let contextSchedulerOffset = 0 as Count
 
-// contextQueueOffset is where a thread's context holds the address of its worker's queue of runnable behaviours.
-let contextQueueOffset = 8 as Count
+// contextAllNextOffset is where a thread's context holds the next of every thread that runs green threads (Go's allm), a list that only grows.
+let contextAllNextOffset = 8 as Count
 
-// contextParkEventOffset is where a thread's context holds the event its worker waits on while it is parked.
+// contextParkEventOffset is where a thread's context holds the event it waits on while it has no processor, on Windows.
 let contextParkEventOffset = 16 as Count
 
 // contextHeapOffset is where a thread's context holds the address of its heap's record, 0 until the thread's first alloc makes it.
 let contextHeapOffset = 24 as Count
 
-// contextRandomOffset is where a thread's context holds the state of its random numbers, which pick the queue it steals from first.
+// contextRandomOffset is where a thread's context holds the state of its random numbers, which pick the processor it steals from first.
 let contextRandomOffset = 32 as Count
 
-// contextProcOffset is where a thread's context holds the address of the processor (Go's P) whose queues it runs, 0 while it has none: its queue is that processor's, kept beside it.
+// contextProcOffset is where a thread's context holds the address of the processor (Go's P) whose queues it runs, 0 while it has none; in a blocking call the processor it left (Go's m.oldp).
 let contextProcOffset = 40 as Count
 
-// contextGreenOffset is where a thread's context holds the green thread it runs (Go's m.curg), 0 while it runs its scheduler or a behaviour.
+// contextGreenOffset is where a thread's context holds the green thread it runs (Go's m.curg), 0 while it runs its scheduler.
 let contextGreenOffset = 48 as Count
 
-// contextSchedSwitchOffset is where a thread's context holds the address of the switch record of its scheduler (Go's g0), which a green thread switches back to.
+// contextSchedSwitchOffset is where a thread's context holds the address of its block (threadBlock rows), which starts with the switch record of its scheduler (Go's g0) that a green thread switches back to.
 let contextSchedSwitchOffset = 56 as Count
 
 // contextSwitchFromOffset is where a thread's context holds the switch record that rt.stackSwitch saves the running stack's registers into.
@@ -111,14 +111,14 @@ let contextSwitchToOffset = 72 as Count
 // contextIntentOffset is where a thread's context holds what the green thread that switched to its scheduler asks of it: to park it, requeue it, or finish it.
 let contextIntentOffset = 80 as Count
 
-// contextSyscallOffset is where a thread's context holds the state of its blocking call: bit 0 while it is in one, bit 1 once the monitor has taken its processor, and a generation above them that each call steps, so that one value names one call.
+// contextSyscallOffset is where a thread's context holds 1 while its green thread is in a blocking call (Go's entersyscall to exitsyscall), which the monitor never stops.
 let contextSyscallOffset = 88 as Count
 
-// contextSysmonWordOffset is where a thread's context holds the blocking call's state the monitor saw last, which only the monitor reads and writes.
-let contextSysmonWordOffset = 96 as Count
+// contextSpinningOffset is where a thread's context holds 1 while it looks for work with no green thread to run (Go's m.spinning).
+let contextSpinningOffset = 96 as Count
 
-// contextSysmonWhenOffset is where a thread's context holds when the monitor first saw that state, in nanoseconds.
-let contextSysmonWhenOffset = 104 as Count
+// contextDrainsOffset is where a thread's context holds 1 on the main thread while it runs the scheduler after main, whose search for work ends once no behaviour or green thread is left.
+let contextDrainsOffset = 104 as Count
 
 // contextSignalPendingOffset is where a thread's context holds 1 while a preemption the monitor sent it is not yet answered (Go's m.signalPending).
 let contextSignalPendingOffset = 112 as Count
@@ -192,16 +192,16 @@ let windowsContextAlignment = 16 as Count
 // windowsContextControl is CONTEXT_AMD64 | CONTEXT_CONTROL: the part of a CONTEXT that holds the segments, the flags, Rsp and Rip.
 let windowsContextControl = 1048577 as Count
 
-// schedWorkersOffset is where the scheduler's record holds how many workers there are, the main thread among them.
-let schedWorkersOffset = 0 as Count
+// schedProcsOffset is where the scheduler's record holds how many processors there are (Go's gomaxprocs): the processors of the machine, or what MAXON_MAX_PROCS asks.
+let schedProcsOffset = 0 as Count
 
-// schedLiveOffset is where the scheduler's record holds how many behaviours have been scheduled and not yet finished, stepped atomically: the program ends when that is 0 after main.
+// schedLiveOffset is where the scheduler's record holds how many behaviours and green threads have been made and not yet finished, stepped atomically: the program ends when that is 0 after main.
 let schedLiveOffset = 8 as Count
 
-// schedSleepersOffset is where the scheduler's record holds how many workers are parked or about to park, stepped atomically, which a push reads to know whether to wake one.
-let schedSleepersOffset = 16 as Count
+// schedLockOffset is where the scheduler's record holds its lock (Go's sched.lock): 1 while a thread holds it.
+let schedLockOffset = 16 as Count
 
-// schedStartedOffset is where the scheduler's record holds 1 once the workers' threads are started, which the first behaviour does.
+// schedStartedOffset is where the scheduler's record holds 1 once the monitor's thread is started, which the first behaviour or green thread does.
 let schedStartedOffset = 24 as Count
 
 // schedExitSetOffset is where the scheduler's record holds 1 once Process.setExitCode has been called.
@@ -210,29 +210,230 @@ let schedExitSetOffset = 32 as Count
 // schedExitCodeOffset is where the scheduler's record holds the code that Process.setExitCode set last, which the process ends with in place of main's.
 let schedExitCodeOffset = 40 as Count
 
-// schedContextsOffset is where the scheduler's record holds the address of each worker's context, a word each, by worker index.
-let schedContextsOffset = 48 as Count
+// schedRunqHeadOffset is where the scheduler's record holds the oldest green thread of the global run queue, linked through greenLinkOffset, under the lock.
+let schedRunqHeadOffset = 48 as Count
 
-// queueTopOffset is where a queue holds the index of its oldest behaviour, which a thief takes by advancing it with a compare-exchange.
-let queueTopOffset = 0 as Count
+// schedRunqTailOffset is where the scheduler's record holds the newest green thread of the global run queue, under the lock.
+let schedRunqTailOffset = 56 as Count
 
-// queueBottomOffset is where a queue holds the index past its newest behaviour, which only its owner writes.
-let queueBottomOffset = 8 as Count
+// schedRunqSizeOffset is where the scheduler's record holds how many green threads the global run queue holds, written under the lock and read without it to choose whether to look.
+let schedRunqSizeOffset = 64 as Count
 
-// queueRingOffset is where a queue holds the address of its ring, which the owner replaces with a larger one when it is full.
-let queueRingOffset = 16 as Count
+// schedIdleProcsOffset is where the scheduler's record holds the processors no thread holds (Go's pidle), linked through procLinkOffset, under the lock.
+let schedIdleProcsOffset = 72 as Count
 
-// queueSleepingOffset is where a queue holds 1 while its owner is parked or about to park, which a waker claims by putting 0 there with a compare-exchange.
-let queueSleepingOffset = 24 as Count
+// schedIdleProcCountOffset is where the scheduler's record holds how many processors are idle (Go's npidle), written under the lock and read without it.
+let schedIdleProcCountOffset = 80 as Count
 
-// queueBytes is the size of a queue.
-let queueBytes = 32 as Count
+// schedIdleThreadsOffset is where the scheduler's record holds the threads that wait with no processor (Go's midle), linked through contextIdleNextOffset, under the lock.
+let schedIdleThreadsOffset = 88 as Count
 
-// ringCapacityOffset is where a ring holds how many behaviours it has room for, a power of two.
-let ringCapacityOffset = 0 as Count
+// schedSpinningOffset is where the scheduler's record holds how many threads look for work to steal (Go's nmspinning), stepped atomically.
+let schedSpinningOffset = 96 as Count
 
-// ringSlotsOffset is where a ring's slots begin, a behaviour's record address each; index i of the queue is slot i modulo the capacity.
-let ringSlotsOffset = 8 as Count
+// schedAllThreadsOffset is where the scheduler's record holds the newest thread that runs green threads (Go's allm), linked through contextAllNextOffset.
+let schedAllThreadsOffset = 104 as Count
+
+// schedFreeGreensOffset is where the scheduler's record holds the green threads' records that are free beyond what the processors keep, linked through greenLinkOffset, under the lock.
+let schedFreeGreensOffset = 112 as Count
+
+// schedFreeStacksOffset is where the scheduler's record holds the stacks that are free beyond what the processors keep, linked through pooledStackNextOffset, under the lock.
+let schedFreeStacksOffset = 120 as Count
+
+// schedTimersOffset is where the scheduler's record holds the address of the timers' heap, the sleeping green threads by when they wake, under the lock.
+let schedTimersOffset = 128 as Count
+
+// schedTimerCountOffset is where the scheduler's record holds how many timers the heap holds, under the lock.
+let schedTimerCountOffset = 136 as Count
+
+// schedTimerCapacityOffset is where the scheduler's record holds how many timers the heap has room for, under the lock.
+let schedTimerCapacityOffset = 144 as Count
+
+// schedTimerNextOffset is where the scheduler's record holds when the earliest timer is due, in nanoseconds, or 0 when there is none: written under the lock and read without it.
+let schedTimerNextOffset = 152 as Count
+
+// schedPollerOffset is where the scheduler's record holds the poller: the completion port on Windows, the epoll fd on Linux.
+let schedPollerOffset = 160 as Count
+
+// schedPollBreakOffset is where the scheduler's record holds the eventfd that breaks the poller's wait, on Linux.
+let schedPollBreakOffset = 168 as Count
+
+// schedLastPollOffset is where the scheduler's record holds when the poller was last polled, in nanoseconds, and 0 while a thread waits in it (Go's sched.lastpoll).
+let schedLastPollOffset = 176 as Count
+
+// schedPollUntilOffset is where the scheduler's record holds when the thread that waits in the poller wakes for a timer, 0 for none (Go's sched.pollUntil).
+let schedPollUntilOffset = 184 as Count
+
+// schedPollWakeSigOffset is where the scheduler's record holds 1 while a break of the poller's wait is sent and not yet taken (Go's netpollWakeSig).
+let schedPollWakeSigOffset = 192 as Count
+
+// schedPollWaitersOffset is where the scheduler's record holds how many green threads wait on a poll descriptor, stepped atomically.
+let schedPollWaitersOffset = 200 as Count
+
+// schedExitClaimOffset is where the scheduler's record holds the context of the thread that holds the claim of exiting and stopping threads (Go's suspendLock), 0 for none: the monitor holds it while a thread it stops is suspended, and a thread that ends the process takes it for good, so ExitProcess never meets a thread the monitor suspended.
+let schedExitClaimOffset = 208 as Count
+
+// schedMainThreadOffset is where the scheduler's record holds the main thread's context.
+let schedMainThreadOffset = 216 as Count
+
+// schedMonitorOffset is where the scheduler's record holds the monitor's context (Go's sysmon).
+let schedMonitorOffset = 224 as Count
+
+// schedRegistersOffset is where the scheduler's record holds the CONTEXT the monitor reads and sets a thread's registers in, on Windows.
+let schedRegistersOffset = 232 as Count
+
+// schedCarveNextOffset is where the scheduler's record holds the next free byte of the block the green threads' records and the stacks' records are carved from, under the lock.
+let schedCarveNextOffset = 240 as Count
+
+// schedCarveEndOffset is where the scheduler's record holds the end of that block.
+let schedCarveEndOffset = 248 as Count
+
+// schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id.
+let schedProcessorsOffset = 256 as Count
+
+// procIdOffset is where a processor holds its index among the processors.
+let procIdOffset = 0 as Count
+
+// procStatusOffset is where a processor holds what it is doing (procIdle, procRunning, procSyscall), which the monitor takes it from a blocking call by with a compare-exchange.
+let procStatusOffset = 8 as Count
+
+// procThreadOffset is where a processor holds the context of the thread that holds it (Go's p.m), 0 while none or while that thread is in a blocking call.
+let procThreadOffset = 16 as Count
+
+// procLinkOffset is where a processor holds the next idle processor, under the scheduler's lock.
+let procLinkOffset = 24 as Count
+
+// procSchedTickOffset is where a processor holds how many green threads it has started running (Go's schedtick).
+let procSchedTickOffset = 32 as Count
+
+// procSyscallTickOffset is where a processor holds how many blocking calls its threads have entered (Go's syscalltick).
+let procSyscallTickOffset = 40 as Count
+
+// procSeenTickOffset is where a processor holds the schedtick the monitor saw last (Go's sysmontick.schedtick), which only the monitor reads and writes.
+let procSeenTickOffset = 48 as Count
+
+// procSeenWhenOffset is where a processor holds when the monitor first saw that schedtick, in nanoseconds.
+let procSeenWhenOffset = 56 as Count
+
+// procSeenSyscallTickOffset is where a processor holds the syscalltick the monitor saw last.
+let procSeenSyscallTickOffset = 64 as Count
+
+// procSeenSyscallWhenOffset is where a processor holds when the monitor first saw that syscalltick, in nanoseconds.
+let procSeenSyscallWhenOffset = 72 as Count
+
+// procRunqHeadOffset is where a processor holds the index of the oldest green thread of its run queue, which a taker advances with a compare-exchange.
+let procRunqHeadOffset = 80 as Count
+
+// procRunqTailOffset is where a processor holds the index past the newest green thread of its run queue, which only its owner writes.
+let procRunqTailOffset = 88 as Count
+
+// procRunNextOffset is where a processor holds the green thread readied last, which runs next (Go's runnext), 0 for none.
+let procRunNextOffset = 96 as Count
+
+// procFreeGreensOffset is where a processor holds its free green threads' records, linked through greenLinkOffset, which only its owner reads and writes.
+let procFreeGreensOffset = 104 as Count
+
+// procFreeGreenCountOffset is where a processor holds how many free green threads it keeps.
+let procFreeGreenCountOffset = 112 as Count
+
+// procFreeStacksOffset is where a processor holds its free stacks, linked through pooledStackNextOffset, which only its owner reads and writes.
+let procFreeStacksOffset = 120 as Count
+
+// procFreeStackCountOffset is where a processor holds how many free stacks it keeps.
+let procFreeStackCountOffset = 128 as Count
+
+// procRunqOffset is where a processor's run queue begins, procRunqSlots green threads; index i is slot i modulo procRunqSlots.
+let procRunqOffset = 136 as Count
+
+// procRunqSlots is how many green threads a processor's run queue holds, Go's: a full one sends half of them to the global run queue.
+let procRunqSlots = 256 as Count
+
+// procBytes is the size of a processor.
+let procBytes = 2184 as Count
+
+// greenStatusOffset is where a green thread holds its status (greenIdle, greenRunnable, ...), changed with compare-exchanges where a reader of another thread may race.
+let greenStatusOffset = 0 as Count
+
+// greenLinkOffset is where a green thread holds the next of the list it is on: the global run queue or a list of free records.
+let greenLinkOffset = 8 as Count
+
+// greenStackOffset is where a green thread holds its pooled stack, 0 until it first runs and after it finishes.
+let greenStackOffset = 16 as Count
+
+// greenCodeOffset is where a green thread holds the address of the code it runs, which is called with greenArgOffset's word.
+let greenCodeOffset = 24 as Count
+
+// greenArgOffset is where a green thread holds the word its code is called with: a behaviour's record, or the green thread itself.
+let greenArgOffset = 32 as Count
+
+// greenResultOffset is where a green thread holds the word its code gave back once it finished.
+let greenResultOffset = 40 as Count
+
+// greenWaiterOffset is where a green thread holds the green thread that waits for it to finish, or greenFinished once it has, exchanged atomically.
+let greenWaiterOffset = 48 as Count
+
+// greenKindOffset is where a green thread holds whether it runs a behaviour, whose record the scheduler frees when it finishes, or is awaited.
+let greenKindOffset = 56 as Count
+
+// greenWhenOffset is where a green thread holds when its sleep ends, in nanoseconds, while it is on the timers' heap.
+let greenWhenOffset = 64 as Count
+
+// greenPreemptOffset is where a green thread holds 1 while the monitor asks that it be stopped (Go's g.preempt).
+let greenPreemptOffset = 72 as Count
+
+// greenArgsOffset is where a green thread's arguments begin, greenArgWords words that its code reads.
+let greenArgsOffset = 80 as Count
+
+// greenArgWords is how many words of arguments a green thread holds.
+let greenArgWords = 8 as Count
+
+// greenSwitchOffset is where a green thread holds the switch record of its stack while it does not run.
+let greenSwitchOffset = 144 as Count
+
+// greenBytes is the size of a green thread's record.
+let greenBytes = 384 as Count
+
+// pooledStackLowOffset is where a pooled stack holds the lowest address of its reserve.
+let pooledStackLowOffset = 0 as Count
+
+// pooledStackHighOffset is where a pooled stack holds the address past its top.
+let pooledStackHighOffset = 8 as Count
+
+// pooledStackLimitOffset is where a pooled stack holds the lowest address committed, the TEB's StackLimit on Windows, as its last green thread left it.
+let pooledStackLimitOffset = 16 as Count
+
+// pooledStackNextOffset is where a pooled stack holds the next free stack of the list it is on.
+let pooledStackNextOffset = 24 as Count
+
+// pooledStackBytes is the size of a pooled stack's record.
+let pooledStackBytes = 32 as Count
+
+// threadBlockClockOffset is where a thread's block holds a timespec, two words.
+let threadBlockClockOffset = 240 as Count
+
+// threadBlockEventsOffset is where a thread's block holds the poller's events, pollEventSlots of them.
+let threadBlockEventsOffset = 256 as Count
+
+// pollEventSlots is how many events a thread takes from the poller at once.
+let pollEventSlots = 64 as Count
+
+// threadBlockBytes is the size of a thread's block: room for pollEventSlots events of windowsEntryBytes each, the larger of the two systems'.
+let threadBlockBytes = 2304 as Count
+
+// pollStateOffset is where a poll descriptor holds the green thread that waits on it, or pollSignalled once a completion came and was not yet taken, exchanged atomically.
+let pollStateOffset = 0 as Count
+
+// pollFdOffset is where a poll descriptor holds the eventfd that signals it, on Linux.
+let pollFdOffset = 8 as Count
+
+// pollDescriptorBytes is the size of a poll descriptor.
+let pollDescriptorBytes = 16 as Count
+
+// windowsEntryKeyOffset is where an OVERLAPPED_ENTRY holds the completion key.
+let windowsEntryKeyOffset = 0 as Count
+
+// windowsEntryBytes is the size of an OVERLAPPED_ENTRY.
+let windowsEntryBytes = 32 as Count
 
 // heapOutOffset is where a heap's record holds how many boxes it carved from chunks plus how many large boxes it holds, less those it freed.
 let heapOutOffset = 424 as Count
@@ -383,6 +584,39 @@ let linuxSysGettid = 186 as Count
 
 // linuxSysTgkill is tgkill(process id, thread id, signal): a signal to one thread of a process.
 let linuxSysTgkill = 234 as Count
+
+// linuxSysNanosleep is nanosleep(timespec, remaining).
+let linuxSysNanosleep = 35 as Count
+
+// linuxSysEpollCreate1 is epoll_create1(flags): the poller.
+let linuxSysEpollCreate1 = 291 as Count
+
+// linuxSysEpollCtl is epoll_ctl(epoll fd, operation, fd, event).
+let linuxSysEpollCtl = 233 as Count
+
+// linuxSysEpollWait is epoll_wait(epoll fd, events, most events, timeout in milliseconds).
+let linuxSysEpollWait = 232 as Count
+
+// linuxSysEventfd2 is eventfd2(initial count, flags): a counter that the poller sees readable while it is above 0.
+let linuxSysEventfd2 = 290 as Count
+
+// linuxEpollCloexec is EPOLL_CLOEXEC: the poller is closed in a child that execs.
+let linuxEpollCloexec = 524288 as Count
+
+// linuxEventfdFlags is EFD_CLOEXEC | EFD_NONBLOCK: an eventfd closed in a child that execs, whose read of a count of 0 fails at once.
+let linuxEventfdFlags = 526336 as Count
+
+// linuxEpollCtlAdd is EPOLL_CTL_ADD: registers an fd with the poller.
+let linuxEpollCtlAdd = 1 as Count
+
+// linuxEpollIn is EPOLLIN: an event for an fd that has something to read.
+let linuxEpollIn = 1 as Count
+
+// linuxEpollEventDataOffset is where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events.
+let linuxEpollEventDataOffset = 4 as Count
+
+// linuxEpollEventBytes is the size of a packed struct epoll_event.
+let linuxEpollEventBytes = 12 as Count
 
 // linuxSigactionHandlerOffset is where a struct sigaction holds the handler.
 let linuxSigactionHandlerOffset = 0 as Count
