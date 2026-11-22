@@ -164,6 +164,82 @@ function literal(mutates vm Vm, text String) returns Count
 	return o
 end 'literal'
 
+// constantObject is a constant of the executable's data (ir.Datum): made once, its boxes and the strings they hold are
+// immortal, and no one owns them.
+function constantObject(mutates vm Vm, d ir.Datum) returns Count
+	match vm.h.constants.get(d.symbol) 'known'
+		some(o) then return o
+		none then _ = 0
+	end 'known'
+	var objects = CountList.create(0)
+	for i in 0 upto d.boxes.count() 'make'
+		let o = match d.boxes[i].shape 'shape'
+			words gives newBox(vm, words: d.boxes[i].count)
+			array gives newArray(vm)
+			bytes gives newBytes(vm, buf: ByteArray.create(0))
+		end 'shape'
+		vm.h.oImmortal[o] = true
+		objects.push(o)
+	end 'make'
+	for i in 0 upto d.boxes.count() 'fill'
+		let o = objects[i]
+		let box = d.boxes[i].clone()
+		for k in 0 upto box.count 'words'
+			let word = d.words[try box.first + k otherwise panic("interp: a constant past memory")].clone()
+			if box.shape == ir.DatumShape.bytes 'byte'
+				vm.h.buffers[vm.h.oData[o]].push(try ir.bitsOfWord(word.value) as Byte otherwise panic("interp: an element of a packed constant is no byte"))
+				continue 'words'
+			end 'byte'
+			var c = 0 as Count
+			if box.shape == ir.DatumShape.words 'field'
+				c = try vm.h.oData[o] + k otherwise panic("interp: a constant past memory")
+			end 'field' else 'element'
+				c = vm.h.newCell(o)
+				vm.h.elements[vm.h.oData[o]].push(c)
+			end 'element'
+			let ref = constantWordRef(vm, d: d, word: word, objects: objects)
+			vm.h.cellN[c] = constantWordNum(word)
+			vm.h.cellR[c] = ref
+		end 'words'
+	end 'fill'
+	vm.h.constants.insert(d.symbol.clone(), value: objects[d.root])
+	return objects[d.root]
+end 'constantObject'
+
+// constantWordNum is the number a cell of a constant holds: the word itself for a scalar, 0 for a reference.
+function constantWordNum(word ir.DatumWord) returns ir.Word
+	return match word.part 'part'
+		scalar gives word.value
+		text gives 0 as ir.Word
+		box gives 0 as ir.Word
+	end 'part'
+end 'constantWordNum'
+
+// constantWordRef is the object a cell of a constant holds: a string literal, another box of the constant, or 0 for a
+// scalar.
+function constantWordRef(mutates vm Vm, d ir.Datum, word ir.DatumWord, objects CountList) returns ir.Word
+	let o = match word.part 'part'
+		scalar gives 0 as Count
+		text gives literal(vm, text: d.texts[try word.value as Count otherwise panic("interp: a string of a constant that is not one")])
+		box gives objects[try word.value as Count otherwise panic("interp: a box of a constant that is not one")]
+	end 'part'
+	return try o as ir.Word otherwise panic("interp: a handle past a word")
+end 'constantWordRef'
+
+// isConstant is whether an object is part of a constant of the executable's data, which is never written or dropped: an
+// immortal object that is no string.
+function isConstant(vm Vm, o Count) returns bool
+	return vm.h.oImmortal[o] and vm.h.oKind[o] != kindString
+end 'isConstant'
+
+// requireWritable refuses a write to, or a move out of, a place of a constant.
+function requireWritable(mutates vm Vm, c Count, what String) throws Halt
+	let holder = vm.h.cellHolder[c]
+	if holder != 0 and isConstant(vm, o: holder) 'constant'
+		throw violation(vm, kind: ownership, message: "{what} changes {objectText(vm, o: holder)}, a constant of the executable, which is never written")
+	end 'constant'
+end 'requireWritable'
+
 // adopt stores an object into a place that owns what it holds. The value must be in flight, owned by no one: a value that has
 // an owner is moved first, and one that is stored twice would be freed twice. What the place held must be gone already, or it
 // is leaked.
@@ -199,6 +275,7 @@ end 'isManaged'
 
 // store puts a register's value in a place, as an owner when the register is managed.
 function store(mutates vm Vm, f ir.IrFunction, c Count, src ir.Reg, what String) throws Halt
+	try requireWritable(vm, c: c, what: what)
 	if isManaged(f, r: src) 'managed'
 		let o = vm.ref(src)
 		try adopt(vm, c: c, o: o, what: what)
@@ -216,6 +293,7 @@ function release(mutates vm Vm, c Count, what String) returns Count throws Halt
 	if o == 0 'empty'
 		return 0
 	end 'empty'
+	try requireWritable(vm, c: c, what: what)
 	vm.h.cellN[c] = 0
 	vm.h.cellR[c] = 0
 	if vm.h.oImmortal[o] 'immortal'
@@ -240,6 +318,9 @@ end 'release'
 // drop frees an object and everything it owns, or lowers the count of a shared one by the one owner that is dropping it. The
 // object must be in flight: its owner has given it up.
 function drop(mutates vm Vm, o Count) throws Halt
+	if isConstant(vm, o: o) 'constant'
+		throw violation(vm, kind: ownership, message: "{objectText(vm, o: o)} is a constant of the executable, which is never dropped")
+	end 'constant'
 	if vm.h.oImmortal[o] 'immortal'
 		return
 	end 'immortal'

@@ -492,7 +492,7 @@ end 'joinNames'
 //	instance      export::swap[stdlib::Count, export::Counter]
 //	extension     geometry::extension export::Counter.reset: a method that a module other than the type's adds to it
 //	type          export::Counter            export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))
-let linkSeparator = "::"
+export let linkSeparator = "::"
 
 let intLinkAliasMark = "="
 

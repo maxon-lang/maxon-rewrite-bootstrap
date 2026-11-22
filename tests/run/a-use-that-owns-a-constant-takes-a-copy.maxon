@@ -1,0 +1,32 @@
+type Pt
+	static let ORIGIN = Self{x: 4, names: ["a", "b"]}
+	export var x as Count
+	export var names as Array with String
+
+	function bump(mutates self)
+		x = try x + 1 otherwise 0
+	end 'bump'
+
+	function take(consumes self) returns Count
+		return x
+	end 'take'
+end 'Pt'
+
+let LIST = [1 as Count, 2, 3]
+
+function keep(consumes p Pt) returns Count
+	return p.x
+end 'keep'
+
+function main() returns ExitCode
+	var a = Pt.ORIGIN
+	a.bump()
+	a.names.push("c")
+	let n = Pt.ORIGIN.names.clone()
+	var l = LIST
+	l.push(4)
+	print("{a.x} {Pt.ORIGIN.x} {a.names.count()} {Pt.ORIGIN.names.count()} {n.count()} {l.count()} {LIST.count()} {keep(Pt.ORIGIN)} {Pt.ORIGIN.take()}\n")
+	return 0
+end 'main'
+
+//> 5 4 3 2 2 4 3 4 4

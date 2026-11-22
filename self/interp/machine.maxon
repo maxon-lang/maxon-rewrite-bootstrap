@@ -19,6 +19,10 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		execStr(vm, f: f, x: x)
 	end 'visitStr'
 
+	function visitDatum(mutates self, f ir.IrFunction, x ir.Instr)
+		execDatum(vm, f: f, x: x)
+	end 'visitDatum'
+
 	function visitLoadSlot(mutates self, f ir.IrFunction, x ir.Instr)
 		try execLoadSlot(vm, f: f, x: x) otherwise ignore
 	end 'visitLoadSlot'

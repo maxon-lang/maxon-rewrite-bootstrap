@@ -10,6 +10,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opStr 'opcodeStr'
 		return false
 	end 'opcodeStr'
+	if op == ir.Opcode.opDatum 'opcodeDatum'
+		return false
+	end 'opcodeDatum'
 	if op == ir.Opcode.opLoadSlot 'opcodeLoadSlot'
 		return false
 	end 'opcodeLoadSlot'

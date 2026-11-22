@@ -313,6 +313,18 @@ export type Builder
 		return indexOf(n)
 	end 'table'
 
+	// datum gives the constant d, which the function holds once however many reads name it.
+	export function datum(mutates self, dst Reg, consumes d Datum) returns Instr
+		for i in 0 upto f.datums.count() 'known'
+			if f.datums[i].symbol == d.symbol 'same'
+				return newDatum(dst, item: i)
+			end 'same'
+		end 'known'
+		let n = f.datums.count()
+		f.datums.push(d)
+		return newDatum(dst, item: n)
+	end 'datum'
+
 	// box makes an interface value of the table t and the value in src, which the box owns.
 	export function box(mutates self, dst Reg, consumes t WitnessTable, src Reg) returns Instr
 		return newBox(dst, table: self.table(t), value: src)

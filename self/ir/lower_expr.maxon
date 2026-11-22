@@ -68,6 +68,13 @@ end 'lowerExpr'
 // settle gives the managed value v of e its owner, as far as the expression decides: a fresh value that is not consumed is
 // a temporary of the statement, and a consumed place that shares on copy is copied.
 function settle(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, v Reg, ty ast.TypeID, consumed bool) returns Reg
+	if readsDatum(l, p: p, e: e) 'constant'
+		// The executable's data is never written or dropped, so whatever takes the value takes a copy of it.
+		if consumed 'owned'
+			return copyValue(l, p: p, site: siteOf(l, p: p, node: e), v: v, t: ty)
+		end 'owned'
+		return v
+	end 'constant'
 	if not ast.isStorage(p.modules[l.mi].tree, typing: p.typings[l.mi], node: e) 'fresh'
 		if not consumed and not isImmortal(l, p: p, e: e) 'temporary'
 			ownTemp(l, p: p, v: v, t: ty)
@@ -82,6 +89,36 @@ function settle(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, v Reg, t
 	end 'moved'
 	return v
 end 'settle'
+
+// readsDatum is whether e reads a constant that is a datum of the executable: a constant that is one, or the raw value of an
+// enum or a union whose raw values are.
+function readsDatum(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
+	let through = ast.through(p.modules[l.mi].tree, e: e)
+	let k = p.modules[l.mi].tree.kindOf(through)
+	if k == ast.NodeKind.nameExpr 'name'
+		let name = nameInfoAt(p, module: l.module, node: through)
+		return name.kind == ast.NameKind.nameConst and constantDatum(p, name: name).isSome()
+	end 'name'
+	if k != ast.NodeKind.memberExpr 'notMember'
+		return false
+	end 'notMember'
+	let member = memberInfoAt(p, module: l.module, node: through)
+	var owner = member.ownerTy
+	if member.kind == ast.MemberKind.memberEnumRaw or member.kind == ast.MemberKind.memberUnionRaw 'raw'
+		owner = exprType(p, module: l.module, node: ast.memberExprObj(p.modules[l.mi].tree, id: through))
+	end 'raw' else if member.kind != ast.MemberKind.memberCaseRaw 'other'
+		return false
+	end 'other'
+	return rawDatums(p, origin: p.types.slots[ast.typeSlot(owner)][ast.typeIndex(owner)].effectiveOrigin()).isSome()
+end 'readsDatum'
+
+// datumReg is the value of a constant of the executable's data, which no one owns.
+function datumReg(mutates l Lowerer, consumes d Datum) returns Reg
+	let r = newReg(l, kind: IrKind.kindManaged)
+	let instr = l.b.datum(r, d: d)
+	emit(l, i: instr)
+	return r
+end 'datumReg'
 
 // isBranching is whether an expression of the kind picks a branch by a value it computes, so that its type can be one
 // constant that its branches agree on while the condition, the subject or an arm that panics still has to run.
@@ -367,6 +404,10 @@ function visitNameExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) r
 		return d
 	end 'field'
 	if name.kind == ast.NameKind.nameConst 'const'
+		match consumes constantDatum(p, name: name) 'datum'
+			some(d) then return datumReg(l, d: d)
+			none then _ = 0
+		end 'datum'
 		return exprIn(l, p: p, e: constantExpr(p, name: name))
 	end 'const'
 	if name.kind == ast.NameKind.nameFunc 'function'
@@ -812,10 +853,13 @@ end 'lowerCaseRead'
 // which only a field that holds no value of its own survives.
 function rawFieldOf(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, index Reg, field Count, ft ast.TypeID) returns Reg
 	let record = rawValueOf(l, p: p, t: t, index: index)
-	let recordTy = ast.rawTypeOf(p, t: p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].effectiveOrigin())
+	let origin = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].effectiveOrigin()
+	let recordTy = ast.rawTypeOf(p, t: origin)
 	let d = newReg(l, kind: kindOf(l, p: p, t: ft))
 	emit(l, i: newLoadField(d, obj: record, offset: wordOffset(field)))
-	dropValue(l, p: p, v: record, t: recordTy)
+	if not rawDatums(p, origin: origin).isSome() 'built'
+		dropValue(l, p: p, v: record, t: recordTy)
+	end 'built'
 	return d
 end 'rawFieldOf'
 
@@ -844,6 +888,10 @@ function rawValueOf(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, inde
 	let origin = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].effectiveOrigin()
 	let kind = p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].rawKind
 	if kind == ast.RawKind.value 'value'
+		match consumes rawDatums(p, origin: origin) 'data'
+			some(ds) then return datumSelect(l, index: index, ds: ds)
+			none then _ = 0
+		end 'data'
 		return builtRawValue(l, p: p, origin: origin, index: index)
 	end 'value'
 	if kind == ast.RawKind.string 'string'
@@ -884,6 +932,18 @@ function builtRawValue(mutates l Lowerer, mutates p ast.Project, origin ast.Type
 	end 'each'
 	return selectEnd(l, s: sel)
 end 'builtRawValue'
+
+// datumSelect is the raw value of the case that index says, when every case's is a datum of the executable's data.
+function datumSelect(mutates l Lowerer, index Reg, consumes ds DatumList) returns Reg
+	let sel = selectStart(l, kind: IrKind.kindManaged, index: index, count: ds.count())
+	var each = ds
+	for i in 0 upto each.count() 'each'
+		selectArm(l, s: sel, i: i)
+		let v = datumReg(l, d: exchange(each[i], value: Datum.make("")))
+		selectStore(l, s: sel, v: v)
+	end 'each'
+	return selectEnd(l, s: sel)
+end 'datumSelect'
 
 // names is the name of the case that index says, as a string of the executable.
 function names(mutates l Lowerer, index Reg, names ast.StringList) returns Reg

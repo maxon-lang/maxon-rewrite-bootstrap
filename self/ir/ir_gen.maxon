@@ -26,6 +26,7 @@ export enum Opcode
 	opNone
 	opConst
 	opStr
+	opDatum
 	opLoadSlot
 	opStoreSlot
 	opSlotAddr
@@ -561,6 +562,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opStr 'opStr'
 		return 0
 	end 'opStr'
+	if op == Opcode.opDatum 'opDatum'
+		return 0
+	end 'opDatum'
 	if op == Opcode.opLoadSlot 'opLoadSlot'
 		return 1
 	end 'opLoadSlot'
@@ -784,6 +788,15 @@ export function newStr(dst Reg, text Index) returns Instr
 	r.c = text
 	return r
 end 'newStr'
+
+// Datum gives the constant Item of the function's Datums, laid out once in the executable's data: no one owns
+// it, and it is never written or dropped.
+export function newDatum(dst Reg, item Count) returns Instr
+	var r = Instr.make(Opcode.opDatum)
+	r.dst = dst
+	r.c = try item as Index otherwise panic("ir: datum item is out of range")
+	return r
+end 'newDatum'
 
 // LoadSlot reads a slot.
 export function newLoadSlot(dst Reg, slot Count) returns Instr
@@ -1337,6 +1350,10 @@ end 'constValue'
 export function strText(f IrFunction, x Instr) returns String
 	return f.stringAt(x.c)
 end 'strText'
+
+export function datumItem(x Instr) returns Count
+	return try x.c as Count otherwise panic("ir: datum item is out of range")
+end 'datumItem'
 
 export function loadSlotSlot(x Instr) returns Count
 	return try x.imm as Count otherwise panic("ir: loadSlot slot is out of range")
@@ -1899,6 +1916,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opStr 'opStr'
 		return table.Option.some(x.dst)
 	end 'opStr'
+	if x.op == Opcode.opDatum 'opDatum'
+		return table.Option.some(x.dst)
+	end 'opDatum'
 	if x.op == Opcode.opLoadSlot 'opLoadSlot'
 		return table.Option.some(x.dst)
 	end 'opLoadSlot'
@@ -2066,6 +2086,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opStr 'opStr'
 		return table.Option.none
 	end 'opStr'
+	if x.op == Opcode.opDatum 'opDatum'
+		return table.Option.none
+	end 'opDatum'
 	if x.op == Opcode.opLoadSlot 'opLoadSlot'
 		return table.Option.none
 	end 'opLoadSlot'
@@ -2219,6 +2242,7 @@ export function instrCanFail(x Instr) returns bool
 		opNone gives false
 		opConst gives false
 		opStr gives false
+		opDatum gives false
 		opLoadSlot gives false
 		opStoreSlot gives false
 		opSlotAddr gives false
@@ -2278,6 +2302,9 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 	if x.op == Opcode.opStr 'opStr'
 		return
 	end 'opStr'
+	if x.op == Opcode.opDatum 'opDatum'
+		return
+	end 'opDatum'
 	if x.op == Opcode.opLoadSlot 'opLoadSlot'
 		return
 	end 'opLoadSlot'
@@ -2514,6 +2541,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opStr'
+	if x.op == Opcode.opDatum 'opDatum'
+		out.push(x.dst)
+		return
+	end 'opDatum'
 	if x.op == Opcode.opLoadSlot 'opLoadSlot'
 		out.push(x.dst)
 		return
@@ -2721,6 +2752,9 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 	if x.op == Opcode.opStr 'opStr'
 		return
 	end 'opStr'
+	if x.op == Opcode.opDatum 'opDatum'
+		return
+	end 'opDatum'
 	if x.op == Opcode.opLoadSlot 'opLoadSlot'
 		return
 	end 'opLoadSlot'
@@ -2976,6 +3010,7 @@ end 'setInstrSlot'
 export interface InstrVisitor
 	function visitConst(mutates self, f IrFunction, x Instr)
 	function visitStr(mutates self, f IrFunction, x Instr)
+	function visitDatum(mutates self, f IrFunction, x Instr)
 	function visitLoadSlot(mutates self, f IrFunction, x Instr)
 	function visitStoreSlot(mutates self, f IrFunction, x Instr)
 	function visitSlotAddr(mutates self, f IrFunction, x Instr)
@@ -3036,6 +3071,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitStr(f, x: x)
 		return
 	end 'opStr'
+	if x.op == Opcode.opDatum 'opDatum'
+		visitor.visitDatum(f, x: x)
+		return
+	end 'opDatum'
 	if x.op == Opcode.opLoadSlot 'opLoadSlot'
 		visitor.visitLoadSlot(f, x: x)
 		return
@@ -3278,6 +3317,9 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 	if x.op == Opcode.opStr 'opStr'
 		return "{resultText(x.dst)}str {quote(strText(f, x: x))}"
 	end 'opStr'
+	if x.op == Opcode.opDatum 'opDatum'
+		return "{resultText(x.dst)}datum {datumItem(x)}"
+	end 'opDatum'
 	if x.op == Opcode.opLoadSlot 'opLoadSlot'
 		return "{resultText(x.dst)}load s{loadSlotSlot(x)}"
 	end 'opLoadSlot'

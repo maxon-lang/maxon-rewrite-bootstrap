@@ -107,9 +107,11 @@ export type Selector
 	// the unit defines once each.
 	var typeNames as TableSet
 	var typeSymbols as CalleeSymbols
+	// datums are the constants of the executable's data that the unit defines, by symbol.
+	var datums as TableSet
 
 	static function new() returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new()}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new()}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -127,6 +129,12 @@ export type Selector
 				_ = self.typeName(p, t: f.tables[i].concrete)
 			end 'new'
 		end 'tables'
+		for i in 0 upto f.datums.count() 'datums'
+			if not datums.has(f.datums[i].symbol) 'new'
+				datums.insert(f.datums[i].symbol.clone(), value: true)
+				u.defineDatum(f.datums[i])
+			end 'new'
+		end 'datums'
 		defs.clear()
 		for _ in 0 upto f.regs.count() 'regs'
 			defs.push(noDefAt)
@@ -218,6 +226,11 @@ export type Selector
 	function textRef(mutates self, f ir.IrFunction, ins ir.Instr) returns Referent
 		return Referent.make(MRef.data, aux: imm32Of(u.data.textOffset(ir.strText(f, x: ins))))
 	end 'textRef'
+
+	// datumRef is the constant an instruction gives, which prepare defined in the unit.
+	function datumRef(mutates self, f ir.IrFunction, ins ir.Instr) returns Referent
+		return self.symbolRef(f.datums[ir.datumItem(ins)].symbol)
+	end 'datumRef'
 
 	function calleeRef(mutates self, fid ast.FuncID) returns Referent
 		return self.symbolRef(self.calleeSymbol(fid))

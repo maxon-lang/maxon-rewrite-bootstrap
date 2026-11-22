@@ -1,0 +1,23 @@
+export type Item
+	export let name as String
+	export let price as Count
+
+	export static function make(name String, price Count) returns Self
+		return Self{name: name.clone(), price: price}
+	end 'make'
+end 'Item'
+
+export let STOCK = [Item.make("pen", price: 3), Item.make("ink", price: 7)]
+
+export enum Size
+	small = Item.make("s", price: 1)
+	large = Item.make("l", price: 4)
+end 'Size'
+
+export function total() returns Count
+	var t = 0 as Count
+	for i in 0 upto STOCK.count() 'each'
+		t = try t + STOCK[i].price otherwise 0
+	end 'each'
+	return t
+end 'total'

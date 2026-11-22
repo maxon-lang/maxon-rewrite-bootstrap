@@ -204,6 +204,8 @@ var ops = []op{
 		Operands: []operand{{Name: "Value", Kind: kWord, Field: fImm}}, Text: "const {Value}"},
 	{Name: "Str", Eval: noEval, Doc: "Str gives a string literal.", Result: valueResult,
 		Operands: []operand{{Name: "Text", Kind: kText, Field: fC}}, Text: "str {Text}"},
+	{Name: "Datum", Eval: noEval, Doc: "Datum gives the constant Item of the function's Datums, laid out once in the executable's data: no one owns\n// it, and it is never written or dropped.", Result: valueResult,
+		Operands: []operand{{Name: "Item", Kind: kInt, Field: fC}}, Text: "datum {Item}"},
 	{Name: "LoadSlot", Eval: noEval, Doc: "LoadSlot reads a slot.", Result: valueResult,
 		Operands: []operand{slotOp}, Effects: []effect{effReads}, Text: "load {Slot}"},
 	{Name: "StoreSlot", Eval: noEval, Doc: "StoreSlot puts a value in a slot, which owns it unless Borrow is set.",

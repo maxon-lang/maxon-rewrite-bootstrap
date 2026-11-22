@@ -1,0 +1,8 @@
+function main() returns ExitCode
+	var mine = shop.STOCK
+	mine.push(shop.Item.make("cap", price: 1))
+	print("{shop.STOCK[1].name} {shop.total()} {shop.STOCK.count()} {mine.count()} {shop.Size.large.rawValue.name} {shop.Size.small.price}\n")
+	return 0
+end 'main'
+
+//> ink 10 2 3 l 1

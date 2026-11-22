@@ -1,0 +1,391 @@
+// DatumPart is what a word of a box of a constant holds.
+export enum DatumPart
+	// scalar is the word itself: a number, a bool, a float's bits, an enum's case.
+	scalar
+	// text is the address of a string of the datum's texts, which value indexes.
+	text
+	// box is the address of another box of the datum, which value indexes.
+	box
+end 'DatumPart'
+
+export type DatumWord
+	export var part as DatumPart
+	export var value as Word
+
+	export static function make(part DatumPart, value Word) returns DatumWord
+		return DatumWord{part: part, value: value}
+	end 'make'
+end 'DatumWord'
+
+export typealias DatumWordList = Array with DatumWord
+
+// DatumShape is how a box of a constant is laid out, as lowering lays out the box it would build.
+export enum DatumShape
+	// words is the box of a record, a tuple or a union, a word each (a union's case index first), padded as boxBytes pads.
+	words
+	// array is the box of an array, its length, capacity and buffer, and the buffer of a word to an element.
+	array
+	// bytes is the box of a packed array, as an array's, and the buffer of a byte to an element.
+	bytes
+end 'DatumShape'
+
+// DatumBox is one box of a constant: its words are words[first] on, count of them.
+export type DatumBox
+	export var shape as DatumShape
+	export var first as Count
+	export var count as Count
+
+	export static function make(shape DatumShape, first Count, count Count) returns DatumBox
+		return DatumBox{shape: shape, first: first, count: count}
+	end 'make'
+end 'DatumBox'
+
+export typealias DatumBoxList = Array with DatumBox
+
+// Datum is a constant laid out before the program runs: boxes[root] is its value, and the boxes and strings it reaches are
+// in it too, so the executable holds it as one piece. It is named by symbol, which says which constant it is, so every
+// function and every module that reads it names one datum.
+export type Datum
+	export var symbol as String
+	export var root as Count
+	export var boxes as DatumBoxList
+	export var words as DatumWordList
+	export var texts as ast.StringList
+
+	export static function make(consumes symbol String) returns Datum
+		return Datum{symbol: symbol, root: 0, boxes: DatumBoxList.create(0), words: DatumWordList.create(0), texts: ast.StringList.create(0)}
+	end 'make'
+end 'Datum'
+
+export typealias DatumList = Array with Datum
+
+// DatumBuild is a datum being laid out, with the parameters of the literal factory whose body is being read bound to the
+// words of the call's arguments.
+type DatumBuild
+	var d as Datum
+	var params as ast.LocalIDList
+	var args as DatumWordList
+
+	static function make(consumes symbol String) returns DatumBuild
+		return DatumBuild{d: Datum.make(symbol), params: ast.LocalIDList.create(0), args: DatumWordList.create(0)}
+	end 'make'
+end 'DatumBuild'
+
+// constantSymbol is the name of the datum of a constant of a module: "const " and its module's link path and name.
+function constantSymbol(p ast.Project, ref ast.DeclRef) returns String
+	return "const {ast.moduleLinkPath(p, modID: ref.module)}{ast.linkSeparator}{ast.declName(p, ref: ref)}"
+end 'constantSymbol'
+
+// rawSymbol is the name of the datum of the raw value of a case of an enum or a union: "raw ", the type's link name and
+// the case.
+function rawSymbol(p ast.Project, origin ast.TypeID, index Count) returns String
+	return "raw {ast.typeLinkName(p, t: origin)}.{p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].cases[index].name}"
+end 'rawSymbol'
+
+// constantDatum is the datum of the constant a name stands for, or none when the constant is read as it is lowered: its
+// value is a number, a string or a function, or is not known before the program runs.
+function constantDatum(p ast.Project, name ast.NameInfo) returns table.Option with Datum
+	return datumOf(p, symbol: constantSymbol(p, ref: name.decl), e: constantExpr(p, name: name))
+end 'constantDatum'
+
+// rawDatums are the datums of the raw values of the cases of an enum or a union, in the order of the cases, or none when
+// a case's raw value is not one: then every case's is built where it is read, so a read has one owner whichever case it is.
+function rawDatums(p ast.Project, origin ast.TypeID) returns table.Option with DatumList
+	if p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].rawKind != ast.RawKind.value 'notBuilt'
+		return table.Option.none
+	end 'notBuilt'
+	let module = p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].decl.module
+	var out = DatumList.create(0)
+	for i in 0 upto p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].cases.count() 'each'
+		let e = ExprRef.make(module, node: p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].cases[i].rawExpr)
+		if not pushFound(out, found: datumOf(p, symbol: rawSymbol(p, origin: origin, index: i), e: e)) 'unknown'
+			return table.Option.none
+		end 'unknown'
+	end 'each'
+	return table.Option.some(out)
+end 'rawDatums'
+
+// pushFound adds a datum that was found to out, and gives whether there was one.
+function pushFound(mutates out DatumList, consumes found table.Option with Datum) returns bool
+	match consumes found 'found'
+		some(d) then out.push(d)
+		none then return false
+	end 'found'
+	return true
+end 'pushFound'
+
+// datumOf lays out the value of the constant expression e as the datum symbol, or gives none when the value is no box or is
+// not known before the program runs. This is the one place that decides which constants live in the executable's data.
+function datumOf(p ast.Project, consumes symbol String, e ExprRef) returns table.Option with Datum
+	var b = DatumBuild.make(symbol)
+	var w = DatumWord.make(DatumPart.scalar, value: 0 as Word)
+	if not datumWord(b, p: p, module: e.module, e: e.node, w: w) 'unknown'
+		return table.Option.none
+	end 'unknown'
+	if w.part != DatumPart.box 'notBox'
+		// A number is a constant of the code, and a string a literal, which the executable holds already.
+		return table.Option.none
+	end 'notBox'
+	b.d.root = try w.value as Count otherwise panic("ir: a constant's box that is not one")
+	return table.Option.some(b.d)
+end 'datumOf'
+
+function wordAt(v Count) returns Word
+	return try v as Word otherwise panic("ir: an index of a datum past a word")
+end 'wordAt'
+
+// datumWord lays out the value of e, of the module, and gives the word that holds it, or false when the value is not known
+// before the program runs, which leaves the constant to be built where it is read.
+function datumWord(mutates b DatumBuild, p ast.Project, module diag.ModuleID, e ast.NodeID, mutates w DatumWord) returns bool
+	let mi = ast.modIndex(module)
+	if ast.boxedTo(p.typings[mi], node: e) != ast.noType 'boxed'
+		return false
+	end 'boxed'
+	let ty = exprType(p, module: module, node: e)
+	let tk = p.types.slots[ast.typeSlot(ty)][ast.typeIndex(ty)].kind
+	let k = p.modules[mi].tree.kindOf(e)
+	if tk == ast.TypeKind.constInt and not isBranching(k) 'constInt'
+		w = DatumWord.make(DatumPart.scalar, value: wordOf(p.types.slots[ast.typeSlot(ty)][ast.typeIndex(ty)].minVal))
+		return true
+	end 'constInt'
+	if tk == ast.TypeKind.constFloat and not isBranching(k) 'constFloat'
+		w = DatumWord.make(DatumPart.scalar, value: floatWord(ast.floatLowBits(p.types, t: ty)))
+		return true
+	end 'constFloat'
+	if k == ast.NodeKind.intLit 'intLit'
+		w = DatumWord.make(DatumPart.scalar, value: wordOf(ast.intLitValue(p.modules[mi].tree, id: e)))
+		return true
+	end 'intLit'
+	if k == ast.NodeKind.floatLit 'floatLit'
+		w = DatumWord.make(DatumPart.scalar, value: floatWord(ast.floatLitBits(p.modules[mi].tree, id: e)))
+		return true
+	end 'floatLit'
+	if k == ast.NodeKind.boolLit 'boolLit'
+		if ast.boolLitValue(p.modules[mi].tree, id: e) 'true'
+			w = DatumWord.make(DatumPart.scalar, value: 1 as Word)
+		end 'true'
+		return true
+	end 'boolLit'
+	if k == ast.NodeKind.strLit 'strLit'
+		let partsRef = ast.strLitPartsRef(p.modules[mi].tree, id: e)
+		if not p.modules[mi].tree.strIsPlain(partsRef) 'interpolates'
+			return false
+		end 'interpolates'
+		w = DatumWord.make(DatumPart.text, value: wordAt(b.d.texts.count()))
+		b.d.texts.push(ast.strPartsText(p.modules[mi].tree, partsRef: partsRef))
+		return true
+	end 'strLit'
+	if k == ast.NodeKind.nameExpr 'nameExpr'
+		return datumName(b, p: p, module: module, e: e, w: w)
+	end 'nameExpr'
+	if k == ast.NodeKind.memberExpr 'memberExpr'
+		let member = memberInfoAt(p, module: module, node: e)
+		if member.kind == ast.MemberKind.memberEnumCase 'enumCase'
+			w = DatumWord.make(DatumPart.scalar, value: wordAt(member.enumCase))
+			return true
+		end 'enumCase'
+		if member.kind == ast.MemberKind.memberUnionCase 'unionCase'
+			return datumRecord(b, p: p, tag: indexOf(member.enumCase), module: module, values: ExprRefList.create(0), w: w)
+		end 'unionCase'
+		// A field, a raw value or a name read off another value is read where the constant is.
+		return false
+	end 'memberExpr'
+	if k == ast.NodeKind.castExpr 'castExpr'
+		return datumCast(b, p: p, module: module, e: e, w: w)
+	end 'castExpr'
+	if k == ast.NodeKind.callExpr 'callExpr'
+		return datumCall(b, p: p, module: module, e: e, w: w)
+	end 'callExpr'
+	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'structLitExpr'
+		let lit = structLitInfoAt(p, module: module, node: e)
+		let origin = p.types.slots[ast.typeSlot(lit.ty)][ast.typeIndex(lit.ty)].effectiveOrigin()
+		var values = ExprRefList.create(0)
+		for i in 0 upto lit.ordered.count() 'each'
+			if lit.ordered[i] != 0 'given'
+				values.push(ExprRef.make(module, node: lit.ordered[i]))
+			end 'given' else 'default'
+				values.push(ExprRef.make(p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].decl.module, node: p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].fields[i].defaultExpr))
+			end 'default'
+		end 'each'
+		return datumRecord(b, p: p, tag: noTag, module: module, values: values, w: w)
+	end 'structLitExpr'
+	if k == ast.NodeKind.collectionLitExpr 'collectionLitExpr'
+		return datumArray(b, p: p, module: module, e: e, ty: ty, w: w)
+	end 'collectionLitExpr'
+	if k == ast.NodeKind.byteStrLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.fromExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.panicExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.matchExpr or k == ast.NodeKind.closureExpr or k == ast.NodeKind.typeQueryExpr 'perUse'
+		// Computed where it is read: a byte string is a new byte array each time, and the others run code or compute a
+		// number that the type of the expression does not hold.
+		return false
+	end 'perUse'
+	panic("ir: a constant's value holds the node {e} of kind {k.name}, which no datum lays out")
+end 'datumWord'
+
+// datumName is the value a name in a constant stands for: another constant, laid out again inside this one, or a parameter
+// of the literal factory being read.
+function datumName(mutates b DatumBuild, p ast.Project, module diag.ModuleID, e ast.NodeID, mutates w DatumWord) returns bool
+	let name = nameInfoAt(p, module: module, node: e)
+	if name.kind == ast.NameKind.nameConst 'const'
+		let value = constantExpr(p, name: name)
+		return datumWord(b, p: p, module: value.module, e: value.node, w: w)
+	end 'const'
+	if name.kind == ast.NameKind.nameLocal 'param'
+		for i in 0 upto b.params.count() 'each'
+			if b.params[i] == name.local 'bound'
+				w = b.args[i].clone()
+				return true
+			end 'bound'
+		end 'each'
+		return false
+	end 'param'
+	// A function named as a value is a closure, which shares a count; a field of self is no constant.
+	return false
+end 'datumName'
+
+// datumCast is a cast in a constant: one that only renames the type is its operand, and one to an integer type of an
+// integer the checker knows is that integer when it fits, which it does in a constant the checker accepted without a try.
+function datumCast(mutates b DatumBuild, p ast.Project, module diag.ModuleID, e ast.NodeID, mutates w DatumWord) returns bool
+	let mi = ast.modIndex(module)
+	let inner = ast.castExprE(p.modules[mi].tree, id: e)
+	let target = exprType(p, module: module, node: e)
+	if p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].kind == ast.TypeKind.interfaceTy 'boxes'
+		return false
+	end 'boxes'
+	if ast.castRebrands(p.types, target: target) 'rebrand'
+		return datumWord(b, p: p, module: module, e: inner, w: w)
+	end 'rebrand'
+	let source = exprType(p, module: module, node: inner)
+	if p.types.slots[ast.typeSlot(source)][ast.typeIndex(source)].kind != ast.TypeKind.constInt or p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].kind != ast.TypeKind.intRange 'notInteger'
+		return false
+	end 'notInteger'
+	let v = p.types.slots[ast.typeSlot(source)][ast.typeIndex(source)].minVal.clone()
+	if not p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].minVal.le(v) or not p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].maxVal.ge(v) 'outside'
+		return false
+	end 'outside'
+	w = DatumWord.make(DatumPart.scalar, value: wordOf(v))
+	return true
+end 'datumCast'
+
+// datumCall is a call in a constant: a copy is the value it copies, a case of a union with a payload a box, and a literal
+// factory the record literal it returns with the arguments written in.
+function datumCall(mutates b DatumBuild, p ast.Project, module diag.ModuleID, e ast.NodeID, mutates w DatumWord) returns bool
+	let mi = ast.modIndex(module)
+	let info = callInfoAt(p, module: module, node: e)
+	if info.kind == ast.CallKind.callCopy 'copy'
+		return datumWord(b, p: p, module: module, e: ast.callReceiver(p.modules[mi].tree, e: e, kind: info.kind), w: w)
+	end 'copy'
+	if info.kind == ast.CallKind.callUnionCtor 'ctor'
+		var values = ExprRefList.create(0)
+		for i in 0 upto info.ordered.count() 'each'
+			if info.ordered[i] == 0 'defaulted'
+				return false
+			end 'defaulted'
+			values.push(ExprRef.make(module, node: info.ordered[i]))
+		end 'each'
+		return datumRecord(b, p: p, tag: indexOf(info.unionCase), module: module, values: values, w: w)
+	end 'ctor'
+	if info.kind != ast.CallKind.callStatic 'notFactory'
+		return false
+	end 'notFactory'
+	let fn = info.fn
+	let fm = p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module
+	let fmi = ast.modIndex(fm)
+	let body = p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].bodyRef
+	if p.modules[fmi].tree.listLen(body) != 1 'statements'
+		return false
+	end 'statements'
+	let s = p.modules[fmi].tree.listAt(body, index: 0) as ast.NodeID
+	if p.modules[fmi].tree.kindOf(s) != ast.NodeKind.returnStmt 'notReturn'
+		return false
+	end 'notReturn'
+	let value = ast.returnStmtValue(p.modules[fmi].tree, id: s)
+	if value == 0 or p.modules[fmi].tree.kindOf(value) != ast.NodeKind.structLitExpr 'notLiteral'
+		return false
+	end 'notLiteral'
+	var params = ast.LocalIDList.create(0)
+	var args = DatumWordList.create(0)
+	for i in 0 upto info.ordered.count() 'each'
+		let arg = info.ordered[i]
+		if arg == 0 'defaulted'
+			return false
+		end 'defaulted'
+		if ast.isFloatType(p.types, t: info.paramSpecs[i].ty) and ast.isIntType(p.types, t: exprType(p, module: module, node: arg)) 'converted'
+			return false
+		end 'converted'
+		var a = DatumWord.make(DatumPart.scalar, value: 0 as Word)
+		if not datumWord(b, p: p, module: module, e: arg, w: a) 'unknown'
+			return false
+		end 'unknown'
+		params.push(ast.paramLocal(p, f: fn, index: i))
+		args.push(a)
+	end 'each'
+	let savedParams = exchange(b.params, value: params)
+	let savedArgs = exchange(b.args, value: args)
+	let known = datumWord(b, p: p, module: fm, e: value, w: w)
+	b.params = savedParams
+	b.args = savedArgs
+	return known
+end 'datumCall'
+
+// datumRecord lays out a box of words: the case index first when tag is one, then a word for each value, padded to the
+// size lowering gives the box.
+function datumRecord(mutates b DatumBuild, p ast.Project, tag Index, module diag.ModuleID, values ExprRefList, mutates w DatumWord) returns bool
+	let tagged = tag != noTag
+	let at = b.d.boxes.count()
+	b.d.boxes.push(DatumBox.make(DatumShape.words, first: 0, count: 0))
+	var parts = DatumWordList.create(0)
+	if tagged 'tag'
+		parts.push(DatumWord.make(DatumPart.scalar, value: try tag as Word otherwise panic("ir: a case index past a word")))
+	end 'tag'
+	for i in 0 upto values.count() 'each'
+		var v = DatumWord.make(DatumPart.scalar, value: 0 as Word)
+		if not datumWord(b, p: p, module: values[i].module, e: values[i].node, w: v) 'unknown'
+			return false
+		end 'unknown'
+		parts.push(v)
+	end 'each'
+	let words = boxBytes(values.count(), tagged: tagged) / wordBytes
+	while parts.count() < words 'pad'
+		parts.push(DatumWord.make(DatumPart.scalar, value: 0 as Word))
+	end 'pad'
+	b.d.boxes[at] = DatumBox.make(DatumShape.words, first: b.d.words.count(), count: parts.count())
+	b.d.words.append(parts)
+	w = DatumWord.make(DatumPart.box, value: wordAt(at))
+	return true
+end 'datumRecord'
+
+// datumArray lays out an array literal: its elements, a word each or a byte each for an array that packs them. A map and
+// a list are built where they are read.
+function datumArray(mutates b DatumBuild, p ast.Project, module diag.ModuleID, e ast.NodeID, ty ast.TypeID, mutates w DatumWord) returns bool
+	let mi = ast.modIndex(module)
+	let bt = ast.contentType(p.types, t: ty)
+	if p.types.slots[ast.typeSlot(bt)][ast.typeIndex(bt)].kind != ast.TypeKind.builtinArray 'notArray'
+		return false
+	end 'notArray'
+	let elem = ast.typeArgAt(p.types, t: bt, index: 0)
+	if p.types.slots[ast.typeSlot(elem)][ast.typeIndex(elem)].kind == ast.TypeKind.typeParam 'generic'
+		return false
+	end 'generic'
+	let packed = arrayPacked(p, box: ArrayBox.make(diag.Site.make(module, offset: p.modules[mi].tree.startOf(e)), ty: bt))
+	let elemsRef = ast.collectionLitExprElemsRef(p.modules[mi].tree, id: e)
+	let at = b.d.boxes.count()
+	var shape = DatumShape.array
+	if packed 'packed'
+		shape = DatumShape.bytes
+	end 'packed'
+	b.d.boxes.push(DatumBox.make(shape, first: 0, count: 0))
+	var parts = DatumWordList.create(0)
+	for i in 0 upto p.modules[mi].tree.listLen(elemsRef) 'each'
+		var v = DatumWord.make(DatumPart.scalar, value: 0 as Word)
+		if not datumWord(b, p: p, module: module, e: p.modules[mi].tree.listAt(elemsRef, index: i) as ast.NodeID, w: v) 'unknown'
+			return false
+		end 'unknown'
+		if packed and v.part != DatumPart.scalar 'notByte'
+			panic("ir: an element of a packed array constant is no number")
+		end 'notByte'
+		parts.push(v)
+	end 'each'
+	b.d.boxes[at] = DatumBox.make(shape, first: b.d.words.count(), count: parts.count())
+	b.d.words.append(parts)
+	w = DatumWord.make(DatumPart.box, value: wordAt(at))
+	return true
+end 'datumArray'

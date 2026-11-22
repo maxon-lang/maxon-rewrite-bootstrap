@@ -22,6 +22,11 @@ function execStr(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	vm.setRef(x.dst, o: o)
 end 'execStr'
 
+function execDatum(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let o = constantObject(vm, d: f.datums[ir.datumItem(x)])
+	vm.setRef(x.dst, o: o)
+end 'execDatum'
+
 function execLoadSlot(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let slot = ir.loadSlotSlot(x)
 	let c = slotCell(vm, slot: slot)

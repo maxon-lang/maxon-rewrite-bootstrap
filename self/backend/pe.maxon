@@ -11,7 +11,9 @@ let peFileAlignment = 512 as Count
 
 let peSectionAlignment = 4096 as Count
 
-let peImageBase = 5368709120 as Count
+// peImageBase is where the image asks to be loaded. The loader may put it elsewhere, and then moves every address of the
+// base relocations by the difference.
+export let peImageBase = 5368709120 as Count
 
 export let peTextRva = 4096 as Count
 
@@ -54,6 +56,23 @@ let peDirectoryCount = 16 as Count
 let peImportDirectory = 1 as Count
 
 let peIatDirectory = 12 as Count
+
+let peRelocDirectory = 5 as Count
+
+// peRelocFlags are a section of initialized data that is read and then discarded.
+let peRelocFlags = 1107296320 as Count
+
+// peRelocPage is the span of addresses that one block of base relocations covers.
+let peRelocPage = 4096 as Count
+
+// peRelocBlockHeader is a block's page address and size, 32 bits each, before its entries of 16 bits.
+let peRelocBlockHeader = 8 as Count
+
+let peRelocEntrySize = 2 as Count
+
+// peRelocDir64 is IMAGE_REL_BASED_DIR64, in the top four bits of an entry: the loader adds the difference to all 64 bits
+// at the entry's place.
+let peRelocDir64 = 40960 as Count
 
 let peSectionHeaderSize = 40 as Count
 
@@ -218,24 +237,64 @@ function pushSectionHeader(mutates w ByteArray, s Section, fileOffset Count)
 	pushU32(w, v: s.flags)
 end 'pushSectionHeader'
 
+// buildRelocations lays out the base relocations of the words at the offsets relocated of the data, at dataRva, which are
+// in increasing order: a block for each page that holds one, its entries in the order of their places, padded to 32 bits.
+function buildRelocations(dataRva Count, relocated CountList) returns ByteArray
+	var w = ByteArray.create(0)
+	var i = 0 as Count
+	while i < relocated.count() 'blocks'
+		let first = sum(dataRva, b: relocated[i])
+		let page = try first - first mod peRelocPage otherwise panic("a page before the image")
+		var stop = i
+		while stop < relocated.count() and sum(dataRva, b: relocated[stop]) < sum(page, b: peRelocPage) 'page'
+			stop = sum(stop, b: 1)
+		end 'page'
+		let count = try stop - i otherwise panic("a block that ends before it starts")
+		let padded = sum(count, b: count mod 2)
+		pushU32(w, v: page)
+		pushU32(w, v: sum(peRelocBlockHeader, b: product(padded, b: peRelocEntrySize)))
+		for j in i upto stop 'entries'
+			let rva = sum(dataRva, b: relocated[j])
+			pushU16(w, v: sum(peRelocDir64, b: try rva - page otherwise panic("an entry before its page")))
+		end 'entries'
+		if count < padded 'pad'
+			// An entry of type 0 is padding, which the loader skips.
+			pushU16(w, v: 0)
+		end 'pad'
+		i = stop
+	end 'blocks'
+	return w
+end 'buildRelocations'
+
 // buildPeImage lays out the file for sections of the given sizes, with its headers and imports written and the entry
-// point at an offset in the code. The import slot of the i-th name is at importSlotRva(image, index: i).
-export function buildPeImage(codeSize Count, dataSize Count, dll String, imports NameList, entryOffset Count) returns PeImage
+// point at an offset in the code. The import slot of the i-th name is at importSlotRva(image, index: i). relocated are the
+// offsets of the data, in increasing order, of the words that hold addresses of the image, which a base relocation table
+// lets the loader move with it.
+export function buildPeImage(codeSize Count, dataSize Count, dll String, imports NameList, entryOffset Count, relocated CountList) returns PeImage
 	let codeSpan = codeSize if codeSize > 0 else 1
 	let dataSpan = dataSize if dataSize > 0 else 1
 	let dataRva = sum(peTextRva, b: alignUp(codeSpan, alignment: peSectionAlignment))
 	let idataRva = sum(dataRva, b: alignUp(dataSpan, alignment: peSectionAlignment))
 	let table = buildImports(idataRva, dll: dll, imports: imports)
 	let idataSize = table.bytes.count()
+	let relocRva = sum(idataRva, b: alignUp(idataSize, alignment: peSectionAlignment))
+	let relocations = buildRelocations(dataRva, relocated: relocated)
+	let relocSize = relocations.count()
 	// A section with no data still has bytes in the file.
 	let dataLength = dataSize if dataSize > 0 else peEmptyDataSize
 	var sections = SectionList.create(0)
 	sections.push(Section.make(".text", size: codeSize, rva: peTextRva, flags: peTextFlags))
 	sections.push(Section.make(".data", size: dataLength, rva: dataRva, flags: peDataFlags))
 	sections.push(Section.make(".idata", size: idataSize, rva: idataRva, flags: peDataFlags))
+	if relocSize > 0 'reloc'
+		sections.push(Section.make(".reloc", size: relocSize, rva: relocRva, flags: peRelocFlags))
+	end 'reloc'
 	let headerBytes = sum(sum(peDosHeaderSize, b: peSignatureSize), b: sum(peCoffHeaderSize, b: peOptionalSize))
 	let headersSize = alignUp(sum(headerBytes, b: product(peSectionHeaderSize, b: sections.count())), alignment: peFileAlignment)
-	let imageSize = sum(idataRva, b: alignUp(idataSize, alignment: peSectionAlignment))
+	var imageSize = relocRva
+	if relocSize > 0 'relocEnd'
+		imageSize = sum(relocRva, b: alignUp(relocSize, alignment: peSectionAlignment))
+	end 'relocEnd'
 	var fileSize = headersSize
 	var fileOffsets = CountList.create(0)
 	for i in 0 upto sections.count() 'offsets'
@@ -258,7 +317,7 @@ export function buildPeImage(codeSize Count, dataSize Count, dll String, imports
 	pushU8(w, v: peLinkerMajor)
 	pushU8(w, v: 0)
 	pushU32(w, v: alignUp(codeSize, alignment: peFileAlignment))
-	pushU32(w, v: sum(alignUp(dataSize, alignment: peFileAlignment), b: alignUp(idataSize, alignment: peFileAlignment)))
+	pushU32(w, v: sum(sum(alignUp(dataSize, alignment: peFileAlignment), b: alignUp(idataSize, alignment: peFileAlignment)), b: alignUp(relocSize, alignment: peFileAlignment)))
 	pushU32(w, v: 0)
 	pushU32(w, v: sum(peTextRva, b: entryOffset))
 	pushU32(w, v: peTextRva)
@@ -290,7 +349,10 @@ export function buildPeImage(codeSize Count, dataSize Count, dll String, imports
 		end 'imports' else if i == peIatDirectory 'iat'
 			pushU32(w, v: sum(idataRva, b: table.iatOffset))
 			pushU32(w, v: table.iatSize)
-		end 'iat' else 'none'
+		end 'iat' else if i == peRelocDirectory and relocSize > 0 'reloc'
+			pushU32(w, v: relocRva)
+			pushU32(w, v: relocSize)
+		end 'reloc' else 'none'
 			pushU32(w, v: 0)
 			pushU32(w, v: 0)
 		end 'none'
@@ -301,6 +363,9 @@ export function buildPeImage(codeSize Count, dataSize Count, dll String, imports
 	var file = ByteArray.create(fileSize)
 	copyInto(file, at: 0, src: w)
 	copyInto(file, at: fileOffsets[2], src: table.bytes)
+	if relocSize > 0 'relocBytes'
+		copyInto(file, at: fileOffsets[3], src: relocations)
+	end 'relocBytes'
 	return PeImage.make(file, textRva: peTextRva, dataRva: dataRva, iatRva: sum(idataRva, b: table.iatOffset), codeOffset: fileOffsets[0], dataOffset: fileOffsets[1])
 end 'buildPeImage'
 

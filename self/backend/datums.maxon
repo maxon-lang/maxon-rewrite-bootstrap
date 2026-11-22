@@ -1,0 +1,84 @@
+// A constant laid out in the executable's data (ir.Datum): its boxes as lowering would build them on the heap, then its
+// strings as literals are, all in one piece. Code only reads it, and every use that takes the value copies it, so nothing
+// counts, writes or frees it; the strings in it are immortal as every string of the data section is.
+
+// datumBoxBytes is the size of a box of a datum and the buffer it owns.
+function datumBoxBytes(box ir.DatumBox) returns Count
+	return match box.shape 'shape'
+		words gives try box.count * wordBytes otherwise panic("backend: a constant past memory")
+		array gives try arrayHeaderBytes + box.count * wordBytes otherwise panic("backend: a constant past memory")
+		bytes gives try arrayHeaderBytes + alignUp(box.count * byteBytes, alignment: wordBytes) otherwise panic("backend: a constant past memory")
+	end 'shape'
+end 'datumBoxBytes'
+
+// layOutDatum writes the datum d at the end of the data as a piece of its own, and gives where its value is: its root box.
+function layOutDatum(mutates data DataSection, d ir.Datum) returns Count
+	data.align8()
+	let at = data.bytes.count()
+	data.pieces.push(at)
+	var boxAt = CountList.create(0)
+	var next = at
+	for i in 0 upto d.boxes.count() 'boxes'
+		boxAt.push(next)
+		next = try next + datumBoxBytes(d.boxes[i]) otherwise panic("backend: a constant past memory")
+	end 'boxes'
+	var textAt = CountList.create(0)
+	for i in 0 upto d.texts.count() 'texts'
+		textAt.push(next)
+		next = try next + alignUp(stringBytesOffset + d.texts[i].byteLength(), alignment: wordBytes) otherwise panic("backend: a constant past memory")
+	end 'texts'
+	for i in 0 upto d.boxes.count() 'write'
+		let box = d.boxes[i].clone()
+		let finish = try box.first + box.count otherwise panic("backend: a constant past memory")
+		if box.shape == ir.DatumShape.words 'words'
+			for w in box.first upto finish 'each'
+				pushDatumWord(data, d: d, w: w, boxAt: boxAt, textAt: textAt)
+			end 'each'
+			continue 'write'
+		end 'words'
+		let buffer = try boxAt[i] + arrayHeaderBytes otherwise panic("backend: a constant past memory")
+		pushU64(data.bytes, v: box.count)
+		pushU64(data.bytes, v: box.count)
+		if box.count == 0 'empty'
+			// An array that never grew has no buffer, as a new one on the heap has none.
+			pushU64(data.bytes, v: 0)
+		end 'empty' else 'buffer'
+			pushPointer(data, target: buffer)
+		end 'buffer'
+		if box.shape == ir.DatumShape.array 'array'
+			for w in box.first upto finish 'each'
+				pushDatumWord(data, d: d, w: w, boxAt: boxAt, textAt: textAt)
+			end 'each'
+		end 'array' else 'bytes'
+			for w in box.first upto finish 'each'
+				data.bytes.push(try ir.bitsOfWord(d.words[w].value) as Byte otherwise panic("backend: an element of a packed constant is no byte"))
+			end 'each'
+			data.align8()
+		end 'bytes'
+	end 'write'
+	for i in 0 upto d.texts.count() 'strings'
+		pushU64(data.bytes, v: d.texts[i].byteLength())
+		data.bytes.append(d.texts[i].toByteArray())
+		data.align8()
+	end 'strings'
+	if data.bytes.count() != next 'size'
+		panic("backend: the constant {d.symbol} was laid out in other than the {try next - at otherwise 0} bytes it was sized at")
+	end 'size'
+	return boxAt[d.root]
+end 'layOutDatum'
+
+// pushDatumWord writes the word w of the datum: a number as it is, a string or a box as its address.
+function pushDatumWord(mutates data DataSection, d ir.Datum, w Count, boxAt CountList, textAt CountList)
+	let word = d.words[w].clone()
+	match word.part 'part'
+		scalar then pushU64(data.bytes, v: ir.bitsOfWord(word.value))
+		text then pushPointer(data, target: textAt[try word.value as Count otherwise panic("backend: a string of a constant that is not one")])
+		box then pushPointer(data, target: boxAt[try word.value as Count otherwise panic("backend: a box of a constant that is not one")])
+	end 'part'
+end 'pushDatumWord'
+
+// pushPointer writes a word that the link fills in with the address of target, an offset of the data.
+function pushPointer(mutates data DataSection, target Count)
+	data.pointers.push(DataPointer.make(data.bytes.count(), target: target))
+	pushU64(data.bytes, v: 0)
+end 'pushPointer'

@@ -509,18 +509,35 @@ function readField32(code ByteArray, at Count) returns Count
 	return word
 end 'readField32'
 
-// DataSection is the bytes of the executable's data: the strings that code names and the globals it reads.
+// DataPointer is a word of the data that holds the address of other data of the same piece: the link writes the address,
+// and the loader moves it with the image.
+export type DataPointer
+	export var pos as Count
+	export var target as Count
+
+	export static function make(pos Count, target Count) returns DataPointer
+		return DataPointer{pos: pos, target: target}
+	end 'make'
+end 'DataPointer'
+
+export typealias DataPointerList = Array with DataPointer
+
+// DataSection is the bytes of the executable's data: the strings that code names, the constants it reads and the globals
+// it reads.
 export type DataSection
 	export var bytes as ByteArray
 	var strings as StringOffsets
-	// pieces are the offsets where each string and each reserved value begins, which the link keeps or drops whole.
+	// pieces are the offsets where each string, each constant and each reserved value begins, which the link keeps or
+	// drops whole.
 	export var pieces as CountList
+	// pointers are the words of the constants that hold addresses, in the order of their offsets.
+	export var pointers as DataPointerList
 
 	export static function new() returns DataSection
-		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), pieces: CountList.create(0)}
+		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), pieces: CountList.create(0), pointers: DataPointerList.create(0)}
 	end 'new'
 
-	function align8(mutates self)
+	export function align8(mutates self)
 		while bytes.count() mod wordBytes != 0 'pad'
 			bytes.push(0)
 		end 'pad'
@@ -599,6 +616,12 @@ export type CodeUnit
 	export function defineSharedData(mutates self, symbol String, size Count)
 		dataSymbols.push(SymbolDef.make(symbol.clone(), offset: data.reserve(size), instance: true))
 	end 'defineSharedData'
+
+	// defineDatum lays out a constant as a piece of the data, which every unit that reads it defines and the link keeps one
+	// of, as it does of an instance.
+	export function defineDatum(mutates self, d ir.Datum)
+		dataSymbols.push(SymbolDef.make(d.symbol.clone(), offset: layOutDatum(data, d: d), instance: true))
+	end 'defineDatum'
 end 'CodeUnit'
 
 export typealias UnitList = Array with CodeUnit

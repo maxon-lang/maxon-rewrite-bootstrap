@@ -181,7 +181,12 @@ export function link(units UnitList, entry String, mapsSymbols bool) returns Lin
 	for i in 0 upto names.count() 'imports'
 		imports.push(names[i].clone())
 	end 'imports'
-	var image = buildPeImage(sizes.code, dataSize: sizes.data, dll: rtDll, imports: imports, entryOffset: finalOffset(links, t: start))
+	let pointers = livePointers(links, units: units)
+	var relocated = CountList.create(0)
+	for i in 0 upto pointers.count() 'relocated'
+		relocated.push(pointers[i].pos)
+	end 'relocated'
+	var image = buildPeImage(sizes.code, dataSize: sizes.data, dll: rtDll, imports: imports, entryOffset: finalOffset(links, t: start), relocated: relocated)
 	var symbolMap = ""
 	if mapsSymbols 'map'
 		symbolMap = symbolMapText(links, units: units, symbols: symbols, defined: defined, textRva: image.textRva, codeSize: sizes.code)
@@ -191,10 +196,49 @@ export function link(units UnitList, entry String, mapsSymbols bool) returns Lin
 	for i in 0 upto links.count() 'copy'
 		copyAndPatch(code, data: data, links: links, unit: i, units: units, defined: defined, image: image)
 	end 'copy'
+	for i in 0 upto pointers.count() 'pointers'
+		let address = try peImageBase + image.dataRva + pointers[i].target otherwise panic("link: an address past the image")
+		patch64(data, at: pointers[i].pos, value: address)
+	end 'pointers'
 	placeCode(image, at: 0, bytes: code)
 	placeData(image, at: 0, bytes: data)
 	return Linked.make(image, symbolMap: symbolMap)
 end 'link'
+
+// livePointers are the words of the live data that hold the address of other data, with both where they end up in the data
+// section, in the order of their places, which is the order the base relocations list them in.
+function livePointers(links LinkUnitList, units UnitList) returns DataPointerList
+	var out = DataPointerList.create(0)
+	for u in 0 upto links.count() 'units'
+		for j in 0 upto units[u].data.pointers.count() 'pointers'
+			let pointer = units[u].data.pointers[j].clone()
+			let piece = containing(links[u].pieces, offset: pointer.pos)
+			if not links[u].liveData[piece] 'dropped'
+				continue 'pointers'
+			end 'dropped'
+			if containing(links[u].pieces, offset: pointer.target) != piece 'apart'
+				panic("link: a pointer of the data reaches past its piece")
+			end 'apart'
+			let base = try links[u].dataBase + links[u].dataAt[piece] otherwise panic("link: data past memory")
+			let pos = try base + (try pointer.pos - links[u].pieces[piece] otherwise panic("link: a pointer before its piece")) otherwise panic("link: data past memory")
+			if out.count() > 0 and out[ir.pred(out.count())].pos >= pos 'order'
+				panic("link: the pointers of the data are out of order")
+			end 'order'
+			let target = try base + (try pointer.target - links[u].pieces[piece] otherwise panic("link: a pointer before its piece")) otherwise panic("link: data past memory")
+			out.push(DataPointer.make(pos, target: target))
+		end 'pointers'
+	end 'units'
+	return out
+end 'livePointers'
+
+// patch64 writes the 64-bit little-endian value at an offset of the bytes.
+function patch64(mutates bytes ByteArray, at Count, value Count)
+	var rest = value
+	for i in 0 upto wordBytes 'bytes'
+		bytes[try at + i otherwise panic("link: a word past memory")] = (rest mod byteValues) as Byte
+		rest = rest / byteValues
+	end 'bytes'
+end 'patch64'
 
 // MapEntry is one function or routine in the executable's code, as the symbol map lists it.
 type MapEntry

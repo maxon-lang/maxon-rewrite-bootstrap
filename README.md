@@ -661,11 +661,12 @@ other:
 | a drop or copy routine | `drop export::Counter`, `copy stdlib::Array with export::Tree` |
 | the table of an interface value | `table export::Square as shapes::Shape by export`, with the module of the conformance after `by` |
 | the word that names a type at run time | `type export::Square` |
+| a constant of the data section | `const export::Table`, `const export::Pt.ORIGIN`, `raw export::Op.add` |
 | a runtime entry or global | `runtime::alloc` (the link name of the runtime function that defines the entry), `rt.entry` and `g.heap` (what the entry stub and the linker define) |
 
 An integer type is named by its alias and its range, since the code for it depends on nothing else. The kinds of symbol cannot
-meet: a function's name has `::` before any space, and a routine's starts with `drop ` or `copy `, a table's with `table `
-and the name of a type with `type `. The text of a function in
+meet: a function's name has `::` before any space, and a routine's starts with `drop ` or `copy `, a table's with `table `,
+the name of a type with `type ` and a constant's with `const ` or `raw `. The text of a function in
 the IR (`--emit-ir`) and in a message is its plain symbol (`ir.funcSymbol`).
 
 ## Build cache (planned)
@@ -783,7 +784,7 @@ what a later pass such as reference counting or an optimization changes.
 
 | Group | Instructions |
 |---|---|
-| values | `const`, `str`, `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield`, `fieldaddr`, `loadat`, `storeat`, `global` |
+| values | `const`, `str`, `datum` (a constant of the executable's data, see "Constants in the data section"), `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield`, `fieldaddr`, `loadat`, `storeat`, `global` |
 | arithmetic | `bin` (add, sub, mul, div, mod, and, or, xor, shl, shr; `.u` for unsigned; checked ones have an `else` block), `cmp`, `neg`, `not`, `guard` |
 | floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
 | calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `callvalue` (see "Function values in the IR") |
@@ -804,7 +805,33 @@ arguments are pushed left to right and the caller pops them. The Win64 ABI appli
 Records and union values are heap boxes of 8-byte words (a union's first word is its case index), allocated with `HeapAlloc` on
 the process heap (`runtime::alloc`) and freed with `HeapFree` (`runtime::free`) where their owner dies (see "Drops"); a box is
 zeroed when it is allocated. A string is a pointer to `[length][UTF-8 bytes]`: a literal lives in the executable's data section
-and is never freed, any other string is a box on the heap. An enum value is its case index.
+and is never freed, any other string is a box on the heap. An enum value is its case index. A constant whose value is a box
+lives in the data section too (see "Constants in the data section").
+
+### Constants in the data section
+
+A constant whose value is a box built only of what is known before the program runs (a top-level or `static let`, and each
+raw value of an enum or a union whose raw values are records) is laid out once, at compile time, in the executable's data,
+and read from there (`ir.Datum`, the `datum` instruction). `ir.datumOf` (`self/ir/datums.maxon`) is the one place that decides
+it: it lays out integers and floats that the checker knows, `bool`s, enum cases, plain strings, records and tuples (with
+their fields' defaults), cases of a union with no payload, array literals (a packed one as bytes), `.clone()` of these, the
+other constants they name (laid out again inside this one) and calls of a literal factory, whose body is read with its
+parameters bound to the arguments. Everything else is built where it is read, as before: a number, a string or a function value
+as the whole constant (a number is a constant of the code and a string a literal already), and a constant that holds an
+interpolated string, a byte string, a map or a list, a function value or a closure, a value boxed into an interface, a
+conditional or a match, or an operator or a cast the checker does not fold. The raw values of an enum or a union are data
+only when every case's is, so a read has the same owner whatever the case.
+
+A datum is one piece of the data, its boxes laid out as lowering would build them on the heap (a record's words padded as
+`boxBytes` pads them, an array's header and buffer) followed by its strings, named `const <module>::<name>` or
+`raw <type>.<case>`; every unit that reads it defines it and the link keeps one, as it does an instance. The words that hold an
+address of the piece are written by the link and listed in the image's base relocations (`.reloc`, `IMAGE_REL_BASED_DIR64`
+entries in blocks of a page, in address order), so the loader moves them with the image. The data section stays writable and a
+constant has no count and no marker: the checker refuses writing a constant or moving a part out of it (`E2013`, `E3901`), a
+read that only borrows reads the data, and a read that takes the value (a `let`, a `consumes` argument, a box of an
+interface) takes a copy (`settle`), so nothing ever drops, counts or writes a datum, and the strings it holds are immortal by
+the address check every literal has. The interpreter makes each datum once by its symbol, as immortal objects, and reports a
+drop of one, a store into one or a move out of one as a violation.
 
 ### The primitives in the IR
 
@@ -2408,11 +2435,12 @@ enum or a bool, `E3220` for any other, which names what may be called), and so i
 literal or none beside them is `E3032` (`expected Meta, got Other`). The constants stage types the raw values of a type after
 the constants and raw values of its module that they name, and a constant after the raw values it reads, so a constant may
 read `Flags.first.on` and a raw value another type's, and only a cycle is `E2012`. The expression may build any record,
-whatever its constructors say, since it belongs to the type. Like every constant it is inlined where it is read: the type
-holds no value of its own, only the case's index, and the read is a switch on it whose arms are the expressions, so a read
-gives a value that the reader owns (a record is dropped with the statement, a `let` binds it, a function value is a new
-closure of the function), the raw value of a case can never be written through, and since it calls only literal factories no
-read runs code of the program. The type of `.rawValue` of a union is the same, and its tag stays the case's index.
+whatever its constructors say, since it belongs to the type. The type holds no value of its own, only the case's index,
+and the read is a switch on it. When every case's raw value is laid out in the data section (see "Constants in the data
+section") the arms give the datum of each case, which the reader borrows and a use that takes it copies; otherwise the arms are
+the expressions, built where they are read, so a read gives a value that the reader owns (a record is dropped with the
+statement, a `let` binds it, a function value is a new closure of the function). Either way the raw value of a case can never
+be written through, and since it calls only literal factories no read runs code of the program. The type of `.rawValue` of a union is the same, and its tag stays the case's index.
 
 A field of a record raw value that holds no value of its own (an integer, a float, a `bool`, an enum) reads straight off
 the enum or union value, as `op.latency` for `op.rawValue.latency`, also off a case that a union names even when it has a
@@ -2669,7 +2697,9 @@ reported at the arm's statement and not at the `and`, and `and fallthrough` afte
 type's own body, where its initializer is also written (it may build `Self{...}`, which a constant of the module may not). The
 parser makes it a constant of the module named `Type.name`, as it does a `typealias` of a type's body, and the resolver turns
 `Type.name` into a name bound to it, so it is typed, ranged, ordered (`E2012` for a cycle) and lowered as a module-level `let`:
-its value is inlined at each use, and a call in its initializer is `E3220` unless it is a literal factory (see "Raw values"). `static var`, and a `static let` of an enum or a union,
+its value is read from the data section when it is a box known before the program runs and inlined at each use otherwise
+(see "Constants in the data section"), and a call in its initializer is `E3220` unless it is a literal factory (see "Raw
+values"). `static var`, and a `static let` of an enum or a union,
 are not supported.
 
 ### Conditional compilation, tests and annotations

@@ -249,11 +249,13 @@ type Heap
 	// A map entry is a pair of cells.
 	var entryKey as CountList
 	var entryVal as CountList
-	// literals are the strings that are in the executable, by their text.
+	// literals are the strings that are in the executable, by their text, and constants the constants that are, by their
+	// symbol.
 	var literals as table.StringMap with Count
+	var constants as table.StringMap with Count
 
 	static function new() returns Heap
-		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), maps: MapDatas.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), entryKey: CountList.create(0), entryVal: CountList.create(0), literals: table.StringMap.new()}
+		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), maps: MapDatas.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), entryKey: CountList.create(0), entryVal: CountList.create(0), literals: table.StringMap.new(), constants: table.StringMap.new()}
 		// Handle 0 names nothing, so every column starts with a row that is never used.
 		_ = h.newCell(0)
 		h.oKind.push(0)

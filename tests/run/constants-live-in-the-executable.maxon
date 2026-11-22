@@ -1,0 +1,59 @@
+typealias Byte = int(0 to 255)
+
+type Item
+	export let name as String
+	export let weight as Count
+
+	static function make(name String, weight Count) returns Self
+		return Self{name: name.clone(), weight: weight}
+	end 'make'
+end 'Item'
+
+type Shelf
+	export let label as String
+	export let items as Array with Item
+	export let codes as Array with Byte
+
+	static function make(label String, items Array with Item, codes Array with Byte) returns Self
+		return Self{label: label.clone(), items: items.clone(), codes: codes.clone()}
+	end 'make'
+end 'Shelf'
+
+union Mark
+	none
+	at(row Count, note String)
+end 'Mark'
+
+enum Kind
+	light = Item.make("feather", weight: 1)
+	heavy = Item.make("anvil", weight: 90)
+end 'Kind'
+
+let SHELF = Shelf.make("top", items: [Item.make("cup", weight: 2), Item.make("jug", weight: 5)], codes: [7 as Byte, 9])
+
+let WEIGHTS = [1.5, 2.25]
+
+let MARKS = [Mark.none]
+
+let NESTED = [[1 as Count, 2], [3]]
+
+function describe(m Mark) returns String
+	return match m 'm'
+		none gives "-"
+		at(row, note) gives "{note}@{row}"
+	end 'm'
+end 'describe'
+
+function main() returns ExitCode
+	print("{SHELF.label} {SHELF.items[0].name} {SHELF.items[1].weight} {SHELF.items.count()} {SHELF.codes[1]}\n")
+	print("{WEIGHTS[1]} {describe(MARKS[0])} {MARKS.count()} {NESTED[0][1]} {NESTED[1].count()}\n")
+	print("{Kind.heavy.rawValue.name} {Kind.light.weight} {Kind.heavy.weight}\n")
+	let copy = SHELF.clone()
+	print("{copy.items[1].name}\n")
+	return 0
+end 'main'
+
+//> top cup 5 2 9
+//> 2.25 - 1 2 1
+//> anvil 1 90
+//> jug

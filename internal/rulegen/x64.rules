@@ -18,6 +18,7 @@
 // Constants and the addresses of what the link places.
 (const [c]) => (MovRegImm r [c])
 (str) => (LeaRegRip r [sel.textRef(fn, ins: ins)])
+(datum) => (LeaRegRip r [sel.datumRef(fn, ins: ins)])
 (loadGlobal [g]) => (LoadRegRip r [sel.symbolRef(ir.rtSymbol(g))])
 (globalAddr [g]) => (LeaRegRip r [sel.symbolRef(ir.rtSymbol(g))])
 (codeAddress) => (LeaRegRip r [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))])
