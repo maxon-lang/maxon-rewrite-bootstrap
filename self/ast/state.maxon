@@ -1,0 +1,37 @@
+// ModuleState is what a task of one module's stage writes: the type and function tables, in which the task makes and
+// fills entries only in its module's slot (beginModuleTask), and the shared slot only where it is a task of the project.
+// A stage takes it `mutates` and the project `p` as the read-only outputs of the modules it waited on, so that nothing a
+// stage is given lets it write another module's declarations. The tables are lent out of the project for the task and
+// given back when it ends (lendModule, giveBack), so that the project holds them between tasks.
+export type ModuleState
+	export var module as diag.ModuleID
+	export var types as TypeTable
+	export var funcs as FuncTable
+
+	export static function make(module diag.ModuleID, consumes types TypeTable, consumes funcs FuncTable) returns ModuleState
+		return ModuleState{module: module, types: types, funcs: funcs}
+	end 'make'
+
+	// idle is the state of a module between its tasks, which holds none of the tables.
+	export static function idle(module diag.ModuleID) returns ModuleState
+		return ModuleState.make(module, types: TypeTable.lent(), funcs: FuncTable.lent())
+	end 'idle'
+end 'ModuleState'
+
+// lendModule lends the tables of the project to the task of a stage of module, which beginModuleTask has begun.
+export function lendModule(mutates p Project, module diag.ModuleID) returns ModuleState
+	return ModuleState.make(module, types: exchange(p.types, value: TypeTable.lent()), funcs: exchange(p.funcs, value: FuncTable.lent()))
+end 'lendModule'
+
+// lendProject lends the tables of the project to work of the project as a whole, which may write any slot: a task of the
+// project, or what runs before and after the tasks.
+export function lendProject(mutates p Project) returns ModuleState
+	return ModuleState.make(diag.stdlibID, types: exchange(p.types, value: TypeTable.lent()), funcs: exchange(p.funcs, value: FuncTable.lent()))
+end 'lendProject'
+
+// giveBack gives the project back the tables that lendModule or lendProject lent.
+export function giveBack(mutates p Project, consumes ms ModuleState)
+	var held = ms
+	p.types = exchange(held.types, value: TypeTable.lent())
+	p.funcs = exchange(held.funcs, value: FuncTable.lent())
+end 'giveBack'

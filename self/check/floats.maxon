@@ -3,12 +3,12 @@
 // beside a float converts to it, and a float never converts to an integer.
 
 // isNumberType is whether a value of the type takes part in arithmetic: an integer or a float.
-function isNumberType(p ast.Project, t ast.TypeID) returns bool
-	return ast.isIntType(p.types, t: t) or ast.isFloatType(p.types, t: t)
+function isNumberType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	return ast.isIntType(ms.types, t: t) or ast.isFloatType(ms.types, t: t)
 end 'isNumberType'
 
-function isConstFloat(p ast.Project, t ast.TypeID) returns bool
-	return t != ast.noType and kindOfType(p, t: t) == ast.TypeKind.constFloat
+function isConstFloat(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	return t != ast.noType and kindOfType(p, ms: ms, t: t) == ast.TypeKind.constFloat
 end 'isConstFloat'
 
 export function typeIsNamedFloat(tt ast.TypeTable, t ast.TypeID) returns bool
@@ -20,80 +20,80 @@ function typeIsAnonFloat(tt ast.TypeTable, t ast.TypeID) returns bool
 end 'typeIsAnonFloat'
 
 // constantBits is the double of a constant: a float constant's, or an integer constant's converted.
-function constantBits(p ast.Project, t ast.TypeID) returns Count
-	if isConstFloat(p, t: t) 'float'
-		return ast.floatLowBits(p.types, t: t)
+function constantBits(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Count
+	if isConstFloat(p, ms: ms, t: t) 'float'
+		return ast.floatLowBits(ms.types, t: t)
 	end 'float'
-	return ast.floatFromInt(p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].minVal)
+	return ast.floatFromInt(ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal)
 end 'constantBits'
 
 // floatFits is whether a value of src goes where dst, a float range, is needed with no cast.
-export function floatFits(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
-	let sk = ast.typeKind(p.types, t: src)
+export function floatFits(p ast.Project, ms ast.ModuleState, src ast.TypeID, dst ast.TypeID) returns bool
+	let sk = ast.typeKind(ms.types, t: src)
 	if sk == ast.TypeKind.constFloat or sk == ast.TypeKind.constInt 'constant'
-		return ast.floatRangeHolds(p.types, t: dst, bits: constantBits(p, t: src))
+		return ast.floatRangeHolds(ms.types, t: dst, bits: constantBits(p, ms: ms, t: src))
 	end 'constant'
 	if sk == ast.TypeKind.floatRange 'range'
-		return (typeIsAnonFloat(p.types, t: src) or typeIsAnonFloat(p.types, t: dst)) and ast.floatRangeCovers(p.types, dst: dst, src: src)
+		return (typeIsAnonFloat(ms.types, t: src) or typeIsAnonFloat(ms.types, t: dst)) and ast.floatRangeCovers(ms.types, dst: dst, src: src)
 	end 'range'
 	return false
 end 'floatFits'
 
 // floatValueText is how a diagnostic writes the double of a constant.
-function floatValueText(p ast.Project, t ast.TypeID) returns String
-	return ast.floatDiagnosticText(constantBits(p, t: t))
+function floatValueText(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+	return ast.floatDiagnosticText(constantBits(p, ms: ms, t: t))
 end 'floatValueText'
 
-function floatOutOfRange(p ast.Project, value ast.TypeID, target ast.TypeID) returns String
-	let lo = ast.floatDiagnosticText(ast.floatLowBits(p.types, t: target))
-	let hi = ast.floatDiagnosticText(ast.floatHighBits(p.types, t: target))
-	return diag.floatOutOfRange(floatValueText(p, t: value), alias: ast.typeName(p.types, t: target), low: lo, high: hi)
+function floatOutOfRange(p ast.Project, ms ast.ModuleState, value ast.TypeID, target ast.TypeID) returns String
+	let lo = ast.floatDiagnosticText(ast.floatLowBits(ms.types, t: target))
+	let hi = ast.floatDiagnosticText(ast.floatHighBits(ms.types, t: target))
+	return diag.floatOutOfRange(floatValueText(p, ms: ms, t: value), alias: ast.typeName(ms.types, t: target), low: lo, high: hi)
 end 'floatOutOfRange'
 
 // floatMismatch is the error for a value of src where the float range target is needed, which it does not fit.
-function floatMismatch(c Checker, mutates p ast.Project, node ast.NodeID, at diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList)
-	let sk = ast.typeKind(p.types, t: src)
+function floatMismatch(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, at diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList)
+	let sk = ast.typeKind(ms.types, t: src)
 	if sk == ast.TypeKind.constFloat or sk == ast.TypeKind.constInt 'constant'
-		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: floatOutOfRange(p, value: src, target: target), errs: errs)
+		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: floatOutOfRange(p, ms: ms, value: src, target: target), errs: errs)
 		return
 	end 'constant'
-	let tName = ast.typeName(p.types, t: target)
-	let castable = typeIsAnonFloat(p.types, t: src) or ast.isIntType(p.types, t: src)
+	let tName = ast.typeName(ms.types, t: target)
+	let castable = typeIsAnonFloat(ms.types, t: src) or ast.isIntType(ms.types, t: src)
 	var fix = diag.Fix.none()
 	if castable 'cast'
 		fix = castFix(p.modules[c.modIdx].tree, e: node, target: tName)
 	end 'cast'
-	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, t: src), castable: false), fix: fix, errs: errs)
+	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, ms: ms, t: src), castable: false), fix: fix, errs: errs)
 end 'floatMismatch'
 
 // requireOneFloatAlias refuses two operands of float aliases with no common ancestor, as two integer aliases are.
-function requireOneFloatAlias(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns bool
-	if typeIsNamedFloat(p.types, t: l) and typeIsNamedFloat(p.types, t: r) and ast.commonSupertype(p.types, a: l, b: r) == ast.noType 'diff'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the operands are {ast.typeName(p.types, t: l)} and {ast.typeName(p.types, t: r)}; cast one so both are the same type", errs: errs)
+function requireOneFloatAlias(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if typeIsNamedFloat(ms.types, t: l) and typeIsNamedFloat(ms.types, t: r) and ast.commonSupertype(ms.types, a: l, b: r) == ast.noType 'diff'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the operands are {ast.typeName(ms.types, t: l)} and {ast.typeName(ms.types, t: r)}; cast one so both are the same type", errs: errs)
 		return false
 	end 'diff'
 	return true
 end 'requireOneFloatAlias'
 
 // checkFloatOp types an arithmetic operator one of whose operands is a float.
-function checkFloatOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkFloatOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)
 	if op != "+" and op != "-" and op != "*" and op != "/" 'notArithmetic'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'{op}' needs integers, found {nameOfType(p, t: l)} and {nameOfType(p, t: r)}; a float has + - * / and no '{op}'", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'{op}' needs integers, found {nameOfType(p, ms: ms, t: l)} and {nameOfType(p, ms: ms, t: r)}; a float has + - * / and no '{op}'", errs: errs)
 		return ast.noType
 	end 'notArithmetic'
-	if not isNumberType(p, t: l) or not isNumberType(p, t: r) 'notNumbers'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'{op}' needs numbers, found {nameOfType(p, t: l)} and {nameOfType(p, t: r)}", errs: errs)
+	if not isNumberType(p, ms: ms, t: l) or not isNumberType(p, ms: ms, t: r) 'notNumbers'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'{op}' needs numbers, found {nameOfType(p, ms: ms, t: l)} and {nameOfType(p, ms: ms, t: r)}", errs: errs)
 		return ast.noType
 	end 'notNumbers'
-	if not requireOneFloatAlias(c, p: p, off: off, l: l, r: r, errs: errs) 'twoAliases'
+	if not requireOneFloatAlias(c, p: p, ms: ms, off: off, l: l, r: r, errs: errs) 'twoAliases'
 		return ast.noType
 	end 'twoAliases'
 	setOperand(c, node: e, operand: p.builtins.anonFloatTy)
-	let lConst = isConstFloat(p, t: l) or isConstInt(p, t: l)
-	let rConst = isConstFloat(p, t: r) or isConstInt(p, t: r)
+	let lConst = isConstFloat(p, ms: ms, t: l) or isConstInt(p, ms: ms, t: l)
+	let rConst = isConstFloat(p, ms: ms, t: r) or isConstInt(p, ms: ms, t: r)
 	if lConst and rConst 'folded'
-		return ast.internConstFloat(p.types, bits: foldFloat(op, a: constantBits(p, t: l), b: constantBits(p, t: r)))
+		return ast.internConstFloat(ms.types, bits: foldFloat(op, a: constantBits(p, ms: ms, t: l), b: constantBits(p, ms: ms, t: r)))
 	end 'folded'
 	return p.builtins.anonFloatTy
 end 'checkFloatOp'
@@ -109,13 +109,13 @@ function foldFloat(op String, a Count, b Count) returns Count
 end 'foldFloat'
 
 // checkFloatComparison types a comparison one of whose operands is a float; the other may be an integer, which converts.
-function checkFloatComparison(mutates c Checker, mutates p ast.Project, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkFloatComparison(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)
-	if not isNumberType(p, t: l) or not isNumberType(p, t: r) 'notNumbers'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(nameOfType(p, t: l), right: nameOfType(p, t: r)), errs: errs)
+	if not isNumberType(p, ms: ms, t: l) or not isNumberType(p, ms: ms, t: r) 'notNumbers'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(nameOfType(p, ms: ms, t: l), right: nameOfType(p, ms: ms, t: r)), errs: errs)
 		return ast.noType
 	end 'notNumbers'
-	if not requireOneFloatAlias(c, p: p, off: off, l: l, r: r, errs: errs) 'twoAliases'
+	if not requireOneFloatAlias(c, p: p, ms: ms, off: off, l: l, r: r, errs: errs) 'twoAliases'
 		return ast.noType
 	end 'twoAliases'
 	setOperand(c, node: e, operand: p.builtins.anonFloatTy)
@@ -123,62 +123,62 @@ function checkFloatComparison(mutates c Checker, mutates p ast.Project, e ast.No
 end 'checkFloatComparison'
 
 // checkFloatNegation types '-' on a float: the sign of the double flips, so a constant stays one and a range turns over.
-function checkFloatNegation(mutates p ast.Project, t ast.TypeID) returns ast.TypeID
-	if isConstFloat(p, t: t) 'constant'
-		return ast.internConstFloat(p.types, bits: ast.floatNegate(ast.floatLowBits(p.types, t: t)))
+function checkFloatNegation(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
+	if isConstFloat(p, ms: ms, t: t) 'constant'
+		return ast.internConstFloat(ms.types, bits: ast.floatNegate(ast.floatLowBits(ms.types, t: t)))
 	end 'constant'
-	let lo = ast.floatNegate(ast.floatHighBits(p.types, t: t))
-	let hi = ast.floatNegate(ast.floatLowBits(p.types, t: t))
-	return ast.internFloatRange(p.types, aliasName: "", lo: lo, hi: hi)
+	let lo = ast.floatNegate(ast.floatHighBits(ms.types, t: t))
+	let hi = ast.floatNegate(ast.floatLowBits(ms.types, t: t))
+	return ast.internFloatRange(ms.types, aliasName: "", lo: lo, hi: hi)
 end 'checkFloatNegation'
 
 // checkFloatCast types a cast to the float range target: from a constant, whose double must fit, or from any other
 // integer or float, which the range analysis checks.
-function checkFloatCast(c Checker, mutates p ast.Project, off diag.U32, src ast.TypeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if isConstFloat(p, t: src) or isConstInt(p, t: src) 'constant'
-		if not ast.floatRangeHolds(p.types, t: target, bits: constantBits(p, t: src)) 'doesNotFit'
-			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: floatOutOfRange(p, value: src, target: target), errs: errs)
+function checkFloatCast(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, src ast.TypeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if isConstFloat(p, ms: ms, t: src) or isConstInt(p, ms: ms, t: src) 'constant'
+		if not ast.floatRangeHolds(ms.types, t: target, bits: constantBits(p, ms: ms, t: src)) 'doesNotFit'
+			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: floatOutOfRange(p, ms: ms, value: src, target: target), errs: errs)
 			return ast.noType
 		end 'doesNotFit'
 		return target
 	end 'constant'
-	if isNumberType(p, t: src) 'number'
+	if isNumberType(p, ms: ms, t: src) 'number'
 		return target
 	end 'number'
-	failCast(c, p: p, off: off, src: src, target: target, errs: errs)
+	failCast(c, p: p, ms: ms, off: off, src: src, target: target, errs: errs)
 	return ast.noType
 end 'checkFloatCast'
 
 // convertsFloat is whether a value of src is converted to the float range dst where it is returned, as an 'as' would:
 // an integer or another float, which the range analysis checks.
-export function convertsFloat(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
+export function convertsFloat(p ast.Project, ms ast.ModuleState, src ast.TypeID, dst ast.TypeID) returns bool
 	if src == ast.noType or dst == ast.noType 'err'
 		return false
 	end 'err'
-	if ast.typeKind(p.types, t: dst) != ast.TypeKind.floatRange 'notFloat'
+	if ast.typeKind(ms.types, t: dst) != ast.TypeKind.floatRange 'notFloat'
 		return false
 	end 'notFloat'
-	let sk = ast.typeKind(p.types, t: src)
+	let sk = ast.typeKind(ms.types, t: src)
 	if sk != ast.TypeKind.floatRange and sk != ast.TypeKind.intRange 'notConverted'
 		return false
 	end 'notConverted'
-	return not floatFits(p, src: src, dst: dst)
+	return not floatFits(p, ms: ms, src: src, dst: dst)
 end 'convertsFloat'
 
 // floatConversionFails is how a conversion of a value of src to the float range dst can fail: where the value may lie
 // outside it.
-export function floatConversionFails(p ast.Project, src ast.TypeID, dst ast.TypeID) returns Byte
-	if ast.isFullFloatRange(p.types, t: dst) 'all'
+export function floatConversionFails(p ast.Project, ms ast.ModuleState, src ast.TypeID, dst ast.TypeID) returns Byte
+	if ast.isFullFloatRange(ms.types, t: dst) 'all'
 		return ast.failNone
 	end 'all'
-	let sk = ast.typeKind(p.types, t: src)
-	if sk == ast.TypeKind.floatRange and ast.floatRangeCovers(p.types, dst: dst, src: src) 'covered'
+	let sk = ast.typeKind(ms.types, t: src)
+	if sk == ast.TypeKind.floatRange and ast.floatRangeCovers(ms.types, dst: dst, src: src) 'covered'
 		return ast.failNone
 	end 'covered'
 	if sk == ast.TypeKind.intRange 'integer'
-		let lo = ast.floatFromInt(p.types.lists[ast.typeList(p.types, t: src)][ast.typeIndex(p.types, t: src)].minVal)
-		let hi = ast.floatFromInt(p.types.lists[ast.typeList(p.types, t: src)][ast.typeIndex(p.types, t: src)].maxVal)
-		if ast.floatRangeHolds(p.types, t: dst, bits: lo) and ast.floatRangeHolds(p.types, t: dst, bits: hi) 'held'
+		let lo = ast.floatFromInt(ms.types.lists[ast.typeList(ms.types, t: src)][ast.typeIndex(ms.types, t: src)].minVal)
+		let hi = ast.floatFromInt(ms.types.lists[ast.typeList(ms.types, t: src)][ast.typeIndex(ms.types, t: src)].maxVal)
+		if ast.floatRangeHolds(ms.types, t: dst, bits: lo) and ast.floatRangeHolds(ms.types, t: dst, bits: hi) 'held'
 			return ast.failNone
 		end 'held'
 	end 'integer'
@@ -186,6 +186,6 @@ export function floatConversionFails(p ast.Project, src ast.TypeID, dst ast.Type
 end 'floatConversionFails'
 
 // floatRangeText is how the range analysis's errors write a float range.
-export function floatRangeText(p ast.Project, t ast.TypeID) returns String
-	return "{ast.floatDiagnosticText(ast.floatLowBits(p.types, t: t))} to {ast.floatDiagnosticText(ast.floatHighBits(p.types, t: t))}"
+export function floatRangeText(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+	return "{ast.floatDiagnosticText(ast.floatLowBits(ms.types, t: t))} to {ast.floatDiagnosticText(ast.floatHighBits(ms.types, t: t))}"
 end 'floatRangeText'

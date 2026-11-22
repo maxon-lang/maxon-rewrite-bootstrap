@@ -70,13 +70,13 @@ end 'rangeBoundOf'
 
 // rangeBind makes bound the bound of an accumulator for the loop being walked, within the one an enclosing loop gave it,
 // and narrows its span in the current state to it. A bound past the type on both sides says no more than the type does.
-function rangeBind(mutates r Ranges, p ast.Project, local Count, bound Span)
+function rangeBind(mutates r Ranges, p ast.Project, ms ast.ModuleState, local Count, bound Span)
 	var b = bound.clone()
 	match consumes rangeBoundOf(r, local: local) 'outer'
 		some(outer) then b = tighterBound(b, outer: outer)
 		none then _ = 0
 	end 'outer'
-	let t = typeSpan(p.types, t: r.typing.locals[localAt(r, slot: local) as Count].ty)
+	let t = typeSpan(ms.types, t: r.typing.locals[localAt(r, slot: local) as Count].ty)
 	if b.lo.lt(t.lo) and b.hi.gt(t.hi) 'noMore'
 		return
 	end 'noMore'
@@ -108,20 +108,20 @@ type Accumulation
 end 'Accumulation'
 
 // rangeAccumulation is the shape of an assignment, if it is one that an accumulator is changed by.
-function rangeAccumulation(r Ranges, p ast.Project, s ast.NodeID) returns table.Option with Accumulation
+function rangeAccumulation(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID) returns table.Option with Accumulation
 	let target = ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)
 	let sum = ast.assignStmtValue(p.modules[r.modIdx].tree, id: s)
 	if p.modules[r.modIdx].tree.kindOf(target) != ast.NodeKind.nameExpr or p.modules[r.modIdx].tree.kindOf(sum) != ast.NodeKind.binaryExpr 'shape'
 		return table.Option.none
 	end 'shape'
-	return match consumes rangePlaceOf(r, p: p, e: target) 'place'
-		some(place) gives accumulationOf(r, p: p, place: place, target: target, sum: sum)
+	return match consumes rangePlaceOf(r, p: p, ms: ms, e: target) 'place'
+		some(place) gives accumulationOf(r, p: p, ms: ms, place: place, target: target, sum: sum)
 		none gives table.Option.none
 	end 'place'
 end 'rangeAccumulation'
 
-function accumulationOf(r Ranges, p ast.Project, place Place, target ast.NodeID, sum ast.NodeID) returns table.Option with Accumulation
-	if place.depth != 0 or not ast.isIntType(p.types, t: typeOf(r, e: target)) 'notLocal'
+function accumulationOf(r Ranges, p ast.Project, ms ast.ModuleState, place Place, target ast.NodeID, sum ast.NodeID) returns table.Option with Accumulation
+	if place.depth != 0 or not ast.isIntType(ms.types, t: typeOf(r, e: target)) 'notLocal'
 		return table.Option.none
 	end 'notLocal'
 	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: sum)
@@ -129,17 +129,17 @@ function accumulationOf(r Ranges, p ast.Project, place Place, target ast.NodeID,
 	if op != "+" and not subtract 'notSum'
 		return table.Option.none
 	end 'notSum'
-	if namesPlace(r, p: p, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: sum), place: place) 'left'
+	if namesPlace(r, p: p, ms: ms, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: sum), place: place) 'left'
 		return table.Option.some(Accumulation.make(place.clone(), sum: sum, subtract: subtract, eIsLeft: false))
 	end 'left'
-	if not subtract and namesPlace(r, p: p, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: sum), place: place) 'right'
+	if not subtract and namesPlace(r, p: p, ms: ms, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: sum), place: place) 'right'
 		return table.Option.some(Accumulation.make(place.clone(), sum: sum, subtract: false, eIsLeft: true))
 	end 'right'
 	return table.Option.none
 end 'accumulationOf'
 
-function namesPlace(r Ranges, p ast.Project, e ast.NodeID, place Place) returns bool
-	return match consumes rangePlaceOf(r, p: p, e: e) 'place'
+function namesPlace(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, place Place) returns bool
+	return match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 		some(q) gives q.same(place)
 		none gives false
 	end 'place'
@@ -148,11 +148,11 @@ end 'namesPlace'
 // rangeAccumulate is an assignment that changes an accumulator. Where a loop bounds it, the result is judged against that
 // bound, which holds however many times the loop has run, and the probe of a loop learns from it how far the loop can
 // move it.
-function rangeAccumulate(mutates r Ranges, p ast.Project, s ast.NodeID, a Accumulation)
-	let l = rangeEval(r, p: p, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: a.sum))
-	let rs = rangeEval(r, p: p, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: a.sum))
+function rangeAccumulate(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, a Accumulation)
+	let l = rangeEval(r, p: p, ms: ms, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: a.sum))
+	let rs = rangeEval(r, p: p, ms: ms, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: a.sum))
 	let bound = rangeBoundOf(r, local: a.place.root)
-	let v = rangeOperate(r, p: p, e: a.sum, l: l, rs: rs, bound: bound)
+	let v = rangeOperate(r, p: p, ms: ms, e: a.sum, l: l, rs: rs, bound: bound)
 	if r.probing and not isDead(r, s: r.st) 'probed'
 		if a.eIsLeft 'left'
 			r.probe.record(a, e: l)
@@ -160,7 +160,7 @@ function rangeAccumulate(mutates r Ranges, p ast.Project, s ast.NodeID, a Accumu
 			r.probe.record(a, e: rs)
 		end 'right'
 	end 'probed'
-	rangeWrite(r, p: p, place: a.place, s: v, t: typeOf(r, e: ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)))
+	rangeWrite(r, p: p, ms: ms, place: a.place, s: v, t: typeOf(r, e: ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)))
 end 'rangeAccumulate'
 
 // Accumulated is what the probe of a loop learned of an accumulator: how its statements can move it in one iteration of
@@ -258,47 +258,47 @@ typealias CandidateList = Array with Candidate
 
 // scanBlock finds the locals that a loop's statements assign by an accumulator statement. It reads statements and not
 // expressions, which cannot assign, so it is far cheaper than the walk it decides on.
-function scanBlock(r Ranges, p ast.Project, body diag.U32, mutates found CandidateList)
+function scanBlock(r Ranges, p ast.Project, ms ast.ModuleState, body diag.U32, mutates found CandidateList)
 	for i in 0 upto p.modules[r.modIdx].tree.listLen(body) 'each'
-		scanStmt(r, p: p, s: p.modules[r.modIdx].tree.listAt(body, index: i) as ast.NodeID, found: found)
+		scanStmt(r, p: p, ms: ms, s: p.modules[r.modIdx].tree.listAt(body, index: i) as ast.NodeID, found: found)
 	end 'each'
 end 'scanBlock'
 
-function scanStmt(r Ranges, p ast.Project, s ast.NodeID, mutates found CandidateList)
+function scanStmt(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates found CandidateList)
 	let k = p.modules[r.modIdx].tree.kindOf(s)
 	if k == ast.NodeKind.assignStmt 'assign'
-		match consumes rangeAccumulation(r, p: p, s: s) 'accumulation'
+		match consumes rangeAccumulation(r, p: p, ms: ms, s: s) 'accumulation'
 			some(a) then noteCandidate(r, local: a.place.root, found: found)
 			none then _ = 0
 		end 'accumulation'
 		return
 	end 'assign'
 	if k == ast.NodeKind.ifStmt 'if'
-		scanBlock(r, p: p, body: ast.ifStmtThenRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.ifStmtThenRef(p.modules[r.modIdx].tree, id: s), found: found)
 		if ast.ifStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
-			scanBlock(r, p: p, body: ast.ifStmtElseRef(p.modules[r.modIdx].tree, id: s), found: found)
+			scanBlock(r, p: p, ms: ms, body: ast.ifStmtElseRef(p.modules[r.modIdx].tree, id: s), found: found)
 		end 'else'
 		return
 	end 'if'
 	if k == ast.NodeKind.whileStmt 'while'
-		scanBlock(r, p: p, body: ast.whileStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.whileStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
 		return
 	end 'while'
 	if k == ast.NodeKind.forStmt 'for'
-		scanBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
 		return
 	end 'for'
 	if k == ast.NodeKind.ifTryStmt 'ifTry'
-		scanBlock(r, p: p, body: ast.ifTryStmtThenRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.ifTryStmtThenRef(p.modules[r.modIdx].tree, id: s), found: found)
 		if ast.ifTryStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
-			scanBlock(r, p: p, body: ast.ifTryStmtElseRef(p.modules[r.modIdx].tree, id: s), found: found)
+			scanBlock(r, p: p, ms: ms, body: ast.ifTryStmtElseRef(p.modules[r.modIdx].tree, id: s), found: found)
 		end 'else'
 		return
 	end 'ifTry'
 	if k == ast.NodeKind.tryStmt 'try'
-		scanBlock(r, p: p, body: ast.tryStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.tryStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
 		if ast.tryStmtHasOtherwise(p.modules[r.modIdx].tree, id: s) 'handler'
-			scanBlock(r, p: p, body: ast.tryStmtHandlerRef(p.modules[r.modIdx].tree, id: s), found: found)
+			scanBlock(r, p: p, ms: ms, body: ast.tryStmtHandlerRef(p.modules[r.modIdx].tree, id: s), found: found)
 		end 'handler'
 		return
 	end 'try'
@@ -307,7 +307,7 @@ function scanStmt(r Ranges, p ast.Project, s ast.NodeID, mutates found Candidate
 		for i in 0 upto p.modules[r.modIdx].tree.listLen(armsRef) 'arms'
 			let arm = p.modules[r.modIdx].tree.listAt(armsRef, index: i) as ast.NodeID
 			if ast.matchArmForm(p.modules[r.modIdx].tree, id: arm) == ast.ArmKind.armThen 'then'
-				scanStmt(r, p: p, s: ast.matchArmAction(p.modules[r.modIdx].tree, id: arm), found: found)
+				scanStmt(r, p: p, ms: ms, s: ast.matchArmAction(p.modules[r.modIdx].tree, id: arm), found: found)
 			end 'then'
 		end 'arms'
 		return
@@ -315,7 +315,7 @@ function scanStmt(r Ranges, p ast.Project, s ast.NodeID, mutates found Candidate
 	if k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt 'expansion'
 		let steps = ast.expansionOf(r.typing, node: s)
 		for i in 0 upto steps.count() 'steps'
-			scanStmt(r, p: p, s: steps[i], found: found)
+			scanStmt(r, p: p, ms: ms, s: steps[i], found: found)
 		end 'steps'
 		return
 	end 'expansion'
@@ -337,24 +337,24 @@ end 'noteCandidate'
 
 // rangeCandidates are the accumulators of a loop that the loop's body may bound. None is found in a loop that is walked
 // inside a probe, which does not bound anything, and none where the code cannot run.
-function rangeCandidates(r Ranges, p ast.Project, body diag.U32) returns CandidateList
+function rangeCandidates(r Ranges, p ast.Project, ms ast.ModuleState, body diag.U32) returns CandidateList
 	var found = CandidateList.create(0)
 	if r.probing or r.fn == ast.noFunc or isDead(r, s: r.st) 'none'
 		return found
 	end 'none'
-	scanBlock(r, p: p, body: body, found: found)
+	scanBlock(r, p: p, ms: ms, body: body, found: found)
 	return found
 end 'rangeCandidates'
 
 // rangeLoopHead makes the state at the top of a for loop: what may be assigned is forgotten, except the accumulators of
 // the body that the loop bounds.
-function rangeLoopHead(mutates r Ranges, p ast.Project, s ast.NodeID, from Span, upper Span, trips ast.I128)
-	let cands = rangeCandidates(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
-	rangeForget(r, p: p)
+function rangeLoopHead(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, from Span, upper Span, trips ast.I128)
+	let cands = rangeCandidates(r, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeForget(r, p: p, ms: ms)
 	if cands.count() == 0 'none'
 		return
 	end 'none'
-	rangeProbeLoop(r, p: p, s: s, from: from, upper: upper)
+	rangeProbeLoop(r, p: p, ms: ms, s: s, from: from, upper: upper)
 	if r.probe.opaque 'opaque'
 		return
 	end 'opaque'
@@ -366,7 +366,7 @@ function rangeLoopHead(mutates r Ranges, p ast.Project, s ast.NodeID, from Span,
 		end 'other'
 		let lo = cands[i].entry.lo.sub(scaled(trips, b: r.probe.accumulated[local].lower))
 		let hi = cands[i].entry.hi.add(scaled(trips, b: r.probe.accumulated[local].raise))
-		rangeBind(r, p: p, local: local, bound: Span.make(lo, hi: hi))
+		rangeBind(r, p: p, ms: ms, local: local, bound: Span.make(lo, hi: hi))
 	end 'each'
 end 'rangeLoopHead'
 
@@ -374,7 +374,7 @@ end 'rangeLoopHead'
 // until the next probe. It leaves the walk's state as it found it: the states it made are released, and nothing it
 // recorded outside them is kept, because the errors and the failures of the real walk must come from the real walk
 // alone.
-function rangeProbeLoop(mutates r Ranges, p ast.Project, s ast.NodeID, from Span, upper Span)
+function rangeProbeLoop(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, from Span, upper Span)
 	let head = r.st
 	let written = r.written.count()
 	let m = r.states.mark()
@@ -385,9 +385,9 @@ function rangeProbeLoop(mutates r Ranges, p ast.Project, s ast.NodeID, from Span
 	r.st = r.states.copyOf(head)
 	r.frames.push(RangeFrame.make(s))
 	let top = r.st
-	let body = rangeLoopBody(r, p: p, s: s, top: top, from: from, upper: upper)
+	let body = rangeLoopBody(r, p: p, ms: ms, s: s, top: top, from: from, upper: upper)
 	r.st = body
-	rangeBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
 	r.probing = false
 	r.st = head
 	truncatePlaces(r.written, count: written)

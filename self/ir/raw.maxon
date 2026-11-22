@@ -42,89 +42,89 @@ function globalAddress(mutates l Lowerer, symbol Rt) returns Reg
 	return d
 end 'globalAddress'
 
-function lowerRawLoad8(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawLoad8(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return rawLoad(l, args: args, width: RawWidth.width8)
 end 'lowerRawLoad8'
 
-function lowerRawLoad16(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawLoad16(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return rawLoad(l, args: args, width: RawWidth.width16)
 end 'lowerRawLoad16'
 
-function lowerRawLoad32(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawLoad32(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return rawLoad(l, args: args, width: RawWidth.width32)
 end 'lowerRawLoad32'
 
-function lowerRawLoad64(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawLoad64(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return rawLoad(l, args: args, width: RawWidth.width64)
 end 'lowerRawLoad64'
 
-function lowerRawStore8(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawStore8(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return rawStore(l, args: args, width: RawWidth.width8)
 end 'lowerRawStore8'
 
-function lowerRawStore16(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawStore16(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return rawStore(l, args: args, width: RawWidth.width16)
 end 'lowerRawStore16'
 
-function lowerRawStore32(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawStore32(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return rawStore(l, args: args, width: RawWidth.width32)
 end 'lowerRawStore32'
 
-function lowerRawStore64(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawStore64(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return rawStore(l, args: args, width: RawWidth.width64)
 end 'lowerRawStore64'
 
-function lowerRawWrappingAdd(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawWrappingAdd(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return wrappingBin(l, op: BinOp.binAdd, a: args[0], b: args[1], kind: IrKind.kindScalar)
 end 'lowerRawWrappingAdd'
 
-function lowerRawWrappingSub(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawWrappingSub(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return wrappingBin(l, op: BinOp.binSub, a: args[0], b: args[1], kind: IrKind.kindScalar)
 end 'lowerRawWrappingSub'
 
 // lowerRawAddressOf is the address of the local that the call is given as its place. The call evaluates its operand
 // itself, since the value of the place is not what it is given.
-function lowerRawAddressOf(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return address(l, p: p, e: c.ordered[0])
+function lowerRawAddressOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return address(l, p: p, ms: ms, e: c.ordered[0])
 end 'lowerRawAddressOf'
 
 // lowerRawStringAddress is the address of a string's box, which is the string.
-function lowerRawStringAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawStringAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return sameWord(l, w: args[0], kind: IrKind.kindScalar)
 end 'lowerRawStringAddress'
 
 // lowerRawStringAt is the string that owns a box the runtime built, so the one the call gives is dropped like any other.
-function lowerRawStringAt(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawStringAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return sameWord(l, w: args[0], kind: IrKind.kindManaged)
 end 'lowerRawStringAt'
 
-function lowerRawHeapAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawHeapAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return globalAddress(l, symbol: Rt.rtHeap)
 end 'lowerRawHeapAddress'
 
-function lowerRawStdoutAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawStdoutAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return globalAddress(l, symbol: Rt.rtStdout)
 end 'lowerRawStdoutAddress'
 
-function lowerRawStderrAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawStderrAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return globalAddress(l, symbol: Rt.rtStderr)
 end 'lowerRawStderrAddress'
 
-function lowerRawAtomicAdd(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawAtomicAdd(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let at = rawAddress(l, address: args[0], offset: args[1])
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newAtomicAdd(d, addr: at, src: args[2]))
 	return d
 end 'lowerRawAtomicAdd'
 
-function lowerRawAtomicExchange(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawAtomicExchange(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let at = rawAddress(l, address: args[0], offset: args[1])
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newAtomicExchange(d, addr: at, src: args[2]))
 	return d
 end 'lowerRawAtomicExchange'
 
-function lowerRawCompareExchange(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawCompareExchange(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	var words = RegList.create(0)
 	words.push(rawAddress(l, address: args[0], offset: args[1]))
 	words.push(args[2])
@@ -136,18 +136,18 @@ function lowerRawCompareExchange(mutates l Lowerer, mutates p ast.Project, c Cal
 end 'lowerRawCompareExchange'
 
 // lowerRawSpinPause gives 0 as its value, as a store does.
-function lowerRawSpinPause(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawSpinPause(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	emit(l, i: newSpinPause())
 	return konst(l, value: 0 as Word)
 end 'lowerRawSpinPause'
 
-function lowerRawThreadContext(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawThreadContext(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newThreadContext(d))
 	return d
 end 'lowerRawThreadContext'
 
-function lowerRawCallCode(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawCallCode(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
 	let instr = l.b.callCode(d, args: args)
 	emit(l, i: instr)
@@ -156,7 +156,7 @@ end 'lowerRawCallCode'
 
 // lowerRawCodeAddress is the address of the code of the function of this module that its operand, a string literal,
 // names, which the checker made sure it declares.
-function lowerRawCodeAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawCodeAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let fn = ast.functionNamed(p, module: p.modules[l.mi].id, name: plainText(l, p: p, e: c.ordered[0]))
 	if fn == ast.noFunc 'missing'
 		panic("lower: the code of a function that the module does not declare")
@@ -169,16 +169,16 @@ end 'lowerRawCodeAddress'
 
 // lowerRawThreadStartAddress is the address of the code a thread the runtime makes starts at, which the entry stub's
 // unit defines.
-function lowerRawThreadStartAddress(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawThreadStartAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return globalAddress(l, symbol: Rt.rtThreadStart)
 end 'lowerRawThreadStartAddress'
 
 // lowerRawCallImport calls the DLL function that its first operand, a string literal, names. The call evaluates its
 // operands itself, since the name is read as text and is no value.
-function lowerRawCallImport(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerRawCallImport(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	var words = RegList.create(0)
 	for i in 1 upto c.ordered.count() 'words'
-		words.push(lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty))
+		words.push(lowerConverted(l, p: p, ms: ms, e: c.ordered[i], target: c.info.paramSpecs[i].ty))
 	end 'words'
 	let d = newReg(l, kind: IrKind.kindScalar)
 	let instr = l.b.callImport(d, name: plainText(l, p: p, e: c.ordered[0]), args: words)

@@ -1,29 +1,29 @@
 // hasZero is whether the word 0 is a value of t, so that a slot nothing wrote holds one: an integer whose range takes 0, or
 // a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type parameter
 // have none.
-function hasZero(p ast.Project, t ast.TypeID) returns bool
+function hasZero(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 	if t == p.builtins.boolTy 'bool'
 		return true
 	end 'bool'
-	if typeHasKind(p, t: t, kind: ast.TypeKind.floatRange) 'float'
-		return ast.floatRangeHolds(p.types, t: t, bits: 0)
+	if typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.floatRange) 'float'
+		return ast.floatRangeHolds(ms.types, t: t, bits: 0)
 	end 'float'
-	return typeHasKind(p, t: t, kind: ast.TypeKind.intRange) and p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].minVal.le(ast.I128.zero()) and p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].maxVal.ge(ast.I128.zero())
+	return typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.intRange) and ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.le(ast.I128.zero()) and ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].maxVal.ge(ast.I128.zero())
 end 'hasZero'
 
 // checkArrayCreateArgs refuses Array.create(n) of an element that has no zero value, whose n slots would hold no element,
 // unless n is the literal 0. A generic body is checked once, so an element of a type parameter has no zero there.
-function checkArrayCreateArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+function checkArrayCreateArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let count = ordered[0]
 	if p.modules[c.modIdx].tree.kindOf(count) == ast.NodeKind.intLit and ast.intLitMagnitude(p.modules[c.modIdx].tree, id: count).isZero() 'empty'
 		return
 	end 'empty'
 	let elem = callElement(c, call: call)
-	if hasZero(p, t: elem) 'zero'
+	if hasZero(p, ms: ms, t: elem) 'zero'
 		return
 	end 'zero'
-	let name = nameOfType(p, t: elem)
-	if typeHasKind(p, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
+	let name = nameOfType(p, ms: ms, t: elem)
+	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
 		failAt(c, p: p, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of a type parameter: '{name}' may be instantiated with a type that has no zero value (a managed type, a handle, an enum, or a ranged alias that excludes 0). Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
 		return
 	end 'parameter'
@@ -32,7 +32,7 @@ end 'checkArrayCreateArgs'
 
 // checkRawCallImportArgs refuses a DLL import named by anything but a string literal: the name is the import's entry in
 // the executable's import table, which the link fixes, so it is never computed.
-function checkRawCallImportArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+function checkRawCallImportArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let name = ordered[0]
 	if isPlainStringLiteral(c, p: p, node: name) 'literal'
 		return
@@ -42,7 +42,7 @@ end 'checkRawCallImportArgs'
 
 // checkRawCodeAddressArgs refuses a function named by anything but a string literal, or by a name that the module does
 // not declare a function by: the address is the function's symbol, which the link fixes, so it is never computed.
-function checkRawCodeAddressArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+function checkRawCodeAddressArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let name = ordered[0]
 	if not isPlainStringLiteral(c, p: p, node: name) 'computed'
 		failAt(c, p: p, node: name, code: diag.errExpressionError, msg: "the function whose code is wanted is named by a string literal, as in '__Raw.codeAddress(\"workerMain\")'", errs: errs)
@@ -71,17 +71,17 @@ end 'callElement'
 
 // checkArrayResizeArgs refuses Array.resize(n) of an element that has no zero value: growing would publish slots that hold no
 // element. It refuses the whole call, since n is not known to grow, which is why truncate exists.
-function checkArrayResizeArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+function checkArrayResizeArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let elem = callElement(c, call: call)
-	if hasZero(p, t: elem) 'zero'
+	if hasZero(p, ms: ms, t: elem) 'zero'
 		return
 	end 'zero'
-	let name = nameOfType(p, t: elem)
-	if typeHasKind(p, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
+	let name = nameOfType(p, ms: ms, t: elem)
+	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
 		failAt(c, p: p, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of a type parameter: '{name}' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'", errs: errs)
 		return
 	end 'parameter'
-	if ast.isManagedType(p.types, t: elem) 'managed'
+	if ast.isManagedType(ms.types, t: elem) 'managed'
 		failAt(c, p: p, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of '{name}': a grown slot holds NO element — Maxon has no default constructor — so 'count()' would not agree with 'get()'. Append with 'push(value)'", errs: errs)
 		return
 	end 'managed'
@@ -90,22 +90,22 @@ end 'checkArrayResizeArgs'
 
 // checkElementsComparable refuses a method that compares elements, for an element that this compiler cannot compare: it
 // compares integers, bools, enums and strings, and has no Equatable interface for any other type yet.
-function checkElementsComparable(mutates c Checker, mutates p ast.Project, call ast.NodeID, method String, mutates errs diag.ErrorList)
+function checkElementsComparable(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, method String, mutates errs diag.ErrorList)
 	let elem = callElement(c, call: call)
-	if typeHasKind(p, t: elem, kind: ast.TypeKind.intRange) or typeHasKind(p, t: elem, kind: ast.TypeKind.primBool) or typeHasKind(p, t: elem, kind: ast.TypeKind.primString) or typeHasKind(p, t: elem, kind: ast.TypeKind.enumTy) 'comparable'
+	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.intRange) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.primBool) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.primString) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.enumTy) 'comparable'
 		return
 	end 'comparable'
-	failAt(c, p: p, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: '{method}' on an array of '{nameOfType(p, t: elem)}': only an array of integers, bools, enums or strings compares its elements, since there is no Equatable interface yet", errs: errs)
+	failAt(c, p: p, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: '{method}' on an array of '{nameOfType(p, ms: ms, t: elem)}': only an array of integers, bools, enums or strings compares its elements, since there is no Equatable interface yet", errs: errs)
 end 'checkElementsComparable'
 
-function checkArrayContainsArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
-	checkElementsComparable(c, p: p, call: call, method: "contains", errs: errs)
+function checkArrayContainsArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	checkElementsComparable(c, p: p, ms: ms, call: call, method: "contains", errs: errs)
 end 'checkArrayContainsArgs'
 
-function checkArrayContainsSequenceArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
-	checkElementsComparable(c, p: p, call: call, method: "containsSequence", errs: errs)
+function checkArrayContainsSequenceArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	checkElementsComparable(c, p: p, ms: ms, call: call, method: "containsSequence", errs: errs)
 end 'checkArrayContainsSequenceArgs'
 
-function checkArrayEqualsArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
-	checkElementsComparable(c, p: p, call: call, method: "equals", errs: errs)
+function checkArrayEqualsArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	checkElementsComparable(c, p: p, ms: ms, call: call, method: "equals", errs: errs)
 end 'checkArrayEqualsArgs'

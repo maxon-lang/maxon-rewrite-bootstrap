@@ -476,7 +476,7 @@ end 'truncate'
 
 // checkOwnership is the ownership pass over a module: the values its declarations hold outside any function, then the
 // functions the declare stage declared, in the order of their declarations.
-function checkOwnership(mutates c Checker, mutates p ast.Project, functions ast.FuncIDList, mutates errs diag.ErrorList)
+function checkOwnership(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, functions ast.FuncIDList, mutates errs diag.ErrorList)
 	let modID = c.modID
 	let checker = exchange(c, value: Checker.make(modID, typing: ast.Typing.new(modID)))
 	let found = exchange(errs, value: diag.ErrorList.create(0))
@@ -487,39 +487,39 @@ function checkOwnership(mutates c Checker, mutates p ast.Project, functions ast.
 	end 'mark'
 	for i in 0 upto p.modules[o.c.modIdx].decls.count() 'values'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
-		checkValues(o, p: p, ord: ord)
+		checkValues(o, p: p, ms: ms, ord: ord)
 	end 'values'
 	for i in 0 upto p.modules[o.c.modIdx].decls.count() 'functions'
 		let d = p.modules[o.c.modIdx].decls[i].clone()
 		match d 'k'
-			funcDecl(f) then checkIfDeclaredOwn(o, p: p, f: f, isDeclared: isDeclared)
-			typeDecl(td) then checkMethodsOwn(o, p: p, methods: td.methods, isDeclared: isDeclared)
-			unionDecl(ud) then checkMethodsOwn(o, p: p, methods: ud.methods, isDeclared: isDeclared)
-			enumDecl(ed) then checkMethodsOwn(o, p: p, methods: ed.methods, isDeclared: isDeclared)
+			funcDecl(f) then checkIfDeclaredOwn(o, p: p, ms: ms, f: f, isDeclared: isDeclared)
+			typeDecl(td) then checkMethodsOwn(o, p: p, ms: ms, methods: td.methods, isDeclared: isDeclared)
+			unionDecl(ud) then checkMethodsOwn(o, p: p, ms: ms, methods: ud.methods, isDeclared: isDeclared)
+			enumDecl(ed) then checkMethodsOwn(o, p: p, ms: ms, methods: ed.methods, isDeclared: isDeclared)
 			constDecl(_) then _ = 0
 			aliasDecl(_) then _ = 0
 			interfaceDecl(_) then _ = 0
-			extensionDecl(xd) then checkMethodsOwn(o, p: p, methods: xd.methods, isDeclared: isDeclared)
+			extensionDecl(xd) then checkMethodsOwn(o, p: p, ms: ms, methods: xd.methods, isDeclared: isDeclared)
 		end 'k'
 	end 'functions'
 	errs = exchange(o.errs, value: diag.ErrorList.create(0))
 	c = exchange(o.c, value: Checker.make(modID, typing: ast.Typing.new(modID)))
 end 'checkOwnership'
 
-function checkMethodsOwn(mutates o Ownership, mutates p ast.Project, methods ast.FuncDeclList, isDeclared BoolIntMap)
+function checkMethodsOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, methods ast.FuncDeclList, isDeclared BoolIntMap)
 	for i in 0 upto methods.count() 'each'
-		checkIfDeclaredOwn(o, p: p, f: methods[i], isDeclared: isDeclared)
+		checkIfDeclaredOwn(o, p: p, ms: ms, f: methods[i], isDeclared: isDeclared)
 	end 'each'
 end 'checkMethodsOwn'
 
-function checkIfDeclaredOwn(mutates o Ownership, mutates p ast.Project, f ast.FuncDecl, isDeclared BoolIntMap)
+function checkIfDeclaredOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, isDeclared BoolIntMap)
 	match consumes ast.nodeFunc(p, module: o.c.modID, node: f.id) 'entry'
-		some(fid) then checkIfListed(o, p: p, f: f, fid: fid, isDeclared: isDeclared)
+		some(fid) then checkIfListed(o, p: p, ms: ms, f: f, fid: fid, isDeclared: isDeclared)
 		none then panic("the function '{f.name}' of module {o.c.modID} has no entry")
 	end 'entry'
 end 'checkIfDeclaredOwn'
 
-function checkIfListed(mutates o Ownership, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, isDeclared BoolIntMap)
+function checkIfListed(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, isDeclared BoolIntMap)
 	if not isDeclared.has(fid as Count) 'notListed'
 		return
 	end 'notListed'
@@ -527,30 +527,30 @@ function checkIfListed(mutates o Ownership, mutates p ast.Project, f ast.FuncDec
 	for i in 0 upto f.params.count() 'params'
 		sites.push(f.params[i].id)
 	end 'params'
-	checkParamValues(o, p: p, f: f)
-	checkFunctionOwn(o, p: p, fid: fid, body: f.body, paramSites: sites)
+	checkParamValues(o, p: p, ms: ms, f: f)
+	checkFunctionOwn(o, p: p, ms: ms, fid: fid, body: f.body, paramSites: sites)
 end 'checkIfListed'
 
 // checkParamValues checks the default of each parameter as the argument a call that leaves it out would give: the call owns the
 // value it makes of the default, so a parameter that takes its argument consumes the default, and a fresh value in it needs no
 // drop.
-function checkParamValues(mutates o Ownership, mutates p ast.Project, f ast.FuncDecl)
+function checkParamValues(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl)
 	for i in 0 upto f.params.count() 'each'
 		if f.params[i].defaultRef != 0 'default'
 			resetOwn(o, fid: ast.noFunc)
-			_ = argument(o, p: p, e: f.params[i].defaultRef, conv: ast.parseConvention(f.params[i].convention), dest: OwnDest.make(OwnDestKind.destParameter, name: f.params[i].name.clone()), s: OwnState.clean())
+			_ = argument(o, p: p, ms: ms, e: f.params[i].defaultRef, conv: ast.parseConvention(f.params[i].convention), dest: OwnDest.make(OwnDestKind.destParameter, name: f.params[i].name.clone()), s: OwnState.clean())
 		end 'default'
 	end 'each'
 end 'checkParamValues'
 
 // checkFunctionOwn checks a function. The checker answers for the function's own bounds on its type's parameters from
 // here on.
-function checkFunctionOwn(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body diag.U32, paramSites ast.NodeIDList)
+function checkFunctionOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, fid ast.FuncID, body diag.U32, paramSites ast.NodeIDList)
 	o.c.boundedFn = ast.noFunc
-	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bounds.count() > 0 'bounded'
+	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bounds.count() > 0 'bounded'
 		o.c.boundedFn = fid
 	end 'bounded'
-	run(o, p: p, fid: fid, body: body, paramSites: paramSites)
+	run(o, p: p, ms: ms, fid: fid, body: body, paramSites: paramSites)
 end 'checkFunctionOwn'
 
 // resetOwn starts the pass over a function or a value.
@@ -569,40 +569,40 @@ end 'resetOwn'
 
 // run checks a function, or the body of a behaviour in it, which has the bounds of the function around it. paramSites are
 // the nodes the parameters are declared at.
-function run(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body diag.U32, paramSites ast.NodeIDList)
+function run(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, fid ast.FuncID, body diag.U32, paramSites ast.NodeIDList)
 	resetOwn(o, fid: fid)
-	let fnSite = funcSite(o, p: p)
+	let fnSite = funcSite(o, p: p, ms: ms)
 	var s = OwnState.clean()
-	let receiver = ast.receiverLocal(p, f: fid)
-	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'destructor'
+	let receiver = ast.receiverLocal(p, ms: ms, f: fid)
+	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'destructor'
 		o.obliged.push(OwnObliged.make(receiver, site: fnSite, destroys: true))
-	end 'destructor' else if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].hasReceiver and p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].selfConv == ast.Convention.convConsumes 'consumesSelf'
-		oblige(o, p: p, l: receiver, site: fnSite)
+	end 'destructor' else if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].hasReceiver and ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].selfConv == ast.Convention.convConsumes 'consumesSelf'
+		oblige(o, p: p, ms: ms, l: receiver, site: fnSite)
 	end 'consumesSelf'
-	for i in 0 upto p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
-		let sym = ast.paramLocal(p, f: fid, index: i)
+	for i in 0 upto ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
+		let sym = ast.paramLocal(p, ms: ms, f: fid, index: i)
 		let site = offsetOfOwn(o, p: p, node: paramSites[i])
-		let conv = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].conv
+		let conv = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].conv
 		if conv == ast.Convention.convSets 'sets'
 			o.setParams.push(sym)
 			s = withFact(s, fact: OwnFact.make(sym, site: site, kind: OwnFactKind.factUninitialised, dest: OwnDest.of(OwnDestKind.destVariable)))
 		end 'sets' else if conv == ast.Convention.convConsumes 'consumes'
 			if sym == ast.noLocal 'anonymous'
-				let t = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i]
-				requireDroppable(o, p: p, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropParameter, name: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].name.clone()))
+				let t = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i]
+				requireDroppable(o, p: p, ms: ms, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropParameter, name: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].name.clone()))
 			end 'anonymous' else 'named'
-				oblige(o, p: p, l: sym, site: site)
+				oblige(o, p: p, ms: ms, l: sym, site: site)
 			end 'named'
 		end 'consumes'
 	end 'params'
-	s = walk(o, p: p, body: body, s: s)
-	s = endScope(o, p: p, mark: 0 as Count, s: s)
+	s = walk(o, p: p, ms: ms, body: body, s: s)
+	s = endScope(o, p: p, ms: ms, mark: 0 as Count, s: s)
 	requireSetsInitialised(o, p: p, s: s, site: fnSite)
 end 'run'
 
 // funcSite is where the function being checked is declared.
-function funcSite(o Ownership, p ast.Project) returns diag.U32
-	return offsetOfOwn(o, p: p, node: p.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].nodeID)
+function funcSite(o Ownership, p ast.Project, ms ast.ModuleState) returns diag.U32
+	return offsetOfOwn(o, p: p, node: ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].nodeID)
 end 'funcSite'
 
 function offsetOfOwn(o Ownership, p ast.Project, node ast.NodeID) returns diag.U32
@@ -610,57 +610,57 @@ function offsetOfOwn(o Ownership, p ast.Project, node ast.NodeID) returns diag.U
 end 'offsetOfOwn'
 
 // selfLocalOf is the receiver of the function being checked.
-function selfLocalOf(o Ownership, p ast.Project) returns ast.LocalID
-	return ast.receiverLocal(p, f: o.fn)
+function selfLocalOf(o Ownership, p ast.Project, ms ast.ModuleState) returns ast.LocalID
+	return ast.receiverLocal(p, ms: ms, f: o.fn)
 end 'selfLocalOf'
 
 // isManagedOwn is whether a value of type t is managed: it is owned, moved and dropped.
-function isManagedOwn(p ast.Project, t ast.TypeID) returns bool
-	return ast.isManagedType(p.types, t: t)
+function isManagedOwn(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	return ast.isManagedType(ms.types, t: t)
 end 'isManagedOwn'
 
 // lacksDroppable is whether a value of type t cannot be dropped.
-function lacksDroppable(mutates o Ownership, mutates p ast.Project, t ast.TypeID) returns bool
-	return lacksCap(o.c, p: p, wantCopy: false, t: t).missing
+function lacksDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+	return lacksCap(o.c, p: p, ms: ms, wantCopy: false, t: t).missing
 end 'lacksDroppable'
 
 // copyAdvice is the fix for a message that would have the reader copy a value of type t.
-function copyAdvice(mutates o Ownership, mutates p ast.Project, t ast.TypeID, ifCopyable String, fallback String) returns String
-	return copyAdviceText(o.c, p: p, t: t, ifCopyable: ifCopyable, otherwiseText: fallback)
+function copyAdvice(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, ifCopyable String, fallback String) returns String
+	return copyAdviceText(o.c, p: p, ms: ms, t: t, ifCopyable: ifCopyable, otherwiseText: fallback)
 end 'copyAdvice'
 
 // oblige records a local that owns a value of a type that cannot be dropped.
-function oblige(mutates o Ownership, mutates p ast.Project, l ast.LocalID, site diag.U32)
+function oblige(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, l ast.LocalID, site diag.U32)
 	let t = o.c.typing.locals[l as Count].ty
-	if isManagedOwn(p, t: t) and lacksDroppable(o, p: p, t: t) 'obliged'
+	if isManagedOwn(p, ms: ms, t: t) and lacksDroppable(o, p: p, ms: ms, t: t) 'obliged'
 		o.obliged.push(OwnObliged.make(l, site: site, destroys: false))
 	end 'obliged'
 end 'oblige'
 
 // requireDroppable is E3919: a value of type t is dropped implicitly, which only a type with Droppable allows.
-function requireDroppable(mutates o Ownership, mutates p ast.Project, site diag.U32, t ast.TypeID, d OwnDrop)
-	if not isManagedOwn(p, t: t) 'scalar'
+function requireDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, t ast.TypeID, d OwnDrop)
+	if not isManagedOwn(p, ms: ms, t: t) 'scalar'
 		return
 	end 'scalar'
-	let l = lacksCap(o.c, p: p, wantCopy: false, t: t)
+	let l = lacksCap(o.c, p: p, ms: ms, wantCopy: false, t: t)
 	if l.missing 'lacking'
-		let why = lackWhyText(p.types, info: l, capName: "Droppable")
-		let fix = lackFixText(p.types, info: l, capName: "Droppable")
-		fail(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(p.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on")
+		let why = lackWhyText(ms.types, info: l, capName: "Droppable")
+		let fix = lackFixText(ms.types, info: l, capName: "Droppable")
+		fail(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(ms.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on")
 	end 'lacking'
 end 'requireDroppable'
 
 // requireTemporaryDroppable is the drop of a fresh value that the statement does not give to anything.
-function requireTemporaryDroppable(mutates o Ownership, mutates p ast.Project, e ast.NodeID, s OwnState, kind OwnDropKind)
+function requireTemporaryDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, s OwnState, kind OwnDropKind)
 	let t = ownType(o, node: e)
-	if not s.dead and isManagedOwn(p, t: t) and not ast.isStorage(p.modules[o.c.modIdx].tree, typing: o.c.typing, node: e) 'fresh'
-		requireDroppable(o, p: p, site: offsetOfOwn(o, p: p, node: e), t: t, d: OwnDrop.make(kind, name: ""))
+	if not s.dead and isManagedOwn(p, ms: ms, t: t) and not ast.isStorage(p.modules[o.c.modIdx].tree, typing: o.c.typing, node: e) 'fresh'
+		requireDroppable(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, node: e), t: t, d: OwnDrop.make(kind, name: ""))
 	end 'fresh'
 end 'requireTemporaryDroppable'
 
 // requireEnded checks the obliged locals from index from on at a place where they are dropped: each must hold nothing.
 // The scope's end reports at the declaration, an exit at its own statement.
-function requireEnded(mutates o Ownership, mutates p ast.Project, from Count, s OwnState, site diag.U32, kind OwnDropKind)
+function requireEnded(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, from Count, s OwnState, site diag.U32, kind OwnDropKind)
 	if s.dead 'dead'
 		return
 	end 'dead'
@@ -670,7 +670,7 @@ function requireEnded(mutates o Ownership, mutates p ast.Project, from Count, s 
 		if kind == OwnDropKind.dropScopeEnd 'scope'
 			at = ob.site
 		end 'scope'
-		requireHeld(o, p: p, site: at, ob: ob, s: s, kind: kind)
+		requireHeld(o, p: p, ms: ms, site: at, ob: ob, s: s, kind: kind)
 	end 'each'
 end 'requireEnded'
 
@@ -684,11 +684,11 @@ function strip(o Ownership, from Count, consumes s OwnState) returns OwnState
 end 'strip'
 
 // endScope ends the scope that started at mark: its obliged locals must hold nothing.
-function endScope(mutates o Ownership, mutates p ast.Project, mark Count, consumes s OwnState) returns OwnState
+function endScope(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, mark Count, consumes s OwnState) returns OwnState
 	if o.obliged.count() == mark 'none'
 		return s
 	end 'none'
-	requireEnded(o, p: p, from: mark, s: s, site: 0 as diag.U32, kind: OwnDropKind.dropScopeEnd)
+	requireEnded(o, p: p, ms: ms, from: mark, s: s, site: 0 as diag.U32, kind: OwnDropKind.dropScopeEnd)
 	let out = strip(o, from: mark, s: s)
 	truncate(o.obliged, mark: mark)
 	return out
@@ -696,17 +696,17 @@ end 'endScope'
 
 // leave is a jump out of the scopes above from: their obliged locals must hold nothing, and their facts do not travel on
 // to where the jump lands.
-function leave(mutates o Ownership, mutates p ast.Project, from Count, consumes s OwnState, site diag.U32, kind OwnDropKind) returns OwnState
+function leave(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, from Count, consumes s OwnState, site diag.U32, kind OwnDropKind) returns OwnState
 	if o.obliged.count() == from 'none'
 		return s
 	end 'none'
-	requireEnded(o, p: p, from: from, s: s, site: site, kind: kind)
+	requireEnded(o, p: p, ms: ms, from: from, s: s, site: site, kind: kind)
 	return strip(o, from: from, s: s)
 end 'leave'
 
 // join is the state where two paths meet. A local that owns a value that cannot be dropped must hold nothing on both
 // paths or on neither: one path would drop it. The merged state keeps the fact, so a mistake is reported once.
-function join(mutates o Ownership, mutates p ast.Project, consumes a OwnState, consumes b OwnState) returns OwnState
+function join(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, consumes a OwnState, consumes b OwnState) returns OwnState
 	if o.obliged.count() > 0 and not a.dead and not b.dead 'obliged'
 		for i in 0 upto o.obliged.count() 'each'
 			let ob = o.obliged[i].clone()
@@ -715,17 +715,17 @@ function join(mutates o Ownership, mutates p ast.Project, consumes a OwnState, c
 			if inA == inB and (not inA or (not a.hasPartial(ob.local) and not b.hasPartial(ob.local))) 'agree'
 				continue 'each'
 			end 'agree'
-			lostOnOnePath(o, p: p, ob: ob, lost: a, other: b)
-			lostOnOnePath(o, p: p, ob: ob, lost: b, other: a)
+			lostOnOnePath(o, p: p, ms: ms, ob: ob, lost: a, other: b)
+			lostOnOnePath(o, p: p, ms: ms, ob: ob, lost: b, other: a)
 		end 'each'
 	end 'obliged'
 	return mergeOwn(a, b: b)
 end 'join'
 
 // disagreeWhole is E3919 for a local that holds nothing on one path only; fact is that path's.
-function disagreeWhole(mutates o Ownership, mutates p ast.Project, ob OwnObliged, fact OwnFact)
+function disagreeWhole(mutates o Ownership, p ast.Project, ms ast.ModuleState, ob OwnObliged, fact OwnFact)
 	let name = o.c.typing.locals[ob.local as Count].name.clone()
-	let tName = ast.typeName(p.types, t: o.c.typing.locals[ob.local as Count].ty)
+	let tName = ast.typeName(ms.types, t: o.c.typing.locals[ob.local as Count].ty)
 	if fact.kind == OwnFactKind.factMoved 'moved'
 		fail(o, p: p, site: fact.site, code: diag.errNotDroppable, msg: "'{name}' is moved into {fact.dest.text()} here on one path only, so the other path would drop it, but '{tName}' cannot be dropped; move it on every path, or end it on every path")
 		return
@@ -773,13 +773,13 @@ function failFixed(mutates o Ownership, p ast.Project, site diag.U32, code Strin
 end 'failFixed'
 
 // canCopy is whether a value of type t can be copied, which is when a message offers '.clone()'.
-function canCopy(mutates o Ownership, mutates p ast.Project, t ast.TypeID) returns bool
-	return not lacksCap(o.c, p: p, wantCopy: true, t: t).missing
+function canCopy(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+	return not lacksCap(o.c, p: p, ms: ms, wantCopy: true, t: t).missing
 end 'canCopy'
 
 // cloneFixIf is the fix that copies the place e, when its type can be copied.
-function cloneFixIf(mutates o Ownership, mutates p ast.Project, e ast.NodeID, t ast.TypeID) returns diag.Fix
-	if not canCopy(o, p: p, t: t) 'noCopy'
+function cloneFixIf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID) returns diag.Fix
+	if not canCopy(o, p: p, ms: ms, t: t) 'noCopy'
 		return diag.Fix.none()
 	end 'noCopy'
 	return cloneFix(p.modules[o.c.modIdx].tree, e: e)
@@ -861,7 +861,7 @@ function isBorrowed(l ast.LocalEntry) returns bool
 end 'isBorrowed'
 
 // requireSetsInitialised is checked wherever the function returns: each sets parameter holds a value by then.
-function requireSetsInitialised(mutates o Ownership, mutates p ast.Project, s OwnState, site diag.U32)
+function requireSetsInitialised(mutates o Ownership, p ast.Project, s OwnState, site diag.U32)
 	if s.dead 'dead'
 		return
 	end 'dead'
@@ -876,13 +876,13 @@ end 'requireSetsInitialised'
 
 // checkValues checks the expressions a declaration holds outside any function body: a constant's value and the default
 // of a field. Whatever holds the value owns it, so each is consumed, and a fresh value in one needs no drop.
-function checkValues(mutates o Ownership, mutates p ast.Project, ord ast.DeclOrdinal)
+function checkValues(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal)
 	match p.modules[o.c.modIdx].decls[ord as Count].clone() 'k'
-		constDecl(cd) then checkValue(o, p: p, e: cd.value, name: cd.name)
-		typeDecl(_) then checkFieldValues(o, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
+		constDecl(cd) then checkValue(o, p: p, ms: ms, e: cd.value, name: cd.name)
+		typeDecl(_) then checkFieldValues(o, p: p, ms: ms, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
 		funcDecl(_) then _ = 0
-		enumDecl(_) then checkRawValueExprs(o, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
-		unionDecl(_) then checkRawValueExprs(o, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
+		enumDecl(_) then checkRawValueExprs(o, p: p, ms: ms, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
+		unionDecl(_) then checkRawValueExprs(o, p: p, ms: ms, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
 		aliasDecl(_) then _ = 0
 		interfaceDecl(_) then _ = 0
 		extensionDecl(_) then _ = 0
@@ -891,26 +891,26 @@ end 'checkValues'
 
 // checkRawValueExprs checks the values that the cases of an enum or a union write after "=" and that are no literal: each is
 // built where it is read and given to the one who reads it.
-function checkRawValueExprs(mutates o Ownership, mutates p ast.Project, tid ast.TypeID)
-	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases.count() 'each'
-		let e = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases[i].rawExpr
+function checkRawValueExprs(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID)
+	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases.count() 'each'
+		let e = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr
 		if e != 0 'written'
-			checkValue(o, p: p, e: e, name: p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases[i].name.clone())
+			checkValue(o, p: p, ms: ms, e: e, name: ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].name.clone())
 		end 'written'
 	end 'each'
 end 'checkRawValueExprs'
 
-function checkFieldValues(mutates o Ownership, mutates p ast.Project, tid ast.TypeID)
-	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields.count() 'each'
-		if p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].hasDefault 'given'
-			let e = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].defaultExpr
-			let name = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].name.clone()
-			checkValue(o, p: p, e: e, name: name)
+function checkFieldValues(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID)
+	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields.count() 'each'
+		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].hasDefault 'given'
+			let e = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].defaultExpr
+			let name = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].name.clone()
+			checkValue(o, p: p, ms: ms, e: e, name: name)
 		end 'given'
 	end 'each'
 end 'checkFieldValues'
 
-function checkValue(mutates o Ownership, mutates p ast.Project, e ast.NodeID, name String)
+function checkValue(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, name String)
 	resetOwn(o, fid: ast.noFunc)
-	_ = consume(o, p: p, e: e, dest: OwnDest.make(OwnDestKind.destField, name: name.clone()), s: OwnState.clean())
+	_ = consume(o, p: p, ms: ms, e: e, dest: OwnDest.make(OwnDestKind.destField, name: name.clone()), s: OwnState.clean())
 end 'checkValue'

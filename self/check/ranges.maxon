@@ -71,26 +71,26 @@ type Ranges
 end 'Ranges'
 
 // checkRanges analyses the defaults of the module's record fields, then the bodies of its functions.
-function checkRanges(mutates c Checker, mutates p ast.Project, functions ast.FuncIDList, mutates errs diag.ErrorList)
+function checkRanges(mutates c Checker, p ast.Project, ms ast.ModuleState, functions ast.FuncIDList, mutates errs diag.ErrorList)
 	var r = Ranges.make(c.modID, modIdx: c.modIdx, typing: exchange(c.typing, value: ast.Typing.new(c.modID)))
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'decls'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
-		rangeCheckValues(r, p: p, ord: ord)
+		rangeCheckValues(r, p: p, ms: ms, ord: ord)
 	end 'decls'
 	for i in 0 upto functions.count() 'functions'
 		r.failed = false
-		rangeParamValues(r, p: p, fid: functions[i])
+		rangeParamValues(r, p: p, ms: ms, fid: functions[i])
 		r.failed = false
-		rangeFunction(r, p: p, fid: functions[i], behaviour: false)
+		rangeFunction(r, p: p, ms: ms, fid: functions[i], behaviour: false)
 	end 'functions'
 	c.typing = exchange(r.typing, value: ast.Typing.new(c.modID))
 	rangeHandOver(r, errs: errs)
 end 'checkRanges'
 
 // rangeConstant analyses a constant's value and gives its span, which a name of the constant has wherever it is used.
-function rangeConstant(mutates c Checker, p ast.Project, value ast.NodeID, mutates errs diag.ErrorList) returns Span
+function rangeConstant(mutates c Checker, p ast.Project, ms ast.ModuleState, value ast.NodeID, mutates errs diag.ErrorList) returns Span
 	var r = Ranges.make(c.modID, modIdx: c.modIdx, typing: exchange(c.typing, value: ast.Typing.new(c.modID)))
-	let s = rangeValue(r, p: p, e: value)
+	let s = rangeValue(r, p: p, ms: ms, e: value)
 	c.typing = exchange(r.typing, value: ast.Typing.new(c.modID))
 	rangeHandOver(r, errs: errs)
 	return s
@@ -104,41 +104,41 @@ function rangeHandOver(r Ranges, mutates errs diag.ErrorList)
 end 'rangeHandOver'
 
 // rangeParamValues analyses the default of each parameter of a function, which a call that leaves the argument out evaluates.
-function rangeParamValues(mutates r Ranges, p ast.Project, fid ast.FuncID)
-	for i in 0 upto p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
-		let e = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].defaultExpr
+function rangeParamValues(mutates r Ranges, p ast.Project, ms ast.ModuleState, fid ast.FuncID)
+	for i in 0 upto ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
+		let e = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].defaultExpr
 		if e != 0 'default'
 			r.failed = false
-			_ = rangeValue(r, p: p, e: e)
+			_ = rangeValue(r, p: p, ms: ms, e: e)
 		end 'default'
 	end 'params'
 end 'rangeParamValues'
 
 // rangeCheckValues analyses the defaults of a record's fields, and the raw values of an enum or a union that are no literal,
 // which no function holds.
-function rangeCheckValues(mutates r Ranges, p ast.Project, ord ast.DeclOrdinal)
+function rangeCheckValues(mutates r Ranges, p ast.Project, ms ast.ModuleState, ord ast.DeclOrdinal)
 	if isNominalDecl(p.modules[r.modIdx].decls[ord as Count]) 'raws'
-		rangeRawValues(r, p: p, tid: declTypeOf(p, ref: ast.DeclRef.make(r.modID, ordinal: ord)))
+		rangeRawValues(r, p: p, ms: ms, tid: declTypeOf(p, ref: ast.DeclRef.make(r.modID, ordinal: ord)))
 		return
 	end 'raws'
 	if not isRecordDecl(p.modules[r.modIdx].decls[ord as Count]) 'notRecord'
 		return
 	end 'notRecord'
 	let tid = declTypeOf(p, ref: ast.DeclRef.make(r.modID, ordinal: ord))
-	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields.count() 'fields'
-		if p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].hasDefault 'default'
+	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields.count() 'fields'
+		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].hasDefault 'default'
 			r.failed = false
-			_ = rangeValue(r, p: p, e: p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].defaultExpr)
+			_ = rangeValue(r, p: p, ms: ms, e: ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].defaultExpr)
 		end 'default'
 	end 'fields'
 end 'rangeCheckValues'
 
-function rangeRawValues(mutates r Ranges, p ast.Project, tid ast.TypeID)
-	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases.count() 'cases'
-		let e = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].cases[i].rawExpr
+function rangeRawValues(mutates r Ranges, p ast.Project, ms ast.ModuleState, tid ast.TypeID)
+	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases.count() 'cases'
+		let e = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr
 		if e != 0 'written'
 			r.failed = false
-			_ = rangeValue(r, p: p, e: e)
+			_ = rangeValue(r, p: p, ms: ms, e: e)
 		end 'written'
 	end 'cases'
 end 'rangeRawValues'
@@ -171,22 +171,22 @@ function isRecordDecl(d ast.Decl) returns bool
 end 'isRecordDecl'
 
 // rangeValue analyses an expression outside any function, a constant's value or a field's default, and gives its span.
-function rangeValue(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeValue(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	r.fn = ast.noFunc
 	r.handlers = RangeHandlerList.create(0)
 	r.frames = RangeFrameList.create(0)
 	r.bounds = AccBoundList.create(0)
 	let m = r.states.mark()
 	r.st = r.states.state(0 as Count)
-	let s = rangeEval(r, p: p, e: e)
+	let s = rangeEval(r, p: p, ms: ms, e: e)
 	r.states.release(m)
 	r.st = deadState
 	return s
 end 'rangeValue'
 
 // functionLocals are the locals that the bodies check declared in a function.
-function functionLocals(r Ranges, p ast.Project, fid ast.FuncID) returns ast.LocalIDList
-	return match r.typing.funcLocals.get(p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].nodeID as Count) 'locals'
+function functionLocals(r Ranges, p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns ast.LocalIDList
+	return match r.typing.funcLocals.get(ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].nodeID as Count) 'locals'
 		some(ids) gives ids.clone()
 		none gives ast.LocalIDList.create(0)
 	end 'locals'
@@ -194,7 +194,7 @@ end 'functionLocals'
 
 // rangeFunction analyses the body of a function, or of a behaviour, which runs later: neither what is known around it
 // nor a try around it reaches into it.
-function rangeFunction(mutates r Ranges, p ast.Project, fid ast.FuncID, behaviour bool)
+function rangeFunction(mutates r Ranges, p ast.Project, ms ast.ModuleState, fid ast.FuncID, behaviour bool)
 	let outerFn = r.fn
 	let outerSt = r.st
 	let outerBehaviour = r.behaviour
@@ -204,7 +204,7 @@ function rangeFunction(mutates r Ranges, p ast.Project, fid ast.FuncID, behaviou
 	let outerHandlers = exchange(r.handlers, value: RangeHandlerList.create(0))
 	let outerFrames = exchange(r.frames, value: RangeFrameList.create(0))
 	let outerBounds = exchange(r.bounds, value: AccBoundList.create(0))
-	let outerLocals = exchange(r.locals, value: functionLocals(r, p: p, fid: fid))
+	let outerLocals = exchange(r.locals, value: functionLocals(r, p: p, ms: ms, fid: fid))
 	let outerMutable = exchange(r.mutable, value: ByteArray.create(0))
 	r.fn = fid
 	r.behaviour = behaviour
@@ -214,17 +214,17 @@ function rangeFunction(mutates r Ranges, p ast.Project, fid ast.FuncID, behaviou
 	for i in 0 upto r.locals.count() 'locals'
 		let id = r.locals[i]
 		let ty = r.typing.locals[id as Count].ty
-		if ast.isIntType(p.types, t: ty) 'int'
+		if ast.isIntType(ms.types, t: ty) 'int'
 			let slot = slotOf(r, local: id)
 			let st = r.st
-			r.states.list[st].spans[slot] = typeSpan(p.types, t: ty)
+			r.states.list[st].spans[slot] = typeSpan(ms.types, t: ty)
 		end 'int'
 	end 'locals'
-	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isTest 'test'
+	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isTest 'test'
 		// A test handles every error its body raises: the failure of any call, of any error type, ends the test.
 		r.handlers.push(RangeHandler.make(false, takes: ast.noType))
 	end 'test'
-	rangeBlock(r, p: p, body: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bodyRef)
+	rangeBlock(r, p: p, ms: ms, body: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bodyRef)
 	r.states.release(m)
 	r.fn = outerFn
 	r.st = outerSt
@@ -331,19 +331,19 @@ function rangeOwn(mutates r Ranges)
 	end 'kept'
 end 'rangeOwn'
 
-function rangeBlock(mutates r Ranges, p ast.Project, body diag.U32)
+function rangeBlock(mutates r Ranges, p ast.Project, ms ast.ModuleState, body diag.U32)
 	for i in 0 upto p.modules[r.modIdx].tree.listLen(body) 'each'
 		if r.failed 'stop'
 			return
 		end 'stop'
-		rangeStmt(r, p: p, s: p.modules[r.modIdx].tree.listAt(body, index: i) as ast.NodeID)
+		rangeStmt(r, p: p, ms: ms, s: p.modules[r.modIdx].tree.listAt(body, index: i) as ast.NodeID)
 	end 'each'
 end 'rangeBlock'
 
 // rangeForget makes what is known of what may be assigned its type's span again: the state at the top of a loop, which the
 // end of the body comes back to. What may be assigned is a var, a mutates or sets parameter, and the fields of either.
 // The accumulators of the loops around keep their bounds.
-function rangeForget(mutates r Ranges, p ast.Project)
+function rangeForget(mutates r Ranges, p ast.Project, ms ast.ModuleState)
 	if r.fn == ast.noFunc or isDead(r, s: r.st) 'nothing'
 		return
 	end 'nothing'
@@ -353,8 +353,8 @@ function rangeForget(mutates r Ranges, p ast.Project)
 		let id = r.locals[i]
 		let ty = r.typing.locals[id as Count].ty
 		let slot = slotOf(r, local: id)
-		if r.mutable[slot] != 0 and ast.isIntType(p.types, t: ty) 'forgotten'
-			r.states.list[st].spans[slot] = typeSpan(p.types, t: ty)
+		if r.mutable[slot] != 0 and ast.isIntType(ms.types, t: ty) 'forgotten'
+			r.states.list[st].spans[slot] = typeSpan(ms.types, t: ty)
 		end 'forgotten'
 	end 'locals'
 	for i in 0 upto r.bounds.count() 'bounds'
@@ -366,7 +366,7 @@ function rangeForget(mutates r Ranges, p ast.Project)
 end 'rangeForget'
 
 // rangeWrite gives a place the value of the span s, after which nothing known of the place before holds.
-function rangeWrite(mutates r Ranges, p ast.Project, place Place, s Span, t ast.TypeID)
+function rangeWrite(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, s Span, t ast.TypeID)
 	if isDead(r, s: r.st) 'dead'
 		return
 	end 'dead'
@@ -377,23 +377,23 @@ function rangeWrite(mutates r Ranges, p ast.Project, place Place, s Span, t ast.
 	end 'probed'
 	let st = r.st
 	r.states.list[st].drop(Gone.overlapping(place.clone()))
-	if ast.isIntType(p.types, t: t) 'int'
-		r.states.list[st].refine(place, v: s.clamp(typeSpan(p.types, t: t)))
+	if ast.isIntType(ms.types, t: t) 'int'
+		r.states.list[st].refine(place, v: s.clamp(typeSpan(ms.types, t: t)))
 	end 'int'
 end 'rangeWrite'
 
 // rangeChanged is a place that a call may change: what was known of it no longer holds.
-function rangeChanged(mutates r Ranges, p ast.Project, place Place, t ast.TypeID)
-	if ast.isIntType(p.types, t: t) 'int'
-		rangeWrite(r, p: p, place: place, s: typeSpan(p.types, t: t), t: t)
+function rangeChanged(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, t ast.TypeID)
+	if ast.isIntType(ms.types, t: t) 'int'
+		rangeWrite(r, p: p, ms: ms, place: place, s: typeSpan(ms.types, t: t), t: t)
 		return
 	end 'int'
-	rangeWrite(r, p: p, place: place, s: Span.make(ast.I128.zero(), hi: ast.I128.zero()), t: t)
+	rangeWrite(r, p: p, ms: ms, place: place, s: Span.make(ast.I128.zero(), hi: ast.I128.zero()), t: t)
 end 'rangeChanged'
 
 // rangePlaceOf is the place an expression names, if it names one the analysis follows: a local, a field of the receiver,
 // or a field of a place that is not too deep already.
-function rangePlaceOf(r Ranges, p ast.Project, e ast.NodeID) returns table.Option with Place
+function rangePlaceOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns table.Option with Place
 	if r.fn == ast.noFunc 'outside'
 		return table.Option.none
 	end 'outside'
@@ -404,17 +404,17 @@ function rangePlaceOf(r Ranges, p ast.Project, e ast.NodeID) returns table.Optio
 			return table.Option.some(Place.local(slotOf(r, local: name.local)))
 		end 'local'
 		if name.kind == ast.NameKind.nameSelfField 'selfField'
-			return placeField(selfPlace(r, p: p), field: name.fieldIndex)
+			return placeField(selfPlace(r, p: p, ms: ms), field: name.fieldIndex)
 		end 'selfField'
 		return table.Option.none
 	end 'name'
 	if k == ast.NodeKind.selfExpr 'self'
-		return table.Option.some(selfPlace(r, p: p))
+		return table.Option.some(selfPlace(r, p: p, ms: ms))
 	end 'self'
 	if k == ast.NodeKind.memberExpr 'member'
 		let info = memberInfoOf(r, e: e)
 		if info.kind == ast.MemberKind.memberField 'field'
-			return match consumes rangePlaceOf(r, p: p, e: ast.memberExprObj(p.modules[r.modIdx].tree, id: e)) 'obj'
+			return match consumes rangePlaceOf(r, p: p, ms: ms, e: ast.memberExprObj(p.modules[r.modIdx].tree, id: e)) 'obj'
 				some(obj) gives placeField(obj, field: info.fieldIndex)
 				none gives table.Option.none
 			end 'obj'
@@ -423,8 +423,8 @@ function rangePlaceOf(r Ranges, p ast.Project, e ast.NodeID) returns table.Optio
 	return table.Option.none
 end 'rangePlaceOf'
 
-function selfPlace(r Ranges, p ast.Project) returns Place
-	return Place.local(slotOf(r, local: ast.receiverLocal(p, f: r.fn)))
+function selfPlace(r Ranges, p ast.Project, ms ast.ModuleState) returns Place
+	return Place.local(slotOf(r, local: ast.receiverLocal(p, ms: ms, f: r.fn)))
 end 'selfPlace'
 
 function memberInfoOf(r Ranges, e ast.NodeID) returns ast.MemberInfo
@@ -439,75 +439,75 @@ function nodeLocalOf(r Ranges, node ast.NodeID) returns table.Option with ast.Lo
 end 'nodeLocalOf'
 
 // rangeSpanAt is what is known of an integer place in the state s.
-function rangeSpanAt(r Ranges, p ast.Project, s Count, place Place, t ast.TypeID) returns Span
+function rangeSpanAt(r Ranges, p ast.Project, ms ast.ModuleState, s Count, place Place, t ast.TypeID) returns Span
 	if isDead(r, s: s) 'dead'
-		return typeSpan(p.types, t: t)
+		return typeSpan(ms.types, t: t)
 	end 'dead'
 	return match consumes r.states.list[s].at(place) 'known'
 		some(v) gives v
-		none gives typeSpan(p.types, t: t)
+		none gives typeSpan(ms.types, t: t)
 	end 'known'
 end 'rangeSpanAt'
 
-function rangeStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let k = p.modules[r.modIdx].tree.kindOf(s)
 	if k == ast.NodeKind.letStmt 'let'
-		rangeLetStmt(r, p: p, s: s)
+		rangeLetStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'let'
 	if k == ast.NodeKind.assignStmt 'assign'
-		rangeAssignStmt(r, p: p, s: s)
+		rangeAssignStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'assign'
 	if k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt 'expansion'
 		let steps = ast.expansionOf(r.typing, node: s)
 		for i in 0 upto steps.count() 'steps'
-			rangeStmt(r, p: p, s: steps[i])
+			rangeStmt(r, p: p, ms: ms, s: steps[i])
 		end 'steps'
 		return
 	end 'expansion'
 	if k == ast.NodeKind.discardStmt 'discard'
-		_ = rangeEval(r, p: p, e: ast.discardStmtValue(p.modules[r.modIdx].tree, id: s))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.discardStmtValue(p.modules[r.modIdx].tree, id: s))
 		return
 	end 'discard'
 	if k == ast.NodeKind.exprStmt 'expr'
-		rangeExprStmt(r, p: p, s: s)
+		rangeExprStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'expr'
 	if k == ast.NodeKind.ifStmt 'if'
-		rangeIfStmt(r, p: p, s: s)
+		rangeIfStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'if'
 	if k == ast.NodeKind.ifTryStmt 'ifTry'
-		rangeIfTryStmt(r, p: p, s: s)
+		rangeIfTryStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'ifTry'
 	if k == ast.NodeKind.whileStmt 'while'
-		rangeWhileStmt(r, p: p, s: s)
+		rangeWhileStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'while'
 	if k == ast.NodeKind.forStmt 'for'
-		rangeForStmt(r, p: p, s: s)
+		rangeForStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'for'
 	if k == ast.NodeKind.matchStmt 'match'
-		_ = rangeMatch(r, p: p, core: ast.matchStmtMatch(p.modules[r.modIdx].tree, id: s))
+		_ = rangeMatch(r, p: p, ms: ms, core: ast.matchStmtMatch(p.modules[r.modIdx].tree, id: s))
 		return
 	end 'match'
 	if k == ast.NodeKind.whenStmt 'when'
-		rangeWhenStmt(r, p: p, s: s)
+		rangeWhenStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'when'
 	if k == ast.NodeKind.tryStmt 'try'
-		rangeTryStmt(r, p: p, s: s)
+		rangeTryStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'try'
 	if k == ast.NodeKind.throwStmt 'throw'
-		rangeThrowStmt(r, p: p, s: s)
+		rangeThrowStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'throw'
 	if k == ast.NodeKind.returnStmt 'return'
-		rangeReturnStmt(r, p: p, s: s)
+		rangeReturnStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'return'
 	if k == ast.NodeKind.breakStmt 'break'
@@ -521,7 +521,7 @@ function rangeStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	panic("ranges: the node {s} of kind {k.name} is no statement")
 end 'rangeStmt'
 
-function rangeLetStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeLetStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let local = match consumes nodeLocalOf(r, node: s) 'local'
 		some(id) gives id
 		none panic("ranges: the let at node {s} declares no local")
@@ -530,59 +530,59 @@ function rangeLetStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	let init = ast.letStmtInit(p.modules[r.modIdx].tree, id: s)
 	var v = Span.make(ast.I128.zero(), hi: ast.I128.zero())
 	if init != 0 'init'
-		v = rangeEval(r, p: p, e: init)
-	end 'init' else if ast.isIntType(p.types, t: ty) 'declared'
-		v = typeSpan(p.types, t: ty)
+		v = rangeEval(r, p: p, ms: ms, e: init)
+	end 'init' else if ast.isIntType(ms.types, t: ty) 'declared'
+		v = typeSpan(ms.types, t: ty)
 	end 'declared'
-	rangeWrite(r, p: p, place: Place.local(slotOf(r, local: local)), s: v, t: ty)
+	rangeWrite(r, p: p, ms: ms, place: Place.local(slotOf(r, local: local)), s: v, t: ty)
 end 'rangeLetStmt'
 
-function rangeAssignStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
-	match consumes rangeAccumulation(r, p: p, s: s) 'accumulation'
-		some(a) then rangeAccumulate(r, p: p, s: s, a: a)
-		none then rangeAssign(r, p: p, s: s)
+function rangeAssignStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
+	match consumes rangeAccumulation(r, p: p, ms: ms, s: s) 'accumulation'
+		some(a) then rangeAccumulate(r, p: p, ms: ms, s: s, a: a)
+		none then rangeAssign(r, p: p, ms: ms, s: s)
 	end 'accumulation'
 end 'rangeAssignStmt'
 
-function rangeAssign(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeAssign(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let target = ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)
 	let value = ast.assignStmtValue(p.modules[r.modIdx].tree, id: s)
-	match consumes rangePlaceOf(r, p: p, e: target) 'place'
-		some(place) then rangeAssignPlace(r, p: p, place: place, target: target, value: value)
-		none then rangeAssignOther(r, p: p, target: target, value: value)
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: target) 'place'
+		some(place) then rangeAssignPlace(r, p: p, ms: ms, place: place, target: target, value: value)
+		none then rangeAssignOther(r, p: p, ms: ms, target: target, value: value)
 	end 'place'
 end 'rangeAssign'
 
-function rangeAssignPlace(mutates r Ranges, p ast.Project, place Place, target ast.NodeID, value ast.NodeID)
-	let v = rangeEval(r, p: p, e: value)
-	rangeWrite(r, p: p, place: place, s: v, t: typeOf(r, e: target))
+function rangeAssignPlace(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, target ast.NodeID, value ast.NodeID)
+	let v = rangeEval(r, p: p, ms: ms, e: value)
+	rangeWrite(r, p: p, ms: ms, place: place, s: v, t: typeOf(r, e: target))
 end 'rangeAssignPlace'
 
-function rangeAssignOther(mutates r Ranges, p ast.Project, target ast.NodeID, value ast.NodeID)
-	_ = rangeEval(r, p: p, e: target)
-	_ = rangeEval(r, p: p, e: value)
+function rangeAssignOther(mutates r Ranges, p ast.Project, ms ast.ModuleState, target ast.NodeID, value ast.NodeID)
+	_ = rangeEval(r, p: p, ms: ms, e: target)
+	_ = rangeEval(r, p: p, ms: ms, e: value)
 end 'rangeAssignOther'
 
-function rangeExprStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeExprStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let e = ast.exprStmtE(p.modules[r.modIdx].tree, id: s)
-	_ = rangeEval(r, p: p, e: e)
+	_ = rangeEval(r, p: p, ms: ms, e: e)
 	if p.modules[r.modIdx].tree.kindOf(e) == ast.NodeKind.panicExpr 'panics'
 		r.st = deadState
 	end 'panics'
 end 'rangeExprStmt'
 
-function rangeIfStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeIfStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let cond = ast.ifStmtCond(p.modules[r.modIdx].tree, id: s)
-	let since = rangeCondition(r, p: p, c: cond)
+	let since = rangeCondition(r, p: p, ms: ms, c: cond)
 	let start = rangeKeep(r)
-	let whenTrue = rangeNarrowed(r, p: p, from: start, c: cond, truth: true, since: since)
+	let whenTrue = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: true, since: since)
 	r.st = whenTrue
-	rangeBlock(r, p: p, body: ast.ifStmtThenRef(p.modules[r.modIdx].tree, id: s))
+	rangeBlock(r, p: p, ms: ms, body: ast.ifStmtThenRef(p.modules[r.modIdx].tree, id: s))
 	let thenEnd = r.st
-	let whenFalse = rangeNarrowed(r, p: p, from: start, c: cond, truth: false, since: since)
+	let whenFalse = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: false, since: since)
 	r.st = whenFalse
 	if ast.ifStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
-		rangeBlock(r, p: p, body: ast.ifStmtElseRef(p.modules[r.modIdx].tree, id: s))
+		rangeBlock(r, p: p, ms: ms, body: ast.ifStmtElseRef(p.modules[r.modIdx].tree, id: s))
 	end 'else'
 	let els = r.st
 	r.st = r.states.joined(thenEnd, b: els)
@@ -590,14 +590,14 @@ end 'rangeIfStmt'
 
 // rangeIfTryStmt covers the failures of the call of a conditional try: the else block starts from the state where the
 // call failed, and the block that runs on success from the one after it, with the result bound.
-function rangeIfTryStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeIfTryStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let call = ast.ifTryStmtCall(p.modules[r.modIdx].tree, id: s)
 	let takes = match consumes nodeLocalOf(r, node: call) 'local'
 		some(id) gives r.typing.locals[id as Count].ty
 		none gives ast.noType
 	end 'local'
-	let added = rangeEnterTry(r, p: p, site: s, handles: true, takes: takes)
-	let v = rangeEval(r, p: p, e: call)
+	let added = rangeEnterTry(r, p: p, ms: ms, site: s, handles: true, takes: takes)
+	let v = rangeEval(r, p: p, ms: ms, e: call)
 	if not added 'passed'
 		return
 	end 'passed'
@@ -609,31 +609,31 @@ function rangeIfTryStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 			none panic("ranges: the conditional try at node {s} declares no local")
 		end 'bound'
 		let ty = r.typing.locals[local as Count].ty
-		rangeWrite(r, p: p, place: Place.local(slotOf(r, local: local)), s: v, t: ty)
+		rangeWrite(r, p: p, ms: ms, place: Place.local(slotOf(r, local: local)), s: v, t: ty)
 	end 'bind'
-	rangeBlock(r, p: p, body: ast.ifTryStmtThenRef(p.modules[r.modIdx].tree, id: s))
+	rangeBlock(r, p: p, ms: ms, body: ast.ifTryStmtThenRef(p.modules[r.modIdx].tree, id: s))
 	let succeeded = r.st
 	r.st = h.entry
 	if ast.ifTryStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
-		rangeBlock(r, p: p, body: ast.ifTryStmtElseRef(p.modules[r.modIdx].tree, id: s))
+		rangeBlock(r, p: p, ms: ms, body: ast.ifTryStmtElseRef(p.modules[r.modIdx].tree, id: s))
 	end 'else'
 	let failed = r.st
 	r.st = r.states.joined(succeeded, b: failed)
 end 'rangeIfTryStmt'
 
-function rangeWhileStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
-	rangeForget(r, p: p)
+function rangeWhileStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
+	rangeForget(r, p: p, ms: ms)
 	let cond = ast.whileStmtCond(p.modules[r.modIdx].tree, id: s)
-	let since = rangeCondition(r, p: p, c: cond)
+	let since = rangeCondition(r, p: p, ms: ms, c: cond)
 	let top = rangeKeep(r)
 	r.frames.push(RangeFrame.make(s))
 	let times = rangeScaleTimes(r, trips: pastEveryWord())
-	let whenTrue = rangeNarrowed(r, p: p, from: top, c: cond, truth: true, since: since)
+	let whenTrue = rangeNarrowed(r, p: p, ms: ms, from: top, c: cond, truth: true, since: since)
 	r.st = whenTrue
-	rangeBlock(r, p: p, body: ast.whileStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeBlock(r, p: p, ms: ms, body: ast.whileStmtBodyRef(p.modules[r.modIdx].tree, id: s))
 	rangeRestoreTimes(r, outer: times)
 	let breaks = rangePopFrame(r)
-	var exit = rangeNarrowed(r, p: p, from: top, c: cond, truth: false, since: since)
+	var exit = rangeNarrowed(r, p: p, ms: ms, from: top, c: cond, truth: false, since: since)
 	if isTrue(p.modules[r.modIdx].tree, e: cond) 'forever'
 		exit = deadState
 	end 'forever'
@@ -646,22 +646,22 @@ function rangePopFrame(mutates r Ranges) returns Count
 	return frame.breaks
 end 'rangePopFrame'
 
-function rangeForStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeForStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	if not ast.forStmtIsRange(p.modules[r.modIdx].tree, id: s) 'forEach'
-		rangeForEach(r, p: p, s: s)
+		rangeForEach(r, p: p, ms: ms, s: s)
 		return
 	end 'forEach'
-	let from = rangeEval(r, p: p, e: ast.forStmtFrom(p.modules[r.modIdx].tree, id: s))
-	let upper = rangeEval(r, p: p, e: ast.forStmtTo(p.modules[r.modIdx].tree, id: s))
+	let from = rangeEval(r, p: p, ms: ms, e: ast.forStmtFrom(p.modules[r.modIdx].tree, id: s))
+	let upper = rangeEval(r, p: p, ms: ms, e: ast.forStmtTo(p.modules[r.modIdx].tree, id: s))
 	let trips = tripBound(from, upper: upper, inclusive: ast.forStmtInclusive(p.modules[r.modIdx].tree, id: s))
 	let times = rangeScaleTimes(r, trips: trips)
 	let bounded = r.bounds.count()
-	rangeLoopHead(r, p: p, s: s, from: from, upper: upper, trips: trips)
+	rangeLoopHead(r, p: p, ms: ms, s: s, from: from, upper: upper, trips: trips)
 	let top = rangeKeep(r)
 	r.frames.push(RangeFrame.make(s))
-	let body = rangeLoopBody(r, p: p, s: s, top: top, from: from, upper: upper)
+	let body = rangeLoopBody(r, p: p, ms: ms, s: s, top: top, from: from, upper: upper)
 	r.st = body
-	rangeBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
 	let breaks = rangePopFrame(r)
 	r.st = r.states.joined(top, b: breaks)
 	while r.bounds.count() > bounded 'unbind'
@@ -672,14 +672,14 @@ end 'rangeForStmt'
 
 // rangeForEach walks a for over a collection as a while whose condition says nothing: it runs any number of times, and
 // its variable is any value of its type.
-function rangeForEach(mutates r Ranges, p ast.Project, s ast.NodeID)
-	_ = rangeEval(r, p: p, e: ast.forStmtFrom(p.modules[r.modIdx].tree, id: s))
-	rangeForget(r, p: p)
+function rangeForEach(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
+	_ = rangeEval(r, p: p, ms: ms, e: ast.forStmtFrom(p.modules[r.modIdx].tree, id: s))
+	rangeForget(r, p: p, ms: ms)
 	let top = rangeKeep(r)
 	r.frames.push(RangeFrame.make(s))
 	let times = rangeScaleTimes(r, trips: pastEveryWord())
 	r.st = top
-	rangeBlock(r, p: p, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
 	rangeRestoreTimes(r, outer: times)
 	let breaks = rangePopFrame(r)
 	r.st = r.states.joined(top, b: breaks)
@@ -687,7 +687,7 @@ end 'rangeForEach'
 
 // rangeLoopBody is the state in the body of a for loop, whose variable lies between the bounds: the state at the top of
 // the loop when the variable has no span to know.
-function rangeLoopBody(mutates r Ranges, p ast.Project, s ast.NodeID, top Count, from Span, upper Span) returns Count
+function rangeLoopBody(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, top Count, from Span, upper Span) returns Count
 	let local = match consumes nodeLocalOf(r, node: s) 'local'
 		some(id) gives id
 		none gives ast.noLocal
@@ -696,7 +696,7 @@ function rangeLoopBody(mutates r Ranges, p ast.Project, s ast.NodeID, top Count,
 		return top
 	end 'unknown'
 	let ty = r.typing.locals[local as Count].ty
-	if not ast.isIntType(p.types, t: ty) 'notInt'
+	if not ast.isIntType(ms.types, t: ty) 'notInt'
 		return top
 	end 'notInt'
 	var hi = upper.hi.clone()
@@ -704,7 +704,7 @@ function rangeLoopBody(mutates r Ranges, p ast.Project, s ast.NodeID, top Count,
 		hi = hi.sub(ast.I128.one())
 	end 'exclusive'
 	let body = r.states.copyOf(top)
-	let v = Span.make(from.lo.clone(), hi: hi).clamp(typeSpan(p.types, t: ty))
+	let v = Span.make(from.lo.clone(), hi: hi).clamp(typeSpan(ms.types, t: ty))
 	if v.isEmpty() 'never'
 		r.states.list[body].dead = true
 	end 'never' else 'runs'
@@ -715,13 +715,13 @@ end 'rangeLoopBody'
 
 // rangeWhenStmt analyses the body of a behaviour as a function of its own: it runs later, so neither what is known here
 // nor a try around it reaches into it. A behaviour whose body the bodies check gave no function has nothing to follow.
-function rangeWhenStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeWhenStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	if r.probing 'probed'
 		r.probe.opaque = true
 		return
 	end 'probed'
 	match consumes r.typing.whens.get(s as Count) 'when'
-		some(info) then rangeFunction(r, p: p, fid: info.fn, behaviour: true)
+		some(info) then rangeFunction(r, p: p, ms: ms, fid: info.fn, behaviour: true)
 		none then _ = 0
 	end 'when'
 end 'rangeWhenStmt'
@@ -729,12 +729,12 @@ end 'rangeWhenStmt'
 // rangeEnterTry starts a try. One with a handler catches what it covers, and takes only the error takes if that is not
 // none; one without passes it to the try around it, and with none around it to the caller, which only a function that
 // throws has. It gives whether the try added a handler.
-function rangeEnterTry(mutates r Ranges, p ast.Project, site ast.NodeID, handles bool, takes ast.TypeID) returns bool
+function rangeEnterTry(mutates r Ranges, p ast.Project, ms ast.ModuleState, site ast.NodeID, handles bool, takes ast.TypeID) returns bool
 	if not handles and r.handlers.count() > 0 'passes'
 		return false
 	end 'passes'
 	if not handles 'toCaller'
-		rangeRequirePropagates(r, p: p, site: site)
+		rangeRequirePropagates(r, p: p, ms: ms, site: site)
 		if r.failed 'refused'
 			return false
 		end 'refused'
@@ -749,15 +749,15 @@ function rangeLeaveTry(mutates r Ranges) returns RangeHandler
 end 'rangeLeaveTry'
 
 // fnErrorType is the error the function being walked throws, or none.
-function fnErrorType(r Ranges, p ast.Project) returns ast.TypeID
+function fnErrorType(r Ranges, p ast.Project, ms ast.ModuleState) returns ast.TypeID
 	if r.fn == ast.noFunc 'outside'
 		return ast.noType
 	end 'outside'
-	return p.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].errTy
+	return ms.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].errTy
 end 'fnErrorType'
 
 // rangeRequirePropagates refuses a try with no handler where there is no caller that takes its failure.
-function rangeRequirePropagates(mutates r Ranges, p ast.Project, site ast.NodeID)
+function rangeRequirePropagates(mutates r Ranges, p ast.Project, ms ast.ModuleState, site ast.NodeID)
 	if r.probing 'probed'
 		return
 	end 'probed'
@@ -769,20 +769,20 @@ function rangeRequirePropagates(mutates r Ranges, p ast.Project, site ast.NodeID
 		rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, and nothing waits for a behaviour: give 'otherwise' what to do")
 		return
 	end 'behaviour'
-	if p.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].errTy == ast.noType 'noThrows'
-		let name = p.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].name.clone()
+	if ms.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].errTy == ast.noType 'noThrows'
+		let name = ms.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].name.clone()
 		rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, but '{name}' does not throw: give 'otherwise' what to do, or declare '{name}' 'throws' the error")
 	end 'noThrows'
 end 'rangeRequirePropagates'
 
-function rangeTryStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeTryStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let takes = match consumes nodeLocalOf(r, node: s) 'local'
 		some(id) gives r.typing.locals[id as Count].ty
 		none gives ast.noType
 	end 'local'
 	let handles = ast.tryStmtHasOtherwise(p.modules[r.modIdx].tree, id: s)
-	let added = rangeEnterTry(r, p: p, site: s, handles: handles, takes: takes)
-	rangeBlock(r, p: p, body: ast.tryStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	let added = rangeEnterTry(r, p: p, ms: ms, site: s, handles: handles, takes: takes)
+	rangeBlock(r, p: p, ms: ms, body: ast.tryStmtBodyRef(p.modules[r.modIdx].tree, id: s))
 	if not added 'passed'
 		return
 	end 'passed'
@@ -792,42 +792,42 @@ function rangeTryStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	end 'noHandler'
 	let ended = rangeKeep(r)
 	r.st = h.entry
-	rangeBlock(r, p: p, body: ast.tryStmtHandlerRef(p.modules[r.modIdx].tree, id: s))
+	rangeBlock(r, p: p, ms: ms, body: ast.tryStmtHandlerRef(p.modules[r.modIdx].tree, id: s))
 	let handled = r.st
 	r.st = r.states.joined(ended, b: handled)
 end 'rangeTryStmt'
 
 // rangeThrowStmt is a failure that always happens: a throw needs no 'try', and passes its error to the caller when no try
 // around it catches it.
-function rangeThrowStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeThrowStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let value = ast.throwStmtValue(p.modules[r.modIdx].tree, id: s)
-	_ = rangeEval(r, p: p, e: value)
+	_ = rangeEval(r, p: p, ms: ms, e: value)
 	let e = typeOf(r, e: value)
 	if r.handlers.count() == 0 'toCaller'
-		let thrown = fnErrorType(r, p: p)
+		let thrown = fnErrorType(r, p: p, ms: ms)
 		if r.probing 'probed'
 			_ = 0
 		end 'probed' else if r.behaviour 'behaviour'
 			rangeRaise(r, p: p, node: s, code: diag.errErrorTypeMismatch, msg: "a throw passes its error to the caller, and nothing waits for a behaviour: handle the failure in the behaviour")
 		end 'behaviour' else if thrown == ast.noType 'noThrows'
-			rangeRaise(r, p: p, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwNoThrows(nameOfType(p, t: e)))
+			rangeRaise(r, p: p, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwNoThrows(nameOfType(p, ms: ms, t: e)))
 		end 'noThrows' else if thrown != e 'other'
-			rangeRaise(r, p: p, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwMismatch(nameOfType(p, t: e), enclosing: nameOfType(p, t: thrown)))
+			rangeRaise(r, p: p, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwMismatch(nameOfType(p, ms: ms, t: e), enclosing: nameOfType(p, ms: ms, t: thrown)))
 		end 'other'
 		r.st = deadState
 		return
 	end 'toCaller'
-	rangeFallible(r, p: p, site: s, err: e, why: Unchecked.thrown)
+	rangeFallible(r, p: p, ms: ms, site: s, err: e, why: Unchecked.thrown)
 	r.st = deadState
 end 'rangeThrowStmt'
 
-function rangeReturnStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
+function rangeReturnStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	let value = ast.returnStmtValue(p.modules[r.modIdx].tree, id: s)
 	if value != 0 'value'
-		let v = rangeEval(r, p: p, e: value)
+		let v = rangeEval(r, p: p, ms: ms, e: value)
 		if r.typing.arith.get(s as Count).isSome() 'converts'
-			let ret = p.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].retTy
-			_ = rangeConverted(r, p: p, e: s, v: v, src: typeOf(r, e: value), ty: ret, why: Unchecked.returned(ret, value: value))
+			let ret = ms.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].retTy
+			_ = rangeConverted(r, p: p, ms: ms, e: s, v: v, src: typeOf(r, e: value), ty: ret, why: Unchecked.returned(ret, value: value))
 		end 'converts'
 	end 'value'
 	r.st = deadState
@@ -854,14 +854,14 @@ end 'rangeBreakStmt'
 
 // rangeMatch walks each arm from the state after the subject, narrowed by the arm's patterns when the subject is an
 // integer place, and gives the span of the values the arms give.
-function rangeMatch(mutates r Ranges, p ast.Project, core ast.NodeID) returns Span
+function rangeMatch(mutates r Ranges, p ast.Project, ms ast.ModuleState, core ast.NodeID) returns Span
 	let subject = ast.matchCoreSubject(p.modules[r.modIdx].tree, id: core)
-	_ = rangeEval(r, p: p, e: subject)
+	_ = rangeEval(r, p: p, ms: ms, e: subject)
 	let start = rangeKeep(r)
 	let subjectTy = typeOf(r, e: subject)
 	var subjectPlace as table.Option with Place
-	if ast.isIntType(p.types, t: subjectTy) 'int'
-		subjectPlace = rangePlaceOf(r, p: p, e: subject)
+	if ast.isIntType(ms.types, t: subjectTy) 'int'
+		subjectPlace = rangePlaceOf(r, p: p, ms: ms, e: subject)
 	end 'int' else 'other'
 		subjectPlace = table.Option.none
 	end 'other'
@@ -876,7 +876,7 @@ function rangeMatch(mutates r Ranges, p ast.Project, core ast.NodeID) returns Sp
 		var from = start
 		if not ast.matchArmIsDefault(p.modules[r.modIdx].tree, id: arm) 'patterns'
 			match subjectPlace 'place'
-				some(place) then from = rangeArmState(r, p: p, start: start, subject: place, t: subjectTy, arm: arm)
+				some(place) then from = rangeArmState(r, p: p, ms: ms, start: start, subject: place, t: subjectTy, arm: arm)
 				none then _ = 0
 			end 'place'
 		end 'patterns'
@@ -885,10 +885,10 @@ function rangeMatch(mutates r Ranges, p ast.Project, core ast.NodeID) returns Sp
 		let form = ast.matchArmForm(p.modules[r.modIdx].tree, id: arm)
 		let value = ast.matchArmValue(p.modules[r.modIdx].tree, id: arm)
 		if form == ast.ArmKind.armThen 'then'
-			rangeStmt(r, p: p, s: ast.matchArmAction(p.modules[r.modIdx].tree, id: arm))
+			rangeStmt(r, p: p, ms: ms, s: ast.matchArmAction(p.modules[r.modIdx].tree, id: arm))
 		end 'then' else if form == ast.ArmKind.armGives 'gives'
-			let v = rangeEval(r, p: p, e: value)
-			if not isDead(r, s: r.st) and ast.isIntType(p.types, t: typeOf(r, e: value)) 'int'
+			let v = rangeEval(r, p: p, ms: ms, e: value)
+			if not isDead(r, s: r.st) and ast.isIntType(ms.types, t: typeOf(r, e: value)) 'int'
 				if anyGives 'more'
 					given = given.unionWith(v)
 				end 'more' else 'first'
@@ -897,7 +897,7 @@ function rangeMatch(mutates r Ranges, p ast.Project, core ast.NodeID) returns Sp
 				end 'first'
 			end 'int'
 		end 'gives' else 'panics'
-			_ = rangeEval(r, p: p, e: value)
+			_ = rangeEval(r, p: p, ms: ms, e: value)
 			r.st = deadState
 		end 'panics'
 		let kept = rangeKeep(r)
@@ -916,7 +916,7 @@ end 'rangeMatch'
 
 // rangeArmState is the state in an arm of a match on an integer place: the place holds one of the values the patterns
 // name.
-function rangeArmState(mutates r Ranges, p ast.Project, start Count, subject Place, t ast.TypeID, arm ast.NodeID) returns Count
+function rangeArmState(mutates r Ranges, p ast.Project, ms ast.ModuleState, start Count, subject Place, t ast.TypeID, arm ast.NodeID) returns Count
 	if isDead(r, s: start) 'dead'
 		return start
 	end 'dead'
@@ -927,10 +927,10 @@ function rangeArmState(mutates r Ranges, p ast.Project, start Count, subject Pla
 		let form = ast.patternForm(p.modules[r.modIdx].tree, id: pat)
 		var s = Span.make(ast.I128.zero(), hi: ast.I128.zero())
 		if form == ast.PatternKind.patLiteral 'literal'
-			s = typeSpan(p.types, t: typeOf(r, e: ast.patternValue(p.modules[r.modIdx].tree, id: pat)))
+			s = typeSpan(ms.types, t: typeOf(r, e: ast.patternValue(p.modules[r.modIdx].tree, id: pat)))
 		end 'literal' else if form == ast.PatternKind.patRange 'range'
-			let lo = typeSpan(p.types, t: typeOf(r, e: ast.patternValue(p.modules[r.modIdx].tree, id: pat))).lo.clone()
-			var hi = typeSpan(p.types, t: typeOf(r, e: ast.patternHigh(p.modules[r.modIdx].tree, id: pat))).hi.clone()
+			let lo = typeSpan(ms.types, t: typeOf(r, e: ast.patternValue(p.modules[r.modIdx].tree, id: pat))).lo.clone()
+			var hi = typeSpan(ms.types, t: typeOf(r, e: ast.patternHigh(p.modules[r.modIdx].tree, id: pat))).hi.clone()
 			if not ast.patternInclusive(p.modules[r.modIdx].tree, id: pat) 'exclusive'
 				hi = hi.sub(ast.I128.one())
 			end 'exclusive'
@@ -945,7 +945,7 @@ function rangeArmState(mutates r Ranges, p ast.Project, start Count, subject Pla
 		end 'more'
 	end 'patterns'
 	let out = r.states.copyOf(start)
-	let narrowedTo = rangeSpanAt(r, p: p, s: start, place: subject, t: t).clamp(values)
+	let narrowedTo = rangeSpanAt(r, p: p, ms: ms, s: start, place: subject, t: t).clamp(values)
 	if narrowedTo.isEmpty() 'never'
 		r.states.list[out].dead = true
 	end 'never' else 'matches'

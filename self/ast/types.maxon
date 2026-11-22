@@ -466,6 +466,9 @@ export type TypeTable
 	var reads as SlotLists
 	// imported are, by slot, how many of the shapes of each slot it reads its index finds.
 	var imported as SlotLists
+	// ends are, by slot and by phase, how many shapes the slot held when the task of its module's stage of that phase ended:
+	// what a task that waited on that stage reads of the slot, whatever the module's later stages have made since.
+	var ends as SlotLists
 	// writer is the slot that the running task may make types in besides sharedSlot (see beginModuleTask).
 	var writer as Count
 	// kinds are the kinds by their ordinal, which a structural handle holds.
@@ -483,8 +486,15 @@ export type TypeTable
 		reads.push(SlotList.create(0))
 		var imported = SlotLists.create(0)
 		imported.push(SlotList.create(0))
-		return TypeTable{lists: lists, shapeIndexes: indexes, reads: reads, imported: imported, writer: unscheduled, kinds: TypeKind.allCases}
+		var ends = SlotLists.create(0)
+		ends.push(SlotList.create(0))
+		return TypeTable{lists: lists, shapeIndexes: indexes, reads: reads, imported: imported, ends: ends, writer: unscheduled, kinds: TypeKind.allCases}
 	end 'new'
+
+	// lent is the table a project holds while a task holds its own: one with no slots, which no handle reads.
+	export static function lent() returns TypeTable
+		return TypeTable{lists: TypeEntryLists.create(0), shapeIndexes: ShapeIndexes.create(0), reads: SlotLists.create(0), imported: SlotLists.create(0), ends: SlotLists.create(0), writer: unscheduled, kinds: Array.create(0)}
+	end 'lent'
 end 'TypeTable'
 
 // A nominal type's handle and every function's name the slot that holds its entry, in the bits from handleSlotShift, and
@@ -644,7 +654,12 @@ function findShape(tt TypeTable, word Count, sets place Count) returns bool
 		place = tt.shapeIndexes[own].placeAt(at)
 		return true
 	end 'own'
-	// The index does not find what the slots it reads made outside the tasks, or since the task began.
+	// A task of a module took in at its start every shape it may read. A stage of the project, and what runs outside the
+	// tasks, read every slot as it stands.
+	if tt.writer != unscheduled and own != sharedSlot 'frozen'
+		place = 0 as Count
+		return false
+	end 'frozen'
 	let n = readCount(tt, own: own)
 	for k in 1 upto n 'slots'
 		let s = readAt(tt, own: own, k: k)
@@ -720,9 +735,10 @@ function adoptShape(mutates tt TypeTable, place Count, word Count)
 	tt.shapeIndexes[own].repoint(word, place: handleWord(own, index: index))
 end 'adoptShape'
 
-// importShapes makes the index of the slot own find the shapes that the slots it reads made since it last did, so that
-// one probe finds any shape its task reads. A word the index finds already keeps its place.
-function importShapes(mutates tt TypeTable, own Count)
+// importShapes makes the index of the slot own find the shapes that the slots it reads made since it last did, up to what
+// the stage of phase made of each (shapesAt), so that one probe finds any shape its task reads. A word the index finds
+// already keeps its place.
+function importShapes(mutates tt TypeTable, own Count, phase Count)
 	let n = readCount(tt, own: own)
 	for k in 1 upto n 'slots'
 		let r = readAt(tt, own: own, k: k)
@@ -731,7 +747,7 @@ function importShapes(mutates tt TypeTable, own Count)
 		end 'mark'
 		let from = tt.imported[own][r]
 		let list = shapeList(r)
-		let made = tt.lists[list].count()
+		let made = shapesAt(tt, slot: r, phase: phase)
 		for i in from upto made 'shapes'
 			let word = tt.lists[list][i].id as Count
 			tt.shapeIndexes[own].include(word, place: handleWord(r, index: i))
@@ -740,25 +756,51 @@ function importShapes(mutates tt TypeTable, own Count)
 	end 'slots'
 end 'importShapes'
 
-// beginModuleTask lets the task of a stage of module, which begins, make entries in its slot and in sharedSlot only.
-export function beginModuleTask(mutates tt TypeTable, mutates ft FuncTable, module diag.ModuleID)
+// unrecorded marks a phase whose task of a slot's module has not ended.
+let unrecorded = 4294967295 as Count
+
+// shapesAt is how many of the shapes of slot a task that waited on the stage of phase of its module reads: what that stage
+// had made when it ended, or every one for a slot whose module an earlier compile compiled, or that a stage of the project
+// reads, which runs once every module's stage before it has ended.
+function shapesAt(tt TypeTable, slot Count, phase Count) returns Count
+	if phase < tt.ends[slot].count() and tt.ends[slot][phase] != unrecorded 'recorded'
+		return tt.ends[slot][phase]
+	end 'recorded'
+	return tt.lists[shapeList(slot)].count()
+end 'shapesAt'
+
+// endModuleTask records what the task of the stage of phase of module, which ends, made of its slot's shapes.
+export function endModuleTask(mutates tt TypeTable, module diag.ModuleID, phase Count)
+	let slot = moduleSlot(module)
+	while tt.ends[slot].count() <= phase 'room'
+		tt.ends[slot].push(unrecorded)
+	end 'room'
+	tt.ends[slot][phase] = tt.lists[shapeList(slot)].count()
+end 'endModuleTask'
+
+// beginModuleTask lets the task of a stage of module, which begins, make entries in its slot and in sharedSlot only, and read
+// the shapes that the stage of phase made of each module it waited on.
+export function beginModuleTask(mutates tt TypeTable, mutates ft FuncTable, module diag.ModuleID, phase Count)
 	let slot = moduleSlot(module)
 	tt.writer = slot
 	ft.writer = slot
-	importShapes(tt, own: slot)
+	importShapes(tt, own: slot, phase: phase)
 end 'beginModuleTask'
 
 // beginProjectTask lets the task of a stage of the project, which begins, make entries in sharedSlot only.
 export function beginProjectTask(mutates tt TypeTable, mutates ft FuncTable)
 	tt.writer = sharedSlot
 	ft.writer = sharedSlot
-	importShapes(tt, own: sharedSlot)
+	importShapes(tt, own: sharedSlot, phase: unrecorded)
 end 'beginProjectTask'
 
 // endTasks lets what runs after the tasks of a compile make entries in any slot again.
 export function endTasks(mutates tt TypeTable, mutates ft FuncTable)
 	tt.writer = unscheduled
 	ft.writer = unscheduled
+	for s in 0 upto tt.ends.count() 'slots'
+		tt.ends[s] = SlotList.create(0)
+	end 'slots'
 end 'endTasks'
 
 // addSlots makes the slots of a module added to the project, which come after those of the modules before it.
@@ -768,6 +810,7 @@ export function addSlots(mutates tt TypeTable, mutates ft FuncTable)
 	tt.shapeIndexes.push(ShapeIndex.new())
 	tt.reads.push(SlotList.create(0))
 	tt.imported.push(SlotList.create(0))
+	tt.ends.push(SlotList.create(0))
 	ft.slots.push(FuncEntryList.create(0))
 	ft.instCaches.push(FuncInternMap.new())
 end 'addSlots'
@@ -1577,6 +1620,11 @@ export type FuncTable
 		caches.push(FuncInternMap.new())
 		return FuncTable{slots: slots, instCaches: caches, writer: unscheduled}
 	end 'new'
+
+	// lent is the table a project holds while a task holds its own.
+	export static function lent() returns FuncTable
+		return FuncTable{slots: FuncEntryLists.create(0), instCaches: FuncInternMaps.create(0), writer: unscheduled}
+	end 'lent'
 end 'FuncTable'
 
 // funcSlot is the slot that holds the entry of the function f.

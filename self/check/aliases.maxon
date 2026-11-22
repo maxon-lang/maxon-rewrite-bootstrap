@@ -91,26 +91,26 @@ end 'namedAliases'
 
 // aliasSelf is the type that 'Self' names in the target of a typealias: the type whose body or extension declares it, at its own
 // parameters, or none for a typealias of the module.
-function aliasSelf(c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef) returns ast.TypeID
+function aliasSelf(c Checker, p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ref ast.DeclRef) returns ast.TypeID
 	if ast.isExtensionAlias(p.modules[c.modIdx], ordinal: ref.ordinal) 'extension'
-		return ast.selfType(p.types, declTy: ast.extendedBy(p, ref: ref))
+		return ast.selfType(ms.types, declTy: ast.extendedBy(p, ref: ref))
 	end 'extension'
 	match consumes ast.nestedAliasOwner(a.name) 'owner'
-		some(ownerName) then return selfOfOwner(c, p: p, ownerName: ownerName)
+		some(ownerName) then return selfOfOwner(c, p: p, ms: ms, ownerName: ownerName)
 		none then return ast.noType
 	end 'owner'
 end 'aliasSelf'
 
-function selfOfOwner(c Checker, mutates p ast.Project, ownerName String) returns ast.TypeID
+function selfOfOwner(c Checker, p ast.Project, mutates ms ast.ModuleState, ownerName String) returns ast.TypeID
 	match consumes p.modules[c.modIdx].names.get(ownerName) 'declared'
-		some(ord) then return selfOfDecl(p, ref: ast.DeclRef.make(c.modID, ordinal: ord))
+		some(ord) then return selfOfDecl(p, ms: ms, ref: ast.DeclRef.make(c.modID, ordinal: ord))
 		none then panic("the owner '{ownerName}' of a nested typealias is not declared")
 	end 'declared'
 end 'selfOfOwner'
 
-function selfOfDecl(mutates p ast.Project, ref ast.DeclRef) returns ast.TypeID
+function selfOfDecl(p ast.Project, mutates ms ast.ModuleState, ref ast.DeclRef) returns ast.TypeID
 	match consumes ast.declType(p, ref: ref) 'type'
-		some(tid) then return ast.selfType(p.types, declTy: tid)
+		some(tid) then return ast.selfType(ms.types, declTy: tid)
 		none then panic("the declaration at ordinal {ref.ordinal} has no type")
 	end 'type'
 end 'selfOfDecl'
@@ -132,14 +132,14 @@ end 'funcTypeRefs'
 // declareFuncAlias gives a typealias of a function type its type. One at the top of a module, or in the body of a type or an
 // extension that is not generic, is a brand, as in maxon: a name an author chose to tell two shapes apart. One in the body of
 // a generic type spells the signature that its instances share, and is not.
-function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
-	let selfTy = aliasSelf(c, p: p, a: a, ref: ref)
+function declareFuncAlias(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+	let selfTy = aliasSelf(c, p: p, ms: ms, a: a, ref: ref)
 	let paramsRef = ast.funcTypeParamsRef(p.modules[c.modIdx].tree, id: a.fn)
 	var params = ast.TypeIDList.create(0)
 	var convs = ast.ConventionList.create(0)
 	for i in 0 upto p.modules[c.modIdx].tree.listLen(paramsRef) 'params'
 		let param = p.modules[c.modIdx].tree.listAt(paramsRef, index: i) as ast.NodeID
-		let t = resolveTypeRef(c, p: p, tr: ast.funcTypeParamType(p.modules[c.modIdx].tree, id: param), selfTy: selfTy, errs: errs)
+		let t = resolveTypeRef(c, p: p, ms: ms, tr: ast.funcTypeParamType(p.modules[c.modIdx].tree, id: param), selfTy: selfTy, errs: errs)
 		if t == ast.noType 'failed'
 			return
 		end 'failed'
@@ -149,30 +149,30 @@ function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasD
 	var result = p.builtins.voidTy
 	let ret = ast.funcTypeReturns(p.modules[c.modIdx].tree, id: a.fn)
 	if ret != 0 'returns'
-		result = resolveTypeRef(c, p: p, tr: ret, selfTy: selfTy, errs: errs)
+		result = resolveTypeRef(c, p: p, ms: ms, tr: ret, selfTy: selfTy, errs: errs)
 		if result == ast.noType 'failed'
 			return
 		end 'failed'
 	end 'returns'
 	var shape = ast.FuncShape.make(convs, mutatesCaptures: ast.funcTypeCapturesRef(p.modules[c.modIdx].tree, id: a.fn) != 0)
-	if selfTy == ast.noType or p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: selfTy))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: selfTy))].typeParams.count() == 0 'brand'
+	if selfTy == ast.noType or ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: selfTy))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: selfTy))].typeParams.count() == 0 'brand'
 		shape.brand = ast.FuncBrand.make("{ast.declKey(ref)}", name: a.name.clone())
 	end 'brand'
-	let t = ast.internFuncType(p.types, params: params, shape: shape, result: result)
+	let t = ast.internFuncType(ms.types, params: params, shape: shape, result: result)
 	ast.setDeclType(p, ref: ref, t: t)
 end 'declareFuncAlias'
 
 // declareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
-function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+function declareAlias(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
 	c.bareNumbers = true
-	declareAliasType(c, p: p, a: a, ref: ref, errs: errs)
+	declareAliasType(c, p: p, ms: ms, a: a, ref: ref, errs: errs)
 	c.bareNumbers = false
 end 'declareAlias'
 
 // declareAliasType is declareAlias with a bare 'int' or 'float' meaning the full range of its kind.
-function declareAliasType(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+function declareAliasType(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
 	if a.fn != 0 'function'
-		declareFuncAlias(c, p: p, a: a, ref: ref, errs: errs)
+		declareFuncAlias(c, p: p, ms: ms, a: a, ref: ref, errs: errs)
 		return
 	end 'function'
 	let off = p.modules[c.modIdx].tree.startOf(a.instance)
@@ -181,8 +181,8 @@ function declareAliasType(mutates c Checker, mutates p ast.Project, a ast.AliasD
 		checkFail(c.modID, off: off, code: diag.errAliasTarget, msg: "a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '{target}' itself where '{a.name}' is used", errs: errs)
 		return
 	end 'plain'
-	let selfTy = aliasSelf(c, p: p, a: a, ref: ref)
-	let t = resolveTypeRef(c, p: p, tr: a.instance, selfTy: selfTy, errs: errs)
+	let selfTy = aliasSelf(c, p: p, ms: ms, a: a, ref: ref)
+	let t = resolveTypeRef(c, p: p, ms: ms, tr: a.instance, selfTy: selfTy, errs: errs)
 	if t != ast.noType 'named'
 		ast.setDeclType(p, ref: ref, t: t)
 	end 'named'
@@ -190,7 +190,7 @@ end 'declareAliasType'
 
 // visitAlias declares the typealias at ord after the typealiases it names, and refuses one that names itself through
 // others. Its own failure leaves it without a type, which the typealiases that name it find.
-function visitAlias(mutates w AliasWalk, mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+function visitAlias(mutates w AliasWalk, mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
 	let st = w.state[ord as Count]
 	if st == aliasDone 'done'
 		return
@@ -202,12 +202,12 @@ function visitAlias(mutates w AliasWalk, mutates c Checker, mutates p ast.Projec
 	end 'cycle'
 	w.state[ord as Count] = aliasVisiting
 	w.path.push(ord)
-	declareVisitedAlias(w, c: c, p: p, ord: ord, errs: errs)
+	declareVisitedAlias(w, c: c, p: p, ms: ms, ord: ord, errs: errs)
 	w.state[ord as Count] = aliasDone
 	try w.path.pop() otherwise ignore
 end 'visitAlias'
 
-function declareVisitedAlias(mutates w AliasWalk, mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+function declareVisitedAlias(mutates w AliasWalk, mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
 	let ref = ast.DeclRef.make(c.modID, ordinal: ord)
 	var a as ast.AliasDecl
 	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
@@ -232,32 +232,32 @@ function declareVisitedAlias(mutates w AliasWalk, mutates c Checker, mutates p a
 	for i in 0 upto named.count() 'deps'
 		let dep = named[i].clone()
 		if dep.module == c.modID 'own'
-			visitAlias(w, c: c, p: p, ord: dep.ordinal, errs: errs)
+			visitAlias(w, c: c, p: p, ms: ms, ord: dep.ordinal, errs: errs)
 		end 'own'
 		if not ast.declType(p, ref: dep).isSome() 'failed'
 			return
 		end 'failed'
 	end 'deps'
-	declareAlias(c, p: p, a: a, ref: ref, errs: errs)
+	declareAlias(c, p: p, ms: ms, a: a, ref: ref, errs: errs)
 end 'declareVisitedAlias'
 
 // declareAliases gives each typealias of an instance that the module declares its type, after the typealiases it names.
 // A typealias of another module that it names is done already: the module graph has no cycle, and the module's aliases
 // stage waits for those of the modules it names. The module's own go in source order, each after the ones it names, and
 // a typealias that names itself through others is refused.
-export function declareAliases(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList)
-	declareExtensionAliases(c, p: p, errs: errs)
-	bindMemberRefs(c, p: p, errs: errs)
+export function declareAliases(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, mutates errs diag.ErrorList)
+	declareExtensionAliases(c, p: p, ms: ms, errs: errs)
+	bindMemberRefs(c, p: p, ms: ms, errs: errs)
 	var w = AliasWalk.make(p.modules[c.modIdx].decls.count())
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'each'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
 		if isInstanceAlias(p, ref: ast.DeclRef.make(c.modID, ordinal: ord)) and not ast.isRefusedExtensionAlias(p.modules[c.modIdx], ordinal: ord) 'alias'
-			visitAlias(w, c: c, p: p, ord: ord, errs: errs)
+			visitAlias(w, c: c, p: p, ms: ms, ord: ord, errs: errs)
 		end 'alias'
 	end 'each'
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'supertypes'
 		match p.modules[c.modIdx].decls[i].clone() 'k'
-			aliasDecl(ad) then declareSupertype(c, p: p, a: ad, ref: ast.DeclRef.make(c.modID, ordinal: try i as ast.DeclOrdinal otherwise panic("too many declarations")), errs: errs)
+			aliasDecl(ad) then declareSupertype(c, p: p, ms: ms, a: ad, ref: ast.DeclRef.make(c.modID, ordinal: try i as ast.DeclOrdinal otherwise panic("too many declarations")), errs: errs)
 			funcDecl(_) then _ = 0
 			constDecl(_) then _ = 0
 			typeDecl(_) then _ = 0
@@ -272,7 +272,7 @@ end 'declareAliases'
 // declareSupertype links a ranged typealias to the one it implements, which holds its range over the same primitive and
 // signedness. The typealiases of the modules it names have their links already, so a chain that comes back to the
 // typealias is found within its module.
-function declareSupertype(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+function declareSupertype(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
 	if a.parent == 0 'none'
 		return
 	end 'none'
@@ -288,25 +288,25 @@ function declareSupertype(mutates c Checker, mutates p ast.Project, a ast.AliasD
 		some(pref) then parent = declTypeOrNone(p, ref: pref)
 		none then return
 	end 'named'
-	if parent == ast.noType or not isRangedAlias(p, t: parent) 'notRanged'
+	if parent == ast.noType or not isRangedAlias(p, ms: ms, t: parent) 'notRanged'
 		checkFail(c.modID, off: off, code: diag.errExpectedType, msg: diag.notARangedAlias(parentName), errs: errs)
 		return
 	end 'notRanged'
-	let ownKind = rangePrimitiveName(p, t: own)
-	let parentKind = rangePrimitiveName(p, t: parent)
+	let ownKind = rangePrimitiveName(p, ms: ms, t: own)
+	let parentKind = rangePrimitiveName(p, ms: ms, t: parent)
 	if ownKind != parentKind 'primitive'
 		checkFail(c.modID, off: off, code: diag.errAliasRangeDoesNotFit, msg: diag.implementsPrimitiveDiffers(a.name, parentName: parentName, own: ownKind, parents: parentKind), errs: errs)
 		return
 	end 'primitive'
-	if not rangeInside(p, inner: own, outer: parent) 'outside'
+	if not rangeInside(p, ms: ms, inner: own, outer: parent) 'outside'
 		checkFail(c.modID, off: off, code: diag.errAliasRangeDoesNotFit, msg: diag.implementsRangeDoesNotFit(a.name, parentName: parentName), errs: errs)
 		return
 	end 'outside'
-	if parent == own or ast.isSubtypeOf(p.types, sub: parent, sup: own) 'cycle'
+	if parent == own or ast.isSubtypeOf(ms.types, sub: parent, sup: own) 'cycle'
 		checkFail(c.modID, off: p.modules[c.modIdx].tree.reportStartOf(a.id), code: diag.errResolutionCycle, msg: diag.aliasCycle(a.name), errs: errs)
 		return
 	end 'cycle'
-	p.types.lists[ast.typeList(p.types, t: own)][ast.typeIndex(p.types, t: own)].supertype = parent
+	ms.types.lists[ast.typeList(ms.types, t: own)][ast.typeIndex(ms.types, t: own)].supertype = parent
 end 'declareSupertype'
 
 function declTypeOrNone(p ast.Project, ref ast.DeclRef) returns ast.TypeID
@@ -317,26 +317,26 @@ function declTypeOrNone(p ast.Project, ref ast.DeclRef) returns ast.TypeID
 end 'declTypeOrNone'
 
 // isRangedAlias is whether t is a typealias of an int or a float range.
-function isRangedAlias(p ast.Project, t ast.TypeID) returns bool
-	let kind = ast.typeKind(p.types, t: t)
-	return (kind == ast.TypeKind.intRange or kind == ast.TypeKind.floatRange) and p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].name != ""
+function isRangedAlias(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	let kind = ast.typeKind(ms.types, t: t)
+	return (kind == ast.TypeKind.intRange or kind == ast.TypeKind.floatRange) and ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].name != ""
 end 'isRangedAlias'
 
 // rangePrimitiveName is the primitive a ranged alias is over, as maxon words it: an int range is unsigned when it holds
 // no negative value.
-function rangePrimitiveName(p ast.Project, t ast.TypeID) returns String
-	if ast.typeKind(p.types, t: t) == ast.TypeKind.floatRange 'float'
+function rangePrimitiveName(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+	if ast.typeKind(ms.types, t: t) == ast.TypeKind.floatRange 'float'
 		return "a `float` range"
 	end 'float'
-	if p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].minVal.isNeg() 'signed'
+	if ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.isNeg() 'signed'
 		return "a signed `int` range"
 	end 'signed'
 	return "an unsigned `int` range"
 end 'rangePrimitiveName'
 
-function rangeInside(p ast.Project, inner ast.TypeID, outer ast.TypeID) returns bool
-	if ast.typeKind(p.types, t: inner) == ast.TypeKind.floatRange 'float'
-		return ast.floatRangeCovers(p.types, dst: outer, src: inner)
+function rangeInside(p ast.Project, ms ast.ModuleState, inner ast.TypeID, outer ast.TypeID) returns bool
+	if ast.typeKind(ms.types, t: inner) == ast.TypeKind.floatRange 'float'
+		return ast.floatRangeCovers(ms.types, dst: outer, src: inner)
 	end 'float'
-	return intRangeCovers(p.types, dst: outer, src: inner)
+	return intRangeCovers(ms.types, dst: outer, src: inner)
 end 'rangeInside'

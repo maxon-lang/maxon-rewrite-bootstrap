@@ -1,14 +1,14 @@
 // funcSymbol is the name of a function in the IR text and in a report: the plain name of a free function, the instance
 // of a generic one with its type arguments (and the modules of its conformances, as its link name has them), and a method
 // with the type it belongs to.
-export function funcSymbol(p ast.Project, fid ast.FuncID) returns String
-	let name = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].name.clone()
-	let owner = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy
-	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].extendedIface != ast.noType 'ofInterface'
-		return "{ast.interfaceExtensionSymbol(p, fid: fid)}{ast.witnessSuffix(p, fid: fid)}"
+export function funcSymbol(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, fid ast.FuncID) returns String
+	let name = ft.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].name.clone()
+	let owner = ft.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy
+	if ft.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].extendedIface != ast.noType 'ofInterface'
+		return "{ast.interfaceExtensionSymbol(p, tt: tt, ft: ft, fid: fid)}{ast.witnessSuffix(p, tt: tt, ft: ft, fid: fid)}"
 	end 'ofInterface'
 	if owner == ast.noType 'free'
-		let args = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].typeArgs.count()
+		let args = ft.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].typeArgs.count()
 		if args == 0 'plain'
 			return name
 		end 'plain'
@@ -18,15 +18,15 @@ export function funcSymbol(p ast.Project, fid ast.FuncID) returns String
 			if i > 0 'sep'
 				b.append(", ".toByteArray())
 			end 'sep'
-			b.append(ast.typeName(p.types, t: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].typeArgs[i]).toByteArray())
+			b.append(ast.typeName(tt, t: ft.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].typeArgs[i]).toByteArray())
 		end 'each'
 		b.push(93 as Byte)
-		b.append(ast.witnessSuffix(p, fid: fid).toByteArray())
+		b.append(ast.witnessSuffix(p, tt: tt, ft: ft, fid: fid).toByteArray())
 		return String.from(b)
 	end 'free'
-	let ownerName = ast.typeName(p.types, t: owner)
-	if p.types.lists[ast.typeList(p.types, t: owner)][ast.typeIndex(p.types, t: owner)].typeArgs.count() > 0 'instance'
-		return "({ownerName}).{name}{ast.witnessSuffix(p, fid: fid)}"
+	let ownerName = ast.typeName(tt, t: owner)
+	if tt.lists[ast.typeList(tt, t: owner)][ast.typeIndex(tt, t: owner)].typeArgs.count() > 0 'instance'
+		return "({ownerName}).{name}{ast.witnessSuffix(p, tt: tt, ft: ft, fid: fid)}"
 	end 'instance'
 	return "{ownerName}.{name}"
 end 'funcSymbol'

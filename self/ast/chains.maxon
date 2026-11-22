@@ -33,12 +33,12 @@ end 'nextOperator'
 // trimFolded ends a chain above the first operator whose value is a folded constant. A pass takes the value of such an
 // operator from its type without looking into it, so the operators nested in it are never reached: the operator that
 // holds it takes it as its left operand.
-export function trimFolded(p Project, typing Typing, mutates chain NodeList)
+export function trimFolded(p Project, ms ModuleState, typing Typing, mutates chain NodeList)
 	var keep = chain.count()
 	for i in 0 upto chain.count() 'scan'
 		let nested = chain[i]
 		let ty = nodeType(typing, node: nested)
-		if i < keep and ty != noType and (typeKind(p.types, t: ty) == TypeKind.constInt or typeKind(p.types, t: ty) == TypeKind.constFloat) 'folded'
+		if i < keep and ty != noType and (typeKind(ms.types, t: ty) == TypeKind.constInt or typeKind(ms.types, t: ty) == TypeKind.constFloat) 'folded'
 			keep = i
 		end 'folded'
 	end 'scan'

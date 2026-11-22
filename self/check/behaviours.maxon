@@ -6,7 +6,7 @@
 // useLocal is the variable that a name stands for, for code that uses it. A variable of the enclosing function is
 // captured: the behaviour's body gets a parameter of its own that holds the value. It gives none after reporting why a
 // variable cannot be captured.
-function useLocal(mutates c Checker, mutates p ast.Project, use ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.LocalID
+function useLocal(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, use ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.LocalID
 	let own = lookupScopes(c.scopes, name: name)
 	if own != ast.noLocal 'own'
 		return own
@@ -16,17 +16,17 @@ function useLocal(mutates c Checker, mutates p ast.Project, use ast.NodeID, name
 	end 'plain'
 	let level = try c.outers.count() - 1 otherwise panic("a behaviour is checked with no function around it")
 	let behaviour = c.activeBehIdx
-	return captureFrom(c, p: p, behaviour: behaviour, level: level, use: use, name: name, errs: errs)
+	return captureFrom(c, p: p, ms: ms, behaviour: behaviour, level: level, use: use, name: name, errs: errs)
 end 'useLocal'
 
 // captureFrom finds the name in the function that encloses the behaviour b, which may itself be the body of a behaviour
 // that captures it from the one around it, and captures it into b.
-function captureFrom(mutates c Checker, mutates p ast.Project, behaviour Count, level Count, use ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.LocalID
+function captureFrom(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, behaviour Count, level Count, use ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.LocalID
 	var outer = lookupScopes(c.outers[level].scopes, name: name)
 	if outer == ast.noLocal and c.outers[level].hasBehaviour 'enclosing'
 		let enclosingLevel = try level - 1 otherwise panic("the outermost function is the body of a behaviour")
 		let enclosingBehaviour = c.outers[level].behIdx
-		outer = captureFrom(c, p: p, behaviour: enclosingBehaviour, level: enclosingLevel, use: use, name: name, errs: errs)
+		outer = captureFrom(c, p: p, ms: ms, behaviour: enclosingBehaviour, level: enclosingLevel, use: use, name: name, errs: errs)
 	end 'enclosing'
 	if outer == ast.noLocal 'absent'
 		return ast.noLocal
@@ -36,12 +36,12 @@ function captureFrom(mutates c Checker, mutates p ast.Project, behaviour Count, 
 			return c.bFrames[behaviour].capturedInner[i]
 		end 'again'
 	end 'taken'
-	if not c.bFrames[behaviour].isClosure and not requireCapturable(c, p: p, use: use, outer: outer, errs: errs) 'refused'
+	if not c.bFrames[behaviour].isClosure and not requireCapturable(c, p: p, ms: ms, use: use, outer: outer, errs: errs) 'refused'
 		return ast.noLocal
 	end 'refused'
 	let ref = p.modules[c.modIdx].tree.captureRef(use, depth: level)
 	c.typing.names.insert(ref as Count, value: ast.NameInfo.localName(outer))
-	return captureLocal(c, p: p, behaviour: behaviour, outer: outer, ref: ref, use: use)
+	return captureLocal(c, p: p, ms: ms, behaviour: behaviour, outer: outer, ref: ref, use: use)
 end 'captureFrom'
 
 // captureLocal gives the body b a local of its own for the variable outer of the function around it, which ref names
@@ -51,7 +51,7 @@ end 'captureFrom'
 // borrows a mutable variable to change it instead: the closure holds its address, and its 'self' the receiver itself,
 // which a method cannot replace. What a mutating closure owns, it changes in place: the value lives in the closure, so
 // each call sees the writes of the one before.
-function captureLocal(mutates c Checker, mutates p ast.Project, behaviour Count, outer ast.LocalID, ref ast.NodeID, use ast.NodeID) returns ast.LocalID
+function captureLocal(mutates c Checker, p ast.Project, ms ast.ModuleState, behaviour Count, outer ast.LocalID, ref ast.NodeID, use ast.NodeID) returns ast.LocalID
 	let source = c.typing.locals[outer as Count].clone()
 	ast.setNodeType(c.typing, node: ref, ty: source.ty)
 	var conv = ast.Convention.convConsumes
@@ -67,7 +67,7 @@ function captureLocal(mutates c Checker, mutates p ast.Project, behaviour Count,
 			if not source.isSelf 'byAddress'
 				inner.captureConv = ast.Convention.convMutates
 			end 'byAddress'
-		end 'mutable' else if ast.isManagedType(p.types, t: source.ty) and borrowsValue(source) 'borrowed'
+		end 'mutable' else if ast.isManagedType(ms.types, t: source.ty) and borrowsValue(source) 'borrowed'
 			conv = ast.Convention.convLet
 		end 'borrowed' else if c.bFrames[behaviour].mutatesCaptures 'owned'
 			inner.conv = ast.Convention.convMutates
@@ -86,9 +86,9 @@ end 'captureLocal'
 // requireCapturable refuses a variable that a behaviour cannot take. The behaviour runs later and in another thread, so
 // what it takes must be a value of its own: a scalar is copied, and an owner gives its whole value away. A borrow ends
 // when its call or match does, long before the behaviour runs.
-function requireCapturable(mutates c Checker, mutates p ast.Project, use ast.NodeID, outer ast.LocalID, mutates errs diag.ErrorList) returns bool
+function requireCapturable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, use ast.NodeID, outer ast.LocalID, mutates errs diag.ErrorList) returns bool
 	let source = c.typing.locals[outer as Count].clone()
-	if not ast.isManagedType(p.types, t: source.ty) or not borrowsValue(source) 'fine'
+	if not ast.isManagedType(ms.types, t: source.ty) or not borrowsValue(source) 'fine'
 		return true
 	end 'fine'
 	var what = "a let or 'mutates' parameter"
@@ -104,10 +104,10 @@ function requireCapturable(mutates c Checker, mutates p ast.Project, use ast.Nod
 		what = "the access that a behaviour has to a cown's value, for as long as it runs"
 	end 'access'
 	var fix = ""
-	if ast.isSharedType(p.types, t: source.ty) 'shared'
+	if ast.isSharedType(ms.types, t: source.ty) 'shared'
 		fix = "take an owner of it first: 'let own = share({source.name})', and use 'own' in the behaviour"
 	end 'shared' else 'copy'
-		fix = copyAdviceText(c, p: p, t: source.ty, ifCopyable: "give the behaviour a copy: 'let own = {source.name}.clone()' before the 'when', and use 'own'", otherwiseText: "pass what the behaviour needs through a cown")
+		fix = copyAdviceText(c, p: p, ms: ms, t: source.ty, ifCopyable: "give the behaviour a copy: 'let own = {source.name}.clone()' before the 'when', and use 'own'", otherwiseText: "pass what the behaviour needs through a cown")
 	end 'copy'
 	failAt(c, p: p, node: use, code: diag.errBehaviourBorrow, msg: "'{source.name}' is {what}, so it only borrows its value, and a behaviour runs later in another thread and cannot keep a borrow; {fix}", errs: errs)
 	return false
@@ -134,39 +134,39 @@ end 'isAccess'
 
 // refuseBehaviourSelf is the error for 'self', or a field of it, used inside a behaviour: the receiver is borrowed, and a
 // field is a part of it. t is the type of what was named.
-function refuseBehaviourSelf(mutates c Checker, mutates p ast.Project, off diag.U32, what String, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let advice = copyAdviceText(c, p: p, t: t, ifCopyable: "copy what it needs into a variable before the 'when': 'let own = ....clone()'", otherwiseText: "pass what the behaviour needs through a cown")
+function refuseBehaviourSelf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, off diag.U32, what String, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let advice = copyAdviceText(c, p: p, ms: ms, t: t, ifCopyable: "copy what it needs into a variable before the 'when': 'let own = ....clone()'", otherwiseText: "pass what the behaviour needs through a cown")
 	checkFail(c.modID, off: off, code: diag.errBehaviourBorrow, msg: "{what} belongs to the receiver, which a method only borrows, and a behaviour runs later in another thread; {advice}", errs: errs)
 	return ast.noType
 end 'refuseBehaviourSelf'
 
 // selfFieldInBehaviour is the type of the field of the enclosing method's record that a bare name stands for, if there is
 // one, so that a behaviour naming it is told why it cannot.
-function selfFieldInBehaviour(c Checker, mutates p ast.Project, name String) returns table.Option with ast.TypeID
+function selfFieldInBehaviour(c Checker, p ast.Project, mutates ms ast.ModuleState, name String) returns table.Option with ast.TypeID
 	let root = c.outers[0].fn
-	if root == ast.noFunc or not p.funcs.slots[ast.funcSlot(root)][ast.funcIndex(root)].hasReceiver 'notMethod'
+	if root == ast.noFunc or not ms.funcs.slots[ast.funcSlot(root)][ast.funcIndex(root)].hasReceiver 'notMethod'
 		return table.Option.none
 	end 'notMethod'
 	var rt = ast.noType
-	if ast.typeKind(p.types, t: c.owner) == ast.TypeKind.record 'record'
+	if ast.typeKind(ms.types, t: c.owner) == ast.TypeKind.record 'record'
 		rt = c.owner
 	end 'record'
 	if rt == ast.noType 'noRecord'
 		return table.Option.none
 	end 'noRecord'
-	match consumes p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: rt))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: rt))].findField(name) 'field'
-		some(index) then return table.Option.some(ast.fieldType(p.types, owner: rt, index: index))
+	match consumes ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: rt))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: rt))].findField(name) 'field'
+		some(index) then return table.Option.some(ast.fieldType(ms.types, owner: rt, index: index))
 		none then return table.Option.none
 	end 'field'
 end 'selfFieldInBehaviour'
 
 // enterBehaviour starts checking the body of a behaviour as a function of its own, whose first parameters give access to
 // the values of the cowns it names. It is false when a name that gives access cannot be bound.
-function enterBehaviour(mutates c Checker, mutates p ast.Project, stmt ast.NodeID, values ast.TypeIDList, mutates errs diag.ErrorList) returns bool
-	var entry = ast.FuncEntry.make(ast.behaviourName(funcSymbol(p, f: c.fn), index: c.whens), visibility: p.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].visibility.clone(), module: c.modID, nodeID: stmt)
+function enterBehaviour(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, stmt ast.NodeID, values ast.TypeIDList, mutates errs diag.ErrorList) returns bool
+	var entry = ast.FuncEntry.make(ast.behaviourName(funcSymbol(p, tt: ms.types, ft: ms.funcs, f: c.fn), index: c.whens), visibility: ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].visibility.clone(), module: c.modID, nodeID: stmt)
 	entry.bodyRef = ast.whenStmtBodyRef(p.modules[c.modIdx].tree, id: stmt)
 	entry.retTy = p.builtins.voidTy
-	let fid = ast.allocFunc(p.funcs, module: c.modID, f: entry)
+	let fid = ast.allocFunc(ms.funcs, module: c.modID, f: entry)
 	c.whens = try c.whens + 1 otherwise panic("too many behaviours in one function")
 	let bi = enterNested(c, fid: fid, closure: false)
 	c.inBehaviour = true
@@ -175,7 +175,7 @@ function enterBehaviour(mutates c Checker, mutates p ast.Project, stmt ast.NodeI
 		let name = p.modules[c.modIdx].tree.nameAt(p.modules[c.modIdx].tree.listAt(namesRef, index: i))
 		var access = ast.LocalEntry.make(name, ty: values[i], isVar: false, isParam: true, conv: ast.Convention.convMutates, definedAt: stmt)
 		access.paramIndex = i
-		let id = bindLocal(c, p: p, entry: access, off: offsetOf(c, p: p, node: stmt), errs: errs)
+		let id = bindLocal(c, p: p, ms: ms, entry: access, off: offsetOf(c, p: p, node: stmt), errs: errs)
 		if id == ast.noLocal 'unbound'
 			return false
 		end 'unbound'
@@ -209,13 +209,13 @@ function enterNested(mutates c Checker, fid ast.FuncID, closure bool) returns Co
 end 'enterNested'
 
 // leaveBehaviour finishes the function of a behaviour body: its parameters are the accesses, then what it captured.
-function leaveBehaviour(mutates c Checker, mutates p ast.Project, stmt ast.NodeID)
+function leaveBehaviour(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, stmt ast.NodeID)
 	let frame = try c.bFrames.pop() otherwise panic("a behaviour ended that was never begun")
 	for i in 0 upto frame.accesses.count() 'accesses'
-		addBehaviourParam(c, p: p, fn: frame.fn, local: frame.accesses[i])
+		addBehaviourParam(c, p: p, ms: ms, fn: frame.fn, local: frame.accesses[i])
 	end 'accesses'
 	for i in 0 upto frame.capturedInner.count() 'captures'
-		addBehaviourParam(c, p: p, fn: frame.fn, local: frame.capturedInner[i])
+		addBehaviourParam(c, p: p, ms: ms, fn: frame.fn, local: frame.capturedInner[i])
 		c.fnLocals.push(frame.capturedInner[i])
 	end 'captures'
 	var info = ast.WhenInfo.new()
@@ -244,16 +244,16 @@ function restoreOuter(mutates c Checker, consumes outer OuterLevel)
 	c.activeBehIdx = o.behIdx
 end 'restoreOuter'
 
-function addBehaviourParam(mutates c Checker, mutates p ast.Project, fn ast.FuncID, local ast.LocalID)
+function addBehaviourParam(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, local ast.LocalID)
 	let entry = c.typing.locals[local as Count].clone()
-	p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
-	p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].paramTypes.push(entry.ty)
-	ast.pushParamLocal(p, f: fn, l: local)
+	ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
+	ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].paramTypes.push(entry.ty)
+	ast.pushParamLocal(p, ms: ms, f: fn, l: local)
 end 'addBehaviourParam'
 
 // checkBehaviour types a behaviour: it names cowns, and its body runs once it has exclusive access to all of them, with
 // the names after 'as' giving mutable access to their values.
-function checkBehaviour(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
+function checkBehaviour(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
 	let cownsRef = ast.whenStmtCownsRef(p.modules[c.modIdx].tree, id: s)
 	let cownCount = p.modules[c.modIdx].tree.listLen(cownsRef)
 	let nameCount = p.modules[c.modIdx].tree.listLen(ast.whenStmtNamesRef(p.modules[c.modIdx].tree, id: s))
@@ -264,16 +264,16 @@ function checkBehaviour(mutates c Checker, mutates p ast.Project, s ast.NodeID, 
 	var values = ast.TypeIDList.create(0)
 	for i in 0 upto cownCount 'cowns'
 		let cown = p.modules[c.modIdx].tree.listAt(cownsRef, index: i) as ast.NodeID
-		let t = checkExpr(c, p: p, e: cown, errs: errs)
+		let t = checkExpr(c, p: p, ms: ms, e: cown, errs: errs)
 		if t == ast.noType 'failed'
 			return
 		end 'failed'
 		let name = ast.nameExprName(p.modules[c.modIdx].tree, id: cown)
-		if not typeHasKind(p, t: t, kind: ast.TypeKind.builtinCown) 'notCown'
-			failAt(c, p: p, node: cown, code: diag.errWhenCowns, msg: "'{name}' is {describeType(p, t: t)}, and a behaviour names cown references: make one with 'cown(value)'", errs: errs)
+		if not typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.builtinCown) 'notCown'
+			failAt(c, p: p, node: cown, code: diag.errWhenCowns, msg: "'{name}' is {describeType(p, ms: ms, t: t)}, and a behaviour names cown references: make one with 'cown(value)'", errs: errs)
 			return
 		end 'notCown'
-		values.push(typeElemType(p, ownerTy: t))
+		values.push(typeElemType(p, ms: ms, ownerTy: t))
 		for j in 0 upto i 'earlier'
 			if sameName(c, a: p.modules[c.modIdx].tree.listAt(cownsRef, index: j) as ast.NodeID, b: cown) 'twice'
 				failAt(c, p: p, node: cown, code: diag.errWhenSameCown, msg: "'{name}' is named twice by one behaviour, which would give it two mutable names for one value; name each cown once", errs: errs)
@@ -281,10 +281,10 @@ function checkBehaviour(mutates c Checker, mutates p ast.Project, s ast.NodeID, 
 			end 'twice'
 		end 'earlier'
 	end 'cowns'
-	if enterBehaviour(c, p: p, stmt: s, values: values, errs: errs) 'entered'
-		checkBlock(c, p: p, body: ast.whenStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	if enterBehaviour(c, p: p, ms: ms, stmt: s, values: values, errs: errs) 'entered'
+		checkBlock(c, p: p, ms: ms, body: ast.whenStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
 	end 'entered'
-	leaveBehaviour(c, p: p, stmt: s)
+	leaveBehaviour(c, p: p, ms: ms, stmt: s)
 end 'checkBehaviour'
 
 // sameName is whether two cown operands are one variable or one field.
@@ -300,39 +300,39 @@ function sameName(c Checker, a ast.NodeID, b ast.NodeID) returns bool
 	return x.kind == ast.NameKind.nameSelfField and x.fieldIndex == y.fieldIndex
 end 'sameName'
 
-function describeType(p ast.Project, t ast.TypeID) returns String
-	if isConstInt(p, t: t) 'integer'
+function describeType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+	if isConstInt(p, ms: ms, t: t) 'integer'
 		return "an integer"
 	end 'integer'
-	return "a {nameOfType(p, t: t)}"
+	return "a {nameOfType(p, ms: ms, t: t)}"
 end 'describeType'
 
 // checkFreezeArgs refuses a value to freeze that is no managed value and so cannot be frozen.
-function checkFreezeArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+function checkFreezeArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let arg = soleArg(ordered)
 	let t = argumentType(c, node: arg)
-	if isConstInt(p, t: t) or (t != p.builtins.neverTy and t != p.builtins.voidTy and not ast.isManagedType(p.types, t: t)) 'plain'
-		failAt(c, p: p, node: arg, code: diag.errFreezeScalar, msg: "'{nameOfType(p, t: t)}' is a plain value, which is immutable already and copied freely, so there is nothing to freeze: freeze a record, a union, a String or a collection", errs: errs)
+	if isConstInt(p, ms: ms, t: t) or (t != p.builtins.neverTy and t != p.builtins.voidTy and not ast.isManagedType(ms.types, t: t)) 'plain'
+		failAt(c, p: p, node: arg, code: diag.errFreezeScalar, msg: "'{nameOfType(p, ms: ms, t: t)}' is a plain value, which is immutable already and copied freely, so there is nothing to freeze: freeze a record, a union, a String or a collection", errs: errs)
 	end 'plain'
 end 'checkFreezeArgs'
 
 // checkShareArgs refuses a value to share that is neither kind of shared value, which the generic signature allows.
-function checkShareArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+function checkShareArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let arg = soleArg(ordered)
 	let t = argumentType(c, node: arg)
-	if not ast.isSharedType(p.types, t: t) 'owned'
-		let advice = copyAdviceText(c, p: p, t: t, ifCopyable: "move it, or copy it with '.clone()'", otherwiseText: "move it")
-		failAt(c, p: p, node: arg, code: diag.errShareTarget, msg: "share takes a frozen value or a cown reference, found {nameOfType(p, t: t)}; a value that is not shared has one owner, so {advice}", errs: errs)
+	if not ast.isSharedType(ms.types, t: t) 'owned'
+		let advice = copyAdviceText(c, p: p, ms: ms, t: t, ifCopyable: "move it, or copy it with '.clone()'", otherwiseText: "move it")
+		failAt(c, p: p, node: arg, code: diag.errShareTarget, msg: "share takes a frozen value or a cown reference, found {nameOfType(p, ms: ms, t: t)}; a value that is not shared has one owner, so {advice}", errs: errs)
 	end 'owned'
 end 'checkShareArgs'
 
 // checkThawArgs refuses a value to thaw that is not frozen.
-function checkThawArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+function checkThawArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let arg = soleArg(ordered)
 	let t = argumentType(c, node: arg)
-	if not isFrozenType(p, t: t) 'owned'
-		let advice = copyAdviceText(c, p: p, t: t, ifCopyable: "use '.clone()' for another one", otherwiseText: "move it")
-		failAt(c, p: p, node: arg, code: diag.errShareTarget, msg: "thaw takes a frozen value, found {nameOfType(p, t: t)}; a value that is not frozen is already owned: {advice}", errs: errs)
+	if not isFrozenType(p, ms: ms, t: t) 'owned'
+		let advice = copyAdviceText(c, p: p, ms: ms, t: t, ifCopyable: "use '.clone()' for another one", otherwiseText: "move it")
+		failAt(c, p: p, node: arg, code: diag.errShareTarget, msg: "thaw takes a frozen value, found {nameOfType(p, ms: ms, t: t)}; a value that is not frozen is already owned: {advice}", errs: errs)
 	end 'owned'
 end 'checkThawArgs'
 
@@ -354,7 +354,7 @@ end 'argumentType'
 // cownCall types cown(x) and cown(x, dropWith: d). The content of the first is dropped with the last reference, so it
 // must be Droppable. The content of the second is ended by its destructor d, which is a method name and no value, so the
 // argument is taken out of the call before the ordinary arguments are checked.
-function cownCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function cownCall(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
 	var dropAt = 0 as Count
 	var dropArg = 0 as ast.NodeID
@@ -369,28 +369,28 @@ function cownCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mut
 	let newFn = p.builtins.cownNewFunc
 	let newDropFn = p.builtins.cownNewDropWithFunc
 	if dropAt == 0 'plain'
-		return callFunction(c, p: p, call: call, kind: ast.CallKind.callFunction, target: newFn, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callFunction, target: newFn, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	end 'plain'
 	c.hasOmitted = true
 	c.omittedCall = call
 	c.omittedArgIdx = dropAt
-	let t = callFunction(c, p: p, call: call, kind: ast.CallKind.callFunction, target: newDropFn, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	let t = callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callFunction, target: newDropFn, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	c.hasOmitted = false
 	if t != ast.noType 'typed'
-		checkDropWith(c, p: p, call: call, arg: dropArg, errs: errs)
+		checkDropWith(c, p: p, ms: ms, call: call, arg: dropArg, errs: errs)
 	end 'typed'
 	return t
 end 'cownCall'
 
 // checkDropWith records the destructor named by the 'dropWith:' of a cown, which the call of the constructor leaves out of
 // its arguments.
-function checkDropWith(mutates c Checker, mutates p ast.Project, call ast.NodeID, arg ast.NodeID, mutates errs diag.ErrorList)
+function checkDropWith(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, arg ast.NodeID, mutates errs diag.ErrorList)
 	var info as ast.CallInfo
 	match consumes c.typing.calls.get(call as Count) 'recorded'
 		some(found) then info = found
 		none then panic("the cown at node {call} was typed without a record of what it calls")
 	end 'recorded'
-	let destructor = dropWithCall(c, p: p, call: call, arg: arg, content: argumentType(c, node: info.ordered[0]), errs: errs)
+	let destructor = dropWithCall(c, p: p, ms: ms, call: call, arg: arg, content: argumentType(c, node: info.ordered[0]), errs: errs)
 	if destructor == ast.noFunc 'refused'
 		return
 	end 'refused'
@@ -402,9 +402,9 @@ end 'checkDropWith'
 // dropWithCall is the destructor that a cown of content ends it with, or none after it reported why there is none. Only
 // content that is not Droppable has something to decide, and the destructor takes nothing else, because the cown has
 // nothing else to give it.
-function dropWithCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, arg ast.NodeID, content ast.TypeID, mutates errs diag.ErrorList) returns ast.FuncID
-	let contentName = nameOfType(p, t: content)
-	if not lacksCap(c, p: p, wantCopy: false, t: content).missing 'droppable'
+function dropWithCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, arg ast.NodeID, content ast.TypeID, mutates errs diag.ErrorList) returns ast.FuncID
+	let contentName = nameOfType(p, ms: ms, t: content)
+	if not lacksCap(c, p: p, ms: ms, wantCopy: false, t: content).missing 'droppable'
 		failAt(c, p: p, node: arg, code: diag.errCapabilityMisuse, msg: "'{contentName}' is Droppable, so the cown drops it with its last reference and there is nothing to decide: remove 'dropWith:'", errs: errs)
 		return ast.noFunc
 	end 'droppable'
@@ -413,40 +413,40 @@ function dropWithCall(mutates c Checker, mutates p ast.Project, call ast.NodeID,
 		failAt(c, p: p, node: arg, code: diag.errCapabilityMisuse, msg: "'dropWith:' names a destructor of the content by its name alone, as 'dropWith: rollback'", errs: errs)
 		return ast.noFunc
 	end 'notName'
-	if not typeIsNominal(p.types, t: content) 'parameter'
+	if not typeIsNominal(ms.types, t: content) 'parameter'
 		failAt(c, p: p, node: arg, code: diag.errCapabilityMisuse, msg: "'{contentName}' is a type parameter and has no destructor to name: a value that is not Droppable cannot go into a cown in generic code; add the bound 'where {contentName} implements Droppable'", errs: errs)
 		return ast.noFunc
 	end 'parameter'
 	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: value)
-	let method = methodNamed(p, t: content, name: name)
-	if method == ast.noFunc or not isNakedDestructor(p, method: method) 'notDestructor'
-		failAt(c, p: p, node: arg, code: diag.errCapabilityMisuse, msg: "'{name}' is not a destructor of '{contentName}' that takes no other argument and returns nothing{dropWithCandidates(p, t: content)}", errs: errs)
+	let method = methodNamed(p, ms: ms, t: content, name: name)
+	if method == ast.noFunc or not isNakedDestructor(p, ms: ms, method: method) 'notDestructor'
+		failAt(c, p: p, node: arg, code: diag.errCapabilityMisuse, msg: "'{name}' is not a destructor of '{contentName}' that takes no other argument and returns nothing{dropWithCandidates(p, ms: ms, t: content)}", errs: errs)
 		return ast.noFunc
 	end 'notDestructor'
-	if not requireVisible(c, p: p, node: arg, target: method, errs: errs) 'hidden'
+	if not requireVisible(c, p: p, ms: ms, node: arg, target: method, errs: errs) 'hidden'
 		return ast.noFunc
 	end 'hidden'
-	queueMethodBounds(c, p: p, off: offsetOf(c, p: p, node: call), method: method, args: p.types.lists[ast.typeList(p.types, t: content)][ast.typeIndex(p.types, t: content)].typeArgs.clone())
+	queueMethodBounds(c, p: p, ms: ms, off: offsetOf(c, p: p, node: call), method: method, args: ms.types.lists[ast.typeList(ms.types, t: content)][ast.typeIndex(ms.types, t: content)].typeArgs.clone())
 	return method
 end 'dropWithCall'
 
 // isNakedDestructor is whether a method is a destructor that takes nothing else and returns nothing, which is all that a
 // cown can call.
-function isNakedDestructor(p ast.Project, method ast.FuncID) returns bool
-	return not p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic and p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isDestructor and p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].params.count() == 0 and p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].retTy == p.builtins.voidTy
+function isNakedDestructor(p ast.Project, ms ast.ModuleState, method ast.FuncID) returns bool
+	return not ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic and ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isDestructor and ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].params.count() == 0 and ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].retTy == p.builtins.voidTy
 end 'isNakedDestructor'
 
 // dropWithCandidates names the destructors that dropWith: may name, in declaration order, for the error that names another.
-function dropWithCandidates(p ast.Project, t ast.TypeID) returns String
-	let orig = ast.originOf(p.types, t: t)
+function dropWithCandidates(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+	let orig = ast.originOf(ms.types, t: t)
 	var names = ast.StringList.create(0)
-	for i in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].methods.count() 'methods'
-		if isNakedDestructor(p, method: p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].methods[i].func) 'candidate'
-			names.push(p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].methods[i].name.clone())
+	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].methods.count() 'methods'
+		if isNakedDestructor(p, ms: ms, method: ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].methods[i].func) 'candidate'
+			names.push(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].methods[i].name.clone())
 		end 'candidate'
 	end 'methods'
 	if names.count() == 0 'none'
-		return ": '{nameOfType(p, t: t)}' has no such destructor; declare one, as 'function rollback(destructs self)'"
+		return ": '{nameOfType(p, ms: ms, t: t)}' has no such destructor; declare one, as 'function rollback(destructs self)'"
 	end 'none'
 	return ": name {ast.joinNames(names, sep: " or ")}"
 end 'dropWithCandidates'
@@ -455,38 +455,38 @@ end 'dropWithCandidates'
 // store a cown reference in it, so a type that holds a cown of a type that holds it again lets two cowns refer to each
 // other, and counting never frees a cycle. Owned values and frozen values cannot form one: an owner is a tree, and a
 // frozen value refers only to values frozen before it.
-function checkCownCycle(mutates c Checker, mutates p ast.Project, site ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
-	let own = ast.selfType(p.types, declTy: t)
+function checkCownCycle(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
+	let own = ast.selfType(ms.types, declTy: t)
 	var path = ast.StringList.create(0)
 	var visited = BoolIntMap.new()
-	if not reachesThroughCown(p, from: own, target: own, via: false, path: path, visited: visited) 'acyclic'
+	if not reachesThroughCown(p, ms: ms, from: own, target: own, via: false, path: path, visited: visited) 'acyclic'
 		return
 	end 'acyclic'
-	failAt(c, p: p, node: site, code: diag.errCownCycle, msg: "type '{nameOfType(p, t: t)}' can reach itself through a cown (via {ast.joinNames(path, sep: " -> ")}), so cowns could refer to each other and counting would never free them; store a handle, or a key into a map, instead of the reference", errs: errs)
+	failAt(c, p: p, node: site, code: diag.errCownCycle, msg: "type '{nameOfType(p, ms: ms, t: t)}' can reach itself through a cown (via {ast.joinNames(path, sep: " -> ")}), so cowns could refer to each other and counting would never free them; store a handle, or a key into a map, instead of the reference", errs: errs)
 end 'checkCownCycle'
 
 // reachesThroughCown is whether a value of type from holds one of type target, with a cown on the way. via is whether the
 // way so far already went through one.
-function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
-	let kind = ast.typeKind(p.types, t: from)
-	let orig = ast.originOf(p.types, t: from)
-	let holder = nameOfType(p, t: from)
+function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.TypeID, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
+	let kind = ast.typeKind(ms.types, t: from)
+	let orig = ast.originOf(ms.types, t: from)
+	let holder = nameOfType(p, ms: ms, t: from)
 	if kind == ast.TypeKind.record 'record'
-		for fi in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields.count() 'fields'
-			let label = "{holder}.{p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields[fi].name}"
-			let held = ast.fieldType(p.types, owner: from, index: fi)
-			if followHolding(p, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
+		for fi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields.count() 'fields'
+			let label = "{holder}.{ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].name}"
+			let held = ast.fieldType(ms.types, owner: from, index: fi)
+			if followHolding(p, ms: ms, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 				return true
 			end 'found'
 		end 'fields'
 		return false
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		for ci in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases.count() 'cases'
-			let label = "{holder}.{p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[ci].name}"
-			for pi in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[ci].payload.count() 'payload'
-				let held = ast.payloadType(p.types, owner: from, caseIndex: ci, index: pi)
-				if followHolding(p, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
+		for ci in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases.count() 'cases'
+			let label = "{holder}.{ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].name}"
+			for pi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].payload.count() 'payload'
+				let held = ast.payloadType(ms.types, owner: from, caseIndex: ci, index: pi)
+				if followHolding(p, ms: ms, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 					return true
 				end 'found'
 			end 'payload'
@@ -494,9 +494,9 @@ function reachesThroughCown(mutates p ast.Project, from ast.TypeID, target ast.T
 		return false
 	end 'union'
 	if kind.isBuiltin() and kind != ast.TypeKind.builtinHandle 'builtin'
-		for ai in 0 upto p.types.lists[ast.typeList(p.types, t: from)][ast.typeIndex(p.types, t: from)].typeArgs.count() 'args'
-			let held = p.types.lists[ast.typeList(p.types, t: from)][ast.typeIndex(p.types, t: from)].typeArgs[ai]
-			if followHolding(p, label: holder, held: held, isCown: kind == ast.TypeKind.builtinCown, target: target, via: via, path: path, visited: visited) 'found'
+		for ai in 0 upto ms.types.lists[ast.typeList(ms.types, t: from)][ast.typeIndex(ms.types, t: from)].typeArgs.count() 'args'
+			let held = ms.types.lists[ast.typeList(ms.types, t: from)][ast.typeIndex(ms.types, t: from)].typeArgs[ai]
+			if followHolding(p, ms: ms, label: holder, held: held, isCown: kind == ast.TypeKind.builtinCown, target: target, via: via, path: path, visited: visited) 'found'
 				return true
 			end 'found'
 		end 'args'
@@ -506,17 +506,17 @@ end 'reachesThroughCown'
 
 // followHolding follows one edge of the search: a field, a payload, an element, or what a frozen value or a cown holds. A
 // handle holds nothing.
-function followHolding(mutates p ast.Project, label String, held ast.TypeID, isCown bool, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
+function followHolding(p ast.Project, mutates ms ast.ModuleState, label String, held ast.TypeID, isCown bool, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
 	path.push(label.clone())
 	let next = via or isCown
 	if held == target and next 'found'
 		return true
 	end 'found'
-	if not ast.hasTypeDepthOverflow(p.types, t: held, depth: 0 as Count) 'bounded'
+	if not ast.hasTypeDepthOverflow(ms.types, t: held, depth: 0 as Count) 'bounded'
 		let key = try (held as Count) * 2 + (1 if next else 0) otherwise panic("too many types")
 		if not visited.has(key) 'unseen'
 			visited.insert(key, value: true)
-			if reachesThroughCown(p, from: held, target: target, via: next, path: path, visited: visited) 'inside'
+			if reachesThroughCown(p, ms: ms, from: held, target: target, via: next, path: path, visited: visited) 'inside'
 				return true
 			end 'inside'
 		end 'unseen'

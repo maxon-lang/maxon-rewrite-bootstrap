@@ -22,9 +22,9 @@ end 'loadPosition'
 
 // continueIf goes on where cond holds. Where it does not, an iterator method that a program calls fails with exhausted, and
 // one that a for calls ends the loop.
-function continueIf(mutates l Lowerer, mutates p ast.Project, cond Reg, exit BlockID)
+function continueIf(mutates l Lowerer, p ast.Project, ms ast.ModuleState, cond Reg, exit BlockID)
 	if exit == noBlock 'throws'
-		failUnless(l, p: p, cond: cond, errorCase: ast.errorIterationExhausted)
+		failUnless(l, p: p, ms: ms, cond: cond, errorCase: ast.errorIterationExhausted)
 		return
 	end 'throws'
 	let ok = l.b.newBlock()
@@ -33,26 +33,26 @@ function continueIf(mutates l Lowerer, mutates p ast.Project, cond Reg, exit Blo
 end 'continueIf'
 
 // makeView is the view, of type t, of a copy of the string recv.
-function makeView(mutates l Lowerer, mutates p ast.Project, site diag.Site, t ast.TypeID, recv Reg) returns Reg
+function makeView(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID, recv Reg) returns Reg
 	let string = p.builtins.stringTy
-	let text = copyValue(l, p: p, site: site, v: recv, t: string)
-	return builtinRecord(l, p: p, t: t, values: argsOf1(text))
+	let text = copyValue(l, p: p, ms: ms, site: site, v: recv, t: string)
+	return builtinRecord(l, p: p, ms: ms, t: t, values: argsOf1(text))
 end 'makeView'
 
 // makeIterator is the iterator, of type t, over a copy of the string that a view holds, at its first unit, which the string
 // must have.
-function makeIterator(mutates l Lowerer, mutates p ast.Project, site diag.Site, t ast.TypeID, view Reg, textField Count, exit BlockID) returns Reg
+function makeIterator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID, view Reg, textField Count, exit BlockID) returns Reg
 	let held = loadText(l, obj: view, field: textField)
 	let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(held))
 	let present = nonZero(l, v: size)
-	continueIf(l, p: p, cond: present, exit: exit)
+	continueIf(l, p: p, ms: ms, cond: present, exit: exit)
 	let string = p.builtins.stringTy
-	let text = copyValue(l, p: p, site: site, v: held, t: string)
+	let text = copyValue(l, p: p, ms: ms, site: site, v: held, t: string)
 	let start = konst(l, value: 0 as Word)
 	var fields = RegList.create(0)
 	fields.push(text)
 	fields.push(start)
-	return builtinRecord(l, p: p, t: t, values: fields)
+	return builtinRecord(l, p: p, ms: ms, t: t, values: fields)
 end 'makeIterator'
 
 // readUnit is the unit that an iterator is at, which the entry reads from the string and the position.
@@ -68,12 +68,12 @@ end 'setPosition'
 
 // stepOn sets the position of an iterator to the one that a step entry gave, which is the position plus 1, or 0 where there
 // is no next unit and the iterator is exhausted.
-function stepOn(mutates l Lowerer, mutates p ast.Project, iterator Reg, textField Count, positionField Count, symbol Rt, exit BlockID) returns Reg
+function stepOn(mutates l Lowerer, p ast.Project, ms ast.ModuleState, iterator Reg, textField Count, positionField Count, symbol Rt, exit BlockID) returns Reg
 	let text = loadText(l, obj: iterator, field: textField)
 	let position = loadPosition(l, obj: iterator, field: positionField)
 	let step = runtime(l, symbol: symbol, kind: IrKind.kindScalar, args: argsOf2(text, b: position))
 	let present = nonZero(l, v: step)
-	continueIf(l, p: p, cond: present, exit: exit)
+	continueIf(l, p: p, ms: ms, cond: present, exit: exit)
 	let one = konst(l, value: 1 as Word)
 	let next = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(next, op: BinOp.binSub, left: step, right: one, unsigned: true, fail: noBlock))
@@ -82,7 +82,7 @@ function stepOn(mutates l Lowerer, mutates p ast.Project, iterator Reg, textFiel
 end 'stepOn'
 
 // byteStep moves on to the next byte, which is there where the position plus 1 is below the length.
-function byteStep(mutates l Lowerer, mutates p ast.Project, iterator Reg, exit BlockID) returns Reg
+function byteStep(mutates l Lowerer, p ast.Project, ms ast.ModuleState, iterator Reg, exit BlockID) returns Reg
 	let text = loadText(l, obj: iterator, field: ast.byteIteratorTextField)
 	let position = loadPosition(l, obj: iterator, field: ast.byteIteratorPositionField)
 	let one = konst(l, value: 1 as Word)
@@ -90,7 +90,7 @@ function byteStep(mutates l Lowerer, mutates p ast.Project, iterator Reg, exit B
 	emit(l, i: newBin(next, op: BinOp.binAdd, left: position, right: one, unsigned: true, fail: noBlock))
 	let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(text))
 	let more = compare(l, op: CmpOp.cmpLt, a: next, b: size, unsigned: true)
-	continueIf(l, p: p, cond: more, exit: exit)
+	continueIf(l, p: p, ms: ms, cond: more, exit: exit)
 	setPosition(l, iterator: iterator, positionField: ast.byteIteratorPositionField, position: next)
 	return konst(l, value: 0 as Word)
 end 'byteStep'
@@ -103,18 +103,18 @@ end 'viewCount'
 
 // lowerViewMethod lowers the method of a view or an iterator that the intrinsic op is, on recv. t is the type of the value
 // that a method that makes one gives.
-function lowerViewMethod(mutates l Lowerer, mutates p ast.Project, op ast.Intrinsic, site diag.Site, t ast.TypeID, recv Reg, exit BlockID) returns Reg
+function lowerViewMethod(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, op ast.Intrinsic, site diag.Site, t ast.TypeID, recv Reg, exit BlockID) returns Reg
 	if op == ast.Intrinsic.intrStringBytes or op == ast.Intrinsic.intrStringCodepoints or op == ast.Intrinsic.intrStringUtf16 'view'
-		return makeView(l, p: p, site: site, t: t, recv: recv)
+		return makeView(l, p: p, ms: ms, site: site, t: t, recv: recv)
 	end 'view'
 	if op == ast.Intrinsic.intrByteViewCreateIterator 'byteIterator'
-		return makeIterator(l, p: p, site: site, t: t, view: recv, textField: ast.byteViewTextField, exit: exit)
+		return makeIterator(l, p: p, ms: ms, site: site, t: t, view: recv, textField: ast.byteViewTextField, exit: exit)
 	end 'byteIterator'
 	if op == ast.Intrinsic.intrCodepointViewCreateIterator 'codepointIterator'
-		return makeIterator(l, p: p, site: site, t: t, view: recv, textField: ast.codepointViewTextField, exit: exit)
+		return makeIterator(l, p: p, ms: ms, site: site, t: t, view: recv, textField: ast.codepointViewTextField, exit: exit)
 	end 'codepointIterator'
 	if op == ast.Intrinsic.intrUtf16ViewCreateIterator 'utf16Iterator'
-		return makeIterator(l, p: p, site: site, t: t, view: recv, textField: ast.utf16ViewTextField, exit: exit)
+		return makeIterator(l, p: p, ms: ms, site: site, t: t, view: recv, textField: ast.utf16ViewTextField, exit: exit)
 	end 'utf16Iterator'
 	if op == ast.Intrinsic.intrByteViewCount 'byteCount'
 		return viewCount(l, view: recv, textField: ast.byteViewTextField, symbol: Rt.rtStrLen)
@@ -135,79 +135,79 @@ function lowerViewMethod(mutates l Lowerer, mutates p ast.Project, op ast.Intrin
 		return readUnit(l, iterator: recv, textField: ast.utf16IteratorTextField, positionField: ast.utf16IteratorPositionField, symbol: Rt.rtStrUtf16Unit)
 	end 'utf16Current'
 	if op == ast.Intrinsic.intrByteIteratorAdvance 'byteAdvance'
-		return byteStep(l, p: p, iterator: recv, exit: exit)
+		return byteStep(l, p: p, ms: ms, iterator: recv, exit: exit)
 	end 'byteAdvance'
 	if op == ast.Intrinsic.intrCodepointIteratorAdvance 'codepointAdvance'
-		return stepOn(l, p: p, iterator: recv, textField: ast.codepointIteratorTextField, positionField: ast.codepointIteratorPositionField, symbol: Rt.rtStrCodePointNext, exit: exit)
+		return stepOn(l, p: p, ms: ms, iterator: recv, textField: ast.codepointIteratorTextField, positionField: ast.codepointIteratorPositionField, symbol: Rt.rtStrCodePointNext, exit: exit)
 	end 'codepointAdvance'
 	if op == ast.Intrinsic.intrUtf16IteratorAdvance 'utf16Advance'
-		return stepOn(l, p: p, iterator: recv, textField: ast.utf16IteratorTextField, positionField: ast.utf16IteratorPositionField, symbol: Rt.rtStrUtf16Next, exit: exit)
+		return stepOn(l, p: p, ms: ms, iterator: recv, textField: ast.utf16IteratorTextField, positionField: ast.utf16IteratorPositionField, symbol: Rt.rtStrUtf16Next, exit: exit)
 	end 'utf16Advance'
 	panic("lower: {op} is no method of a view or an iterator")
 end 'lowerViewMethod'
 
 // lowerViewCall lowers a call that the program writes of a method of a view or an iterator.
-function lowerViewCall(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg) returns Reg
-	let op = p.funcs.slots[ast.funcSlot(c.info.fn)][ast.funcIndex(c.info.fn)].intrinsic
-	return lowerViewMethod(l, p: p, op: op, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node), recv: recv, exit: noBlock)
+function lowerViewCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg) returns Reg
+	let op = ms.funcs.slots[ast.funcSlot(c.info.fn)][ast.funcIndex(c.info.fn)].intrinsic
+	return lowerViewMethod(l, p: p, ms: ms, op: op, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node), recv: recv, exit: noBlock)
 end 'lowerViewCall'
 
-function lowerStringBytes(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerStringBytes(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerStringBytes'
 
-function lowerStringCodepoints(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerStringCodepoints(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerStringCodepoints'
 
-function lowerStringUtf16(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerStringUtf16(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerStringUtf16'
 
-function lowerByteViewCreateIterator(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerByteViewCreateIterator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerByteViewCreateIterator'
 
-function lowerCodepointViewCreateIterator(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerCodepointViewCreateIterator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerCodepointViewCreateIterator'
 
-function lowerUtf16ViewCreateIterator(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerUtf16ViewCreateIterator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerUtf16ViewCreateIterator'
 
-function lowerByteViewCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerByteViewCount(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerByteViewCount'
 
-function lowerCodepointViewCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerCodepointViewCount(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerCodepointViewCount'
 
-function lowerUtf16ViewCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerUtf16ViewCount(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerUtf16ViewCount'
 
-function lowerByteIteratorCurrent(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerByteIteratorCurrent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerByteIteratorCurrent'
 
-function lowerCodepointIteratorCurrent(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerCodepointIteratorCurrent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerCodepointIteratorCurrent'
 
-function lowerUtf16IteratorCurrent(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerUtf16IteratorCurrent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerUtf16IteratorCurrent'
 
-function lowerByteIteratorAdvance(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerByteIteratorAdvance(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerByteIteratorAdvance'
 
-function lowerCodepointIteratorAdvance(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerCodepointIteratorAdvance(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerCodepointIteratorAdvance'
 
-function lowerUtf16IteratorAdvance(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return lowerViewCall(l, p: p, c: c, recv: recv)
+function lowerUtf16IteratorAdvance(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerViewCall(l, p: p, ms: ms, c: c, recv: recv)
 end 'lowerUtf16IteratorAdvance'

@@ -4,18 +4,18 @@ let interpreterOnlyMessage = "a map, a list or a pool runs only under the interp
 
 // entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
 // backend has no code for the entry.
-function entry(mutates l Lowerer, mutates p ast.Project, site diag.Site, symbol Rt, kind IrKind, args RegList) returns Reg
+function entry(mutates l Lowerer, p ast.Project, site diag.Site, symbol Rt, kind IrKind, args RegList) returns Reg
 	let d = newReg(l, kind: kind)
 	emitEntry(l, p: p, site: site, dst: d, symbol: symbol, args: args, routine: ast.noFunc)
 	return d
 end 'entry'
 
 // entryVoid calls a runtime entry that returns nothing.
-function entryVoid(mutates l Lowerer, mutates p ast.Project, site diag.Site, symbol Rt, args RegList)
+function entryVoid(mutates l Lowerer, p ast.Project, site diag.Site, symbol Rt, args RegList)
 	emitEntry(l, p: p, site: site, dst: noReg, symbol: symbol, args: args, routine: ast.noFunc)
 end 'entryVoid'
 
-function emitEntry(mutates l Lowerer, mutates p ast.Project, site diag.Site, dst Reg, symbol Rt, args RegList, routine ast.FuncID)
+function emitEntry(mutates l Lowerer, p ast.Project, site diag.Site, dst Reg, symbol Rt, args RegList, routine ast.FuncID)
 	let unit = rtUnit(symbol)
 	if unit == RtUnit.rtUnitOs 'os'
 		l.b.f.usesOs = true
@@ -63,17 +63,17 @@ function failUnlessBegin(mutates l Lowerer, cond Reg) returns BlockID
 end 'failUnlessBegin'
 
 // failUnlessEnd fails with the case errorCase of the error the operation throws, and goes on in the block ok.
-function failUnlessEnd(mutates l Lowerer, p ast.Project, errorCase Count, ok BlockID)
-	let stub = failure(l, p: p, errorCase: errorCase, err: noReg, errDrop: ast.noType)
+function failUnlessEnd(mutates l Lowerer, p ast.Project, ms ast.ModuleState, errorCase Count, ok BlockID)
+	let stub = failure(l, p: p, ms: ms, errorCase: errorCase, err: noReg, errDrop: ast.noType)
 	seal(l, t: newJump(stub))
 	l.cur = ok
 end 'failUnlessEnd'
 
 // failUnless continues only when cond holds, and otherwise fails with the case errorCase of the error the operation
 // throws.
-function failUnless(mutates l Lowerer, p ast.Project, cond Reg, errorCase Count)
+function failUnless(mutates l Lowerer, p ast.Project, ms ast.ModuleState, cond Reg, errorCase Count)
 	let ok = failUnlessBegin(l, cond: cond)
-	failUnlessEnd(l, p: p, errorCase: errorCase, ok: ok)
+	failUnlessEnd(l, p: p, ms: ms, errorCase: errorCase, ok: ok)
 end 'failUnless'
 
 // CountedLoop is a loop over the indexes from 0 to below a limit: the slots that hold them, and its top and its exit.
@@ -125,29 +125,29 @@ end 'countedLoopEnd'
 // elemPlace is the address of a[i] that a call taking it by address is given: the element of a primitive that a subscript
 // names, lent for as long as the primitive is not changed, or for a byte array a slot that holds the element
 // (arrayPlace).
-function elemPlace(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+function elemPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let obj = ast.indexExprObj(p.modules[l.mi].tree, id: e)
-	let coll = lowerRead(l, p: p, e: obj)
-	let index = indexValue(l, p: p, e: e)
+	let coll = lowerRead(l, p: p, ms: ms, e: obj)
+	let index = indexValue(l, p: p, ms: ms, e: e)
 	let collTy = exprType(p, module: l.module, node: obj)
-	if isArray(l, p: p, collection: collTy) 'array'
-		let box = arrayOf(l, p: p, site: siteOf(l, p: p, node: e), t: collTy)
-		return arrayPlace(l, p: p, box: box, arr: coll, index: index)
+	if isArray(l, p: p, ms: ms, collection: collTy) 'array'
+		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: collTy)
+		return arrayPlace(l, p: p, ms: ms, box: box, arr: coll, index: index)
 	end 'array'
-	return elemEntry(l, p: p, site: siteOf(l, p: p, node: e), collection: collTy, coll: coll, index: index)
+	return elemEntry(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), collection: collTy, coll: coll, index: index)
 end 'elemPlace'
 
 // builtinOf is the primitive type that a collection's type is, read through the binding and through a frozen value.
-function builtinOf(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID) returns ast.TypeID
-	let applied = applyType(l, p: p, t: collection)
-	return ast.contentType(p.types, t: applied)
+function builtinOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, collection ast.TypeID) returns ast.TypeID
+	let applied = applyType(l, p: p, ms: ms, t: collection)
+	return ast.contentType(ms.types, t: applied)
 end 'builtinOf'
 
 // indexType is the type of what goes between the brackets: a position for an array, a key for a map, and for a list or a
 // pool the handle of the element.
-function indexType(mutates p ast.Project, bt ast.TypeID) returns ast.TypeID
-	let kind = ast.typeKind(p.types, t: bt)
-	let args = ast.typeArgsOf(p.types, t: bt)
+function indexType(p ast.Project, mutates ms ast.ModuleState, bt ast.TypeID) returns ast.TypeID
+	let kind = ast.typeKind(ms.types, t: bt)
+	let args = ast.typeArgsOf(ms.types, t: bt)
 	if kind == ast.TypeKind.builtinArray 'array'
 		return p.builtins.countTy
 	end 'array'
@@ -157,45 +157,45 @@ function indexType(mutates p ast.Project, bt ast.TypeID) returns ast.TypeID
 	if kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'handle'
 		var of = ast.TypeIDList.create(0)
 		of.push(args[0])
-		return ast.instantiateType(p.types, origin: p.builtins.handleOrigin, args: of)
+		return ast.instantiateType(ms.types, origin: p.builtins.handleOrigin, args: of)
 	end 'handle'
-	panic("lower: {ast.typeName(p.types, t: bt)} has no elements to index")
+	panic("lower: {ast.typeName(ms.types, t: bt)} has no elements to index")
 end 'indexType'
 
 // elementType is the type of t[i]: what the primitive holds.
-function elementType(p ast.Project, bt ast.TypeID) returns ast.TypeID
-	let kind = ast.typeKind(p.types, t: bt)
-	let args = ast.typeArgsOf(p.types, t: bt)
+function elementType(p ast.Project, ms ast.ModuleState, bt ast.TypeID) returns ast.TypeID
+	let kind = ast.typeKind(ms.types, t: bt)
+	let args = ast.typeArgsOf(ms.types, t: bt)
 	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'one'
 		return args[0]
 	end 'one'
 	if kind == ast.TypeKind.builtinMap 'map'
 		return args[1]
 	end 'map'
-	panic("lower: {ast.typeName(p.types, t: bt)} has no elements")
+	panic("lower: {ast.typeName(ms.types, t: bt)} has no elements")
 end 'elementType'
 
-function indexValue(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
-	let bt = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: ast.indexExprObj(p.modules[l.mi].tree, id: e)))
-	let target = indexType(p, bt: bt)
+function indexValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	let bt = builtinOf(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: ast.indexExprObj(p.modules[l.mi].tree, id: e)))
+	let target = indexType(p, ms: ms, bt: bt)
 	let argsRef = ast.indexExprArgsRef(p.modules[l.mi].tree, id: e)
-	return lowerConverted(l, p: p, e: p.modules[l.mi].tree.listAt(argsRef, index: 0 as Count) as ast.NodeID, target: target)
+	return lowerConverted(l, p: p, ms: ms, e: p.modules[l.mi].tree.listAt(argsRef, index: 0 as Count) as ast.NodeID, target: target)
 end 'indexValue'
 
-function isArray(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID) returns bool
-	let bt = builtinOf(l, p: p, collection: collection)
-	return ast.typeKind(p.types, t: bt) == ast.TypeKind.builtinArray
+function isArray(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, collection ast.TypeID) returns bool
+	let bt = builtinOf(l, p: p, ms: ms, collection: collection)
+	return ast.typeKind(ms.types, t: bt) == ast.TypeKind.builtinArray
 end 'isArray'
 
-function isMap(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID) returns bool
-	let bt = builtinOf(l, p: p, collection: collection)
-	return ast.typeKind(p.types, t: bt) == ast.TypeKind.builtinMap
+function isMap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, collection ast.TypeID) returns bool
+	let bt = builtinOf(l, p: p, ms: ms, collection: collection)
+	return ast.typeKind(ms.types, t: bt) == ast.TypeKind.builtinMap
 end 'isMap'
 
 // elemEntry is the address of an element of a map, a list or a pool; an array's goes through arrayOf.
-function elemEntry(mutates l Lowerer, mutates p ast.Project, site diag.Site, collection ast.TypeID, coll Reg, index Reg) returns Reg
-	let bt = builtinOf(l, p: p, collection: collection)
-	let kind = ast.typeKind(p.types, t: bt)
+function elemEntry(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, collection ast.TypeID, coll Reg, index Reg) returns Reg
+	let bt = builtinOf(l, p: p, ms: ms, collection: collection)
+	let kind = ast.typeKind(ms.types, t: bt)
 	var symbol = Rt.rtNone
 	if kind == ast.TypeKind.builtinMap 'map'
 		symbol = Rt.rtMapElem
@@ -204,59 +204,59 @@ function elemEntry(mutates l Lowerer, mutates p ast.Project, site diag.Site, col
 	end 'list' else if kind == ast.TypeKind.builtinPool 'pool'
 		symbol = Rt.rtPoolElem
 	end 'pool' else 'other'
-		panic("lower: {ast.typeName(p.types, t: bt)} has no elements to address")
+		panic("lower: {ast.typeName(ms.types, t: bt)} has no elements to address")
 	end 'other'
 	return entry(l, p: p, site: site, symbol: symbol, kind: IrKind.kindScalar, args: argsOf2(coll, b: index))
 end 'elemEntry'
 
-function visitIndexExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+function visitIndexExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let obj = ast.indexExprObj(p.modules[l.mi].tree, id: e)
-	let coll = lowerRead(l, p: p, e: obj)
-	let index = indexValue(l, p: p, e: e)
+	let coll = lowerRead(l, p: p, ms: ms, e: obj)
+	let index = indexValue(l, p: p, ms: ms, e: e)
 	let collTy = exprType(p, module: l.module, node: obj)
-	if isArray(l, p: p, collection: collTy) 'array'
-		let box = arrayOf(l, p: p, site: siteOf(l, p: p, node: e), t: collTy)
-		return arrayLoad(l, p: p, box: box, arr: coll, index: index)
+	if isArray(l, p: p, ms: ms, collection: collTy) 'array'
+		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: collTy)
+		return arrayLoad(l, p: p, ms: ms, box: box, arr: coll, index: index)
 	end 'array'
-	let addr = elemEntry(l, p: p, site: siteOf(l, p: p, node: e), collection: collTy, coll: coll, index: index)
-	let d = newReg(l, kind: kindOf(l, p: p, t: exprType(p, module: l.module, node: e)))
+	let addr = elemEntry(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), collection: collTy, coll: coll, index: index)
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)))
 	emit(l, i: newLoadAt(d, addr: addr))
 	return d
 end 'visitIndexExpr'
 
 // assignElement stores into a[i]: the collection and the index are evaluated, then the value, and only then is the
 // element's address taken, so a value that changes the collection cannot leave the address stale.
-function assignElement(mutates l Lowerer, mutates p ast.Project, target ast.NodeID, value ast.NodeID)
+function assignElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, target ast.NodeID, value ast.NodeID)
 	let obj = ast.indexExprObj(p.modules[l.mi].tree, id: target)
-	let coll = lowerExpr(l, p: p, e: obj)
-	let index = indexValue(l, p: p, e: target)
-	let v = lowerExpr(l, p: p, e: value)
+	let coll = lowerExpr(l, p: p, ms: ms, e: obj)
+	let index = indexValue(l, p: p, ms: ms, e: target)
+	let v = lowerExpr(l, p: p, ms: ms, e: value)
 	let collTy = exprType(p, module: l.module, node: obj)
-	if isArray(l, p: p, collection: collTy) 'array'
-		let box = arrayOf(l, p: p, site: siteOf(l, p: p, node: target), t: collTy)
-		arrayStore(l, p: p, box: box, arr: coll, index: index, v: v)
+	if isArray(l, p: p, ms: ms, collection: collTy) 'array'
+		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: target), t: collTy)
+		arrayStore(l, p: p, ms: ms, box: box, arr: coll, index: index, v: v)
 		return
 	end 'array'
-	let addr = elemEntry(l, p: p, site: siteOf(l, p: p, node: target), collection: collTy, coll: coll, index: index)
-	dropAt(l, p: p, addr: addr, t: exprType(p, module: l.module, node: target))
+	let addr = elemEntry(l, p: p, ms: ms, site: siteOf(l, p: p, node: target), collection: collTy, coll: coll, index: index)
+	dropAt(l, p: p, ms: ms, addr: addr, t: exprType(p, module: l.module, node: target))
 	emit(l, i: newStoreAt(addr, src: v))
 end 'assignElement'
 
 // visitCollectionLitExpr builds the collection of a literal as the explicit code does: an empty one, then a push or an
 // upsert of each element in order. The collection is in flight while the elements are computed, and owns each one once it
 // is in.
-function visitCollectionLitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
-	return lowerCollectionLit(l, p: p, e: e, ty: exprType(p, module: l.module, node: e))
+function visitCollectionLitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	return lowerCollectionLit(l, p: p, ms: ms, e: e, ty: exprType(p, module: l.module, node: e))
 end 'visitCollectionLitExpr'
 
 // lowerCollectionLit builds the collection of type ty from the literal at e. A List takes the elements of an array
 // literal, appended in order.
-function lowerCollectionLit(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, ty ast.TypeID) returns Reg
+function lowerCollectionLit(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID) returns Reg
 	let site = siteOf(l, p: p, node: e)
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[l.mi].tree, id: e)
 	let valuesRef = ast.collectionLitExprValuesRef(p.modules[l.mi].tree, id: e)
 	let isMap = p.modules[l.mi].tree.listLen(valuesRef) > 0
-	let isList = ast.typeKind(p.types, t: ty) == ast.TypeKind.builtinList
+	let isList = ast.typeKind(ms.types, t: ty) == ast.TypeKind.builtinList
 	var collection = noReg
 	var box = ArrayBox.make(site.clone(), ty: ty)
 	if isMap 'map'
@@ -264,21 +264,21 @@ function lowerCollectionLit(mutates l Lowerer, mutates p ast.Project, e ast.Node
 	end 'map' else if isList 'list'
 		collection = entry(l, p: p, site: site, symbol: Rt.rtListNew, kind: IrKind.kindManaged, args: RegList.create(0))
 	end 'list' else 'array'
-		box = arrayOf(l, p: p, site: site, t: ty)
-		collection = arrayNew(l, p: p, box: box)
+		box = arrayOf(l, p: p, ms: ms, site: site, t: ty)
+		collection = arrayNew(l, p: p, ms: ms, box: box)
 	end 'array'
 	let mark = l.pending.count()
-	let flight = dropType(l, p: p, t: ty)
+	let flight = dropType(l, p: p, ms: ms, t: ty)
 	l.pending.push(PendingDrop.ofReg(collection, ty: flight))
 	for i in 0 upto p.modules[l.mi].tree.listLen(elemsRef) 'each'
-		let first = lowerExpr(l, p: p, e: p.modules[l.mi].tree.listAt(elemsRef, index: i) as ast.NodeID)
+		let first = lowerExpr(l, p: p, ms: ms, e: p.modules[l.mi].tree.listAt(elemsRef, index: i) as ast.NodeID)
 		if isMap 'upsert'
-			let value = lowerExpr(l, p: p, e: p.modules[l.mi].tree.listAt(valuesRef, index: i) as ast.NodeID)
+			let value = lowerExpr(l, p: p, ms: ms, e: p.modules[l.mi].tree.listAt(valuesRef, index: i) as ast.NodeID)
 			entryVoid(l, p: p, site: site, symbol: Rt.rtMapInsert, args: argsOf3(collection, b: first, c: value))
 		end 'upsert' else if isList 'append'
 			_ = entry(l, p: p, site: site, symbol: Rt.rtListPushBack, kind: IrKind.kindScalar, args: argsOf2(collection, b: first))
 		end 'append' else 'push'
-			arrayPush(l, p: p, box: box, arr: collection, v: first)
+			arrayPush(l, p: p, ms: ms, box: box, arr: collection, v: first)
 		end 'push'
 		popPending(l, n: succ(mark))
 	end 'each'
@@ -288,191 +288,191 @@ end 'lowerCollectionLit'
 
 // visitFromExpr lowers `Type from value`: an array or a list is the literal built as that type, and any other type is
 // built by its `init`, which the check recorded as a static call with the literal as its one argument.
-function visitFromExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+function visitFromExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let value = ast.fromExprValue(p.modules[l.mi].tree, id: e)
 	let ty = exprType(p, module: l.module, node: e)
 	if p.modules[l.mi].tree.kindOf(value) == ast.NodeKind.collectionLitExpr 'literal'
-		return lowerCollectionLit(l, p: p, e: value, ty: ty)
+		return lowerCollectionLit(l, p: p, ms: ms, e: value, ty: ty)
 	end 'literal'
 	var info = callInfoAt(p, module: l.module, node: e)
-	info.paramSpecs = p.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].params.clone()
+	info.paramSpecs = ms.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].params.clone()
 	var ordered = ast.NodeIDList.create(0)
 	ordered.push(value)
 	info.ordered = ordered.clone()
 	let c = CallSite.make(e, info: info, receiver: 0 as ast.NodeID, ordered: ordered)
-	return lowerCall(l, p: p, c: c)
+	return lowerCall(l, p: p, ms: ms, c: c)
 end 'visitFromExpr'
 
 // lowerIntrinsic lowers a call of a built-in method into the runtime entries of its primitive.
-function lowerIntrinsic(mutates l Lowerer, mutates p ast.Project, c CallSite) returns Reg
-	let op = p.funcs.slots[ast.funcSlot(c.info.fn)][ast.funcIndex(c.info.fn)].intrinsic
+function lowerIntrinsic(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns Reg
+	let op = ms.funcs.slots[ast.funcSlot(c.info.fn)][ast.funcIndex(c.info.fn)].intrinsic
 	if ownsOperands(op) 'owns'
-		return intrinsicCall(l, p: p, op: op, c: c, recv: noReg, args: RegList.create(0))
+		return intrinsicCall(l, p: p, ms: ms, op: op, c: c, recv: noReg, args: RegList.create(0))
 	end 'owns'
 	let mark = l.pending.count()
 	var recv = noReg
 	if c.receiver != 0 'receiver'
-		recv = lowerRead(l, p: p, e: c.receiver)
+		recv = lowerRead(l, p: p, ms: ms, e: c.receiver)
 	end 'receiver'
 	let base = l.args.count()
 	for i in 0 upto c.ordered.count() 'each'
-		let v = lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
+		let v = lowerConverted(l, p: p, ms: ms, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
 		pushArg(l, v: v)
 	end 'each'
 	// The primitive has the arguments now, and drops what it was given itself when it fails, as a callee does.
 	popPending(l, n: mark)
-	let result = intrinsicCall(l, p: p, op: op, c: c, recv: recv, args: argsSince(l, base: base))
+	let result = intrinsicCall(l, p: p, ms: ms, op: op, c: c, recv: recv, args: argsSince(l, base: base))
 	popArgs(l, n: base)
 	return result
 end 'lowerIntrinsic'
 
 // array is the runtime of the array a call makes or is made on.
-function arrayOfCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns ArrayBox
+function arrayOfCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns ArrayBox
 	if c.receiver == 0 'made'
-		return arrayOf(l, p: p, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node))
+		return arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node))
 	end 'made'
-	return arrayOf(l, p: p, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.receiver))
+	return arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.receiver))
 end 'arrayOfCall'
 
 // lowerArrayCreate is an array of count zero elements. An element with no zero value is refused unless count is 0, so
 // only an array of one with a zero value has slots to fill.
-export function lowerArrayCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return arrayZeroed(l, p: p, c: c, count: args[0])
+export function lowerArrayCreate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return arrayZeroed(l, p: p, ms: ms, c: c, count: args[0])
 end 'lowerArrayCreate'
 
 // arrayZeroed is the array of count zero elements that a call makes.
-function arrayZeroed(mutates l Lowerer, mutates p ast.Project, c CallSite, count Reg) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let out = arrayNew(l, p: p, box: a)
-	if hasZero(p, t: arrayElem(p, box: a)) 'zero'
+function arrayZeroed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, count Reg) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let out = arrayNew(l, p: p, ms: ms, box: a)
+	if hasZero(p, ms: ms, t: arrayElem(p, ms: ms, box: a)) 'zero'
 		let loop = countedLoopBegin(l, limit: count)
 		let i = countedLoopIndex(l, loop: loop)
 		let zero = konst(l, value: 0 as Word)
-		arrayInsert(l, p: p, box: a, arr: out, index: i, v: zero)
+		arrayInsert(l, p: p, ms: ms, box: a, arr: out, index: i, v: zero)
 		countedLoopEnd(l, loop: loop)
 	end 'zero'
 	return out
 end 'arrayZeroed'
 
 // statedCountOfCall is the count that the type of the fixed array a call makes states.
-function statedCountOfCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let n = try ast.statedCount(p.types, t: a.ty) as Word otherwise panic("lower: a fixed array's count is a word")
+function statedCountOfCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = try ast.statedCount(ms.types, t: a.ty) as Word otherwise panic("lower: a fixed array's count is a word")
 	return konst(l, value: n)
 end 'statedCountOfCall'
 
 // lowerFixedArrayCreate is a fixed array of the count its type states, of zero elements.
-function lowerFixedArrayCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let n = statedCountOfCall(l, p: p, c: c)
-	return arrayZeroed(l, p: p, c: c, count: n)
+function lowerFixedArrayCreate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let n = statedCountOfCall(l, p: p, ms: ms, c: c)
+	return arrayZeroed(l, p: p, ms: ms, c: c, count: n)
 end 'lowerFixedArrayCreate'
 
 // lowerFixedArrayFilled is a fixed array of the count its type states, of copies of the value.
-function lowerFixedArrayFilled(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let n = statedCountOfCall(l, p: p, c: c)
-	return arrayFilled(l, p: p, c: c, count: n, value: args[0])
+function lowerFixedArrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let n = statedCountOfCall(l, p: p, ms: ms, c: c)
+	return arrayFilled(l, p: p, ms: ms, c: c, count: n, value: args[0])
 end 'lowerFixedArrayFilled'
 
-function lowerFixedArrayCreateCounted(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return arrayZeroed(l, p: p, c: c, count: args[0])
+function lowerFixedArrayCreateCounted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return arrayZeroed(l, p: p, ms: ms, c: c, count: args[0])
 end 'lowerFixedArrayCreateCounted'
 
 // lowerFixedArrayCount is the count the type states, or the box's length for a runtime-sized fixed array.
-function lowerFixedArrayCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	if ast.statesCount(p.types, t: a.ty) 'stated'
-		let n = try ast.statedCount(p.types, t: a.ty) as Word otherwise panic("lower: a fixed array's count is a word")
+function lowerFixedArrayCount(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	if ast.statesCount(ms.types, t: a.ty) 'stated'
+		let n = try ast.statedCount(ms.types, t: a.ty) as Word otherwise panic("lower: a fixed array's count is a word")
 		return konst(l, value: n)
 	end 'stated'
-	return arrayLength(l, p: p, box: a, arr: recv)
+	return arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 end 'lowerFixedArrayCount'
 
 // lowerFixedArrayGetProven is a copy of the element at an index that the checker proved inside the count, which cannot
 // fail.
-function lowerFixedArrayGetProven(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let element = arrayLoad(l, p: p, box: a, arr: recv, index: args[0])
-	return copyValue(l, p: p, site: a.site, v: element, t: arrayElem(p, box: a))
+function lowerFixedArrayGetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let element = arrayLoad(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
+	return copyValue(l, p: p, ms: ms, site: a.site, v: element, t: arrayElem(p, ms: ms, box: a))
 end 'lowerFixedArrayGetProven'
 
 // lowerFixedArraySetProven replaces the element at an index that the checker proved inside the count.
-function lowerFixedArraySetProven(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayStore(l, p: p, box: a, arr: recv, index: args[0], v: args[1])
+function lowerFixedArraySetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayStore(l, p: p, ms: ms, box: a, arr: recv, index: args[0], v: args[1])
 	return konst(l, value: 0 as Word)
 end 'lowerFixedArraySetProven'
 
 // lowerFixedArrayRefill writes copies of the value over every element, which keeps the count.
-function lowerFixedArrayRefill(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let n = arrayLength(l, p: p, box: a, arr: recv)
-	arrayRefill(l, p: p, box: a, arr: recv, newLength: n, value: args[0])
+function lowerFixedArrayRefill(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
+	arrayRefill(l, p: p, ms: ms, box: a, arr: recv, newLength: n, value: args[0])
 	return konst(l, value: 0 as Word)
 end 'lowerFixedArrayRefill'
 
 // hasZero is whether the word 0 is a value of t, so that a slot nothing wrote holds one: an integer whose range takes 0,
 // or a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type
 // parameter have none.
-function hasZero(p ast.Project, t ast.TypeID) returns bool
-	let kind = ast.typeKind(p.types, t: t)
+function hasZero(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	let kind = ast.typeKind(ms.types, t: t)
 	if kind == ast.TypeKind.intRange 'range'
-		return p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].minVal.le(ast.I128.zero()) and ast.I128.zero().le(p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].maxVal)
+		return ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.le(ast.I128.zero()) and ast.I128.zero().le(ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].maxVal)
 	end 'range'
 	if kind == ast.TypeKind.floatRange 'float'
-		return ast.floatRangeHolds(p.types, t: t, bits: 0)
+		return ast.floatRangeHolds(ms.types, t: t, bits: 0)
 	end 'float'
 	return kind == ast.TypeKind.primBool
 end 'hasZero'
 
-function lowerArrayFilled(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return arrayFilled(l, p: p, c: c, count: args[0], value: args[1])
+function lowerArrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return arrayFilled(l, p: p, ms: ms, c: c, count: args[0], value: args[1])
 end 'lowerArrayFilled'
 
-function lowerArrayCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	return arrayLength(l, p: p, box: a, arr: recv)
+function lowerArrayCount(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 end 'lowerArrayCount'
 
-function lowerArrayIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let n = arrayLength(l, p: p, box: a, arr: recv)
+function lowerArrayIsEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 	return isZero(l, v: n)
 end 'lowerArrayIsEmpty'
 
 // lowerArrayGet is a copy of the element at index, which fails with indexOutOfBounds past the end, as maxon's get does.
-function lowerArrayGet(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	return arrayCopyAt(l, p: p, box: a, arr: recv, index: args[0])
+function lowerArrayGet(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return arrayCopyAt(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
 end 'lowerArrayGet'
 
 // lowerArraySet replaces the element at index, and fails with indexOutOfBounds past the end, dropping the value it was
 // given, as maxon's set does.
-function lowerArraySet(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let ok = arrayBoundsBegin(l, p: p, box: a, arr: recv, index: args[0])
-	dropValue(l, p: p, v: args[1], t: arrayElem(p, box: a))
-	failUnlessEnd(l, p: p, errorCase: ast.errorIndexOutOfBounds, ok: ok)
-	arrayStore(l, p: p, box: a, arr: recv, index: args[0], v: args[1])
+function lowerArraySet(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let ok = arrayBoundsBegin(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
+	dropValue(l, p: p, ms: ms, v: args[1], t: arrayElem(p, ms: ms, box: a))
+	failUnlessEnd(l, p: p, ms: ms, errorCase: ast.errorIndexOutOfBounds, ok: ok)
+	arrayStore(l, p: p, ms: ms, box: a, arr: recv, index: args[0], v: args[1])
 	return konst(l, value: 0 as Word)
 end 'lowerArraySet'
 
-export function lowerArrayPush(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayPush(l, p: p, box: a, arr: recv, v: args[0])
+export function lowerArrayPush(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayPush(l, p: p, ms: ms, box: a, arr: recv, v: args[0])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayPush'
 
 // lowerArrayAppend pushes a copy of each element of other, which the call only reads.
-function lowerArrayAppend(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayAppendCopy(l, p: p, box: a, arr: recv, other: args[0])
+function lowerArrayAppend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayAppendCopy(l, p: p, ms: ms, box: a, arr: recv, other: args[0])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayAppend'
 
 // lowerArrayInsert inserts at an index above the count at the end, as maxon's insert clamps it.
-function lowerArrayInsert(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let n = arrayLength(l, p: p, box: a, arr: recv)
+function lowerArrayInsert(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 	let at = l.b.f.newSlot(IrKind.kindScalar)
 	emit(l, i: newStoreSlot(at, src: args[0], borrow: false))
 	let clamp = l.b.newBlock()
@@ -483,310 +483,310 @@ function lowerArrayInsert(mutates l Lowerer, mutates p ast.Project, c CallSite, 
 	emit(l, i: newStoreSlot(at, src: n, borrow: false))
 	goTo(l, target: insert)
 	let index = load(l, slot: at)
-	arrayInsert(l, p: p, box: a, arr: recv, index: index, v: args[1])
+	arrayInsert(l, p: p, ms: ms, box: a, arr: recv, index: index, v: args[1])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayInsert'
 
-function lowerArrayRemove(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayInBounds(l, p: p, box: a, arr: recv, index: args[0])
-	return arrayRemove(l, p: p, box: a, arr: recv, index: args[0])
+function lowerArrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayInBounds(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
+	return arrayRemove(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
 end 'lowerArrayRemove'
 
-function lowerArrayDropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let n = arrayLength(l, p: p, box: a, arr: recv)
-	return dropEmpty(l, p: p, c: c, length: n, collection: recv)
+function lowerArrayDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
+	return dropEmpty(l, p: p, ms: ms, c: c, length: n, collection: recv)
 end 'lowerArrayDropEmpty'
 
-function lowerArrayPop(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let n = arrayLength(l, p: p, box: a, arr: recv)
+function lowerArrayPop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 	let present = nonZero(l, v: n)
-	failUnless(l, p: p, cond: present, errorCase: ast.errorIndexOutOfBounds)
+	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorIndexOutOfBounds)
 	let last = newReg(l, kind: IrKind.kindScalar)
 	let one = konst(l, value: 1 as Word)
 	emit(l, i: newBin(last, op: BinOp.binSub, left: n, right: one, unsigned: true, fail: noBlock))
-	return arrayRemove(l, p: p, box: a, arr: recv, index: last)
+	return arrayRemove(l, p: p, ms: ms, box: a, arr: recv, index: last)
 end 'lowerArrayPop'
 
 // lowerArrayClear drops every element and keeps the buffer.
-function lowerArrayClear(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayClear(l, p: p, box: a, arr: recv)
+function lowerArrayClear(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayClear(l, p: p, ms: ms, box: a, arr: recv)
 	return konst(l, value: 0 as Word)
 end 'lowerArrayClear'
 
 // lowerArrayTruncate drops the elements at and above the new length.
-function lowerArrayTruncate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayTruncate(l, p: p, box: a, arr: recv, newLength: args[0])
+function lowerArrayTruncate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayTruncate(l, p: p, ms: ms, box: a, arr: recv, newLength: args[0])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayTruncate'
 
 // lowerArrayReserve does nothing: the capacity of an array is no part of its value.
-function lowerArrayReserve(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerArrayReserve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return konst(l, value: 0 as Word)
 end 'lowerArrayReserve'
 
 // lowerArrayResize makes the array newLength elements long: it drops the ones above and pushes zeros below.
-function lowerArrayResize(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayTruncate(l, p: p, box: a, arr: recv, newLength: args[0])
-	arrayGrowZero(l, p: p, box: a, arr: recv, newLength: args[0])
+function lowerArrayResize(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayTruncate(l, p: p, ms: ms, box: a, arr: recv, newLength: args[0])
+	arrayGrowZero(l, p: p, ms: ms, box: a, arr: recv, newLength: args[0])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayResize'
 
-function lowerArraySlice(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	return arraySlice(l, p: p, box: a, arr: recv, start: args[0], endIndex: args[1])
+function lowerArraySlice(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return arraySlice(l, p: p, ms: ms, box: a, arr: recv, start: args[0], endIndex: args[1])
 end 'lowerArraySlice'
 
-function lowerArrayFirst(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
+function lowerArrayFirst(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let first = konst(l, value: 0 as Word)
-	return arrayCopyAt(l, p: p, box: a, arr: recv, index: first)
+	return arrayCopyAt(l, p: p, ms: ms, box: a, arr: recv, index: first)
 end 'lowerArrayFirst'
 
 // lowerArrayLast is a copy of the last element; the index of an empty array wraps above its length, so it fails with indexOutOfBounds.
-function lowerArrayLast(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let n = arrayLength(l, p: p, box: a, arr: recv)
+function lowerArrayLast(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 	let last = newReg(l, kind: IrKind.kindScalar)
 	let one = konst(l, value: 1 as Word)
 	emit(l, i: newBin(last, op: BinOp.binSub, left: n, right: one, unsigned: true, fail: noBlock))
-	return arrayCopyAt(l, p: p, box: a, arr: recv, index: last)
+	return arrayCopyAt(l, p: p, ms: ms, box: a, arr: recv, index: last)
 end 'lowerArrayLast'
 
-function lowerArrayContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	return arrayContains(l, p: p, box: a, arr: recv, value: args[0])
+function lowerArrayContains(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return arrayContains(l, p: p, ms: ms, box: a, arr: recv, value: args[0])
 end 'lowerArrayContains'
 
-function lowerArrayContainsSequence(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	return arrayContainsSequence(l, p: p, box: a, arr: recv, sequence: args[0])
+function lowerArrayContainsSequence(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return arrayContainsSequence(l, p: p, ms: ms, box: a, arr: recv, sequence: args[0])
 end 'lowerArrayContainsSequence'
 
-function lowerArrayEquals(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	return arrayEquals(l, p: p, box: a, arr: recv, other: args[0])
+function lowerArrayEquals(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return arrayEquals(l, p: p, ms: ms, box: a, arr: recv, other: args[0])
 end 'lowerArrayEquals'
 
 // lowerArrayGrowFilled pushes copies of the value up to the new length.
-function lowerArrayGrowFilled(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayGrowFilled(l, p: p, box: a, arr: recv, newLength: args[0], value: args[1])
+function lowerArrayGrowFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayGrowFilled(l, p: p, ms: ms, box: a, arr: recv, newLength: args[0], value: args[1])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayGrowFilled'
 
 // lowerArrayRefill makes the array copies of the value, as many as the new length.
-function lowerArrayRefill(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	arrayRefill(l, p: p, box: a, arr: recv, newLength: args[0], value: args[1])
+function lowerArrayRefill(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayRefill(l, p: p, ms: ms, box: a, arr: recv, newLength: args[0], value: args[1])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayRefill'
 
-function lowerMapCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerMapCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapNew, kind: IrKind.kindManaged, args: RegList.create(0))
 end 'lowerMapCreate'
 
-function lowerMapCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerMapCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerMapCount'
 
-function lowerMapIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerMapIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 	return isZero(l, v: n)
 end 'lowerMapIsEmpty'
 
-function lowerMapContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerMapContains(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapHas, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerMapContains'
 
 // lowerMapInsert adds a key the map does not have, and fails with keyAlreadyExists for one it has, dropping the key and
 // the value it was given.
-function lowerMapInsert(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerMapInsert(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
-	let bt = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: c.receiver))
+	let bt = builtinOf(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: c.receiver))
 	let has = entry(l, p: p, site: site, symbol: Rt.rtMapHas, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 	let absent = isZero(l, v: has)
 	let ok = failUnlessBegin(l, cond: absent)
-	let keyTy = indexType(p, bt: bt)
-	dropValue(l, p: p, v: args[0], t: keyTy)
-	dropValue(l, p: p, v: args[1], t: elementType(p, bt: bt))
-	failUnlessEnd(l, p: p, errorCase: ast.errorKeyAlreadyExists, ok: ok)
+	let keyTy = indexType(p, ms: ms, bt: bt)
+	dropValue(l, p: p, ms: ms, v: args[0], t: keyTy)
+	dropValue(l, p: p, ms: ms, v: args[1], t: elementType(p, ms: ms, bt: bt))
+	failUnlessEnd(l, p: p, ms: ms, errorCase: ast.errorKeyAlreadyExists, ok: ok)
 	entryVoid(l, p: p, site: site, symbol: Rt.rtMapInsert, args: argsOf3(recv, b: args[0], c: args[1]))
 	return konst(l, value: 0 as Word)
 end 'lowerMapInsert'
 
-function lowerMapUpsert(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerMapUpsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapInsert, args: argsOf3(recv, b: args[0], c: args[1]))
 	return konst(l, value: 0 as Word)
 end 'lowerMapUpsert'
 
-function lowerMapReplace(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return mapReplace(l, p: p, c: c, m: recv, key: args[0], value: args[1])
+function lowerMapReplace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return mapReplace(l, p: p, ms: ms, c: c, m: recv, key: args[0], value: args[1])
 end 'lowerMapReplace'
 
-function lowerMapDropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerMapDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return dropEmpty(l, p: p, c: c, length: n, collection: recv)
+	return dropEmpty(l, p: p, ms: ms, c: c, length: n, collection: recv)
 end 'lowerMapDropEmpty'
 
 // lowerMapRemove drops the value of a key the map has, and gives whether it had one.
-function lowerMapRemove(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let bt = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: c.receiver))
-	let value = elementType(p, bt: bt)
+function lowerMapRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let bt = builtinOf(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: c.receiver))
+	let value = elementType(p, ms: ms, bt: bt)
 	let site = siteOf(l, p: p, node: c.node)
 	let present = entry(l, p: p, site: site, symbol: Rt.rtMapHas, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 	let remove = l.b.newBlock()
 	let join = l.b.newBlock()
 	l.b.terminate(l.cur, t: newBranch(present, ifTrue: remove, ifFalse: join))
 	l.cur = remove
-	let kind = kindOf(l, p: p, t: value)
+	let kind = kindOf(l, p: p, ms: ms, t: value)
 	let removed = entry(l, p: p, site: site, symbol: Rt.rtMapRemove, kind: kind, args: argsOf2(recv, b: args[0]))
-	dropValue(l, p: p, v: removed, t: value)
+	dropValue(l, p: p, ms: ms, v: removed, t: value)
 	goTo(l, target: join)
 	return present
 end 'lowerMapRemove'
 
-function lowerListCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListNew, kind: IrKind.kindManaged, args: RegList.create(0))
 end 'lowerListCreate'
 
-function lowerListCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerListCount'
 
-function lowerListIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 	return isZero(l, v: n)
 end 'lowerListIsEmpty'
 
-function lowerListContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListContains(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListContains, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerListContains'
 
-function lowerListPrepend(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListPrepend(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPushFront, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerListPrepend'
 
-function lowerListAppend(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListAppend(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPushBack, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerListAppend'
 
-function lowerListRemoveFirst(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return removeEnd(l, p: p, c: c, pop: Rt.rtListPopFront, list: recv)
+function lowerListRemoveFirst(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return removeEnd(l, p: p, ms: ms, c: c, pop: Rt.rtListPopFront, list: recv)
 end 'lowerListRemoveFirst'
 
-function lowerListRemoveLast(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return removeEnd(l, p: p, c: c, pop: Rt.rtListPopBack, list: recv)
+function lowerListRemoveLast(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return removeEnd(l, p: p, ms: ms, c: c, pop: Rt.rtListPopBack, list: recv)
 end 'lowerListRemoveLast'
 
-function lowerListFirst(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListFirst(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListFirst, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return endHandle(l, p: p, handle: h)
+	return endHandle(l, p: p, ms: ms, handle: h)
 end 'lowerListFirst'
 
-function lowerListLast(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListLast(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLast, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return endHandle(l, p: p, handle: h)
+	return endHandle(l, p: p, ms: ms, handle: h)
 end 'lowerListLast'
 
-function lowerListNext(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListNext(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListNext, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-	return endHandle(l, p: p, handle: h)
+	return endHandle(l, p: p, ms: ms, handle: h)
 end 'lowerListNext'
 
-function lowerListPrev(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListPrev(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPrev, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-	return endHandle(l, p: p, handle: h)
+	return endHandle(l, p: p, ms: ms, handle: h)
 end 'lowerListPrev'
 
-function lowerListRemove(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return removeHandle(l, p: p, c: c, contains: Rt.rtListContains, remove: Rt.rtListRemove, collection: recv, handle: args[0])
+function lowerListRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return removeHandle(l, p: p, ms: ms, c: c, contains: Rt.rtListContains, remove: Rt.rtListRemove, collection: recv, handle: args[0])
 end 'lowerListRemove'
 
-function lowerListDropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return dropEmpty(l, p: p, c: c, length: n, collection: recv)
+	return dropEmpty(l, p: p, ms: ms, c: c, length: n, collection: recv)
 end 'lowerListDropEmpty'
 
-function lowerListMoveToFront(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerListMoveToFront(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListMoveToFront, args: argsOf2(recv, b: args[0]))
 	return konst(l, value: 0 as Word)
 end 'lowerListMoveToFront'
 
-function lowerPoolCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerPoolCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolNew, kind: IrKind.kindManaged, args: RegList.create(0))
 end 'lowerPoolCreate'
 
-function lowerPoolCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerPoolCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerPoolCount'
 
-function lowerPoolIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerPoolIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 	return isZero(l, v: n)
 end 'lowerPoolIsEmpty'
 
-function lowerPoolContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerPoolContains(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolContains, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerPoolContains'
 
-function lowerPoolInsert(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerPoolInsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolInsert, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerPoolInsert'
 
-function lowerPoolDropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerPoolDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return dropEmpty(l, p: p, c: c, length: n, collection: recv)
+	return dropEmpty(l, p: p, ms: ms, c: c, length: n, collection: recv)
 end 'lowerPoolDropEmpty'
 
-function lowerPoolRemove(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	return removeHandle(l, p: p, c: c, contains: Rt.rtPoolContains, remove: Rt.rtPoolRemove, collection: recv, handle: args[0])
+function lowerPoolRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return removeHandle(l, p: p, ms: ms, c: c, contains: Rt.rtPoolContains, remove: Rt.rtPoolRemove, collection: recv, handle: args[0])
 end 'lowerPoolRemove'
 
-function lowerStringByteLength(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringByteLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerStringByteLength'
 
-function lowerStringByteAt(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringByteAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtStrByteAt, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerStringByteAt'
 
-function lowerStringSliceBytes(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringSliceBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtStrSlice, kind: IrKind.kindManaged, args: argsOf3(recv, b: args[0], c: args[1]))
 end 'lowerStringSliceBytes'
 
 // lowerStringToByteArray is a new byte array of the string's UTF-8 bytes.
-function lowerStringToByteArray(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOf(l, p: p, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node))
-	let out = arrayNew(l, p: p, box: a)
-	arrayAppendText(l, p: p, box: a, arr: out, text: recv)
+function lowerStringToByteArray(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node))
+	let out = arrayNew(l, p: p, ms: ms, box: a)
+	arrayAppendText(l, p: p, ms: ms, box: a, arr: out, text: recv)
 	return out
 end 'lowerStringToByteArray'
 
 // lowerStringFrom is a string of a copy of the bytes, which the call only reads.
-function lowerStringFrom(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let a = arrayOf(l, p: p, site: siteOf(l, p: p, node: c.node), t: c.info.paramSpecs[0].ty)
-	return arrayText(l, p: p, box: a, arr: args[0])
+function lowerStringFrom(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), t: c.info.paramSpecs[0].ty)
+	return arrayText(l, p: p, ms: ms, box: a, arr: args[0])
 end 'lowerStringFrom'
 
 // dropEmpty ends a collection of the given length that the call consumes, and traps if an element is left: dropping it
 // would drop the element, which a type with a destructor must never be left to do.
-function dropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, length Reg, collection Reg) returns Reg
+function dropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, length Reg, collection Reg) returns Reg
 	let empty = isZero(l, v: length)
 	requireOrTrap(l, cond: empty, message: dropEmptyMessage)
-	dropValue(l, p: p, v: collection, t: exprType(p, module: l.module, node: c.receiver))
+	dropValue(l, p: p, ms: ms, v: collection, t: exprType(p, module: l.module, node: c.receiver))
 	return konst(l, value: 0 as Word)
 end 'dropEmpty'
 
 // moveOutAt reads the value at an address of the type t and leaves the place empty when t is owned, so that the place can
 // be written without dropping what was there.
-function moveOutAt(mutates l Lowerer, mutates p ast.Project, addr Reg, t ast.TypeID) returns Reg
-	let kind = kindOf(l, p: p, t: t)
+function moveOutAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, addr Reg, t ast.TypeID) returns Reg
+	let kind = kindOf(l, p: p, ms: ms, t: t)
 	let d = newReg(l, kind: kind)
 	if kind == IrKind.kindManaged 'managed'
 		emit(l, i: newMoveAt(d, addr: addr))
@@ -799,31 +799,31 @@ end 'moveOutAt'
 // lowerExchange moves the new value into a place and gives the value that was there to the caller, so the place is never
 // dropped and a type without Droppable can be replaced. The value is computed before the place is addressed, so that
 // computing it cannot leave the address stale.
-function lowerExchange(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let value = lowerConverted(l, p: p, e: c.ordered[1], target: c.info.paramSpecs[1].ty)
+function lowerExchange(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let value = lowerConverted(l, p: p, ms: ms, e: c.ordered[1], target: c.info.paramSpecs[1].ty)
 	let places = l.writeBacks.count()
-	let addr = address(l, p: p, e: c.ordered[0])
-	let old = moveOutAt(l, p: p, addr: addr, t: exprType(p, module: l.module, node: c.node))
+	let addr = address(l, p: p, ms: ms, e: c.ordered[0])
+	let old = moveOutAt(l, p: p, ms: ms, addr: addr, t: exprType(p, module: l.module, node: c.node))
 	emit(l, i: newStoreAt(addr, src: value))
-	writeBack(l, p: p, mark: places)
+	writeBack(l, p: p, ms: ms, mark: places)
 	return old
 end 'lowerExchange'
 
 // mapReplace is Map.upsert that gives back the value the key had: it moves that value out of its entry, and the insert
 // then finds the entry empty, keeps its place and drops nothing. A key the map does not have fails with keyNotFound,
 // dropping the key and the value it was given.
-function mapReplace(mutates l Lowerer, mutates p ast.Project, c CallSite, m Reg, key Reg, value Reg) returns Reg
-	let bt = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: c.receiver))
-	let elem = elementType(p, bt: bt)
+function mapReplace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, m Reg, key Reg, value Reg) returns Reg
+	let bt = builtinOf(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: c.receiver))
+	let elem = elementType(p, ms: ms, bt: bt)
 	let site = siteOf(l, p: p, node: c.node)
 	let has = entry(l, p: p, site: site, symbol: Rt.rtMapHas, kind: IrKind.kindScalar, args: argsOf2(m, b: key))
 	let ok = failUnlessBegin(l, cond: has)
-	let keyTy = indexType(p, bt: bt)
-	dropValue(l, p: p, v: key, t: keyTy)
-	dropValue(l, p: p, v: value, t: elem)
-	failUnlessEnd(l, p: p, errorCase: ast.errorKeyNotFound, ok: ok)
+	let keyTy = indexType(p, ms: ms, bt: bt)
+	dropValue(l, p: p, ms: ms, v: key, t: keyTy)
+	dropValue(l, p: p, ms: ms, v: value, t: elem)
+	failUnlessEnd(l, p: p, ms: ms, errorCase: ast.errorKeyNotFound, ok: ok)
 	let addr = entry(l, p: p, site: site, symbol: Rt.rtMapElem, kind: IrKind.kindScalar, args: argsOf2(m, b: key))
-	let old = moveOutAt(l, p: p, addr: addr, t: elem)
+	let old = moveOutAt(l, p: p, ms: ms, addr: addr, t: elem)
 	entryVoid(l, p: p, site: site, symbol: Rt.rtMapInsert, args: argsOf3(m, b: key, c: value))
 	return old
 end 'mapReplace'
@@ -840,60 +840,60 @@ end 'nonZero'
 
 // removeEnd moves the element at an end of a list out, and fails with indexOutOfBounds on an empty list, as maxon's List
 // does.
-function removeEnd(mutates l Lowerer, mutates p ast.Project, c CallSite, pop Rt, list Reg) returns Reg
+function removeEnd(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, pop Rt, list Reg) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let n = entry(l, p: p, site: site, symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(list))
 	let present = nonZero(l, v: n)
-	failUnless(l, p: p, cond: present, errorCase: ast.errorIndexOutOfBounds)
-	let kind = kindOf(l, p: p, t: exprType(p, module: l.module, node: c.node))
+	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorIndexOutOfBounds)
+	let kind = kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node))
 	return entry(l, p: p, site: site, symbol: pop, kind: kind, args: argsOf1(list))
 end 'removeEnd'
 
 // endHandle is the handle of a list's first or last node, or of the node after or before one, which the entry gives as 0
 // when there is none, where the operation fails with indexOutOfBounds.
-function endHandle(mutates l Lowerer, p ast.Project, handle Reg) returns Reg
+function endHandle(mutates l Lowerer, p ast.Project, ms ast.ModuleState, handle Reg) returns Reg
 	let present = nonZero(l, v: handle)
-	failUnless(l, p: p, cond: present, errorCase: ast.errorIndexOutOfBounds)
+	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorIndexOutOfBounds)
 	return handle
 end 'endHandle'
 
 // removeHandle moves the element a handle names out of a list or a pool, and fails with emptySlot for a handle that names
 // none, as maxon's emptied slot does.
-function removeHandle(mutates l Lowerer, mutates p ast.Project, c CallSite, contains Rt, remove Rt, collection Reg, handle Reg) returns Reg
+function removeHandle(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, contains Rt, remove Rt, collection Reg, handle Reg) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let named = entry(l, p: p, site: site, symbol: contains, kind: IrKind.kindScalar, args: argsOf2(collection, b: handle))
-	failUnless(l, p: p, cond: named, errorCase: ast.errorEmptySlot)
-	let kind = kindOf(l, p: p, t: exprType(p, module: l.module, node: c.node))
+	failUnless(l, p: p, ms: ms, cond: named, errorCase: ast.errorEmptySlot)
+	let kind = kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node))
 	return entry(l, p: p, site: site, symbol: remove, kind: kind, args: argsOf2(collection, b: handle))
 end 'removeHandle'
 
 // arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that every
 // element has an owner of its own.
-function arrayFilled(mutates l Lowerer, mutates p ast.Project, c CallSite, count Reg, value Reg) returns Reg
-	let a = arrayOfCall(l, p: p, c: c)
-	let out = arrayNew(l, p: p, box: a)
+function arrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, count Reg, value Reg) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let out = arrayNew(l, p: p, ms: ms, box: a)
 	let loop = countedLoopBegin(l, limit: count)
 	let i = countedLoopIndex(l, loop: loop)
-	let copy = copyValue(l, p: p, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, box: a))
-	arrayInsert(l, p: p, box: a, arr: out, index: i, v: copy)
+	let copy = copyValue(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, ms: ms, box: a))
+	arrayInsert(l, p: p, ms: ms, box: a, arr: out, index: i, v: copy)
 	countedLoopEnd(l, loop: loop)
-	dropValue(l, p: p, v: value, t: arrayElem(p, box: a))
+	dropValue(l, p: p, ms: ms, v: value, t: arrayElem(p, ms: ms, box: a))
 	return out
 end 'arrayFilled'
 
 // requireNative refuses, once for each site, a value of a type that holds a primitive the backend has no code for. A copy
 // or a drop of such a value is code that only the interpreter has, as the entries of the primitive itself are.
-function requireNative(mutates l Lowerer, mutates p ast.Project, site diag.Site, t ast.TypeID)
+function requireNative(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID)
 	var visiting = ast.TypeIDList.create(0)
-	if holdsInterpreterOnly(p, t: t, visiting: visiting) 'only'
+	if holdsInterpreterOnly(p, ms: ms, t: t, visiting: visiting) 'only'
 		refuse(l, site: site, code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
 	end 'only'
 end 'requireNative'
 
 // holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a map, a list or a pool. visiting are the
 // records and unions being walked, so a type that contains itself through an array ends.
-function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
-	let kind = ast.typeKind(p.types, t: t)
+function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
+	let kind = ast.typeKind(ms.types, t: t)
 	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
 		return false
 	end 'plain'
@@ -910,10 +910,10 @@ function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visit
 		return false
 	end 'interface'
 	if kind == ast.TypeKind.builtinArray 'array'
-		return holdsInterpreterOnly(p, t: elementType(p, bt: t), visiting: visiting)
+		return holdsInterpreterOnly(p, ms: ms, t: elementType(p, ms: ms, bt: t), visiting: visiting)
 	end 'array'
 	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown 'shared'
-		return holdsInterpreterOnly(p, t: heldType(p, t: t), visiting: visiting)
+		return holdsInterpreterOnly(p, ms: ms, t: heldType(p, ms: ms, t: t), visiting: visiting)
 	end 'shared'
 	if kind == ast.TypeKind.builtinMap or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'only'
 		return true
@@ -925,29 +925,29 @@ function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visit
 			end 'again'
 		end 'seen'
 		visiting.push(t)
-		let origin = p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].effectiveOrigin()
-		let params = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].typeParams)
-		let args = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].typeArgs)
+		let origin = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].effectiveOrigin()
+		let params = ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].typeParams)
+		let args = ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].typeArgs)
 		if kind == ast.TypeKind.record 'record'
-			for i in 0 upto p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].fields.count() 'fields'
-				let declared = p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].fields[i].ty
-				let field = ast.substituteType(p.types, t: declared, params: params, args: args)
-				if holdsInterpreterOnly(p, t: field, visiting: visiting) 'holds'
+			for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].fields.count() 'fields'
+				let declared = ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].fields[i].ty
+				let field = ast.substituteType(ms.types, t: declared, params: params, args: args)
+				if holdsInterpreterOnly(p, ms: ms, t: field, visiting: visiting) 'holds'
 					return true
 				end 'holds'
 			end 'fields'
 			return false
 		end 'record'
-		for i in 0 upto p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].cases.count() 'cases'
-			for j in 0 upto p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].cases[i].payload.count() 'payload'
-				let declared = p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].cases[i].payload[j].ty
-				let field = ast.substituteType(p.types, t: declared, params: params, args: args)
-				if holdsInterpreterOnly(p, t: field, visiting: visiting) 'holds'
+		for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases.count() 'cases'
+			for j in 0 upto ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[i].payload.count() 'payload'
+				let declared = ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[i].payload[j].ty
+				let field = ast.substituteType(ms.types, t: declared, params: params, args: args)
+				if holdsInterpreterOnly(p, ms: ms, t: field, visiting: visiting) 'holds'
 					return true
 				end 'holds'
 			end 'payload'
 		end 'cases'
 		return false
 	end 'nominal'
-	panic("lower: {ast.typeName(p.types, t: t)} has no layout the backend knows")
+	panic("lower: {ast.typeName(ms.types, t: t)} has no layout the backend knows")
 end 'holdsInterpreterOnly'

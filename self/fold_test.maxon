@@ -9,8 +9,8 @@ function foldRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.
 	var g = f.clone()
 	var fold = opt.Fold.new()
 	fold.foldFunction(g)
-	expectIr(label, got: ir.irText(p, f: g), want: want)
-	let problems = ir.verifyIr(p, f: g)
+	expectIr(label, got: ir.irText(p, tt: p.types, ft: p.funcs, f: g), want: want)
+	let problems = ir.verifyIr(p, tt: p.types, ft: p.funcs, f: g)
 	if problems.count() > 0 'refused'
 		panic("{label}: the verifier refuses it: {problems[0]}")
 	end 'refused'

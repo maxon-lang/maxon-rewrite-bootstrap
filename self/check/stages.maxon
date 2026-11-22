@@ -1,8 +1,19 @@
 // The stages of the check, each of one module: the driver runs them as tasks of its graph, a module's stage after the
-// module's stage before it and after the same stage of the modules it names.
+// module's stage before it and after the same stage of the modules it names. A stage takes its module's state `mutates`
+// and the project as the read-only outputs of the modules it waited on.
 
-// A ModuleState is what a module's check carries from one stage to the next.
+// EntryRole is what the declare of a module does about the program's entry function, which the declarations of every
+// module decide before the declare starts: nothing, check the module's main as the entry, or report it as a second one.
+export enum EntryRole
+	none
+	entry
+	second
+end 'EntryRole'
+
+// A ModuleState is what a module's check carries from one stage to the next, and what each of its stages writes: the
+// model's part of it (unit), which the driver lends the module for each task, and the checker's.
 export type ModuleState
+	export var unit as ast.ModuleState
 	export var checker as Checker
 	// paramsOk says for each declaration whether its type parameters were declared without an error.
 	export var paramsOk as ByteArray
@@ -10,9 +21,13 @@ export type ModuleState
 	export var functions as ast.FuncIDList
 	// constants are the module's constants in the order they are typed.
 	export var constants as OrdinalList
+	export var entryRole as EntryRole
+	// entry is the program's entry function, which the declare of the module whose role is entry finds.
+	export var entry as ast.FuncID
 
-	export static function make(consumes checker Checker) returns ModuleState
-		return ModuleState{checker: checker, paramsOk: ByteArray.create(0), functions: ast.FuncIDList.create(0), constants: OrdinalList.create(0)}
+	export static function make(consumes checker Checker, entryRole EntryRole) returns ModuleState
+		let module = checker.modID
+		return ModuleState{unit: ast.ModuleState.idle(module), checker: checker, paramsOk: ByteArray.create(0), functions: ast.FuncIDList.create(0), constants: OrdinalList.create(0), entryRole: entryRole, entry: ast.noFunc}
 	end 'make'
 end 'ModuleState'
 
@@ -21,15 +36,13 @@ end 'ModuleState'
 export type Checks
 	export var order as Array with diag.ModuleID
 	export var modules as Array with ModuleState
-	// entry is the function the program starts in, once the declare stage has found it.
-	export var entry as ast.FuncID
 	// makesProgram is whether the compile makes an executable, which needs a main even in the runtime's own project.
 	export var makesProgram as bool
 	// entryModule is the module whose declare checks the entry function, which the declarations alone decide.
 	export var entryModule as table.Option with Count
 
 	export static function make(consumes order Array with diag.ModuleID, makesProgram bool) returns Checks
-		return Checks{order: order, modules: Array.create(0), entry: ast.noFunc, makesProgram: makesProgram, entryModule: table.Option.none}
+		return Checks{order: order, modules: Array.create(0), makesProgram: makesProgram, entryModule: table.Option.none}
 	end 'make'
 end 'Checks'
 
@@ -53,12 +66,24 @@ export typealias FuncIDLists = Array with ast.FuncIDList
 // startChecks makes the check of every module of the project, which visits the modules in order.
 export function startChecks(mutates p ast.Project, consumes order Array with diag.ModuleID, makesProgram bool) returns Checks
 	var ch = Checks.make(order, makesProgram: makesProgram)
-	for i in 0 upto p.modules.count() 'each'
-		ch.modules.push(ModuleState.make(checkerStartMod(p, modIdx: i)))
-	end 'each'
 	ch.entryModule = firstEntryModule(ch, p: p)
+	for i in 0 upto p.modules.count() 'each'
+		let role = entryRoleOf(ch, p: p, modIdx: i)
+		ch.modules.push(ModuleState.make(checkerStartMod(p, modIdx: i), entryRole: role))
+	end 'each'
 	return ch
 end 'startChecks'
+
+// entryRoleOf is what the declare of the module does about the program's entry function.
+function entryRoleOf(ch Checks, p ast.Project, modIdx Count) returns EntryRole
+	if not mayHoldEntry(ch, p: p, modIdx: modIdx) or not declaresEntry(p, modIdx: modIdx) 'none'
+		return EntryRole.none
+	end 'none'
+	if isModule(ch.entryModule, modIdx: modIdx) 'entry'
+		return EntryRole.entry
+	end 'entry'
+	return EntryRole.second
+end 'entryRoleOf'
 
 // withoutTests is the functions that are not tests: a test is checked, and no program is made of it.
 function withoutTests(p ast.Project, consumes functions ast.FuncIDList) returns ast.FuncIDList
@@ -76,36 +101,37 @@ export function endChecks(mutates p ast.Project, consumes ch Checks) returns Che
 	var rest = ch
 	var functions = FuncIDLists.create(0)
 	var callers = FuncIDLists.create(0)
+	var entry = ast.noFunc
 	for i in 0 upto rest.modules.count() 'each'
+		if rest.modules[i].entryRole == EntryRole.entry 'entry'
+			entry = rest.modules[i].entry
+		end 'entry'
 		let modID = rest.modules[i].checker.modID
 		functions.push(withoutTests(p, functions: exchange(rest.modules[i].functions, value: ast.FuncIDList.create(0))))
 		callers.push(withoutTests(p, functions: exchange(rest.modules[i].checker.callers, value: ast.FuncIDList.create(0))))
 		let finished = exchange(rest.modules[i].checker, value: Checker.make(modID, typing: ast.Typing.new(modID)))
 		checkerEndMod(p, c: finished)
 	end 'each'
-	return Checked.make(rest.entry, order: exchange(rest.order, value: ModuleOrder.create(0)), functions: functions, callers: callers)
+	return Checked.make(entry, order: exchange(rest.order, value: ModuleOrder.create(0)), functions: functions, callers: callers)
 end 'endChecks'
 
 // moduleAliases declares the bounds of the type parameters of the module's types, then its typealiases of instances.
-export function moduleAliases(mutates ch Checks, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
-	ch.modules[m].paramsOk = declareTypeParamBounds(ch.modules[m].checker, p: p, errs: errs)
-	declareAliases(ch.modules[m].checker, p: p, errs: errs)
+export function moduleAliases(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+	state.paramsOk = declareTypeParamBounds(state.checker, p: p, ms: state.unit, errs: errs)
+	declareAliases(state.checker, p: p, ms: state.unit, errs: errs)
 end 'moduleAliases'
 
 // moduleDeclare declares the module's members and signatures, and checks the entry function where the module declares one:
 // the entry is the one that comes first in the order of the program's files, whatever directory it is in, and another
 // module that declares one has a duplicate.
-export function moduleDeclare(mutates ch Checks, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
-	let paramsOk = ch.modules[m].paramsOk.clone()
-	ch.modules[m].functions = declareModule(ch.modules[m].checker, p: p, paramsOk: paramsOk, errs: errs)
-	if not mayHoldEntry(ch, p: p, modIdx: m) or not declaresEntry(p, modIdx: m) 'noEntry'
-		return
-	end 'noEntry'
-	if isModule(ch.entryModule, modIdx: m) 'entry'
-		ch.entry = checkMain(ch.modules[m].checker, p: p, errs: errs)
-	end 'entry' else 'second'
-		reportSecondEntry(ch.modules[m].checker, p: p, errs: errs)
-	end 'second'
+export function moduleDeclare(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+	let paramsOk = state.paramsOk.clone()
+	state.functions = declareModule(state.checker, p: p, ms: state.unit, paramsOk: paramsOk, errs: errs)
+	match state.entryRole 'role'
+		none then return
+		entry then state.entry = checkMain(state.checker, p: p, errs: errs)
+		second then reportSecondEntry(state.checker, p: p, errs: errs)
+	end 'role'
 end 'moduleDeclare'
 
 // projectEntry is the part of the declare that is of no one module: the error of a program in which no module declares the
@@ -163,41 +189,41 @@ function holdsAnEntryModule(ch Checks, p ast.Project) returns bool
 end 'holdsAnEntryModule'
 
 // moduleConstantOrder orders the module's constants and raw values, each after the ones its value names.
-export function moduleConstantOrder(mutates ch Checks, p ast.Project, m Count, mutates errs diag.ErrorList)
-	ch.modules[m].constants = constantOrder(ch.modules[m].checker, p: p, errs: errs)
+export function moduleConstantOrder(mutates state ModuleState, p ast.Project, mutates errs diag.ErrorList)
+	state.constants = constantOrder(state.checker, p: p, ms: state.unit, errs: errs)
 end 'moduleConstantOrder'
 
 // moduleConstants types the module's constants and the raw values of its enums and unions, each after those it names.
-export function moduleConstants(mutates ch Checks, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
-	let order = ch.modules[m].constants.clone()
-	checkConstants(ch.modules[m].checker, p: p, order: order, errs: errs)
+export function moduleConstants(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+	let order = state.constants.clone()
+	checkConstants(state.checker, p: p, ms: state.unit, order: order, errs: errs)
 end 'moduleConstants'
 
 // moduleBodies types the module's type declarations and functions.
-export function moduleBodies(mutates ch Checks, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
-	let functions = ch.modules[m].functions.clone()
-	checkBodies(ch.modules[m].checker, p: p, declared: functions, errs: errs)
+export function moduleBodies(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+	let functions = state.functions.clone()
+	checkBodies(state.checker, p: p, ms: state.unit, declared: functions, errs: errs)
 end 'moduleBodies'
 
 // moduleVerify checks the calls and the type arguments that the module's bodies left for the modules they reach, then
 // follows the values of the module's declarations and functions. The passes that follow values run only on a module that
 // has no error yet.
-export function moduleVerify(mutates ch Checks, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
+export function moduleVerify(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
 	let mark = errs.count()
-	verifyExtensions(ch.modules[m].checker, p: p, errs: errs)
-	let valueTypes = ch.modules[m].checker.pendingValueTypes.clone()
-	verifyValueTypes(ch.modules[m].checker, p: p, written: valueTypes, errs: errs)
-	let calls = ch.modules[m].checker.pendingCalls.clone()
-	verifyCalls(ch.modules[m].checker, p: p, calls: calls, errs: errs)
-	let bounds = ch.modules[m].checker.pendingBounds.clone()
-	verifyBounds(ch.modules[m].checker, p: p, bounds: bounds, errs: errs)
-	let boxes = ch.modules[m].checker.pendingBoxes.clone()
-	verifyBoxes(ch.modules[m].checker, p: p, boxes: boxes, errs: errs)
-	let functions = ch.modules[m].functions.clone()
+	verifyExtensions(state.checker, p: p, ms: state.unit, errs: errs)
+	let valueTypes = state.checker.pendingValueTypes.clone()
+	verifyValueTypes(state.checker, p: p, ms: state.unit, written: valueTypes, errs: errs)
+	let calls = state.checker.pendingCalls.clone()
+	verifyCalls(state.checker, p: p, ms: state.unit, calls: calls, errs: errs)
+	let bounds = state.checker.pendingBounds.clone()
+	verifyBounds(state.checker, p: p, ms: state.unit, bounds: bounds, errs: errs)
+	let boxes = state.checker.pendingBoxes.clone()
+	verifyBoxes(state.checker, p: p, ms: state.unit, boxes: boxes, errs: errs)
+	let functions = state.functions.clone()
 	if not failedSince(errs, mark: mark) 'ranges'
-		checkRanges(ch.modules[m].checker, p: p, functions: functions, errs: errs)
+		checkRanges(state.checker, p: p, ms: state.unit, functions: functions, errs: errs)
 	end 'ranges'
 	if not failedSince(errs, mark: mark) 'ownership'
-		checkOwnership(ch.modules[m].checker, p: p, functions: functions, errs: errs)
+		checkOwnership(state.checker, p: p, ms: state.unit, functions: functions, errs: errs)
 	end 'ownership'
 end 'moduleVerify'

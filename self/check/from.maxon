@@ -8,39 +8,39 @@ let stringLiteralInterface = "InitableFromStringLiteral"
 
 // checkFromExpr types `Type from value`. The head is the name of the type, and the value a literal of the shape that type
 // is written from.
-function checkFromExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkFromExpr(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let head = ast.fromExprHead(p.modules[c.modIdx].tree, id: e)
 	let value = ast.fromExprValue(p.modules[c.modIdx].tree, id: e)
 	var ty = ast.noType
 	if p.modules[c.modIdx].tree.kindOf(head) == ast.NodeKind.nameExpr 'name'
 		let mark = errs.count()
-		ty = typeNamed(c, p: p, name: head, errs: errs)
+		ty = typeNamed(c, p: p, ms: ms, name: head, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return ast.noType
 		end 'failed'
 	end 'name'
 	if ty == ast.noType 'unnamed'
 		let mark = errs.count()
-		_ = checkExpr(c, p: p, e: head, errs: errs)
+		_ = checkExpr(c, p: p, ms: ms, e: head, errs: errs)
 		if failedSince(errs, mark: mark) 'undefined'
 			return ast.noType
 		end 'undefined'
 		failAt(c, p: p, node: head, code: diag.errUnknownType, msg: "'{placeText(p.modules[c.modIdx].tree, e: head)}' names no type: 'from' follows the name of the type that is written from the value", errs: errs)
 		return ast.noType
 	end 'unnamed'
-	let kind = ast.typeKind(p.types, t: ty)
+	let kind = ast.typeKind(ms.types, t: ty)
 	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList 'collection'
-		return checkFromCollection(c, p: p, e: e, ty: ty, value: value, errs: errs)
+		return checkFromCollection(c, p: p, ms: ms, e: e, ty: ty, value: value, errs: errs)
 	end 'collection'
-	return checkFromString(c, p: p, head: head, e: e, ty: ty, value: value, errs: errs)
+	return checkFromString(c, p: p, ms: ms, head: head, e: e, ty: ty, value: value, errs: errs)
 end 'checkFromExpr'
 
 // checkFromCollection types an array or a list written from an array literal. A head that is an instance states the
 // element type, which each element must fit; the bare name takes the one the elements give.
-function checkFromCollection(mutates c Checker, mutates p ast.Project, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let name = nameOfType(p, t: ty)
+function checkFromCollection(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let name = nameOfType(p, ms: ms, t: ty)
 	if p.modules[c.modIdx].tree.kindOf(value) != ast.NodeKind.collectionLitExpr 'notLiteral'
-		if ast.typeKind(p.types, t: ty) == ast.TypeKind.builtinList 'list'
+		if ast.typeKind(ms.types, t: ty) == ast.TypeKind.builtinList 'list'
 			failAt(c, p: p, node: value, code: diag.errUnsupportedFeature, msg: "Unsupported: '{name} from' an array value; write the elements as a literal: '{name} from [a, b]'", errs: errs)
 			return ast.noType
 		end 'list'
@@ -51,21 +51,21 @@ function checkFromCollection(mutates c Checker, mutates p ast.Project, e ast.Nod
 		failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal, and this one gives keys: '{name} from [a, b]'", errs: errs)
 		return ast.noType
 	end 'map'
-	if ast.originOf(p.types, t: ty) == p.builtins.fixedArrayOrigin 'fixed'
-		return checkFromFixedArray(c, p: p, e: e, ty: ty, value: value, errs: errs)
+	if ast.originOf(ms.types, t: ty) == p.builtins.fixedArrayOrigin 'fixed'
+		return checkFromFixedArray(c, p: p, ms: ms, e: e, ty: ty, value: value, errs: errs)
 	end 'fixed'
-	let bare = p.types.lists[ast.typeList(p.types, t: ty)][ast.typeIndex(p.types, t: ty)].typeParams.count() > 0
+	let bare = ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].typeParams.count() > 0
 	var want = ast.noType
 	if not bare 'stated'
 		want = ty
-		if ast.typeKind(p.types, t: ty) == ast.TypeKind.builtinList 'list'
+		if ast.typeKind(ms.types, t: ty) == ast.TypeKind.builtinList 'list'
 			var args = ast.TypeIDList.create(0)
-			args.push(ast.typeArgAt(p.types, t: ty, index: 0))
+			args.push(ast.typeArgAt(ms.types, t: ty, index: 0))
 			let arrayOrigin = p.builtins.arrayOrigin
-			want = instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: arrayOrigin, args: args, errs: errs)
+			want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: arrayOrigin, args: args, errs: errs)
 		end 'list'
 	end 'stated'
-	let literal = checkExpecting(c, p: p, e: value, want: want, errs: errs)
+	let literal = checkExpecting(c, p: p, ms: ms, e: value, want: want, errs: errs)
 	if literal == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
@@ -73,30 +73,30 @@ function checkFromCollection(mutates c Checker, mutates p ast.Project, e ast.Nod
 		return ty
 	end 'given'
 	var args = ast.TypeIDList.create(0)
-	args.push(ast.typeArgAt(p.types, t: literal, index: 0))
-	return instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: ty, args: args, errs: errs)
+	args.push(ast.typeArgAt(ms.types, t: literal, index: 0))
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: ty, args: args, errs: errs)
 end 'checkFromCollection'
 
 // checkFromFixedArray types a fixed array written from an array literal: an array of the element its head states, or of
 // the one the elements give, whose count is the literal's. A head that states a count takes a literal of as many elements.
-function checkFromFixedArray(mutates c Checker, mutates p ast.Project, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let bare = p.types.lists[ast.typeList(p.types, t: ty)][ast.typeIndex(p.types, t: ty)].typeParams.count() > 0
+function checkFromFixedArray(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let bare = ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].typeParams.count() > 0
 	var want = ast.noType
 	if not bare 'stated'
 		var args = ast.TypeIDList.create(0)
-		args.push(ast.typeArgAt(p.types, t: ty, index: 0))
+		args.push(ast.typeArgAt(ms.types, t: ty, index: 0))
 		let arrayOrigin = p.builtins.arrayOrigin
-		want = instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: arrayOrigin, args: args, errs: errs)
+		want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: arrayOrigin, args: args, errs: errs)
 	end 'stated'
-	let literal = checkExpecting(c, p: p, e: value, want: want, errs: errs)
+	let literal = checkExpecting(c, p: p, ms: ms, e: value, want: want, errs: errs)
 	if literal == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
 	let written = p.modules[c.modIdx].tree.listLen(ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: value)) as Count
-	if ast.statesCount(p.types, t: ty) 'counted'
-		let count = ast.statedCount(p.types, t: ty)
+	if ast.statesCount(ms.types, t: ty) 'counted'
+		let count = ast.statedCount(ms.types, t: ty)
 		if written != count 'otherCount'
-			failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{nameOfType(p, t: ty)}' holds {count} elements, and the literal writes {written}: write exactly {count}", errs: errs)
+			failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{nameOfType(p, ms: ms, t: ty)}' holds {count} elements, and the literal writes {written}: write exactly {count}", errs: errs)
 			return ast.noType
 		end 'otherCount'
 		return ty
@@ -104,21 +104,21 @@ function checkFromFixedArray(mutates c Checker, mutates p ast.Project, e ast.Nod
 	var unsized = ty
 	if bare 'bare'
 		var args = ast.TypeIDList.create(0)
-		args.push(ast.typeArgAt(p.types, t: literal, index: 0))
-		unsized = instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: ty, args: args, errs: errs)
+		args.push(ast.typeArgAt(ms.types, t: literal, index: 0))
+		unsized = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: ty, args: args, errs: errs)
 		if unsized == ast.noType 'badElement'
 			return ast.noType
 		end 'badElement'
 	end 'bare'
-	return ast.countedType(p.types, unsized: unsized, count: written)
+	return ast.countedType(ms.types, unsized: unsized, count: written)
 end 'checkFromFixedArray'
 
 // implementsNamed is whether the declaration of t says it implements an interface of that name, whichever declaration of
 // the name that is: Maxon finds a type's conformance to the literal interfaces by their names.
-function implementsNamed(p ast.Project, t ast.TypeID, name String) returns bool
-	let conforms = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: t))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: t))].conforms)
+function implementsNamed(p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns bool
+	let conforms = ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: t))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: t))].conforms)
 	for i in 0 upto conforms.count() 'each'
-		if p.types.lists[ast.typeList(p.types, t: conforms[i])][ast.typeIndex(p.types, t: conforms[i])].name == name 'named'
+		if ms.types.lists[ast.typeList(ms.types, t: conforms[i])][ast.typeIndex(ms.types, t: conforms[i])].name == name 'named'
 			return true
 		end 'named'
 	end 'each'
@@ -126,30 +126,30 @@ function implementsNamed(p ast.Project, t ast.TypeID, name String) returns bool
 end 'implementsNamed'
 
 // checkFromString types a type written from a string literal, which is a call of its `init` with the literal.
-function checkFromString(mutates c Checker, mutates p ast.Project, head ast.NodeID, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let name = nameOfType(p, t: ty)
+function checkFromString(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, head ast.NodeID, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let name = nameOfType(p, ms: ms, t: ty)
 	if p.modules[c.modIdx].tree.kindOf(value) != ast.NodeKind.strLit 'notLiteral'
 		failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes a string literal: '{name} from \"text\"'", errs: errs)
 		return ast.noType
 	end 'notLiteral'
-	if not implementsNamed(p, t: ty, name: stringLiteralInterface) 'doesNotConform'
+	if not implementsNamed(p, ms: ms, t: ty, name: stringLiteralInterface) 'doesNotConform'
 		failAt(c, p: p, node: head, code: diag.errTypeMismatch, msg: diag.typeDoesNotConform(name, interfaceName: stringLiteralInterface), errs: errs)
 		return ast.noType
 	end 'doesNotConform'
-	let init = methodNamed(p, t: ty, name: initName)
-	if init == ast.noFunc or not p.funcs.slots[ast.funcSlot(init)][ast.funcIndex(init)].isStatic 'missing'
+	let init = methodNamed(p, ms: ms, t: ty, name: initName)
+	if init == ast.noFunc or not ms.funcs.slots[ast.funcSlot(init)][ast.funcIndex(init)].isStatic 'missing'
 		failAt(c, p: p, node: e, code: diag.errUnknownFunction, msg: diag.undefinedFunction("{name}.{initName}"), errs: errs)
 		return ast.noType
 	end 'missing'
-	if not requireVisible(c, p: p, node: e, target: init, errs: errs) 'hidden'
+	if not requireVisible(c, p: p, ms: ms, node: e, target: init, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'
 	let stringTy = p.builtins.stringTy
-	if checkExpecting(c, p: p, e: value, want: stringTy, errs: errs) == ast.noType 'failed'
+	if checkExpecting(c, p: p, ms: ms, e: value, want: stringTy, errs: errs) == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
 	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: init, receiverTy: ast.noType)
-	info.intrinsic = p.funcs.slots[ast.funcSlot(init)][ast.funcIndex(init)].intrinsic
+	info.intrinsic = ms.funcs.slots[ast.funcSlot(init)][ast.funcIndex(init)].intrinsic
 	c.typing.calls.insert(e as Count, value: info)
 	return ty
 end 'checkFromString'

@@ -107,16 +107,16 @@ export type AccessPath
 end 'AccessPath'
 
 // fieldName is the name of the field a step selects.
-function fieldName(p ast.Project, step PathStep) returns String
-	return p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: step.owner))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: step.owner))].fields[step.field].name.clone()
+function fieldName(p ast.Project, ms ast.ModuleState, step PathStep) returns String
+	return ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: step.owner))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: step.owner))].fields[step.field].name.clone()
 end 'fieldName'
 
 // fieldIsVar is whether the field a step selects may be assigned.
-function fieldIsVar(p ast.Project, step PathStep) returns bool
-	return p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: step.owner))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: step.owner))].fields[step.field].isVar
+function fieldIsVar(p ast.Project, ms ast.ModuleState, step PathStep) returns bool
+	return ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: step.owner))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: step.owner))].fields[step.field].isVar
 end 'fieldIsVar'
 
-function pathText(o Ownership, p ast.Project, path AccessPath) returns String
+function pathText(o Ownership, p ast.Project, ms ast.ModuleState, path AccessPath) returns String
 	var b = ByteArray.create(0)
 	b.append(o.c.typing.locals[path.root as Count].name.toByteArray())
 	for i in 0 upto path.steps.count() 'each'
@@ -124,7 +124,7 @@ function pathText(o Ownership, p ast.Project, path AccessPath) returns String
 		if k == StepKind.stepElement 'element'
 			b.append("[{placeText(p.modules[o.c.modIdx].tree, e: path.steps[i].index)}]".toByteArray())
 		end 'element' else if k == StepKind.stepField 'field'
-			b.append(".{fieldName(p, step: path.steps[i])}".toByteArray())
+			b.append(".{fieldName(p, ms: ms, step: path.steps[i])}".toByteArray())
 		end 'field'
 	end 'each'
 	return String.from(b)
@@ -152,17 +152,17 @@ function placeText(tree ast.Tree, e ast.NodeID) returns String
 end 'placeText'
 
 // withContents appends the steps from a value of type t to what it lends: one for each frozen value that t nests.
-function withContents(p ast.Project, mutates steps PathSteps, t ast.TypeID)
+function withContents(p ast.Project, ms ast.ModuleState, mutates steps PathSteps, t ast.TypeID)
 	var cur = t
-	while cur != ast.noType and ast.typeKind(p.types, t: cur) == ast.TypeKind.builtinFrozen 'frozen'
+	while cur != ast.noType and ast.typeKind(ms.types, t: cur) == ast.TypeKind.builtinFrozen 'frozen'
 		steps.push(PathStep.contents())
-		cur = ast.typeArgAt(p.types, t: cur, index: 0)
+		cur = ast.typeArgAt(ms.types, t: cur, index: 0)
 	end 'frozen'
 end 'withContents'
 
 // pathOf is the place an expression names, or a path with no root for an expression that computes a fresh value. A bare
 // field name selects from the receiver of the function being checked.
-function pathOf(o Ownership, p ast.Project, e ast.NodeID) returns AccessPath
+function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns AccessPath
 	let n = ast.through(p.modules[o.c.modIdx].tree, e: e)
 	let k = p.modules[o.c.modIdx].tree.kindOf(n)
 	if k == ast.NodeKind.nameExpr 'name'
@@ -171,7 +171,7 @@ function pathOf(o Ownership, p ast.Project, e ast.NodeID) returns AccessPath
 			return AccessPath.at(name.local)
 		end 'local'
 		if name.kind == ast.NameKind.nameSelfField 'selfField'
-			let receiver = selfLocalOf(o, p: p)
+			let receiver = selfLocalOf(o, p: p, ms: ms)
 			var path = AccessPath.at(receiver)
 			path.steps.push(PathStep.fieldOf(o.c.typing.locals[receiver as Count].ty, field: name.fieldIndex))
 			return path
@@ -179,7 +179,7 @@ function pathOf(o Ownership, p ast.Project, e ast.NodeID) returns AccessPath
 		return AccessPath.none()
 	end 'name'
 	if k == ast.NodeKind.selfExpr 'self'
-		return AccessPath.at(selfLocalOf(o, p: p))
+		return AccessPath.at(selfLocalOf(o, p: p, ms: ms))
 	end 'self'
 	if k == ast.NodeKind.memberExpr 'member'
 		let member = ownMember(o, node: n)
@@ -187,21 +187,21 @@ function pathOf(o Ownership, p ast.Project, e ast.NodeID) returns AccessPath
 			return AccessPath.none()
 		end 'notField'
 		let obj = ast.memberExprObj(p.modules[o.c.modIdx].tree, id: n)
-		var path = pathOf(o, p: p, e: obj)
+		var path = pathOf(o, p: p, ms: ms, e: obj)
 		if not path.isPlace() 'fresh'
 			return path
 		end 'fresh'
-		withContents(p, steps: path.steps, t: ownType(o, node: obj))
+		withContents(p, ms: ms, steps: path.steps, t: ownType(o, node: obj))
 		path.steps.push(PathStep.fieldOf(member.ownerTy, field: member.fieldIndex))
 		return path
 	end 'member'
 	if k == ast.NodeKind.indexExpr 'index'
 		let obj = ast.indexExprObj(p.modules[o.c.modIdx].tree, id: n)
-		var path = pathOf(o, p: p, e: obj)
+		var path = pathOf(o, p: p, ms: ms, e: obj)
 		if not path.isPlace() 'fresh'
 			return path
 		end 'fresh'
-		withContents(p, steps: path.steps, t: ownType(o, node: obj))
+		withContents(p, ms: ms, steps: path.steps, t: ownType(o, node: obj))
 		path.steps.push(PathStep.element(indexArg(p.modules[o.c.modIdx].tree, e: n)))
 		return path
 	end 'index'

@@ -239,22 +239,22 @@ function regKind(l Lowerer, v Reg) returns IrKind
 end 'regKind'
 
 // kindOfType is the kind of a value of a type.
-function kindOfType(p ast.Project, t ast.TypeID) returns IrKind
-	if ast.isManagedType(p.types, t: t) 'managed'
+function kindOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns IrKind
+	if ast.isManagedType(ms.types, t: t) 'managed'
 		return IrKind.kindManaged
 	end 'managed'
 	return IrKind.kindScalar
 end 'kindOfType'
 
 // applyType is a type of the body with the type parameters of the function replaced by their arguments.
-function applyType(l Lowerer, mutates p ast.Project, t ast.TypeID) returns ast.TypeID
-	return ast.substituteType(p.types, t: t, params: l.bindParams, args: l.bindArgs)
+function applyType(l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
+	return ast.substituteType(ms.types, t: t, params: l.bindParams, args: l.bindArgs)
 end 'applyType'
 
 // kindOf is the kind of a value of a type the body names, which may be a type parameter of the function.
-function kindOf(l Lowerer, mutates p ast.Project, t ast.TypeID) returns IrKind
-	let applied = applyType(l, p: p, t: t)
-	return kindOfType(p, t: applied)
+function kindOf(l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns IrKind
+	let applied = applyType(l, p: p, ms: ms, t: t)
+	return kindOfType(p, ms: ms, t: applied)
 end 'kindOf'
 
 export function emit(mutates l Lowerer, consumes i Instr)

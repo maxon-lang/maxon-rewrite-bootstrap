@@ -3310,7 +3310,7 @@ export function visitTerm(mutates visitor V, f IrFunction, t Term) uses V where 
 end 'visitTerm'
 
 // instrText is the text the printer gives an instruction, as Go's InstrString does.
-export function instrText(p ast.Project, f IrFunction, x Instr) returns String
+export function instrText(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f IrFunction, x Instr) returns String
 	if x.op == Opcode.opConst 'opConst'
 		return "{resultText(x.dst)}const {constValue(x)}"
 	end 'opConst'
@@ -3385,7 +3385,7 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		return "{resultText(x.dst)}callcode({f.regsText(callCodeArgsStart(x), count: callCodeArgsCount(x))})"
 	end 'opCallCode'
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
-		return "{resultText(x.dst)}codeaddr {funcSymbol(p, fid: codeAddressCallee(f, x: x))}"
+		return "{resultText(x.dst)}codeaddr {funcSymbol(p, tt: tt, ft: ft, fid: codeAddressCallee(f, x: x))}"
 	end 'opCodeAddress'
 	if x.op == Opcode.opBin 'opBin'
 		var text = "{resultText(x.dst)}{binOpText(binOp(x))}"
@@ -3443,7 +3443,7 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		return "{resultText(x.dst)}alloc {allocBytes(x)}"
 	end 'opAlloc'
 	if x.op == Opcode.opCall 'opCall'
-		var text = "{resultText(x.dst)}call {funcSymbol(p, fid: callCallee(f, x: x))}({f.regsText(callArgsStart(x), count: callArgsCount(x))})"
+		var text = "{resultText(x.dst)}call {funcSymbol(p, tt: tt, ft: ft, fid: callCallee(f, x: x))}({f.regsText(callArgsStart(x), count: callArgsCount(x))})"
 		if callHasErrReg(x) 'errReg'
 			text = "{text} error %{callErrReg(x).unwrap()}"
 		end 'errReg'
@@ -3452,7 +3452,7 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 	if x.op == Opcode.opCallRuntime 'opCallRuntime'
 		var text = "{resultText(x.dst)}runtime {rtText(callRuntimeSymbol(x))}({f.regsText(callRuntimeArgsStart(x), count: callRuntimeArgsCount(x))})"
 		if callRuntimeHasRoutine(x) 'routine'
-			text = "{text} routine {funcSymbol(p, fid: callRuntimeRoutine(f, x: x).unwrap())}"
+			text = "{text} routine {funcSymbol(p, tt: tt, ft: ft, fid: callRuntimeRoutine(f, x: x).unwrap())}"
 		end 'routine'
 		return text
 	end 'opCallRuntime'
@@ -3463,7 +3463,7 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		return "{resultText(x.dst)}closure {f.bodyName(closureBody(f, x: x))} [{f.regsText(closureCapturesStart(x), count: closureCapturesCount(x))}]"
 	end 'opClosure'
 	if x.op == Opcode.opFuncValue 'opFuncValue'
-		return "{resultText(x.dst)}funcvalue {funcSymbol(p, fid: funcValueCallee(f, x: x))}"
+		return "{resultText(x.dst)}funcvalue {funcSymbol(p, tt: tt, ft: ft, fid: funcValueCallee(f, x: x))}"
 	end 'opFuncValue'
 	if x.op == Opcode.opCallValue 'opCallValue'
 		return "{resultText(x.dst)}callvalue({f.regsText(callValueArgsStart(x), count: callValueArgsCount(x))})"
@@ -3482,16 +3482,16 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		return text
 	end 'opCallWitness'
 	if x.op == Opcode.opIsType 'opIsType'
-		return "{resultText(x.dst)}istype %{isTypeSrc(x)} {ast.typeName(p.types, t: isTypeTy(f, x: x))}"
+		return "{resultText(x.dst)}istype %{isTypeSrc(x)} {ast.typeName(tt, t: isTypeTy(f, x: x))}"
 	end 'opIsType'
 	if x.op == Opcode.opDrop 'opDrop'
-		return "drop %{dropSrc(x)} {ast.typeName(p.types, t: dropTy(f, x: x))}"
+		return "drop %{dropSrc(x)} {ast.typeName(tt, t: dropTy(f, x: x))}"
 	end 'opDrop'
 	if x.op == Opcode.opDropSlot 'opDropSlot'
-		return "dropslot s{dropSlotSlot(x)} {ast.typeName(p.types, t: dropSlotTy(f, x: x))}"
+		return "dropslot s{dropSlotSlot(x)} {ast.typeName(tt, t: dropSlotTy(f, x: x))}"
 	end 'opDropSlot'
 	if x.op == Opcode.opDropAt 'opDropAt'
-		return "dropat %{dropAtAddr(x)} {ast.typeName(p.types, t: dropAtTy(f, x: x))}"
+		return "dropat %{dropAtAddr(x)} {ast.typeName(tt, t: dropAtTy(f, x: x))}"
 	end 'opDropAt'
 	if x.op == Opcode.opMoveSlot 'opMoveSlot'
 		return "{resultText(x.dst)}move s{moveSlotSlot(x)}"
@@ -3500,7 +3500,7 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		return "{resultText(x.dst)}moveat %{moveAtAddr(x)}"
 	end 'opMoveAt'
 	if x.op == Opcode.opCopy 'opCopy'
-		return "{resultText(x.dst)}copy %{copySrc(x)} {ast.typeName(p.types, t: copyTy(f, x: x))}"
+		return "{resultText(x.dst)}copy %{copySrc(x)} {ast.typeName(tt, t: copyTy(f, x: x))}"
 	end 'opCopy'
 	panic("ir: an instruction has no opcode")
 end 'instrText'

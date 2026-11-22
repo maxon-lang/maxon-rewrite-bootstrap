@@ -114,7 +114,7 @@ export let otherSeparator = 47 as Byte
 
 // failing calls an OS entry that can fail, giving it the address of its error word last, and goes on only when the entry
 // did not fail; dst is noReg for an entry that returns nothing.
-function failing(mutates l Lowerer, mutates p ast.Project, site diag.Site, dst Reg, symbol Rt, args RegList) returns Reg
+function failing(mutates l Lowerer, p ast.Project, ms ast.ModuleState, site diag.Site, dst Reg, symbol Rt, args RegList) returns Reg
 	let errSlot = l.b.f.newSlot(IrKind.kindScalar)
 	var all = args.clone()
 	all.push(slotAddr(l, slot: errSlot))
@@ -122,7 +122,7 @@ function failing(mutates l Lowerer, mutates p ast.Project, site diag.Site, dst R
 	let err = load(l, slot: errSlot)
 	let ok = l.b.newBlock()
 	let clear = isZero(l, v: err)
-	let stub = failure(l, p: p, errorCase: 0 as Count, err: err, errDrop: ast.noType)
+	let stub = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: ast.noType)
 	l.b.terminate(l.cur, t: newBranch(clear, ifTrue: ok, ifFalse: stub))
 	l.cur = ok
 	return dst
@@ -142,11 +142,11 @@ function pathText(mutates l Lowerer, path Reg) returns Reg
 end 'pathText'
 
 // builtinRecord is a new box of a record of the table, whose fields are the values by index.
-function builtinRecord(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, values RegList) returns Reg
-	let ty = applyType(l, p: p, t: t)
-	let origin = p.types.lists[ast.typeList(p.types, t: ty)][ast.typeIndex(p.types, t: ty)].effectiveOrigin()
-	if ast.typeKind(p.types, t: ty) != ast.TypeKind.record or p.types.lists[ast.typeList(p.types, t: origin)][ast.typeIndex(p.types, t: origin)].fields.count() != values.count() 'shape'
-		panic("lower: {ast.typeName(p.types, t: t)} is not a record of {values.count()} fields")
+function builtinRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, values RegList) returns Reg
+	let ty = applyType(l, p: p, ms: ms, t: t)
+	let origin = ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].effectiveOrigin()
+	if ast.typeKind(ms.types, t: ty) != ast.TypeKind.record or ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].fields.count() != values.count() 'shape'
+		panic("lower: {ast.typeName(ms.types, t: t)} is not a record of {values.count()} fields")
 	end 'shape'
 	let box = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newAlloc(box, bytes: boxBytes(values.count(), tagged: false)))
@@ -156,50 +156,50 @@ function builtinRecord(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, v
 	return box
 end 'builtinRecord'
 
-function lowerCommandLineArgs(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerCommandLineArgs(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsArgs, kind: IrKind.kindManaged, args: RegList.create(0))
 end 'lowerCommandLineArgs'
 
-function lowerProcessEnvironmentVariable(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerProcessEnvironmentVariable(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let dst = newReg(l, kind: IrKind.kindManaged)
-	return failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsEnvironmentVariable, args: argsOf1(args[0]))
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsEnvironmentVariable, args: argsOf1(args[0]))
 end 'lowerProcessEnvironmentVariable'
 
-function lowerProcessExecutablePath(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerProcessExecutablePath(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let dst = newReg(l, kind: IrKind.kindManaged)
-	let text = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsExecutablePath, args: RegList.create(0))
-	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
+	let text = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsExecutablePath, args: RegList.create(0))
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
 end 'lowerProcessExecutablePath'
 
-function lowerProcessId(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerProcessId(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsProcessId, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerProcessId'
 
-function lowerClockNowNanos(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerClockNowNanos(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsClockNanos, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerClockNowNanos'
 
-function lowerProcessSetExitCode(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerProcessSetExitCode(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsSetExitCode, args: argsOf1(args[0]))
 	return konst(l, value: 0 as Word)
 end 'lowerProcessSetExitCode'
 
-function lowerDirectoryCurrentPath(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerDirectoryCurrentPath(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let text = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsCurrentPath, kind: IrKind.kindManaged, args: RegList.create(0))
-	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
 end 'lowerDirectoryCurrentPath'
 
-function lowerFilePathFrom(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerFilePathFrom(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let dst = newReg(l, kind: IrKind.kindManaged)
-	let text = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsPathFrom, args: argsOf1(args[0]))
-	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
+	let text = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsPathFrom, args: argsOf1(args[0]))
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
 end 'lowerFilePathFrom'
 
 // invalidPathText is what the program says when a path written as `FilePath from "..."` is one the OS refuses.
 let invalidPathText = "FilePath: invalid path"
 
 // lowerFilePathInit is `FilePath from "text"`: FilePath.from, which stops the program where it would throw.
-function lowerFilePathInit(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerFilePathInit(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let errSlot = l.b.f.newSlot(IrKind.kindScalar)
 	let dst = newReg(l, kind: IrKind.kindManaged)
 	var all = argsOf1(args[0])
@@ -215,72 +215,72 @@ function lowerFilePathInit(mutates l Lowerer, mutates p ast.Project, c CallSite,
 	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanic, args: argsOf1(message), routine: ast.noFunc)
 	l.b.terminate(l.cur, t: newTrap())
 	l.cur = ok
-	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: argsOf1(dst))
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(dst))
 end 'lowerFilePathInit'
 
-function lowerFilePathToString(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerFilePathToString(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let text = pathText(l, path: recv)
 	let string = p.builtins.stringTy
-	return copyValue(l, p: p, site: siteOf(l, p: p, node: c.node), v: text, t: string)
+	return copyValue(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), v: text, t: string)
 end 'lowerFilePathToString'
 
-function lowerFileReadText(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerFileReadText(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let dst = newReg(l, kind: IrKind.kindManaged)
 	let path = pathText(l, path: args[0])
-	return failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsReadText, args: argsOf1(path))
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsReadText, args: argsOf1(path))
 end 'lowerFileReadText'
 
-function lowerFileWriteText(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerFileWriteText(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
-	_ = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteText, args: argsOf2(path, b: args[1]))
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteText, args: argsOf2(path, b: args[1]))
 	return konst(l, value: 0 as Word)
 end 'lowerFileWriteText'
 
-function lowerFileWriteBinary(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerFileWriteBinary(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
-	_ = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteBinary, args: argsOf2(path, b: args[1]))
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteBinary, args: argsOf2(path, b: args[1]))
 	return konst(l, value: 0 as Word)
 end 'lowerFileWriteBinary'
 
-function lowerFileRename(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerFileRename(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let from = pathText(l, path: args[0])
 	let target = pathText(l, path: args[1])
-	_ = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsRename, args: argsOf2(from, b: target))
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsRename, args: argsOf2(from, b: target))
 	return konst(l, value: 0 as Word)
 end 'lowerFileRename'
 
-function lowerFileDelete(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerFileDelete(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
-	_ = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsDelete, args: argsOf1(path))
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsDelete, args: argsOf1(path))
 	return konst(l, value: 0 as Word)
 end 'lowerFileDelete'
 
-function lowerDirectoryIsDirectory(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerDirectoryIsDirectory(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsIsDirectory, kind: IrKind.kindScalar, args: argsOf1(path))
 end 'lowerDirectoryIsDirectory'
 
-function lowerDirectoryCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerDirectoryCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsCreateDirectory, kind: IrKind.kindScalar, args: argsOf1(path))
 end 'lowerDirectoryCreate'
 
 // lowerDirectoryList makes a FilePath of each String the entry gives, in its place in the array, so the array the entry
 // made is the one returned.
-function lowerDirectoryList(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerDirectoryList(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let dst = newReg(l, kind: IrKind.kindManaged)
 	let path = pathText(l, path: args[0])
-	let paths = failing(l, p: p, site: site, dst: dst, symbol: Rt.rtOsList, args: argsOf1(path))
-	let listTy = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: c.node))
-	let pathTy = elementType(p, bt: listTy)
+	let paths = failing(l, p: p, ms: ms, site: site, dst: dst, symbol: Rt.rtOsList, args: argsOf1(path))
+	let listTy = builtinOf(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: c.node))
+	let pathTy = elementType(p, ms: ms, bt: listTy)
 	let n = entry(l, p: p, site: site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(paths))
 	let loop = countedLoopBegin(l, limit: n)
 	let i = countedLoopIndex(l, loop: loop)
 	let addr = entry(l, p: p, site: site, symbol: Rt.rtArrayElem, kind: IrKind.kindScalar, args: argsOf2(paths, b: i))
 	let text = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newMoveAt(text, addr: addr))
-	let made = builtinRecord(l, p: p, t: pathTy, values: argsOf1(text))
+	let made = builtinRecord(l, p: p, ms: ms, t: pathTy, values: argsOf1(text))
 	emit(l, i: newStoreAt(addr, src: made))
 	countedLoopEnd(l, loop: loop)
 	return paths
@@ -289,21 +289,21 @@ end 'lowerDirectoryList'
 // noDeadline is the deadline of rt.os.run that never passes.
 export let noDeadline = 0 as Word
 
-function lowerSubprocessRun(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerSubprocessRun(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let never = konst(l, value: noDeadline)
-	return runSubprocess(l, p: p, c: c, executable: args[0], arguments: args[1], deadlineMs: never)
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], deadlineMs: never)
 end 'lowerSubprocessRun'
 
-function lowerSubprocessRunWithDeadline(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let ms = deadlineMs(l, p: p, deadline: args[2])
-	return runSubprocess(l, p: p, c: c, executable: args[0], arguments: args[1], deadlineMs: ms)
+function lowerSubprocessRunWithDeadline(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let millis = deadlineMs(l, p: p, deadline: args[2])
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], deadlineMs: millis)
 end 'lowerSubprocessRunWithDeadline'
 
 // deadlineMs is the milliseconds a WaitDeadline gives, noDeadline for none.
-function deadlineMs(mutates l Lowerer, mutates p ast.Project, deadline Reg) returns Reg
-	let ms = l.b.f.newSlot(IrKind.kindScalar)
+function deadlineMs(mutates l Lowerer, p ast.Project, deadline Reg) returns Reg
+	let millis = l.b.f.newSlot(IrKind.kindScalar)
 	let never = konst(l, value: noDeadline)
-	emit(l, i: newStoreSlot(ms, src: never, borrow: false))
+	emit(l, i: newStoreSlot(millis, src: never, borrow: false))
 	let within = l.b.newBlock()
 	let join = l.b.newBlock()
 	let tag = tagReg(l, box: deadline)
@@ -313,13 +313,13 @@ function deadlineMs(mutates l Lowerer, mutates p ast.Project, deadline Reg) retu
 	l.cur = within
 	let payload = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newLoadField(payload, obj: deadline, offset: fieldOffset(payloadField, tagged: true)))
-	emit(l, i: newStoreSlot(ms, src: payload, borrow: false))
+	emit(l, i: newStoreSlot(millis, src: payload, borrow: false))
 	goTo(l, target: join)
-	return load(l, slot: ms)
+	return load(l, slot: millis)
 end 'deadlineMs'
 
 // runSubprocess runs the child and makes the CollectedOutput of what the entry stored and returned.
-function runSubprocess(mutates l Lowerer, mutates p ast.Project, c CallSite, executable Reg, arguments Reg, deadlineMs Reg) returns Reg
+function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, executable Reg, arguments Reg, deadlineMs Reg) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let stdout = l.b.f.newSlot(IrKind.kindManaged)
 	let stderr = l.b.f.newSlot(IrKind.kindManaged)
@@ -331,7 +331,7 @@ function runSubprocess(mutates l Lowerer, mutates p ast.Project, c CallSite, exe
 	all.push(deadlineMs)
 	all.push(slotAddr(l, slot: stdout))
 	all.push(slotAddr(l, slot: stderr))
-	let code = failing(l, p: p, site: site, dst: dst, symbol: Rt.rtOsRun, args: all)
+	let code = failing(l, p: p, ms: ms, site: site, dst: dst, symbol: Rt.rtOsRun, args: all)
 	var fields = RegList.create(0)
 	for i in 0 upto succ(ast.collectedOutputCodeField) 'fields'
 		fields.push(noReg)
@@ -339,11 +339,11 @@ function runSubprocess(mutates l Lowerer, mutates p ast.Project, c CallSite, exe
 	fields[ast.collectedOutputStdoutField] = fetch(l, slot: stdout)
 	fields[ast.collectedOutputStderrField] = fetch(l, slot: stderr)
 	fields[ast.collectedOutputCodeField] = code
-	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: fields)
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: fields)
 end 'runSubprocess'
 
 // executableText is the String an Executable names, a name or a path's, lent for as long as the Executable is.
-function executableText(mutates l Lowerer, mutates p ast.Project, exe Reg) returns Reg
+function executableText(mutates l Lowerer, p ast.Project, exe Reg) returns Reg
 	let text = l.b.f.newSlot(IrKind.kindManaged)
 	let payload = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newLoadField(payload, obj: exe, offset: fieldOffset(payloadField, tagged: true)))
@@ -365,13 +365,13 @@ function executableText(mutates l Lowerer, mutates p ast.Project, exe Reg) retur
 	return load(l, slot: text)
 end 'executableText'
 
-function lowerCollectedOutputExitCode(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerCollectedOutputExitCode(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newLoadField(d, obj: recv, offset: fieldOffset(ast.collectedOutputCodeField, tagged: false)))
 	return d
 end 'lowerCollectedOutputExitCode'
 
-function lowerCollectedOutputSucceeded(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let code = lowerCollectedOutputExitCode(l, p: p, c: c, recv: recv, args: args)
+function lowerCollectedOutputSucceeded(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let code = lowerCollectedOutputExitCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	return isZero(l, v: code)
 end 'lowerCollectedOutputSucceeded'

@@ -3,24 +3,24 @@
 
 // funcSymbol is how a message names a function: a method is written with its type, in parentheses where the type is an
 // instance, and an instance of a generic function with its type arguments.
-function funcSymbol(p ast.Project, f ast.FuncID) returns String
-	let name = p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].name.clone()
-	let owner = p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].ownerTy
-	if p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].extendedIface != ast.noType 'ofInterface'
-		return ast.interfaceExtensionSymbol(p, fid: f)
+function funcSymbol(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f ast.FuncID) returns String
+	let name = ft.slots[ast.funcSlot(f)][ast.funcIndex(f)].name.clone()
+	let owner = ft.slots[ast.funcSlot(f)][ast.funcIndex(f)].ownerTy
+	if ft.slots[ast.funcSlot(f)][ast.funcIndex(f)].extendedIface != ast.noType 'ofInterface'
+		return ast.interfaceExtensionSymbol(p, tt: tt, ft: ft, fid: f)
 	end 'ofInterface'
 	if owner == ast.noType 'free'
-		if p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].genericOrigin != ast.noFunc 'instance'
+		if ft.slots[ast.funcSlot(f)][ast.funcIndex(f)].genericOrigin != ast.noFunc 'instance'
 			var names = ast.StringList.create(0)
-			for i in 0 upto p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].typeArgs.count() 'args'
-				names.push(ast.typeName(p.types, t: p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].typeArgs[i]))
+			for i in 0 upto ft.slots[ast.funcSlot(f)][ast.funcIndex(f)].typeArgs.count() 'args'
+				names.push(ast.typeName(tt, t: ft.slots[ast.funcSlot(f)][ast.funcIndex(f)].typeArgs[i]))
 			end 'args'
 			return "{name}[{ast.joinNames(names, sep: ", ")}]"
 		end 'instance'
 		return name
 	end 'free'
-	let ownerName = ast.typeName(p.types, t: owner)
-	if p.types.lists[ast.typeList(p.types, t: owner)][ast.typeIndex(p.types, t: owner)].typeArgs.count() > 0 'instance'
+	let ownerName = ast.typeName(tt, t: owner)
+	if tt.lists[ast.typeList(tt, t: owner)][ast.typeIndex(tt, t: owner)].typeArgs.count() > 0 'instance'
 		return "({ownerName}).{name}"
 	end 'instance'
 	return "{ownerName}.{name}"
@@ -139,7 +139,7 @@ end 'omittedAt'
 
 // checkedArgs orders a call's arguments and types them, before the parameters' types are known: a generic callee's type
 // arguments come from them.
-function checkedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
+function checkedArgs(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
 	let mark = errs.count()
 	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receivers, errs: errs)
 	if failedSince(errs, mark: mark) 'badOrder'
@@ -149,7 +149,7 @@ function checkedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 		if ordered[i] == 0 'defaulted'
 			continue 'each'
 		end 'defaulted'
-		if checkExpr(c, p: p, e: ordered[i], errs: errs) == ast.noType 'failed'
+		if checkExpr(c, p: p, ms: ms, e: ordered[i], errs: errs) == ast.noType 'failed'
 			return ordered
 		end 'failed'
 	end 'each'
@@ -157,7 +157,7 @@ function checkedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 end 'checkedArgs'
 
 // bindArgs orders a call's arguments and checks each against its parameter, typing it first unless it was typed already.
-function bindArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, argsChecked bool, payload bool, mutates errs diag.ErrorList) returns ast.NodeIDList
+function bindArgs(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, argsChecked bool, payload bool, mutates errs diag.ErrorList) returns ast.NodeIDList
 	let mark = errs.count()
 	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receivers, errs: errs)
 	if failedSince(errs, mark: mark) 'badOrder'
@@ -168,11 +168,11 @@ function bindArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, cal
 			continue 'each'
 		end 'defaulted'
 		if not argsChecked 'type'
-			if checkExpecting(c, p: p, e: ordered[i], want: specs[i].ty, errs: errs) == ast.noType 'failed'
+			if checkExpecting(c, p: p, ms: ms, e: ordered[i], want: specs[i].ty, errs: errs) == ast.noType 'failed'
 				return ordered
 			end 'failed'
 		end 'type'
-		if not coerceArg(c, p: p, call: call, value: ordered[i], callee: callee, spec: specs[i], payload: payload, errs: errs) 'badArg'
+		if not coerceArg(c, p: p, ms: ms, call: call, value: ordered[i], callee: callee, spec: specs[i], payload: payload, errs: errs) 'badArg'
 			return ordered
 		end 'badArg'
 	end 'each'
@@ -181,17 +181,17 @@ end 'bindArgs'
 
 // coerceArg checks an argument against its parameter, which a 'mutates' or 'sets' parameter takes exactly, and a let
 // parameter takes the contents of a frozen value for.
-function coerceArg(mutates c Checker, mutates p ast.Project, call ast.NodeID, value ast.NodeID, callee String, spec ast.ParamSpec, payload bool, mutates errs diag.ErrorList) returns bool
+function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, value ast.NodeID, callee String, spec ast.ParamSpec, payload bool, mutates errs diag.ErrorList) returns bool
 	let t = ast.nodeType(c.typing, node: value)
-	let temporary = ast.isMutatingFunction(p.types, t: spec.ty) and not ast.isStorage(p.modules[c.modIdx].tree, typing: c.typing, node: value)
+	let temporary = ast.isMutatingFunction(ms.types, t: spec.ty) and not ast.isStorage(p.modules[c.modIdx].tree, typing: c.typing, node: value)
 	if ast.isByAddress(spec.conv) and not temporary 'byAddress'
 		if t != spec.ty 'different'
-			let expected = nameOfType(p, t: spec.ty)
-			let got = nameOfType(p, t: t)
+			let expected = nameOfType(p, ms: ms, t: spec.ty)
+			let got = nameOfType(p, ms: ms, t: t)
 			var msg = diag.argTypeMismatch("'{spec.name}'", expected: expected, got: got)
-			if t != ast.noType and ast.isSubtypeOf(p.types, sub: t, sup: spec.ty) 'subtype'
+			if t != ast.noType and ast.isSubtypeOf(ms.types, sub: t, sup: spec.ty) 'subtype'
 				msg = "{msg}: the callee may write any '{expected}' through a by-reference parameter, which a '{got}' variable cannot hold. Declare the variable or field it names as {expected}, or pass a {expected} local"
-			end 'subtype' else if ast.isIntType(p.types, t: t) and ast.isIntType(p.types, t: spec.ty) 'integers'
+			end 'subtype' else if ast.isIntType(ms.types, t: t) and ast.isIntType(ms.types, t: spec.ty) 'integers'
 				msg = diag.argTypeMismatchCast("'{spec.name}'", expected: expected, got: got)
 			end 'integers'
 			failAt(c, p: p, node: call, code: diag.errTypeMismatch, msg: msg, errs: errs)
@@ -199,7 +199,7 @@ function coerceArg(mutates c Checker, mutates p ast.Project, call ast.NodeID, va
 		end 'different'
 		return true
 	end 'byAddress'
-	if isFrozenType(p, t: t) and ast.contentType(p.types, t: t) == spec.ty 'frozen'
+	if isFrozenType(p, ms: ms, t: t) and ast.contentType(ms.types, t: t) == spec.ty 'frozen'
 		if spec.conv != ast.Convention.convLet 'keeps'
 			failAt(c, p: p, node: value, code: diag.errFrozenChange, msg: "the {spec.conv.keyword()} parameter '{spec.name}' of '{callee}' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", errs: errs)
 			return false
@@ -207,9 +207,9 @@ function coerceArg(mutates c Checker, mutates p ast.Project, call ast.NodeID, va
 		return true
 	end 'frozen'
 	if payload 'payload'
-		return coerce(c, p: p, node: value, at: closingOffset(c, p: p, call: call), src: t, target: spec.ty, wrong: Mismatch.expectedGot, errs: errs)
+		return coerce(c, p: p, ms: ms, node: value, at: closingOffset(c, p: p, call: call), src: t, target: spec.ty, wrong: Mismatch.expectedGot, errs: errs)
 	end 'payload'
-	return coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: call), src: t, target: spec.ty, wrong: Mismatch.argument(argumentLabel(spec.name)), errs: errs)
+	return coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, node: call), src: t, target: spec.ty, wrong: Mismatch.argument(argumentLabel(spec.name)), errs: errs)
 end 'coerceArg'
 
 let asciiZero = 48 as Byte
@@ -226,8 +226,8 @@ end 'argumentLabel'
 
 // nameable is whether a type can be written as a type argument, so inference may choose it: an integer constant or the
 // range of an expression names no alias.
-function nameable(p ast.Project, t ast.TypeID) returns bool
-	if isConstInt(p, t: t) or typeIsAnonInt(p.types, t: t) 'integer'
+function nameable(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	if isConstInt(p, ms: ms, t: t) or typeIsAnonInt(ms.types, t: t) 'integer'
 		return false
 	end 'integer'
 	return t != p.builtins.voidTy and t != p.builtins.neverTy
@@ -243,56 +243,56 @@ function indexOfType(types ast.TypeIDList, t ast.TypeID) returns table.Option wi
 end 'indexOfType'
 
 // unifyType fixes the type parameters that the type of an argument gives, where the parameter's type mentions them.
-function unifyType(p ast.Project, param ast.TypeID, arg ast.TypeID, params ast.TypeIDList, mutates args ast.TypeIDList)
+function unifyType(p ast.Project, ms ast.ModuleState, param ast.TypeID, arg ast.TypeID, params ast.TypeIDList, mutates args ast.TypeIDList)
 	if param == ast.noType or arg == ast.noType 'none'
 		return
 	end 'none'
-	let kind = ast.typeKind(p.types, t: param)
+	let kind = ast.typeKind(ms.types, t: param)
 	if kind == ast.TypeKind.typeParam 'parameter'
 		match consumes indexOfType(params, t: param) 'index'
-			some(i) then fixArg(p, arg: arg, index: i, args: args)
+			some(i) then fixArg(p, ms: ms, arg: arg, index: i, args: args)
 			none then _ = 0
 		end 'index'
 		return
 	end 'parameter'
 	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy or kind.isBuiltin() 'instance'
-		if ast.typeKind(p.types, t: arg) == kind and ast.originOf(p.types, t: param) == ast.originOf(p.types, t: arg) 'sameDeclaration'
-			unifyAll(p, param: p.types.lists[ast.typeList(p.types, t: param)][ast.typeIndex(p.types, t: param)].typeArgs.clone(), arg: p.types.lists[ast.typeList(p.types, t: arg)][ast.typeIndex(p.types, t: arg)].typeArgs.clone(), params: params, args: args)
+		if ast.typeKind(ms.types, t: arg) == kind and ast.originOf(ms.types, t: param) == ast.originOf(ms.types, t: arg) 'sameDeclaration'
+			unifyAll(p, ms: ms, param: ms.types.lists[ast.typeList(ms.types, t: param)][ast.typeIndex(ms.types, t: param)].typeArgs.clone(), arg: ms.types.lists[ast.typeList(ms.types, t: arg)][ast.typeIndex(ms.types, t: arg)].typeArgs.clone(), params: params, args: args)
 		end 'sameDeclaration'
 	end 'instance'
 end 'unifyType'
 
-function fixArg(p ast.Project, arg ast.TypeID, index Count, mutates args ast.TypeIDList)
-	if args[index] == ast.noType and nameable(p, t: arg) 'open'
+function fixArg(p ast.Project, ms ast.ModuleState, arg ast.TypeID, index Count, mutates args ast.TypeIDList)
+	if args[index] == ast.noType and nameable(p, ms: ms, t: arg) 'open'
 		args[index] = arg
 	end 'open'
 end 'fixArg'
 
-function unifyAll(p ast.Project, param ast.TypeIDList, arg ast.TypeIDList, params ast.TypeIDList, mutates args ast.TypeIDList)
+function unifyAll(p ast.Project, ms ast.ModuleState, param ast.TypeIDList, arg ast.TypeIDList, params ast.TypeIDList, mutates args ast.TypeIDList)
 	for i in 0 upto param.count() 'each'
 		if i < arg.count() 'both'
-			unifyType(p, param: param[i], arg: arg[i], params: params, args: args)
+			unifyType(p, ms: ms, param: param[i], arg: arg[i], params: params, args: args)
 		end 'both'
 	end 'each'
 end 'unifyAll'
 
 // unifyBounds fixes the type parameters that a bound binds an associated type to, from what the fixed argument's
 // declaration binds it to: 'where S implements Cursor with E' takes E from the 'implements Cursor with ...' of S.
-function unifyBounds(mutates p ast.Project, params ast.TypeIDList, mutates args ast.TypeIDList)
+function unifyBounds(p ast.Project, mutates ms ast.ModuleState, params ast.TypeIDList, mutates args ast.TypeIDList)
 	for i in 0 upto params.count() 'each'
 		let arg = args[i]
-		if arg == ast.noType or not typeIsNominal(p.types, t: arg) 'open'
+		if arg == ast.noType or not typeIsNominal(ms.types, t: arg) 'open'
 			continue 'each'
 		end 'open'
-		let bounds = p.types.lists[ast.typeList(p.types, t: params[i])][ast.typeIndex(p.types, t: params[i])].bounds.clone()
+		let bounds = ms.types.lists[ast.typeList(ms.types, t: params[i])][ast.typeIndex(ms.types, t: params[i])].bounds.clone()
 		for bi in 0 upto bounds.count() 'bounds'
 			let bound = bounds[bi].ifaceTy
-			if p.types.lists[ast.typeList(p.types, t: bound)][ast.typeIndex(p.types, t: bound)].typeArgs.count() == 0 'plain'
+			if ms.types.lists[ast.typeList(ms.types, t: bound)][ast.typeIndex(ms.types, t: bound)].typeArgs.count() == 0 'plain'
 				continue 'bounds'
 			end 'plain'
-			let declared = conformanceTo(p, t: arg, iface: ast.originOf(p.types, t: bound))
+			let declared = conformanceTo(p, ms: ms, t: arg, iface: ast.originOf(ms.types, t: bound))
 			if declared != ast.noType 'found'
-				unifyAll(p, param: p.types.lists[ast.typeList(p.types, t: bound)][ast.typeIndex(p.types, t: bound)].typeArgs.clone(), arg: p.types.lists[ast.typeList(p.types, t: declared)][ast.typeIndex(p.types, t: declared)].typeArgs.clone(), params: params, args: args)
+				unifyAll(p, ms: ms, param: ms.types.lists[ast.typeList(ms.types, t: bound)][ast.typeIndex(ms.types, t: bound)].typeArgs.clone(), arg: ms.types.lists[ast.typeList(ms.types, t: declared)][ast.typeIndex(ms.types, t: declared)].typeArgs.clone(), params: params, args: args)
 			end 'found'
 		end 'bounds'
 	end 'each'
@@ -308,27 +308,27 @@ end 'openArgs'
 
 // infer chooses the type arguments of a call from its arguments' types, and the ones they leave open from the type the
 // context expects of result, the type the call gives before its type arguments are known.
-function infer(c Checker, mutates p ast.Project, node ast.NodeID, callee String, params ast.TypeIDList, specs ast.ParamSpecList, ordered ast.NodeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
+function infer(c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, callee String, params ast.TypeIDList, specs ast.ParamSpecList, ordered ast.NodeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var args = openArgs(params.count())
 	for i in 0 upto specs.count() 'each'
 		if ordered[i] == 0 'defaulted'
 			continue 'each'
 		end 'defaulted'
-		unifyType(p, param: specs[i].ty, arg: ast.nodeType(c.typing, node: ordered[i]), params: params, args: args)
+		unifyType(p, ms: ms, param: specs[i].ty, arg: ast.nodeType(c.typing, node: ordered[i]), params: params, args: args)
 	end 'each'
-	unifyBounds(p, params: params, args: args)
-	return inferRest(c, p: p, node: node, callee: callee, params: params, args: args, result: result, errs: errs)
+	unifyBounds(p, ms: ms, params: params, args: args)
+	return inferRest(c, p: p, ms: ms, node: node, callee: callee, params: params, args: args, result: result, errs: errs)
 end 'infer'
 
 // inferRest fills the type arguments that are still open from the type the context expects of result.
-function inferRest(c Checker, p ast.Project, node ast.NodeID, callee String, params ast.TypeIDList, args ast.TypeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
+function inferRest(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, callee String, params ast.TypeIDList, args ast.TypeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var filled = args.clone()
 	if c.expect != ast.noType 'expected'
-		unifyType(p, param: result, arg: c.expect, params: params, args: filled)
+		unifyType(p, ms: ms, param: result, arg: c.expect, params: params, args: filled)
 	end 'expected'
 	for i in 0 upto filled.count() 'each'
 		if filled[i] == ast.noType 'open'
-			failAt(c, p: p, node: node, code: diag.errCannotInfer, msg: "the type argument '{p.types.lists[ast.typeList(p.types, t: params[i])][ast.typeIndex(p.types, t: params[i])].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
+			failAt(c, p: p, node: node, code: diag.errCannotInfer, msg: "the type argument '{ms.types.lists[ast.typeList(ms.types, t: params[i])][ast.typeIndex(ms.types, t: params[i])].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
 			return filled
 		end 'open'
 	end 'each'
@@ -336,11 +336,11 @@ function inferRest(c Checker, p ast.Project, node ast.NodeID, callee String, par
 end 'inferRest'
 
 // applySpecs is the parameters with the type parameters replaced by the arguments.
-function applySpecs(mutates p ast.Project, specs ast.ParamSpecList, params ast.TypeIDList, args ast.TypeIDList) returns ast.ParamSpecList
+function applySpecs(p ast.Project, mutates ms ast.ModuleState, specs ast.ParamSpecList, params ast.TypeIDList, args ast.TypeIDList) returns ast.ParamSpecList
 	var out = ast.ParamSpecList.create(0)
 	for i in 0 upto specs.count() 'each'
 		var spec = specs[i].clone()
-		spec.ty = ast.substituteType(p.types, t: specs[i].ty, params: params, args: args)
+		spec.ty = ast.substituteType(ms.types, t: specs[i].ty, params: params, args: args)
 		out.push(spec)
 	end 'each'
 	return out
@@ -348,21 +348,21 @@ end 'applySpecs'
 
 // declares is whether a call of the function is checked now: its signature is known, because this module declares it or
 // because it is built in. Another module may still be declaring its own, so a call into it waits for the verify phase.
-function declares(c Checker, p ast.Project, f ast.FuncID) returns bool
-	return p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].module == c.modID or p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].intrinsic != ast.Intrinsic.intrNone
+function declares(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID) returns bool
+	return ms.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].module == c.modID or ms.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].intrinsic != ast.Intrinsic.intrNone
 end 'declares'
 
 // requireVisible refuses a function of another module that the module cannot name.
-function requireVisible(c Checker, p ast.Project, node ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList) returns bool
-	if declares(c, p: p, f: target) 'declared'
+function requireVisible(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList) returns bool
+	if declares(c, p: p, ms: ms, f: target) 'declared'
 		return true
 	end 'declared'
-	let owner = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].module
-	let level = ast.visibilityOf(p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].visibility)
+	let owner = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].module
+	let level = ast.visibilityOf(ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].visibility)
 	if ast.isVisibleFrom(p, v: level, owner: owner, from: c.modID) 'visible'
 		return true
 	end 'visible'
-	failAt(c, p: p, node: node, code: diag.errNotExported, msg: ast.notVisible(p, name: funcSymbol(p, f: target), v: level, owner: owner, from: c.modID), errs: errs)
+	failAt(c, p: p, node: node, code: diag.errNotExported, msg: ast.notVisible(p, name: funcSymbol(p, tt: ms.types, ft: ms.funcs, f: target), v: level, owner: owner, from: c.modID), errs: errs)
 	return false
 end 'requireVisible'
 
@@ -379,18 +379,18 @@ end 'queuePending'
 
 // verifyCalls binds the arguments of the calls into other modules to the parameters of their functions, which those
 // modules have declared since the calls were checked. A call stops at its first error.
-export function verifyCalls(mutates c Checker, mutates p ast.Project, calls PendingCallList, mutates errs diag.ErrorList)
+export function verifyCalls(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, calls PendingCallList, mutates errs diag.ErrorList)
 	for i in 0 upto calls.count() 'each'
-		verifyCall(c, p: p, pending: calls[i], errs: errs)
+		verifyCall(c, p: p, ms: ms, pending: calls[i], errs: errs)
 	end 'each'
 end 'verifyCalls'
 
-function verifyCall(mutates c Checker, mutates p ast.Project, pending PendingCall, mutates errs diag.ErrorList)
+function verifyCall(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, pending PendingCall, mutates errs diag.ErrorList)
 	c.hasOmitted = pending.hasOmittedArg
 	c.omittedCall = pending.callNode
 	c.omittedArgIdx = pending.omittedArgIdx
 	let mark = errs.count()
-	let ordered = bindArgs(c, p: p, call: pending.callNode, callee: pending.calleeName, specs: pending.params, receivers: 0, argsChecked: true, payload: false, errs: errs)
+	let ordered = bindArgs(c, p: p, ms: ms, call: pending.callNode, callee: pending.calleeName, specs: pending.params, receivers: 0, argsChecked: true, payload: false, errs: errs)
 	c.hasOmitted = false
 	if failedSince(errs, mark: mark) 'failed'
 		return

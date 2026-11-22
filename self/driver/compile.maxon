@@ -200,7 +200,7 @@ end 'verifyIr'
 // verifyFunctions is verifyIr for the functions of one module.
 function verifyFunctions(p ast.Project, fns ir.IrFunctionList)
 	for i in 0 upto fns.count() 'functions'
-		let problems = ir.verifyIr(p, f: fns[i])
+		let problems = ir.verifyIr(p, tt: p.types, ft: p.funcs, f: fns[i])
 		if problems.count() > 0 'broken'
 			var text = ByteArray.create(0)
 			for k in 0 upto problems.count() 'each'
@@ -215,7 +215,7 @@ end 'verifyFunctions'
 function writeIr(p ast.Project, lowered backend.FunctionLists, path String)
 	var text = ByteArray.create(0)
 	for m in 0 upto lowered.count() 'modules'
-		text.append(ir.moduleIrText(p, functions: lowered[m]).toByteArray())
+		text.append(ir.moduleIrText(p, tt: p.types, ft: p.funcs, functions: lowered[m]).toByteArray())
 	end 'modules'
 	let file = try FilePath.from(path) otherwise panic("driver: {path} is not a path")
 	try File.writeText(file, content: String.from(text)) otherwise panic("driver: cannot write {path}")

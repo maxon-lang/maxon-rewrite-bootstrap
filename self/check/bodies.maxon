@@ -2,29 +2,29 @@
 // declaration or a function that has an error is refused at its first, and the others are typed all the same. Type
 // declarations come first: the calls that a field's default makes are reused by every record literal that leaves the
 // field to it.
-export function checkBodies(mutates c Checker, mutates p ast.Project, declared ast.FuncIDList, mutates errs diag.ErrorList)
+export function checkBodies(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, declared ast.FuncIDList, mutates errs diag.ErrorList)
 	var isDeclared = BoolIntMap.new()
 	for i in 0 upto declared.count() 'mark'
 		isDeclared.insert(declared[i] as Count, value: true)
 	end 'mark'
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'types'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
-		checkDeclBody(c, p: p, ord: ord, errs: errs)
+		checkDeclBody(c, p: p, ms: ms, ord: ord, errs: errs)
 	end 'types'
-	checkExtensionConformances(c, p: p, errs: errs)
+	checkExtensionConformances(c, p: p, ms: ms, errs: errs)
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'functions'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
-		checkFunctionsOf(c, p: p, ord: ord, isDeclared: isDeclared, errs: errs)
+		checkFunctionsOf(c, p: p, ms: ms, ord: ord, isDeclared: isDeclared, errs: errs)
 	end 'functions'
 end 'checkBodies'
 
 // checkDeclBody checks what a type, a union or an enum declares beyond its signatures.
-function checkDeclBody(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+function checkDeclBody(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
 	let ref = ast.DeclRef.make(c.modID, ordinal: ord)
 	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
-		typeDecl(td) then checkRecordBody(c, p: p, td: td, tid: declTypeOf(p, ref: ref), errs: errs)
-		unionDecl(ud) then checkNominalBody(c, p: p, id: ud.id, tid: declTypeOf(p, ref: ref), errs: errs)
-		enumDecl(ed) then checkConformance(c, p: p, site: ed.id, nt: declTypeOf(p, ref: ref), errs: errs)
+		typeDecl(td) then checkRecordBody(c, p: p, ms: ms, td: td, tid: declTypeOf(p, ref: ref), errs: errs)
+		unionDecl(ud) then checkNominalBody(c, p: p, ms: ms, id: ud.id, tid: declTypeOf(p, ref: ref), errs: errs)
+		enumDecl(ed) then checkConformance(c, p: p, ms: ms, site: ed.id, nt: declTypeOf(p, ref: ref), errs: errs)
 		funcDecl(_) then _ = 0
 		constDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
@@ -33,67 +33,67 @@ function checkDeclBody(mutates c Checker, mutates p ast.Project, ord ast.DeclOrd
 	end 'k'
 end 'checkDeclBody'
 
-function checkRecordBody(mutates c Checker, mutates p ast.Project, td ast.TypeDecl, tid ast.TypeID, mutates errs diag.ErrorList)
-	checkFieldDefaults(c, p: p, tid: tid, errs: errs)
-	checkNominalBody(c, p: p, id: td.id, tid: tid, errs: errs)
+function checkRecordBody(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, td ast.TypeDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	checkFieldDefaults(c, p: p, ms: ms, tid: tid, errs: errs)
+	checkNominalBody(c, p: p, ms: ms, id: td.id, tid: tid, errs: errs)
 end 'checkRecordBody'
 
 // checkNominalBody checks a type or a union as a whole: that it does not contain itself, that a cown cannot reach itself
 // through it, and that it implements what it says.
-function checkNominalBody(mutates c Checker, mutates p ast.Project, id ast.NodeID, tid ast.TypeID, mutates errs diag.ErrorList)
-	checkCycle(c, p: p, site: id, t: tid, errs: errs)
-	checkCownCycle(c, p: p, site: id, t: tid, errs: errs)
-	checkConformance(c, p: p, site: id, nt: tid, errs: errs)
+function checkNominalBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, id ast.NodeID, tid ast.TypeID, mutates errs diag.ErrorList)
+	checkCycle(c, p: p, ms: ms, site: id, t: tid, errs: errs)
+	checkCownCycle(c, p: p, ms: ms, site: id, t: tid, errs: errs)
+	checkConformance(c, p: p, ms: ms, site: id, nt: tid, errs: errs)
 end 'checkNominalBody'
 
 // checkFunctionsOf types the functions that the declaration at ord has: itself, or its methods.
-function checkFunctionsOf(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, isDeclared BoolIntMap, mutates errs diag.ErrorList)
+function checkFunctionsOf(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal, isDeclared BoolIntMap, mutates errs diag.ErrorList)
 	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
-		funcDecl(f) then checkIfDeclared(c, p: p, f: f, isDeclared: isDeclared, errs: errs)
-		typeDecl(td) then checkMethodBodies(c, p: p, methods: td.methods, isDeclared: isDeclared, errs: errs)
-		unionDecl(ud) then checkMethodBodies(c, p: p, methods: ud.methods, isDeclared: isDeclared, errs: errs)
-		enumDecl(ed) then checkMethodBodies(c, p: p, methods: ed.methods, isDeclared: isDeclared, errs: errs)
+		funcDecl(f) then checkIfDeclared(c, p: p, ms: ms, f: f, isDeclared: isDeclared, errs: errs)
+		typeDecl(td) then checkMethodBodies(c, p: p, ms: ms, methods: td.methods, isDeclared: isDeclared, errs: errs)
+		unionDecl(ud) then checkMethodBodies(c, p: p, ms: ms, methods: ud.methods, isDeclared: isDeclared, errs: errs)
+		enumDecl(ed) then checkMethodBodies(c, p: p, ms: ms, methods: ed.methods, isDeclared: isDeclared, errs: errs)
 		constDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
 		interfaceDecl(_) then _ = 0
-		extensionDecl(xd) then checkMethodBodies(c, p: p, methods: xd.methods, isDeclared: isDeclared, errs: errs)
+		extensionDecl(xd) then checkMethodBodies(c, p: p, ms: ms, methods: xd.methods, isDeclared: isDeclared, errs: errs)
 	end 'k'
 end 'checkFunctionsOf'
 
-function checkMethodBodies(mutates c Checker, mutates p ast.Project, methods ast.FuncDeclList, isDeclared BoolIntMap, mutates errs diag.ErrorList)
+function checkMethodBodies(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, methods ast.FuncDeclList, isDeclared BoolIntMap, mutates errs diag.ErrorList)
 	for i in 0 upto methods.count() 'each'
-		checkIfDeclared(c, p: p, f: methods[i], isDeclared: isDeclared, errs: errs)
+		checkIfDeclared(c, p: p, ms: ms, f: methods[i], isDeclared: isDeclared, errs: errs)
 	end 'each'
 end 'checkMethodBodies'
 
-function checkIfDeclared(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, isDeclared BoolIntMap, mutates errs diag.ErrorList)
+function checkIfDeclared(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, isDeclared BoolIntMap, mutates errs diag.ErrorList)
 	match consumes ast.nodeFunc(p, module: c.modID, node: f.id) 'entry'
-		some(fid) then checkWhenDeclared(c, p: p, f: f, fid: fid, isDeclared: isDeclared, errs: errs)
+		some(fid) then checkWhenDeclared(c, p: p, ms: ms, f: f, fid: fid, isDeclared: isDeclared, errs: errs)
 		none then panic("the function '{f.name}' of module {c.modID} has no entry")
 	end 'entry'
 end 'checkIfDeclared'
 
-function checkWhenDeclared(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, isDeclared BoolIntMap, mutates errs diag.ErrorList)
+function checkWhenDeclared(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, isDeclared BoolIntMap, mutates errs diag.ErrorList)
 	if isDeclared.has(fid as Count) 'declared'
-		checkParamDefaults(c, p: p, f: f, fid: fid, errs: errs)
-		checkFunction(c, p: p, f: f, fid: fid, errs: errs)
+		checkParamDefaults(c, p: p, ms: ms, f: f, fid: fid, errs: errs)
+		checkFunction(c, p: p, ms: ms, f: f, fid: fid, errs: errs)
 	end 'declared'
 end 'checkWhenDeclared'
 
 // checkFieldDefaults types the default of each field of a record as a value of the field's type.
-function checkFieldDefaults(mutates c Checker, mutates p ast.Project, tid ast.TypeID, mutates errs diag.ErrorList)
-	let selfTy = ast.selfType(p.types, declTy: tid)
-	for i in 0 upto p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields.count() 'each'
-		if not p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].hasDefault 'none'
+function checkFieldDefaults(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID, mutates errs diag.ErrorList)
+	let selfTy = ast.selfType(ms.types, declTy: tid)
+	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields.count() 'each'
+		if not ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].hasDefault 'none'
 			continue 'each'
 		end 'none'
-		let defaultExpr = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].defaultExpr
-		let fieldTy = p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].fields[i].ty
-		enterContext(c, p: p, f: ast.noFunc, owner: selfTy, calls: true)
+		let defaultExpr = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].defaultExpr
+		let fieldTy = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].ty
+		enterContext(c, p: p, ms: ms, f: ast.noFunc, owner: selfTy, calls: true)
 		startUses(c, node: defaultExpr, inField: true)
-		let t = checkExpecting(c, p: p, e: defaultExpr, want: fieldTy, errs: errs)
+		let t = checkExpecting(c, p: p, ms: ms, e: defaultExpr, want: fieldTy, errs: errs)
 		if t != ast.noType 'typed'
-			_ = coerce(c, p: p, node: defaultExpr, at: exprOffset(c, p: p, node: defaultExpr), src: t, target: fieldTy, wrong: Mismatch.expectedGot, errs: errs)
+			_ = coerce(c, p: p, ms: ms, node: defaultExpr, at: exprOffset(c, p: p, node: defaultExpr), src: t, target: fieldTy, wrong: Mismatch.expectedGot, errs: errs)
 		end 'typed'
 		finishUses(c)
 	end 'each'
@@ -101,18 +101,18 @@ end 'checkFieldDefaults'
 
 // checkParamDefaults types the default of each parameter of a function as a value of the parameter's type. A call that leaves
 // the argument out evaluates the default in this module, in the scope of the declaration alone.
-function checkParamDefaults(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
+function checkParamDefaults(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
 	for i in 0 upto f.params.count() 'each'
 		let defaultExpr = f.params[i].defaultRef
 		if defaultExpr == 0 'none'
 			continue 'each'
 		end 'none'
-		let paramTy = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i]
-		enterContext(c, p: p, f: ast.noFunc, owner: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, calls: true)
+		let paramTy = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i]
+		enterContext(c, p: p, ms: ms, f: ast.noFunc, owner: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, calls: true)
 		startUses(c, node: defaultExpr, inField: true)
-		let t = checkExpecting(c, p: p, e: defaultExpr, want: paramTy, errs: errs)
+		let t = checkExpecting(c, p: p, ms: ms, e: defaultExpr, want: paramTy, errs: errs)
 		if t != ast.noType 'typed'
-			_ = coerce(c, p: p, node: defaultExpr, at: exprOffset(c, p: p, node: defaultExpr), src: t, target: paramTy, wrong: Mismatch.expectedGot, errs: errs)
+			_ = coerce(c, p: p, ms: ms, node: defaultExpr, at: exprOffset(c, p: p, node: defaultExpr), src: t, target: paramTy, wrong: Mismatch.expectedGot, errs: errs)
 		end 'typed'
 		finishUses(c)
 	end 'each'
@@ -181,17 +181,17 @@ function noteCaller(mutates c Checker)
 end 'noteCaller'
 
 // checkFunction types the body of a function or a method, whose parameters and receiver are locals of it.
-function checkFunction(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
-	enterContext(c, p: p, f: fid, owner: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, calls: true)
+function checkFunction(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
+	enterContext(c, p: p, ms: ms, f: fid, owner: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, calls: true)
 	startUses(c, node: f.id, inField: false)
 	let mark = errs.count()
-	declareReceiverAndParams(c, p: p, f: f, fid: fid, errs: errs)
+	declareReceiverAndParams(c, p: p, ms: ms, f: f, fid: fid, errs: errs)
 	if failedSince(errs, mark: mark) 'badParams'
 		finishFunction(c, node: f.id)
 		return
 	end 'badParams'
-	checkBlock(c, p: p, body: f.body, errs: errs)
-	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].retTy != p.builtins.voidTy and not bodyTerminates(p.modules[c.modIdx].tree, body: f.body) 'missingReturn'
+	checkBlock(c, p: p, ms: ms, body: f.body, errs: errs)
+	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].retTy != p.builtins.voidTy and not bodyTerminates(p.modules[c.modIdx].tree, body: f.body) 'missingReturn'
 		failAt(c, p: p, node: f.id, code: diag.errMissingReturn, msg: diag.missingReturn(f.name), errs: errs)
 	end 'missingReturn'
 	finishFunction(c, node: f.id)
@@ -205,30 +205,30 @@ function finishFunction(mutates c Checker, node ast.NodeID)
 	end 'locals'
 end 'finishFunction'
 
-function declareReceiverAndParams(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
+function declareReceiverAndParams(mutates c Checker, mutates p ast.Project, ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
 	var index = 0 as Count
-	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].hasReceiver 'receiver'
-		var receiver = ast.LocalEntry.make("self", ty: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, isVar: false, isParam: true, conv: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].selfConv, definedAt: f.id)
+	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].hasReceiver 'receiver'
+		var receiver = ast.LocalEntry.make("self", ty: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, isVar: false, isParam: true, conv: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].selfConv, definedAt: f.id)
 		receiver.isSelf = true
 		receiver.paramIndex = index
 		let id = c.typing.allocLocal(receiver)
 		c.fnLocals.push(id)
-		ast.setReceiverLocal(p, f: fid, l: id)
+		ast.setReceiverLocal(p, ms: ms, f: fid, l: id)
 		let top = try c.scopes.count() - 1 otherwise panic("a receiver is declared outside every scope")
 		c.scopes[top].insert(ast.receiverName, value: id)
 		index = 1
 	end 'receiver'
 	for i in 0 upto f.params.count() 'params'
 		if f.params[i].name != "_" 'named'
-			var entry = ast.LocalEntry.make(f.params[i].name.clone(), ty: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i], isVar: false, isParam: true, conv: ast.parseConvention(f.params[i].convention), definedAt: f.params[i].id)
+			var entry = ast.LocalEntry.make(f.params[i].name.clone(), ty: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i], isVar: false, isParam: true, conv: ast.parseConvention(f.params[i].convention), definedAt: f.params[i].id)
 			entry.paramIndex = index
-			let id = bindLocal(c, p: p, entry: entry, off: offsetOf(c, p: p, node: f.params[i].id), errs: errs)
+			let id = bindLocal(c, p: p, ms: ms, entry: entry, off: offsetOf(c, p: p, node: f.params[i].id), errs: errs)
 			if id == ast.noLocal 'failed'
 				return
 			end 'failed'
-			ast.pushParamLocal(p, f: fid, l: id)
+			ast.pushParamLocal(p, ms: ms, f: fid, l: id)
 		end 'named' else 'anonymous'
-			ast.pushParamLocal(p, f: fid, l: ast.noLocal)
+			ast.pushParamLocal(p, ms: ms, f: fid, l: ast.noLocal)
 		end 'anonymous'
 		index = try index + 1 otherwise index
 	end 'params'

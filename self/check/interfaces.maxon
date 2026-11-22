@@ -36,9 +36,9 @@ end 'PendingValueType'
 export typealias PendingValueTypeList = Array with PendingValueType
 
 // verifyValueTypes refuses an interface written as the type of a value that cannot be one.
-export function verifyValueTypes(c Checker, p ast.Project, written PendingValueTypeList, mutates errs diag.ErrorList)
+export function verifyValueTypes(c Checker, p ast.Project, ms ast.ModuleState, written PendingValueTypeList, mutates errs diag.ErrorList)
 	for i in 0 upto written.count() 'each'
-		let why = valueRefusal(p, iface: written[i].iface)
+		let why = valueRefusal(p, ms: ms, iface: written[i].iface)
 		if why != "" 'bound'
 			let name = written[i].written.clone()
 			checkFail(c.modID, off: written[i].off, code: diag.errInterfaceAsType, msg: "'{name}' cannot be the type of a value, since {why}: it only bounds a type parameter, so declare one with 'uses T where T implements {name}' and use T as the type", errs: errs)
@@ -49,16 +49,16 @@ end 'verifyValueTypes'
 // valueRefusal says why an interface cannot be the type of a value, and is empty when it can. A value of it holds a value
 // of a type that the code around it does not know, so a requirement that names 'Self', which is that type, or that is
 // static, which has no value to run on, could not be called through it.
-export function valueRefusal(p ast.Project, iface ast.TypeID) returns String
-	let reqs = ast.requirementsOf(p.types, iface: iface)
+export function valueRefusal(p ast.Project, ms ast.ModuleState, iface ast.TypeID) returns String
+	let reqs = ast.requirementsOf(ms.types, iface: iface)
 	for i in 0 upto reqs.count() 'each'
 		let sig = reqs[i].sig
-		let name = p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].name.clone()
-		if p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].isStatic 'static'
+		let name = ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].name.clone()
+		if ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].isStatic 'static'
 			return "its requirement '{name}' is static, and a static function has no value to run on"
 		end 'static'
-		let selfParam = p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: reqs[i].iface))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: reqs[i].iface))].selfParam
-		if selfParam != ast.noType and namesType(p, sig: sig, t: selfParam) 'self'
+		let selfParam = ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: reqs[i].iface))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: reqs[i].iface))].selfParam
+		if selfParam != ast.noType and namesType(p, ms: ms, sig: sig, t: selfParam) 'self'
 			return "its requirement '{name}' names 'Self', which is another type in each value"
 		end 'self'
 	end 'each'
@@ -66,12 +66,12 @@ export function valueRefusal(p ast.Project, iface ast.TypeID) returns String
 end 'valueRefusal'
 
 // namesType is whether the signature of a function names the type t in a parameter or in its result.
-function namesType(p ast.Project, sig ast.FuncID, t ast.TypeID) returns bool
-	if p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy != ast.noType and ast.mentionsType(p.types, t: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, target: t) 'result'
+function namesType(p ast.Project, ms ast.ModuleState, sig ast.FuncID, t ast.TypeID) returns bool
+	if ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy != ast.noType and ast.mentionsType(ms.types, t: ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, target: t) 'result'
 		return true
 	end 'result'
-	for i in 0 upto p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.count() 'params'
-		if ast.mentionsType(p.types, t: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params[i].ty, target: t) 'param'
+	for i in 0 upto ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.count() 'params'
+		if ast.mentionsType(ms.types, t: ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params[i].ty, target: t) 'param'
 			return true
 		end 'param'
 	end 'params'
@@ -80,18 +80,18 @@ end 'namesType'
 
 // boxable is whether a value of the type t can be put in an interface value: a value of a type that can implement an
 // interface, or of a type parameter, whose bounds say which. A float is not one, as in maxon.
-function boxable(p ast.Project, t ast.TypeID) returns bool
-	let k = ast.typeKind(p.types, t: t)
-	return k == ast.TypeKind.typeParam or typeIsNominal(p.types, t: t) or ast.extensionKey(p, t: t).isSome()
+function boxable(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	let k = ast.typeKind(ms.types, t: t)
+	return k == ast.TypeKind.typeParam or typeIsNominal(ms.types, t: t) or ast.extensionKey(p, ms: ms, t: t).isSome()
 end 'boxable'
 
 // boxInto puts the value of node, of the type src, in a value of the interface iface, where a value of iface is expected.
 // Whether src implements iface is checked in the verify stage. The box drops what it holds, so the value must be
 // Droppable, and Copyable for an interface that says every value of it is.
-function boxInto(mutates c Checker, mutates p ast.Project, node ast.NodeID, at diag.U32, src ast.TypeID, iface ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
-	let ifaceName = nameOfType(p, t: iface)
-	let srcName = gotName(p, t: src)
-	if not boxable(p, t: src) 'unboxable'
+function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, at diag.U32, src ast.TypeID, iface ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
+	let ifaceName = nameOfType(p, ms: ms, t: iface)
+	let srcName = gotName(p, ms: ms, t: src)
+	if not boxable(p, ms: ms, t: src) 'unboxable'
 		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.conformWords(srcName, iface: ifaceName), errs: errs)
 		return false
 	end 'unboxable'
@@ -99,15 +99,15 @@ function boxInto(mutates c Checker, mutates p ast.Project, node ast.NodeID, at d
 		checkFail(c.modID, off: at, code: diag.errUnsupportedFeature, msg: "Unsupported: a constant of the interface type '{ifaceName}': a constant is read anew wherever it is named, and an interface value is the box of the value it holds; declare the constant at '{srcName}'", errs: errs)
 		return false
 	end 'outside'
-	let dropping = lacksCap(c, p: p, wantCopy: false, t: src)
+	let dropping = lacksCap(c, p: p, ms: ms, wantCopy: false, t: src)
 	if dropping.missing 'notDroppable'
-		checkFail(c.modID, off: at, code: diag.errNotDroppable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which drops what it holds: {lackWhyText(p.types, info: dropping, capName: "Droppable")}; {lackFixText(p.types, info: dropping, capName: "Droppable")}", errs: errs)
+		checkFail(c.modID, off: at, code: diag.errNotDroppable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which drops what it holds: {lackWhyText(ms.types, info: dropping, capName: "Droppable")}; {lackFixText(ms.types, info: dropping, capName: "Droppable")}", errs: errs)
 		return false
 	end 'notDroppable'
-	if ast.reachesInterface(p.types, have: iface, want: p.builtins.copyableTy) 'copyable'
-		let copying = lacksCap(c, p: p, wantCopy: true, t: src)
+	if ast.reachesInterface(ms.types, have: iface, want: p.builtins.copyableTy) 'copyable'
+		let copying = lacksCap(c, p: p, ms: ms, wantCopy: true, t: src)
 		if copying.missing 'notCopyable'
-			checkFail(c.modID, off: at, code: diag.errNotCopyable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which every value of is Copyable: {lackWhyText(p.types, info: copying, capName: "Copyable")}; {lackFixText(p.types, info: copying, capName: "Copyable")}", errs: errs)
+			checkFail(c.modID, off: at, code: diag.errNotCopyable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which every value of is Copyable: {lackWhyText(ms.types, info: copying, capName: "Copyable")}; {lackFixText(ms.types, info: copying, capName: "Copyable")}", errs: errs)
 			return false
 		end 'notCopyable'
 	end 'copyable'
@@ -123,47 +123,47 @@ end 'boxInto'
 
 // verifyBoxes checks that the type of each value the module puts in an interface value implements the interface, by a
 // declaration that the module sees: the conformance that the box is given.
-export function verifyBoxes(mutates c Checker, mutates p ast.Project, boxes PendingBoxList, mutates errs diag.ErrorList)
+export function verifyBoxes(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, boxes PendingBoxList, mutates errs diag.ErrorList)
 	for i in 0 upto boxes.count() 'each'
 		c.boundedFn = boxes[i].withinFn
-		requireBoxConforms(c, p: p, box: boxes[i], errs: errs)
+		requireBoxConforms(c, p: p, ms: ms, box: boxes[i], errs: errs)
 	end 'each'
 end 'verifyBoxes'
 
-function requireBoxConforms(mutates c Checker, mutates p ast.Project, box PendingBox, mutates errs diag.ErrorList)
+function requireBoxConforms(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, box PendingBox, mutates errs diag.ErrorList)
 	let src = box.src
-	let ifaceName = spelled(c, p: p, iface: box.iface)
-	if typeHasKind(p, t: src, kind: ast.TypeKind.typeParam) 'parameter'
-		if not boundsExtend(p, bounds: boundsOfParam(p, boundedFn: c.boundedFn, paramTy: src), iface: box.iface) 'unbounded'
-			let name = nameOfType(p, t: src)
+	let ifaceName = spelled(c, p: p, ms: ms, iface: box.iface)
+	if typeHasKind(p, ms: ms, t: src, kind: ast.TypeKind.typeParam) 'parameter'
+		if not boundsExtend(p, ms: ms, bounds: boundsOfParam(p, ms: ms, boundedFn: c.boundedFn, paramTy: src), iface: box.iface) 'unbounded'
+			let name = nameOfType(p, ms: ms, t: src)
 			checkFail(c.modID, off: box.off, code: box.code.clone(), msg: "{box.refusal}: the type parameter '{name}' is not known to implement it; add the bound '{name} implements {ifaceName}'", errs: errs)
 		end 'unbounded'
 		return
 	end 'parameter'
-	match consumes ast.conformanceSource(p, from: c.modID, t: src, iface: box.iface) 'source'
+	match consumes ast.conformanceSource(p, ms: ms, from: c.modID, t: src, iface: box.iface) 'source'
 		found(_) then return
-		ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: box.off, typeName: nameOfType(p, t: src), ifaceName: ifaceName, first: first, second: second, errs: errs)
+		ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: box.off, typeName: nameOfType(p, ms: ms, t: src), ifaceName: ifaceName, first: first, second: second, errs: errs)
 		absent then checkFail(c.modID, off: box.off, code: box.code.clone(), msg: box.refusal.clone(), errs: errs)
 	end 'source'
 end 'requireBoxConforms'
 
 // checkInterfaceCast types a cast to an interface: a value of a type that implements it is put in a value of it, as where
 // a value of it is expected. An interface value converts to no other interface, as in maxon.
-function checkInterfaceCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let src = checkExpecting(c, p: p, e: operand, want: target, errs: errs)
+function checkInterfaceCast(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let src = checkExpecting(c, p: p, ms: ms, e: operand, want: target, errs: errs)
 	if src == ast.noType 'badSource'
 		return ast.noType
 	end 'badSource'
 	let off = offsetOf(c, p: p, node: e)
-	if typeHasKind(p, t: src, kind: ast.TypeKind.interfaceTy) 'interface'
-		if sameType(p.types, a: src, b: target) 'same'
-			checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
+	if typeHasKind(p, ms: ms, t: src, kind: ast.TypeKind.interfaceTy) 'interface'
+		if sameType(ms.types, a: src, b: target) 'same'
+			checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, ms: ms, t: target)} is not supported by minimaxon", errs: errs)
 			return ast.noType
 		end 'same'
-		checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: diag.castFormsAValue("interface '{nameOfType(p, t: src)}'", target: "interface '{nameOfType(p, t: target)}'", remedy: "an interface value converts to no other interface"), errs: errs)
+		checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: diag.castFormsAValue("interface '{nameOfType(p, ms: ms, t: src)}'", target: "interface '{nameOfType(p, ms: ms, t: target)}'", remedy: "an interface value converts to no other interface"), errs: errs)
 		return ast.noType
 	end 'interface'
-	if not boxInto(c, p: p, node: operand, at: off, src: src, iface: target, wrong: Mismatch.expectedGot, errs: errs) 'unboxed'
+	if not boxInto(c, p: p, ms: ms, node: operand, at: off, src: src, iface: target, wrong: Mismatch.expectedGot, errs: errs) 'unboxed'
 		return ast.noType
 	end 'unboxed'
 	return target
@@ -172,11 +172,11 @@ end 'checkInterfaceCast'
 // checkRecoveryCast types a cast of an interface value to the type of the value it holds, which takes the value out of the
 // box. It fails with CastError.otherType where the box holds a value of another type, so a try covers it, and the type must
 // implement the interface, or no value of it would ever be in such a box.
-function checkRecoveryCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, src ast.TypeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkRecoveryCast(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, src ast.TypeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)
-	let srcName = nameOfType(p, t: src)
-	let targetName = nameOfType(p, t: target)
-	if not boxable(p, t: target) 'unboxable'
+	let srcName = nameOfType(p, ms: ms, t: src)
+	let targetName = nameOfType(p, ms: ms, t: target)
+	if not boxable(p, ms: ms, t: target) 'unboxable'
 		checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: diag.castFormsAValue("interface '{srcName}'", target: "'{targetName}'", remedy: "a value of '{srcName}' holds a value of a type that implements it, which '{targetName}' cannot"), errs: errs)
 		return ast.noType
 	end 'unboxable'
@@ -188,39 +188,39 @@ end 'checkRecoveryCast'
 // witnessCall types a call of a method that the interface of a value requires, which runs the method of the type the
 // value holds, through the table of the box. A method that an extension of the interface adds is lent the box: its
 // instance at the interface value's type reaches the requirements through the table.
-function witnessCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, iface ast.TypeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
-	let ifaceName = nameOfType(p, t: iface)
-	let named = requirementsNamed(p, iface: iface, name: name)
+function witnessCall(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, iface ast.TypeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let ifaceName = nameOfType(p, ms: ms, t: iface)
+	let named = requirementsNamed(p, ms: ms, iface: iface, name: name)
 	if named.count() == 0 'notRequired'
 		let have = oneType(iface)
 		let mark = errs.count()
-		let extended = lookedUp(c, p: p, t: iface, name: name, node: call, lookup: ast.interfaceExtensionMethod(p, from: c.modID, have: have, name: name), errs: errs)
+		let extended = lookedUp(c, p: p, ms: ms, t: iface, name: name, node: call, lookup: ast.interfaceExtensionMethod(p, ms: ms, from: c.modID, have: have, name: name), errs: errs)
 		if failedSince(errs, mark: mark) 'ambiguous'
 			return ast.noType
 		end 'ambiguous'
 		if extended != ast.noFunc 'extension'
-			return callInterfaceExtension(c, p: p, call: call, receiver: receiver, content: iface, method: extended, have: have, errs: errs)
+			return callInterfaceExtension(c, p: p, ms: ms, call: call, receiver: receiver, content: iface, method: extended, have: have, errs: errs)
 		end 'extension'
 		failAt(c, p: p, node: call, code: diag.errUnknownFunction, msg: "'{ifaceName}' has no method '{name}': a value of an interface has the methods the interface requires and those that the extensions of it that are seen here add, and no others", errs: errs)
 		return ast.noType
 	end 'notRequired'
 	if named.count() > 1 'inheritedTwice'
-		failAt(c, p: p, node: call, code: diag.errAmbiguousBound, msg: "'{name}' is required by both {requirementText(p, req: named[0])} and {requirementText(p, req: named[1])}, and a call through a value of '{ifaceName}' runs one of them; rename one requirement", errs: errs)
+		failAt(c, p: p, node: call, code: diag.errAmbiguousBound, msg: "'{name}' is required by both {requirementText(p, ms: ms, req: named[0])} and {requirementText(p, ms: ms, req: named[1])}, and a call through a value of '{ifaceName}' runs one of them; rename one requirement", errs: errs)
 		return ast.noType
 	end 'inheritedTwice'
 	let sig = named[0].sig
-	let selfParams = requirementParams(p, iface: named[0].iface)
-	let selfArgs = requirementArgs(p, iface: named[0].iface, own: iface)
-	let specs = applySpecs(p, specs: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.clone(), params: selfParams, args: selfArgs)
+	let selfParams = requirementParams(p, ms: ms, iface: named[0].iface)
+	let selfArgs = requirementArgs(p, ms: ms, iface: named[0].iface, own: iface)
+	let specs = applySpecs(p, ms: ms, specs: ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.clone(), params: selfParams, args: selfArgs)
 	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: receiver)
 	info.method = sig
-	info.selfConv = p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].selfConv
+	info.selfConv = ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].selfConv
 	info.paramSpecs = specs.clone()
 	let mark = errs.count()
-	info.ordered = bindArgs(c, p: p, call: call, callee: "{ifaceName}.{name}", specs: specs, receivers: 0, argsChecked: false, payload: false, errs: errs)
+	info.ordered = bindArgs(c, p: p, ms: ms, call: call, callee: "{ifaceName}.{name}", specs: specs, receivers: 0, argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'badArgs'
 		return ast.noType
 	end 'badArgs'
 	c.typing.calls.insert(call as Count, value: info)
-	return ast.substituteType(p.types, t: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, params: selfParams, args: selfArgs)
+	return ast.substituteType(ms.types, t: ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, params: selfParams, args: selfArgs)
 end 'witnessCall'

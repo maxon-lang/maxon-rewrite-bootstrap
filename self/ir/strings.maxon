@@ -14,32 +14,32 @@ function flag(mutates l Lowerer, on bool) returns Reg
 	return konst(l, value: flagOff)
 end 'flag'
 
-function lowerStringIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 	return isZero(l, v: n)
 end 'lowerStringIsEmpty'
 
-function lowerStringEquals(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringEquals(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerStringEquals'
 
 // lowerStringAppend stores the receiver joined with the other string in the receiver's place, which drops the string that
 // was there. The other string is computed before the place is addressed, so that computing it cannot leave the address stale.
-function lowerStringAppend(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
-	let other = lowerConverted(l, p: p, e: c.ordered[0], target: c.info.paramSpecs[0].ty)
+function lowerStringAppend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let other = lowerConverted(l, p: p, ms: ms, e: c.ordered[0], target: c.info.paramSpecs[0].ty)
 	let places = l.writeBacks.count()
-	let addr = address(l, p: p, e: c.receiver)
+	let addr = address(l, p: p, ms: ms, e: c.receiver)
 	let old = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newLoadAt(old, addr: addr))
 	let joined = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(old, b: other))
 	let string = p.builtins.stringTy
-	dropAt(l, p: p, addr: addr, t: string)
+	dropAt(l, p: p, ms: ms, addr: addr, t: string)
 	emit(l, i: newStoreAt(addr, src: joined))
-	writeBack(l, p: p, mark: places)
+	writeBack(l, p: p, ms: ms, mark: places)
 	return konst(l, value: 0 as Word)
 end 'lowerStringAppend'
 
-function lowerStringCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtStrCount, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerStringCount'
 
@@ -48,7 +48,7 @@ function found(mutates l Lowerer, result Reg) returns Reg
 	return nonZero(l, v: result)
 end 'found'
 
-function lowerStringContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringContains(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let from = konst(l, value: 0 as Word)
 	let result = runtime(l, symbol: Rt.rtStrFind, kind: IrKind.kindScalar, args: argsOf3(recv, b: args[0], c: from))
 	return found(l, result: result)
@@ -59,57 +59,57 @@ function hasAffix(mutates l Lowerer, text Reg, affix Reg, atEnd bool) returns Re
 	return runtime(l, symbol: Rt.rtStrHasAffix, kind: IrKind.kindScalar, args: argsOf3(text, b: affix, c: atEndFlag))
 end 'hasAffix'
 
-function lowerStringStartsWith(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringStartsWith(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return hasAffix(l, text: recv, affix: args[0], atEnd: false)
 end 'lowerStringStartsWith'
 
-function lowerStringEndsWith(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringEndsWith(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return hasAffix(l, text: recv, affix: args[0], atEnd: true)
 end 'lowerStringEndsWith'
 
 // stringIndex is the StringIndex of a byte position of a string: the position, and the number of clusters before it.
-function stringIndex(mutates l Lowerer, mutates p ast.Project, c CallSite, text Reg, bytePos Reg) returns Reg
+function stringIndex(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, text Reg, bytePos Reg) returns Reg
 	let clusters = runtime(l, symbol: Rt.rtStrGraphemeIndex, kind: IrKind.kindScalar, args: argsOf2(text, b: bytePos))
-	return indexRecord(l, p: p, c: c, clusters: clusters, bytePos: bytePos)
+	return indexRecord(l, p: p, ms: ms, c: c, clusters: clusters, bytePos: bytePos)
 end 'stringIndex'
 
-function indexRecord(mutates l Lowerer, mutates p ast.Project, c CallSite, clusters Reg, bytePos Reg) returns Reg
+function indexRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, clusters Reg, bytePos Reg) returns Reg
 	var fields = RegList.create(0)
 	fields.push(clusters)
 	fields.push(bytePos)
-	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: fields)
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: fields)
 end 'indexRecord'
 
 // foundIndex is the StringIndex of a match that a search gave plus 1, which fails with notFound where it gave 0.
-function foundIndex(mutates l Lowerer, mutates p ast.Project, c CallSite, text Reg, result Reg) returns Reg
+function foundIndex(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, text Reg, result Reg) returns Reg
 	let present = found(l, result: result)
-	failUnless(l, p: p, cond: present, errorCase: ast.errorStringNotFound)
+	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorStringNotFound)
 	let one = konst(l, value: 1 as Word)
 	let at = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(at, op: BinOp.binSub, left: result, right: one, unsigned: true, fail: noBlock))
-	return stringIndex(l, p: p, c: c, text: text, bytePos: at)
+	return stringIndex(l, p: p, ms: ms, c: c, text: text, bytePos: at)
 end 'foundIndex'
 
-function lowerStringFindFirst(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringFindFirst(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let from = konst(l, value: 0 as Word)
 	let result = runtime(l, symbol: Rt.rtStrFind, kind: IrKind.kindScalar, args: argsOf3(recv, b: args[0], c: from))
-	return foundIndex(l, p: p, c: c, text: recv, result: result)
+	return foundIndex(l, p: p, ms: ms, c: c, text: recv, result: result)
 end 'lowerStringFindFirst'
 
-function lowerStringFindLast(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringFindLast(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let result = runtime(l, symbol: Rt.rtStrFindLast, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-	return foundIndex(l, p: p, c: c, text: recv, result: result)
+	return foundIndex(l, p: p, ms: ms, c: c, text: recv, result: result)
 end 'lowerStringFindLast'
 
-function lowerStringStartIndex(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringStartIndex(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let zero = konst(l, value: 0 as Word)
-	return indexRecord(l, p: p, c: c, clusters: zero, bytePos: zero)
+	return indexRecord(l, p: p, ms: ms, c: c, clusters: zero, bytePos: zero)
 end 'lowerStringStartIndex'
 
-function lowerStringEndIndex(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringEndIndex(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let clusters = runtime(l, symbol: Rt.rtStrCount, kind: IrKind.kindScalar, args: argsOf1(recv))
 	let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return indexRecord(l, p: p, c: c, clusters: clusters, bytePos: size)
+	return indexRecord(l, p: p, ms: ms, c: c, clusters: clusters, bytePos: size)
 end 'lowerStringEndIndex'
 
 // indexBytePos is the byte position of a StringIndex.
@@ -119,13 +119,13 @@ function indexBytePos(mutates l Lowerer, index Reg) returns Reg
 	return d
 end 'indexBytePos'
 
-function lowerStringSlice(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringSlice(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let start = indexBytePos(l, index: args[0])
 	let stop = indexBytePos(l, index: args[1])
 	return runtime(l, symbol: Rt.rtStrSlice, kind: IrKind.kindManaged, args: argsOf3(recv, b: start, c: stop))
 end 'lowerStringSlice'
 
-function lowerStringSliceLength(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringSliceLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let start = indexBytePos(l, index: args[0])
 	let stop = runtime(l, symbol: Rt.rtStrGraphemeBytePos, kind: IrKind.kindScalar, args: argsOf3(recv, b: start, c: args[1]))
 	return runtime(l, symbol: Rt.rtStrSlice, kind: IrKind.kindManaged, args: argsOf3(recv, b: start, c: stop))
@@ -137,11 +137,11 @@ function replace(mutates l Lowerer, text Reg, old Reg, replacement Reg, all bool
 	return runtime(l, symbol: Rt.rtStrReplace, kind: IrKind.kindManaged, args: operands)
 end 'replace'
 
-function lowerStringReplace(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringReplace(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return replace(l, text: recv, old: args[0], replacement: args[1], all: true)
 end 'lowerStringReplace'
 
-function lowerStringReplaceFirst(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringReplaceFirst(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return replace(l, text: recv, old: args[0], replacement: args[1], all: false)
 end 'lowerStringReplaceFirst'
 
@@ -151,15 +151,15 @@ function trim(mutates l Lowerer, text Reg, fromStart bool, fromEnd bool) returns
 	return runtime(l, symbol: Rt.rtStrTrim, kind: IrKind.kindManaged, args: argsOf3(text, b: trimStart, c: trimEnd))
 end 'trim'
 
-function lowerStringTrim(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringTrim(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return trim(l, text: recv, fromStart: true, fromEnd: true)
 end 'lowerStringTrim'
 
-function lowerStringTrimStart(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringTrimStart(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return trim(l, text: recv, fromStart: true, fromEnd: false)
 end 'lowerStringTrimStart'
 
-function lowerStringTrimEnd(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringTrimEnd(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return trim(l, text: recv, fromStart: false, fromEnd: true)
 end 'lowerStringTrimEnd'
 
@@ -168,20 +168,20 @@ function mapCase(mutates l Lowerer, text Reg, upper bool) returns Reg
 	return runtime(l, symbol: Rt.rtStrMapCase, kind: IrKind.kindManaged, args: argsOf2(text, b: toUpper))
 end 'mapCase'
 
-function lowerStringToLower(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringToLower(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return mapCase(l, text: recv, upper: false)
 end 'lowerStringToLower'
 
-function lowerStringToUpper(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringToUpper(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return mapCase(l, text: recv, upper: true)
 end 'lowerStringToUpper'
 
-function lowerStringIndexCharIndex(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringIndexCharIndex(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newLoadField(d, obj: recv, offset: fieldOffset(ast.stringIndexCharIdxField, tagged: false)))
 	return d
 end 'lowerStringIndexCharIndex'
 
-function lowerStringIndexBytePos(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+function lowerStringIndexBytePos(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return indexBytePos(l, index: recv)
 end 'lowerStringIndexBytePos'

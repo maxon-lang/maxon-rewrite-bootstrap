@@ -8,15 +8,15 @@
 // only moved owners and scalars in is, and so is a value of unknown origin that is owned (a call's result, a field, a
 // consumes parameter). A borrowed one of unknown origin, a parameter or what a closure captured, is assumed to hold
 // borrows.
-function borrowsOf(o Ownership, p ast.Project, e ast.NodeID) returns OwnBorrows
+function borrowsOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns OwnBorrows
 	var out = OwnBorrows.new()
 	let k = p.modules[o.c.modIdx].tree.kindOf(e)
 	if k == ast.NodeKind.castExpr 'cast'
-		return borrowsOf(o, p: p, e: ast.castExprE(p.modules[o.c.modIdx].tree, id: e))
+		return borrowsOf(o, p: p, ms: ms, e: ast.castExprE(p.modules[o.c.modIdx].tree, id: e))
 	end 'cast'
 	if k == ast.NodeKind.condExpr 'cond'
-		out.addAll(borrowsOf(o, p: p, e: ast.condExprThen(p.modules[o.c.modIdx].tree, id: e)))
-		out.addAll(borrowsOf(o, p: p, e: ast.condExprElse(p.modules[o.c.modIdx].tree, id: e)))
+		out.addAll(borrowsOf(o, p: p, ms: ms, e: ast.condExprThen(p.modules[o.c.modIdx].tree, id: e)))
+		out.addAll(borrowsOf(o, p: p, ms: ms, e: ast.condExprElse(p.modules[o.c.modIdx].tree, id: e)))
 		return out
 	end 'cond'
 	if k == ast.NodeKind.closureExpr 'closure'
@@ -33,7 +33,7 @@ function borrowsOf(o Ownership, p ast.Project, e ast.NodeID) returns OwnBorrows
 	if name.kind != ast.NameKind.nameLocal 'notLocal'
 		return out
 	end 'notLocal'
-	localBorrows(o, p: p, local: name.local, out: out)
+	localBorrows(o, p: p, ms: ms, local: name.local, out: out)
 	return out
 end 'borrowsOf'
 
@@ -55,14 +55,14 @@ end 'closureBorrows'
 
 // localBorrows adds what the function value in a local borrows: what was bound to it, or, for a borrowed parameter or
 // capture of a function type, the local itself.
-function localBorrows(o Ownership, p ast.Project, local ast.LocalID, mutates out OwnBorrows)
+function localBorrows(o Ownership, p ast.Project, ms ast.ModuleState, local ast.LocalID, mutates out OwnBorrows)
 	let held = heldBy(o, local: local)
 	if held.isSome() 'holder'
 		out.addAll(held.unwrap())
 		return
 	end 'holder'
 	let entry = o.c.typing.locals[local as Count].clone()
-	if not ast.isFunctionType(p.types, t: entry.ty) or not entry.isParam or ast.ownsValue(entry.conv) 'owned'
+	if not ast.isFunctionType(ms.types, t: entry.ty) or not entry.isParam or ast.ownsValue(entry.conv) 'owned'
 		return
 	end 'owned'
 	out.name = entry.name.clone()
@@ -87,8 +87,8 @@ function heldBy(o Ownership, local ast.LocalID) returns table.Option with OwnBor
 end 'heldBy'
 
 // requireNoBorrows refuses a function value that holds a borrow where it escapes, which what says.
-function requireNoBorrows(mutates o Ownership, mutates p ast.Project, e ast.NodeID, what String)
-	let b = borrowsOf(o, p: p, e: e)
+function requireNoBorrows(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, what String)
+	let b = borrowsOf(o, p: p, ms: ms, e: e)
 	if not b.any() 'owns'
 		return
 	end 'owns'
@@ -114,7 +114,7 @@ function requireNoBorrows(mutates o Ownership, mutates p ast.Project, e ast.Node
 		fail(o, p: p, site: site, code: diag.errClosureBorrow, msg: "'{b.name}' is a function value this closure captured, which it only borrows, so it cannot be {what}")
 		return
 	end 'capture'
-	let advice = copyAdvice(o, p: p, t: borrowedType(o, b: b), ifCopyable: "clone the value into a local first ('let copy = {b.name}.clone()') and capture that", fallback: "pass the value to the function value's call as an argument instead")
+	let advice = copyAdvice(o, p: p, ms: ms, t: borrowedType(o, b: b), ifCopyable: "clone the value into a local first ('let copy = {b.name}.clone()') and capture that", fallback: "pass the value to the function value's call as an argument instead")
 	fail(o, p: p, site: site, code: diag.errClosureBorrow, msg: "this function value borrows '{b.name}', which it captured, so it cannot be {what}: it could outlive the borrow; {advice}")
 end 'requireNoBorrows'
 
@@ -141,11 +141,11 @@ end 'borrowedType'
 
 // bindHolder records that a local declared here is bound to a function value that borrows, and holds what it borrows for
 // as long as the local's scope lasts.
-function bindHolder(mutates o Ownership, mutates p ast.Project, local ast.LocalID, e ast.NodeID)
-	if not ast.isFunctionType(p.types, t: o.c.typing.locals[local as Count].ty) 'notFunction'
+function bindHolder(mutates o Ownership, p ast.Project, ms ast.ModuleState, local ast.LocalID, e ast.NodeID)
+	if not ast.isFunctionType(ms.types, t: o.c.typing.locals[local as Count].ty) 'notFunction'
 		return
 	end 'notFunction'
-	let b = borrowsOf(o, p: p, e: e)
+	let b = borrowsOf(o, p: p, ms: ms, e: e)
 	if not b.any() 'owns'
 		return
 	end 'owns'
@@ -155,12 +155,12 @@ end 'bindHolder'
 
 // holdArgument holds what a closure written as an argument borrows while the rest of the call is evaluated. A local
 // holds its own for its whole scope.
-function holdArgument(mutates o Ownership, mutates p ast.Project, e ast.NodeID)
+function holdArgument(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID)
 	let k = p.modules[o.c.modIdx].tree.kindOf(e)
 	if k != ast.NodeKind.closureExpr and k != ast.NodeKind.castExpr 'notClosure'
 		return
 	end 'notClosure'
-	let b = borrowsOf(o, p: p, e: e)
+	let b = borrowsOf(o, p: p, ms: ms, e: e)
 	if b.any() 'borrows'
 		holdBorrows(o, p: p, b: b, holder: "the closure passed to this call")
 	end 'borrows'
@@ -181,7 +181,7 @@ function holdBorrows(mutates o Ownership, p ast.Project, b OwnBorrows, holder St
 end 'holdBorrows'
 
 // requireNotMutablyHeld refuses a read of a variable that a mutating closure borrows to change while it lives.
-function requireNotMutablyHeld(mutates o Ownership, mutates p ast.Project, local ast.LocalID, site diag.U32)
+function requireNotMutablyHeld(mutates o Ownership, p ast.Project, local ast.LocalID, site diag.U32)
 	if not o.mutableHeld 'none'
 		return
 	end 'none'
@@ -201,13 +201,13 @@ end 'releaseHolders'
 
 // requireCallable refuses a call of a value whose type mutates its captures where the caller may not change the value: the
 // call changes the state its closure holds. A temporary is called once, so nothing sees the change.
-function requireCallable(mutates o Ownership, mutates p ast.Project, callee ast.NodeID)
+function requireCallable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, callee ast.NodeID)
 	let t = ownType(o, node: callee)
-	if not ast.isMutatingFunction(p.types, t: t) 'reads'
+	if not ast.isMutatingFunction(ms.types, t: t) 'reads'
 		return
 	end 'reads'
-	let path = pathOf(o, p: p, e: callee)
+	let path = pathOf(o, p: p, ms: ms, e: callee)
 	if path.isPlace() 'place'
-		requireWritableFor(o, p: p, site: offsetOfOwn(o, p: p, node: callee), path: path, call: t)
+		requireWritableFor(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, node: callee), path: path, call: t)
 	end 'place'
 end 'requireCallable'

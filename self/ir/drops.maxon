@@ -34,15 +34,15 @@ end 'emitDrop'
 // ownLocal makes the block that is open drop a local when it ends. The slot holds nothing until the local is given a
 // value, and nothing again once it is moved from, and dropping an empty slot does nothing, so the drop needs no knowledge
 // of which path ran.
-export function ownLocal(mutates l Lowerer, mutates p ast.Project, slot Count, t ast.TypeID)
-	if kindOf(l, p: p, t: t) != IrKind.kindManaged 'scalar'
+export function ownLocal(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, slot Count, t ast.TypeID)
+	if kindOf(l, p: p, ms: ms, t: t) != IrKind.kindManaged 'scalar'
 		return
 	end 'scalar'
 	var i = l.scopes.count()
 	while i > 0 'scopes'
 		i = pred(i)
 		if l.scopes[i].block 'block'
-			let ty = dropType(l, p: p, t: t)
+			let ty = dropType(l, p: p, ms: ms, t: t)
 			l.scopes[i].drops.push(PendingDrop.ofSlot(slot, ty: ty))
 			return
 		end 'block'
@@ -51,35 +51,35 @@ export function ownLocal(mutates l Lowerer, mutates p ast.Project, slot Count, t
 end 'ownLocal'
 
 // ownTemp makes the innermost scope drop a fresh value that nothing owns.
-function ownTemp(mutates l Lowerer, mutates p ast.Project, v Reg, t ast.TypeID)
+function ownTemp(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, t ast.TypeID)
 	let top = pred(l.scopes.count())
-	let ty = dropType(l, p: p, t: t)
+	let ty = dropType(l, p: p, ms: ms, t: t)
 	l.scopes[top].drops.push(PendingDrop.ofReg(v, ty: ty))
 end 'ownTemp'
 
 // dropValue drops an owned value now.
-function dropValue(mutates l Lowerer, mutates p ast.Project, v Reg, t ast.TypeID)
+function dropValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, t ast.TypeID)
 	if regKind(l, v: v) == IrKind.kindManaged 'managed'
-		let ty = dropType(l, p: p, t: t)
+		let ty = dropType(l, p: p, ms: ms, t: t)
 		emitDropReg(l, src: v, ty: ty)
 	end 'managed'
 end 'dropValue'
 
 // dropAt drops the value held at an address that is about to be assigned: the old value of a field, an element or an
 // mutates parameter.
-function dropAt(mutates l Lowerer, mutates p ast.Project, addr Reg, t ast.TypeID)
-	if kindOf(l, p: p, t: t) == IrKind.kindManaged 'managed'
-		let ty = dropType(l, p: p, t: t)
+function dropAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, addr Reg, t ast.TypeID)
+	if kindOf(l, p: p, ms: ms, t: t) == IrKind.kindManaged 'managed'
+		let ty = dropType(l, p: p, ms: ms, t: t)
 		emitDropAt(l, addr: addr, ty: ty)
 	end 'managed'
 end 'dropAt'
 
 // storeField assigns a field of the type t, dropping its old value first.
-function storeField(mutates l Lowerer, mutates p ast.Project, obj Reg, index Count, t ast.TypeID, v Reg)
-	if kindOf(l, p: p, t: t) == IrKind.kindManaged 'managed'
+function storeField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, obj Reg, index Count, t ast.TypeID, v Reg)
+	if kindOf(l, p: p, ms: ms, t: t) == IrKind.kindManaged 'managed'
 		let addr = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newFieldAddr(addr, obj: obj, offset: wordOffset(index)))
-		dropAt(l, p: p, addr: addr, t: t)
+		dropAt(l, p: p, ms: ms, addr: addr, t: t)
 	end 'managed'
 	emit(l, i: newStoreField(obj, offset: wordOffset(index), src: v))
 end 'storeField'
@@ -100,15 +100,15 @@ end 'fetch'
 // something only the interpreter has is dropped by the interpreter alone, so a function that drops one is refused the way
 // one that makes it is. The refusal is at the function, and only when nothing else in it is refused, since a function that
 // is refused at a place already is not made better by another and its refusals stay in source order.
-function dropType(mutates l Lowerer, mutates p ast.Project, t ast.TypeID) returns ast.TypeID
-	let ty = applyType(l, p: p, t: t)
+function dropType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
+	let ty = applyType(l, p: p, ms: ms, t: t)
 	if l.b.f.refusals.count() == 0 'unrefused'
-		requireNative(l, p: p, site: diag.Site.make(p.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].module, offset: functionOffset(l, p: p)), t: ty)
+		requireNative(l, p: p, ms: ms, site: diag.Site.make(ms.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].module, offset: functionOffset(l, p: p, ms: ms)), t: ty)
 	end 'unrefused'
 	return ty
 end 'dropType'
 
 // functionOffset is where the function being lowered is declared.
-function functionOffset(l Lowerer, p ast.Project) returns diag.U32
-	return p.modules[ast.modIndex(p.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].module)].tree.startOf(p.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].nodeID)
+function functionOffset(l Lowerer, p ast.Project, ms ast.ModuleState) returns diag.U32
+	return p.modules[ast.modIndex(ms.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].module)].tree.startOf(ms.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].nodeID)
 end 'functionOffset'

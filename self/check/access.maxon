@@ -1,5 +1,5 @@
 // checkStructLit types a record literal, which only a method of the record writes.
-function checkStructLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkStructLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let typeName = ast.structLitExprTypeName(p.modules[c.modIdx].tree, id: e)
 	let off = offsetOf(c, p: p, node: e)
 	var target = ast.noType
@@ -11,12 +11,12 @@ function checkStructLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 			none then _ = 0
 		end 'bound'
 	end 'named'
-	if not typeHasKind(p, t: target, kind: ast.TypeKind.record) 'notRecord'
+	if not typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.record) 'notRecord'
 		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "'{typeName}' is not a type with fields", errs: errs)
 		return ast.noType
 	end 'notRecord'
-	let tName = nameOfType(p, t: target)
-	if p.types.lists[ast.typeList(p.types, t: target)][ast.typeIndex(p.types, t: target)].typeParams.count() > 0 'generic'
+	let tName = nameOfType(p, ms: ms, t: target)
+	if ms.types.lists[ast.typeList(ms.types, t: target)][ast.typeIndex(ms.types, t: target)].typeParams.count() > 0 'generic'
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "a literal of the generic '{tName}' is written 'Self\{...\}', which gives it its own type parameters", errs: errs)
 		return ast.noType
 	end 'generic'
@@ -24,13 +24,13 @@ function checkStructLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 		checkFail(c.modID, off: off, code: diag.errConstructorRestriction, msg: diag.constructorRestricted(tName), errs: errs)
 		return ast.noType
 	end 'restricted'
-	return checkLiteralFields(c, p: p, e: e, rt: target, errs: errs)
+	return checkLiteralFields(c, p: p, ms: ms, e: e, rt: target, errs: errs)
 end 'checkStructLit'
 
 // checkLiteralFields types the field values of a record literal, and leaves the fields it does not give to their defaults.
-function checkLiteralFields(mutates c Checker, mutates p ast.Project, e ast.NodeID, rt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let orig = ast.originOf(p.types, t: rt)
-	let fieldCount = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields.count()
+function checkLiteralFields(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, rt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let orig = ast.originOf(ms.types, t: rt)
+	let fieldCount = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields.count()
 	var ordered = ast.NodeIDList.create(0)
 	for _ in 0 upto fieldCount 'slots'
 		ordered.push(0 as ast.NodeID)
@@ -39,17 +39,17 @@ function checkLiteralFields(mutates c Checker, mutates p ast.Project, e ast.Node
 	let given = p.modules[c.modIdx].tree.listLen(fieldsRef)
 	for i in 0 upto given 'given'
 		let sf = p.modules[c.modIdx].tree.listAt(fieldsRef, index: i) as ast.NodeID
-		if not checkLiteralField(c, p: p, rt: rt, sf: sf, ordered: ordered, errs: errs) 'bad'
+		if not checkLiteralField(c, p: p, ms: ms, rt: rt, sf: sf, ordered: ordered, errs: errs) 'bad'
 			return ast.noType
 		end 'bad'
 	end 'given'
 	for fi in 0 upto fieldCount 'defaults'
 		if ordered[fi] == 0 'left'
-			if not p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields[fi].hasDefault 'required'
-				checkFail(c.modID, off: braceOffset(c, p: p, literal: e), code: diag.errFieldNotInitialized, msg: diag.fieldNotInitialized(p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields[fi].name, typeName: nameOfType(p, t: rt)), errs: errs)
+			if not ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].hasDefault 'required'
+				checkFail(c.modID, off: braceOffset(c, p: p, literal: e), code: diag.errFieldNotInitialized, msg: diag.fieldNotInitialized(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].name, typeName: nameOfType(p, ms: ms, t: rt)), errs: errs)
 				return ast.noType
 			end 'required'
-			recordFieldUses(c, defaultExpr: p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields[fi].defaultExpr)
+			recordFieldUses(c, defaultExpr: ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].defaultExpr)
 		end 'left'
 	end 'defaults'
 	c.typing.structLits.insert(e as Count, value: ast.StructLitInfo.make(rt, ordered: ordered))
@@ -57,25 +57,25 @@ function checkLiteralFields(mutates c Checker, mutates p ast.Project, e ast.Node
 end 'checkLiteralFields'
 
 // checkLiteralField types one field value of a record literal, as a value of the field's type.
-function checkLiteralField(mutates c Checker, mutates p ast.Project, rt ast.TypeID, sf ast.NodeID, mutates ordered ast.NodeIDList, mutates errs diag.ErrorList) returns bool
+function checkLiteralField(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, rt ast.TypeID, sf ast.NodeID, mutates ordered ast.NodeIDList, mutates errs diag.ErrorList) returns bool
 	let name = ast.structFieldName(p.modules[c.modIdx].tree, id: sf)
 	let value = ast.structFieldValue(p.modules[c.modIdx].tree, id: sf)
-	let typeName = nameOfType(p, t: rt)
-	if not p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: rt))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: rt))].findField(name).isSome() 'unknown'
+	let typeName = nameOfType(p, ms: ms, t: rt)
+	if not ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: rt))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: rt))].findField(name).isSome() 'unknown'
 		failAt(c, p: p, node: sf, code: diag.errUnknownField, msg: diag.unknownField(typeName, fieldName: name), errs: errs)
 		return false
 	end 'unknown'
-	let index = fieldIndexNamed(p, rt: rt, name: name)
+	let index = fieldIndexNamed(p, ms: ms, rt: rt, name: name)
 	if ordered[index] != 0 'twice'
 		failAt(c, p: p, node: sf, code: diag.errDuplicateDefinition, msg: "field '{name}' is given twice", errs: errs)
 		return false
 	end 'twice'
-	let fieldTy = ast.fieldType(p.types, owner: rt, index: index)
-	let t = checkExpecting(c, p: p, e: value, want: fieldTy, errs: errs)
+	let fieldTy = ast.fieldType(ms.types, owner: rt, index: index)
+	let t = checkExpecting(c, p: p, ms: ms, e: value, want: fieldTy, errs: errs)
 	if t == ast.noType 'badValue'
 		return false
 	end 'badValue'
-	if not coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: sf), src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{declaredNameOfType(p, t: rt)}'", bare: "field '{name}'"), errs: errs) 'badType'
+	if not coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, node: sf), src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{declaredNameOfType(p, ms: ms, t: rt)}'", bare: "field '{name}'"), errs: errs) 'badType'
 		return false
 	end 'badType'
 	ordered[index] = value
@@ -85,13 +85,13 @@ end 'checkLiteralField'
 // checkTupleLit types a tuple literal, whose elements are the fields of the record that the tuple type is. The type the
 // context expects, when it is a tuple of as many elements, gives each element its own; otherwise each element has the type
 // it is written with, and a bare number keeps the range it spans, or takes the whole word inside another literal.
-function checkTupleLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkTupleLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let elemsRef = ast.tupleExprElemsRef(p.modules[c.modIdx].tree, id: e)
 	let count = p.modules[c.modIdx].tree.listLen(elemsRef)
 	let want = c.expect
 	var given = ast.TypeIDList.create(0)
-	if ast.isTupleType(p.types, t: want) and p.types.lists[ast.typeList(p.types, t: want)][ast.typeIndex(p.types, t: want)].typeArgs.count() == count 'stated'
-		given = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: want)][ast.typeIndex(p.types, t: want)].typeArgs)
+	if ast.isTupleType(ms.types, t: want) and ms.types.lists[ast.typeList(ms.types, t: want)][ast.typeIndex(ms.types, t: want)].typeArgs.count() == count 'stated'
+		given = ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: want)][ast.typeIndex(ms.types, t: want)].typeArgs)
 	end 'stated'
 	let wide = c.literalWide
 	c.literalWide = true
@@ -103,7 +103,7 @@ function checkTupleLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 		if given.count() == count 'hasWanted'
 			wanted = given[i]
 		end 'hasWanted'
-		let t = checkTupleElement(c, p: p, node: node, wanted: wanted, want: want, index: i, wide: wide, errs: errs)
+		let t = checkTupleElement(c, p: p, ms: ms, node: node, wanted: wanted, want: want, index: i, wide: wide, errs: errs)
 		if t == ast.noType 'failed'
 			c.literalWide = wide
 			return ast.noType
@@ -112,14 +112,14 @@ function checkTupleLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 		ordered.push(node)
 	end 'each'
 	c.literalWide = wide
-	let ty = ast.tupleType(p.types, elems: elems)
+	let ty = ast.tupleType(ms.types, elems: elems)
 	c.typing.structLits.insert(e as Count, value: ast.StructLitInfo.make(ty, ordered: ordered))
 	return ty
 end 'checkTupleLit'
 
 // checkTupleElement types one element of a tuple literal and gives the type it has in the tuple.
-function checkTupleElement(mutates c Checker, mutates p ast.Project, node ast.NodeID, wanted ast.TypeID, want ast.TypeID, index Count, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
-	let t = checkExpecting(c, p: p, e: node, want: wanted, errs: errs)
+function checkTupleElement(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, wanted ast.TypeID, want ast.TypeID, index Count, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
+	let t = checkExpecting(c, p: p, ms: ms, e: node, want: wanted, errs: errs)
 	if t == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
@@ -128,25 +128,25 @@ function checkTupleElement(mutates c Checker, mutates p ast.Project, node ast.No
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "an element of a tuple is an expression with no value", errs: errs)
 		return ast.noType
 	end 'noValue'
-	if not requireSigned64(c, off: off, t: t, p: p, errs: errs) 'wide'
+	if not requireSigned64(c, off: off, t: t, p: p, ms: ms, errs: errs) 'wide'
 		return ast.noType
 	end 'wide'
 	if wanted != ast.noType 'stated'
-		let elementPlace = "element {index} of tuple {nameOfType(p, t: want)}"
-		if not coerce(c, p: p, node: node, at: exprOffset(c, p: p, node: node), src: t, target: wanted, wrong: Mismatch.assignment(elementPlace.clone(), bare: elementPlace), errs: errs) 'badType'
+		let elementPlace = "element {index} of tuple {nameOfType(p, ms: ms, t: want)}"
+		if not coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, node: node), src: t, target: wanted, wrong: Mismatch.assignment(elementPlace.clone(), bare: elementPlace), errs: errs) 'badType'
 			return ast.noType
 		end 'badType'
 		return wanted
 	end 'stated'
-	return tupleElementType(p, t: t, wide: wide)
+	return tupleElementType(p, ms: ms, t: t, wide: wide)
 end 'checkTupleElement'
 
 // tupleElementType is the type that an element written with the type t has in a tuple that states none: bare numbers keep
 // the range they span, as those of an array literal do, and take the whole word inside another literal.
-function tupleElementType(mutates p ast.Project, t ast.TypeID, wide bool) returns ast.TypeID
-	let held = bareRange(p, t: t)
-	if wide and typeIsAnonInt(p.types, t: held) 'word'
-		if rangeHi(p.types, t: held).gt(ast.I128.i64Max()) 'unsigned'
+function tupleElementType(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, wide bool) returns ast.TypeID
+	let held = bareRange(p, ms: ms, t: t)
+	if wide and typeIsAnonInt(ms.types, t: held) 'word'
+		if rangeHi(ms.types, t: held).gt(ast.I128.i64Max()) 'unsigned'
 			return p.builtins.anonU64Ty
 		end 'unsigned'
 		return p.builtins.anon64Ty
@@ -164,19 +164,19 @@ end 'declaredTypeOrNone'
 // checkIndex types a subscript, which only an array, a map, a list or a pool has. An element of a primitive is a
 // projection, never a value of its own: what it is used for decides whether it borrows the element to read it or to change
 // it, and the ownership pass refuses to move one out.
-function checkIndex(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkIndex(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let obj = ast.indexExprObj(p.modules[c.modIdx].tree, id: e)
-	let typed = checkExpr(c, p: p, e: obj, errs: errs)
+	let typed = checkExpr(c, p: p, ms: ms, e: obj, errs: errs)
 	if typed == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let t = ast.contentType(p.types, t: typed)
-	if not requireNotCown(c, p: p, off: offsetOf(c, p: p, node: e), t: t, use: "reading an element", errs: errs) 'cown'
+	let t = ast.contentType(ms.types, t: typed)
+	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), t: t, use: "reading an element", errs: errs) 'cown'
 		return ast.noType
 	end 'cown'
-	let k = kindOfType(p, t: t)
+	let k = kindOfType(p, ms: ms, t: t)
 	if k != ast.TypeKind.builtinArray and k != ast.TypeKind.builtinMap and k != ast.TypeKind.builtinList and k != ast.TypeKind.builtinPool 'notSubscriptable'
-		failAt(c, p: p, node: e, code: diag.errTypeMismatch, msg: "{nameOfType(p, t: t)} has no elements to index: only an array, a map, a list or a pool does", errs: errs)
+		failAt(c, p: p, node: e, code: diag.errTypeMismatch, msg: "{nameOfType(p, ms: ms, t: t)} has no elements to index: only an array, a map, a list or a pool does", errs: errs)
 		return ast.noType
 	end 'notSubscriptable'
 	let argsRef = ast.indexExprArgsRef(p.modules[c.modIdx].tree, id: e)
@@ -186,63 +186,63 @@ function checkIndex(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 		return ast.noType
 	end 'arity'
 	let arg = p.modules[c.modIdx].tree.listAt(argsRef, index: 0 as Count) as ast.NodeID
-	let indexTy = typeIndexType(p, ownerTy: t)
-	let argTy = checkExpecting(c, p: p, e: arg, want: indexTy, errs: errs)
+	let indexTy = typeIndexType(p, ms: ms, ownerTy: t)
+	let argTy = checkExpecting(c, p: p, ms: ms, e: arg, want: indexTy, errs: errs)
 	if argTy == ast.noType 'badIndex'
 		return ast.noType
 	end 'badIndex'
-	if not coerce(c, p: p, node: arg, at: exprOffset(c, p: p, node: arg), src: argTy, target: indexTy, wrong: Mismatch.expectedGot, errs: errs) 'badType'
+	if not coerce(c, p: p, ms: ms, node: arg, at: exprOffset(c, p: p, node: arg), src: argTy, target: indexTy, wrong: Mismatch.expectedGot, errs: errs) 'badType'
 		return ast.noType
 	end 'badType'
-	return typeElemType(p, ownerTy: t)
+	return typeElemType(p, ms: ms, ownerTy: t)
 end 'checkIndex'
 
 // checkMember types 'Type.case' and the members that an enum or a union value has.
-function checkMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkMember(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if c.typing.members.has(e as Count) 'typed'
 		return ast.nodeType(c.typing, node: e)
 	end 'typed'
 	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: e)
 	let param = typeParamNamed(c, p: p, e: obj)
 	if param != ast.noType 'parameter'
-		return memberOfTypeParam(c, p: p, e: e, param: param, errs: errs)
+		return memberOfTypeParam(c, p: p, ms: ms, e: e, param: param, errs: errs)
 	end 'parameter'
 	var named = ast.noType
 	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
 		let mark = errs.count()
-		named = typeNamed(c, p: p, name: obj, errs: errs)
+		named = typeNamed(c, p: p, ms: ms, name: obj, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return ast.noType
 		end 'failed'
 	end 'headIsName'
 	if named != ast.noType 'typeMember'
-		return checkTypeMember(c, p: p, e: e, obj: obj, nt: named, errs: errs)
+		return checkTypeMember(c, p: p, ms: ms, e: e, obj: obj, nt: named, errs: errs)
 	end 'typeMember'
 	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsSized'
 		match consumes ast.sizedLimitValue(ast.nameExprName(p.modules[c.modIdx].tree, id: obj), member: ast.memberExprName(p.modules[c.modIdx].tree, id: e)) 'limit'
-			some(v) then return checkLimitMember(c, p: p, e: e, value: v)
+			some(v) then return checkLimitMember(c, p: p, ms: ms, e: e, value: v)
 			none then _ = 0
 		end 'limit'
 	end 'headIsSized'
-	match consumes payloadCaseNamed(c, p: p, obj: obj) 'payloadCase'
-		some(read) then return checkCaseRead(c, p: p, e: e, read: read, errs: errs)
+	match consumes payloadCaseNamed(c, p: p, ms: ms, obj: obj) 'payloadCase'
+		some(read) then return checkCaseRead(c, p: p, ms: ms, e: e, read: read, errs: errs)
 		none then _ = 0
 	end 'payloadCase'
-	let typed = checkExpr(c, p: p, e: obj, errs: errs)
+	let typed = checkExpr(c, p: p, ms: ms, e: obj, errs: errs)
 	if typed == ast.noType 'badObj'
 		return ast.noType
 	end 'badObj'
-	return checkValueMember(c, p: p, e: e, t: typed, errs: errs)
+	return checkValueMember(c, p: p, ms: ms, e: e, t: typed, errs: errs)
 end 'checkMember'
 
 // memberOfTypeParam refuses a member written on a type parameter's name: a requirement of its bounds is reached only on
 // a concrete type, and is no function value.
-function memberOfTypeParam(mutates c Checker, mutates p ast.Project, e ast.NodeID, param ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function memberOfTypeParam(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, param ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
-	let paramName = nameOfType(p, t: param)
-	let req = boundRequirement(p, boundedFn: c.boundedFn, param: param, name: member)
+	let paramName = nameOfType(p, ms: ms, t: param)
+	let req = boundRequirement(p, ms: ms, boundedFn: c.boundedFn, param: param, name: member)
 	if req.sig != ast.noFunc 'requirement'
-		let ifaceName = p.types.lists[ast.typeList(p.types, t: req.iface)][ast.typeIndex(p.types, t: req.iface)].name.clone()
+		let ifaceName = ms.types.lists[ast.typeList(ms.types, t: req.iface)][ast.typeIndex(ms.types, t: req.iface)].name.clone()
 		checkFail(c.modID, off: p.modules[c.modIdx].tree.memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: diag.requirementAsFunctionValue("{paramName}.{member}", interfaceName: ifaceName), errs: errs)
 		return ast.noType
 	end 'requirement'
@@ -251,49 +251,49 @@ function memberOfTypeParam(mutates c Checker, mutates p ast.Project, e ast.NodeI
 end 'memberOfTypeParam'
 
 // checkLimitMember types `u64.max` and its like, the constant that a sized integer's limit is.
-function checkLimitMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, consumes value ast.I128) returns ast.TypeID
+function checkLimitMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes value ast.I128) returns ast.TypeID
 	c.typing.members.insert(e as Count, value: ast.MemberInfo.make(ast.MemberKind.memberLimit, ownerTy: ast.noType))
-	return ast.internConstInt(p.types, val: value)
+	return ast.internConstInt(ms.types, val: value)
 end 'checkLimitMember'
 
 // checkTypeMember types a case of an enum or a union written after the type's name.
-function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, obj ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, obj ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
 	let off = offsetOf(c, p: p, node: e)
-	let k = kindOfType(p, t: nt)
+	let k = kindOfType(p, ms: ms, t: nt)
 	var named = nt
-	if k == ast.TypeKind.unionTy and p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].typeParams.count() > 0 and p.types.lists[ast.typeList(p.types, t: nt)][ast.typeIndex(p.types, t: nt)].findCase(member).isSome() 'inferred'
-		named = instantiateInferred(c, p: p, obj: obj, ut: nt, member: member, errs: errs)
+	if k == ast.TypeKind.unionTy and ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].typeParams.count() > 0 and ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].findCase(member).isSome() 'inferred'
+		named = instantiateInferred(c, p: p, ms: ms, obj: obj, ut: nt, member: member, errs: errs)
 		if named == ast.noType 'cannotInfer'
 			return ast.noType
 		end 'cannotInfer'
 	end 'inferred'
 	let mark = errs.count()
-	_ = requireInstance(c, p: p, off: offsetOf(c, p: p, node: obj), nt: named, errs: errs)
+	_ = requireInstance(c, p: p, ms: ms, off: offsetOf(c, p: p, node: obj), nt: named, errs: errs)
 	if failedSince(errs, mark: mark) 'generic'
 		return ast.noType
 	end 'generic'
 	if (k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy) and (member == allCasesMember or member == allCaseNamesMember) 'caseList'
-		return checkCaseListMember(c, p: p, e: e, obj: obj, member: member, nt: named, errs: errs)
+		return checkCaseListMember(c, p: p, ms: ms, e: e, obj: obj, member: member, nt: named, errs: errs)
 	end 'caseList'
 	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
-		return checkCaseMember(c, p: p, e: e, member: member, nt: named, errs: errs)
+		return checkCaseMember(c, p: p, ms: ms, e: e, member: member, nt: named, errs: errs)
 	end 'cases'
-	let method = methodOf(c, p: p, t: named, name: member, node: e, errs: errs)
+	let method = methodOf(c, p: p, ms: ms, t: named, name: member, node: e, errs: errs)
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return ast.noType
 	end 'ambiguous'
 	if method != ast.noFunc 'method'
 		let spelled = "{writtenType(c, p: p, obj: obj)}.{member}"
-		let words = diag.methodAsFunctionValue(spelled) if p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic else diag.instanceMethodAsFunctionValue(spelled, method: member)
+		let words = diag.methodAsFunctionValue(spelled) if ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic else diag.instanceMethodAsFunctionValue(spelled, method: member)
 		checkFail(c.modID, off: p.modules[c.modIdx].tree.memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: words, errs: errs)
 		return ast.noType
 	end 'method'
 	if k == ast.TypeKind.record 'noMember'
-		checkFail(c.modID, off: try off + 1 otherwise off, code: diag.errUnknownStaticMember, msg: diag.noStaticMember(nameOfType(p, t: named), member: member), errs: errs)
+		checkFail(c.modID, off: try off + 1 otherwise off, code: diag.errUnknownStaticMember, msg: diag.noStaticMember(nameOfType(p, ms: ms, t: named), member: member), errs: errs)
 		return ast.noType
 	end 'noMember'
-	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{nameOfType(p, t: named)}.{member}' is not a value", errs: errs)
+	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{nameOfType(p, ms: ms, t: named)}.{member}' is not a value", errs: errs)
 	return ast.noType
 end 'checkTypeMember'
 
@@ -323,11 +323,11 @@ let allCaseNamesMember = "allCaseNames"
 // checkCaseListMember types 'Type.allCases', an Array of the cases of an enum, and 'Type.allCaseNames', an Array with
 // String of the names of the cases of an enum or a union. A union has no value for a case that carries a payload, so it has
 // no 'allCases'.
-function checkCaseListMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, obj ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkCaseListMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, obj ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	var kind = ast.MemberKind.memberAllCaseNames
 	var elem = p.builtins.stringTy
 	if member == allCasesMember 'cases'
-		if kindOfType(p, t: nt) == ast.TypeKind.unionTy 'union'
+		if kindOfType(p, ms: ms, t: nt) == ast.TypeKind.unionTy 'union'
 			checkFail(c.modID, off: offsetOf(c, p: p, node: obj), code: diag.errInvalidFieldAccess, msg: diag.allCasesOnUnion(), errs: errs)
 			return ast.noType
 		end 'union'
@@ -338,23 +338,23 @@ function checkCaseListMember(mutates c Checker, mutates p ast.Project, e ast.Nod
 	var args = ast.TypeIDList.create(0)
 	args.push(elem)
 	let origin = p.builtins.arrayOrigin
-	return instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
 end 'checkCaseListMember'
 
-function checkCaseMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkCaseMember(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)
-	let isEnum = kindOfType(p, t: nt) == ast.TypeKind.enumTy
+	let isEnum = kindOfType(p, ms: ms, t: nt) == ast.TypeKind.enumTy
 	var word = unionWord
 	if isEnum 'enumKind'
 		word = enumWord
 	end 'enumKind'
-	let orig = ast.originOf(p.types, t: nt)
+	let orig = ast.originOf(ms.types, t: nt)
 	var caseIndex = 0 as Count
-	match consumes p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].findCase(member) 'found'
+	match consumes ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].findCase(member) 'found'
 		some(i) then caseIndex = i
 		none then return unknownCase(c, off: exprOffset(c, p: p, node: e), word: word, member: member, errs: errs)
 	end 'found'
-	if not isEnum and p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[caseIndex].payload.count() > 0 'payload'
+	if not isEnum and ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[caseIndex].payload.count() > 0 'payload'
 		checkFail(c.modID, off: off, code: diag.errCallArgCountMismatch, msg: "case '{member}' carries a payload: construct it with arguments", errs: errs)
 		return ast.noType
 	end 'payload'
@@ -374,52 +374,52 @@ function unknownCase(c Checker, off diag.U32, word String, member String, mutate
 end 'unknownCase'
 
 // checkValueMember types a field of a record value, and '.name', '.ordinal' and '.rawValue' of an enum or a union value.
-function checkValueMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkValueMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
-	let content = ast.contentType(p.types, t: t)
-	if not requireNotCown(c, p: p, off: offsetOf(c, p: p, node: e), t: content, use: "reading '{member}'", errs: errs) 'cown'
+	let content = ast.contentType(ms.types, t: t)
+	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), t: content, use: "reading '{member}'", errs: errs) 'cown'
 		return ast.noType
 	end 'cown'
-	if typeHasKind(p, t: content, kind: ast.TypeKind.record) and p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: content))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: content))].findField(member).isSome() 'field'
-		return checkFieldMember(c, p: p, e: e, rt: content, member: member, errs: errs)
+	if typeHasKind(p, ms: ms, t: content, kind: ast.TypeKind.record) and ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: content))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: content))].findField(member).isSome() 'field'
+		return checkFieldMember(c, p: p, ms: ms, e: e, rt: content, member: member, errs: errs)
 	end 'field'
-	if rawValuesUntyped(p, t: t) and member != "name" and member != "ordinal" 'untyped'
-		return failRawUntyped(c, p: p, e: e, t: t, errs: errs)
+	if rawValuesUntyped(p, ms: ms, t: t) and member != "name" and member != "ordinal" 'untyped'
+		return failRawUntyped(c, p: p, ms: ms, e: e, t: t, errs: errs)
 	end 'untyped'
-	match consumes rawBackingField(p, t: t, member: member) 'backing'
-		some(index) then return checkRawFieldMember(c, p: p, e: e, t: t, index: index, errs: errs)
+	match consumes rawBackingField(p, ms: ms, t: t, member: member) 'backing'
+		some(index) then return checkRawFieldMember(c, p: p, ms: ms, e: e, t: t, index: index, errs: errs)
 		none then _ = 0
 	end 'backing'
-	let k = kindOfType(p, t: t)
+	let k = kindOfType(p, ms: ms, t: t)
 	if (k == ast.TypeKind.enumTy and (member == "name" or member == "ordinal" or member == "rawValue")) or (k == ast.TypeKind.unionTy and (member == "name" or member == "ordinal" or member == "rawValue")) 'builtinMember'
-		return builtinMemberType(c, p: p, e: e, t: t, member: member, errs: errs)
+		return builtinMemberType(c, p: p, ms: ms, e: e, t: t, member: member, errs: errs)
 	end 'builtinMember'
-	if typeIsNominal(p.types, t: t) and methodNamed(p, t: t, name: member) != ast.noFunc 'method'
+	if typeIsNominal(ms.types, t: t) and methodNamed(p, ms: ms, t: t, name: member) != ast.noFunc 'method'
 		failAt(c, p: p, node: e, code: diag.errUnsupported, msg: "a method value is not supported by minimaxon; call the method", errs: errs)
 		return ast.noType
 	end 'method'
-	failAt(c, p: p, node: e, code: diag.errUnknownField, msg: diag.unknownField(nameOfType(p, t: t), fieldName: member), errs: errs)
+	failAt(c, p: p, node: e, code: diag.errUnknownField, msg: diag.unknownField(nameOfType(p, ms: ms, t: t), fieldName: member), errs: errs)
 	return ast.noType
 end 'checkValueMember'
 
 // checkFieldMember types 'record.field', which the module must be able to name.
-function checkFieldMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, rt ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
-	let index = fieldIndexNamed(p, rt: rt, name: member)
-	let orig = ast.originOf(p.types, t: rt)
-	let level = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields[index].level
-	let owner = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].decl.module
+function checkFieldMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, rt ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
+	let index = fieldIndexNamed(p, ms: ms, rt: rt, name: member)
+	let orig = ast.originOf(ms.types, t: rt)
+	let level = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[index].level
+	let owner = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].decl.module
 	if not ast.isVisibleFrom(p, v: level, owner: owner, from: c.modID) 'hidden'
-		failAt(c, p: p, node: e, code: diag.errFieldNotExported, msg: "field {ast.notVisible(p, name: "{nameOfType(p, t: rt)}.{member}", v: level, owner: owner, from: c.modID)}", errs: errs)
+		failAt(c, p: p, node: e, code: diag.errFieldNotExported, msg: "field {ast.notVisible(p, name: "{nameOfType(p, ms: ms, t: rt)}.{member}", v: level, owner: owner, from: c.modID)}", errs: errs)
 		return ast.noType
 	end 'hidden'
 	var info = ast.MemberInfo.make(ast.MemberKind.memberField, ownerTy: rt)
 	info.fieldIndex = index
 	c.typing.members.insert(e as Count, value: info)
-	return ast.fieldType(p.types, owner: rt, index: index)
+	return ast.fieldType(ms.types, owner: rt, index: index)
 end 'checkFieldMember'
 
-function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
-	let isEnum = kindOfType(p, t: t) == ast.TypeKind.enumTy
+function builtinMemberType(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, t ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
+	let isEnum = kindOfType(p, ms: ms, t: t) == ast.TypeKind.enumTy
 	var kind = ast.MemberKind.memberUnionName
 	var result = p.builtins.stringTy
 	if member == "ordinal" 'ordinal'
@@ -433,9 +433,9 @@ function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeI
 		if isEnum 'enumRaw'
 			kind = ast.MemberKind.memberEnumRaw
 		end 'enumRaw'
-		result = rawValueType(p, t: t)
+		result = rawValueType(p, ms: ms, t: t)
 		if result == ast.noType 'untyped'
-			return failRawUntyped(c, p: p, e: e, t: t, errs: errs)
+			return failRawUntyped(c, p: p, ms: ms, e: e, t: t, errs: errs)
 		end 'untyped'
 	end 'raw' else if isEnum 'enumName'
 		kind = ast.MemberKind.memberEnumName
@@ -446,19 +446,19 @@ end 'builtinMemberType'
 
 // rawValueType is the type of the raw value of an enum or a union: the type of the values the cases write, a String or a
 // FullRangeFloat for the strings and floats, and for integers a Count, or a FullRangeInt where a case has a negative one.
-function rawValueType(p ast.Project, t ast.TypeID) returns ast.TypeID
-	let orig = ast.originOf(p.types, t: t)
-	if p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].rawKind == ast.RawKind.value 'value'
-		return ast.rawTypeOf(p, t: orig)
+function rawValueType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
+	let orig = ast.originOf(ms.types, t: t)
+	if ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].rawKind == ast.RawKind.value 'value'
+		return ast.rawTypeOf(p, ms: ms, t: orig)
 	end 'value'
-	if p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].rawKind == ast.RawKind.string 'string'
+	if ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].rawKind == ast.RawKind.string 'string'
 		return p.builtins.stringTy
 	end 'string'
-	if p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].rawKind == ast.RawKind.float 'float'
+	if ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].rawKind == ast.RawKind.float 'float'
 		return p.builtins.fullRangeFloatTy
 	end 'float'
-	for i in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases.count() 'each'
-		if p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[i].rawValue.isNeg() 'negative'
+	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases.count() 'each'
+		if ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[i].rawValue.isNeg() 'negative'
 			return p.builtins.fullRangeIntTy
 		end 'negative'
 	end 'each'
@@ -466,24 +466,24 @@ function rawValueType(p ast.Project, t ast.TypeID) returns ast.TypeID
 end 'rawValueType'
 
 // fieldIndexNamed is the place of the field of that name among the fields of a record, which has one.
-function fieldIndexNamed(p ast.Project, rt ast.TypeID, name String) returns Count
-	match p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: rt))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: rt))].findField(name) 'field'
+function fieldIndexNamed(p ast.Project, ms ast.ModuleState, rt ast.TypeID, name String) returns Count
+	match ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: rt))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: rt))].findField(name) 'field'
 		some(i) then return i
 		none then _ = 0
 	end 'field'
-	panic("'{p.types.lists[ast.typeList(p.types, t: rt)][ast.typeIndex(p.types, t: rt)].name}' has no field '{name}'")
+	panic("'{ms.types.lists[ast.typeList(ms.types, t: rt)][ast.typeIndex(ms.types, t: rt)].name}' has no field '{name}'")
 end 'fieldIndexNamed'
 
 // instantiateInferred is the instance of a generic union that a case written without type arguments stands for, whose
 // arguments come from where the case goes.
-function instantiateInferred(mutates c Checker, mutates p ast.Project, obj ast.NodeID, ut ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
-	let params = ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: ut)][ast.typeIndex(p.types, t: ut)].typeParams)
-	let own = ast.selfType(p.types, declTy: ut)
-	let callee = "{nameOfType(p, t: ut)}.{member}"
+function instantiateInferred(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, obj ast.NodeID, ut ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
+	let params = ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: ut)][ast.typeIndex(ms.types, t: ut)].typeParams)
+	let own = ast.selfType(ms.types, declTy: ut)
+	let callee = "{nameOfType(p, ms: ms, t: ut)}.{member}"
 	let mark = errs.count()
-	let args = inferRest(c, p: p, node: obj, callee: callee, params: params, args: openArgs(params.count()), result: own, errs: errs)
+	let args = inferRest(c, p: p, ms: ms, node: obj, callee: callee, params: params, args: openArgs(params.count()), result: own, errs: errs)
 	if failedSince(errs, mark: mark) 'cannotInfer'
 		return ast.noType
 	end 'cannotInfer'
-	return instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: obj), orig: ut, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: obj), orig: ut, args: args, errs: errs)
 end 'instantiateInferred'

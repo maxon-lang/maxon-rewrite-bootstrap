@@ -389,9 +389,9 @@ func emitMaxonIntrinsics(t table) string {
 	var sb strings.Builder
 	sb.WriteString(maxonHeader)
 	sb.WriteString("// intrinsicCall lowers a call of a built-in whose receiver and arguments are lowered.\n")
-	sb.WriteString("export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.Intrinsic, c CallSite, recv Reg, args RegList) returns Reg\n")
+	sb.WriteString("export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, op ast.Intrinsic, c CallSite, recv Reg, args RegList) returns Reg\n")
 	for _, in := range t.intrinsics {
-		fmt.Fprintf(&sb, "\tif op == ast.Intrinsic.intr%s 'intr%s'\n\t\treturn lower%s(l, p: p, c: c, recv: recv, args: args)\n\tend 'intr%s'\n", in.name, in.name, in.name, in.name)
+		fmt.Fprintf(&sb, "\tif op == ast.Intrinsic.intr%s 'intr%s'\n\t\treturn lower%s(l, p: p, ms: ms, c: c, recv: recv, args: args)\n\tend 'intr%s'\n", in.name, in.name, in.name, in.name)
 	}
 	sb.WriteString("\tpanic(\"lower: a call names no intrinsic\")\nend 'intrinsicCall'\n\n")
 	sb.WriteString("// ownsOperands is whether the lowering of an intrinsic evaluates its receiver and arguments itself.\n")
@@ -408,12 +408,12 @@ func emitMaxonCheck(t table) string {
 	var sb strings.Builder
 	sb.WriteString(maxonHeader)
 	sb.WriteString("// checkIntrinsicArgs refuses an argument of a built-in that its signature alone cannot.\n")
-	sb.WriteString("function checkIntrinsicArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, target ast.FuncID, ordered ast.NodeIDList, mutates errs diag.ErrorList)\n")
-	sb.WriteString("\tlet op = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].intrinsic\n")
+	sb.WriteString("function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, target ast.FuncID, ordered ast.NodeIDList, mutates errs diag.ErrorList)\n")
+	sb.WriteString("\tlet op = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].intrinsic\n")
 	var unchecked []string
 	for _, in := range t.intrinsics {
 		if in.checked {
-			fmt.Fprintf(&sb, "\tif op == ast.Intrinsic.intr%s 'check%s'\n\t\tcheck%sArgs(c, p: p, call: call, ordered: ordered, errs: errs)\n\t\treturn\n\tend 'check%s'\n", in.name, in.name, in.name, in.name)
+			fmt.Fprintf(&sb, "\tif op == ast.Intrinsic.intr%s 'check%s'\n\t\tcheck%sArgs(c, p: p, ms: ms, call: call, ordered: ordered, errs: errs)\n\t\treturn\n\tend 'check%s'\n", in.name, in.name, in.name, in.name)
 		} else {
 			unchecked = append(unchecked, in.name)
 		}

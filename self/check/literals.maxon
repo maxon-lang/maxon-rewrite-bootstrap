@@ -21,14 +21,14 @@ end 'Column'
 
 // expectedArgs are the type arguments of the type that the context expects when it is an instance of the built-in
 // collection of kind, and none otherwise.
-function expectedArgs(p ast.Project, want ast.TypeID, kind ast.TypeKind) returns ast.TypeIDList
-	if want == ast.noType or ast.typeKind(p.types, t: want) != kind 'other'
+function expectedArgs(p ast.Project, ms ast.ModuleState, want ast.TypeID, kind ast.TypeKind) returns ast.TypeIDList
+	if want == ast.noType or ast.typeKind(ms.types, t: want) != kind 'other'
 		return ast.TypeIDList.create(0)
 	end 'other'
-	return ast.cloneTypeArgs(p.types.lists[ast.typeList(p.types, t: want)][ast.typeIndex(p.types, t: want)].typeArgs)
+	return ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: want)][ast.typeIndex(ms.types, t: want)].typeArgs)
 end 'expectedArgs'
 
-function checkCollectionLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkCollectionLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: e)
 	let valuesRef = ast.collectionLitExprValuesRef(p.modules[c.modIdx].tree, id: e)
 	if p.modules[c.modIdx].tree.listLen(elemsRef) == 0 'empty'
@@ -41,36 +41,36 @@ function checkCollectionLit(mutates c Checker, mutates p ast.Project, e ast.Node
 	c.literalWide = true
 	var result = ast.noType
 	if isMap 'map'
-		result = checkMapLit(c, p: p, e: e, want: want, wide: wide, errs: errs)
+		result = checkMapLit(c, p: p, ms: ms, e: e, want: want, wide: wide, errs: errs)
 	end 'map' else 'array'
-		result = checkArrayLit(c, p: p, e: e, want: want, wide: wide, errs: errs)
+		result = checkArrayLit(c, p: p, ms: ms, e: e, want: want, wide: wide, errs: errs)
 	end 'array'
 	c.literalWide = wide
 	return result
 end 'checkCollectionLit'
 
-function checkArrayLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
+function checkArrayLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: e)
-	let given = expectedArgs(p, want: want, kind: ast.TypeKind.builtinArray)
+	let given = expectedArgs(p, ms: ms, want: want, kind: ast.TypeKind.builtinArray)
 	var elems = Column.open("'value'")
 	if given.count() == 1 and given[0] != ast.noType 'stated'
 		elems = Column.fixedTo(given[0], label: "'value'")
 	end 'stated'
 	for i in 0 upto p.modules[c.modIdx].tree.listLen(elemsRef) 'each'
-		if not addToColumn(c, p: p, col: elems, node: p.modules[c.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID, errs: errs) 'bad'
+		if not addToColumn(c, p: p, ms: ms, col: elems, node: p.modules[c.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID, errs: errs) 'bad'
 			return ast.noType
 		end 'bad'
 	end 'each'
 	var args = ast.TypeIDList.create(0)
-	args.push(columnType(p, col: elems, wide: wide))
+	args.push(columnType(p, ms: ms, col: elems, wide: wide))
 	let origin = p.builtins.arrayOrigin
-	return instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
 end 'checkArrayLit'
 
-function checkMapLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
+function checkMapLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
 	let keysRef = ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: e)
 	let valuesRef = ast.collectionLitExprValuesRef(p.modules[c.modIdx].tree, id: e)
-	let given = expectedArgs(p, want: want, kind: ast.TypeKind.builtinMap)
+	let given = expectedArgs(p, ms: ms, want: want, kind: ast.TypeKind.builtinMap)
 	var keys = Column.open("'key'")
 	var values = Column.open("'value'")
 	if given.count() == 2 and given[0] != ast.noType and given[1] != ast.noType 'stated'
@@ -78,27 +78,27 @@ function checkMapLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, wan
 		values = Column.fixedTo(given[1], label: "'value'")
 	end 'stated'
 	for i in 0 upto p.modules[c.modIdx].tree.listLen(keysRef) 'each'
-		if not addToColumn(c, p: p, col: keys, node: p.modules[c.modIdx].tree.listAt(keysRef, index: i) as ast.NodeID, errs: errs) 'badKey'
+		if not addToColumn(c, p: p, ms: ms, col: keys, node: p.modules[c.modIdx].tree.listAt(keysRef, index: i) as ast.NodeID, errs: errs) 'badKey'
 			return ast.noType
 		end 'badKey'
-		if not addToColumn(c, p: p, col: values, node: p.modules[c.modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID, errs: errs) 'badValue'
+		if not addToColumn(c, p: p, ms: ms, col: values, node: p.modules[c.modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID, errs: errs) 'badValue'
 			return ast.noType
 		end 'badValue'
 	end 'each'
 	var args = ast.TypeIDList.create(0)
-	args.push(columnType(p, col: keys, wide: wide))
-	args.push(columnType(p, col: values, wide: wide))
+	args.push(columnType(p, ms: ms, col: keys, wide: wide))
+	args.push(columnType(p, ms: ms, col: values, wide: wide))
 	let origin = p.builtins.mapOrigin
-	return instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
 end 'checkMapLit'
 
 // addToColumn types an element and folds its type into the column, which gives whether it could.
-function addToColumn(mutates c Checker, mutates p ast.Project, mutates col Column, node ast.NodeID, mutates errs diag.ErrorList) returns bool
+function addToColumn(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, mutates col Column, node ast.NodeID, mutates errs diag.ErrorList) returns bool
 	var wanted = col.ty
-	if not col.fixed and ast.isIntType(p.types, t: col.ty) 'integers'
+	if not col.fixed and ast.isIntType(ms.types, t: col.ty) 'integers'
 		wanted = ast.noType
 	end 'integers'
-	let t = checkExpecting(c, p: p, e: node, want: wanted, errs: errs)
+	let t = checkExpecting(c, p: p, ms: ms, e: node, want: wanted, errs: errs)
 	if t == ast.noType 'failed'
 		return false
 	end 'failed'
@@ -107,38 +107,38 @@ function addToColumn(mutates c Checker, mutates p ast.Project, mutates col Colum
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "an element of a literal is an expression with no value", errs: errs)
 		return false
 	end 'noValue'
-	if not requireSigned64(c, off: off, t: t, p: p, errs: errs) 'wide'
+	if not requireSigned64(c, off: off, t: t, p: p, ms: ms, errs: errs) 'wide'
 		return false
 	end 'wide'
 	if col.fixed 'stated'
-		return coerce(c, p: p, node: node, at: exprOffset(c, p: p, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
+		return coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
 	end 'stated'
 	if col.ty == ast.noType 'first'
-		col.ty = bareRange(p, t: t)
+		col.ty = bareRange(p, ms: ms, t: t)
 		return true
 	end 'first'
-	if ast.isIntType(p.types, t: col.ty) and ast.isIntType(p.types, t: t) 'integers'
-		if not requireCommonWord(c, p: p, off: off, a: col.ty, b: t, errs: errs) 'mixed'
+	if ast.isIntType(ms.types, t: col.ty) and ast.isIntType(ms.types, t: t) 'integers'
+		if not requireCommonWord(c, p: p, ms: ms, off: off, a: col.ty, b: t, errs: errs) 'mixed'
 			return false
 		end 'mixed'
-		col.ty = joinTypes(c, p: p, off: off, clash: Clash.other, a: col.ty, b: t, errs: errs)
+		col.ty = joinTypes(c, p: p, ms: ms, off: off, clash: Clash.other, a: col.ty, b: t, errs: errs)
 		return col.ty != ast.noType
 	end 'integers'
-	return coerce(c, p: p, node: node, at: exprOffset(c, p: p, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
+	return coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
 end 'addToColumn'
 
 // requireCommonWord refuses two integer types that no 64-bit word holds together: one may be negative while the other
 // goes past i64.max.
-function requireCommonWord(mutates c Checker, p ast.Project, off diag.U32, a ast.TypeID, b ast.TypeID, mutates errs diag.ErrorList) returns bool
+function requireCommonWord(mutates c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, a ast.TypeID, b ast.TypeID, mutates errs diag.ErrorList) returns bool
 	let i64max = ast.I128.i64Max()
 	var negative = a
 	var large = b
-	if rangeLo(p.types, t: b).isNeg() and rangeHi(p.types, t: a).gt(i64max) 'swapped'
+	if rangeLo(ms.types, t: b).isNeg() and rangeHi(ms.types, t: a).gt(i64max) 'swapped'
 		negative = b
 		large = a
 	end 'swapped'
-	if rangeLo(p.types, t: negative).isNeg() and rangeHi(p.types, t: large).gt(i64max) 'mixed'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.noCommonIntegerType(rangeLo(p.types, t: negative).toString(), high: rangeHi(p.types, t: large).toString()), errs: errs)
+	if rangeLo(ms.types, t: negative).isNeg() and rangeHi(ms.types, t: large).gt(i64max) 'mixed'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.noCommonIntegerType(rangeLo(ms.types, t: negative).toString(), high: rangeHi(ms.types, t: large).toString()), errs: errs)
 		return false
 	end 'mixed'
 	return true
@@ -147,41 +147,41 @@ end 'requireCommonWord'
 // columnType is the type that the column's elements are stored as. Bare numbers, which have no alias, keep the range
 // they span, so that they fit any alias that holds all of them; a literal inside another takes the whole word instead, since
 // no alias could be told apart from its siblings.
-function columnType(mutates p ast.Project, col Column, wide bool) returns ast.TypeID
-	if col.fixed or not ast.isIntType(p.types, t: col.ty) or typeIsNamedInt(p.types, t: col.ty) 'named'
+function columnType(p ast.Project, mutates ms ast.ModuleState, col Column, wide bool) returns ast.TypeID
+	if col.fixed or not ast.isIntType(ms.types, t: col.ty) or typeIsNamedInt(ms.types, t: col.ty) 'named'
 		return col.ty
 	end 'named'
 	if wide 'word'
-		if rangeHi(p.types, t: col.ty).gt(ast.I128.i64Max()) 'unsigned'
+		if rangeHi(ms.types, t: col.ty).gt(ast.I128.i64Max()) 'unsigned'
 			return p.builtins.anonU64Ty
 		end 'unsigned'
 		return p.builtins.anon64Ty
 	end 'word'
-	return ast.internIntRange(p.types, aliasName: "", minVal: rangeLo(p.types, t: col.ty), maxVal: rangeHi(p.types, t: col.ty), inferred: true)
+	return ast.internIntRange(ms.types, aliasName: "", minVal: rangeLo(ms.types, t: col.ty), maxVal: rangeHi(ms.types, t: col.ty), inferred: true)
 end 'columnType'
 
 // bareRange is the range that a bare number spans, which a column of elements holds in place of the number; any other type
 // is its own.
-function bareRange(mutates p ast.Project, t ast.TypeID) returns ast.TypeID
-	if isConstFloat(p, t: t) 'float'
+function bareRange(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
+	if isConstFloat(p, ms: ms, t: t) 'float'
 		return p.builtins.anonFloatTy
 	end 'float'
-	if not isConstInt(p, t: t) 'other'
+	if not isConstInt(p, ms: ms, t: t) 'other'
 		return t
 	end 'other'
-	return ast.internIntRange(p.types, aliasName: "", minVal: rangeLo(p.types, t: t), maxVal: rangeHi(p.types, t: t), inferred: true)
+	return ast.internIntRange(ms.types, aliasName: "", minVal: rangeLo(ms.types, t: t), maxVal: rangeHi(ms.types, t: t), inferred: true)
 end 'bareRange'
 
 // holdsBareNumbers is whether a collection stores numbers that no alias names, which a variable cannot hold: it could not
 // take a number outside their range later.
-function holdsBareNumbers(p ast.Project, t ast.TypeID) returns bool
-	let kind = ast.typeKind(p.types, t: t)
-	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinMap and kind != ast.TypeKind.builtinList and not ast.isTupleType(p.types, t: t) 'other'
+function holdsBareNumbers(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	let kind = ast.typeKind(ms.types, t: t)
+	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinMap and kind != ast.TypeKind.builtinList and not ast.isTupleType(ms.types, t: t) 'other'
 		return false
 	end 'other'
-	for i in 0 upto p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].typeArgs.count() 'args'
-		let arg = p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].typeArgs[i]
-		if typeIsAnonInt(p.types, t: arg) or holdsBareNumbers(p, t: arg) 'bare'
+	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].typeArgs.count() 'args'
+		let arg = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].typeArgs[i]
+		if typeIsAnonInt(ms.types, t: arg) or holdsBareNumbers(p, ms: ms, t: arg) 'bare'
 			return true
 		end 'bare'
 	end 'args'

@@ -20,8 +20,8 @@ end 'isConsumed'
 
 // movesOut is whether the expression's value leaves the place that holds it: one the ownership pass found consuming it,
 // unless it is a function value, which the place keeps and the consumer shares.
-export function movesOut(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
-	return isConsumed(p, module: module, node: node) and not ast.sharesOnCopy(p.types, t: exprType(p, module: module, node: node))
+export function movesOut(p ast.Project, ms ast.ModuleState, module diag.ModuleID, node ast.NodeID) returns bool
+	return isConsumed(p, module: module, node: node) and not ast.sharesOnCopy(ms.types, t: exprType(p, module: module, node: node))
 end 'movesOut'
 
 export function nameInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NameInfo

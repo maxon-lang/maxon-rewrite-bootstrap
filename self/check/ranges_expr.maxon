@@ -14,29 +14,29 @@ union Unchecked
 end 'Unchecked'
 
 // rangeCondition evaluates a condition, and gives where the places it changes begin in written.
-function rangeCondition(mutates r Ranges, p ast.Project, c ast.NodeID) returns Count
+function rangeCondition(mutates r Ranges, p ast.Project, ms ast.ModuleState, c ast.NodeID) returns Count
 	let since = r.written.count()
-	_ = rangeEval(r, p: p, e: c)
+	_ = rangeEval(r, p: p, ms: ms, e: c)
 	return since
 end 'rangeCondition'
 
 // rangeNarrowed is the state in which the condition c had the value truth, except for the places that changed since,
 // which the condition itself changed after it read them.
-function rangeNarrowed(mutates r Ranges, p ast.Project, from Count, c ast.NodeID, truth bool, since Count) returns Count
+function rangeNarrowed(mutates r Ranges, p ast.Project, ms ast.ModuleState, from Count, c ast.NodeID, truth bool, since Count) returns Count
 	if isDead(r, s: from) 'dead'
 		return from
 	end 'dead'
 	var out = from
-	rangeNarrow(r, p: p, st: out, from: from, c: c, truth: truth, since: since)
+	rangeNarrow(r, p: p, ms: ms, st: out, from: from, c: c, truth: truth, since: since)
 	return out
 end 'rangeNarrowed'
 
 // rangeNarrow narrows st, which is from or a copy of it made on the first change, by c having the value truth.
-function rangeNarrow(mutates r Ranges, p ast.Project, mutates st Count, from Count, c ast.NodeID, truth bool, since Count)
+function rangeNarrow(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, c ast.NodeID, truth bool, since Count)
 	let k = p.modules[r.modIdx].tree.kindOf(c)
 	if k == ast.NodeKind.unaryExpr 'unary'
 		if ast.unaryExprOp(p.modules[r.modIdx].tree, id: c) == "not" and typeOf(r, e: c) == p.builtins.boolTy 'not'
-			rangeNarrow(r, p: p, st: st, from: from, c: ast.unaryExprE(p.modules[r.modIdx].tree, id: c), truth: not truth, since: since)
+			rangeNarrow(r, p: p, ms: ms, st: st, from: from, c: ast.unaryExprE(p.modules[r.modIdx].tree, id: c), truth: not truth, since: since)
 		end 'not'
 		return
 	end 'unary'
@@ -48,18 +48,18 @@ function rangeNarrow(mutates r Ranges, p ast.Project, mutates st Count, from Cou
 	let right = ast.binaryExprR(p.modules[r.modIdx].tree, id: c)
 	if (op == "and" and truth) or (op == "or" and not truth) 'both'
 		if typeOf(r, e: c) == p.builtins.boolTy 'logical'
-			rangeNarrow(r, p: p, st: st, from: from, c: l, truth: truth, since: since)
-			rangeNarrow(r, p: p, st: st, from: from, c: right, truth: truth, since: since)
+			rangeNarrow(r, p: p, ms: ms, st: st, from: from, c: l, truth: truth, since: since)
+			rangeNarrow(r, p: p, ms: ms, st: st, from: from, c: right, truth: truth, since: since)
 		end 'logical'
 		return
 	end 'both'
-	if isComparisonOp(op) and ast.isIntType(p.types, t: typeOf(r, e: l)) and ast.isIntType(p.types, t: typeOf(r, e: right)) 'comparison'
+	if isComparisonOp(op) and ast.isIntType(ms.types, t: typeOf(r, e: l)) and ast.isIntType(ms.types, t: typeOf(r, e: right)) 'comparison'
 		var holds = op.clone()
 		if not truth 'negated'
 			holds = negatedComparison(op)
 		end 'negated'
-		rangeCompare(r, p: p, st: st, from: from, x: l, op: holds, y: right, since: since)
-		rangeCompare(r, p: p, st: st, from: from, x: right, op: flippedComparison(holds), y: l, since: since)
+		rangeCompare(r, p: p, ms: ms, st: st, from: from, x: l, op: holds, y: right, since: since)
+		rangeCompare(r, p: p, ms: ms, st: st, from: from, x: right, op: flippedComparison(holds), y: l, since: since)
 	end 'comparison'
 end 'rangeNarrow'
 
@@ -90,23 +90,23 @@ function flippedComparison(op String) returns String
 end 'flippedComparison'
 
 // rangeCompare narrows x, if it is a place, by 'x op y', and records how x and y compare when both are places.
-function rangeCompare(mutates r Ranges, p ast.Project, mutates st Count, from Count, x ast.NodeID, op String, y ast.NodeID, since Count)
-	match consumes rangePlaceOf(r, p: p, e: x) 'x'
-		some(px) then rangeCompareAt(r, p: p, st: st, from: from, px: px, x: x, op: op, y: y, since: since)
+function rangeCompare(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, x ast.NodeID, op String, y ast.NodeID, since Count)
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: x) 'x'
+		some(px) then rangeCompareAt(r, p: p, ms: ms, st: st, from: from, px: px, x: x, op: op, y: y, since: since)
 		none then _ = 0
 	end 'x'
 end 'rangeCompare'
 
-function rangeCompareAt(mutates r Ranges, p ast.Project, mutates st Count, from Count, px Place, x ast.NodeID, op String, y ast.NodeID, since Count)
+function rangeCompareAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, px Place, x ast.NodeID, op String, y ast.NodeID, since Count)
 	if isDead(r, s: st) or changedIn(px, written: r.written, since: since) 'unknown'
 		return
 	end 'unknown'
-	match consumes rangePlaceOf(r, p: p, e: y) 'y'
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: y) 'y'
 		some(py) then rangeRelateUnchanged(r, st: st, from: from, x: px, op: op, y: py, since: since)
 		none then _ = 0
 	end 'y'
-	let cur = rangeSpanAt(r, p: p, s: st, place: px, t: typeOf(r, e: x))
-	let other = rangePeek(r, p: p, s: st, e: y)
+	let cur = rangeSpanAt(r, p: p, ms: ms, s: st, place: px, t: typeOf(r, e: x))
+	let other = rangePeek(r, p: p, ms: ms, s: st, e: y)
 	var next = cur.clone()
 	if op == "<" 'lt'
 		next.hi = ast.minI128(cur.hi, b: other.hi.sub(ast.I128.one()))
@@ -168,13 +168,13 @@ end 'rangeRelate'
 
 // rangePeek is the span of an operand of a condition that has been evaluated already: a local's, a constant's, or else
 // its type's.
-function rangePeek(r Ranges, p ast.Project, s Count, e ast.NodeID) returns Span
+function rangePeek(r Ranges, p ast.Project, ms ast.ModuleState, s Count, e ast.NodeID) returns Span
 	let t = typeOf(r, e: e)
-	if isConstInt(p, t: t) 'literal'
-		return typeSpan(p.types, t: t)
+	if isConstInt(p, ms: ms, t: t) 'literal'
+		return typeSpan(ms.types, t: t)
 	end 'literal'
-	match consumes rangePlaceOf(r, p: p, e: e) 'place'
-		some(place) then return rangeSpanAt(r, p: p, s: s, place: place, t: t)
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+		some(place) then return rangeSpanAt(r, p: p, ms: ms, s: s, place: place, t: t)
 		none then _ = 0
 	end 'place'
 	if p.modules[r.modIdx].tree.kindOf(e) == ast.NodeKind.nameExpr 'name'
@@ -183,7 +183,7 @@ function rangePeek(r Ranges, p ast.Project, s Count, e ast.NodeID) returns Span
 			return constSpan(p, ref: name.decl)
 		end 'constant'
 	end 'name'
-	return typeSpan(p.types, t: t)
+	return typeSpan(ms.types, t: t)
 end 'rangePeek'
 
 // constSpan is the span that the range analysis gave a constant's value.
@@ -195,10 +195,10 @@ function constSpan(p ast.Project, ref ast.DeclRef) returns Span
 end 'constSpan'
 
 // rangeTyped is the span of a value that the analysis knows nothing more of than its type.
-function rangeTyped(r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeTyped(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let t = typeOf(r, e: e)
-	if ast.isIntType(p.types, t: t) 'int'
-		return typeSpan(p.types, t: t)
+	if ast.isIntType(ms.types, t: t) 'int'
+		return typeSpan(ms.types, t: t)
 	end 'int'
 	return noSpan()
 end 'rangeTyped'
@@ -209,13 +209,13 @@ function noSpan() returns Span
 end 'noSpan'
 
 // rangeEval walks an expression and gives its span, which means nothing for a value that is not an integer.
-function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	if r.failed 'stopped'
 		return noSpan()
 	end 'stopped'
 	let t = typeOf(r, e: e)
-	if isConstInt(p, t: t) 'literal'
-		return typeSpan(p.types, t: t)
+	if isConstInt(p, ms: ms, t: t) 'literal'
+		return typeSpan(ms.types, t: t)
 	end 'literal'
 	let k = p.modules[r.modIdx].tree.kindOf(e)
 	if k == ast.NodeKind.intLit 'intLit'
@@ -225,54 +225,54 @@ function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 		return noSpan()
 	end 'nothing'
 	if k == ast.NodeKind.strLit 'strLit'
-		return rangeStrLit(r, p: p, e: e)
+		return rangeStrLit(r, p: p, ms: ms, e: e)
 	end 'strLit'
 	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'structLit'
-		return rangeStructLit(r, p: p, e: e)
+		return rangeStructLit(r, p: p, ms: ms, e: e)
 	end 'structLit'
 	if k == ast.NodeKind.collectionLitExpr 'collectionLit'
-		return rangeCollectionLit(r, p: p, e: e)
+		return rangeCollectionLit(r, p: p, ms: ms, e: e)
 	end 'collectionLit'
 	if k == ast.NodeKind.nameExpr 'name'
-		return rangeNameExpr(r, p: p, e: e)
+		return rangeNameExpr(r, p: p, ms: ms, e: e)
 	end 'name'
 	if k == ast.NodeKind.panicExpr 'panic'
-		_ = rangeEval(r, p: p, e: ast.panicExprMessage(p.modules[r.modIdx].tree, id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.panicExprMessage(p.modules[r.modIdx].tree, id: e))
 		return noSpan()
 	end 'panic'
 	if k == ast.NodeKind.matchExpr 'match'
-		return rangeMatch(r, p: p, core: ast.matchExprMatch(p.modules[r.modIdx].tree, id: e))
+		return rangeMatch(r, p: p, ms: ms, core: ast.matchExprMatch(p.modules[r.modIdx].tree, id: e))
 	end 'match'
 	if k == ast.NodeKind.memberExpr 'member'
-		return rangeMemberExpr(r, p: p, e: e)
+		return rangeMemberExpr(r, p: p, ms: ms, e: e)
 	end 'member'
 	if k == ast.NodeKind.indexExpr 'index'
-		return rangeIndexExpr(r, p: p, e: e)
+		return rangeIndexExpr(r, p: p, ms: ms, e: e)
 	end 'index'
 	if k == ast.NodeKind.callExpr 'call'
-		return rangeCallExpr(r, p: p, e: e)
+		return rangeCallExpr(r, p: p, ms: ms, e: e)
 	end 'call'
 	if k == ast.NodeKind.fromExpr 'from'
-		_ = rangeEval(r, p: p, e: ast.fromExprValue(p.modules[r.modIdx].tree, id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.fromExprValue(p.modules[r.modIdx].tree, id: e))
 		return noSpan()
 	end 'from'
 	if k == ast.NodeKind.condExpr 'cond'
-		return rangeCondExpr(r, p: p, e: e)
+		return rangeCondExpr(r, p: p, ms: ms, e: e)
 	end 'cond'
 	if k == ast.NodeKind.tryExpr 'try'
-		return rangeTryExpr(r, p: p, e: e)
+		return rangeTryExpr(r, p: p, ms: ms, e: e)
 	end 'try'
 	if k == ast.NodeKind.binaryExpr 'binary'
-		return rangeBinaryExpr(r, p: p, e: e)
+		return rangeBinaryExpr(r, p: p, ms: ms, e: e)
 	end 'binary'
 	if k == ast.NodeKind.unaryExpr 'unary'
-		return rangeUnaryExpr(r, p: p, e: e)
+		return rangeUnaryExpr(r, p: p, ms: ms, e: e)
 	end 'unary'
 	if k == ast.NodeKind.castExpr 'cast'
-		return rangeCastExpr(r, p: p, e: e)
+		return rangeCastExpr(r, p: p, ms: ms, e: e)
 	end 'cast'
 	if k == ast.NodeKind.closureExpr 'closure'
-		rangeClosure(r, p: p, e: e)
+		rangeClosure(r, p: p, ms: ms, e: e)
 		return noSpan()
 	end 'closure'
 	if k == ast.NodeKind.typeQueryExpr and ast.typeQueryExprOp(p.modules[r.modIdx].tree, id: e) == "sizeof" 'sizeof'
@@ -281,113 +281,113 @@ function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 		return Span.make(ast.I128.one(), hi: ast.I128.i64Max())
 	end 'sizeof'
 	if k == ast.NodeKind.typeQueryExpr 'countof'
-		return rangeTyped(r, p: p, e: e)
+		return rangeTyped(r, p: p, ms: ms, e: e)
 	end 'countof'
 	panic("ranges: the node {e} of kind {k.name} is no expression")
 end 'rangeEval'
 
 // rangeClosure analyses the body of a closure as a function of its own: it runs when it is called, so nothing known where
 // it is made reaches into it. A closure the bodies check gave no function has nothing to follow.
-function rangeClosure(mutates r Ranges, p ast.Project, e ast.NodeID)
+function rangeClosure(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)
 	if r.probing 'probed'
 		return
 	end 'probed'
 	match consumes r.typing.closures.get(e as Count) 'closure'
-		some(info) then rangeFunction(r, p: p, fid: info.fn, behaviour: false)
+		some(info) then rangeFunction(r, p: p, ms: ms, fid: info.fn, behaviour: false)
 		none then _ = 0
 	end 'closure'
 end 'rangeClosure'
 
-function rangeStrLit(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeStrLit(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let partsRef = ast.strLitPartsRef(p.modules[r.modIdx].tree, id: e)
 	for i in 0 upto p.modules[r.modIdx].tree.strPartCount(partsRef) 'parts'
 		if p.modules[r.modIdx].tree.strPartIsExpr(partsRef, index: i) 'interpolated'
-			_ = rangeEval(r, p: p, e: p.modules[r.modIdx].tree.strPartExpr(partsRef, index: i))
+			_ = rangeEval(r, p: p, ms: ms, e: p.modules[r.modIdx].tree.strPartExpr(partsRef, index: i))
 		end 'interpolated'
 	end 'parts'
 	return noSpan()
 end 'rangeStrLit'
 
-function rangeStructLit(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeStructLit(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let ordered = match consumes r.typing.structLits.get(e as Count) 'lit'
 		some(info) gives info.ordered
 		none panic("ranges: the record literal at node {e} was typed without a record of its fields")
 	end 'lit'
 	for i in 0 upto ordered.count() 'fields'
 		if ordered[i] != 0 'given'
-			_ = rangeEval(r, p: p, e: ordered[i])
+			_ = rangeEval(r, p: p, ms: ms, e: ordered[i])
 		end 'given'
 	end 'fields'
 	return noSpan()
 end 'rangeStructLit'
 
-function rangeCollectionLit(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeCollectionLit(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[r.modIdx].tree, id: e)
 	let valuesRef = ast.collectionLitExprValuesRef(p.modules[r.modIdx].tree, id: e)
 	for i in 0 upto p.modules[r.modIdx].tree.listLen(elemsRef) 'each'
-		_ = rangeEval(r, p: p, e: p.modules[r.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID)
+		_ = rangeEval(r, p: p, ms: ms, e: p.modules[r.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID)
 		if p.modules[r.modIdx].tree.listLen(valuesRef) > 0 'pair'
-			_ = rangeEval(r, p: p, e: p.modules[r.modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID)
+			_ = rangeEval(r, p: p, ms: ms, e: p.modules[r.modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID)
 		end 'pair'
 	end 'each'
 	return noSpan()
 end 'rangeCollectionLit'
 
-function rangeNameExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeNameExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let t = typeOf(r, e: e)
-	if ast.isIntType(p.types, t: t) 'int'
-		match consumes rangePlaceOf(r, p: p, e: e) 'place'
-			some(place) then return rangeSpanAt(r, p: p, s: r.st, place: place, t: t)
+	if ast.isIntType(ms.types, t: t) 'int'
+		match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+			some(place) then return rangeSpanAt(r, p: p, ms: ms, s: r.st, place: place, t: t)
 			none then _ = 0
 		end 'place'
 	end 'int'
 	let name = nameInfoOf(r.typing, node: e)
-	if name.kind == ast.NameKind.nameConst and ast.isIntType(p.types, t: t) 'constant'
+	if name.kind == ast.NameKind.nameConst and ast.isIntType(ms.types, t: t) 'constant'
 		return constSpan(p, ref: name.decl)
 	end 'constant'
-	return rangeTyped(r, p: p, e: e)
+	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeNameExpr'
 
-function rangeMemberExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeMemberExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let kind = memberInfoOf(r, e: e).kind
 	if not ast.memberOfType(kind) 'value'
-		_ = rangeEval(r, p: p, e: ast.memberExprObj(p.modules[r.modIdx].tree, id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.memberExprObj(p.modules[r.modIdx].tree, id: e))
 	end 'value'
 	let t = typeOf(r, e: e)
-	if ast.isIntType(p.types, t: t) 'int'
-		match consumes rangePlaceOf(r, p: p, e: e) 'place'
-			some(place) then return rangeSpanAt(r, p: p, s: r.st, place: place, t: t)
+	if ast.isIntType(ms.types, t: t) 'int'
+		match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+			some(place) then return rangeSpanAt(r, p: p, ms: ms, s: r.st, place: place, t: t)
 			none then _ = 0
 		end 'place'
 	end 'int'
-	return rangeTyped(r, p: p, e: e)
+	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeMemberExpr'
 
-function rangeIndexExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
-	_ = rangeEval(r, p: p, e: ast.indexExprObj(p.modules[r.modIdx].tree, id: e))
+function rangeIndexExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
+	_ = rangeEval(r, p: p, ms: ms, e: ast.indexExprObj(p.modules[r.modIdx].tree, id: e))
 	let argsRef = ast.indexExprArgsRef(p.modules[r.modIdx].tree, id: e)
 	for i in 0 upto p.modules[r.modIdx].tree.listLen(argsRef) 'args'
-		_ = rangeEval(r, p: p, e: p.modules[r.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID)
+		_ = rangeEval(r, p: p, ms: ms, e: p.modules[r.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID)
 	end 'args'
-	return rangeTyped(r, p: p, e: e)
+	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeIndexExpr'
 
-function rangeCallExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let call = match consumes r.typing.calls.get(e as Count) 'call'
 		some(info) gives info
 		none panic("ranges: the call at node {e} was typed without a record of what it calls")
 	end 'call'
 	let receiver = ast.callReceiver(p.modules[r.modIdx].tree, e: e, kind: call.kind)
 	if receiver != 0 'receiver'
-		_ = rangeEval(r, p: p, e: receiver)
+		_ = rangeEval(r, p: p, ms: ms, e: receiver)
 	end 'receiver'
 	if call.kind == ast.CallKind.callValue 'value'
-		_ = rangeEval(r, p: p, e: ast.callExprCallee(p.modules[r.modIdx].tree, id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.callExprCallee(p.modules[r.modIdx].tree, id: e))
 	end 'value'
 	var first = noSpan()
 	for i in 0 upto call.ordered.count() 'args'
 		if call.ordered[i] != 0 'given'
-			let span = rangeEval(r, p: p, e: call.ordered[i])
+			let span = rangeEval(r, p: p, ms: ms, e: call.ordered[i])
 			if i == 0 'first'
 				first = span
 			end 'first'
@@ -396,40 +396,40 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	for i in 0 upto call.ordered.count() 'changes'
 		let a = call.ordered[i]
 		if a != 0 and i < call.paramSpecs.count() and ast.isByAddress(call.paramSpecs[i].conv) 'byAddress'
-			rangeChangedAt(r, p: p, e: a)
+			rangeChangedAt(r, p: p, ms: ms, e: a)
 		end 'byAddress'
 	end 'changes'
 	if receiver != 0 and call.selfConv != ast.Convention.convLet 'receiverChanges'
-		rangeChangedAt(r, p: p, e: receiver)
+		rangeChangedAt(r, p: p, ms: ms, e: receiver)
 	end 'receiverChanges'
-	if receiver != 0 and isCountedAccess(r, p: p, info: call, receiver: receiver) 'counted'
-		rangeCountedAccess(r, p: p, e: e, info: call, receiver: receiver, index: first)
-		return rangeTyped(r, p: p, e: e)
+	if receiver != 0 and isCountedAccess(r, p: p, ms: ms, info: call, receiver: receiver) 'counted'
+		rangeCountedAccess(r, p: p, ms: ms, e: e, info: call, receiver: receiver, index: first)
+		return rangeTyped(r, p: p, ms: ms, e: e)
 	end 'counted'
-	let err = callErrorType(p, info: call)
+	let err = callErrorType(p, ms: ms, info: call)
 	if err != ast.noType 'throws'
-		rangeFallible(r, p: p, site: e, err: err, why: Unchecked.call(callTargetName(p, info: call)))
+		rangeFallible(r, p: p, ms: ms, site: e, err: err, why: Unchecked.call(callTargetName(p, ms: ms, info: call)))
 	end 'throws'
-	return rangeTyped(r, p: p, e: e)
+	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeCallExpr'
 
 // isCountedAccess is whether a call is a get or a set of a fixed array whose type states its count, which fails only at an
 // index outside it.
-function isCountedAccess(r Ranges, p ast.Project, info ast.CallInfo, receiver ast.NodeID) returns bool
+function isCountedAccess(r Ranges, p ast.Project, ms ast.ModuleState, info ast.CallInfo, receiver ast.NodeID) returns bool
 	let op = info.intrinsic
 	if op != ast.Intrinsic.intrArrayGet and op != ast.Intrinsic.intrArraySet and op != ast.Intrinsic.intrFixedArrayGetProven and op != ast.Intrinsic.intrFixedArraySetProven 'other'
 		return false
 	end 'other'
-	let t = ast.contentType(p.types, t: typeOf(r, e: receiver))
-	return ast.originOf(p.types, t: t) == p.builtins.fixedArrayOrigin and ast.statesCount(p.types, t: t)
+	let t = ast.contentType(ms.types, t: typeOf(r, e: receiver))
+	return ast.originOf(ms.types, t: t) == p.builtins.fixedArrayOrigin and ast.statesCount(ms.types, t: t)
 end 'isCountedAccess'
 
 // rangeCountedAccess judges a get or a set of a fixed array that states its count by the span of its index: one inside
 // the count cannot fail, and the call becomes the access with no check; a constant outside it is an error; any other
 // index is checked, so the call fails as an array's does.
-function rangeCountedAccess(mutates r Ranges, p ast.Project, e ast.NodeID, info ast.CallInfo, receiver ast.NodeID, index Span)
-	let t = ast.contentType(p.types, t: typeOf(r, e: receiver))
-	let count = ast.statedCount(p.types, t: t)
+function rangeCountedAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, info ast.CallInfo, receiver ast.NodeID, index Span)
+	let t = ast.contentType(ms.types, t: typeOf(r, e: receiver))
+	let count = ast.statedCount(ms.types, t: t)
 	let last = ast.I128.fromCount(count).sub(ast.I128.one())
 	let isGet = info.intrinsic == ast.Intrinsic.intrArrayGet or info.intrinsic == ast.Intrinsic.intrFixedArrayGetProven
 	var method = "set"
@@ -439,8 +439,8 @@ function rangeCountedAccess(mutates r Ranges, p ast.Project, e ast.NodeID, info 
 	let proven = not index.lo.isNeg() and index.hi.le(last)
 	if not r.probing 'record'
 		var chosen = info.clone()
-		chosen.fn = countedAccessFunc(p, isGet: isGet, proven: proven)
-		chosen.intrinsic = p.funcs.slots[ast.funcSlot(chosen.fn)][ast.funcIndex(chosen.fn)].intrinsic
+		chosen.fn = countedAccessFunc(p, ms: ms, isGet: isGet, proven: proven)
+		chosen.intrinsic = ms.funcs.slots[ast.funcSlot(chosen.fn)][ast.funcIndex(chosen.fn)].intrinsic
 		r.typing.calls.insert(e as Count, value: chosen)
 	end 'record'
 	if proven 'inside'
@@ -450,11 +450,11 @@ function rangeCountedAccess(mutates r Ranges, p ast.Project, e ast.NodeID, info 
 		rangeRaise(r, p: p, node: info.ordered[0], code: diag.errTypeMismatch, msg: "Value {index.lo.toString()} is outside the range of the indices of 'FixedArray with {count}' (int(0 to {last.toString()}))")
 		return
 	end 'constant'
-	rangeFallible(r, p: p, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.index(method, count: count))
+	rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.index(method, count: count))
 end 'rangeCountedAccess'
 
 // countedAccessFunc is the get or the set of a fixed array that a call runs: the one that cannot fail at a proven index.
-function countedAccessFunc(p ast.Project, isGet bool, proven bool) returns ast.FuncID
+function countedAccessFunc(p ast.Project, ms ast.ModuleState, isGet bool, proven bool) returns ast.FuncID
 	if isGet and proven 'provenGet'
 		return p.builtins.fixedArrayGetProvenFunc
 	end 'provenGet'
@@ -462,28 +462,28 @@ function countedAccessFunc(p ast.Project, isGet bool, proven bool) returns ast.F
 		return p.builtins.fixedArraySetProvenFunc
 	end 'provenSet'
 	let name = "get" if isGet else "set"
-	return p.types.lists[ast.typeList(p.types, t: p.builtins.fixedArrayOrigin)][ast.typeIndex(p.types, t: p.builtins.fixedArrayOrigin)].findMethod(name).unwrap()
+	return ms.types.lists[ast.typeList(ms.types, t: p.builtins.fixedArrayOrigin)][ast.typeIndex(ms.types, t: p.builtins.fixedArrayOrigin)].findMethod(name).unwrap()
 end 'countedAccessFunc'
 
 // rangeChangedAt is an expression that a call may change, if it names a place.
-function rangeChangedAt(mutates r Ranges, p ast.Project, e ast.NodeID)
-	match consumes rangePlaceOf(r, p: p, e: e) 'place'
-		some(place) then rangeChanged(r, p: p, place: place, t: typeOf(r, e: e))
+function rangeChangedAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+		some(place) then rangeChanged(r, p: p, ms: ms, place: place, t: typeOf(r, e: e))
 		none then _ = 0
 	end 'place'
 end 'rangeChangedAt'
 
-function rangeCondExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeCondExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let cond = ast.condExprCond(p.modules[r.modIdx].tree, id: e)
-	let since = rangeCondition(r, p: p, c: cond)
+	let since = rangeCondition(r, p: p, ms: ms, c: cond)
 	let start = rangeKeep(r)
-	let whenTrue = rangeNarrowed(r, p: p, from: start, c: cond, truth: true, since: since)
+	let whenTrue = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: true, since: since)
 	r.st = whenTrue
-	let thenSpan = rangeEval(r, p: p, e: ast.condExprThen(p.modules[r.modIdx].tree, id: e))
+	let thenSpan = rangeEval(r, p: p, ms: ms, e: ast.condExprThen(p.modules[r.modIdx].tree, id: e))
 	let thenEnd = r.st
-	let whenFalse = rangeNarrowed(r, p: p, from: start, c: cond, truth: false, since: since)
+	let whenFalse = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: false, since: since)
 	r.st = whenFalse
-	let els = rangeEval(r, p: p, e: ast.condExprElse(p.modules[r.modIdx].tree, id: e))
+	let els = rangeEval(r, p: p, ms: ms, e: ast.condExprElse(p.modules[r.modIdx].tree, id: e))
 	let elseEnd = r.st
 	r.st = r.states.joined(thenEnd, b: elseEnd)
 	if isDead(r, s: thenEnd) 'onlyElse'
@@ -497,13 +497,13 @@ end 'rangeCondExpr'
 
 // rangeTryExpr covers the failures of its expression: a try with 'otherwise' catches them, and one without passes them to
 // the caller.
-function rangeTryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeTryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let takes = match consumes nodeLocalOf(r, node: e) 'local'
 		some(id) gives r.typing.locals[id as Count].ty
 		none gives ast.noType
 	end 'local'
-	let added = rangeEnterTry(r, p: p, site: e, handles: not ast.propagates(p.modules[r.modIdx].tree, e: e), takes: takes)
-	let v = rangeEval(r, p: p, e: ast.tryExprE(p.modules[r.modIdx].tree, id: e))
+	let added = rangeEnterTry(r, p: p, ms: ms, site: e, handles: not ast.propagates(p.modules[r.modIdx].tree, e: e), takes: takes)
+	let v = rangeEval(r, p: p, ms: ms, e: ast.tryExprE(p.modules[r.modIdx].tree, id: e))
 	if not added 'passed'
 		return v
 	end 'passed'
@@ -520,17 +520,17 @@ function rangeTryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Spa
 	let brk = ast.tryExprBrk(p.modules[r.modIdx].tree, id: e)
 	let thr = ast.tryExprThr(p.modules[r.modIdx].tree, id: e)
 	if value != 0 'value'
-		other = rangeEval(r, p: p, e: value)
+		other = rangeEval(r, p: p, ms: ms, e: value)
 	end 'value' else if handler != 0 'handler'
-		rangeBlock(r, p: p, body: ast.handlerBlockBodyRef(p.modules[r.modIdx].tree, id: handler))
+		rangeBlock(r, p: p, ms: ms, body: ast.handlerBlockBodyRef(p.modules[r.modIdx].tree, id: handler))
 	end 'handler' else if ret != 0 'return'
-		rangeReturnStmt(r, p: p, s: ret)
+		rangeReturnStmt(r, p: p, ms: ms, s: ret)
 	end 'return' else if brk != 0 'break'
 		rangeBreakStmt(r, s: brk)
 	end 'break' else if ast.tryExprCont(p.modules[r.modIdx].tree, id: e) != 0 'continue'
 		r.st = deadState
 	end 'continue' else if thr != 0 'throw'
-		rangeThrowStmt(r, p: p, s: thr)
+		rangeThrowStmt(r, p: p, ms: ms, s: thr)
 	end 'throw'
 	let failed = r.st
 	r.st = r.states.joined(ended, b: failed)
@@ -546,53 +546,53 @@ end 'rangeTryExpr'
 // rangeBinaryExpr walks an operator and the operators nested in its left operand, innermost first, so that a long chain
 // takes no stack. An operator is an 'and' or an 'or' that evaluates its right operand only when the left one allows it,
 // a comparison, or an operator on integers.
-function rangeBinaryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeBinaryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let since = r.written.count()
 	var chain = ast.leftChain(p.modules[r.modIdx].tree, e: e)
-	ast.trimFolded(p, typing: r.typing, chain: chain)
+	ast.trimFolded(p, ms: ms, typing: r.typing, chain: chain)
 	var node = ast.nextOperator(chain, e: e)
-	var l = rangeEval(r, p: p, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: node))
+	var l = rangeEval(r, p: p, ms: ms, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: node))
 	while node != e 'inner'
-		l = rangeOperator(r, p: p, e: node, l: l, since: since)
+		l = rangeOperator(r, p: p, ms: ms, e: node, l: l, since: since)
 		node = ast.nextOperator(chain, e: e)
 	end 'inner'
-	return rangeOperator(r, p: p, e: e, l: l, since: since)
+	return rangeOperator(r, p: p, ms: ms, e: e, l: l, since: since)
 end 'rangeBinaryExpr'
 
 // rangeOperator is the span of an operator whose left operand has been walked and has the span l; since is where the
 // places that the whole expression changes begin in written.
-function rangeOperator(mutates r Ranges, p ast.Project, e ast.NodeID, l Span, since Count) returns Span
+function rangeOperator(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, since Count) returns Span
 	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: e)
 	let left = ast.binaryExprL(p.modules[r.modIdx].tree, id: e)
 	let right = ast.binaryExprR(p.modules[r.modIdx].tree, id: e)
 	if (op == "and" or op == "or") and typeOf(r, e: e) == p.builtins.boolTy 'logical'
 		let start = rangeKeep(r)
-		let rightRuns = rangeNarrowed(r, p: p, from: start, c: left, truth: op == "and", since: since)
+		let rightRuns = rangeNarrowed(r, p: p, ms: ms, from: start, c: left, truth: op == "and", since: since)
 		r.st = rightRuns
-		_ = rangeEval(r, p: p, e: right)
+		_ = rangeEval(r, p: p, ms: ms, e: right)
 		let ended = r.st
 		r.st = r.states.joined(start, b: ended)
 		return noSpan()
 	end 'logical'
-	let rs = rangeEval(r, p: p, e: right)
-	return rangeOperate(r, p: p, e: e, l: l, rs: rs, bound: table.Option.none)
+	let rs = rangeEval(r, p: p, ms: ms, e: right)
+	return rangeOperate(r, p: p, ms: ms, e: e, l: l, rs: rs, bound: table.Option.none)
 end 'rangeOperator'
 
 // rangeOperate is the span of an operator on operands of the spans l and rs. An exact result outside bound, if there is
 // one, is one the code cannot reach.
-function rangeOperate(mutates r Ranges, p ast.Project, e ast.NodeID, l Span, rs Span, bound table.Option with Span) returns Span
+function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, rs Span, bound table.Option with Span) returns Span
 	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: e)
-	if isComparisonOp(op) or not ast.isIntType(p.types, t: typeOf(r, e: e)) 'noSpan'
+	if isComparisonOp(op) or not ast.isIntType(ms.types, t: typeOf(r, e: e)) 'noSpan'
 		return noSpan()
 	end 'noSpan'
 	var word = signedWord()
-	if ast.isUnsignedInt(p.types, t: arithOf(r, e: e).operand) 'unsigned'
+	if ast.isUnsignedInt(ms.types, t: arithOf(r, e: e).operand) 'unsigned'
 		word = unsignedWord()
 	end 'unsigned'
 	let computed = arithmetic(op, l: l, r: rs, word: word)
 	var exact = computed.span.clone()
 	var fails = computed.fails
-	if ast.isWordPattern(p.types, t: arithOf(r, e: e).operand) and wraps(op) 'wrapping'
+	if ast.isWordPattern(ms.types, t: arithOf(r, e: e).operand) and wraps(op) 'wrapping'
 		exact = unsignedWord()
 		fails = fails and (ast.failDivZero or ast.failShift)
 	end 'wrapping'
@@ -600,10 +600,10 @@ function rangeOperate(mutates r Ranges, p ast.Project, e ast.NodeID, l Span, rs 
 		some(b) then exact = withinBound(exact, bound: b)
 		none then _ = 0
 	end 'bound'
-	if op == "-" and not isDead(r, s: r.st) and not ast.isWordPattern(p.types, t: arithOf(r, e: e).operand) 'difference'
-		exact.lo = rangeDifferenceLow(r, p: p, e: e, low: exact.lo)
+	if op == "-" and not isDead(r, s: r.st) and not ast.isWordPattern(ms.types, t: arithOf(r, e: e).operand) 'difference'
+		exact.lo = rangeDifferenceLow(r, p: p, ms: ms, e: e, low: exact.lo)
 	end 'difference'
-	return rangeResult(r, p: p, e: e, op: op, exact: exact, fails: fails, word: word)
+	return rangeResult(r, p: p, ms: ms, e: e, op: op, exact: exact, fails: fails, word: word)
 end 'rangeOperate'
 
 // wraps is whether an operation on a bits(64) pattern is computed modulo 2^64, as against failing past the word: an
@@ -622,9 +622,9 @@ function withinBound(exact Span, bound Span) returns Span
 end 'withinBound'
 
 // rangeDifferenceLow is the least a subtraction of two places can give, by what is known of how far apart they are.
-function rangeDifferenceLow(r Ranges, p ast.Project, e ast.NodeID, low ast.I128) returns ast.I128
-	let px = rangePlaceOf(r, p: p, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: e))
-	let py = rangePlaceOf(r, p: p, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: e))
+function rangeDifferenceLow(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, low ast.I128) returns ast.I128
+	let px = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: e))
+	let py = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: e))
 	match px 'x'
 		some(x) then return gapLow(r, x: x, y: py, low: low)
 		none then return low.clone()
@@ -654,9 +654,9 @@ end 'arithOf'
 
 // rangeResult judges an operation whose exact result has the span exact: it fails where that leaves the word it computes
 // in or the range of its type, and gives the span of the values it can give.
-function rangeResult(mutates r Ranges, p ast.Project, e ast.NodeID, op String, exact Span, fails Byte, word Span) returns Span
+function rangeResult(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, exact Span, fails Byte, word Span) returns Span
 	let ty = typeOf(r, e: e)
-	let t = typeSpan(p.types, t: ty)
+	let t = typeSpan(ms.types, t: ty)
 	var f = fails
 	if not exact.isEmpty() 'reached'
 		if not exact.within(word) 'pastWord'
@@ -670,17 +670,17 @@ function rangeResult(mutates r Ranges, p ast.Project, e ast.NodeID, op String, e
 			f = f or ast.failAbove
 		end 'above'
 	end 'reached'
-	rangeFail(r, p: p, e: e, fails: f, why: Unchecked.operation(op.clone(), fails: f, node: e, ty: ty))
+	rangeFail(r, p: p, ms: ms, e: e, fails: f, why: Unchecked.operation(op.clone(), fails: f, node: e, ty: ty))
 	return exact.clamp(t)
 end 'rangeResult'
 
 // failureText says how an operation can fail, for the error that it is not caught.
-function failureText(p ast.Project, op String, fails Byte, ty ast.TypeID) returns String
+function failureText(p ast.Project, ms ast.ModuleState, op String, fails Byte, ty ast.TypeID) returns String
 	if (fails and ast.failDivZero) != 0 'zero'
 		return "the divisor of '{op}' may be 0"
 	end 'zero'
-	let t = typeSpan(p.types, t: ty)
-	let name = nameOfType(p, t: ty)
+	let t = typeSpan(ms.types, t: ty)
+	let name = nameOfType(p, ms: ms, t: ty)
 	if (fails and ast.failShift) != 0 'shift'
 		return "the count of '{op}' may be negative"
 	end 'shift'
@@ -722,11 +722,11 @@ function operandFix(guard String) returns String
 end 'operandFix'
 
 // castText is the error for a conversion to ty that can fail where no try covers it.
-function castText(p ast.Project, ty ast.TypeID) returns String
-	if ast.isFloatType(p.types, t: ty) 'float'
-		return "the value may not fit {nameOfType(p, t: ty)} ({floatRangeText(p, t: ty)}){operandFix("")}"
+function castText(p ast.Project, ms ast.ModuleState, ty ast.TypeID) returns String
+	if ast.isFloatType(ms.types, t: ty) 'float'
+		return "the value may not fit {nameOfType(p, ms: ms, t: ty)} ({floatRangeText(p, ms: ms, t: ty)}){operandFix("")}"
 	end 'float'
-	return "the value may not fit {nameOfType(p, t: ty)} ({typeSpan(p.types, t: ty).lo.toString()} to {typeSpan(p.types, t: ty).hi.toString()}){operandFix("")}"
+	return "the value may not fit {nameOfType(p, ms: ms, t: ty)} ({typeSpan(ms.types, t: ty).lo.toString()} to {typeSpan(ms.types, t: ty).hi.toString()}){operandFix("")}"
 end 'castText'
 
 // uncheckedNode is the node an error for why is reported at: the operation, or the value that a return converts.
@@ -744,9 +744,9 @@ end 'uncheckedNode'
 
 // uncheckedFix is the change the error for why names: a try around the operation, or around the conversion that a return
 // makes.
-function uncheckedFix(p ast.Project, t ast.Tree, why Unchecked, site ast.NodeID) returns diag.Fix
+function uncheckedFix(p ast.Project, ms ast.ModuleState, t ast.Tree, why Unchecked, site ast.NodeID) returns diag.Fix
 	return match why 'why'
-		returned(ty, value) gives returnFix(t, e: value, target: nameOfType(p, t: ty))
+		returned(ty, value) gives returnFix(t, e: value, target: nameOfType(p, ms: ms, t: ty))
 		call(_) gives tryFix(t, e: site)
 		index(_, _) gives tryFix(t, e: site)
 		operation(_, _, _, _) gives tryFix(t, e: site)
@@ -757,28 +757,28 @@ function uncheckedFix(p ast.Project, t ast.Tree, why Unchecked, site ast.NodeID)
 end 'uncheckedFix'
 
 // uncheckedText is the error for an operation that can fail where no try covers it.
-function uncheckedText(r Ranges, p ast.Project, why Unchecked) returns String
+function uncheckedText(r Ranges, p ast.Project, ms ast.ModuleState, why Unchecked) returns String
 	return match why 'why'
 		call(name) gives diag.throwingCallRequiresTry(name)
 		index(method, count) gives "{diag.throwingCallRequiresTry(method)} — its index is not proven inside the fixed array's {count} elements; wrap it as `try … otherwise …`, or give the index a ranged type within `int(0 to {ast.I128.fromCount(count).sub(ast.I128.one()).toString()})`"
-		operation(op, fails, node, ty) gives "{failureText(p, op: op, fails: fails, ty: ty)}{operandFix(guardAdvice(p.modules[r.modIdx].tree, fails: fails, e: node))}"
-		cast(ty) gives castText(p, ty: ty)
-		recovered(iface, ty) gives "the value of '{nameOfType(p, t: iface)}' may hold a value of another type than '{nameOfType(p, t: ty)}', and then the cast fails with CastError.otherType; handle the failure with 'try'"
-		returned(ty, _) gives castText(p, ty: ty)
+		operation(op, fails, node, ty) gives "{failureText(p, ms: ms, op: op, fails: fails, ty: ty)}{operandFix(guardAdvice(p.modules[r.modIdx].tree, fails: fails, e: node))}"
+		cast(ty) gives castText(p, ms: ms, ty: ty)
+		recovered(iface, ty) gives "the value of '{nameOfType(p, ms: ms, t: iface)}' may hold a value of another type than '{nameOfType(p, ms: ms, t: ty)}', and then the cast fails with CastError.otherType; handle the failure with 'try'"
+		returned(ty, _) gives castText(p, ms: ms, ty: ty)
 		thrown panic("ranges: a throw is always covered")
 	end 'why'
 end 'uncheckedText'
 
 // rangeFail records how the operation e can fail, if it can, and that the innermost try covers it. The probe of a loop
 // records nothing, as the real walk of the loop will.
-function rangeFail(mutates r Ranges, p ast.Project, e ast.NodeID, fails Byte, why Unchecked)
+function rangeFail(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, fails Byte, why Unchecked)
 	if fails == ast.failNone or isDead(r, s: r.st) 'cannot'
 		return
 	end 'cannot'
 	if not r.probing 'record'
 		setFails(r, e: e, fails: fails)
 	end 'record'
-	rangeFallible(r, p: p, site: e, err: p.builtins.arithmeticErrorTy, why: why)
+	rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.arithmeticErrorTy, why: why)
 end 'rangeFail'
 
 // setFails records how an operation can fail, for the lowering, which checks only that.
@@ -792,10 +792,10 @@ end 'setFails'
 // in the state here. No try is an error, which why says, and so is a try whose handler or caller takes another error.
 // Code the analysis proves unreachable is held to the same rule, since the lowering emits it and what is proved
 // unreachable depends on how sharp the analysis is.
-function rangeFallible(mutates r Ranges, p ast.Project, site ast.NodeID, err ast.TypeID, why Unchecked)
+function rangeFallible(mutates r Ranges, p ast.Project, ms ast.ModuleState, site ast.NodeID, err ast.TypeID, why Unchecked)
 	if r.handlers.count() == 0 'uncovered'
 		if not r.probing 'report'
-			rangeRaiseFixed(r, p: p, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, why: why), fix: uncheckedFix(p, t: p.modules[r.modIdx].tree, why: why, site: site))
+			rangeRaiseFixed(r, p: p, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, ms: ms, why: why), fix: uncheckedFix(p, ms: ms, t: p.modules[r.modIdx].tree, why: why, site: site))
 		end 'report'
 		return
 	end 'uncovered'
@@ -803,13 +803,13 @@ function rangeFallible(mutates r Ranges, p ast.Project, site ast.NodeID, err ast
 	let propagates = r.handlers[last].propagates
 	let takes = r.handlers[last].takes
 	if not r.probing 'judged'
-		let thrown = fnErrorType(r, p: p)
+		let thrown = fnErrorType(r, p: p, ms: ms)
 		if propagates and thrown != err 'otherError'
-			rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: diag.propagateMismatch(nameOfType(p, t: err), enclosing: nameOfType(p, t: thrown)))
+			rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: diag.propagateMismatch(nameOfType(p, ms: ms, t: err), enclosing: nameOfType(p, ms: ms, t: thrown)))
 			return
 		end 'otherError'
 		if takes != ast.noType and takes != err 'otherHandler'
-			rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "this fails with '{nameOfType(p, t: err)}', but the handler of the try around it names a '{nameOfType(p, t: takes)}': give it a 'try ... otherwise' of its own")
+			rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "this fails with '{nameOfType(p, ms: ms, t: err)}', but the handler of the try around it names a '{nameOfType(p, ms: ms, t: takes)}': give it a 'try ... otherwise' of its own")
 			return
 		end 'otherHandler'
 	end 'judged'
@@ -821,23 +821,23 @@ function rangeFallible(mutates r Ranges, p ast.Project, site ast.NodeID, err ast
 	end 'caught'
 end 'rangeFallible'
 
-function rangeUnaryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeUnaryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let operand = ast.unaryExprE(p.modules[r.modIdx].tree, id: e)
-	let v = rangeEval(r, p: p, e: operand)
+	let v = rangeEval(r, p: p, ms: ms, e: operand)
 	let t = typeOf(r, e: e)
-	if not ast.isIntType(p.types, t: t) 'notInt'
+	if not ast.isIntType(ms.types, t: t) 'notInt'
 		return noSpan()
 	end 'notInt'
 	let op = ast.unaryExprOp(p.modules[r.modIdx].tree, id: e)
 	// A negation is computed in a signed word whatever type the context gives its result, and a complement in its
 	// operand's word.
-	let unsigned = op == "not" and ast.isUnsignedInt(p.types, t: typeOf(r, e: operand))
+	let unsigned = op == "not" and ast.isUnsignedInt(ms.types, t: typeOf(r, e: operand))
 	var word = signedWord()
 	if unsigned 'unsigned'
 		word = unsignedWord()
 	end 'unsigned'
 	var exact = Span.make(v.hi.neg(), hi: v.lo.neg())
-	if op == "-" and ast.isWordPattern(p.types, t: t) 'wrappingNegation'
+	if op == "-" and ast.isWordPattern(ms.types, t: t) 'wrappingNegation'
 		// The negation of a bit pattern wraps modulo 2^64, so it is a pattern too.
 		word = unsignedWord()
 		exact = unsignedWord()
@@ -850,40 +850,40 @@ function rangeUnaryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns S
 			exact = Span.make(v.hi.neg().sub(ast.I128.one()), hi: v.lo.neg().sub(ast.I128.one()))
 		end 'signedNot'
 	end 'not'
-	return rangeResult(r, p: p, e: e, op: op, exact: exact, fails: ast.failNone, word: word)
+	return rangeResult(r, p: p, ms: ms, e: e, op: op, exact: exact, fails: ast.failNone, word: word)
 end 'rangeUnaryExpr'
 
 // rangeCastExpr fails where the value may lie outside the target's range.
-function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+function rangeCastExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let operand = ast.castExprE(p.modules[r.modIdx].tree, id: e)
-	let v = rangeEval(r, p: p, e: operand)
+	let v = rangeEval(r, p: p, ms: ms, e: operand)
 	let ty = typeOf(r, e: e)
 	let src = typeOf(r, e: operand)
-	if typeHasKind(p, t: src, kind: ast.TypeKind.interfaceTy) 'recovered'
+	if typeHasKind(p, ms: ms, t: src, kind: ast.TypeKind.interfaceTy) 'recovered'
 		if not isDead(r, s: r.st) 'live'
-			rangeFallible(r, p: p, site: e, err: p.builtins.castErrorTy, why: Unchecked.recovered(src, ty: ty))
+			rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.castErrorTy, why: Unchecked.recovered(src, ty: ty))
 		end 'live'
-		if typeHasKind(p, t: ty, kind: ast.TypeKind.intRange) 'integer'
-			return typeSpan(p.types, t: ty)
+		if typeHasKind(p, ms: ms, t: ty, kind: ast.TypeKind.intRange) 'integer'
+			return typeSpan(ms.types, t: ty)
 		end 'integer'
 		return noSpan()
 	end 'recovered'
-	if ast.castRebrands(p.types, target: ty) 'rebrand'
+	if ast.castRebrands(ms.types, target: ty) 'rebrand'
 		return noSpan()
 	end 'rebrand'
-	return rangeConverted(r, p: p, e: e, v: v, src: typeOf(r, e: operand), ty: ty, why: Unchecked.cast(ty))
+	return rangeConverted(r, p: p, ms: ms, e: e, v: v, src: typeOf(r, e: operand), ty: ty, why: Unchecked.cast(ty))
 end 'rangeCastExpr'
 
 // reinterpreted is the span of a value of the span v and the type src once it is converted to ty, before ty's range is
 // applied. A bits(64) pattern and an integer type that holds every signed word are two readings of the same 64 bits, so
 // a conversion between them changes the value and never fails; any other conversion keeps the value.
-function reinterpreted(p ast.Project, v Span, src ast.TypeID, ty ast.TypeID) returns Span
+function reinterpreted(p ast.Project, ms ast.ModuleState, v Span, src ast.TypeID, ty ast.TypeID) returns Span
 	let word = unsignedWord()
-	if ast.isWordPattern(p.types, t: ty) and v.lo.isNeg() 'toPattern'
+	if ast.isWordPattern(ms.types, t: ty) and v.lo.isNeg() 'toPattern'
 		return word
 	end 'toPattern'
-	let target = typeSpan(p.types, t: ty)
-	if ast.isWordPattern(p.types, t: src) and signedWord().within(target) and v.hi.gt(ast.I128.i64Max()) 'toSigned'
+	let target = typeSpan(ms.types, t: ty)
+	if ast.isWordPattern(ms.types, t: src) and signedWord().within(target) and v.hi.gt(ast.I128.i64Max()) 'toSigned'
 		if v.lo.gt(ast.I128.i64Max()) 'wholly'
 			let wrap = ast.I128.u64Max().add(ast.I128.one())
 			return Span.make(v.lo.sub(wrap), hi: v.hi.sub(wrap))
@@ -894,20 +894,20 @@ function reinterpreted(p ast.Project, v Span, src ast.TypeID, ty ast.TypeID) ret
 end 'reinterpreted'
 
 // rangeConverted is the conversion of the value of the span v to ty, at the node e that records how it can fail.
-function rangeConverted(mutates r Ranges, p ast.Project, e ast.NodeID, v Span, src ast.TypeID, ty ast.TypeID, why Unchecked) returns Span
-	if ast.isFloatType(p.types, t: ty) 'float'
-		rangeFail(r, p: p, e: e, fails: floatConversionFails(p, src: src, dst: ty), why: why)
+function rangeConverted(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, v Span, src ast.TypeID, ty ast.TypeID, why Unchecked) returns Span
+	if ast.isFloatType(ms.types, t: ty) 'float'
+		rangeFail(r, p: p, ms: ms, e: e, fails: floatConversionFails(p, ms: ms, src: src, dst: ty), why: why)
 		return noSpan()
 	end 'float'
-	let t = typeSpan(p.types, t: ty)
-	let seen = reinterpreted(p, v: v, src: src, ty: ty)
+	let t = typeSpan(ms.types, t: ty)
+	let seen = reinterpreted(p, ms: ms, v: v, src: src, ty: ty)
 	var fails = ast.failNone
-	if seen.lo.lt(t.lo) and not ast.isWordPattern(p.types, t: ty) 'below'
+	if seen.lo.lt(t.lo) and not ast.isWordPattern(ms.types, t: ty) 'below'
 		fails = fails or ast.failBelow
 	end 'below'
-	if seen.hi.gt(t.hi) and not ast.isWordPattern(p.types, t: ty) 'above'
+	if seen.hi.gt(t.hi) and not ast.isWordPattern(ms.types, t: ty) 'above'
 		fails = fails or ast.failAbove
 	end 'above'
-	rangeFail(r, p: p, e: e, fails: fails, why: why)
+	rangeFail(r, p: p, ms: ms, e: e, fails: fails, why: why)
 	return seen.clamp(t)
 end 'rangeConverted'

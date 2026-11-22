@@ -1,8 +1,8 @@
 // arrayOf is the runtime of the array type t, read through the binding and through a frozen value.
-function arrayOf(mutates l Lowerer, mutates p ast.Project, site diag.Site, t ast.TypeID) returns ArrayBox
-	let bt = builtinOf(l, p: p, collection: t)
-	if ast.typeKind(p.types, t: bt) != ast.TypeKind.builtinArray 'notArray'
-		panic("lower: {ast.typeName(p.types, t: t)} is not an array")
+function arrayOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID) returns ArrayBox
+	let bt = builtinOf(l, p: p, ms: ms, collection: t)
+	if ast.typeKind(ms.types, t: bt) != ast.TypeKind.builtinArray 'notArray'
+		panic("lower: {ast.typeName(ms.types, t: t)} is not an array")
 	end 'notArray'
 	return ArrayBox.make(site.clone(), ty: bt)
 end 'arrayOf'
@@ -10,97 +10,97 @@ end 'arrayOf'
 // arrayPacked is whether the array's box holds each element in one byte: an array of an integer type whose range fits in
 // a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an array
 // asks this, so the two boxes are never mistaken for each other.
-function arrayPacked(p ast.Project, box ArrayBox) returns bool
-	let elem = ast.typeArgAt(p.types, t: box.ty, index: 0)
-	if ast.typeKind(p.types, t: elem) != ast.TypeKind.intRange 'notInt'
+function arrayPacked(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
+	let elem = ast.typeArgAt(ms.types, t: box.ty, index: 0)
+	if ast.typeKind(ms.types, t: elem) != ast.TypeKind.intRange 'notInt'
 		return false
 	end 'notInt'
 	let byte = p.builtins.byteTy
-	return p.types.lists[ast.typeList(p.types, t: byte)][ast.typeIndex(p.types, t: byte)].minVal.le(p.types.lists[ast.typeList(p.types, t: elem)][ast.typeIndex(p.types, t: elem)].minVal) and p.types.lists[ast.typeList(p.types, t: byte)][ast.typeIndex(p.types, t: byte)].maxVal.ge(p.types.lists[ast.typeList(p.types, t: elem)][ast.typeIndex(p.types, t: elem)].maxVal)
+	return ms.types.lists[ast.typeList(ms.types, t: byte)][ast.typeIndex(ms.types, t: byte)].minVal.le(ms.types.lists[ast.typeList(ms.types, t: elem)][ast.typeIndex(ms.types, t: elem)].minVal) and ms.types.lists[ast.typeList(ms.types, t: byte)][ast.typeIndex(ms.types, t: byte)].maxVal.ge(ms.types.lists[ast.typeList(ms.types, t: elem)][ast.typeIndex(ms.types, t: elem)].maxVal)
 end 'arrayPacked'
 
-function arrayElem(p ast.Project, box ArrayBox) returns ast.TypeID
-	return ast.typeArgAt(p.types, t: box.ty, index: 0)
+function arrayElem(p ast.Project, ms ast.ModuleState, box ArrayBox) returns ast.TypeID
+	return ast.typeArgAt(ms.types, t: box.ty, index: 0)
 end 'arrayElem'
 
-function arrayNew(mutates l Lowerer, mutates p ast.Project, box ArrayBox) returns Reg
-	if arrayPacked(p, box: box) 'packed'
+function arrayNew(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox) returns Reg
+	if arrayPacked(p, ms: ms, box: box) 'packed'
 		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesNew, kind: IrKind.kindManaged, args: RegList.create(0))
 	end 'packed'
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayNew, kind: IrKind.kindManaged, args: RegList.create(0))
 end 'arrayNew'
 
-function arrayLength(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg) returns Reg
-	if arrayPacked(p, box: box) 'packed'
+function arrayLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg) returns Reg
+	if arrayPacked(p, ms: ms, box: box) 'packed'
 		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesLen, kind: IrKind.kindScalar, args: argsOf1(arr))
 	end 'packed'
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(arr))
 end 'arrayLength'
 
 // arrayInsert moves v in at index, which may be the length.
-function arrayInsert(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg, v Reg)
-	if arrayPacked(p, box: box) 'packed'
+function arrayInsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesInsert, args: argsOf3(arr, b: index, c: v))
 		return
 	end 'packed'
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayInsert, args: argsOf3(arr, b: index, c: v))
 end 'arrayInsert'
 
-function arrayPush(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, v Reg)
-	let n = arrayLength(l, p: p, box: box, arr: arr)
-	arrayInsert(l, p: p, box: box, arr: arr, index: n, v: v)
+function arrayPush(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, v Reg)
+	let n = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+	arrayInsert(l, p: p, ms: ms, box: box, arr: arr, index: n, v: v)
 end 'arrayPush'
 
 // arrayRemove moves the element at index out.
-function arrayRemove(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
-	if arrayPacked(p, box: box) 'packed'
+function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	if arrayPacked(p, ms: ms, box: box) 'packed'
 		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesRemove, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 	end 'packed'
-	let elem = arrayElem(p, box: box)
-	let kind = kindOf(l, p: p, t: elem)
+	let elem = arrayElem(p, ms: ms, box: box)
+	let kind = kindOf(l, p: p, ms: ms, t: elem)
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
 end 'arrayRemove'
 
 // arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not
 // changed.
-function arrayLoad(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
-	if arrayPacked(p, box: box) 'packed'
+function arrayLoad(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	if arrayPacked(p, ms: ms, box: box) 'packed'
 		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 	end 'packed'
-	let d = newReg(l, kind: kindOf(l, p: p, t: arrayElem(p, box: box)))
-	let addr = arrayAddress(l, p: p, box: box, arr: arr, index: index)
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index)
 	emit(l, i: newLoadAt(d, addr: addr))
 	return d
 end 'arrayLoad'
 
 // arrayStore writes v to the element at index, dropping the element it replaces.
-function arrayStore(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg, v Reg)
-	if arrayPacked(p, box: box) 'packed'
+function arrayStore(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
 		return
 	end 'packed'
-	let addr = arrayAddress(l, p: p, box: box, arr: arr, index: index)
-	dropAt(l, p: p, addr: addr, t: arrayElem(p, box: box))
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	dropAt(l, p: p, ms: ms, addr: addr, t: arrayElem(p, ms: ms, box: box))
 	emit(l, i: newStoreAt(addr, src: v))
 end 'arrayStore'
 
 // arrayAddress is where the element at index of an array of words is. A byte has no address a word can be read through:
 // its place is a slot instead.
-function arrayAddress(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
-	if arrayPacked(p, box: box) 'packed'
-		panic("lower: an element of {ast.typeName(p.types, t: box.ty)} has no word address")
+function arrayAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	if arrayPacked(p, ms: ms, box: box) 'packed'
+		panic("lower: an element of {ast.typeName(ms.types, t: box.ty)} has no word address")
 	end 'packed'
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 end 'arrayAddress'
 
 // arrayPlace is the address a call that takes the element at index by address is given: the element's own for an array of
 // words, and for an array of bytes a slot that holds the element until writeBack stores it back.
-function arrayPlace(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
-	if not arrayPacked(p, box: box) 'words'
-		return arrayAddress(l, p: p, box: box, arr: arr, index: index)
+function arrayPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	if not arrayPacked(p, ms: ms, box: box) 'words'
+		return arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index)
 	end 'words'
 	let slot = l.b.f.newSlot(IrKind.kindScalar)
-	let element = arrayLoad(l, p: p, box: box, arr: arr, index: index)
+	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
 	emit(l, i: newStoreSlot(slot, src: element, borrow: false))
 	l.writeBacks.push(WriteBack.make(box.clone(), arr: arr, index: index, slot: slot))
 	let d = newReg(l, kind: IrKind.kindScalar)
@@ -109,62 +109,62 @@ function arrayPlace(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr 
 end 'arrayPlace'
 
 // writeBack stores the slots of the places taken since mark back into their elements.
-function writeBack(mutates l Lowerer, mutates p ast.Project, mark Count)
+function writeBack(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, mark Count)
 	for i in mark upto l.writeBacks.count() 'each'
 		let w = l.writeBacks[i].clone()
 		let v = load(l, slot: w.slot)
-		arrayStore(l, p: p, box: w.box, arr: w.arr, index: w.index, v: v)
+		arrayStore(l, p: p, ms: ms, box: w.box, arr: w.arr, index: w.index, v: v)
 	end 'each'
 	l.writeBacks.truncate(mark)
 end 'writeBack'
 
 // arrayAppendCopy pushes a copy of each element of other, which is only read. The length of other is read once, before
 // the first push.
-function arrayAppendCopy(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, other Reg)
-	if arrayPacked(p, box: box) 'packed'
+function arrayAppendCopy(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, other Reg)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesAppend, args: argsOf2(arr, b: other))
 		return
 	end 'packed'
-	let n = arrayLength(l, p: p, box: box, arr: other)
+	let n = arrayLength(l, p: p, ms: ms, box: box, arr: other)
 	let loop = countedLoopBegin(l, limit: n)
 	let i = countedLoopIndex(l, loop: loop)
-	let element = arrayLoad(l, p: p, box: box, arr: other, index: i)
-	let copy = copyValue(l, p: p, site: box.site, v: element, t: arrayElem(p, box: box))
-	arrayPush(l, p: p, box: box, arr: arr, v: copy)
+	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: other, index: i)
+	let copy = copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
+	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: copy)
 	countedLoopEnd(l, loop: loop)
 end 'arrayAppendCopy'
 
-function requirePacked(p ast.Project, box ArrayBox)
-	if not arrayPacked(p, box: box) 'words'
-		panic("lower: {ast.typeName(p.types, t: box.ty)} holds no bytes")
+function requirePacked(p ast.Project, ms ast.ModuleState, box ArrayBox)
+	if not arrayPacked(p, ms: ms, box: box) 'words'
+		panic("lower: {ast.typeName(ms.types, t: box.ty)} holds no bytes")
 	end 'words'
 end 'requirePacked'
 
 // arrayAppendText pushes the UTF-8 bytes of a String, which only an array of bytes holds as they are.
-function arrayAppendText(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, text Reg)
-	requirePacked(p, box: box)
+function arrayAppendText(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, text Reg)
+	requirePacked(p, ms: ms, box: box)
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesAppendStr, args: argsOf2(arr, b: text))
 end 'arrayAppendText'
 
 // arrayText is a String of the bytes of an array of bytes.
-function arrayText(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg) returns Reg
-	requirePacked(p, box: box)
+function arrayText(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg) returns Reg
+	requirePacked(p, ms: ms, box: box)
 	return entry(l, p: p, site: box.site, symbol: Rt.rtBytesToString, kind: IrKind.kindManaged, args: argsOf1(arr))
 end 'arrayText'
 
 // arrayBoundsBegin fails with indexOutOfBounds unless index is below the length; the block it gives is where the operation
 // goes on, and the one being lowered is where it fails, which failUnlessEnd ends after the code between them has dropped
 // what the operation was given.
-function arrayBoundsBegin(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns BlockID
-	let n = arrayLength(l, p: p, box: box, arr: arr)
+function arrayBoundsBegin(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns BlockID
+	let n = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let below = compare(l, op: CmpOp.cmpLt, a: index, b: n, unsigned: true)
 	return failUnlessBegin(l, cond: below)
 end 'arrayBoundsBegin'
 
 // arrayInBounds fails with indexOutOfBounds unless index is below the length.
-function arrayInBounds(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg)
-	let ok = arrayBoundsBegin(l, p: p, box: box, arr: arr, index: index)
-	failUnlessEnd(l, p: p, errorCase: ast.errorIndexOutOfBounds, ok: ok)
+function arrayInBounds(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg)
+	let ok = arrayBoundsBegin(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	failUnlessEnd(l, p: p, ms: ms, errorCase: ast.errorIndexOutOfBounds, ok: ok)
 end 'arrayInBounds'
 
 // saturatingSub is a - b, or 0 when b is above a.
@@ -188,10 +188,10 @@ end 'saturatingSub'
 // first. An element that needs no drop is not visited: the length is all that changes, so clearing an array of numbers is
 // one entry whatever its length. An element that owns something is dropped in place, one loop with one lookup of its address
 // each, before the length is set.
-function arrayShrinkTo(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, keep Reg)
-	let elem = arrayElem(p, box: box)
-	if kindOf(l, p: p, t: elem) == IrKind.kindManaged 'owning'
-		let length = arrayLength(l, p: p, box: box, arr: arr)
+function arrayShrinkTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg)
+	let elem = arrayElem(p, ms: ms, box: box)
+	if kindOf(l, p: p, ms: ms, t: elem) == IrKind.kindManaged 'owning'
+		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 		let extra = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newBin(extra, op: BinOp.binSub, left: length, right: keep, unsigned: true, fail: noBlock))
 		let one = konst(l, value: 1 as Word)
@@ -201,93 +201,93 @@ function arrayShrinkTo(mutates l Lowerer, mutates p ast.Project, box ArrayBox, a
 		let offset = countedLoopIndex(l, loop: loop)
 		let index = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newBin(index, op: BinOp.binSub, left: last, right: offset, unsigned: true, fail: noBlock))
-		let addr = arrayAddress(l, p: p, box: box, arr: arr, index: index)
-		dropAt(l, p: p, addr: addr, t: elem)
+		let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		dropAt(l, p: p, ms: ms, addr: addr, t: elem)
 		countedLoopEnd(l, loop: loop)
 	end 'owning'
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayShrink, args: argsOf2(arr, b: keep))
 end 'arrayShrinkTo'
 
 // arrayClear drops every element and keeps the buffer.
-function arrayClear(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg)
+function arrayClear(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg)
 	let none = konst(l, value: 0 as Word)
-	arrayShrinkTo(l, p: p, box: box, arr: arr, keep: none)
+	arrayShrinkTo(l, p: p, ms: ms, box: box, arr: arr, keep: none)
 end 'arrayClear'
 
 // arrayTruncate drops the elements at and above newLength, and does nothing for a newLength that is not below the length.
-function arrayTruncate(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg)
-	let length = arrayLength(l, p: p, box: box, arr: arr)
+function arrayTruncate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, newLength Reg)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let extra = saturatingSub(l, a: length, b: newLength)
 	let keep = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(keep, op: BinOp.binSub, left: length, right: extra, unsigned: true, fail: noBlock))
-	arrayShrinkTo(l, p: p, box: box, arr: arr, keep: keep)
+	arrayShrinkTo(l, p: p, ms: ms, box: box, arr: arr, keep: keep)
 end 'arrayTruncate'
 
 // arrayGrowZero pushes zero elements until the array has newLength of them, which the checker has held to an element that has a zero.
-function arrayGrowZero(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg)
-	let length = arrayLength(l, p: p, box: box, arr: arr)
+function arrayGrowZero(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, newLength Reg)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let missing = saturatingSub(l, a: newLength, b: length)
 	let loop = countedLoopBegin(l, limit: missing)
 	let zero = konst(l, value: 0 as Word)
-	arrayPush(l, p: p, box: box, arr: arr, v: zero)
+	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: zero)
 	countedLoopEnd(l, loop: loop)
 end 'arrayGrowZero'
 
 // arraySlice is a new array of copies of the elements from start to below endIndex, which fails with indexOutOfBounds unless
 // start is not above endIndex and endIndex is not above the length, as maxon's slice does.
-function arraySlice(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, start Reg, endIndex Reg) returns Reg
+function arraySlice(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, start Reg, endIndex Reg) returns Reg
 	let ordered = compare(l, op: CmpOp.cmpLe, a: start, b: endIndex, unsigned: true)
-	failUnless(l, p: p, cond: ordered, errorCase: ast.errorIndexOutOfBounds)
-	let length = arrayLength(l, p: p, box: box, arr: arr)
+	failUnless(l, p: p, ms: ms, cond: ordered, errorCase: ast.errorIndexOutOfBounds)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let within = compare(l, op: CmpOp.cmpLe, a: endIndex, b: length, unsigned: true)
-	failUnless(l, p: p, cond: within, errorCase: ast.errorIndexOutOfBounds)
-	let out = arrayNew(l, p: p, box: box)
+	failUnless(l, p: p, ms: ms, cond: within, errorCase: ast.errorIndexOutOfBounds)
+	let out = arrayNew(l, p: p, ms: ms, box: box)
 	let span = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(span, op: BinOp.binSub, left: endIndex, right: start, unsigned: true, fail: noBlock))
 	let loop = countedLoopBegin(l, limit: span)
 	let offset = countedLoopIndex(l, loop: loop)
 	let index = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(index, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
-	let element = arrayLoad(l, p: p, box: box, arr: arr, index: index)
-	let copy = copyValue(l, p: p, site: box.site, v: element, t: arrayElem(p, box: box))
-	arrayPush(l, p: p, box: box, arr: out, v: copy)
+	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	let copy = copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
+	arrayPush(l, p: p, ms: ms, box: box, arr: out, v: copy)
 	countedLoopEnd(l, loop: loop)
 	return out
 end 'arraySlice'
 
 // arrayCopyAt is a copy of the element at index, which fails with indexOutOfBounds past the end.
-function arrayCopyAt(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
-	arrayInBounds(l, p: p, box: box, arr: arr, index: index)
-	let element = arrayLoad(l, p: p, box: box, arr: arr, index: index)
-	return copyValue(l, p: p, site: box.site, v: element, t: arrayElem(p, box: box))
+function arrayCopyAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	return copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 end 'arrayCopyAt'
 
 // arrayPushCopies pushes n copies of value, which the call only reads.
-function arrayPushCopies(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, n Reg, value Reg)
+function arrayPushCopies(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, n Reg, value Reg)
 	let loop = countedLoopBegin(l, limit: n)
-	let copy = copyValue(l, p: p, site: box.site, v: value, t: arrayElem(p, box: box))
-	arrayPush(l, p: p, box: box, arr: arr, v: copy)
+	let copy = copyValue(l, p: p, ms: ms, site: box.site, v: value, t: arrayElem(p, ms: ms, box: box))
+	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: copy)
 	countedLoopEnd(l, loop: loop)
 end 'arrayPushCopies'
 
 // arrayGrowFilled pushes copies of value until the array has newLength elements, and does nothing for a newLength that is
 // not above the length.
-function arrayGrowFilled(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg, value Reg)
-	let length = arrayLength(l, p: p, box: box, arr: arr)
+function arrayGrowFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, newLength Reg, value Reg)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let missing = saturatingSub(l, a: newLength, b: length)
-	arrayPushCopies(l, p: p, box: box, arr: arr, n: missing, value: value)
+	arrayPushCopies(l, p: p, ms: ms, box: box, arr: arr, n: missing, value: value)
 end 'arrayGrowFilled'
 
 // arrayRefill makes the array newLength copies of value: every element it held is dropped.
-function arrayRefill(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg, value Reg)
-	arrayClear(l, p: p, box: box, arr: arr)
-	arrayPushCopies(l, p: p, box: box, arr: arr, n: newLength, value: value)
+function arrayRefill(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, newLength Reg, value Reg)
+	arrayClear(l, p: p, ms: ms, box: box, arr: arr)
+	arrayPushCopies(l, p: p, ms: ms, box: box, arr: arr, n: newLength, value: value)
 end 'arrayRefill'
 
 // elementsEqual is whether two values of the element type are equal: strings by their bytes, anything else that the checker
 // lets through (checkElementsComparable) by its word.
-function elementsEqual(mutates l Lowerer, mutates p ast.Project, box ArrayBox, a Reg, b Reg) returns Reg
-	if arrayElem(p, box: box) == p.builtins.stringTy 'string'
+function elementsEqual(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, a Reg, b Reg) returns Reg
+	if arrayElem(p, ms: ms, box: box) == p.builtins.stringTy 'string'
 		return runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(a, b: b))
 	end 'string'
 	return compare(l, op: CmpOp.cmpEq, a: a, b: b, unsigned: false)
@@ -305,15 +305,15 @@ function storeIf(mutates l Lowerer, slot Count, cond Reg, value Word)
 end 'storeIf'
 
 // arrayContains is whether some element equals value.
-function arrayContains(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, value Reg) returns Reg
+function arrayContains(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, value Reg) returns Reg
 	let result = l.b.f.newSlot(IrKind.kindScalar)
 	let none = konst(l, value: 0 as Word)
 	emit(l, i: newStoreSlot(result, src: none, borrow: false))
-	let length = arrayLength(l, p: p, box: box, arr: arr)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let loop = countedLoopBegin(l, limit: length)
 	let i = countedLoopIndex(l, loop: loop)
-	let element = arrayLoad(l, p: p, box: box, arr: arr, index: i)
-	let same = elementsEqual(l, p: p, box: box, a: element, b: value)
+	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: i)
+	let same = elementsEqual(l, p: p, ms: ms, box: box, a: element, b: value)
 	storeIf(l, slot: result, cond: same, value: 1 as Word)
 	countedLoopEnd(l, loop: loop)
 	return load(l, slot: result)
@@ -321,7 +321,7 @@ end 'arrayContains'
 
 // arrayRunMatches is whether the elements of the sequence are the ones of the array from index on, which the array has room
 // for.
-function arrayRunMatches(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, sequence Reg, index Reg, length Reg) returns Reg
+function arrayRunMatches(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, sequence Reg, index Reg, length Reg) returns Reg
 	let matched = l.b.f.newSlot(IrKind.kindScalar)
 	let yes = konst(l, value: 1 as Word)
 	emit(l, i: newStoreSlot(matched, src: yes, borrow: false))
@@ -329,9 +329,9 @@ function arrayRunMatches(mutates l Lowerer, mutates p ast.Project, box ArrayBox,
 	let j = countedLoopIndex(l, loop: loop)
 	let at = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(at, op: BinOp.binAdd, left: index, right: j, unsigned: true, fail: noBlock))
-	let ours = arrayLoad(l, p: p, box: box, arr: arr, index: at)
-	let theirs = arrayLoad(l, p: p, box: box, arr: sequence, index: j)
-	let same = elementsEqual(l, p: p, box: box, a: ours, b: theirs)
+	let ours = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: at)
+	let theirs = arrayLoad(l, p: p, ms: ms, box: box, arr: sequence, index: j)
+	let same = elementsEqual(l, p: p, ms: ms, box: box, a: ours, b: theirs)
 	let differ = isZero(l, v: same)
 	storeIf(l, slot: matched, cond: differ, value: 0 as Word)
 	countedLoopEnd(l, loop: loop)
@@ -340,38 +340,38 @@ end 'arrayRunMatches'
 
 // arrayContainsSequence is whether the elements of the sequence follow one another somewhere in the array; the empty sequence
 // always does.
-function arrayContainsSequence(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, sequence Reg) returns Reg
+function arrayContainsSequence(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, sequence Reg) returns Reg
 	let result = l.b.f.newSlot(IrKind.kindScalar)
 	let none = konst(l, value: 0 as Word)
 	emit(l, i: newStoreSlot(result, src: none, borrow: false))
-	let length = arrayLength(l, p: p, box: box, arr: arr)
-	let wanted = arrayLength(l, p: p, box: box, arr: sequence)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+	let wanted = arrayLength(l, p: p, ms: ms, box: box, arr: sequence)
 	let one = konst(l, value: 1 as Word)
 	let room = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(room, op: BinOp.binAdd, left: length, right: one, unsigned: true, fail: noBlock))
 	let starts = saturatingSub(l, a: room, b: wanted)
 	let loop = countedLoopBegin(l, limit: starts)
 	let i = countedLoopIndex(l, loop: loop)
-	let found = arrayRunMatches(l, p: p, box: box, arr: arr, sequence: sequence, index: i, length: wanted)
+	let found = arrayRunMatches(l, p: p, ms: ms, box: box, arr: arr, sequence: sequence, index: i, length: wanted)
 	storeIf(l, slot: result, cond: found, value: 1 as Word)
 	countedLoopEnd(l, loop: loop)
 	return load(l, slot: result)
 end 'arrayContainsSequence'
 
 // arrayEquals is whether the arrays have the same length and equal elements in order.
-function arrayEquals(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, other Reg) returns Reg
+function arrayEquals(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, other Reg) returns Reg
 	let result = l.b.f.newSlot(IrKind.kindScalar)
 	let none = konst(l, value: 0 as Word)
 	emit(l, i: newStoreSlot(result, src: none, borrow: false))
-	let length = arrayLength(l, p: p, box: box, arr: arr)
-	let otherLength = arrayLength(l, p: p, box: box, arr: other)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+	let otherLength = arrayLength(l, p: p, ms: ms, box: box, arr: other)
 	let sameLength = compare(l, op: CmpOp.cmpEq, a: length, b: otherLength, unsigned: true)
 	let compared = l.b.newBlock()
 	let done = l.b.newBlock()
 	l.b.terminate(l.cur, t: newBranch(sameLength, ifTrue: compared, ifFalse: done))
 	l.cur = compared
 	let zero = konst(l, value: 0 as Word)
-	let equal = arrayRunMatches(l, p: p, box: box, arr: arr, sequence: other, index: zero, length: length)
+	let equal = arrayRunMatches(l, p: p, ms: ms, box: box, arr: arr, sequence: other, index: zero, length: length)
 	emit(l, i: newStoreSlot(result, src: equal, borrow: false))
 	goTo(l, target: done)
 	return load(l, slot: result)

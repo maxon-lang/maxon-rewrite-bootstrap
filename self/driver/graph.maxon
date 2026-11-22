@@ -401,6 +401,30 @@ function isModuleStage(stage Stage) returns bool
 	end 's'
 end 'isModuleStage'
 
+// frozenStage is the stage of the modules a module's stage waited on whose shapes it reads: its own, for a stage that waits
+// for the same stage of the modules it names (or reads none of theirs), and the lower for the emit, which waits for every
+// module's lower; what a module's later stages make is not read, so the order the tasks run in cannot change it.
+function frozenStage(stage Stage) returns Stage
+	match stage 's'
+		parse then return Stage.parse
+		parsed then panic("driver: parsed is a stage of the project")
+		resolve then return Stage.resolve
+		order then panic("driver: order is a stage of the project")
+		aliases then return Stage.aliases
+		declare then return Stage.declare
+		entry then panic("driver: entry is a stage of the project")
+		constantOrder then return Stage.constantOrder
+		constants then return Stage.constants
+		bodies then return Stage.bodies
+		verify then return Stage.verify
+		endCheck then panic("driver: endCheck is a stage of the project")
+		lower then return Stage.lower
+		program then panic("driver: program is a stage of the project")
+		emit then return Stage.lower
+		link then panic("driver: link is a stage of the project")
+	end 's'
+end 'frozenStage'
+
 // runTimedTask is runTask with its wall time added to the compile's timings.
 function runTimedTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
 	let stage = run.graph.tasks[task].stage
@@ -419,7 +443,7 @@ end 'runTimedTask'
 function runTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
 	let m = run.graph.tasks[task].module
 	if isModuleStage(run.graph.tasks[task].stage) 'ofModule'
-		ast.beginModuleTask(p.types, ft: p.funcs, module: p.modules[m].id)
+		ast.beginModuleTask(p.types, ft: p.funcs, module: p.modules[m].id, phase: frozenStage(run.graph.tasks[task].stage).ordinal)
 	end 'ofModule' else 'ofProject'
 		ast.beginProjectTask(p.types, ft: p.funcs)
 	end 'ofProject'
@@ -428,20 +452,49 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, memory proj
 		parsed then return
 		resolve then resolve.resolveModule(p, modIdx: m, errs: errs)
 		order then orderModules(run, p: p, errs: errs)
-		aliases then check.moduleAliases(run.checks, p: p, m: m, errs: errs)
-		declare then check.moduleDeclare(run.checks, p: p, m: m, errs: errs)
+		aliases then checkTask(run, p: p, m: m, stage: Stage.aliases, errs: errs)
+		declare then checkTask(run, p: p, m: m, stage: Stage.declare, errs: errs)
 		entry then check.projectEntry(run.checks, p: p, errs: errs)
-		constantOrder then check.moduleConstantOrder(run.checks, p: p, m: m, errs: errs)
-		constants then check.moduleConstants(run.checks, p: p, m: m, errs: errs)
-		bodies then check.moduleBodies(run.checks, p: p, m: m, errs: errs)
-		verify then check.moduleVerify(run.checks, p: p, m: m, errs: errs)
+		constantOrder then checkTask(run, p: p, m: m, stage: Stage.constantOrder, errs: errs)
+		constants then checkTask(run, p: p, m: m, stage: Stage.constants, errs: errs)
+		bodies then checkTask(run, p: p, m: m, stage: Stage.bodies, errs: errs)
+		verify then checkTask(run, p: p, m: m, stage: Stage.verify, errs: errs)
 		endCheck then endCheckTask(run, p: p)
 		lower then lowerModule(run, p: p, m: m, options: options, errs: errs)
 		program then holdProgram(run, p: p, output: output, options: options, errs: errs)
 		emit then emitModule(run, p: p, m: m)
 		link then linkUnits(run, p: p, output: output, options: options, ready: ready)
 	end 's'
+	if isModuleStage(run.graph.tasks[task].stage) 'ended'
+		ast.endModuleTask(p.types, module: p.modules[m].id, phase: run.graph.tasks[task].stage.ordinal)
+	end 'ended'
 end 'runTask'
+
+// checkTask runs a stage of the check of module m: the module's state, to which the project lends its tables for the task, is
+// what the stage writes, and the project is what it reads of the modules it waited on.
+function checkTask(mutates run Run, mutates p ast.Project, m Count, stage Stage, mutates errs diag.ErrorList)
+	let module = p.modules[m].id
+	run.checks.modules[m].unit = ast.lendModule(p, module: module)
+	match stage 's'
+		parse then panic("driver: the parse is no stage of the check")
+		parsed then panic("driver: parsed is no stage of the check")
+		resolve then panic("driver: the resolve is no stage of the check")
+		order then panic("driver: order is no stage of the check")
+		aliases then check.moduleAliases(run.checks.modules[m], p: p, errs: errs)
+		declare then check.moduleDeclare(run.checks.modules[m], p: p, errs: errs)
+		entry then panic("driver: entry is a stage of the project")
+		constantOrder then check.moduleConstantOrder(run.checks.modules[m], p: p, errs: errs)
+		constants then check.moduleConstants(run.checks.modules[m], p: p, errs: errs)
+		bodies then check.moduleBodies(run.checks.modules[m], p: p, errs: errs)
+		verify then check.moduleVerify(run.checks.modules[m], p: p, errs: errs)
+		endCheck then panic("driver: endCheck is a stage of the project")
+		lower then panic("driver: the lower is no stage of the check")
+		program then panic("driver: program is a stage of the project")
+		emit then panic("driver: the emit is no stage of the check")
+		link then panic("driver: the link is a stage of the project")
+	end 's'
+	ast.giveBack(p, ms: exchange(run.checks.modules[m].unit, value: ast.ModuleState.idle(module)))
+end 'checkTask'
 
 // orderModules sorts the modules by what they name, each after the modules it names, and adds the tasks of the check and of
 // what the goal makes after it, in that order. A cycle stops the compile here.
@@ -582,8 +635,15 @@ end 'endCheckTask'
 function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Options, mutates errs diag.ErrorList)
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is lowered again")
 	var found = diag.ErrorList.create(0)
+	let module = p.modules[m].id
+	var ms = ast.lendModule(p, module: module)
 	if lowersBodies(run.goal) 'lower'
-		run.lowered[slot] = ir.lowerModule(p, functions: run.checked.functions[m], callers: run.checked.callers[m], errs: found)
+		run.lowered[slot] = ir.lowerModule(p, ms: ms, functions: run.checked.functions[m], callers: run.checked.callers[m], errs: found)
+	end 'lower' else 'instances'
+		_ = ir.findInstances(p, ms: ms, callers: run.checked.callers[m], errs: found)
+	end 'instances'
+	ast.giveBack(p, ms: ms)
+	if lowersBodies(run.goal) 'lowered'
 		if run.keepsLowered 'keep'
 			run.kept[slot] = run.lowered[slot].clone()
 		end 'keep'
@@ -594,9 +654,7 @@ function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Op
 			var optimizer = opt.Optimizer.new()
 			opt.optimizeModule(optimizer, fns: run.lowered[slot])
 		end 'optimize'
-	end 'lower' else 'instances'
-		_ = ir.findInstances(p, callers: run.checked.callers[m], errs: found)
-	end 'instances'
+	end 'lowered'
 	appendErrors(errs, found: found)
 end 'lowerModule'
 

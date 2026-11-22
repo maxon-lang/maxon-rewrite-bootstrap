@@ -44,11 +44,11 @@ end 'OwnMove'
 export typealias OwnMoves = Array with OwnMove
 
 // moveText is how a message names the field a move took out of the local root.
-function moveText(o Ownership, p ast.Project, m OwnMove, root ast.LocalID) returns String
+function moveText(o Ownership, p ast.Project, ms ast.ModuleState, m OwnMove, root ast.LocalID) returns String
 	var b = ByteArray.create(0)
 	b.append(o.c.typing.locals[root as Count].name.toByteArray())
 	for i in 0 upto m.fields.count() 'each'
-		b.append(".{fieldName(p, step: m.fields[i])}".toByteArray())
+		b.append(".{fieldName(p, ms: ms, step: m.fields[i])}".toByteArray())
 	end 'each'
 	return String.from(b)
 end 'moveText'
@@ -103,40 +103,40 @@ end 'mergeFacts'
 
 // requireMayTakeApart is E3922: a move of a part, or a 'match consumes', takes t apart, which a type with destructors
 // only allows inside its own destructors, so that no value of it ends without one.
-function requireMayTakeApart(mutates o Ownership, p ast.Project, site diag.U32, t ast.TypeID, what String) returns bool
-	if not hasDestructorOn(p, t: t) 'plain'
+function requireMayTakeApart(mutates o Ownership, p ast.Project, ms ast.ModuleState, site diag.U32, t ast.TypeID, what String) returns bool
+	if not hasDestructorOn(p, ms: ms, t: t) 'plain'
 		return true
 	end 'plain'
-	let receiver = selfLocalOf(o, p: p)
-	if p.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].isDestructor and o.c.typing.locals[receiver as Count].ty == t 'own'
+	let receiver = selfLocalOf(o, p: p, ms: ms)
+	if ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].isDestructor and o.c.typing.locals[receiver as Count].ty == t 'own'
 		return true
 	end 'own'
-	fail(o, p: p, site: site, code: diag.errTakeApartDestructible, msg: "{what} takes '{ast.typeName(p.types, t: t)}' apart, which ends it without calling a destructor, and only its own destructors may do that; end it by calling one of them, or read the part without moving it")
+	fail(o, p: p, site: site, code: diag.errTakeApartDestructible, msg: "{what} takes '{ast.typeName(ms.types, t: t)}' apart, which ends it without calling a destructor, and only its own destructors may do that; end it by calling one of them, or read the part without moving it")
 	return false
 end 'requireMayTakeApart'
 
 // requireMayTakeApartFrom checks each record along a field path that a move takes a part from.
-function requireMayTakeApartFrom(mutates o Ownership, p ast.Project, e ast.NodeID, what String) returns bool
+function requireMayTakeApartFrom(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, what String) returns bool
 	let k = p.modules[o.c.modIdx].tree.kindOf(e)
 	let site = offsetOfOwn(o, p: p, node: e)
 	if k == ast.NodeKind.memberExpr 'member'
 		let obj = ast.memberExprObj(p.modules[o.c.modIdx].tree, id: e)
-		return requireMayTakeApartFrom(o, p: p, e: obj, what: what) and requireMayTakeApart(o, p: p, site: site, t: ownType(o, node: obj), what: what)
+		return requireMayTakeApartFrom(o, p: p, ms: ms, e: obj, what: what) and requireMayTakeApart(o, p: p, ms: ms, site: site, t: ownType(o, node: obj), what: what)
 	end 'member'
 	if k == ast.NodeKind.nameExpr and ownName(o, node: e).kind == ast.NameKind.nameSelfField 'selfField'
-		let receiver = selfLocalOf(o, p: p)
+		let receiver = selfLocalOf(o, p: p, ms: ms)
 		let t = o.c.typing.locals[receiver as Count].ty
-		return requireMayTakeApart(o, p: p, site: site, t: t, what: what)
+		return requireMayTakeApart(o, p: p, ms: ms, site: site, t: t, what: what)
 	end 'selfField'
 	return true
 end 'requireMayTakeApartFrom'
 
 // movePart moves a field out of the local that e's path starts at: the local is then partly moved, which a fact says by
 // listing the fields that are gone.
-function movePart(mutates o Ownership, mutates p ast.Project, e ast.NodeID, path AccessPath, consumes dest OwnDest, consumes s OwnState) returns OwnState
+function movePart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, path AccessPath, consumes dest OwnDest, consumes s OwnState) returns OwnState
 	let site = offsetOfOwn(o, p: p, node: e)
-	requireNotProjected(o, p: p, path: path, site: site)
-	if not requireMayTakeApartFrom(o, p: p, e: e, what: "moving '{pathText(o, p: p, path: path)}'") 'refused'
+	requireNotProjected(o, p: p, ms: ms, path: path, site: site)
+	if not requireMayTakeApartFrom(o, p: p, ms: ms, e: e, what: "moving '{pathText(o, p: p, ms: ms, path: path)}'") 'refused'
 		return s
 	end 'refused'
 	let m = OwnMove.make(fieldsOf(path), ty: ownType(o, node: e), site: site, dest: dest)
@@ -156,8 +156,8 @@ end 'movePart'
 
 // readPart is a read of a field path of a local, which needs no part of that place to be gone. It is false when the
 // local has lost none of its fields, and the caller then reads the local as a whole.
-function readPart(mutates o Ownership, p ast.Project, e ast.NodeID, s OwnState) returns bool
-	let path = pathOf(o, p: p, e: e)
+function readPart(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, s OwnState) returns bool
+	let path = pathOf(o, p: p, ms: ms, e: e)
 	if not path.isPlace() or path.crossesElement() 'notPart'
 		return false
 	end 'notPart'
@@ -167,8 +167,8 @@ function readPart(mutates o Ownership, p ast.Project, e ast.NodeID, s OwnState) 
 	let fact = s.factOf(path.root)
 	for i in 0 upto fact.moves.count() 'each'
 		if fact.moves[i].overlapsPath(path) 'gone'
-			let moved = moveText(o, p: p, m: fact.moves[i], root: path.root)
-			fail(o, p: p, site: offsetOfOwn(o, p: p, node: e), code: diag.errUseAfterMove, msg: "'{pathText(o, p: p, path: path)}' overlaps '{moved}', which was moved into {fact.moves[i].dest.text()} at line {lineOf(o, p: p, site: fact.moves[i].site)}; assign '{moved}' again before using it")
+			let moved = moveText(o, p: p, ms: ms, m: fact.moves[i], root: path.root)
+			fail(o, p: p, site: offsetOfOwn(o, p: p, node: e), code: diag.errUseAfterMove, msg: "'{pathText(o, p: p, ms: ms, path: path)}' overlaps '{moved}', which was moved into {fact.moves[i].dest.text()} at line {lineOf(o, p: p, site: fact.moves[i].site)}; assign '{moved}' again before using it")
 			break 'each'
 		end 'gone'
 	end 'each'
@@ -178,7 +178,7 @@ end 'readPart'
 // assignPart is an assignment to a field path of a local that has lost some of its fields. Assigning a gone field gives
 // it a value again, and the local is whole once it has them all. The old value of a field that is partly gone is
 // dropped in its remaining parts. It is none when the local has lost nothing that the assignment touches.
-function assignPart(mutates o Ownership, mutates p ast.Project, st ast.NodeID, target ast.NodeID, path AccessPath, s OwnState) returns table.Option with OwnState
+function assignPart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, target ast.NodeID, path AccessPath, s OwnState) returns table.Option with OwnState
 	if o.partials == 0 or s.dead or path.crossesElement() 'notPart'
 		return table.Option.none
 	end 'notPart'
@@ -199,16 +199,16 @@ function assignPart(mutates o Ownership, mutates p ast.Project, st ast.NodeID, t
 		end 'same' else if depth > path.steps.count() 'inside'
 			under.push(fact.moves[i].clone())
 		end 'inside' else 'around'
-			let moved = moveText(o, p: p, m: fact.moves[i], root: path.root)
-			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: "'{pathText(o, p: p, path: path)}' lies inside '{moved}', which was moved into {fact.moves[i].dest.text()} at line {lineOf(o, p: p, site: fact.moves[i].site)}; assign '{moved}' again first")
+			let moved = moveText(o, p: p, ms: ms, m: fact.moves[i], root: path.root)
+			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: "'{pathText(o, p: p, ms: ms, path: path)}' lies inside '{moved}', which was moved into {fact.moves[i].dest.text()} at line {lineOf(o, p: p, site: fact.moves[i].site)}; assign '{moved}' again first")
 			return table.Option.some(s.clone())
 		end 'around'
 	end 'each'
 	if not reinitialised 'kept'
 		if under.count() > 0 'under'
-			requireRemainder(o, p: p, site: site, ty: ownType(o, node: target), depth: path.steps.count(), moves: under, name: pathText(o, p: p, path: path), kind: OwnDropKind.dropOverwrite, destroys: false)
+			requireRemainder(o, p: p, ms: ms, site: site, ty: ownType(o, node: target), depth: path.steps.count(), moves: under, name: pathText(o, p: p, ms: ms, path: path), kind: OwnDropKind.dropOverwrite, destroys: false)
 		end 'under' else 'untouched'
-			requireOverwriteDroppable(o, p: p, st: st, target: target, s: s)
+			requireOverwriteDroppable(o, p: p, ms: ms, st: st, target: target, s: s)
 			return table.Option.some(s.clone())
 		end 'untouched'
 	end 'kept'
@@ -222,15 +222,15 @@ end 'assignPart'
 // field that is left must be droppable, and a field that is partly gone is judged by what is left of it. moves are the
 // moves inside the value, each reaching the field at depth. A value that nothing was taken from is dropped as a whole,
 // except the self of a destructor, which ends by dropping its fields, so those are judged one by one.
-function requireRemainder(mutates o Ownership, mutates p ast.Project, site diag.U32, ty ast.TypeID, depth Count, moves OwnMoves, name String, kind OwnDropKind, destroys bool)
+function requireRemainder(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, ty ast.TypeID, depth Count, moves OwnMoves, name String, kind OwnDropKind, destroys bool)
 	if moves.count() == 0 and not destroys 'whole'
-		requireDroppable(o, p: p, site: site, t: ty, d: OwnDrop.make(kind, name: name.clone()))
+		requireDroppable(o, p: p, ms: ms, site: site, t: ty, d: OwnDrop.make(kind, name: name.clone()))
 		return
 	end 'whole'
-	let orig = ast.originOf(p.types, t: ty)
-	let k = ast.typeKind(p.types, t: ty)
+	let orig = ast.originOf(ms.types, t: ty)
+	let k = ast.typeKind(ms.types, t: ty)
 	if k == ast.TypeKind.record 'record'
-		for fi in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields.count() 'fields'
+		for fi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields.count() 'fields'
 			var gone = false
 			var inside = OwnMoves.create(0)
 			for i in 0 upto moves.count() 'moves'
@@ -244,43 +244,43 @@ function requireRemainder(mutates o Ownership, mutates p ast.Project, site diag.
 				end 'deeper'
 			end 'moves'
 			if not gone 'left'
-				let fName = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].fields[fi].name.clone()
-				let fTy = ast.fieldType(p.types, owner: ty, index: fi)
-				requireRemainder(o, p: p, site: site, ty: fTy, depth: try depth + 1 otherwise depth, moves: inside, name: "{name}.{fName}", kind: kind, destroys: false)
+				let fName = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].name.clone()
+				let fTy = ast.fieldType(ms.types, owner: ty, index: fi)
+				requireRemainder(o, p: p, ms: ms, site: site, ty: fTy, depth: try depth + 1 otherwise depth, moves: inside, name: "{name}.{fName}", kind: kind, destroys: false)
 			end 'left'
 		end 'fields'
 		return
 	end 'record'
 	if k == ast.TypeKind.unionTy 'union'
-		for ci in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases.count() 'cases'
-			for pi in 0 upto p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[ci].payload.count() 'payload'
-				let pName = p.types.lists[ast.typeList(p.types, t: orig)][ast.typeIndex(p.types, t: orig)].cases[ci].payload[pi].name.clone()
-				let pTy = ast.payloadType(p.types, owner: ty, caseIndex: ci, index: pi)
-				requireDroppable(o, p: p, site: site, t: pTy, d: OwnDrop.make(kind, name: "{name}.{pName}"))
+		for ci in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases.count() 'cases'
+			for pi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].payload.count() 'payload'
+				let pName = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].payload[pi].name.clone()
+				let pTy = ast.payloadType(ms.types, owner: ty, caseIndex: ci, index: pi)
+				requireDroppable(o, p: p, ms: ms, site: site, t: pTy, d: OwnDrop.make(kind, name: "{name}.{pName}"))
 			end 'payload'
 		end 'cases'
 		return
 	end 'union'
-	panic("ownership: '{ast.typeName(p.types, t: ty)}' has no fields to move out of")
+	panic("ownership: '{ast.typeName(ms.types, t: ty)}' has no fields to move out of")
 end 'requireRemainder'
 
 // requireHeld is the drop of an obliged local at the place where it is dropped, whatever its fact says it lost.
-function requireHeld(mutates o Ownership, mutates p ast.Project, site diag.U32, ob OwnObliged, s OwnState, kind OwnDropKind)
+function requireHeld(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, ob OwnObliged, s OwnState, kind OwnDropKind)
 	let name = o.c.typing.locals[ob.local as Count].name.clone()
 	let ty = o.c.typing.locals[ob.local as Count].ty
 	if s.hasPartial(ob.local) 'partly'
 		let fact = s.factOf(ob.local)
-		requireRemainder(o, p: p, site: site, ty: ty, depth: 0 as Count, moves: fact.moves, name: name, kind: kind, destroys: ob.destroys)
+		requireRemainder(o, p: p, ms: ms, site: site, ty: ty, depth: 0 as Count, moves: fact.moves, name: name, kind: kind, destroys: ob.destroys)
 		return
 	end 'partly'
 	if not s.has(ob.local) 'held'
-		requireRemainder(o, p: p, site: site, ty: ty, depth: 0 as Count, moves: OwnMoves.create(0), name: name, kind: kind, destroys: ob.destroys)
+		requireRemainder(o, p: p, ms: ms, site: site, ty: ty, depth: 0 as Count, moves: OwnMoves.create(0), name: name, kind: kind, destroys: ob.destroys)
 	end 'held'
 end 'requireHeld'
 
 // lostOnOnePath is E3919 for what the path with the fact lost and the other path still holds: the merged state says it
 // is gone, so nothing would drop it where the other path holds it, unless what it holds can be dropped.
-function lostOnOnePath(mutates o Ownership, mutates p ast.Project, ob OwnObliged, lost OwnState, other OwnState)
+function lostOnOnePath(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, ob OwnObliged, lost OwnState, other OwnState)
 	if not lost.has(ob.local) 'kept'
 		return
 	end 'kept'
@@ -303,20 +303,20 @@ function lostOnOnePath(mutates o Ownership, mutates p ast.Project, ob OwnObliged
 				end 'within'
 			end 'other'
 			let m = fact.moves[i].clone()
-			requireRemainder(o, p: p, site: m.site, ty: m.ty, depth: m.fields.count(), moves: inside, name: moveText(o, p: p, m: m, root: ob.local), kind: OwnDropKind.dropOtherPath, destroys: false)
+			requireRemainder(o, p: p, ms: ms, site: m.site, ty: m.ty, depth: m.fields.count(), moves: inside, name: moveText(o, p: p, ms: ms, m: m, root: ob.local), kind: OwnDropKind.dropOtherPath, destroys: false)
 		end 'each'
 		return
 	end 'partly'
 	if hasOther 'other'
 		if other.hasPartial(ob.local) 'partly'
 			let otherFact = other.factOf(ob.local)
-			requireRemainder(o, p: p, site: fact.site, ty: ty, depth: 0 as Count, moves: otherFact.moves, name: name, kind: OwnDropKind.dropOtherPath, destroys: ob.destroys)
+			requireRemainder(o, p: p, ms: ms, site: fact.site, ty: ty, depth: 0 as Count, moves: otherFact.moves, name: name, kind: OwnDropKind.dropOtherPath, destroys: ob.destroys)
 		end 'partly'
 		return
 	end 'other'
 	if ob.destroys 'destroys'
-		requireRemainder(o, p: p, site: fact.site, ty: ty, depth: 0 as Count, moves: OwnMoves.create(0), name: name, kind: OwnDropKind.dropOtherPath, destroys: true)
+		requireRemainder(o, p: p, ms: ms, site: fact.site, ty: ty, depth: 0 as Count, moves: OwnMoves.create(0), name: name, kind: OwnDropKind.dropOtherPath, destroys: true)
 		return
 	end 'destroys'
-	disagreeWhole(o, p: p, ob: ob, fact: fact)
+	disagreeWhole(o, p: p, ms: ms, ob: ob, fact: fact)
 end 'lostOnOnePath'
