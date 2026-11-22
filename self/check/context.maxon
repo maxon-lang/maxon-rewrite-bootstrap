@@ -270,14 +270,14 @@ export function typeIsAnonInt(tt ast.TypeTable, t ast.TypeID) returns bool
 	if t == ast.noType 'n'
 		return false
 	end 'n'
-	return tt.entries[ast.typeIndex(t)].kind == ast.TypeKind.intRange and tt.entries[ast.typeIndex(t)].name == ""
+	return tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.intRange and tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].name == ""
 end 'typeIsAnonInt'
 
 export function typeIsNamedInt(tt ast.TypeTable, t ast.TypeID) returns bool
 	if t == ast.noType 'n'
 		return false
 	end 'n'
-	return tt.entries[ast.typeIndex(t)].kind == ast.TypeKind.intRange and tt.entries[ast.typeIndex(t)].name != ""
+	return tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.intRange and tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].name != ""
 end 'typeIsNamedInt'
 
 // valueOutOfRange is the error for a value that the range of the integer type target does not hold, which names the
@@ -285,9 +285,9 @@ end 'typeIsNamedInt'
 export function valueOutOfRange(p ast.Project, value String, target ast.TypeID) returns String
 	let alias = ast.typeName(p.types, t: target)
 	if ast.isBitPattern(p.types, t: target) 'pattern'
-		return diag.patternLiteralOutOfRange(value, alias: alias, width: "{p.types.entries[ast.typeIndex(target)].bitsWidth}")
+		return diag.patternLiteralOutOfRange(value, alias: alias, width: "{p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].bitsWidth}")
 	end 'pattern'
-	return diag.literalOutOfRange(value, alias: alias, low: p.types.entries[ast.typeIndex(target)].minVal.toString(), high: p.types.entries[ast.typeIndex(target)].maxVal.toString())
+	return diag.literalOutOfRange(value, alias: alias, low: p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].minVal.toString(), high: p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].maxVal.toString())
 end 'valueOutOfRange'
 
 // otherwiseValueOutOfRange is valueOutOfRange for the literal that a try gives in place of a failed call whose result is
@@ -295,25 +295,25 @@ end 'valueOutOfRange'
 export function otherwiseValueOutOfRange(p ast.Project, value String, target ast.TypeID) returns String
 	let alias = ast.typeName(p.types, t: target)
 	if ast.isBitPattern(p.types, t: target) 'pattern'
-		return diag.otherwisePatternOutOfRange(value, alias: alias, width: "{p.types.entries[ast.typeIndex(target)].bitsWidth}")
+		return diag.otherwisePatternOutOfRange(value, alias: alias, width: "{p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].bitsWidth}")
 	end 'pattern'
-	return diag.otherwiseOutOfRange(value, alias: alias, low: p.types.entries[ast.typeIndex(target)].minVal.toString(), high: p.types.entries[ast.typeIndex(target)].maxVal.toString())
+	return diag.otherwiseOutOfRange(value, alias: alias, low: p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].minVal.toString(), high: p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].maxVal.toString())
 end 'otherwiseValueOutOfRange'
 
 export function intRangeHolds(tt ast.TypeTable, dst ast.TypeID, v ast.I128) returns bool
-	return v.ge(tt.entries[ast.typeIndex(dst)].minVal) and v.le(tt.entries[ast.typeIndex(dst)].maxVal)
+	return v.ge(tt.slots[ast.typeSlot(dst)][ast.typeIndex(dst)].minVal) and v.le(tt.slots[ast.typeSlot(dst)][ast.typeIndex(dst)].maxVal)
 end 'intRangeHolds'
 
 export function intRangeCovers(tt ast.TypeTable, dst ast.TypeID, src ast.TypeID) returns bool
-	return tt.entries[ast.typeIndex(dst)].minVal.le(tt.entries[ast.typeIndex(src)].minVal) and tt.entries[ast.typeIndex(dst)].maxVal.ge(tt.entries[ast.typeIndex(src)].maxVal)
+	return tt.slots[ast.typeSlot(dst)][ast.typeIndex(dst)].minVal.le(tt.slots[ast.typeSlot(src)][ast.typeIndex(src)].minVal) and tt.slots[ast.typeSlot(dst)][ast.typeIndex(dst)].maxVal.ge(tt.slots[ast.typeSlot(src)][ast.typeIndex(src)].maxVal)
 end 'intRangeCovers'
 
 export function rangeLo(tt ast.TypeTable, t ast.TypeID) returns ast.I128
-	return tt.entries[ast.typeIndex(t)].minVal.clone()
+	return tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.clone()
 end 'rangeLo'
 
 export function rangeHi(tt ast.TypeTable, t ast.TypeID) returns ast.I128
-	return tt.entries[ast.typeIndex(t)].maxVal.clone()
+	return tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].maxVal.clone()
 end 'rangeHi'
 
 export function sameType(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns bool
@@ -323,16 +323,16 @@ export function sameType(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns b
 	if a == ast.noType or b == ast.noType 'n'
 		return false
 	end 'n'
-	let ka = tt.entries[ast.typeIndex(a)].kind
-	let kb = tt.entries[ast.typeIndex(b)].kind
+	let ka = tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].kind
+	let kb = tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].kind
 	if ka != kb 'diff'
 		return false
 	end 'diff'
 	if ka == ast.TypeKind.intRange 'rng'
-		if tt.entries[ast.typeIndex(a)].name != "" or tt.entries[ast.typeIndex(b)].name != "" 'named'
+		if tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].name != "" or tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].name != "" 'named'
 			return a == b
 		end 'named'
-		return tt.entries[ast.typeIndex(a)].minVal.eq(tt.entries[ast.typeIndex(b)].minVal) and tt.entries[ast.typeIndex(a)].maxVal.eq(tt.entries[ast.typeIndex(b)].maxVal)
+		return tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].minVal.eq(tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].minVal) and tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].maxVal.eq(tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].maxVal)
 	end 'rng'
 	return false
 end 'sameType'
@@ -345,24 +345,24 @@ export function retags(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns boo
 	if sameType(tt, a: a, b: b) 'same'
 		return true
 	end 'same'
-	if a == ast.noType or b == ast.noType or tt.entries[ast.typeIndex(a)].kind != tt.entries[ast.typeIndex(b)].kind 'kinds'
+	if a == ast.noType or b == ast.noType or tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].kind != tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].kind 'kinds'
 		return false
 	end 'kinds'
-	if tt.entries[ast.typeIndex(a)].kind == ast.TypeKind.intRange 'range'
-		let named = tt.entries[ast.typeIndex(a)].name != "" and tt.entries[ast.typeIndex(a)].name == tt.entries[ast.typeIndex(b)].name
-		let ranged = tt.entries[ast.typeIndex(a)].minVal.eq(tt.entries[ast.typeIndex(b)].minVal) and tt.entries[ast.typeIndex(a)].maxVal.eq(tt.entries[ast.typeIndex(b)].maxVal)
-		return named and ranged and tt.entries[ast.typeIndex(a)].bitsWidth == tt.entries[ast.typeIndex(b)].bitsWidth
+	if tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].kind == ast.TypeKind.intRange 'range'
+		let named = tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].name != "" and tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].name == tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].name
+		let ranged = tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].minVal.eq(tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].minVal) and tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].maxVal.eq(tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].maxVal)
+		return named and ranged and tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].bitsWidth == tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].bitsWidth
 	end 'range'
-	let origin = tt.entries[ast.typeIndex(a)].origin
-	if origin == ast.noType or origin != tt.entries[ast.typeIndex(b)].origin 'origins'
+	let origin = tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].origin
+	if origin == ast.noType or origin != tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].origin 'origins'
 		return false
 	end 'origins'
-	let arity = tt.entries[ast.typeIndex(a)].typeArgs.count()
-	if arity == 0 or arity != tt.entries[ast.typeIndex(b)].typeArgs.count() 'arity'
+	let arity = tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].typeArgs.count()
+	if arity == 0 or arity != tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].typeArgs.count() 'arity'
 		return false
 	end 'arity'
 	for i in 0 upto arity 'args'
-		if not retags(tt, a: tt.entries[ast.typeIndex(a)].typeArgs[i], b: tt.entries[ast.typeIndex(b)].typeArgs[i]) 'differs'
+		if not retags(tt, a: tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].typeArgs[i], b: tt.slots[ast.typeSlot(b)][ast.typeIndex(b)].typeArgs[i]) 'differs'
 			return false
 		end 'differs'
 	end 'args'
@@ -379,18 +379,18 @@ export function assignable(p ast.Project, src ast.TypeID, dst ast.TypeID) return
 	if ast.isSubtypeOf(p.types, sub: src, sup: dst) 'subtype'
 		return true
 	end 'subtype'
-	let dk = p.types.entries[ast.typeIndex(dst)].kind
+	let dk = p.types.slots[ast.typeSlot(dst)][ast.typeIndex(dst)].kind
 	if dk == ast.TypeKind.intRange 'dstInt'
-		let sk = p.types.entries[ast.typeIndex(src)].kind
+		let sk = p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind
 		if sk == ast.TypeKind.constInt 'c'
-			return intRangeHolds(p.types, dst: dst, v: p.types.entries[ast.typeIndex(src)].minVal)
+			return intRangeHolds(p.types, dst: dst, v: p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].minVal)
 		end 'c'
 		if sk == ast.TypeKind.intRange 'i'
 			return (typeIsAnonInt(p.types, t: src) or typeIsAnonInt(p.types, t: dst)) and intRangeCovers(p.types, dst: dst, src: src)
 		end 'i'
 		return false
 	end 'dstInt'
-	if dk == ast.TypeKind.funcTy and p.types.entries[ast.typeIndex(src)].kind == ast.TypeKind.funcTy 'functions'
+	if dk == ast.TypeKind.funcTy and p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind == ast.TypeKind.funcTy 'functions'
 		return funcFits(p, src: src, dst: dst)
 	end 'functions'
 	if dk == ast.TypeKind.floatRange 'dstFloat'
@@ -406,16 +406,16 @@ export function convertsInteger(p ast.Project, src ast.TypeID, dst ast.TypeID) r
 	if src == ast.noType or dst == ast.noType 'err'
 		return false
 	end 'err'
-	if p.types.entries[ast.typeIndex(src)].kind != ast.TypeKind.intRange or p.types.entries[ast.typeIndex(dst)].kind != ast.TypeKind.intRange 'notIntegers'
+	if p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind != ast.TypeKind.intRange or p.types.slots[ast.typeSlot(dst)][ast.typeIndex(dst)].kind != ast.TypeKind.intRange 'notIntegers'
 		return false
 	end 'notIntegers'
 	return not assignable(p, src: src, dst: dst)
 end 'convertsInteger'
 
 export function requireSigned64(c Checker, off diag.U32, t ast.TypeID, mutates p ast.Project, mutates errs diag.ErrorList) returns bool
-	if t != ast.noType and p.types.entries[ast.typeIndex(t)].kind == ast.TypeKind.constInt 'c'
-		if p.types.entries[ast.typeIndex(t)].minVal.gt(ast.I128.i64Max()) 'over'
-			let vs = p.types.entries[ast.typeIndex(t)].minVal.toString()
+	if t != ast.noType and p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.constInt 'c'
+		if p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.gt(ast.I128.i64Max()) 'over'
+			let vs = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.toString()
 			checkFail(c.modID, off: off, code: diag.errIntegerLiteralRange, msg: diag.unsignedLiteralWithoutAlias(vs), errs: errs)
 			return false
 		end 'over'
@@ -493,8 +493,8 @@ export function coerce(mutates c Checker, mutates p ast.Project, node ast.NodeID
 	if assignable(p, src: src, dst: target) 'ok'
 		return true
 	end 'ok'
-	let sk = p.types.entries[ast.typeIndex(src)].kind
-	let dk = p.types.entries[ast.typeIndex(target)].kind
+	let sk = p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind
+	let dk = p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].kind
 	if dk == ast.TypeKind.interfaceTy and sk != ast.TypeKind.interfaceTy 'interface'
 		return boxInto(c, p: p, node: node, at: at, src: src, iface: target, wrong: wrong, errs: errs)
 	end 'interface'
@@ -538,18 +538,18 @@ end 'coerce'
 
 // offendingBound is the end of the range of src that target does not hold: the lowest value when that is below the target, else the highest.
 function offendingBound(p ast.Project, src ast.TypeID, target ast.TypeID) returns String
-	if intRangeHolds(p.types, dst: target, v: p.types.entries[ast.typeIndex(src)].minVal) 'high'
-		return p.types.entries[ast.typeIndex(src)].maxVal.toString()
+	if intRangeHolds(p.types, dst: target, v: p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].minVal) 'high'
+		return p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].maxVal.toString()
 	end 'high'
-	return p.types.entries[ast.typeIndex(src)].minVal.toString()
+	return p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].minVal.toString()
 end 'offendingBound'
 
 // gotName is how a message names the type of the value it refuses: a bare number is an 'int', whatever its value.
 function gotName(p ast.Project, t ast.TypeID) returns String
-	if p.types.entries[ast.typeIndex(t)].kind == ast.TypeKind.constInt 'bare'
+	if p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.constInt 'bare'
 		return "int"
 	end 'bare'
-	if p.types.entries[ast.typeIndex(t)].kind == ast.TypeKind.constFloat 'bareFloat'
+	if p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.constFloat 'bareFloat'
 		return "float"
 	end 'bareFloat'
 	return ast.typeName(p.types, t: t)
@@ -723,17 +723,17 @@ end 'joinTypes'
 
 export function boundsOfParam(p ast.Project, boundedFn ast.FuncID, paramTy ast.TypeID) returns ast.TypeIDList
 	var out = ast.TypeIDList.create(0)
-	let bi = p.types.entries[ast.typeIndex(paramTy)].boundIface
+	let bi = p.types.slots[ast.typeSlot(paramTy)][ast.typeIndex(paramTy)].boundIface
 	if bi != ast.noType 'std'
 		out.push(bi)
 	end 'std'
-	for i in 0 upto p.types.entries[ast.typeIndex(paramTy)].bounds.count() 'pb'
-		out.push(p.types.entries[ast.typeIndex(paramTy)].bounds[i].ifaceTy)
+	for i in 0 upto p.types.slots[ast.typeSlot(paramTy)][ast.typeIndex(paramTy)].bounds.count() 'pb'
+		out.push(p.types.slots[ast.typeSlot(paramTy)][ast.typeIndex(paramTy)].bounds[i].ifaceTy)
 	end 'pb'
 	if boundedFn != ast.noFunc 'fnBnd'
-		for i in 0 upto p.funcs.entries[ast.funcIndex(boundedFn)].bounds.count() 'fb'
-			if p.funcs.entries[ast.funcIndex(boundedFn)].bounds[i].paramTy == paramTy 'hit'
-				out.push(p.funcs.entries[ast.funcIndex(boundedFn)].bounds[i].ifaceTy)
+		for i in 0 upto p.funcs.slots[ast.funcSlot(boundedFn)][ast.funcIndex(boundedFn)].bounds.count() 'fb'
+			if p.funcs.slots[ast.funcSlot(boundedFn)][ast.funcIndex(boundedFn)].bounds[i].paramTy == paramTy 'hit'
+				out.push(p.funcs.slots[ast.funcSlot(boundedFn)][ast.funcIndex(boundedFn)].bounds[i].ifaceTy)
 			end 'hit'
 		end 'fb'
 	end 'fnBnd'
@@ -744,7 +744,7 @@ export function isKeyType(tt ast.TypeTable, b ast.Builtins, t ast.TypeID) return
 	if t == ast.noType 'n'
 		return false
 	end 'n'
-	let k = tt.entries[ast.typeIndex(t)].kind
+	let k = tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind
 	return t == b.boolTy or t == b.stringTy or k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.enumTy or k == ast.TypeKind.builtinHandle
 end 'isKeyType'
 
@@ -752,7 +752,7 @@ export function typeIsNominal(tt ast.TypeTable, t ast.TypeID) returns bool
 	if t == ast.noType 'n'
 		return false
 	end 'n'
-	return match tt.entries[ast.typeIndex(t)].kind 'k'
+	return match tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind 'k'
 		record gives true
 		enumTy gives true
 		unionTy gives true
@@ -780,7 +780,7 @@ end 'typeIsNominal'
 
 export function hasDestructorOn(p ast.Project, t ast.TypeID) returns bool
 	let orig = ast.originOf(p.types, t: t)
-	return p.types.entries[ast.typeIndex(orig)].dropFunc != ast.noFunc
+	return p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].dropFunc != ast.noFunc
 end 'hasDestructorOn'
 
 export function hasBoundCap(p ast.Project, boundedFn ast.FuncID, paramTy ast.TypeID, wantCopy bool) returns bool
@@ -796,7 +796,7 @@ end 'hasBoundCap'
 
 export function typeElemType(mutates p ast.Project, ownerTy ast.TypeID) returns ast.TypeID
 	let orig = ast.originOf(p.types, t: ownerTy)
-	let k = p.types.entries[ast.typeIndex(orig)].kind
+	let k = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].kind
 	let args = ast.typeArgsOf(p.types, t: ownerTy)
 	if k == ast.TypeKind.builtinMap and args.count() >= 2 'map'
 		return args[1]
@@ -809,7 +809,7 @@ end 'typeElemType'
 
 export function typeIndexType(mutates p ast.Project, ownerTy ast.TypeID) returns ast.TypeID
 	let orig = ast.originOf(p.types, t: ownerTy)
-	let k = p.types.entries[ast.typeIndex(orig)].kind
+	let k = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].kind
 	if k == ast.TypeKind.builtinArray 'arr'
 		return p.builtins.countTy
 	end 'arr'
@@ -829,7 +829,7 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 	if t == ast.noType 'err'
 		return LackInfo.ok()
 	end 'err'
-	let k = p.types.entries[ast.typeIndex(t)].kind
+	let k = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind
 	if k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.floatRange or k == ast.TypeKind.constFloat or k == ast.TypeKind.primBool or k == ast.TypeKind.primString or k == ast.TypeKind.primVoid or k == ast.TypeKind.primNever or k == ast.TypeKind.enumTy 'scalar'
 		return LackInfo.ok()
 	end 'scalar'
@@ -869,15 +869,15 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 		let orig = ast.originOf(p.types, t: t)
 		if hasDestructorOn(p, t: orig) 'dtor'
 			res = LackInfo.fail(LackStep.root(t, reason: LackReason.lackDestructor))
-		end 'dtor' else if wantCopy and p.types.entries[ast.typeIndex(orig)].isNoncopyable 'nc'
+		end 'dtor' else if wantCopy and p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].isNoncopyable 'nc'
 			res = LackInfo.fail(LackStep.root(t, reason: LackReason.lackDeclared))
 		end 'nc' else 'fields'
-			let fCount = p.types.entries[ast.typeIndex(orig)].fields.count()
+			let fCount = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].fields.count()
 			for fi in 0 upto fCount 'eachF'
 				let fTy = ast.fieldType(p.types, owner: t, index: fi)
 				let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: fTy)
 				if sub.missing 'fMiss'
-					let fName = p.types.entries[ast.typeIndex(orig)].fields[fi].name.clone()
+					let fName = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].fields[fi].name.clone()
 					res = LackInfo.wrap(LackStep.part(t, partTy: fTy, place: "in its field '{fName}'"), inner: sub)
 					break 'eachF'
 				end 'fMiss'
@@ -887,18 +887,18 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 		let orig = ast.originOf(p.types, t: t)
 		if hasDestructorOn(p, t: orig) 'dtor'
 			res = LackInfo.fail(LackStep.root(t, reason: LackReason.lackDestructor))
-		end 'dtor' else if wantCopy and p.types.entries[ast.typeIndex(orig)].isNoncopyable 'nc'
+		end 'dtor' else if wantCopy and p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].isNoncopyable 'nc'
 			res = LackInfo.fail(LackStep.root(t, reason: LackReason.lackDeclared))
 		end 'nc' else 'cases'
-			let cCount = p.types.entries[ast.typeIndex(orig)].cases.count()
+			let cCount = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases.count()
 			for ci in 0 upto cCount 'eachC'
-				let cName = p.types.entries[ast.typeIndex(orig)].cases[ci].name.clone()
-				let pCount = p.types.entries[ast.typeIndex(orig)].cases[ci].payload.count()
+				let cName = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[ci].name.clone()
+				let pCount = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[ci].payload.count()
 				for pi in 0 upto pCount 'eachP'
 					let pTy = ast.payloadType(p.types, owner: t, caseIndex: ci, index: pi)
 					let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: pTy)
 					if sub.missing 'pMiss'
-						let pName = p.types.entries[ast.typeIndex(orig)].cases[ci].payload[pi].name.clone()
+						let pName = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[ci].payload[pi].name.clone()
 						res = LackInfo.wrap(LackStep.part(t, partTy: pTy, place: "in the payload '{pName}' of its case '{cName}'"), inner: sub)
 						break 'eachC'
 					end 'pMiss'
@@ -993,13 +993,13 @@ end 'copyAdviceText'
 export function queueBounds(mutates c Checker, mutates p ast.Project, off diag.U32, params ast.TypeIDList, args ast.TypeIDList)
 	for i in 0 upto params.count() 'each'
 		let pid = params[i]
-		let bCount = p.types.entries[ast.typeIndex(pid)].bounds.count()
-		let stdB = p.types.entries[ast.typeIndex(pid)].boundIface
+		let bCount = p.types.slots[ast.typeSlot(pid)][ast.typeIndex(pid)].bounds.count()
+		let stdB = p.types.slots[ast.typeSlot(pid)][ast.typeIndex(pid)].boundIface
 		if stdB != ast.noType 'hasStd'
 			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: stdB, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
 		end 'hasStd'
 		for bi in 0 upto bCount 'eachB'
-			let declared = p.types.entries[ast.typeIndex(pid)].bounds[bi].ifaceTy
+			let declared = p.types.slots[ast.typeSlot(pid)][ast.typeIndex(pid)].bounds[bi].ifaceTy
 			let iface = ast.substituteType(p.types, t: declared, params: params, args: args)
 			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
 		end 'eachB'
@@ -1007,19 +1007,19 @@ export function queueBounds(mutates c Checker, mutates p ast.Project, off diag.U
 end 'queueBounds'
 
 export function queueMethodBounds(mutates c Checker, mutates p ast.Project, off diag.U32, method ast.FuncID, args ast.TypeIDList)
-	if p.funcs.entries[ast.funcIndex(method)].bounds.count() == 0 'none'
+	if p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].bounds.count() == 0 'none'
 		return
 	end 'none'
-	let bCount = p.funcs.entries[ast.funcIndex(method)].bounds.count()
-	let generics = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(method)].generics)
+	let bCount = p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].bounds.count()
+	let generics = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].generics)
 	for bi in 0 upto bCount 'eachB'
-		let pTy = p.funcs.entries[ast.funcIndex(method)].bounds[bi].paramTy
-		let declared = p.funcs.entries[ast.funcIndex(method)].bounds[bi].ifaceTy
+		let pTy = p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].bounds[bi].paramTy
+		let declared = p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].bounds[bi].ifaceTy
 		let iface = ast.substituteType(p.types, t: declared, params: generics, args: args)
 		for gi in 0 upto generics.count() 'findG'
 			if generics[gi] == pTy and gi < args.count() 'hit'
 				var bound = PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: true, methodFn: method)
-				if bi < p.funcs.entries[ast.funcIndex(method)].conditionalBounds 'conditional'
+				if bi < p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].conditionalBounds 'conditional'
 					bound.receiverTy = receiverOf(p, method: method, args: args)
 				end 'conditional'
 				c.pendingBounds.push(bound)
@@ -1032,21 +1032,21 @@ end 'queueMethodBounds'
 // receiverOf is the type of the value that the method is called on at the type arguments args: the type that implements
 // the interface whose extension adds it, or the generic type it is a method of.
 function receiverOf(p ast.Project, method ast.FuncID, args ast.TypeIDList) returns ast.TypeID
-	if p.funcs.entries[ast.funcIndex(method)].extendedIface != ast.noType 'ofInterface'
+	if p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].extendedIface != ast.noType 'ofInterface'
 		return args[0]
 	end 'ofInterface'
-	return ast.originOf(p.types, t: p.funcs.entries[ast.funcIndex(method)].ownerTy)
+	return ast.originOf(p.types, t: p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].ownerTy)
 end 'receiverOf'
 
 export function instantiateGeneric(mutates c Checker, mutates p ast.Project, off diag.U32, orig ast.TypeID, args ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
 	let base = ast.originOf(p.types, t: orig)
-	let params = ast.cloneTypeArgs(p.types.entries[ast.typeIndex(base)].typeParams)
+	let params = ast.cloneTypeArgs(p.types.slots[ast.typeSlot(base)][ast.typeIndex(base)].typeParams)
 	if args.count() != params.count() 'badCount'
-		let bName = p.types.entries[ast.typeIndex(base)].name.clone()
+		let bName = p.types.slots[ast.typeSlot(base)][ast.typeIndex(base)].name.clone()
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: diag.genericArityMismatch(bName, expected: "{params.count()}", supplied: "{args.count()}"), errs: errs)
 		return ast.noType
 	end 'badCount'
-	let bk = p.types.entries[ast.typeIndex(base)].kind
+	let bk = p.types.slots[ast.typeSlot(base)][ast.typeIndex(base)].kind
 	if bk == ast.TypeKind.builtinMap 'mp'
 		if not isKeyType(p.types, b: p.builtins, t: args[0]) 'badK'
 			checkFail(c.modID, off: off, code: diag.errMapKey, msg: "'{ast.typeName(p.types, t: args[0])}' cannot be the key of a map: a key is an integer alias, a bool, an enum, a String or a Handle", errs: errs)
@@ -1102,13 +1102,13 @@ function checkInterfaceRef(mutates c Checker, mutates p ast.Project, tr ast.Node
 end 'checkInterfaceRef'
 
 function verifyInterfaceTarget(mutates c Checker, mutates p ast.Project, tr ast.NodeID, off diag.U32, tName String, tid ast.TypeID, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
-	if p.types.entries[ast.typeIndex(tid)].kind != ast.TypeKind.interfaceTy 'notIface'
+	if p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].kind != ast.TypeKind.interfaceTy 'notIface'
 		checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
 		return ast.noType
 	end 'notIface'
 	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)
 	let argCount = p.modules[c.modIdx].tree.listLen(argsRef)
-	let params = ast.cloneTypeArgs(p.types.entries[ast.typeIndex(tid)].typeParams)
+	let params = ast.cloneTypeArgs(p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].typeParams)
 	if params.count() == 0 'plain'
 		if argCount > 0 'hasArgs'
 			checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "the interface '{tName}' is not generic and takes no type arguments", errs: errs)
@@ -1122,7 +1122,7 @@ function verifyInterfaceTarget(mutates c Checker, mutates p ast.Project, tr ast.
 	if argCount != params.count() 'badCount'
 		var names = ast.StringList.create(0)
 		for i in 0 upto params.count() 'names'
-			names.push(p.types.entries[ast.typeIndex(params[i])].name.clone())
+			names.push(p.types.slots[ast.typeSlot(params[i])][ast.typeIndex(params[i])].name.clone())
 		end 'names'
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "the interface '{tName}' binds {params.count()} associated type(s) and {argCount} were given: write '{ast.instanceSpelling(tName, args: names)}' with the type of each", errs: errs)
 		return ast.noType
@@ -1143,7 +1143,7 @@ export function resolveTypeRef(mutates c Checker, mutates p ast.Project, tr ast.
 		return resolveTupleTypeRef(c, p: p, tr: tr, selfTy: selfTy, errs: errs)
 	end 'tuple'
 	let t = resolveNamedTypeRef(c, p: p, tr: tr, selfTy: selfTy, errs: errs)
-	if t != ast.noType and p.types.entries[ast.typeIndex(t)].kind == ast.TypeKind.interfaceTy 'ifTy'
+	if t != ast.noType and p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.interfaceTy 'ifTy'
 		let off = p.modules[c.modIdx].tree.startOf(tr)
 		c.pendingValueTypes.push(PendingValueType.make(off, iface: t, written: ast.typeRefName(p.modules[c.modIdx].tree, id: tr)))
 	end 'ifTy'
@@ -1261,7 +1261,7 @@ function applyTypeArgs(mutates c Checker, mutates p ast.Project, tr ast.NodeID, 
 	end 'unk'
 	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)
 	let argCount = p.modules[c.modIdx].tree.listLen(argsRef)
-	if p.types.entries[ast.typeIndex(target)].typeParams.count() == 0 'nonGen'
+	if p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].typeParams.count() == 0 'nonGen'
 		if argCount > 0 'badA'
 			checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' is not generic and takes no type arguments", errs: errs)
 		end 'badA'

@@ -148,7 +148,7 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 	e.maxVal = hi
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let t = allocType(p.types, e: e)
+	let t = allocType(p.types, module: ref.module, e: e)
 	setDeclType(p, ref: ref, t: t)
 end 'declareRangeAlias'
 
@@ -198,7 +198,7 @@ function declareBitsAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates 
 	e.bitsWidth = width
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let t = allocType(p.types, e: e)
+	let t = allocType(p.types, module: ref.module, e: e)
 	setDeclType(p, ref: ref, t: t)
 end 'declareBitsAlias'
 
@@ -230,7 +230,7 @@ function declareFloatAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates
 	e.maxVal = I128.fromCount(hi)
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let t = allocType(p.types, e: e)
+	let t = allocType(p.types, module: ref.module, e: e)
 	setDeclType(p, ref: ref, t: t)
 end 'declareFloatAlias'
 

@@ -105,8 +105,8 @@ end 'rangeHandOver'
 
 // rangeParamValues analyses the default of each parameter of a function, which a call that leaves the argument out evaluates.
 function rangeParamValues(mutates r Ranges, p ast.Project, fid ast.FuncID)
-	for i in 0 upto p.funcs.entries[ast.funcIndex(fid)].params.count() 'params'
-		let e = p.funcs.entries[ast.funcIndex(fid)].params[i].defaultExpr
+	for i in 0 upto p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
+		let e = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].defaultExpr
 		if e != 0 'default'
 			r.failed = false
 			_ = rangeValue(r, p: p, e: e)
@@ -125,17 +125,17 @@ function rangeCheckValues(mutates r Ranges, p ast.Project, ord ast.DeclOrdinal)
 		return
 	end 'notRecord'
 	let tid = declTypeOf(p, ref: ast.DeclRef.make(r.modID, ordinal: ord))
-	for i in 0 upto p.types.entries[ast.typeIndex(tid)].fields.count() 'fields'
-		if p.types.entries[ast.typeIndex(tid)].fields[i].hasDefault 'default'
+	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields.count() 'fields'
+		if p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].hasDefault 'default'
 			r.failed = false
-			_ = rangeValue(r, p: p, e: p.types.entries[ast.typeIndex(tid)].fields[i].defaultExpr)
+			_ = rangeValue(r, p: p, e: p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].defaultExpr)
 		end 'default'
 	end 'fields'
 end 'rangeCheckValues'
 
 function rangeRawValues(mutates r Ranges, p ast.Project, tid ast.TypeID)
-	for i in 0 upto p.types.entries[ast.typeIndex(tid)].cases.count() 'cases'
-		let e = p.types.entries[ast.typeIndex(tid)].cases[i].rawExpr
+	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases.count() 'cases'
+		let e = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases[i].rawExpr
 		if e != 0 'written'
 			r.failed = false
 			_ = rangeValue(r, p: p, e: e)
@@ -186,7 +186,7 @@ end 'rangeValue'
 
 // functionLocals are the locals that the bodies check declared in a function.
 function functionLocals(r Ranges, p ast.Project, fid ast.FuncID) returns ast.LocalIDList
-	return match r.typing.funcLocals.get(p.funcs.entries[ast.funcIndex(fid)].nodeID as Count) 'locals'
+	return match r.typing.funcLocals.get(p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].nodeID as Count) 'locals'
 		some(ids) gives ids.clone()
 		none gives ast.LocalIDList.create(0)
 	end 'locals'
@@ -220,11 +220,11 @@ function rangeFunction(mutates r Ranges, p ast.Project, fid ast.FuncID, behaviou
 			r.states.list[st].spans[slot] = typeSpan(p.types, t: ty)
 		end 'int'
 	end 'locals'
-	if p.funcs.entries[ast.funcIndex(fid)].isTest 'test'
+	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isTest 'test'
 		// A test handles every error its body raises: the failure of any call, of any error type, ends the test.
 		r.handlers.push(RangeHandler.make(false, takes: ast.noType))
 	end 'test'
-	rangeBlock(r, p: p, body: p.funcs.entries[ast.funcIndex(fid)].bodyRef)
+	rangeBlock(r, p: p, body: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bodyRef)
 	r.states.release(m)
 	r.fn = outerFn
 	r.st = outerSt
@@ -753,7 +753,7 @@ function fnErrorType(r Ranges, p ast.Project) returns ast.TypeID
 	if r.fn == ast.noFunc 'outside'
 		return ast.noType
 	end 'outside'
-	return p.funcs.entries[ast.funcIndex(r.fn)].errTy
+	return p.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].errTy
 end 'fnErrorType'
 
 // rangeRequirePropagates refuses a try with no handler where there is no caller that takes its failure.
@@ -769,8 +769,8 @@ function rangeRequirePropagates(mutates r Ranges, p ast.Project, site ast.NodeID
 		rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, and nothing waits for a behaviour: give 'otherwise' what to do")
 		return
 	end 'behaviour'
-	if p.funcs.entries[ast.funcIndex(r.fn)].errTy == ast.noType 'noThrows'
-		let name = p.funcs.entries[ast.funcIndex(r.fn)].name.clone()
+	if p.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].errTy == ast.noType 'noThrows'
+		let name = p.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].name.clone()
 		rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, but '{name}' does not throw: give 'otherwise' what to do, or declare '{name}' 'throws' the error")
 	end 'noThrows'
 end 'rangeRequirePropagates'
@@ -826,7 +826,7 @@ function rangeReturnStmt(mutates r Ranges, p ast.Project, s ast.NodeID)
 	if value != 0 'value'
 		let v = rangeEval(r, p: p, e: value)
 		if r.typing.arith.get(s as Count).isSome() 'converts'
-			let ret = p.funcs.entries[ast.funcIndex(r.fn)].retTy
+			let ret = p.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].retTy
 			_ = rangeConverted(r, p: p, e: s, v: v, src: typeOf(r, e: value), ty: ret, why: Unchecked.returned(ret, value: value))
 		end 'converts'
 	end 'value'

@@ -2,14 +2,14 @@
 // arguments, and bindWitnesses the conformances for their bounds; they are the function's own when it is an instance of a
 // generic function, and the ones of the function around it for the body of a behaviour.
 export function begin(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, consumes name String)
-	let paramCount = try p.funcs.entries[ast.funcIndex(fn)].params.count() + ast.leadingParams(p.funcs.entries[ast.funcIndex(fn)]) otherwise panic("ir: too many parameters")
+	let paramCount = try p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].params.count() + ast.leadingParams(p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)]) otherwise panic("ir: too many parameters")
 	l.b.start(fn, name: name, paramCount: paramCount)
 	l.fn = fn
 	l.origin = fn
-	if p.funcs.entries[ast.funcIndex(fn)].genericOrigin != ast.noFunc 'instance'
-		l.origin = p.funcs.entries[ast.funcIndex(fn)].genericOrigin
+	if p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].genericOrigin != ast.noFunc 'instance'
+		l.origin = p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].genericOrigin
 	end 'instance'
-	l.fnModule = p.funcs.entries[ast.funcIndex(fn)].module
+	l.fnModule = p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module
 	let own = l.fnModule
 	setModule(l, m: own)
 	l.bindParams = bindParams.clone()
@@ -29,7 +29,7 @@ end 'begin'
 
 // functionLocals are the locals of the function whose body the lowerer is lowering, by handle.
 function functionLocals(l Lowerer, p ast.Project) returns ast.LocalIDList
-	let node = p.funcs.entries[ast.funcIndex(l.origin)].nodeID
+	let node = p.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].nodeID
 	return match consumes p.typings[ast.modIndex(l.fnModule)].funcLocals.get(node as Count) 'hit'
 		some(ids) gives ids
 		none gives ast.LocalIDList.create(0)
@@ -71,7 +71,7 @@ end 'declareSlots'
 function lowerBody(mutates l Lowerer, mutates p ast.Project) returns IrFunction
 	pushScope(l, block: true)
 	adoptParams(l, p: p)
-	let bodyRef = p.funcs.entries[ast.funcIndex(l.origin)].bodyRef
+	let bodyRef = p.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].bodyRef
 	lowerBlock(l, p: p, ref: bodyRef)
 	popScope(l, p: p)
 	if not l.b.terminated(l.cur) 'open'
@@ -85,7 +85,7 @@ end 'lowerBody'
 // (`_`) is dropped all the same, because the caller gave it away. The locals are the origin's, whose body an instance is;
 // the types are the instance's.
 function adoptParams(mutates l Lowerer, mutates p ast.Project)
-	let hasReceiver = p.funcs.entries[ast.funcIndex(l.fn)].hasReceiver
+	let hasReceiver = p.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].hasReceiver
 	if hasReceiver and ast.receiverLocal(p, f: l.origin) != ast.noLocal 'self'
 		let selfLocal = localEntry(p, module: l.fnModule, id: ast.receiverLocal(p, f: l.origin))
 		if ast.ownsValue(selfLocal.conv) and kindOf(l, p: p, t: selfLocal.ty) == IrKind.kindManaged 'owned'
@@ -93,10 +93,10 @@ function adoptParams(mutates l Lowerer, mutates p ast.Project)
 			l.selfOwner = indexOf(slot)
 		end 'owned'
 	end 'self'
-	let first = ast.leadingParams(p.funcs.entries[ast.funcIndex(l.fn)])
-	for i in 0 upto p.funcs.entries[ast.funcIndex(l.fn)].params.count() 'each'
-		let ty = p.funcs.entries[ast.funcIndex(l.fn)].paramTypes[i]
-		if p.funcs.entries[ast.funcIndex(l.fn)].params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, t: ty) == IrKind.kindManaged 'consumed'
+	let first = ast.leadingParams(p.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)])
+	for i in 0 upto p.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].params.count() 'each'
+		let ty = p.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].paramTypes[i]
+		if p.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, t: ty) == IrKind.kindManaged 'consumed'
 			let slot = adopt(l, p: p, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
 			let local = ast.paramLocal(p, f: l.origin, index: i)
 			if local != ast.noLocal 'named'
@@ -341,8 +341,8 @@ end 'visitReturnStmt'
 // convertReturned converts the value of a return to the declared type of the function as the cast 'value as T' does.
 function convertReturned(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, value ast.NodeID, v Reg) returns Reg
 	let fails = arithInfoAt(p, module: l.module, node: s).fails
-	let target = p.funcs.entries[ast.funcIndex(l.fn)].retTy
-	if p.types.entries[ast.typeIndex(target)].kind == ast.TypeKind.floatRange 'float'
+	let target = p.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].retTy
+	if p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].kind == ast.TypeKind.floatRange 'float'
 		return floatConverted(l, p: p, v: v, e: value, target: target, fails: fails)
 	end 'float'
 	let fail = overflowTo(l, p: p, fails: fails)
@@ -614,13 +614,13 @@ end 'visitForCursor'
 // register of an operation that a built-in iterator's method lowers to in place. One that throws goes to exit when it
 // fails: the error is IterationError, which carries nothing to drop. resultTy is the type of the value the method gives.
 function protocolCall(mutates l Lowerer, mutates p ast.Project, s ast.NodeID, info ast.CallInfo, recv Reg, dst Reg, resultTy ast.TypeID, exit BlockID) returns Reg
-	let op = p.funcs.entries[ast.funcIndex(info.fn)].intrinsic
+	let op = p.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].intrinsic
 	if op != ast.Intrinsic.intrNone 'intrinsic'
 		return lowerViewMethod(l, p: p, op: op, site: siteOf(l, p: p, node: s), t: resultTy, recv: recv, exit: exit)
 	end 'intrinsic'
 	let target = callee(l, p: p, node: s, info: info, receiver: 0 as ast.NodeID)
 	let args = argsOf1(recv)
-	if p.funcs.entries[ast.funcIndex(target)].errTy == ast.noType 'plain'
+	if p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].errTy == ast.noType 'plain'
 		emitCall(l, dst: dst, target: target, args: args)
 		return dst
 	end 'plain'
@@ -640,12 +640,12 @@ export function lowerFunction(mutates p ast.Project, fn ast.FuncID, mutates inst
 	var l = Lowerer.new(exchange(instances, value: InstanceSet.new()))
 	var bindParams = ast.TypeIDList.create(0)
 	var bindArgs = ast.TypeIDList.create(0)
-	let origin = p.funcs.entries[ast.funcIndex(fn)].genericOrigin
+	let origin = p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].genericOrigin
 	if origin != ast.noFunc 'instance'
-		bindParams = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(origin)].generics)
-		bindArgs = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(fn)].typeArgs)
+		bindParams = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].generics)
+		bindArgs = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].typeArgs)
 	end 'instance'
-	begin(l, p: p, fn: fn, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: p.funcs.entries[ast.funcIndex(fn)].witnesses.clone(), name: "")
+	begin(l, p: p, fn: fn, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].witnesses.clone(), name: "")
 	let f = lowerBody(l, p: p)
 	instances = exchange(l.instances, value: InstanceSet.new())
 	return f
@@ -662,7 +662,7 @@ export function lowerModule(mutates p ast.Project, functions ast.FuncIDList, cal
 		return lowered
 	end 'unfinite'
 	for i in 0 upto functions.count() 'functions'
-		if p.funcs.entries[ast.funcIndex(functions[i])].generics.count() == 0 'plain'
+		if p.funcs.slots[ast.funcSlot(functions[i])][ast.funcIndex(functions[i])].generics.count() == 0 'plain'
 			lowered.push(lowerFunction(p, fn: functions[i], instances: instances))
 		end 'plain'
 	end 'functions'

@@ -7,8 +7,8 @@ export typealias TypeIDMap = table.StringMap with TypeID
 function registerStdAlias(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, consumes lo I128, consumes hi I128) returns TypeID
 	let tid = internIntRange(tt, aliasName: name.clone(), minVal: lo.clone(), maxVal: hi.clone(), inferred: false)
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
-	tt.entries[typeIndex(tid)].hasDecl = true
-	tt.entries[typeIndex(tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
+	tt.slots[typeSlot(tid)][typeIndex(tid)].hasDecl = true
+	tt.slots[typeSlot(tid)][typeIndex(tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	var ad = AliasDecl.make(0 as NodeID)
 	ad.visibility = "export"
 	ad.name = name.clone()
@@ -21,8 +21,8 @@ end 'registerStdAlias'
 function registerStdFloatAlias(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, lo Count, hi Count) returns TypeID
 	let tid = internFloatRange(tt, aliasName: name.clone(), lo: lo, hi: hi)
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
-	tt.entries[typeIndex(tid)].hasDecl = true
-	tt.entries[typeIndex(tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
+	tt.slots[typeSlot(tid)][typeIndex(tid)].hasDecl = true
+	tt.slots[typeSlot(tid)][typeIndex(tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	var ad = AliasDecl.make(0 as NodeID)
 	ad.visibility = "export"
 	ad.name = name.clone()
@@ -43,8 +43,8 @@ end 'registerStdInstanceAlias'
 
 function addStdTypeParam(mutates tt TypeTable, mutates std Module, owner TypeID, consumes name String) returns TypeID
 	var tp = TypeEntry.make(TypeKind.typeParam, name: name.clone())
-	let tid = allocType(tt, e: tp)
-	tt.entries[typeIndex(owner)].typeParams.push(tid)
+	let tid = allocType(tt, module: diag.stdlibID, e: tp)
+	tt.slots[typeSlot(owner)][typeIndex(owner)].typeParams.push(tid)
 	return tid
 end 'addStdTypeParam'
 
@@ -53,7 +53,7 @@ function registerPrimType(mutates tt TypeTable, mutates std Module, mutates type
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
-	let tid = allocType(tt, e: e)
+	let tid = allocType(tt, module: diag.stdlibID, e: e)
 	var tps = TypeParamList.create(0)
 	for i in 0 upto paramNames.count() 'eachP'
 		let pn = paramNames[i].clone()
@@ -79,16 +79,16 @@ function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates st
 	fn.ownerTy = selfType(tt, declTy: owner)
 	fn.hasReceiver = not isStatic
 	fn.selfConv = selfConv
-	fn.generics = cloneTypeArgs(tt.entries[typeIndex(owner)].typeParams)
+	fn.generics = cloneTypeArgs(tt.slots[typeSlot(owner)][typeIndex(owner)].typeParams)
 	fn.retTy = ret
 	fn.intrinsic = op
 	for i in 0 upto params.count() 'eachP'
 		fn.params.push(params[i].clone())
 		fn.paramTypes.push(params[i].ty)
 	end 'eachP'
-	let fid = allocFunc(ft, f: fn)
+	let fid = allocFunc(ft, module: diag.stdlibID, f: fn)
 	if listed 'listed'
-		tt.entries[typeIndex(owner)].methods.push(MethodRef.make(name, func: fid))
+		tt.slots[typeSlot(owner)][typeIndex(owner)].methods.push(MethodRef.make(name, func: fid))
 	end 'listed'
 	return fid
 end 'registerMethodOn'
@@ -114,7 +114,7 @@ function registerStdFunc(mutates ft FuncTable, mutates std Module, mutates funcM
 		fd.name = name.clone()
 		_ = std.declare(Decl.funcDecl(fd))
 	end 'addStd'
-	let fid = allocFunc(ft, f: fn)
+	let fid = allocFunc(ft, module: diag.stdlibID, f: fn)
 	if declareInStd 'regMap'
 		funcMap.insert(name, value: fid)
 	end 'regMap'
@@ -132,7 +132,7 @@ function registerRecordType(mutates tt TypeTable, mutates std Module, mutates ty
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
-	let tid = allocType(tt, e: e)
+	let tid = allocType(tt, module: diag.stdlibID, e: e)
 	var td = TypeDecl.make(0 as NodeID)
 	td.visibility = "export"
 	td.name = name.clone()
@@ -142,8 +142,8 @@ function registerRecordType(mutates tt TypeTable, mutates std Module, mutates ty
 end 'registerRecordType'
 
 function addRecordField(mutates tt TypeTable, owner TypeID, consumes name String, ty TypeID, isVar bool, exported bool)
-	let index = tt.entries[typeIndex(owner)].fields.count()
-	tt.entries[typeIndex(owner)].fields.push(FieldInfo.make(name, ty: ty, isVar: isVar, exported: exported, hasDefault: false, defaultExpr: 0 as NodeID, index: index))
+	let index = tt.slots[typeSlot(owner)][typeIndex(owner)].fields.count()
+	tt.slots[typeSlot(owner)][typeIndex(owner)].fields.push(FieldInfo.make(name, ty: ty, isVar: isVar, exported: exported, hasDefault: false, defaultExpr: 0 as NodeID, index: index))
 end 'addRecordField'
 
 function registerUnionType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, paramNames StringList) returns TypeID
@@ -151,7 +151,7 @@ function registerUnionType(mutates tt TypeTable, mutates std Module, mutates typ
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
-	let tid = allocType(tt, e: e)
+	let tid = allocType(tt, module: diag.stdlibID, e: e)
 	for i in 0 upto paramNames.count() 'eachP'
 		_ = addStdTypeParam(tt, std: std, owner: tid, name: paramNames[i].clone())
 	end 'eachP'
@@ -164,7 +164,7 @@ function registerUnionType(mutates tt TypeTable, mutates std Module, mutates typ
 end 'registerUnionType'
 
 function addUnionCase(mutates tt TypeTable, owner TypeID, consumes name String, consumes payload CaseFieldList)
-	tt.entries[typeIndex(owner)].cases.push(CaseInfo.make(name, payload: payload, hasRaw: false, rawValue: I128.zero()))
+	tt.slots[typeSlot(owner)][typeIndex(owner)].cases.push(CaseInfo.make(name, payload: payload, hasRaw: false, rawValue: I128.zero()))
 end 'addUnionCase'
 
 function registerEnumType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, cases StringList) returns TypeID
@@ -175,7 +175,7 @@ function registerEnumType(mutates tt TypeTable, mutates std Module, mutates type
 	for i in 0 upto cases.count() 'eachCase'
 		e.cases.push(CaseInfo.make(cases[i].clone(), payload: CaseFieldList.create(0), hasRaw: false, rawValue: I128.zero()))
 	end 'eachCase'
-	let tid = allocType(tt, e: e)
+	let tid = allocType(tt, module: diag.stdlibID, e: e)
 	var ed = EnumDecl.make(0 as NodeID)
 	ed.visibility = "export"
 	ed.name = name.clone()
@@ -189,7 +189,7 @@ function registerInterfaceType(mutates tt TypeTable, mutates std Module, mutates
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
-	let tid = allocType(tt, e: e)
+	let tid = allocType(tt, module: diag.stdlibID, e: e)
 	var ifd = InterfaceDecl.make(0 as NodeID)
 	ifd.visibility = "export"
 	ifd.name = name.clone()
@@ -202,10 +202,10 @@ export function initBuiltins(mutates tt TypeTable, mutates ft FuncTable, mutates
 	var b = Builtins.empty()
 	var typeMap = TypeIDMap.new()
 	var funcMap = FuncIDMap.new()
-	b.boolTy = allocType(tt, e: TypeEntry.make(TypeKind.primBool, name: "bool"))
-	b.stringTy = allocType(tt, e: TypeEntry.make(TypeKind.primString, name: "String"))
-	b.voidTy = allocType(tt, e: TypeEntry.make(TypeKind.primVoid, name: "void"))
-	b.neverTy = allocType(tt, e: TypeEntry.make(TypeKind.primNever, name: "never"))
+	b.boolTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primBool, name: "bool"))
+	b.stringTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primString, name: "String"))
+	b.voidTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primVoid, name: "void"))
+	b.neverTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primNever, name: "never"))
 	b.anon64Ty = internIntRange(tt, aliasName: "", minVal: I128.i64Min(), maxVal: I128.i64Max(), inferred: false)
 	b.anonU64Ty = internIntRange(tt, aliasName: "", minVal: I128.zero(), maxVal: I128.u64Max(), inferred: false)
 	let exitTy = registerStdAlias(tt, std: std, typeMap: typeMap, name: "ExitCode", lo: I128.zero(), hi: I128.fromCount(4294967295 as Count))
@@ -220,7 +220,7 @@ export function initBuiltins(mutates tt TypeTable, mutates ft FuncTable, mutates
 	b.exitCodeTy = exitTy
 	b.countTy = countTy
 	b.elementIndexTy = elementIndexTy
-	tt.entries[typeIndex(countTy)].supertype = elementIndexTy
+	tt.slots[typeSlot(countTy)][typeIndex(countTy)].supertype = elementIndexTy
 	b.fullRangeIntTy = fullTy
 	b.byteTy = byteTy
 	declareBuiltinTable(tt, ft: ft, std: std, b: b, typeMap: typeMap, funcMap: funcMap)

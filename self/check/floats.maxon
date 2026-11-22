@@ -12,11 +12,11 @@ function isConstFloat(p ast.Project, t ast.TypeID) returns bool
 end 'isConstFloat'
 
 export function typeIsNamedFloat(tt ast.TypeTable, t ast.TypeID) returns bool
-	return t != ast.noType and tt.entries[ast.typeIndex(t)].kind == ast.TypeKind.floatRange and tt.entries[ast.typeIndex(t)].name != ""
+	return t != ast.noType and tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.floatRange and tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].name != ""
 end 'typeIsNamedFloat'
 
 function typeIsAnonFloat(tt ast.TypeTable, t ast.TypeID) returns bool
-	return t != ast.noType and tt.entries[ast.typeIndex(t)].kind == ast.TypeKind.floatRange and tt.entries[ast.typeIndex(t)].name == ""
+	return t != ast.noType and tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.floatRange and tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].name == ""
 end 'typeIsAnonFloat'
 
 // constantBits is the double of a constant: a float constant's, or an integer constant's converted.
@@ -24,12 +24,12 @@ function constantBits(p ast.Project, t ast.TypeID) returns Count
 	if isConstFloat(p, t: t) 'float'
 		return ast.floatLowBits(p.types, t: t)
 	end 'float'
-	return ast.floatFromInt(p.types.entries[ast.typeIndex(t)].minVal)
+	return ast.floatFromInt(p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal)
 end 'constantBits'
 
 // floatFits is whether a value of src goes where dst, a float range, is needed with no cast.
 export function floatFits(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
-	let sk = p.types.entries[ast.typeIndex(src)].kind
+	let sk = p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind
 	if sk == ast.TypeKind.constFloat or sk == ast.TypeKind.constInt 'constant'
 		return ast.floatRangeHolds(p.types, t: dst, bits: constantBits(p, t: src))
 	end 'constant'
@@ -52,7 +52,7 @@ end 'floatOutOfRange'
 
 // floatMismatch is the error for a value of src where the float range target is needed, which it does not fit.
 function floatMismatch(c Checker, mutates p ast.Project, node ast.NodeID, at diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList)
-	let sk = p.types.entries[ast.typeIndex(src)].kind
+	let sk = p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind
 	if sk == ast.TypeKind.constFloat or sk == ast.TypeKind.constInt 'constant'
 		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: floatOutOfRange(p, value: src, target: target), errs: errs)
 		return
@@ -155,10 +155,10 @@ export function convertsFloat(p ast.Project, src ast.TypeID, dst ast.TypeID) ret
 	if src == ast.noType or dst == ast.noType 'err'
 		return false
 	end 'err'
-	if p.types.entries[ast.typeIndex(dst)].kind != ast.TypeKind.floatRange 'notFloat'
+	if p.types.slots[ast.typeSlot(dst)][ast.typeIndex(dst)].kind != ast.TypeKind.floatRange 'notFloat'
 		return false
 	end 'notFloat'
-	let sk = p.types.entries[ast.typeIndex(src)].kind
+	let sk = p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind
 	if sk != ast.TypeKind.floatRange and sk != ast.TypeKind.intRange 'notConverted'
 		return false
 	end 'notConverted'
@@ -171,13 +171,13 @@ export function floatConversionFails(p ast.Project, src ast.TypeID, dst ast.Type
 	if ast.isFullFloatRange(p.types, t: dst) 'all'
 		return ast.failNone
 	end 'all'
-	let sk = p.types.entries[ast.typeIndex(src)].kind
+	let sk = p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].kind
 	if sk == ast.TypeKind.floatRange and ast.floatRangeCovers(p.types, dst: dst, src: src) 'covered'
 		return ast.failNone
 	end 'covered'
 	if sk == ast.TypeKind.intRange 'integer'
-		let lo = ast.floatFromInt(p.types.entries[ast.typeIndex(src)].minVal)
-		let hi = ast.floatFromInt(p.types.entries[ast.typeIndex(src)].maxVal)
+		let lo = ast.floatFromInt(p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].minVal)
+		let hi = ast.floatFromInt(p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].maxVal)
 		if ast.floatRangeHolds(p.types, t: dst, bits: lo) and ast.floatRangeHolds(p.types, t: dst, bits: hi) 'held'
 			return ast.failNone
 		end 'held'

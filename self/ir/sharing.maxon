@@ -4,7 +4,7 @@
 function lowerRead(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	var v = lowerExpr(l, p: p, e: e)
 	var t = applyType(l, p: p, t: exprType(p, module: l.module, node: e))
-	while p.types.entries[ast.typeIndex(t)].kind == ast.TypeKind.builtinFrozen 'frozen'
+	while p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.builtinFrozen 'frozen'
 		let held = heldType(p, t: t)
 		v = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, t: held), args: argsOf1(v))
 		t = held

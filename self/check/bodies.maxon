@@ -83,12 +83,12 @@ end 'checkWhenDeclared'
 // checkFieldDefaults types the default of each field of a record as a value of the field's type.
 function checkFieldDefaults(mutates c Checker, mutates p ast.Project, tid ast.TypeID, mutates errs diag.ErrorList)
 	let selfTy = ast.selfType(p.types, declTy: tid)
-	for i in 0 upto p.types.entries[ast.typeIndex(tid)].fields.count() 'each'
-		if not p.types.entries[ast.typeIndex(tid)].fields[i].hasDefault 'none'
+	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields.count() 'each'
+		if not p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].hasDefault 'none'
 			continue 'each'
 		end 'none'
-		let defaultExpr = p.types.entries[ast.typeIndex(tid)].fields[i].defaultExpr
-		let fieldTy = p.types.entries[ast.typeIndex(tid)].fields[i].ty
+		let defaultExpr = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].defaultExpr
+		let fieldTy = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].ty
 		enterContext(c, p: p, f: ast.noFunc, owner: selfTy, calls: true)
 		startUses(c, node: defaultExpr, inField: true)
 		let t = checkExpecting(c, p: p, e: defaultExpr, want: fieldTy, errs: errs)
@@ -107,8 +107,8 @@ function checkParamDefaults(mutates c Checker, mutates p ast.Project, f ast.Func
 		if defaultExpr == 0 'none'
 			continue 'each'
 		end 'none'
-		let paramTy = p.funcs.entries[ast.funcIndex(fid)].paramTypes[i]
-		enterContext(c, p: p, f: ast.noFunc, owner: p.funcs.entries[ast.funcIndex(fid)].ownerTy, calls: true)
+		let paramTy = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i]
+		enterContext(c, p: p, f: ast.noFunc, owner: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, calls: true)
 		startUses(c, node: defaultExpr, inField: true)
 		let t = checkExpecting(c, p: p, e: defaultExpr, want: paramTy, errs: errs)
 		if t != ast.noType 'typed'
@@ -182,7 +182,7 @@ end 'noteCaller'
 
 // checkFunction types the body of a function or a method, whose parameters and receiver are locals of it.
 function checkFunction(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
-	enterContext(c, p: p, f: fid, owner: p.funcs.entries[ast.funcIndex(fid)].ownerTy, calls: true)
+	enterContext(c, p: p, f: fid, owner: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, calls: true)
 	startUses(c, node: f.id, inField: false)
 	let mark = errs.count()
 	declareReceiverAndParams(c, p: p, f: f, fid: fid, errs: errs)
@@ -191,7 +191,7 @@ function checkFunction(mutates c Checker, mutates p ast.Project, f ast.FuncDecl,
 		return
 	end 'badParams'
 	checkBlock(c, p: p, body: f.body, errs: errs)
-	if p.funcs.entries[ast.funcIndex(fid)].retTy != p.builtins.voidTy and not bodyTerminates(p.modules[c.modIdx].tree, body: f.body) 'missingReturn'
+	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].retTy != p.builtins.voidTy and not bodyTerminates(p.modules[c.modIdx].tree, body: f.body) 'missingReturn'
 		failAt(c, p: p, node: f.id, code: diag.errMissingReturn, msg: diag.missingReturn(f.name), errs: errs)
 	end 'missingReturn'
 	finishFunction(c, node: f.id)
@@ -207,8 +207,8 @@ end 'finishFunction'
 
 function declareReceiverAndParams(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
 	var index = 0 as Count
-	if p.funcs.entries[ast.funcIndex(fid)].hasReceiver 'receiver'
-		var receiver = ast.LocalEntry.make("self", ty: p.funcs.entries[ast.funcIndex(fid)].ownerTy, isVar: false, isParam: true, conv: p.funcs.entries[ast.funcIndex(fid)].selfConv, definedAt: f.id)
+	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].hasReceiver 'receiver'
+		var receiver = ast.LocalEntry.make("self", ty: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy, isVar: false, isParam: true, conv: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].selfConv, definedAt: f.id)
 		receiver.isSelf = true
 		receiver.paramIndex = index
 		let id = c.typing.allocLocal(receiver)
@@ -220,7 +220,7 @@ function declareReceiverAndParams(mutates c Checker, mutates p ast.Project, f as
 	end 'receiver'
 	for i in 0 upto f.params.count() 'params'
 		if f.params[i].name != "_" 'named'
-			var entry = ast.LocalEntry.make(f.params[i].name.clone(), ty: p.funcs.entries[ast.funcIndex(fid)].paramTypes[i], isVar: false, isParam: true, conv: ast.parseConvention(f.params[i].convention), definedAt: f.params[i].id)
+			var entry = ast.LocalEntry.make(f.params[i].name.clone(), ty: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i], isVar: false, isParam: true, conv: ast.parseConvention(f.params[i].convention), definedAt: f.params[i].id)
 			entry.paramIndex = index
 			let id = bindLocal(c, p: p, entry: entry, off: offsetOf(c, p: p, node: f.params[i].id), errs: errs)
 			if id == ast.noLocal 'failed'

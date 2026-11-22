@@ -22,8 +22,8 @@ end 'argsOf4'
 // rendersUnsigned is whether a value of the type is written as the unsigned number its bits make: a range that has no
 // negative value and reaches past i64.max, or a constant that does.
 function rendersUnsigned(p ast.Project, t ast.TypeID) returns bool
-	if p.types.entries[ast.typeIndex(t)].kind == ast.TypeKind.constInt 'constant'
-		return not p.types.entries[ast.typeIndex(t)].minVal.fitsI64()
+	if p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.constInt 'constant'
+		return not p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.fitsI64()
 	end 'constant'
 	return ast.isUnsignedInt(p.types, t: t)
 end 'rendersUnsigned'

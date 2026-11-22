@@ -4,23 +4,23 @@
 // funcSymbol is how a message names a function: a method is written with its type, in parentheses where the type is an
 // instance, and an instance of a generic function with its type arguments.
 function funcSymbol(p ast.Project, f ast.FuncID) returns String
-	let name = p.funcs.entries[ast.funcIndex(f)].name.clone()
-	let owner = p.funcs.entries[ast.funcIndex(f)].ownerTy
-	if p.funcs.entries[ast.funcIndex(f)].extendedIface != ast.noType 'ofInterface'
+	let name = p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].name.clone()
+	let owner = p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].ownerTy
+	if p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].extendedIface != ast.noType 'ofInterface'
 		return ast.interfaceExtensionSymbol(p, fid: f)
 	end 'ofInterface'
 	if owner == ast.noType 'free'
-		if p.funcs.entries[ast.funcIndex(f)].genericOrigin != ast.noFunc 'instance'
+		if p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].genericOrigin != ast.noFunc 'instance'
 			var names = ast.StringList.create(0)
-			for i in 0 upto p.funcs.entries[ast.funcIndex(f)].typeArgs.count() 'args'
-				names.push(ast.typeName(p.types, t: p.funcs.entries[ast.funcIndex(f)].typeArgs[i]))
+			for i in 0 upto p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].typeArgs.count() 'args'
+				names.push(ast.typeName(p.types, t: p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].typeArgs[i]))
 			end 'args'
 			return "{name}[{ast.joinNames(names, sep: ", ")}]"
 		end 'instance'
 		return name
 	end 'free'
 	let ownerName = ast.typeName(p.types, t: owner)
-	if p.types.entries[ast.typeIndex(owner)].typeArgs.count() > 0 'instance'
+	if p.types.slots[ast.typeSlot(owner)][ast.typeIndex(owner)].typeArgs.count() > 0 'instance'
 		return "({ownerName}).{name}"
 	end 'instance'
 	return "{ownerName}.{name}"
@@ -247,7 +247,7 @@ function unifyType(p ast.Project, param ast.TypeID, arg ast.TypeID, params ast.T
 	if param == ast.noType or arg == ast.noType 'none'
 		return
 	end 'none'
-	let kind = p.types.entries[ast.typeIndex(param)].kind
+	let kind = p.types.slots[ast.typeSlot(param)][ast.typeIndex(param)].kind
 	if kind == ast.TypeKind.typeParam 'parameter'
 		match consumes indexOfType(params, t: param) 'index'
 			some(i) then fixArg(p, arg: arg, index: i, args: args)
@@ -256,8 +256,8 @@ function unifyType(p ast.Project, param ast.TypeID, arg ast.TypeID, params ast.T
 		return
 	end 'parameter'
 	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy or kind.isBuiltin() 'instance'
-		if p.types.entries[ast.typeIndex(arg)].kind == kind and ast.originOf(p.types, t: param) == ast.originOf(p.types, t: arg) 'sameDeclaration'
-			unifyAll(p, param: p.types.entries[ast.typeIndex(param)].typeArgs.clone(), arg: p.types.entries[ast.typeIndex(arg)].typeArgs.clone(), params: params, args: args)
+		if p.types.slots[ast.typeSlot(arg)][ast.typeIndex(arg)].kind == kind and ast.originOf(p.types, t: param) == ast.originOf(p.types, t: arg) 'sameDeclaration'
+			unifyAll(p, param: p.types.slots[ast.typeSlot(param)][ast.typeIndex(param)].typeArgs.clone(), arg: p.types.slots[ast.typeSlot(arg)][ast.typeIndex(arg)].typeArgs.clone(), params: params, args: args)
 		end 'sameDeclaration'
 	end 'instance'
 end 'unifyType'
@@ -284,15 +284,15 @@ function unifyBounds(mutates p ast.Project, params ast.TypeIDList, mutates args 
 		if arg == ast.noType or not typeIsNominal(p.types, t: arg) 'open'
 			continue 'each'
 		end 'open'
-		let bounds = p.types.entries[ast.typeIndex(params[i])].bounds.clone()
+		let bounds = p.types.slots[ast.typeSlot(params[i])][ast.typeIndex(params[i])].bounds.clone()
 		for bi in 0 upto bounds.count() 'bounds'
 			let bound = bounds[bi].ifaceTy
-			if p.types.entries[ast.typeIndex(bound)].typeArgs.count() == 0 'plain'
+			if p.types.slots[ast.typeSlot(bound)][ast.typeIndex(bound)].typeArgs.count() == 0 'plain'
 				continue 'bounds'
 			end 'plain'
 			let declared = conformanceTo(p, t: arg, iface: ast.originOf(p.types, t: bound))
 			if declared != ast.noType 'found'
-				unifyAll(p, param: p.types.entries[ast.typeIndex(bound)].typeArgs.clone(), arg: p.types.entries[ast.typeIndex(declared)].typeArgs.clone(), params: params, args: args)
+				unifyAll(p, param: p.types.slots[ast.typeSlot(bound)][ast.typeIndex(bound)].typeArgs.clone(), arg: p.types.slots[ast.typeSlot(declared)][ast.typeIndex(declared)].typeArgs.clone(), params: params, args: args)
 			end 'found'
 		end 'bounds'
 	end 'each'
@@ -328,7 +328,7 @@ function inferRest(c Checker, p ast.Project, node ast.NodeID, callee String, par
 	end 'expected'
 	for i in 0 upto filled.count() 'each'
 		if filled[i] == ast.noType 'open'
-			failAt(c, p: p, node: node, code: diag.errCannotInfer, msg: "the type argument '{p.types.entries[ast.typeIndex(params[i])].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
+			failAt(c, p: p, node: node, code: diag.errCannotInfer, msg: "the type argument '{p.types.slots[ast.typeSlot(params[i])][ast.typeIndex(params[i])].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
 			return filled
 		end 'open'
 	end 'each'
@@ -349,7 +349,7 @@ end 'applySpecs'
 // declares is whether a call of the function is checked now: its signature is known, because this module declares it or
 // because it is built in. Another module may still be declaring its own, so a call into it waits for the verify phase.
 function declares(c Checker, p ast.Project, f ast.FuncID) returns bool
-	return p.funcs.entries[ast.funcIndex(f)].module == c.modID or p.funcs.entries[ast.funcIndex(f)].intrinsic != ast.Intrinsic.intrNone
+	return p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].module == c.modID or p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].intrinsic != ast.Intrinsic.intrNone
 end 'declares'
 
 // requireVisible refuses a function of another module that the module cannot name.
@@ -357,8 +357,8 @@ function requireVisible(c Checker, p ast.Project, node ast.NodeID, target ast.Fu
 	if declares(c, p: p, f: target) 'declared'
 		return true
 	end 'declared'
-	let owner = p.funcs.entries[ast.funcIndex(target)].module
-	let level = ast.visibilityOf(p.funcs.entries[ast.funcIndex(target)].visibility)
+	let owner = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].module
+	let level = ast.visibilityOf(p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].visibility)
 	if ast.isVisibleFrom(p, v: level, owner: owner, from: c.modID) 'visible'
 		return true
 	end 'visible'

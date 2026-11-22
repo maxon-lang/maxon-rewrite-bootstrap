@@ -1,7 +1,7 @@
 // arrayOf is the runtime of the array type t, read through the binding and through a frozen value.
 function arrayOf(mutates l Lowerer, mutates p ast.Project, site diag.Site, t ast.TypeID) returns ArrayBox
 	let bt = builtinOf(l, p: p, collection: t)
-	if p.types.entries[ast.typeIndex(bt)].kind != ast.TypeKind.builtinArray 'notArray'
+	if p.types.slots[ast.typeSlot(bt)][ast.typeIndex(bt)].kind != ast.TypeKind.builtinArray 'notArray'
 		panic("lower: {ast.typeName(p.types, t: t)} is not an array")
 	end 'notArray'
 	return ArrayBox.make(site.clone(), ty: bt)
@@ -12,11 +12,11 @@ end 'arrayOf'
 // asks this, so the two boxes are never mistaken for each other.
 function arrayPacked(p ast.Project, box ArrayBox) returns bool
 	let elem = ast.typeArgAt(p.types, t: box.ty, index: 0)
-	if p.types.entries[ast.typeIndex(elem)].kind != ast.TypeKind.intRange 'notInt'
+	if p.types.slots[ast.typeSlot(elem)][ast.typeIndex(elem)].kind != ast.TypeKind.intRange 'notInt'
 		return false
 	end 'notInt'
 	let byte = p.builtins.byteTy
-	return p.types.entries[ast.typeIndex(byte)].minVal.le(p.types.entries[ast.typeIndex(elem)].minVal) and p.types.entries[ast.typeIndex(byte)].maxVal.ge(p.types.entries[ast.typeIndex(elem)].maxVal)
+	return p.types.slots[ast.typeSlot(byte)][ast.typeIndex(byte)].minVal.le(p.types.slots[ast.typeSlot(elem)][ast.typeIndex(elem)].minVal) and p.types.slots[ast.typeSlot(byte)][ast.typeIndex(byte)].maxVal.ge(p.types.slots[ast.typeSlot(elem)][ast.typeIndex(elem)].maxVal)
 end 'arrayPacked'
 
 function arrayElem(p ast.Project, box ArrayBox) returns ast.TypeID

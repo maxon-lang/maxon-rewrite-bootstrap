@@ -440,7 +440,7 @@ function rangeCountedAccess(mutates r Ranges, p ast.Project, e ast.NodeID, info 
 	if not r.probing 'record'
 		var chosen = info.clone()
 		chosen.fn = countedAccessFunc(p, isGet: isGet, proven: proven)
-		chosen.intrinsic = p.funcs.entries[ast.funcIndex(chosen.fn)].intrinsic
+		chosen.intrinsic = p.funcs.slots[ast.funcSlot(chosen.fn)][ast.funcIndex(chosen.fn)].intrinsic
 		r.typing.calls.insert(e as Count, value: chosen)
 	end 'record'
 	if proven 'inside'
@@ -462,7 +462,7 @@ function countedAccessFunc(p ast.Project, isGet bool, proven bool) returns ast.F
 		return p.builtins.fixedArraySetProvenFunc
 	end 'provenSet'
 	let name = "get" if isGet else "set"
-	return p.types.entries[ast.typeIndex(p.builtins.fixedArrayOrigin)].findMethod(name).unwrap()
+	return p.types.slots[ast.typeSlot(p.builtins.fixedArrayOrigin)][ast.typeIndex(p.builtins.fixedArrayOrigin)].findMethod(name).unwrap()
 end 'countedAccessFunc'
 
 // rangeChangedAt is an expression that a call may change, if it names a place.

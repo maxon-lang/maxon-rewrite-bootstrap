@@ -46,7 +46,7 @@ function runtimeFunctionID(p ast.Project, module diag.ModuleID, ord ast.DeclOrdi
 end 'runtimeFunctionID'
 
 function matchesSignature(p ast.Project, fid ast.FuncID, want ir.RtFunction) returns bool
-	let f = p.funcs.entries[ast.funcIndex(fid)].clone()
+	let f = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].clone()
 	var result = f.retTy
 	if result == ast.noType 'void'
 		result = p.builtins.voidTy

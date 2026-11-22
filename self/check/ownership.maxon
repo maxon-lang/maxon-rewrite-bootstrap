@@ -547,7 +547,7 @@ end 'checkParamValues'
 // here on.
 function checkFunctionOwn(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body diag.U32, paramSites ast.NodeIDList)
 	o.c.boundedFn = ast.noFunc
-	if p.funcs.entries[ast.funcIndex(fid)].bounds.count() > 0 'bounded'
+	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bounds.count() > 0 'bounded'
 		o.c.boundedFn = fid
 	end 'bounded'
 	run(o, p: p, fid: fid, body: body, paramSites: paramSites)
@@ -574,22 +574,22 @@ function run(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body di
 	let fnSite = funcSite(o, p: p)
 	var s = OwnState.clean()
 	let receiver = ast.receiverLocal(p, f: fid)
-	if p.funcs.entries[ast.funcIndex(fid)].isDestructor 'destructor'
+	if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'destructor'
 		o.obliged.push(OwnObliged.make(receiver, site: fnSite, destroys: true))
-	end 'destructor' else if p.funcs.entries[ast.funcIndex(fid)].hasReceiver and p.funcs.entries[ast.funcIndex(fid)].selfConv == ast.Convention.convConsumes 'consumesSelf'
+	end 'destructor' else if p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].hasReceiver and p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].selfConv == ast.Convention.convConsumes 'consumesSelf'
 		oblige(o, p: p, l: receiver, site: fnSite)
 	end 'consumesSelf'
-	for i in 0 upto p.funcs.entries[ast.funcIndex(fid)].params.count() 'params'
+	for i in 0 upto p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
 		let sym = ast.paramLocal(p, f: fid, index: i)
 		let site = offsetOfOwn(o, p: p, node: paramSites[i])
-		let conv = p.funcs.entries[ast.funcIndex(fid)].params[i].conv
+		let conv = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].conv
 		if conv == ast.Convention.convSets 'sets'
 			o.setParams.push(sym)
 			s = withFact(s, fact: OwnFact.make(sym, site: site, kind: OwnFactKind.factUninitialised, dest: OwnDest.of(OwnDestKind.destVariable)))
 		end 'sets' else if conv == ast.Convention.convConsumes 'consumes'
 			if sym == ast.noLocal 'anonymous'
-				let t = p.funcs.entries[ast.funcIndex(fid)].paramTypes[i]
-				requireDroppable(o, p: p, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropParameter, name: p.funcs.entries[ast.funcIndex(fid)].params[i].name.clone()))
+				let t = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i]
+				requireDroppable(o, p: p, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropParameter, name: p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].name.clone()))
 			end 'anonymous' else 'named'
 				oblige(o, p: p, l: sym, site: site)
 			end 'named'
@@ -602,7 +602,7 @@ end 'run'
 
 // funcSite is where the function being checked is declared.
 function funcSite(o Ownership, p ast.Project) returns diag.U32
-	return offsetOfOwn(o, p: p, node: p.funcs.entries[ast.funcIndex(o.fn)].nodeID)
+	return offsetOfOwn(o, p: p, node: p.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].nodeID)
 end 'funcSite'
 
 function offsetOfOwn(o Ownership, p ast.Project, node ast.NodeID) returns diag.U32
@@ -892,19 +892,19 @@ end 'checkValues'
 // checkRawValueExprs checks the values that the cases of an enum or a union write after "=" and that are no literal: each is
 // built where it is read and given to the one who reads it.
 function checkRawValueExprs(mutates o Ownership, mutates p ast.Project, tid ast.TypeID)
-	for i in 0 upto p.types.entries[ast.typeIndex(tid)].cases.count() 'each'
-		let e = p.types.entries[ast.typeIndex(tid)].cases[i].rawExpr
+	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases.count() 'each'
+		let e = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases[i].rawExpr
 		if e != 0 'written'
-			checkValue(o, p: p, e: e, name: p.types.entries[ast.typeIndex(tid)].cases[i].name.clone())
+			checkValue(o, p: p, e: e, name: p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].cases[i].name.clone())
 		end 'written'
 	end 'each'
 end 'checkRawValueExprs'
 
 function checkFieldValues(mutates o Ownership, mutates p ast.Project, tid ast.TypeID)
-	for i in 0 upto p.types.entries[ast.typeIndex(tid)].fields.count() 'each'
-		if p.types.entries[ast.typeIndex(tid)].fields[i].hasDefault 'given'
-			let e = p.types.entries[ast.typeIndex(tid)].fields[i].defaultExpr
-			let name = p.types.entries[ast.typeIndex(tid)].fields[i].name.clone()
+	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields.count() 'each'
+		if p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].hasDefault 'given'
+			let e = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].defaultExpr
+			let name = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].name.clone()
 			checkValue(o, p: p, e: e, name: name)
 		end 'given'
 	end 'each'

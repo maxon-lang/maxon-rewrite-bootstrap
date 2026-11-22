@@ -144,8 +144,8 @@ end 'pathText'
 // builtinRecord is a new box of a record of the table, whose fields are the values by index.
 function builtinRecord(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, values RegList) returns Reg
 	let ty = applyType(l, p: p, t: t)
-	let origin = p.types.entries[ast.typeIndex(ty)].effectiveOrigin()
-	if p.types.entries[ast.typeIndex(ty)].kind != ast.TypeKind.record or p.types.entries[ast.typeIndex(origin)].fields.count() != values.count() 'shape'
+	let origin = p.types.slots[ast.typeSlot(ty)][ast.typeIndex(ty)].effectiveOrigin()
+	if p.types.slots[ast.typeSlot(ty)][ast.typeIndex(ty)].kind != ast.TypeKind.record or p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].fields.count() != values.count() 'shape'
 		panic("lower: {ast.typeName(p.types, t: t)} is not a record of {values.count()} fields")
 	end 'shape'
 	let box = newReg(l, kind: IrKind.kindManaged)

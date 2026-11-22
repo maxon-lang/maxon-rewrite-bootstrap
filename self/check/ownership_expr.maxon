@@ -84,7 +84,7 @@ function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consu
 	if path.steps.count() > 0 'part'
 		return movePart(o, p: p, e: e, path: path, dest: dest, s: out)
 	end 'part'
-	if o.c.typing.locals[path.root as Count].isSelf and p.funcs.entries[ast.funcIndex(o.fn)].isDestructor and dest.kind != OwnDestKind.destDestructor and dest.kind != OwnDestKind.destMatch 'destructor'
+	if o.c.typing.locals[path.root as Count].isSelf and p.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].isDestructor and dest.kind != OwnDestKind.destDestructor and dest.kind != OwnDestKind.destMatch 'destructor'
 		fail(o, p: p, site: site, code: diag.errDestructorMisuse, msg: "'self' is moved into {dest.text()}, but inside a destructor it may only be passed whole to another destructor of its type, which ends it there; move its fields out instead, or call a destructor")
 		return out
 	end 'destructor'
@@ -517,7 +517,7 @@ function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 		let orig = ast.originOf(p.types, t: call.unionTy)
 		var out = s
 		for i in 0 upto call.ordered.count() 'args'
-			let name = p.types.entries[ast.typeIndex(orig)].cases[call.unionCase].payload[i].name.clone()
+			let name = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[call.unionCase].payload[i].name.clone()
 			out = consume(o, p: p, e: call.ordered[i], dest: OwnDest.make(OwnDestKind.destField, name: name), s: out)
 		end 'args'
 		return out
@@ -541,9 +541,9 @@ end 'callExprOwn'
 // callError is the error that the function a call runs throws, or noType for a call that cannot fail.
 function callError(p ast.Project, call ast.CallInfo) returns ast.TypeID
 	if call.kind == ast.CallKind.callBound 'bound'
-		return p.funcs.entries[ast.funcIndex(call.method)].errTy
+		return p.funcs.slots[ast.funcSlot(call.method)][ast.funcIndex(call.method)].errTy
 	end 'bound'
-	return p.funcs.entries[ast.funcIndex(call.fn)].errTy
+	return p.funcs.slots[ast.funcSlot(call.fn)][ast.funcIndex(call.fn)].errTy
 end 'callError'
 
 function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, call ast.CallInfo, receiver ast.NodeID, consumes s OwnState) returns OwnState
@@ -844,7 +844,7 @@ function structLitOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	var out = s
 	for i in 0 upto lit.ordered.count() 'fields'
 		if lit.ordered[i] != 0 'given'
-			let name = p.types.entries[ast.typeIndex(orig)].fields[i].name.clone()
+			let name = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].fields[i].name.clone()
 			out = consume(o, p: p, e: lit.ordered[i], dest: OwnDest.make(OwnDestKind.destField, name: name), s: out)
 		end 'given'
 	end 'fields'

@@ -26,10 +26,10 @@ end 'recordFailureOf'
 // callErrorType is the error that the function a call runs throws, or none.
 function callErrorType(p ast.Project, info ast.CallInfo) returns ast.TypeID
 	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod 'target'
-		return p.funcs.entries[ast.funcIndex(info.fn)].errTy
+		return p.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].errTy
 	end 'target'
 	if info.kind == ast.CallKind.callBound 'bound'
-		return p.funcs.entries[ast.funcIndex(info.method)].errTy
+		return p.funcs.slots[ast.funcSlot(info.method)][ast.funcIndex(info.method)].errTy
 	end 'bound'
 	return ast.noType
 end 'callErrorType'
@@ -37,9 +37,9 @@ end 'callErrorType'
 // callTargetName is the name of the function that a call that throws runs.
 function callTargetName(p ast.Project, info ast.CallInfo) returns String
 	if info.kind == ast.CallKind.callBound 'bound'
-		return p.funcs.entries[ast.funcIndex(info.method)].name.clone()
+		return p.funcs.slots[ast.funcSlot(info.method)][ast.funcIndex(info.method)].name.clone()
 	end 'bound'
-	return p.funcs.entries[ast.funcIndex(info.fn)].name.clone()
+	return p.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].name.clone()
 end 'callTargetName'
 
 // reservedPrefix starts the names that the compiler keeps for its intrinsics.
@@ -139,10 +139,10 @@ end 'siblingMethod'
 function callSibling(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee ast.NodeID, method ast.FuncID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: callee)
 	let owner = c.owner
-	if p.funcs.entries[ast.funcIndex(method)].isStatic 'static'
+	if p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic 'static'
 		return callOnType(c, p: p, call: call, nt: owner, name: name, errs: errs)
 	end 'static'
-	if not p.funcs.entries[ast.funcIndex(c.fn)].hasReceiver 'noReceiver'
+	if not p.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].hasReceiver 'noReceiver'
 		return refuseInstanceMethodWithoutReceiver(c, p: p, node: callee, owner: owner, name: name, errs: errs)
 	end 'noReceiver'
 	let start = p.modules[c.modIdx].tree.startOf(callee)
@@ -208,7 +208,7 @@ function namesFunctionField(mutates c Checker, mutates p ast.Project, callee ast
 		return false
 	end 'notRecord'
 	let name = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
-	match consumes p.types.entries[ast.typeIndex(ast.originOf(p.types, t: t))].findField(name) 'field'
+	match consumes p.types.slots[ast.typeSlot(ast.originOf(p.types, t: t))][ast.typeIndex(ast.originOf(p.types, t: t))].findField(name) 'field'
 		some(index) then return fieldIsFunction(p, owner: t, index: index)
 		none then return false
 	end 'field'
@@ -266,7 +266,7 @@ end 'declaredFunction'
 
 // methodNamed is the method of that name that the declaration of a type has, or none.
 function methodNamed(p ast.Project, t ast.TypeID, name String) returns ast.FuncID
-	match p.types.entries[ast.typeIndex(ast.originOf(p.types, t: t))].findMethod(name) 'method'
+	match p.types.slots[ast.typeSlot(ast.originOf(p.types, t: t))][ast.typeIndex(ast.originOf(p.types, t: t))].findMethod(name) 'method'
 		some(fid) then return fid
 		none then return ast.noFunc
 	end 'method'
@@ -314,16 +314,16 @@ end 'lookedUp'
 // names the method through its module, so one of them has to go or take another name.
 function failAmbiguousMethod(c Checker, p ast.Project, node ast.NodeID, t ast.TypeID, name String, first ast.FuncID, second ast.FuncID, mutates errs diag.ErrorList)
 	let typeName = nameOfType(p, t: t)
-	let firstModule = ast.describeModule(p, modID: p.funcs.entries[ast.funcIndex(first)].module)
-	let secondModule = ast.describeModule(p, modID: p.funcs.entries[ast.funcIndex(second)].module)
+	let firstModule = ast.describeModule(p, modID: p.funcs.slots[ast.funcSlot(first)][ast.funcIndex(first)].module)
+	let secondModule = ast.describeModule(p, modID: p.funcs.slots[ast.funcSlot(second)][ast.funcIndex(second)].module)
 	failAt(c, p: p, node: node, code: diag.errAmbiguousExtension, msg: "'{typeName}.{name}' is ambiguous here: {extensionText(p, fid: first, module: firstModule)} and {extensionText(p, fid: second, module: secondModule)} both add '{name}' to '{typeName}', and {ast.describeModule(p, modID: c.modID)} sees both; a call cannot name the method through its module, so rename or remove one of the two", errs: errs)
 end 'failAmbiguousMethod'
 
 // extensionText names the extension that declares the method fid, in the module described.
 function extensionText(p ast.Project, fid ast.FuncID, module String) returns String
-	let iface = p.funcs.entries[ast.funcIndex(fid)].extendedIface
+	let iface = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].extendedIface
 	if iface != ast.noType 'ofInterface'
-		return "an extension of {p.types.entries[ast.typeIndex(iface)].name} in {module}"
+		return "an extension of {p.types.slots[ast.typeSlot(iface)][ast.typeIndex(iface)].name} in {module}"
 	end 'ofInterface'
 	return "an extension in {module}"
 end 'extensionText'
@@ -400,7 +400,7 @@ function callStringStatic(mutates c Checker, mutates p ast.Project, call ast.Nod
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return ast.noType
 	end 'ambiguous'
-	if sf != ast.noFunc and p.funcs.entries[ast.funcIndex(sf)].isStatic 'static'
+	if sf != ast.noFunc and p.funcs.slots[ast.funcSlot(sf)][ast.funcIndex(sf)].isStatic 'static'
 		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	end 'static'
 	return unknownFunction(c, p: p, call: call, name: "String.{name}", qualifiers: 1 as Count, errs: errs)
@@ -423,7 +423,7 @@ end 'typeParamNamed'
 function callOnTypeParam(mutates c Checker, mutates p ast.Project, call ast.NodeID, param ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	let paramName = nameOfType(p, t: param)
 	let req = boundRequirement(p, boundedFn: c.boundedFn, param: param, name: name)
-	if req.sig != ast.noFunc and p.funcs.entries[ast.funcIndex(req.sig)].isStatic 'static'
+	if req.sig != ast.noFunc and p.funcs.slots[ast.funcSlot(req.sig)][ast.funcIndex(req.sig)].isStatic 'static'
 		failAt(c, p: p, node: call, code: diag.errStaticRequirementNotDispatchable, msg: diag.staticRequirementNotDispatchable("{paramName}.{name}", reacher: "the type parameter '{paramName}'"), errs: errs)
 		return ast.noType
 	end 'static'
@@ -445,10 +445,10 @@ end 'boundRequirement'
 
 // callOnType types a call written on a type's name: a case of a union that carries a payload, or a static function.
 function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, nt ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
-	if p.types.entries[ast.typeIndex(nt)].kind == ast.TypeKind.typeParam 'parameter'
+	if p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].kind == ast.TypeKind.typeParam 'parameter'
 		return callOnTypeParam(c, p: p, call: call, param: nt, name: name, errs: errs)
 	end 'parameter'
-	if p.types.entries[ast.typeIndex(nt)].kind == ast.TypeKind.unionTy and p.types.entries[ast.typeIndex(ast.originOf(p.types, t: nt))].findCase(name).isSome() 'union'
+	if p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].kind == ast.TypeKind.unionTy and p.types.slots[ast.typeSlot(ast.originOf(p.types, t: nt))][ast.typeIndex(ast.originOf(p.types, t: nt))].findCase(name).isSome() 'union'
 		return unionConstructor(c, p: p, call: call, ut: nt, caseName: name, errs: errs)
 	end 'union'
 	if name == "create" and ast.originOf(p.types, t: nt) == p.builtins.fixedArrayOrigin 'fixedArray'
@@ -459,8 +459,8 @@ function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, n
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return ast.noType
 	end 'ambiguous'
-	if sm != ast.noFunc and p.funcs.entries[ast.funcIndex(sm)].isStatic 'static'
-		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: p.types.entries[ast.typeIndex(nt)].typeArgs.count() > 0, given: p.types.entries[ast.typeIndex(nt)].typeArgs.clone(), errs: errs)
+	if sm != ast.noFunc and p.funcs.slots[ast.funcSlot(sm)][ast.funcIndex(sm)].isStatic 'static'
+		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeArgs.count() > 0, given: p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeArgs.clone(), errs: errs)
 	end 'static'
 	if sm != ast.noFunc 'instance'
 		return refuseInstanceMethodWithoutReceiver(c, p: p, node: ast.callExprCallee(p.modules[c.modIdx].tree, id: call), owner: nt, name: name, errs: errs)
@@ -488,31 +488,31 @@ function callOnValue(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return ast.noType
 	end 'ambiguous'
-	if method != ast.noFunc and p.funcs.entries[ast.funcIndex(method)].extendedIface != ast.noType 'ofInterface'
+	if method != ast.noFunc and p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].extendedIface != ast.noType 'ofInterface'
 		return callInterfaceExtension(c, p: p, call: call, receiver: receiver, content: content, method: method, have: ast.seenInterfaces(p, from: c.modID, t: content), errs: errs)
 	end 'ofInterface'
-	if method != ast.noFunc and not p.funcs.entries[ast.funcIndex(method)].isStatic 'instance'
+	if method != ast.noFunc and not p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic 'instance'
 		return callMethod(c, p: p, call: call, receiver: receiver, content: content, method: method, name: name, errs: errs)
 	end 'instance'
 	return unknownFunction(c, p: p, call: call, name: "{nameOfType(p, t: receiver)}.{name}", qualifiers: 1 as Count, errs: errs)
 end 'callOnValue'
 
 function callMethod(mutates c Checker, mutates p ast.Project, call ast.NodeID, receiver ast.TypeID, content ast.TypeID, method ast.FuncID, name String, mutates errs diag.ErrorList) returns ast.TypeID
-	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: p.funcs.entries[ast.funcIndex(method)].selfConv, method: name, errs: errs) 'frozen'
+	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].selfConv, method: name, errs: errs) 'frozen'
 		return ast.noType
 	end 'frozen'
-	return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: p.types.entries[ast.typeIndex(content)].typeArgs.count() > 0, given: p.types.entries[ast.typeIndex(content)].typeArgs.clone(), errs: errs)
+	return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: p.types.slots[ast.typeSlot(content)][ast.typeIndex(content)].typeArgs.count() > 0, given: p.types.slots[ast.typeSlot(content)][ast.typeIndex(content)].typeArgs.clone(), errs: errs)
 end 'callMethod'
 
 // callInterfaceExtension types a call of the method that an extension of an interface adds, on a value of the type
 // content, which implements the interfaces have: the instance at content and the associated types that it binds, whose
 // bound the verify stage checks as any instance's, with the conformance the module of the call sees.
 function callInterfaceExtension(mutates c Checker, mutates p ast.Project, call ast.NodeID, receiver ast.TypeID, content ast.TypeID, method ast.FuncID, have ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
-	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: p.funcs.entries[ast.funcIndex(method)].selfConv, method: p.funcs.entries[ast.funcIndex(method)].name, errs: errs) 'frozen'
+	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].selfConv, method: p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].name, errs: errs) 'frozen'
 		return ast.noType
 	end 'frozen'
 	let args = ast.interfaceExtensionArgs(p, recv: content, have: have, fid: method)
-	queueBounds(c, p: p, off: offsetOf(c, p: p, node: call), params: ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(method)].generics), args: args)
+	queueBounds(c, p: p, off: offsetOf(c, p: p, node: call), params: ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].generics), args: args)
 	return callFunction(c, p: p, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: true, given: args, errs: errs)
 end 'callInterfaceExtension'
 
@@ -528,22 +528,22 @@ end 'requireNotFrozenChange'
 // callFunction types a call of a function, a method or a static function, once it is known which. given are the type
 // arguments of the instance a method or a static function is called on, which a generic callee takes as they are.
 function callFunction(mutates c Checker, mutates p ast.Project, call ast.NodeID, kind ast.CallKind, target ast.FuncID, hasGiven bool, given ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
-	if ast.intrinsicRuntimeOnly(p.funcs.entries[ast.funcIndex(target)].intrinsic) and not p.modules[c.modIdx].isRuntime 'outsideRuntime'
+	if ast.intrinsicRuntimeOnly(p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].intrinsic) and not p.modules[c.modIdx].isRuntime 'outsideRuntime'
 		failAt(c, p: p, node: call, code: diag.errRawIntrinsicOutsideRuntime, msg: diag.rawIntrinsicOutsideRuntime(funcSymbol(p, f: target)), errs: errs)
 		return ast.noType
 	end 'outsideRuntime'
 	if not requireVisible(c, p: p, node: call, target: target, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'
-	if p.funcs.entries[ast.funcIndex(target)].generics.count() > 0 'generic'
+	if p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].generics.count() > 0 'generic'
 		return callGeneric(c, p: p, call: call, kind: kind, target: target, hasGiven: hasGiven, given: given, errs: errs)
 	end 'generic'
-	let specs = p.funcs.entries[ast.funcIndex(target)].params.clone()
+	let specs = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].params.clone()
 	let callee = funcSymbol(p, f: target)
 	var info = ast.CallInfo.make(kind, fn: target, receiverTy: ast.noType)
 	info.paramSpecs = specs.clone()
-	info.selfConv = p.funcs.entries[ast.funcIndex(target)].selfConv
-	info.intrinsic = p.funcs.entries[ast.funcIndex(target)].intrinsic
+	info.selfConv = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].selfConv
+	info.intrinsic = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].intrinsic
 	if declares(c, p: p, f: target) 'declared'
 		let mark = errs.count()
 		info.ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receiverCount(p, f: target), argsChecked: false, payload: false, errs: errs)
@@ -551,14 +551,14 @@ function callFunction(mutates c Checker, mutates p ast.Project, call ast.NodeID,
 			return ast.noType
 		end 'failed'
 		c.typing.calls.insert(call as Count, value: info)
-		return p.funcs.entries[ast.funcIndex(target)].retTy
+		return p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].retTy
 	end 'declared'
 	c.typing.calls.insert(call as Count, value: info)
 	if not typeArgumentsOfOtherModule(c, p: p, call: call, specs: specs, errs: errs) 'badArgs'
 		return ast.noType
 	end 'badArgs'
 	queuePending(c, call: call, callee: callee, fn: target, specs: specs)
-	return p.funcs.entries[ast.funcIndex(target)].retTy
+	return p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].retTy
 end 'callFunction'
 
 // typeArgumentsOfOtherModule types the arguments of a call that is verified later, each with the type of the parameter it
@@ -590,7 +590,7 @@ end 'expectedFor'
 
 // receiverCount is how many arguments beyond its parameters a function takes: its receiver, which maxon counts in the arity of a method.
 function receiverCount(p ast.Project, f ast.FuncID) returns Count
-	if p.funcs.entries[ast.funcIndex(f)].hasReceiver 'method'
+	if p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].hasReceiver 'method'
 		return 1
 	end 'method'
 	return 0
@@ -600,8 +600,8 @@ end 'receiverCount'
 // on, which were checked against their bounds where the instance was written; without them they are inferred.
 function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, kind ast.CallKind, target ast.FuncID, hasGiven bool, given ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
 	let callee = funcSymbol(p, f: target)
-	let generics = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(target)].generics)
-	let declared = p.funcs.entries[ast.funcIndex(target)].params.clone()
+	let generics = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].generics)
+	let declared = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].params.clone()
 	var args = given.clone()
 	var specs = declared.clone()
 	var ordered = ast.NodeIDList.create(0)
@@ -626,8 +626,8 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 			return ast.noType
 		end 'badArgs'
 	end 'inferred'
-	let intrinsic = p.funcs.entries[ast.funcIndex(target)].intrinsic
-	let isFree = intrinsic != ast.Intrinsic.intrNone and p.funcs.entries[ast.funcIndex(target)].ownerTy == ast.noType
+	let intrinsic = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].intrinsic
+	let isFree = intrinsic != ast.Intrinsic.intrNone and p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].ownerTy == ast.noType
 	if isFree 'checkFirst'
 		checkIntrinsicArgs(c, p: p, call: call, target: target, ordered: ordered, errs: errs)
 		if failedSince(errs, mark: mark) 'badIntrinsic'
@@ -636,7 +636,7 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	end 'checkFirst'
 	let off = offsetOf(c, p: p, node: call)
 	if not hasGiven 'infer'
-		let result = p.funcs.entries[ast.funcIndex(target)].retTy
+		let result = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].retTy
 		args = infer(c, p: p, node: call, callee: callee, params: generics, specs: declared, ordered: ordered, result: result, errs: errs)
 		if failedSince(errs, mark: mark) 'cannotInfer'
 			return ast.noType
@@ -648,7 +648,7 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	var info = ast.CallInfo.make(kind, fn: target, receiverTy: ast.noType)
 	info.typeArgs = args.clone()
 	info.paramSpecs = specs.clone()
-	info.selfConv = p.funcs.entries[ast.funcIndex(target)].selfConv
+	info.selfConv = p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].selfConv
 	info.intrinsic = intrinsic
 	info.ordered = ordered.clone()
 	c.typing.calls.insert(call as Count, value: info)
@@ -672,7 +672,7 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 			end 'badArg'
 		end 'each'
 	end 'bound'
-	return ast.substituteType(p.types, t: p.funcs.entries[ast.funcIndex(target)].retTy, params: generics, args: args)
+	return ast.substituteType(p.types, t: p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].retTy, params: generics, args: args)
 end 'callGeneric'
 
 // unionConstructor types 'Union.case(payload)'. A generic union written without type arguments takes them from the
@@ -681,7 +681,7 @@ function unionConstructor(mutates c Checker, mutates p ast.Project, call ast.Nod
 	let orig = ast.originOf(p.types, t: ut)
 	let caseIndex = caseIndexNamed(p, orig: orig, name: caseName)
 	let unionName = nameOfType(p, t: ut)
-	if p.types.entries[ast.typeIndex(orig)].cases[caseIndex].payload.count() == 0 'noPayload'
+	if p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[caseIndex].payload.count() == 0 'noPayload'
 		failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: "case '{caseName}' carries no payload: write '{unionName}.{caseName}'", errs: errs)
 		return ast.noType
 	end 'noPayload'
@@ -692,12 +692,12 @@ function unionConstructor(mutates c Checker, mutates p ast.Project, call ast.Nod
 	var resolved = ut
 	let mark = errs.count()
 	var ordered = ast.NodeIDList.create(0)
-	if p.types.entries[ast.typeIndex(ut)].typeParams.count() > 0 'generic'
+	if p.types.slots[ast.typeSlot(ut)][ast.typeIndex(ut)].typeParams.count() > 0 'generic'
 		ordered = checkedArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: 0, errs: errs)
 		if failedSince(errs, mark: mark) 'badArgs'
 			return ast.noType
 		end 'badArgs'
-		let params = ast.cloneTypeArgs(p.types.entries[ast.typeIndex(ut)].typeParams)
+		let params = ast.cloneTypeArgs(p.types.slots[ast.typeSlot(ut)][ast.typeIndex(ut)].typeParams)
 		let own = ast.selfType(p.types, declTy: ut)
 		let args = infer(c, p: p, node: call, callee: unionName, params: params, specs: specs, ordered: ordered, result: own, errs: errs)
 		if failedSince(errs, mark: mark) 'cannotInfer'
@@ -728,19 +728,19 @@ end 'unionConstructor'
 
 // caseIndexNamed is the place of the case of that name among those of a union or an enum, which has one.
 function caseIndexNamed(p ast.Project, orig ast.TypeID, name String) returns Count
-	match p.types.entries[ast.typeIndex(orig)].findCase(name) 'case'
+	match p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].findCase(name) 'case'
 		some(i) then return i
 		none then _ = 0
 	end 'case'
-	panic("'{p.types.entries[ast.typeIndex(orig)].name}' has no case '{name}'")
+	panic("'{p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].name}' has no case '{name}'")
 end 'caseIndexNamed'
 
 // payloadSpecs are the parameters a union's constructor of a case takes: the payload, each consumed.
 function payloadSpecs(mutates p ast.Project, ut ast.TypeID, caseIndex Count) returns ast.ParamSpecList
 	let orig = ast.originOf(p.types, t: ut)
 	var specs = ast.ParamSpecList.create(0)
-	for i in 0 upto p.types.entries[ast.typeIndex(orig)].cases[caseIndex].payload.count() 'each'
-		let name = p.types.entries[ast.typeIndex(orig)].cases[caseIndex].payload[i].name.clone()
+	for i in 0 upto p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[caseIndex].payload.count() 'each'
+		let name = p.types.slots[ast.typeSlot(orig)][ast.typeIndex(orig)].cases[caseIndex].payload[i].name.clone()
 		let t = ast.payloadType(p.types, owner: ut, caseIndex: caseIndex, index: i)
 		specs.push(ast.ParamSpec.make(name, ty: t, conv: ast.Convention.convConsumes))
 	end 'each'
@@ -757,7 +757,7 @@ function boundCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, pa
 	for i in 0 upto bounds.count() 'candidates'
 		let named = requirementsNamed(p, iface: bounds[i], name: name)
 		if named.count() > 1 'inheritedTwice'
-			failAt(c, p: p, node: call, code: diag.errAmbiguousBound, msg: "'{name}' taking {p.funcs.entries[ast.funcIndex(named[0].sig)].params.count()} argument(s) is provided by both {requirementText(p, req: named[0])} and {requirementText(p, req: named[1])} through the constraints on type parameter '{nameOfType(p, t: param)}' — a witness dispatch binds ONE table slot, and these are two, so there is nothing to choose by. Rename one requirement, or drop one of the constraints", errs: errs)
+			failAt(c, p: p, node: call, code: diag.errAmbiguousBound, msg: "'{name}' taking {p.funcs.slots[ast.funcSlot(named[0].sig)][ast.funcIndex(named[0].sig)].params.count()} argument(s) is provided by both {requirementText(p, req: named[0])} and {requirementText(p, req: named[1])} through the constraints on type parameter '{nameOfType(p, t: param)}' — a witness dispatch binds ONE table slot, and these are two, so there is nothing to choose by. Rename one requirement, or drop one of the constraints", errs: errs)
 			return ast.noType
 		end 'inheritedTwice'
 		if named.count() == 0 or named[0].sig == sig 'absentOrSame'
@@ -784,17 +784,17 @@ function boundCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, pa
 		failAt(c, p: p, node: call, code: diag.errUnknownFunction, msg: "{nameOfType(p, t: param)} has no method '{name}'{boundsText(p, bounds: bounds, param: param)}", errs: errs)
 		return ast.noType
 	end 'notRequired'
-	if p.funcs.entries[ast.funcIndex(sig)].isStatic 'static'
-		failAt(c, p: p, node: call, code: diag.errStaticRequirementNotDispatchable, msg: diag.staticRequirementNotDispatchable("{p.types.entries[ast.typeIndex(iface)].name}.{name}", reacher: "a value of type parameter '{nameOfType(p, t: param)}'"), errs: errs)
+	if p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].isStatic 'static'
+		failAt(c, p: p, node: call, code: diag.errStaticRequirementNotDispatchable, msg: diag.staticRequirementNotDispatchable("{p.types.slots[ast.typeSlot(iface)][ast.typeIndex(iface)].name}.{name}", reacher: "a value of type parameter '{nameOfType(p, t: param)}'"), errs: errs)
 		return ast.noType
 	end 'static'
-	let selfConv = p.funcs.entries[ast.funcIndex(sig)].selfConv
+	let selfConv = p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].selfConv
 	if not requireNotFrozenChange(c, p: p, call: call, recv: receiver, conv: selfConv, method: name, errs: errs) 'frozen'
 		return ast.noType
 	end 'frozen'
 	let selfParams = requirementParams(p, iface: iface)
 	let selfArgs = requirementArgs(p, iface: iface, own: param)
-	let specs = applySpecs(p, specs: p.funcs.entries[ast.funcIndex(sig)].params.clone(), params: selfParams, args: selfArgs)
+	let specs = applySpecs(p, specs: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.clone(), params: selfParams, args: selfArgs)
 	let calleeName = "{nameOfType(p, t: param)}.{name}"
 	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: receiver)
 	info.method = sig
@@ -807,7 +807,7 @@ function boundCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, pa
 	end 'badArgs'
 	c.typing.calls.insert(call as Count, value: info)
 	recordUse(c, call: call)
-	return ast.substituteType(p.types, t: p.funcs.entries[ast.funcIndex(sig)].retTy, params: selfParams, args: selfArgs)
+	return ast.substituteType(p.types, t: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, params: selfParams, args: selfArgs)
 end 'boundCall'
 
 function oneType(t ast.TypeID) returns ast.TypeIDList

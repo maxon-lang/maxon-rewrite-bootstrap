@@ -108,12 +108,12 @@ end 'AccessPath'
 
 // fieldName is the name of the field a step selects.
 function fieldName(p ast.Project, step PathStep) returns String
-	return p.types.entries[ast.typeIndex(ast.originOf(p.types, t: step.owner))].fields[step.field].name.clone()
+	return p.types.slots[ast.typeSlot(ast.originOf(p.types, t: step.owner))][ast.typeIndex(ast.originOf(p.types, t: step.owner))].fields[step.field].name.clone()
 end 'fieldName'
 
 // fieldIsVar is whether the field a step selects may be assigned.
 function fieldIsVar(p ast.Project, step PathStep) returns bool
-	return p.types.entries[ast.typeIndex(ast.originOf(p.types, t: step.owner))].fields[step.field].isVar
+	return p.types.slots[ast.typeSlot(ast.originOf(p.types, t: step.owner))][ast.typeIndex(ast.originOf(p.types, t: step.owner))].fields[step.field].isVar
 end 'fieldIsVar'
 
 function pathText(o Ownership, p ast.Project, path AccessPath) returns String
@@ -154,7 +154,7 @@ end 'placeText'
 // withContents appends the steps from a value of type t to what it lends: one for each frozen value that t nests.
 function withContents(p ast.Project, mutates steps PathSteps, t ast.TypeID)
 	var cur = t
-	while cur != ast.noType and p.types.entries[ast.typeIndex(cur)].kind == ast.TypeKind.builtinFrozen 'frozen'
+	while cur != ast.noType and p.types.slots[ast.typeSlot(cur)][ast.typeIndex(cur)].kind == ast.TypeKind.builtinFrozen 'frozen'
 		steps.push(PathStep.contents())
 		cur = ast.typeArgAt(p.types, t: cur, index: 0)
 	end 'frozen'

@@ -64,7 +64,7 @@ export function typeSpan(tt ast.TypeTable, t ast.TypeID) returns Span
 	if not ast.isIntType(tt, t: t) 'notInt'
 		panic("ranges: {ast.typeName(tt, t: t)} is not an integer")
 	end 'notInt'
-	return Span.make(tt.entries[ast.typeIndex(t)].minVal.clone(), hi: tt.entries[ast.typeIndex(t)].maxVal.clone())
+	return Span.make(tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.clone(), hi: tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].maxVal.clone())
 end 'typeSpan'
 
 // ArithSpan is the span of the exact result of an operator, and how it fails beyond the result's range.

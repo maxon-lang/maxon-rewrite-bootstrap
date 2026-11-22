@@ -8,7 +8,7 @@ function hasZero(p ast.Project, t ast.TypeID) returns bool
 	if typeHasKind(p, t: t, kind: ast.TypeKind.floatRange) 'float'
 		return ast.floatRangeHolds(p.types, t: t, bits: 0)
 	end 'float'
-	return typeHasKind(p, t: t, kind: ast.TypeKind.intRange) and p.types.entries[ast.typeIndex(t)].minVal.le(ast.I128.zero()) and p.types.entries[ast.typeIndex(t)].maxVal.ge(ast.I128.zero())
+	return typeHasKind(p, t: t, kind: ast.TypeKind.intRange) and p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.le(ast.I128.zero()) and p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].maxVal.ge(ast.I128.zero())
 end 'hasZero'
 
 // checkArrayCreateArgs refuses Array.create(n) of an element that has no zero value, whose n slots would hold no element,

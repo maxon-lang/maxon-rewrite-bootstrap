@@ -143,7 +143,7 @@ end 'block'
 function addFunction(mutates p ast.Project, name String, errTy ast.TypeID) returns ast.FuncID
 	var entry = ast.FuncEntry.make(name.clone(), visibility: "", module: p.rootModule, nodeID: 0 as ast.NodeID)
 	entry.errTy = errTy
-	return ast.allocFunc(p.funcs, f: entry)
+	return ast.allocFunc(p.funcs, module: p.rootModule, f: entry)
 end 'addFunction'
 
 // allocRootType adds a type that the root module declares, as a link name needs every declared type to be in a module.
@@ -151,7 +151,7 @@ function allocRootType(mutates p ast.Project, consumes entry ast.TypeEntry) retu
 	var declared = entry
 	declared.hasDecl = true
 	declared.decl = ast.DeclRef.make(p.rootModule, ordinal: 0 as ast.DeclOrdinal)
-	return ast.allocType(p.types, e: declared)
+	return ast.allocType(p.types, module: p.rootModule, e: declared)
 end 'allocRootType'
 
 // addPairType declares the record Pair with a number and a string.

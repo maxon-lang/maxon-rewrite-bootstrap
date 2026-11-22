@@ -97,6 +97,9 @@ end 'shapeWordOf'
 
 // typeWord is the word that names t in the hash of a structure t is part of.
 function typeWord(tt TypeTable, t TypeID) returns Count
+	if typeSlot(t) != sharedSlot 'nominal'
+		return t as Count
+	end 'nominal'
 	return tt.words[typeIndex(t)]
 end 'typeWord'
 
@@ -130,6 +133,9 @@ function addShape(mutates tt TypeTable, t TypeID, word Count)
 	if tt.shapes.has(word) 'taken'
 		panic("{clashMessage(tt, word: word, existing: tt.shapes.get(word).unwrap(), other: typeName(tt, t: t))}")
 	end 'taken'
+	if typeSlot(t) != sharedSlot 'nominal'
+		panic("the nominal type '{typeName(tt, t: t)}' is recorded as a structure")
+	end 'nominal'
 	tt.shapes.insert(word, value: t)
 	tt.words[typeIndex(t)] = word
 end 'addShape'
@@ -145,8 +151,9 @@ function intRangeUnder(tt TypeTable, word Count, aliasName String, minVal I128, 
 		some(found) then id = found
 		none then return ShapeHit.absent
 	end 'hit'
+	let s = typeSlot(id)
 	let i = typeIndex(id)
-	if tt.entries[i].kind == TypeKind.intRange and tt.entries[i].name == aliasName and tt.entries[i].minVal.eq(minVal) and tt.entries[i].maxVal.eq(maxVal) and tt.entries[i].inferred == inferred 'same'
+	if tt.slots[s][i].kind == TypeKind.intRange and tt.slots[s][i].name == aliasName and tt.slots[s][i].minVal.eq(minVal) and tt.slots[s][i].maxVal.eq(maxVal) and tt.slots[s][i].inferred == inferred 'same'
 		return ShapeHit.same(id)
 	end 'same'
 	return shapeClash(tt, word: word, existing: id, other: "{aliasName} int({minVal.toString()} to {maxVal.toString()})")
@@ -163,8 +170,9 @@ function floatRangeUnder(tt TypeTable, word Count, aliasName String, lo Count, h
 		some(found) then id = found
 		none then return ShapeHit.absent
 	end 'hit'
+	let s = typeSlot(id)
 	let i = typeIndex(id)
-	if tt.entries[i].kind == TypeKind.floatRange and tt.entries[i].name == aliasName and tt.entries[i].minVal.eq(I128.fromCount(lo)) and tt.entries[i].maxVal.eq(I128.fromCount(hi)) 'same'
+	if tt.slots[s][i].kind == TypeKind.floatRange and tt.slots[s][i].name == aliasName and tt.slots[s][i].minVal.eq(I128.fromCount(lo)) and tt.slots[s][i].maxVal.eq(I128.fromCount(hi)) 'same'
 		return ShapeHit.same(id)
 	end 'same'
 	return shapeClash(tt, word: word, existing: id, other: "{aliasName} float with the bits {lo} to {hi}")
@@ -180,8 +188,9 @@ function constIntUnder(tt TypeTable, word Count, val I128) returns ShapeHit
 		some(found) then id = found
 		none then return ShapeHit.absent
 	end 'hit'
+	let s = typeSlot(id)
 	let i = typeIndex(id)
-	if tt.entries[i].kind == TypeKind.constInt and tt.entries[i].minVal.eq(val) 'same'
+	if tt.slots[s][i].kind == TypeKind.constInt and tt.slots[s][i].minVal.eq(val) 'same'
 		return ShapeHit.same(id)
 	end 'same'
 	return shapeClash(tt, word: word, existing: id, other: "const({val.toString()})")
@@ -197,8 +206,9 @@ function constFloatUnder(tt TypeTable, word Count, bits Count) returns ShapeHit
 		some(found) then id = found
 		none then return ShapeHit.absent
 	end 'hit'
+	let s = typeSlot(id)
 	let i = typeIndex(id)
-	if tt.entries[i].kind == TypeKind.constFloat and tt.entries[i].minVal.eq(I128.fromCount(bits)) 'same'
+	if tt.slots[s][i].kind == TypeKind.constFloat and tt.slots[s][i].minVal.eq(I128.fromCount(bits)) 'same'
 		return ShapeHit.same(id)
 	end 'same'
 	return shapeClash(tt, word: word, existing: id, other: "the float constant of the bits {bits}")
@@ -206,7 +216,7 @@ end 'constFloatUnder'
 
 // instanceWord is the word of the instance of origin at args, whose kind is the origin's.
 export function instanceWord(tt TypeTable, origin TypeID, args TypeIDList) returns Count
-	let kind = tt.entries[typeIndex(origin)].kind
+	let kind = tt.slots[typeSlot(origin)][typeIndex(origin)].kind
 	var h = shapeWordStep(shapeStart(kind, form: ShapeForm.instance), w: typeWord(tt, t: origin))
 	h = shapeWordStep(h, w: args.count())
 	for i in 0 upto args.count() 'each'
@@ -222,8 +232,9 @@ export function instanceUnder(tt TypeTable, word Count, origin TypeID, args Type
 		some(found) then id = found
 		none then return ShapeHit.absent
 	end 'hit'
+	let s = typeSlot(id)
 	let i = typeIndex(id)
-	if tt.entries[i].origin == origin and tt.entries[i].typeArgs.equals(args) 'same'
+	if tt.slots[s][i].origin == origin and tt.slots[s][i].typeArgs.equals(args) 'same'
 		return ShapeHit.same(id)
 	end 'same'
 	var names = StringList.create(0)
@@ -248,8 +259,9 @@ function funcOriginUnder(tt TypeTable, word Count, shape FuncShape) returns Shap
 		some(found) then id = found
 		none then return ShapeHit.absent
 	end 'hit'
+	let s = typeSlot(id)
 	let i = typeIndex(id)
-	if tt.entries[i].kind == TypeKind.funcTy and tt.entries[i].origin == noType and tt.entries[i].paramConvs.equals(shape.convs) and tt.entries[i].mutatesCaptures == shape.mutatesCaptures and brandKeyOf(tt, t: id) == shape.brand.key 'same'
+	if tt.slots[s][i].kind == TypeKind.funcTy and tt.slots[s][i].origin == noType and tt.slots[s][i].paramConvs.equals(shape.convs) and tt.slots[s][i].mutatesCaptures == shape.mutatesCaptures and brandKeyOf(tt, t: id) == shape.brand.key 'same'
 		return ShapeHit.same(id)
 	end 'same'
 	return shapeClash(tt, word: word, existing: id, other: "the origin of the function types with {shape.convs.count()} parameters of the brand '{shape.brand.key}'")
@@ -257,7 +269,7 @@ end 'funcOriginUnder'
 
 // brandKeyOf is the key of the brand that the function type origin t is, or "" for one that is no brand.
 function brandKeyOf(tt TypeTable, t TypeID) returns String
-	return match consumes tt.brandKeys.get(typeIndex(t)) 'key'
+	return match consumes tt.brandKeys.get(t as Count) 'key'
 		some(key) gives key
 		none gives ""
 	end 'key'
@@ -273,8 +285,9 @@ function tupleOriginUnder(tt TypeTable, word Count, arity Count) returns ShapeHi
 		some(found) then id = found
 		none then return ShapeHit.absent
 	end 'hit'
+	let s = typeSlot(id)
 	let i = typeIndex(id)
-	if tt.entries[i].isTuple and tt.entries[i].origin == noType and tt.entries[i].typeParams.count() == arity 'same'
+	if tt.slots[s][i].isTuple and tt.slots[s][i].origin == noType and tt.slots[s][i].typeParams.count() == arity 'same'
 		return ShapeHit.same(id)
 	end 'same'
 	return shapeClash(tt, word: word, existing: id, other: "Tuple{arity}")

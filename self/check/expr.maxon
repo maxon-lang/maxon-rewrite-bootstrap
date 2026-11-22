@@ -16,7 +16,7 @@ function isComparisonOp(op String) returns bool
 end 'isComparisonOp'
 
 function kindOfType(p ast.Project, t ast.TypeID) returns ast.TypeKind
-	return p.types.entries[ast.typeIndex(t)].kind
+	return p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind
 end 'kindOfType'
 
 function isConstInt(p ast.Project, t ast.TypeID) returns bool
@@ -219,7 +219,7 @@ function checkNameExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 	end 'local'
 	let rt = selfRecord(c, p: p)
 	if rt != ast.noType 'inMethod'
-		match consumes p.types.entries[ast.typeIndex(ast.originOf(p.types, t: rt))].findField(name) 'field'
+		match consumes p.types.slots[ast.typeSlot(ast.originOf(p.types, t: rt))][ast.typeIndex(ast.originOf(p.types, t: rt))].findField(name) 'field'
 			some(index) then return selfFieldType(c, p: p, e: e, rt: rt, name: name, index: index)
 			none then _ = 0
 		end 'field'
@@ -280,7 +280,7 @@ function checkSelfExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 		let owner = c.owner
 		return refuseBehaviourSelf(c, p: p, off: offsetOf(c, p: p, node: e), what: "'self'", t: owner, errs: errs)
 	end 'behaviour'
-	if c.fn == ast.noFunc or not p.funcs.entries[ast.funcIndex(c.fn)].hasReceiver 'outside'
+	if c.fn == ast.noFunc or not p.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].hasReceiver 'outside'
 		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
 		return ast.noType
 	end 'outside'
@@ -415,7 +415,7 @@ end 'checkOperator'
 // hasIdentity is whether a value of the type is an object that two names can stand for: a record, a string or a collection.
 // A number, a bool, an enum case, a union, a function and a type parameter are values with no object to name.
 function hasIdentity(p ast.Project, t ast.TypeID) returns bool
-	return match p.types.entries[ast.typeIndex(t)].kind 'kind'
+	return match p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind 'kind'
 		record gives true
 		primString gives true
 		builtinArray gives true
@@ -502,7 +502,7 @@ function checkIntegerOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 		setOperand(c, node: e, operand: p.builtins.anon64Ty)
 		return foldedType(c, p: p, off: off, rightOff: exprOffset(c, p: p, node: ast.binaryExprR(p.modules[c.modIdx].tree, id: e)), op: op, l: l, r: r, errs: errs)
 	end 'folded'
-	if (op == "/" or op == "mod") and rConst and p.types.entries[ast.typeIndex(r)].minVal.isZero() 'byZero'
+	if (op == "/" or op == "mod") and rConst and p.types.slots[ast.typeSlot(r)][ast.typeIndex(r)].minVal.isZero() 'byZero'
 		checkFail(c.modID, off: off, code: diag.errDivisionByZero, msg: diag.divisionByProvableZero(op), errs: errs)
 		return ast.noType
 	end 'byZero'
@@ -555,8 +555,8 @@ function wordPatternOf(p ast.Project, l ast.TypeID, r ast.TypeID) returns ast.Ty
 end 'wordPatternOf'
 
 function foldedType(mutates c Checker, mutates p ast.Project, off diag.U32, rightOff diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let a = p.types.entries[ast.typeIndex(l)].minVal.clone()
-	let b = p.types.entries[ast.typeIndex(r)].minVal.clone()
+	let a = p.types.slots[ast.typeSlot(l)][ast.typeIndex(l)].minVal.clone()
+	let b = p.types.slots[ast.typeSlot(r)][ast.typeIndex(r)].minVal.clone()
 	match consumes foldOp(c, off: off, rightOff: rightOff, op: op, a: a, b: b, errs: errs) 'value'
 		some(v) then return ast.internConstInt(p.types, val: v)
 		none then return ast.noType
@@ -608,7 +608,7 @@ function checkUnary(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 		return checkNot(c, p: p, off: off, t: t, want: want, errs: errs)
 	end 'not'
 	if isConstInt(p, t: t) 'constant'
-		return ast.internConstInt(p.types, val: p.types.entries[ast.typeIndex(t)].minVal.neg())
+		return ast.internConstInt(p.types, val: p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.neg())
 	end 'constant'
 	if ast.isFloatType(p.types, t: t) 'float'
 		return checkFloatNegation(p, t: t)
@@ -628,7 +628,7 @@ function checkNot(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.
 		return t
 	end 'bool'
 	if isConstInt(p, t: t) 'constant'
-		return ast.internConstInt(p.types, val: ast.notWord(p.types.entries[ast.typeIndex(t)].minVal))
+		return ast.internConstInt(p.types, val: ast.notWord(p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal))
 	end 'constant'
 	if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'range'
 		let lo = rangeLo(p.types, t: t)
@@ -641,7 +641,7 @@ function checkNot(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.
 			flippedLo = ast.I128.u64Max().sub(hi)
 			flippedHi = ast.I128.u64Max().sub(lo)
 		end 'unsigned'
-		if p.types.entries[ast.typeIndex(t)].bitsWidth != 0 or (flippedLo.eq(lo) and flippedHi.eq(hi)) 'closed'
+		if p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].bitsWidth != 0 or (flippedLo.eq(lo) and flippedHi.eq(hi)) 'closed'
 			return t
 		end 'closed'
 		if typeHasKind(p, t: want, kind: ast.TypeKind.intRange) 'expected'
@@ -664,8 +664,8 @@ function checkNegation(mutates c Checker, mutates p ast.Project, off diag.U32, t
 	if typeHasKind(p, t: want, kind: ast.TypeKind.intRange) 'expected'
 		return want
 	end 'expected'
-	let lo = p.types.entries[ast.typeIndex(t)].maxVal.neg()
-	let hi = p.types.entries[ast.typeIndex(t)].minVal.neg()
+	let lo = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].maxVal.neg()
+	let hi = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].minVal.neg()
 	let word = p.builtins.anon64Ty
 	return exactType(p, word: word, lo: lo, hi: hi)
 end 'checkNegation'
@@ -755,7 +755,7 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 		if retags(p.types, a: src, b: target) 'identity'
 			return target
 		end 'identity'
-		if p.types.entries[ast.typeIndex(target)].typeArgs.count() > 0 and not p.types.entries[ast.typeIndex(target)].isTuple 'container'
+		if p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].typeArgs.count() > 0 and not p.types.slots[ast.typeSlot(target)][ast.typeIndex(target)].isTuple 'container'
 			checkFail(c.modID, off: off, code: diag.errCastTargetIsAContainer, msg: diag.castTargetIsAContainer(nameOfType(p, t: target), source: nameOfType(p, t: src)), errs: errs)
 			return ast.noType
 		end 'container'
@@ -774,7 +774,7 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 		return ast.noType
 	end 'fromFloat'
 	if isConstInt(p, t: src) 'constant'
-		let value = p.types.entries[ast.typeIndex(src)].minVal.clone()
+		let value = p.types.slots[ast.typeSlot(src)][ast.typeIndex(src)].minVal.clone()
 		if not intRangeHolds(p.types, dst: target, v: value) 'doesNotFit'
 			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: valueOutOfRange(p, value: value.toString(), target: target), errs: errs)
 			return ast.noType
@@ -1027,7 +1027,7 @@ function checkFallback(mutates c Checker, mutates p ast.Project, e ast.NodeID, f
 		return ast.noType
 	end 'failed'
 	if typeIsNamedInt(p.types, t: result) and isConstInt(p, t: other) and fallbackIsPlainLiteral(p, c: c, fallback: fallback) 'literal'
-		let value = p.types.entries[ast.typeIndex(other)].minVal.clone()
+		let value = p.types.slots[ast.typeSlot(other)][ast.typeIndex(other)].minVal.clone()
 		if not intRangeHolds(p.types, dst: result, v: value) 'doesNotFit'
 			failAt(c, p: p, node: e, code: diag.errTypeMismatch, msg: otherwiseValueOutOfRange(p, value: value.toString(), target: result), errs: errs)
 			return ast.noType

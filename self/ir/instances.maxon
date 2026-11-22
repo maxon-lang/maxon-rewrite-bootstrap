@@ -23,13 +23,13 @@ end 'InstanceSet'
 // typeDepth is how deeply instances nest in t: a parameter or a plain type is 0, and Box with (Box with Count) is 2. A body
 // that calls itself with a growing type argument has no end, which a limit on the depth finds.
 export function typeDepth(tt ast.TypeTable, t ast.TypeID) returns Count
-	let n = tt.entries[ast.typeIndex(t)].typeArgs.count()
+	let n = tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].typeArgs.count()
 	if n == 0 'plain'
 		return 0
 	end 'plain'
 	var deepest = 0 as Count
 	for i in 0 upto n 'args'
-		let d = typeDepth(tt, t: tt.entries[ast.typeIndex(t)].typeArgs[i])
+		let d = typeDepth(tt, t: tt.slots[ast.typeSlot(t)][ast.typeIndex(t)].typeArgs[i])
 		if d > deepest 'deeper'
 			deepest = d
 		end 'deeper'
@@ -57,7 +57,7 @@ end 'resolveCall'
 // resolveTarget is resolveCall for a call at site whose object is already known.
 export function resolveTarget(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, receiver ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
 	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod 'direct'
-		if p.funcs.entries[ast.funcIndex(info.fn)].generics.count() == 0 'plain'
+		if p.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].generics.count() == 0 'plain'
 			return table.Option.some(info.fn)
 		end 'plain'
 		let args = applyAll(p.types, ts: info.typeArgs, params: bindParams, args: bindArgs)
@@ -67,13 +67,13 @@ export function resolveTarget(mutates p ast.Project, module diag.ModuleID, site 
 		// A frozen receiver lends its contents, so the method is the one of the type it holds.
 		let received = ast.substituteType(p.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
 		let recv = ast.contentType(p.types, t: received)
-		let origin = p.types.entries[ast.typeIndex(recv)].effectiveOrigin()
-		let name = p.funcs.entries[ast.funcIndex(info.method)].name.clone()
-		if p.types.entries[ast.typeIndex(origin)].findMethod(name).isSome() 'own'
+		let origin = p.types.slots[ast.typeSlot(recv)][ast.typeIndex(recv)].effectiveOrigin()
+		let name = p.funcs.slots[ast.funcSlot(info.method)][ast.funcIndex(info.method)].name.clone()
+		if p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].findMethod(name).isSome() 'own'
 			return witnessFor(p, module: module, site: site, recv: recv, name: name, conformance: module, errs: errs)
 		end 'own'
 		let param = ast.contentType(p.types, t: info.receiverTy)
-		let conformance = passedWitness(p, enclosing: bindWitnesses, param: param, iface: p.funcs.entries[ast.funcIndex(info.method)].ownerTy)
+		let conformance = passedWitness(p, enclosing: bindWitnesses, param: param, iface: p.funcs.slots[ast.funcSlot(info.method)][ast.funcIndex(info.method)].ownerTy)
 		return witnessFor(p, module: module, site: site, recv: recv, name: name, conformance: conformance, errs: errs)
 	end 'bound'
 	panic("call kind {info.kind.name} has no function to resolve")
@@ -83,8 +83,8 @@ end 'resolveTarget'
 // an extension of the type adds where the module of the conformance sees it, as an instance for a generic type's
 // arguments, or else the instance for recv of the one that an extension of an interface it implements adds there.
 function witnessFor(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, recv ast.TypeID, name String, conformance diag.ModuleID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
-	let origin = p.types.entries[ast.typeIndex(recv)].effectiveOrigin()
-	match consumes p.types.entries[ast.typeIndex(origin)].findMethod(name) 'found'
+	let origin = p.types.slots[ast.typeSlot(recv)][ast.typeIndex(recv)].effectiveOrigin()
+	match consumes p.types.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].findMethod(name) 'found'
 		some(method) then return instantiateMethod(p, module: module, site: site, method: method, recv: recv, errs: errs)
 		none then _ = 0
 	end 'found'
@@ -129,12 +129,12 @@ end 'passedWitness'
 // not see, or sees twice.
 function instantiateWith(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, origin ast.FuncID, written ast.TypeIDList, args ast.TypeIDList, enclosing ast.WitnessList, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
 	let slots = ast.boundSlots(p, fn: origin)
-	let generics = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(origin)].generics)
+	let generics = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].generics)
 	var witnesses = ast.WitnessList.create(0)
 	for i in 0 upto slots.count() 'slots'
 		let gi = indexOfParam(generics, param: slots[i].paramTy)
 		let declared = slots[i].ifaceTy
-		if p.types.entries[ast.typeIndex(written[gi])].kind == ast.TypeKind.typeParam 'passed'
+		if p.types.slots[ast.typeSlot(written[gi])][ast.typeIndex(written[gi])].kind == ast.TypeKind.typeParam 'passed'
 			let passedIface = ast.substituteType(p.types, t: declared, params: generics, args: written)
 			witnesses.push(ast.Witness.make(slots[i].paramTy, ifaceTy: declared, module: passedWitness(p, enclosing: enclosing, param: written[gi], iface: passedIface)))
 			continue 'slots'
@@ -167,7 +167,7 @@ end 'instantiateWith'
 // meets them by conformances of two modules: a call of a method of that interface through the bounds would find the
 // methods each of those modules sees, and no order chooses between them.
 function requireOneConformance(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, origin ast.FuncID, args ast.TypeIDList, witnesses ast.WitnessList, mutates errs diag.ErrorList) returns bool
-	let generics = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(origin)].generics)
+	let generics = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].generics)
 	for i in 0 upto witnesses.count() 'later'
 		for j in 0 upto i 'earlier'
 			let a = witnesses[j].clone()
@@ -185,12 +185,12 @@ end 'requireOneConformance'
 
 // sharesInterface is whether the interfaces a and b are, or extend, one interface.
 function sharesInterface(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns bool
-	let origin = tt.entries[ast.typeIndex(a)].effectiveOrigin()
+	let origin = tt.slots[ast.typeSlot(a)][ast.typeIndex(a)].effectiveOrigin()
 	if ast.reachesInterface(tt, have: b, want: origin) 'reached'
 		return true
 	end 'reached'
-	for i in 0 upto tt.entries[ast.typeIndex(origin)].conforms.count() 'parents'
-		if sharesInterface(tt, a: tt.entries[ast.typeIndex(origin)].conforms[i], b: b) 'shared'
+	for i in 0 upto tt.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].conforms.count() 'parents'
+		if sharesInterface(tt, a: tt.slots[ast.typeSlot(origin)][ast.typeIndex(origin)].conforms[i], b: b) 'shared'
 			return true
 		end 'shared'
 	end 'parents'
@@ -214,17 +214,17 @@ end 'indexOfParam'
 // instantiateMethod is a method of the type recv: itself, or for one of a generic type the instance for the type's
 // arguments, with the conformances that the module of the call sees.
 function instantiateMethod(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, method ast.FuncID, recv ast.TypeID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
-	if p.funcs.entries[ast.funcIndex(method)].generics.count() == 0 'plain'
+	if p.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].generics.count() == 0 'plain'
 		return table.Option.some(method)
 	end 'plain'
-	let args = ast.cloneTypeArgs(p.types.entries[ast.typeIndex(recv)].typeArgs)
+	let args = ast.cloneTypeArgs(p.types.slots[ast.typeSlot(recv)][ast.typeIndex(recv)].typeArgs)
 	return instantiateWith(p, module: module, site: site, origin: method, written: args, args: args, enclosing: ast.WitnessList.create(0), errs: errs)
 end 'instantiateMethod'
 
 // visitUses finds the instances that the calls a function records need, a for's calls of the iteration protocol among them,
 // with the type parameters of the code bound and the conformances it was given.
 function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
-	let node = p.funcs.entries[ast.funcIndex(fn)].nodeID
+	let node = p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].nodeID
 	var recorded = ast.NodeIDList.create(0)
 	match consumes p.typings[ast.modIndex(module)].funcUses.get(node as Count) 'recorded'
 		some(list) then recorded = list
@@ -310,14 +310,14 @@ function noteInstance(mutates p ast.Project, module diag.ModuleID, site ast.Node
 end 'noteInstance'
 
 function noteFound(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, target ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
-	if p.funcs.entries[ast.funcIndex(target)].genericOrigin == ast.noFunc or found.has(target) 'known'
+	if p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].genericOrigin == ast.noFunc or found.has(target) 'known'
 		return true
 	end 'known'
 	found.add(target)
 	if not requireFinite(p, module: module, site: site, instance: target, errs: errs) 'deep'
 		return false
 	end 'deep'
-	if p.funcs.entries[ast.funcIndex(target)].module == diag.stdlibID 'std'
+	if p.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].module == diag.stdlibID 'std'
 		panic("{funcSymbol(p, fid: target)} is a generic of the standard library, which has no body to lower")
 	end 'std'
 	return true
@@ -337,8 +337,8 @@ export function findInstances(mutates p ast.Project, callers ast.FuncIDList, mut
 	let unbound = ast.TypeIDList.create(0)
 	for i in 0 upto callers.count() 'callers'
 		let fn = callers[i]
-		if p.funcs.entries[ast.funcIndex(fn)].generics.count() == 0 'plain'
-			let owner = p.funcs.entries[ast.funcIndex(fn)].module
+		if p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].generics.count() == 0 'plain'
+			let owner = p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module
 			if not visitUses(p, module: owner, fn: fn, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), found: found, errs: errs) 'deep'
 				return found
 			end 'deep'
@@ -347,11 +347,11 @@ export function findInstances(mutates p ast.Project, callers ast.FuncIDList, mut
 	var next = 0 as Count
 	while next < found.list.count() 'follow'
 		let instance = found.list[next]
-		let origin = p.funcs.entries[ast.funcIndex(instance)].genericOrigin
-		let params = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(origin)].generics)
-		let args = ast.cloneTypeArgs(p.funcs.entries[ast.funcIndex(instance)].typeArgs)
-		let owner = p.funcs.entries[ast.funcIndex(origin)].module
-		let witnesses = p.funcs.entries[ast.funcIndex(instance)].witnesses.clone()
+		let origin = p.funcs.slots[ast.funcSlot(instance)][ast.funcIndex(instance)].genericOrigin
+		let params = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].generics)
+		let args = ast.cloneTypeArgs(p.funcs.slots[ast.funcSlot(instance)][ast.funcIndex(instance)].typeArgs)
+		let owner = p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].module
+		let witnesses = p.funcs.slots[ast.funcSlot(instance)][ast.funcIndex(instance)].witnesses.clone()
 		if not visitUses(p, module: owner, fn: origin, bindParams: params, bindArgs: args, bindWitnesses: witnesses, found: found, errs: errs) 'deep'
 			return found
 		end 'deep'
@@ -364,10 +364,10 @@ end 'findInstances'
 // larger type each time would otherwise never run out of instances. Every module that reaches such an instance refuses it
 // at the call that asks for the too deep one, so which module found it first does not matter.
 function requireFinite(p ast.Project, module diag.ModuleID, site ast.NodeID, instance ast.FuncID, mutates errs diag.ErrorList) returns bool
-	let args = p.funcs.entries[ast.funcIndex(instance)].typeArgs.clone()
+	let args = p.funcs.slots[ast.funcSlot(instance)][ast.funcIndex(instance)].typeArgs.clone()
 	for i in 0 upto args.count() 'each'
 		if typeDepth(p.types, t: args[i]) > ast.maxTypeDepth 'deep'
-			let origin = p.funcs.entries[ast.funcIndex(instance)].genericOrigin
+			let origin = p.funcs.slots[ast.funcSlot(instance)][ast.funcIndex(instance)].genericOrigin
 			let message = "'{funcSymbol(p, fid: origin)}' needs a type that nests more than {ast.maxTypeDepth} levels deep, so the generic grows its own type argument without end; pass the same type argument on, or end the recursion"
 			diag.pushSiteError(errs, code: diag.errInstantiationTooDeep, message: message, module: module, offset: p.modules[ast.modIndex(module)].tree.startOf(site))
 			return false

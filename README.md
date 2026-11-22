@@ -86,7 +86,10 @@ each stage of the task graph: the wall time its tasks took, in milliseconds, and
 tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. The tasks
 run one at a time, so the stages' times add up to the compile's. The clock is read twice per task and only when the flag is on.
 `--count-allocations` builds an executable that counts its live heap boxes (see "Counting allocations"); it is for
-development, and `minimaxon test` always uses it. `--update-positions` makes `test` rewrite the `at L:C` of an
+development, and `minimaxon test` always uses it. `--reverse-modules` (development only) runs the modules of each stage
+in another order that still puts each after the modules it names: the modules that name nothing of each other in the
+reverse of their usual order. The executable must be byte for byte the one a plain build makes, since nothing a module
+makes depends on when it runs. `--update-positions` makes `test` rewrite the `at L:C` of an
 `expect-error` whose code was reported at another place, and count the test as passed.
 
 ### Tests
@@ -549,7 +552,7 @@ what it finds out is a table it owns, indexed by `NodeID`. Nothing adds a node a
 | `ast.NodeID` | a node of one module: its index in `Tree.records`, counted from 1 in the order the parser makes them; 0 is no node |
 | `diag.Site` | where a node is: its module and the byte offset of its first token |
 | `ast.DeclRef` | a top-level declaration: its module and its `DeclOrdinal`, its index in `Module.decls` |
-| `ast.TypeID`, `ast.FuncID` | a type or a function: its index in the project's `TypeTable` or `FuncTable`, which every module shares; 0 is none (`noType`, `noFunc`) |
+| `ast.TypeID`, `ast.FuncID` | a type or a function: a word whose bits 32-47 name its slot of the `TypeTable` or `FuncTable` and whose bits 0-31 are its index there. Slot 0 holds the built-ins, the stdlib, every structural type (an instance, a range, a constant, a function type's origin, a tuple) and every instance of a generic function, which any module may make; slot 1 + m holds the types and functions module m declares and the closures and behaviours its bodies make, which only m's stages make, so their handles depend on m's source alone. 0 is none (`noType`, `noFunc`) |
 | `ast.LocalID` | a local variable: its index in the module's `Typing.locals`; 0 is none |
 
 A node's index depends only on its module's text, so a module that did not change keeps its indexes and tables. What is

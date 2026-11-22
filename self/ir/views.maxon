@@ -148,7 +148,7 @@ end 'lowerViewMethod'
 
 // lowerViewCall lowers a call that the program writes of a method of a view or an iterator.
 function lowerViewCall(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg) returns Reg
-	let op = p.funcs.entries[ast.funcIndex(c.info.fn)].intrinsic
+	let op = p.funcs.slots[ast.funcSlot(c.info.fn)][ast.funcIndex(c.info.fn)].intrinsic
 	return lowerViewMethod(l, p: p, op: op, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node), recv: recv, exit: noBlock)
 end 'lowerViewCall'
 

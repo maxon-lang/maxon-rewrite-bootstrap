@@ -233,6 +233,7 @@ type Run
 	var lowered as backend.FunctionLists
 	var kept as backend.FunctionLists
 	var keepsLowered as bool
+	var reversesModules as bool
 	var units as backend.UnitList
 	// failed is whether a task failed, and failedPhase the earliest phase that one did in.
 	var failed as bool
@@ -243,7 +244,7 @@ type Run
 	var timings as Timings
 
 	static function make(goal Goal, first Count, makesProgram bool, modules Count) returns Run
-		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), keepsLowered: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off()}
+		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), keepsLowered: false, reversesModules: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off()}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors.
@@ -280,6 +281,7 @@ end 'noChecked'
 function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList) returns Run
 	var run = Run.make(goal, first: first, makesProgram: makesProgram, modules: p.modules.count())
 	run.keepsLowered = options.keepsLowered
+	run.reversesModules = options.reversesModules
 	run.earlierErrors = errs.count()
 	if options.timings 'timed'
 		run.timings = Timings.start(Stage.allCaseNames, modules: p.modules.count())
@@ -288,10 +290,7 @@ function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles
 		run.failed = true
 		run.failedPhase = phaseOf(Stage.parse)
 	end 'earlier'
-	var modules = check.ModuleOrder.create(0)
-	for m in first upto p.modules.count() 'modules'
-		modules.push(p.modules[m].id)
-	end 'modules'
+	let modules = independentOrder(run, p: p)
 	if from == Stage.parse 'parse'
 		run.graph.addModuleTasks(Stage.parse, order: modules, p: p, first: first)
 		run.graph.addProjectTask(Stage.parsed)
@@ -354,6 +353,7 @@ function execute(mutates run Run, mutates p ast.Project, memory project.SourceFi
 		end 'run'
 		t = try t + 1 otherwise panic("driver: more tasks than memory")
 	end 'tasks'
+	ast.endTasks(p.types, ft: p.funcs)
 end 'execute'
 
 function mustSkip(graph TaskGraph, task Count, failed bool, failedPhase Count) returns bool
@@ -418,6 +418,11 @@ end 'runTimedTask'
 // runTask runs one task: every stage's work starts and ends here.
 function runTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
 	let m = run.graph.tasks[task].module
+	if isModuleStage(run.graph.tasks[task].stage) 'ofModule'
+		ast.beginModuleTask(p.types, ft: p.funcs, module: p.modules[m].id)
+	end 'ofModule' else 'ofProject'
+		ast.beginProjectTask(p.types, ft: p.funcs)
+	end 'ofProject'
 	match run.graph.tasks[task].stage 's'
 		parse then project.parseModule(p, modIdx: m, memory: memory, errs: errs)
 		parsed then return
@@ -444,7 +449,7 @@ function orderModules(mutates run Run, mutates p ast.Project, mutates errs diag.
 	let graph = project.newGraph(p)
 	match project.checkAcyclic(graph, p: p) 'cycle'
 		some(cycleError) then errs.push(cycleError.clone())
-		none then addCheckTasks(run, p: p, order: modulesFrom(project.topoOrder(graph), first: run.first))
+		none then addCheckTasks(run, p: p, order: scheduled(run, p: p, order: modulesFrom(project.topoOrder(graph), first: run.first)))
 	end 'cycle'
 end 'orderModules'
 
@@ -474,13 +479,71 @@ function addCheckTasks(mutates run Run, mutates p ast.Project, order check.Modul
 	if run.goal == Goal.instances 'instances'
 		return
 	end 'instances'
-	var modules = check.ModuleOrder.create(0)
-	for m in first upto p.modules.count() 'modules'
-		modules.push(p.modules[m].id)
-	end 'modules'
-	run.graph.addModuleTasks(Stage.emit, order: modules, p: p, first: first)
+	run.graph.addModuleTasks(Stage.emit, order: independentOrder(run, p: p), p: p, first: first)
 	run.graph.addProjectTask(Stage.link)
 end 'addCheckTasks'
+
+// independentOrder is the order of the modules the compile compiles for a stage that reads nothing of the modules they
+// name: by their index, or the other way for a compile that reverses them.
+function independentOrder(run Run, p ast.Project) returns check.ModuleOrder
+	var modules = check.ModuleOrder.create(0)
+	for m in run.first upto p.modules.count() 'modules'
+		modules.push(p.modules[m].id)
+	end 'modules'
+	if not run.reversesModules 'kept'
+		return modules
+	end 'kept'
+	var reversed = check.ModuleOrder.create(0)
+	var i = modules.count()
+	while i > 0 'each'
+		i = i - 1
+		reversed.push(modules[i])
+	end 'each'
+	return reversed
+end 'independentOrder'
+
+typealias Placed = Array with bool
+
+// scheduled is the order the stages that read the modules a module names visit the modules in: order, or, for a compile
+// that reverses them, the order that puts each time the last module of order whose named modules are all placed.
+function scheduled(run Run, p ast.Project, consumes order check.ModuleOrder) returns check.ModuleOrder
+	if not run.reversesModules 'kept'
+		return order
+	end 'kept'
+	var placed = Placed.create(0)
+	for _ in 0 upto p.modules.count() 'none'
+		placed.push(false)
+	end 'none'
+	var result = check.ModuleOrder.create(0)
+	while result.count() < order.count() 'pick'
+		var picked = false
+		var i = order.count()
+		while i > 0 and not picked 'latest'
+			i = i - 1
+			let m = ast.modIndex(order[i])
+			if not placed[m] and namedPlaced(p, m: m, first: run.first, placed: placed) 'ready'
+				placed[m] = true
+				result.push(order[i])
+				picked = true
+			end 'ready'
+		end 'latest'
+		if not picked 'stuck'
+			panic("driver: the modules of the order name one another")
+		end 'stuck'
+	end 'pick'
+	return result
+end 'scheduled'
+
+// namedPlaced is whether every module that module m names and the compile compiles is placed.
+function namedPlaced(p ast.Project, m Count, first Count, placed Placed) returns bool
+	for j in 0 upto p.resolutions[m].deps.count() 'deps'
+		let d = ast.modIndex(p.resolutions[m].deps[j].module)
+		if d >= first and not placed[d] 'waiting'
+			return false
+		end 'waiting'
+	end 'deps'
+	return true
+end 'namedPlaced'
 
 // modulesFrom is the modules of order that stand at index first or after it, in order.
 function modulesFrom(order check.ModuleOrder, first Count) returns check.ModuleOrder

@@ -115,7 +115,7 @@ export type Selector
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
 	// routines of its types, which are asked for in the order the code does.
 	function prepare(mutates self, mutates p ast.Project, f ir.IrFunction)
-		canThrow = p.funcs.entries[ast.funcIndex(f.decl)].errTy != ast.noType
+		canThrow = p.funcs.slots[ast.funcSlot(f.decl)][ast.funcIndex(f.decl)].errTy != ast.noType
 		calleeSymbols = CalleeSymbols.new()
 		for i in 0 upto f.callees.count() 'callees'
 			calleeSymbols.insert(f.callees[i] as Count, value: ast.funcLinkName(p, fid: f.callees[i]))
@@ -1053,7 +1053,7 @@ end 'selectFunctionTree'
 export function emitModule(mutates p ast.Project, fns ir.IrFunctionList) returns CodeUnit
 	var sel = Selector.new()
 	for i in 0 upto fns.count() 'each'
-		selectFunctionTree(sel, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.entries[ast.funcIndex(fns[i].decl)].genericOrigin != ast.noFunc)
+		selectFunctionTree(sel, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.slots[ast.funcSlot(fns[i].decl)][ast.funcIndex(fns[i].decl)].genericOrigin != ast.noFunc)
 	end 'each'
 	sel.u.asm.endLabels()
 	return exchange(sel.u, value: CodeUnit.new())

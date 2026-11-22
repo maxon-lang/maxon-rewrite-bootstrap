@@ -553,8 +553,8 @@ function allocShellTypeParams(mutates p ast.Project, modID diag.ModuleID, tid as
 		end 'dup'
 		seen.insert(tpName.clone(), value: true)
 		let tpEntry = ast.TypeEntry.make(ast.TypeKind.typeParam, name: tpName)
-		let tpTid = ast.allocType(p.types, e: tpEntry)
-		p.types.entries[ast.typeIndex(tid)].typeParams.push(tpTid)
+		let tpTid = ast.allocType(p.types, module: modID, e: tpEntry)
+		p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].typeParams.push(tpTid)
 	end 'each'
 end 'allocShellTypeParams'
 
@@ -578,7 +578,7 @@ function allocRecordShell(mutates p ast.Project, ref ast.DeclRef, td ast.TypeDec
 	e.hasDecl = true
 	e.decl = ref.clone()
 	e.isNoncopyable = td.isNoncopyable
-	let tid = ast.allocType(p.types, e: e)
+	let tid = ast.allocType(p.types, module: ref.module, e: e)
 	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: td.typeParams, errs: errs)
 	ast.setDeclType(p, ref: ref, t: tid)
 end 'allocRecordShell'
@@ -587,7 +587,7 @@ function allocEnumShell(mutates p ast.Project, ref ast.DeclRef, ed ast.EnumDecl)
 	var e = ast.TypeEntry.make(ast.TypeKind.enumTy, name: ed.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let tid = ast.allocType(p.types, e: e)
+	let tid = ast.allocType(p.types, module: ref.module, e: e)
 	ast.setDeclType(p, ref: ref, t: tid)
 end 'allocEnumShell'
 
@@ -596,7 +596,7 @@ function allocUnionShell(mutates p ast.Project, ref ast.DeclRef, ud ast.UnionDec
 	e.hasDecl = true
 	e.decl = ref.clone()
 	e.isNoncopyable = ud.isNoncopyable
-	let tid = ast.allocType(p.types, e: e)
+	let tid = ast.allocType(p.types, module: ref.module, e: e)
 	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ud.typeParams, errs: errs)
 	ast.setDeclType(p, ref: ref, t: tid)
 end 'allocUnionShell'
@@ -605,7 +605,7 @@ function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.Interfa
 	var e = ast.TypeEntry.make(ast.TypeKind.interfaceTy, name: ifd.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let tid = ast.allocType(p.types, e: e)
+	let tid = ast.allocType(p.types, module: ref.module, e: e)
 	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ifd.typeParams, errs: errs)
 	ast.setDeclType(p, ref: ref, t: tid)
 end 'allocIfaceShell'

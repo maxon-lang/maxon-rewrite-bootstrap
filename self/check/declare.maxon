@@ -75,9 +75,9 @@ end 'boundedParamOf'
 // paramNamed is the shell parameter of a generic declaration that a declared parameter has, found by its name because
 // the shells leave out a parameter that repeats one.
 function paramNamed(p ast.Project, owner ast.TypeID, name String) returns table.Option with ast.TypeID
-	for i in 0 upto p.types.entries[ast.typeIndex(owner)].typeParams.count() 'each'
-		let tid = p.types.entries[ast.typeIndex(owner)].typeParams[i]
-		if p.types.entries[ast.typeIndex(tid)].name == name 'hit'
+	for i in 0 upto p.types.slots[ast.typeSlot(owner)][ast.typeIndex(owner)].typeParams.count() 'each'
+		let tid = p.types.slots[ast.typeSlot(owner)][ast.typeIndex(owner)].typeParams[i]
+		if p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].name == name 'hit'
 			return table.Option.some(tid)
 		end 'hit'
 	end 'each'
@@ -106,7 +106,7 @@ function declareBounds(mutates c Checker, mutates p ast.Project, constraints ast
 			if failedSince(errs, mark: mark) 'failed'
 				return
 			end 'failed'
-			p.types.entries[ast.typeIndex(constrained)].bounds.push(ast.ParamBound.make(constrained, ifaceTy: iface))
+			p.types.slots[ast.typeSlot(constrained)][ast.typeIndex(constrained)].bounds.push(ast.ParamBound.make(constrained, ifaceTy: iface))
 		end 'bounds'
 	end 'each'
 end 'declareBounds'
@@ -123,7 +123,7 @@ function declareFunctionTypeParams(mutates c Checker, mutates p ast.Project, par
 			checkFail(c.modID, off: offsetOf(c, p: p, node: params[i].id), code: diag.errDuplicateDefinition, msg: "type parameter '{params[i].name}' is declared twice", errs: errs)
 			return
 		end 'dup'
-		let tid = ast.allocType(p.types, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: params[i].name.clone()))
+		let tid = ast.allocType(p.types, module: c.modID, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: params[i].name.clone()))
 		ast.setParamType(p, module: c.modID, node: params[i].id, t: tid)
 		generics.push(tid)
 	end 'each'
@@ -136,7 +136,7 @@ function declareNominalTypeParams(mutates c Checker, mutates p ast.Project, owne
 	for i in 0 upto params.count() 'each'
 		match paramNamed(p, owner: owner, name: params[i].name) 'shell'
 			some(tid) then ast.setParamType(p, module: c.modID, node: params[i].id, t: tid)
-			none then panic("the shell of '{p.types.entries[ast.typeIndex(owner)].name}' has no type parameter '{params[i].name}'")
+			none then panic("the shell of '{p.types.slots[ast.typeSlot(owner)][ast.typeIndex(owner)].name}' has no type parameter '{params[i].name}'")
 		end 'shell'
 	end 'each'
 	declareBounds(c, p: p, constraints: constraints, errs: errs)
@@ -154,7 +154,7 @@ end 'optOutAdvice'
 function declareConforms(mutates c Checker, mutates p ast.Project, interfaces diag.U32, nt ast.TypeID, mutates errs diag.ErrorList)
 	let named = conformedInterfaces(c, p: p, interfaces: interfaces, capabilities: false, errs: errs)
 	for i in 0 upto named.count() 'each'
-		p.types.entries[ast.typeIndex(nt)].conforms.push(named[i])
+		p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].conforms.push(named[i])
 	end 'each'
 end 'declareConforms'
 
@@ -171,7 +171,7 @@ function conformedInterfaces(mutates c Checker, mutates p ast.Project, interface
 			return named
 		end 'failed'
 		if p.builtins.isCapability(iface) and not capabilities 'capability'
-			let name = p.types.entries[ast.typeIndex(iface)].name.clone()
+			let name = p.types.slots[ast.typeSlot(iface)][ast.typeIndex(iface)].name.clone()
 			checkFail(c.modID, off: offsetOf(c, p: p, node: tr), code: diag.errCapabilityMisuse, msg: "'{name}' is not implemented by saying so: every type has it unless it opts out or holds a part that lacks it; remove it from 'implements'{optOutAdvice(p, iface: iface)}", errs: errs)
 			continue 'each'
 		end 'capability'
@@ -237,7 +237,7 @@ function errorOf(mutates c Checker, mutates p ast.Project, site ast.NodeID, thro
 		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: diag.throwsNamesNoError(ast.typeRefName(p.modules[c.modIdx].tree, id: throwsRef)), errs: errs)
 		return ast.noType
 	end 'unresolved'
-	if p.types.entries[ast.typeIndex(t)].kind == ast.TypeKind.interfaceTy 'interface'
+	if p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind == ast.TypeKind.interfaceTy 'interface'
 		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: diag.throwsNamesAnInterface(ast.typeName(p.types, t: t)), errs: errs)
 		return ast.noType
 	end 'interface'
@@ -261,10 +261,10 @@ function declareSignature(mutates c Checker, mutates p ast.Project, it ast.TypeI
 		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
 		return
 	end 'clone'
-	for i in 0 upto p.types.entries[ast.typeIndex(it)].sigs.count() 'each'
-		let sig = p.types.entries[ast.typeIndex(it)].sigs[i]
-		if p.funcs.entries[ast.funcIndex(sig)].name == m.name 'exists'
-			checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateRequirement(m.name, interfaceName: p.types.entries[ast.typeIndex(it)].name), errs: errs)
+	for i in 0 upto p.types.slots[ast.typeSlot(it)][ast.typeIndex(it)].sigs.count() 'each'
+		let sig = p.types.slots[ast.typeSlot(it)][ast.typeIndex(it)].sigs[i]
+		if p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].name == m.name 'exists'
+			checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateRequirement(m.name, interfaceName: p.types.slots[ast.typeSlot(it)][ast.typeIndex(it)].name), errs: errs)
 			return
 		end 'exists'
 	end 'each'
@@ -273,7 +273,7 @@ function declareSignature(mutates c Checker, mutates p ast.Project, it ast.TypeI
 	fn.isStatic = m.isStatic
 	fn.hasReceiver = not m.isStatic
 	fn.ownerTy = it
-	let selfTy = p.types.entries[ast.typeIndex(it)].selfParam
+	let selfTy = p.types.slots[ast.typeSlot(it)][ast.typeIndex(it)].selfParam
 	let mark = errs.count()
 	paramSpecs(c, p: p, params: m.params, selfTy: selfTy, specs: fn.params, errs: errs)
 	if failedSince(errs, mark: mark) 'badParams'
@@ -290,7 +290,7 @@ function declareSignature(mutates c Checker, mutates p ast.Project, it ast.TypeI
 	if failedSince(errs, mark: mark) 'badThrows'
 		return
 	end 'badThrows'
-	p.types.entries[ast.typeIndex(it)].sigs.push(ast.allocFunc(p.funcs, f: fn))
+	p.types.slots[ast.typeSlot(it)][ast.typeIndex(it)].sigs.push(ast.allocFunc(p.funcs, module: c.modID, f: fn))
 end 'declareSignature'
 
 // typeNamed is the type that a name written as an expression names, or none if it names no type. A generic type names
@@ -308,7 +308,7 @@ function typeNamed(c Checker, p ast.Project, name ast.NodeID, mutates errs diag.
 		return ast.noType
 	end 'local'
 	let rt = selfRecord(c, p: p)
-	if rt != ast.noType and p.types.entries[ast.typeIndex(ast.originOf(p.types, t: rt))].findField(spelling).isSome() 'field'
+	if rt != ast.noType and p.types.slots[ast.typeSlot(ast.originOf(p.types, t: rt))][ast.typeIndex(ast.originOf(p.types, t: rt))].findField(spelling).isSome() 'field'
 		return ast.noType
 	end 'field'
 	match consumes p.resolutions[c.modIdx].decls.get(name as Count) 'bound'
@@ -333,12 +333,12 @@ end 'nominalOrNone'
 
 // requireInstance refuses a generic declaration where a type is needed and no call can infer its arguments.
 function requireInstance(c Checker, p ast.Project, off diag.U32, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if p.types.entries[ast.typeIndex(nt)].typeParams.count() > 0 'generic'
+	if p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeParams.count() > 0 'generic'
 		var names = ast.StringList.create(0)
-		for i in 0 upto p.types.entries[ast.typeIndex(nt)].typeParams.count() 'params'
-			names.push(p.types.entries[ast.typeIndex(p.types.entries[ast.typeIndex(nt)].typeParams[i])].name.clone())
+		for i in 0 upto p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeParams.count() 'params'
+			names.push(p.types.slots[ast.typeSlot(p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeParams[i])][ast.typeIndex(p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].typeParams[i])].name.clone())
 		end 'params'
-		let tName = p.types.entries[ast.typeIndex(nt)].name.clone()
+		let tName = p.types.slots[ast.typeSlot(nt)][ast.typeIndex(nt)].name.clone()
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' is generic: name an instance with a typealias, as 'typealias Name = {ast.instanceSpelling(tName, args: names)}'", errs: errs)
 	end 'generic'
 	return nt
@@ -391,13 +391,13 @@ end 'defaultType'
 function declareFieldDefaults(mutates c Checker, mutates p ast.Project, tid ast.TypeID, mutates errs diag.ErrorList)
 	let selfTy = ast.selfType(p.types, declTy: tid)
 	enterContext(c, p: p, f: ast.noFunc, owner: selfTy, calls: false)
-	for i in 0 upto p.types.entries[ast.typeIndex(tid)].fields.count() 'each'
-		if p.types.entries[ast.typeIndex(tid)].fields[i].hasDefault 'hasDefault'
+	for i in 0 upto p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields.count() 'each'
+		if p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].hasDefault 'hasDefault'
 			let mark = errs.count()
-			let defaultExpr = p.types.entries[ast.typeIndex(tid)].fields[i].defaultExpr
+			let defaultExpr = p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].defaultExpr
 			let t = defaultType(c, p: p, e: defaultExpr, selfTy: selfTy, errs: errs)
 			if not failedSince(errs, mark: mark) 'typed'
-				p.types.entries[ast.typeIndex(tid)].fields[i].ty = t
+				p.types.slots[ast.typeSlot(tid)][ast.typeIndex(tid)].fields[i].ty = t
 			end 'typed'
 		end 'hasDefault'
 	end 'each'

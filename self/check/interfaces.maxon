@@ -53,11 +53,11 @@ export function valueRefusal(p ast.Project, iface ast.TypeID) returns String
 	let reqs = ast.requirementsOf(p.types, iface: iface)
 	for i in 0 upto reqs.count() 'each'
 		let sig = reqs[i].sig
-		let name = p.funcs.entries[ast.funcIndex(sig)].name.clone()
-		if p.funcs.entries[ast.funcIndex(sig)].isStatic 'static'
+		let name = p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].name.clone()
+		if p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].isStatic 'static'
 			return "its requirement '{name}' is static, and a static function has no value to run on"
 		end 'static'
-		let selfParam = p.types.entries[ast.typeIndex(ast.originOf(p.types, t: reqs[i].iface))].selfParam
+		let selfParam = p.types.slots[ast.typeSlot(ast.originOf(p.types, t: reqs[i].iface))][ast.typeIndex(ast.originOf(p.types, t: reqs[i].iface))].selfParam
 		if selfParam != ast.noType and namesType(p, sig: sig, t: selfParam) 'self'
 			return "its requirement '{name}' names 'Self', which is another type in each value"
 		end 'self'
@@ -67,11 +67,11 @@ end 'valueRefusal'
 
 // namesType is whether the signature of a function names the type t in a parameter or in its result.
 function namesType(p ast.Project, sig ast.FuncID, t ast.TypeID) returns bool
-	if p.funcs.entries[ast.funcIndex(sig)].retTy != ast.noType and ast.mentionsType(p.types, t: p.funcs.entries[ast.funcIndex(sig)].retTy, target: t) 'result'
+	if p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy != ast.noType and ast.mentionsType(p.types, t: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, target: t) 'result'
 		return true
 	end 'result'
-	for i in 0 upto p.funcs.entries[ast.funcIndex(sig)].params.count() 'params'
-		if ast.mentionsType(p.types, t: p.funcs.entries[ast.funcIndex(sig)].params[i].ty, target: t) 'param'
+	for i in 0 upto p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.count() 'params'
+		if ast.mentionsType(p.types, t: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params[i].ty, target: t) 'param'
 			return true
 		end 'param'
 	end 'params'
@@ -81,7 +81,7 @@ end 'namesType'
 // boxable is whether a value of the type t can be put in an interface value: a value of a type that can implement an
 // interface, or of a type parameter, whose bounds say which. A float is not one, as in maxon.
 function boxable(p ast.Project, t ast.TypeID) returns bool
-	let k = p.types.entries[ast.typeIndex(t)].kind
+	let k = p.types.slots[ast.typeSlot(t)][ast.typeIndex(t)].kind
 	return k == ast.TypeKind.typeParam or typeIsNominal(p.types, t: t) or ast.extensionKey(p, t: t).isSome()
 end 'boxable'
 
@@ -211,10 +211,10 @@ function witnessCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	let sig = named[0].sig
 	let selfParams = requirementParams(p, iface: named[0].iface)
 	let selfArgs = requirementArgs(p, iface: named[0].iface, own: iface)
-	let specs = applySpecs(p, specs: p.funcs.entries[ast.funcIndex(sig)].params.clone(), params: selfParams, args: selfArgs)
+	let specs = applySpecs(p, specs: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.clone(), params: selfParams, args: selfArgs)
 	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: receiver)
 	info.method = sig
-	info.selfConv = p.funcs.entries[ast.funcIndex(sig)].selfConv
+	info.selfConv = p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].selfConv
 	info.paramSpecs = specs.clone()
 	let mark = errs.count()
 	info.ordered = bindArgs(c, p: p, call: call, callee: "{ifaceName}.{name}", specs: specs, receivers: 0, argsChecked: false, payload: false, errs: errs)
@@ -222,5 +222,5 @@ function witnessCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 		return ast.noType
 	end 'badArgs'
 	c.typing.calls.insert(call as Count, value: info)
-	return ast.substituteType(p.types, t: p.funcs.entries[ast.funcIndex(sig)].retTy, params: selfParams, args: selfArgs)
+	return ast.substituteType(p.types, t: p.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, params: selfParams, args: selfArgs)
 end 'witnessCall'
