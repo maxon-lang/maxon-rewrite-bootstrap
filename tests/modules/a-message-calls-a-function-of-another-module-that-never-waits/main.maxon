@@ -1,0 +1,26 @@
+// native-only
+// A message may call a function of another module whose check published that it never waits on another party.
+type Doubler
+	var n as lib.Amount
+
+	static function create() returns Self
+		return Self{n: 3}
+	end 'create'
+
+	export function twice(mutates self)
+		self.n = lib.double(self.n)
+	end 'twice'
+
+	export function value() returns lib.Amount
+		return self.n
+	end 'value'
+end 'Doubler'
+
+function main() returns ExitCode
+	let h = spawn Doubler.create()
+	try h.twice() otherwise ignore
+	print("{try await h.value() otherwise 0}\n")
+	return 0
+end 'main'
+
+//> 6

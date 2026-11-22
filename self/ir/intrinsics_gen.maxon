@@ -407,6 +407,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return lowerServiceShutdown(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceShutdown'
+	if op == ast.Intrinsic.intrPromiseCancel 'intrPromiseCancel'
+		return lowerPromiseCancel(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrPromiseCancel'
+	if op == ast.Intrinsic.intrPromiseIsComplete 'intrPromiseIsComplete'
+		return lowerPromiseIsComplete(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrPromiseIsComplete'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return lowerFilePathFrom(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFilePathFrom'
@@ -1000,6 +1006,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return false
 	end 'intrServiceShutdown'
+	if op == ast.Intrinsic.intrPromiseCancel 'intrPromiseCancel'
+		return false
+	end 'intrPromiseCancel'
+	if op == ast.Intrinsic.intrPromiseIsComplete 'intrPromiseIsComplete'
+		return false
+	end 'intrPromiseIsComplete'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return false
 	end 'intrFilePathFrom'

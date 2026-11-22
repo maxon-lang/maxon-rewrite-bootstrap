@@ -87,7 +87,7 @@ typealias Tally = int(0 to u64.max)
 
 function bump(mutates n Tally, k Tally) returns Tally
 	sleep(1)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return k
 end 'bump'
 
@@ -116,7 +116,7 @@ typealias Tally = int(0 to u64.max)
 
 function bump(mutates n Tally, k Tally) returns Tally
 	sleep(1)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return k
 end 'bump'
 
@@ -334,7 +334,7 @@ typealias Tally = int(0 to u64.max)
 
 function bump(mutates n Tally, k Tally) returns Tally
 	sleep(1)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return k
 end 'bump'
 
@@ -343,7 +343,7 @@ function main() returns ExitCode
 	let promise = async bump(n, k: 1)
 	Scheduler.yield()
 	promise.cancel()
-	n = n + 10
+	n = try n + 10 otherwise panic("out of range")
 	print("{n}\n")
 	return 0
 end 'main'

@@ -1409,9 +1409,9 @@ type Averager
 		return Self{total: 0.0, count: 0}
 	end 'create'
 
-	export function take(celsius FullRangeFloat)
+	export function take(mutates self, celsius FullRangeFloat)
 		self.total = self.total + celsius
-		self.count = self.count + 1
+		self.count = try self.count + 1 otherwise panic("out of range")
 	end 'take'
 
 	export function averageHundredths() returns Integer

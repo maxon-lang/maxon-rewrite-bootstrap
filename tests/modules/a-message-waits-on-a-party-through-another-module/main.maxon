@@ -1,0 +1,27 @@
+// What a function of another module may wait for is what its module's check published: a message that calls one that
+// awaits a reply would hold its service while it waits.
+type Asker
+	var got as lib.Amount
+
+	static function create() returns Self
+		return Self{got: 0}
+	end 'create'
+
+	export function ask(mutates self, peer lib.Peer.handle)
+		self.got = lib.askPeer(peer)
+	end 'ask'
+
+	export function twice(mutates self)
+		self.got = lib.double(self.got)
+	end 'twice'
+end 'Asker'
+
+function main() returns ExitCode
+	let peer = spawn lib.Peer.create()
+	let asker = spawn Asker.create()
+	try asker.ask(peer.clone()) otherwise ignore
+	try asker.twice() otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3221 at 10:2

@@ -4803,7 +4803,6 @@ error E3200: <fragment>:41:37: 'f()' crosses to the service the `spawn` starts o
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-a-reply -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and a service method does not return it to its sender (ruling 50 points 3 and 1).
 ```maxon

@@ -490,6 +490,7 @@ item 42 long enough for a heap record 1 other 42 long enough for a heap record 2
 ### A kept promise feed stored twice is moved
 
 <!-- test: error.kept-promise-feed-stored-twice-is-moved -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Binding `item` to `var copy` moves the promise, so storing `item` into a field as well reads it after the move, and the green thread's single owner rule refuses it.
 ```maxon

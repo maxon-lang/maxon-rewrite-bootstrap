@@ -1,0 +1,40 @@
+// A behaviour in generic code takes a value of a type parameter, which crosses to the behaviour's thread only where the
+// type argument does: each instance is judged at its own, and an interface value does not cross.
+interface Named
+	function named() returns String
+end 'Named'
+
+type Word implements Named
+	var text as String
+
+	static function make(consumes text String) returns Word
+		return Word{text: text}
+	end 'make'
+
+	function named() returns String
+		return "word {self.text}"
+	end 'named'
+end 'Word'
+
+type Log
+	export var lines as Array with String
+
+	static function make() returns Log
+		return Log{lines: Array.create(0)}
+	end 'make'
+end 'Log'
+
+function relay(into cown with Log, consumes item T) uses T where T implements Named and Droppable
+	when into as l 'record'
+		l.lines.push(item.named())
+	end 'record'
+end 'relay'
+
+function main() returns ExitCode
+	let log = cown(Log.make())
+	relay(share(log), item: Word.make("fine"))
+	relay(log, item: Word.make("boxed") as Named)
+	return 0
+end 'main'
+
+// expect-error: E3909 at 29:16

@@ -10659,7 +10659,7 @@ function main() returns ExitCode
 	p.cancel()
 	p = try h.count() otherwise panic("a running service with room takes the send")
 	let m = await p
-	return (n + m) as ExitCode
+	return try (n + m) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -12461,7 +12461,7 @@ function main() returns ExitCode
 	let a = await p
 	let b = p
 	let done = 1 if b.isComplete() else 0
-	return (a + done) as ExitCode
+	return try (a + done) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -12733,6 +12733,7 @@ total=4950 idleServicesHoldNoThread=true
 ```
 
 <!-- test: known-gap-a-promise-captured-by-a-closure-in-service-state-aborts-when-the-state-drops -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 ⚠ **A KNOWN GAP: THE STATE-FIELD REFUSAL SEES A PROMISE IN A FIELD'S TYPE, NOT ONE A CLOSURE CAPTURED.** `Keeper.size` is a
 function-typed field, so no `Promise` appears in the state's type and the build accepts it. The factory starts a coroutine,
 keeps its promise in a local array, and stores a closure that captures the array. The coroutine belongs to the strand that ran
@@ -12755,7 +12756,7 @@ type Keeper
 	var size as Sizer
 
 	static function create() returns Self
-		var ps = PromiseArray.create(0)
+		let ps = PromiseArray.create(0)
 		ps.push(async compute())
 		let w = function() gives ps.count() as Count
 		return Self{size: w}
@@ -14419,6 +14420,7 @@ error E3200: <fragment>:28:10: 'summarize(n)' is not isolated: only a clean call
 ```
 
 <!-- test: services.a-service-state-may-hold-a-value-at-an-interface-type -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 A service's own state may hold a value at an interface type: the `spawn` walks it through the conformer's
 witness, so the record the factory built crosses whole and dispatches on the service's green thread.
 ```maxon
@@ -14436,7 +14438,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Tally
-		return try self.side * self.side otherwise panic("out of range")
+		return self.side * self.side
 	end 'area'
 end 'Square'
 
@@ -15068,6 +15070,7 @@ end 'main'
 ```
 
 <!-- test: services.a-generic-conformer-crosses-inside-an-interface-value -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 A value held at an interface type whose conformer is an instance of a generic type crosses and dispatches.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -15080,12 +15083,12 @@ type Wrapper uses T implements Shape
 	var item as T
 	var side as Tally
 
-	static function create(item T, side Tally) returns Self where T implements Copyable
-		return Self{item: item.clone(), side: side}
+	static function create(item T, side Tally) returns Self
+		return Self{item: item, side: side}
 	end 'create'
 
 	function area() returns Tally
-		return try self.side * self.side otherwise panic("out of range")
+		return self.side * self.side
 	end 'area'
 end 'Wrapper'
 

@@ -79,6 +79,7 @@ function newGreen(context Count, code Count, kind Count) returns Count
 	__Raw.storeWord(g, offset: greenStrandTailOffset, value: noGreen)
 	__Raw.storeWord(g, offset: greenStrandLockOffset, value: unset)
 	__Raw.storeWord(g, offset: greenErrorOffset, value: 0)
+	__Raw.storeWord(g, offset: greenCancelOffset, value: unset)
 	return g
 end 'newGreen'
 

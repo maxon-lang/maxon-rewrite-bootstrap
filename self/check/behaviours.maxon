@@ -88,9 +88,9 @@ end 'captureLocal'
 // when its call or match does, long before the behaviour runs.
 function requireCapturable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, use ast.NodeID, outer ast.LocalID, mutates errs diag.ErrorList) returns bool
 	let source = c.typing.locals[outer as Count].clone()
-	if not ast.isManagedType(ms.types, reads: p.types, t: source.ty) or not borrowsValue(source) 'fine'
-		return true
-	end 'fine'
+	if not ast.isManagedType(ms.types, reads: p.types, t: source.ty) or not borrowsValue(source) 'owned'
+		return requireCrossing(c, p: p, ms: ms, use: use, name: source.name, t: source.ty, errs: errs)
+	end 'owned'
 	var what = "a let or 'mutates' parameter"
 	if source.projected and isForVariable(ms.tree(), l: source) 'element'
 		what = "the variable of a loop over a collection"
@@ -112,6 +112,25 @@ function requireCapturable(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	failAt(c, p: p, ms: ms, node: use, code: diag.errBehaviourBorrow, msg: "'{source.name}' is {what}, so it only borrows its value, and a behaviour runs later in another thread and cannot keep a borrow; {fix}", errs: errs)
 	return false
 end 'requireCapturable'
+
+// requireCrossing refuses a value a behaviour takes that cannot cross to the thread that runs it, by the rule a message's
+// arguments follow (ast.unsendable). A value of a type that mentions a type parameter is judged at each instance of the
+// generic code, which the behaviour's statement is recorded for.
+function requireCrossing(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, use ast.NodeID, name String, t ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if t == ast.noType 'untyped'
+		// The variable's declaration failed, and was refused there.
+		return true
+	end 'untyped'
+	if ast.mentionsTypeParam(ms.types, reads: p.types, t: t) 'generic'
+		return true
+	end 'generic'
+	let why = ast.unsendable(ms.types, reads: p.types, t: t)
+	if why == "" 'crosses'
+		return true
+	end 'crosses'
+	failAt(c, p: p, ms: ms, node: use, code: diag.errBehaviourBorrow, msg: ast.behaviourCrossingText(name, why: why), errs: errs)
+	return false
+end 'requireCrossing'
 
 // borrowsValue is whether a local only borrows its value: a match binding, the variable of a loop over a collection, or
 // a parameter that does not own what it is given.
@@ -222,6 +241,13 @@ function leaveBehaviour(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	info.fn = frame.fn
 	info.captures = frame.captures.clone()
 	c.typing.whens.insert(stmt as Count, value: info)
+	for i in 0 upto frame.captures.count() 'generic'
+		if ast.mentionsTypeParam(ms.types, reads: p.types, t: c.typing.locals[frame.captures[i].outerLocal as Count].ty) 'mentions'
+			// Each instance judges what crosses at its own type arguments (ir.requireCrossings).
+			recordUse(c, call: stmt)
+			break 'generic'
+		end 'mentions'
+	end 'generic'
 	if c.fnLocals.count() > 0 'locals'
 		c.typing.funcLocals.insert(stmt as Count, value: c.fnLocals.clone())
 	end 'locals'

@@ -1,8 +1,11 @@
 // Wait inference, maxon's: a function may wait when it awaits, sleeps, yields, does file or process I/O, calls through a
-// function value or an interface, calls a function of another module, or calls or starts with `async` one of its module's
-// functions that may. E3073 refuses an async call of a function that never waits: there is nothing for its coroutine to
-// overlap. The facts are the module's own; a function of another module is an unknown, which counts as one that may
-// wait, so a correct program is never refused for what the check cannot see.
+// function value or an interface, or calls or starts with `async` a function that may; and it may wait on another party
+// when it keeps a reply of a service, starts a service whose factory throws, calls through a function value or an
+// interface, or calls or starts a function that may. A function of another module is judged by what the check of its
+// module published (ast.Typing.waiting), which the verify of a module reads of the modules it names; one whose module
+// published nothing is an unknown, which may wait on another party. E3073 refuses an async call of a function that never
+// waits, and E3221 a holder of a service that may wait on another party: an unknown never makes the first refuse a correct
+// program, and makes the second refuse what it cannot show sound.
 
 // WaitFact is what the check of a function found: whether it waits itself, whether it waits on another party (a reply
 // it keeps, or the start of a service whose factory throws), and the functions of the module it calls.
@@ -60,6 +63,7 @@ function noteCallInfoWaits(mutates c Checker, p ast.Project, ms ast.ModuleState,
 	let k = info.kind
 	if k == ast.CallKind.callValue or k == ast.CallKind.callBound 'unknown'
 		c.waitNow = true
+		c.partyWaitNow = true
 		return
 	end 'unknown'
 	if k != ast.CallKind.callFunction and k != ast.CallKind.callStatic and k != ast.CallKind.callMethod 'noCall'
@@ -68,8 +72,8 @@ function noteCallInfoWaits(mutates c Checker, p ast.Project, ms ast.ModuleState,
 	noteCallee(c, p: p, ms: ms, callee: info.fn)
 end 'noteCallInfoWaits'
 
-// noteCallee notes a call or an async start of a function: a wait point among the built-ins, an edge to a function of the
-// module, or an unknown.
+// noteCallee notes a call or an async start of a function: a wait point among the built-ins, or an edge to the function,
+// which verifyAsyncs and verifyHolders follow.
 function noteCallee(mutates c Checker, p ast.Project, ms ast.ModuleState, callee ast.FuncID)
 	let intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).intrinsic
 	if intrinsic != ast.Intrinsic.intrNone 'intrinsic'
@@ -78,17 +82,13 @@ function noteCallee(mutates c Checker, p ast.Project, ms ast.ModuleState, callee
 		end 'waits'
 		return
 	end 'intrinsic'
-	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).module != c.modID 'otherModule'
-		c.waitNow = true
-		return
-	end 'otherModule'
 	c.waitCalls.push(callee)
 end 'noteCallee'
 
-// waitingIntrinsic is whether a built-in parks the green thread that calls it: sleep and yield, and file, directory and
-// process I/O.
+// waitingIntrinsic is whether a built-in parks the green thread that calls it: sleep and yield, a promise's cancel, which
+// waits for its coroutine, and file, directory and process I/O.
 function waitingIntrinsic(op ast.Intrinsic) returns bool
-	return op == ast.Intrinsic.intrSleep or op == ast.Intrinsic.intrSchedulerYield or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileWriteText or op == ast.Intrinsic.intrFileWriteBinary or op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrFileInfo or op == ast.Intrinsic.intrFileExists or op == ast.Intrinsic.intrDirectoryIsDirectory or op == ast.Intrinsic.intrDirectoryCreate or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrSubprocessRunWithDeadline
+	return op == ast.Intrinsic.intrSleep or op == ast.Intrinsic.intrSchedulerYield or op == ast.Intrinsic.intrPromiseCancel or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileWriteText or op == ast.Intrinsic.intrFileWriteBinary or op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrFileInfo or op == ast.Intrinsic.intrFileExists or op == ast.Intrinsic.intrDirectoryIsDirectory or op == ast.Intrinsic.intrDirectoryCreate or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrSubprocessRunWithDeadline
 end 'waitingIntrinsic'
 
 // verifyAsyncs is E3073 for each async call of the module whose function never waits.
@@ -102,32 +102,76 @@ function verifyAsyncs(mutates c Checker, p ast.Project, ms ast.ModuleState, muta
 	end 'asyncs'
 end 'verifyAsyncs'
 
-// mayWait is whether a function may wait, by its facts and those of the functions it calls; one without facts is an
-// unknown, and a cycle that reaches no wait waits nowhere.
+// mayWait is whether a function may wait, by its facts and those of the functions it calls.
 function mayWait(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns bool
+	return waitingOf(c, p: p, ms: ms, f: f, visited: visited) != ast.Waiting.waitsNever
+end 'mayWait'
+
+// mayWaitOnParty is whether a function may wait on another party, by its facts and those of the functions it calls.
+function mayWaitOnParty(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns bool
+	return waitingOf(c, p: p, ms: ms, f: f, visited: visited) == ast.Waiting.waitsOnParty
+end 'mayWaitOnParty'
+
+// waitingOf is what a function may wait for: what its module published, for a function of another module, and else the
+// most of its facts and those of the functions it calls. A function of the module with no facts has no body the check
+// saw, and a cycle that reaches no wait waits nowhere.
+function waitingOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns ast.Waiting
 	var fid = f
 	let origin = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).genericOrigin
 	if origin != ast.noFunc 'instance'
 		fid = origin
 	end 'instance'
+	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module
+	if module != c.modID 'otherModule'
+		return publishedWaiting(p, module: module, f: fid)
+	end 'otherModule'
 	if visited.has(fid as Count) 'seen'
-		return false
+		return ast.Waiting.waitsNever
 	end 'seen'
 	visited.insert(fid as Count, value: true)
 	let fact = match consumes c.waits.get(fid as Count) 'fact'
 		some(known) gives known
-		none gives WaitFact.make(true, calls: ast.FuncIDList.create(0))
+		none gives WaitFact.make(false, calls: ast.FuncIDList.create(0))
 	end 'fact'
-	if fact.waits 'waits'
-		return true
-	end 'waits'
+	if fact.partyWaits 'party'
+		return ast.Waiting.waitsOnParty
+	end 'party'
+	var most = ast.Waiting.waitsParked if fact.waits else ast.Waiting.waitsNever
 	for i in 0 upto fact.calls.count() 'calls'
-		if mayWait(c, p: p, ms: ms, f: fact.calls[i], visited: visited) 'reaches'
-			return true
-		end 'reaches'
+		let reached = waitingOf(c, p: p, ms: ms, f: fact.calls[i], visited: visited)
+		if reached == ast.Waiting.waitsOnParty 'onParty'
+			return reached
+		end 'onParty'
+		if reached == ast.Waiting.waitsParked 'parked'
+			most = reached
+		end 'parked'
 	end 'calls'
-	return false
-end 'mayWait'
+	return most
+end 'waitingOf'
+
+// publishedWaiting is what the check of the module that declares f published of it: an unknown, which may wait on another
+// party, where it published nothing, as the standard library, whose functions with a body are the built-ins'.
+function publishedWaiting(p ast.Project, module diag.ModuleID, f ast.FuncID) returns ast.Waiting
+	if module == diag.stdlibID 'std'
+		return ast.Waiting.waitsOnParty
+	end 'std'
+	return match consumes p.typings[ast.modIndex(module)].waiting.get(f as Count) 'published'
+		some(w) gives w
+		none gives ast.Waiting.waitsOnParty
+	end 'published'
+end 'publishedWaiting'
+
+// publishWaits keeps in the module's typing what each of its functions may wait for, which the check of a module that calls
+// one reads.
+function publishWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, functions ast.FuncIDList)
+	for i in 0 upto functions.count() 'functions'
+		if c.waits.has(functions[i] as Count) 'checked'
+			var visited = BoolIntMap.new()
+			let w = waitingOf(c, p: p, ms: ms, f: functions[i], visited: visited)
+			c.typing.waiting.insert(functions[i] as Count, value: w)
+		end 'checked'
+	end 'functions'
+end 'publishWaits'
 
 // exprText is the text an expression is written with, for a message that quotes it.
 function exprText(tree ast.Tree, e ast.NodeID) returns String

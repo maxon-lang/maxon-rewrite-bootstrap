@@ -196,7 +196,7 @@ end 'half'
 
 function main() returns ExitCode
 	let p = async half(84.0)
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -214,8 +214,8 @@ typealias Real = float(f64.min to f64.max)
 
 function weigh(a Integer, x Real, b Integer, y Real, c Integer) returns Integer
 	Scheduler.yield()
-	let wholes = (trunc(x) as Integer) * 1000 + (trunc(y) as Integer) * 10000
-	return a + b * 10 + c * 100 + wholes
+	let wholes = try (trunc(x) as Integer) * 1000 + (trunc(y) as Integer) * 10000 otherwise panic("out of range")
+	return try a + b * 10 + c * 100 + wholes otherwise panic("out of range")
 end 'weigh'
 
 function main() returns ExitCode
@@ -246,7 +246,7 @@ end 'half'
 
 function main() returns ExitCode
 	let p = async half(84)
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -269,7 +269,7 @@ end 'blend'
 function main() returns ExitCode
 	var y = 40.5 as Real
 	let p = async blend(1.5, y: y)
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -399,13 +399,13 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
 function describe(a Integer, s Shape, x Real, b Integer) returns Integer
 	Scheduler.yield()
-	return a + s.area() * 10 + (trunc(x) as Integer) * 1000 + b * 100000
+	return try a + s.area() * 10 + (trunc(x) as Integer) * 1000 + b * 100000 otherwise panic("out of range")
 end 'describe'
 
 function shapeOf(side Integer) returns Shape
@@ -443,7 +443,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 

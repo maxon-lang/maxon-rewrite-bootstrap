@@ -69,3 +69,39 @@ function awaited(mutates l Lowerer, dst Reg) returns Reg
 	end 'none'
 	return dst
 end 'awaited'
+
+// lowerPromiseCancel cancels the coroutine of a promise and waits for it, as maxon's cancel of a tied promise does: one that
+// has not started never runs, and one that has runs on with its sleeps ending at once. What its function gave, a value or
+// an error, is dropped.
+function lowerPromiseCancel(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	entryVoid(l, p: p, site: site, symbol: Rt.rtAsyncCancel, args: argsOf1(recv))
+	let t = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	let result = ast.promiseResult(ms.types, reads: p.types, t: t)
+	let errTy = ast.promiseError(ms.types, reads: p.types, t: t)
+	var dst = noReg
+	var valueDrop = ast.noType
+	if result != p.builtins.voidTy 'value'
+		dst = newReg(l, kind: kindOf(l, p: p, ms: ms, t: result))
+		if kindOf(l, p: p, ms: ms, t: result) == IrKind.kindManaged 'managed'
+			valueDrop = dropType(l, p: p, ms: ms, t: result)
+		end 'managed'
+	end 'value'
+	if errTy == ast.noType 'plain'
+		emitEntry(l, p: p, site: site, dst: dst, symbol: Rt.rtAsyncAwait, args: argsOf1(recv), routine: ast.noFunc)
+		dropOutcome(l, dst: dst, valueDrop: valueDrop, err: noReg, errDrop: ast.noType)
+		return konst(l, value: 0 as Word)
+	end 'plain'
+	entryVoid(l, p: p, site: site, symbol: Rt.rtAsyncWait, args: argsOf1(recv))
+	let errDrop = errorDropType(l, p: p, ms: ms, t: errTy)
+	let errKind = IrKind.kindManaged if errDrop != ast.noType else IrKind.kindScalar
+	let err = entry(l, p: p, site: site, symbol: Rt.rtAsyncError, kind: errKind, args: argsOf1(recv))
+	emitEntry(l, p: p, site: site, dst: dst, symbol: Rt.rtAsyncTake, args: argsOf1(recv), routine: ast.noFunc)
+	dropOutcome(l, dst: dst, valueDrop: valueDrop, err: err, errDrop: errDrop)
+	return konst(l, value: 0 as Word)
+end 'lowerPromiseCancel'
+
+// lowerPromiseIsComplete is whether the coroutine or the reply of a promise has finished, which waits for nothing.
+function lowerPromiseIsComplete(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtAsyncComplete, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerPromiseIsComplete'

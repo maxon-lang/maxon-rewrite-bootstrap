@@ -940,6 +940,14 @@ function entryAsyncTake(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw asyncUnsupported(vm)
 end 'entryAsyncTake'
 
+function entryAsyncCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw asyncUnsupported(vm)
+end 'entryAsyncCancel'
+
+function entryAsyncComplete(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw asyncUnsupported(vm)
+end 'entryAsyncComplete'
+
 // asyncUnsupported ends a run that starts a coroutine, which the interpreter has no strand to run in: it says so on
 // standard error and exits as a panic does, so that the run fails where the executable would go on.
 function asyncUnsupported(mutates vm Vm) returns Halt

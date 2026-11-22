@@ -738,6 +738,17 @@ end 'leave'
 // join is the state where two paths meet. A local that owns a value that cannot be dropped must hold nothing on both
 // paths or on neither: one path would drop it. The merged state keeps the fact, so a mistake is reported once.
 function join(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, consumes a OwnState, consumes b OwnState) returns OwnState
+	return joinPaths(o, p: p, ms: ms, a: a, b: b, loopBack: false)
+end 'join'
+
+// joinLoop is the state where the entry of a loop meets a path back from its body. A promise that the entry holds and the
+// body awaited or moved is refused at that use, which the next walk of the body reaches again (E3100, E3102), so the join
+// does not refuse it a second time as a promise one path drops.
+function joinLoop(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, consumes entry OwnState, consumes back OwnState) returns OwnState
+	return joinPaths(o, p: p, ms: ms, a: entry, b: back, loopBack: true)
+end 'joinLoop'
+
+function joinPaths(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, consumes a OwnState, consumes b OwnState, loopBack bool) returns OwnState
 	if o.obliged.count() > 0 and not a.dead and not b.dead 'obliged'
 		for i in 0 upto o.obliged.count() 'each'
 			let ob = o.obliged[i].clone()
@@ -746,12 +757,15 @@ function join(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, co
 			if inA == inB and (not inA or (not a.hasPartial(ob.local) and not b.hasPartial(ob.local))) 'agree'
 				continue 'each'
 			end 'agree'
+			if loopBack and not inA and isPromiseLocal(o, p: p, ms: ms, l: ob.local) 'refusedAtTheUse'
+				continue 'each'
+			end 'refusedAtTheUse'
 			lostOnOnePath(o, p: p, ms: ms, ob: ob, lost: a, other: b)
 			lostOnOnePath(o, p: p, ms: ms, ob: ob, lost: b, other: a)
 		end 'each'
 	end 'obliged'
 	return mergeOwn(a, b: b)
-end 'join'
+end 'joinPaths'
 
 // disagreeWhole is E3919 for a local that holds nothing on one path only; fact is that path's.
 function disagreeWhole(mutates o Ownership, p ast.Project, ms ast.ModuleState, ob OwnObliged, fact OwnFact)

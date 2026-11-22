@@ -1,0 +1,36 @@
+// A behaviour runs on another thread, so what it takes crosses by the rule of a message's arguments: a value at an
+// interface type is of a type the behaviour does not know, which may hold what cannot cross.
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+type Square implements Shape
+	var side as Count
+
+	static function make(side Count) returns Square
+		return Square{side: side}
+	end 'make'
+
+	function area() returns Count
+		return try self.side * self.side otherwise 0
+	end 'area'
+end 'Square'
+
+type Total
+	export var sum as Count
+
+	static function make() returns Total
+		return Total{sum: 0}
+	end 'make'
+end 'Total'
+
+function main() returns ExitCode
+	let total = cown(Total.make())
+	let shape = Square.make(3) as Shape
+	when total as t 'add'
+		t.sum = shape.area()
+	end 'add'
+	return 0
+end 'main'
+
+// expect-error: E3909 at 31:11

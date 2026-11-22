@@ -1,0 +1,26 @@
+export typealias Amount = int(0 to 1000000)
+
+export type Peer
+	var n as Amount
+
+	export static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+
+	export function value() returns Amount
+		return self.n
+	end 'value'
+end 'Peer'
+
+// Asker is a service only where another module spawns it, and its message awaits a reply.
+export type Asker
+	var got as Amount
+
+	export static function create() returns Self
+		return Self{got: 0}
+	end 'create'
+
+	export function ask(mutates self, peer Peer.handle)
+		self.got = try await peer.value() otherwise 0
+	end 'ask'
+end 'Asker'

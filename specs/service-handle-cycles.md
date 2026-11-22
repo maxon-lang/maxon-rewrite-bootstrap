@@ -348,12 +348,12 @@ type Box uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self where T implements Copyable
-		return Self{held: held.clone(), seen: 0}
+	static function create(held T) returns Self
+		return Self{held: held, seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
-		self.seen = try self.seen + by otherwise panic("out of range")
+		self.seen = self.seen + by
 	end 'take'
 end 'Box'
 
@@ -366,13 +366,13 @@ type Echo
 		return Self{sink: EchoBox.create(me)}
 	end 'create'
 
-	export function ping(mutates self)
+	export function ping()
 		self.sink.take(1)
 	end 'ping'
 end 'Echo'
 
 function launch(peer Echo.handle) returns Echo.handle
-	return spawn Echo.create(peer.clone())
+	return spawn Echo.create(peer)
 end 'launch'
 
 function main() returns ExitCode

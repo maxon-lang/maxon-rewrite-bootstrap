@@ -180,6 +180,9 @@ export let greenArgWords = 8
 // greenErrorOffset is where a coroutine holds what its function failed with, as a call that throws gives it: 0 when it returned.
 export let greenErrorOffset = 424
 
+// greenCancelOffset is where a coroutine holds 1 once its promise is cancelled: its thunk does not start a function that has not started, and its sleeps end at once.
+export let greenCancelOffset = 448
+
 // stackReserveBytes is the stack each thread reserves, the main thread's in the executable's header and a worker's when the runtime starts it, so a behaviour has the same stack on every thread. The compiler's passes recurse once per level of an expression, and a left-leaning chain of operators is as deep as it is long: a sum of 4,000 names takes about 22 MB. A reserve is only address space, committed a page at a time as the stack grows, so it costs a program nothing that it does not use.
 export let stackReserveBytes = 268435456
 

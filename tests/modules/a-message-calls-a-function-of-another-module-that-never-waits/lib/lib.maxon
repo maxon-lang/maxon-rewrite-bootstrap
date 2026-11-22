@@ -1,0 +1,6 @@
+export typealias Amount = int(0 to 1000000)
+
+// double waits for nothing, so a message may call it.
+export function double(n Amount) returns Amount
+	return try n * 2 otherwise 0
+end 'double'

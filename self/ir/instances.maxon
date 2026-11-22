@@ -243,6 +243,10 @@ function visitUses(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 			end 'calls'
 			continue 'each'
 		end 'loop'
+		if p.modules[ast.modIndex(module)].tree.kindOf(site) == ast.NodeKind.whenStmt 'behaviour'
+			requireCrossings(p, ms: ms, module: module, stmt: site, bindParams: bindParams, bindArgs: bindArgs, errs: errs)
+			continue 'each'
+		end 'behaviour'
 		let boxed = ast.boxedTo(p.typings[ast.modIndex(module)], node: site)
 		let boxedTy = ast.substituteType(ms.types, reads: p.types, t: exprType(p, module: module, node: site), params: bindParams, args: bindArgs)
 		if boxed != ast.noType and not standsForInterface(p, ms: ms, t: boxedTy) 'box'
@@ -267,6 +271,26 @@ function visitUses(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 	end 'each'
 	return true
 end 'visitUses'
+
+// requireCrossings refuses, in an instance of generic code, a value that the behaviour stmt takes and that cannot cross to
+// the thread that runs it at the instance's type arguments: the check judged every other capture where it was written.
+function requireCrossings(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, stmt ast.NodeID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, mutates errs diag.ErrorList)
+	let info = match consumes p.typings[ast.modIndex(module)].whens.get(stmt as Count) 'info'
+		some(found) gives found
+		none panic("a behaviour was recorded for its instances without a record of what it captures")
+	end 'info'
+	for i in 0 upto info.captures.count() 'captures'
+		let written = p.typings[ast.modIndex(module)].locals[info.captures[i].outerLocal as Count].ty
+		if not ast.mentionsTypeParam(ms.types, reads: p.types, t: written) 'judged'
+			continue 'captures'
+		end 'judged'
+		let t = ast.substituteType(ms.types, reads: p.types, t: written, params: bindParams, args: bindArgs)
+		let why = ast.unsendable(ms.types, reads: p.types, t: t)
+		if why != "" 'refused'
+			pushInstanceError(p, module: module, site: info.captures[i].refNode, code: diag.errBehaviourBorrow, message: ast.behaviourCrossingText(info.captures[i].name.clone(), why: why), errs: errs)
+		end 'refused'
+	end 'captures'
+end 'requireCrossings'
 
 // runsFunction is whether a call of the kind runs a function that can be an instance. A site is recorded for a use that
 // is not the call itself, such as the value that is put in an interface value, which can be a union case or a copy.

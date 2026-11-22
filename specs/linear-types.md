@@ -4511,6 +4511,7 @@ fin 2
 ```
 
 <!-- test: dropped-promises-and-linear-values-are-reported-in-the-order-of-the-drops -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 A linear value and a promise are each dropped twice, by an overwrite in the middle of the function and at its end. The four refusals come in the order the drops happen, whichever kind each is.

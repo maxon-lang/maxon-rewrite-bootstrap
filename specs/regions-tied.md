@@ -760,14 +760,14 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	sleep(1)
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
 function main() returns ExitCode
-	let row = Row.create(1)
+	var row = Row.create(1)
 	let later = async bump(row)
 	let before = row.n
 	if before > 100 'tooBig'
@@ -971,13 +971,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	sleep(1)
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
-function leave(row Row, early bool) returns Tally
+function leave(mutates row Row, early bool) returns Tally
 	let later = async bump(row)
 	Scheduler.yield()
 	if early 'leavingEarly'
@@ -988,7 +988,7 @@ function leave(row Row, early bool) returns Tally
 end 'leave'
 
 function main() returns ExitCode
-	let row = Row.create(1)
+	var row = Row.create(1)
 	_ = leave(row, early: true)
 	print("{row.n}\n")
 	return 0
@@ -1019,13 +1019,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	sleep(1)
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
-function leave(row Row, fail bool) returns Tally throws Refusal
+function leave(mutates row Row, fail bool) returns Tally throws Refusal
 	let later = async bump(row)
 	Scheduler.yield()
 	if fail 'failing'
@@ -1036,7 +1036,7 @@ function leave(row Row, fail bool) returns Tally throws Refusal
 end 'leave'
 
 function main() returns ExitCode
-	let row = Row.create(1)
+	var row = Row.create(1)
 	let attempt = try leave(row, fail: true) otherwise 0
 	print("{attempt} {row.n}\n")
 	return 0
@@ -1063,19 +1063,19 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	sleep(1)
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
-function leave(row Row)
+function leave(mutates row Row)
 	let later = async bump(row)
 	later.cancel()
 end 'leave'
 
 function main() returns ExitCode
-	let row = Row.create(1)
+	var row = Row.create(1)
 	leave(row)
 	print("{row.n}\n")
 	sleep(20)
@@ -1106,20 +1106,20 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	Scheduler.yield()
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
-function leave(row Row)
+function leave(mutates row Row)
 	let later = async bump(row)
 	Scheduler.yield()
 	later.cancel()
 end 'leave'
 
 function main() returns ExitCode
-	let row = Row.create(1)
+	var row = Row.create(1)
 	leave(row)
 	print("{row.n}\n")
 	sleep(20)
@@ -1150,13 +1150,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	Scheduler.yield()
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
-function lap(row Row, started bool)
+function lap(mutates row Row, started bool)
 	let later = async bump(row)
 	if started 'letItStart'
 		Scheduler.yield()
@@ -1165,7 +1165,7 @@ function lap(row Row, started bool)
 end 'lap'
 
 function main() returns ExitCode
-	let row = Row.create(0)
+	var row = Row.create(0)
 	var expected = 0 as Tally
 	var started = false
 	for i in 0 upto 200 'laps'
@@ -1559,7 +1559,7 @@ typealias Tally = int(0 to u64.max)
 
 function bump(mutates n Tally, k Tally) returns Tally
 	sleep(5)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return k
 end 'bump'
 

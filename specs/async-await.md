@@ -1105,14 +1105,14 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function park(p IntPromise, keep bool) returns Integer
-	let pending = IntPromiseArray.create(0)
+function park(consumes p IntPromise, keep bool) returns Integer
+	var pending = IntPromiseArray.create(0)
 	if keep 'store'
 		pending.push(p)
 	end 'store' else 'kept'
 		p.cancel()
 	end 'kept'
-	return pending.count() as Integer
+	return try pending.count() as Integer otherwise panic("out of range")
 end 'park'
 
 function main() returns ExitCode
@@ -1508,11 +1508,11 @@ end 'ask'
 type Box uses T
 	public var value as T
 
-	static function create(v T) returns Self
+	static function create(v T) returns Self where T implements Copyable
 		return Self{value: v}
 	end 'create'
 
-	function replace(v T)
+	function replace(mutates self, v T) where T implements Droppable
 		self.value = v
 	end 'replace'
 end 'Box'
@@ -2015,7 +2015,7 @@ end 'work'
 type Box uses T
 	public var value as T
 
-	static function create(v T) returns Self
+	static function create(v T) returns Self where T implements Copyable
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4930,7 +4930,7 @@ type Holder
 
 	static function create(s String) returns Self
 		Scheduler.yield()
-		return Self{s: s}
+		return Self{s: s.clone()}
 	end 'create'
 end 'Holder'
 
@@ -4955,7 +4955,7 @@ type Holder
 
 	static function create(s String) returns Self
 		Scheduler.yield()
-		return Self{s: s}
+		return Self{s: s.clone()}
 	end 'create'
 end 'Holder'
 

@@ -1,0 +1,23 @@
+export typealias Amount = int(0 to 1000000)
+
+export type Peer
+	var n as Amount
+
+	export static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+
+	export function value() returns Amount
+		return self.n
+	end 'value'
+end 'Peer'
+
+// askPeer waits for a reply of the service it asks, which a holder of another service must not do.
+export function askPeer(peer Peer.handle) returns Amount
+	return try await peer.value() otherwise 0
+end 'askPeer'
+
+// double waits for nothing, so a message may call it.
+export function double(n Amount) returns Amount
+	return try n * 2 otherwise 0
+end 'double'

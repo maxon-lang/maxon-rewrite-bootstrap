@@ -232,7 +232,6 @@ function behaviourOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	end 'cowns'
 	for i in 0 upto behaviour.captures.count() 'captures'
 		out = consume(o, p: p, ms: ms, e: behaviour.captures[i].refNode, dest: OwnDest.of(OwnDestKind.destBehaviour), s: out)
-		requireNoPromiseCaptured(o, p: p, ms: ms, ref: behaviour.captures[i].refNode, name: behaviour.captures[i].name, behaviour: true)
 	end 'captures'
 	runNested(o, p: p, ms: ms, fid: behaviour.fn, body: ast.whenStmtBodyRef(ms.tree(), id: st), site: st, closureTy: ast.noType)
 	return out
@@ -528,8 +527,8 @@ function loopOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 		end 'fresh'
 		after = walk(o, p: p, ms: ms, body: body, s: pass)
 		let continues = o.frames[frame].continues.clone()
-		let top = join(o, p: p, ms: ms, a: entry.clone(), b: after.clone())
-		let next = join(o, p: p, ms: ms, a: top, b: continues)
+		let top = joinLoop(o, p: p, ms: ms, entry: entry.clone(), back: after.clone())
+		let next = joinLoop(o, p: p, ms: ms, entry: top, back: continues)
 		if sameState(next, b: entry) 'settled'
 			break 'walks'
 		end 'settled'
@@ -544,7 +543,7 @@ function loopOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	if isTrue(ms.tree(), e: cond) 'forever'
 		return closed.breaks
 	end 'forever'
-	let bottom = join(o, p: p, ms: ms, a: entry, b: after)
+	let bottom = joinLoop(o, p: p, ms: ms, entry: entry, back: after)
 	return join(o, p: p, ms: ms, a: bottom, b: closed.breaks)
 end 'loopOwn'
 

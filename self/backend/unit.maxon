@@ -193,6 +193,16 @@ export type Asm
 		encodeStoreBaseDispReg(code, base: base, disp: disp, src: src)
 	end 'store'
 
+	// loadVector loads the word at base plus disp into the xmm register dst, as movsd does.
+	export function loadFloatWord(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeMovsdRegBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadFloatWord'
+
+	// moveFromVector copies the bits of the xmm register src into the general register dst, as movq does.
+	export function moveFromVector(mutates self, dst X64Register, src X64Register)
+		encodeMovqRegXmm(code, dest: dst, src: src)
+	end 'moveFromVector'
+
 	export function lea(mutates self, dst X64Register, base X64Register, disp Imm32)
 		encodeLeaRegBaseDisp(code, dest: dst, base: base, disp: disp)
 	end 'lea'

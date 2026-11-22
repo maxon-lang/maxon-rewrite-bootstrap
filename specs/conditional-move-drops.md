@@ -681,10 +681,10 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
-function keep(p IntPromise, v Integer) returns IntPromise
+function keep(consumes p IntPromise, v Integer) returns IntPromise
 	print("keep {v}\n")
 	return p
 end 'keep'
@@ -696,7 +696,7 @@ function rearmedPromiseEachTrip(count Integer) returns Integer
 	for i in 0 upto count 'trips'
 		p = async work(i)
 		let q = keep(p, v: i)
-		total = total + await q
+		total = try total + await q otherwise panic("out of range")
 	end 'trips'
 	return total
 end 'rearmedPromiseEachTrip'

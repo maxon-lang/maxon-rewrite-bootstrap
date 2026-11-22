@@ -498,7 +498,7 @@ function main() returns ExitCode
 	let p = async makeValue()
 	let a = await p
 	p.cancel()
-	return a as ExitCode
+	return try a as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -521,7 +521,7 @@ function main() returns ExitCode
 	let p = async makeValue()
 	p.cancel()
 	let a = await p
-	return a as ExitCode
+	return try a as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

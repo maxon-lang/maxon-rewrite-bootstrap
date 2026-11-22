@@ -1,0 +1,196 @@
+// What may cross between green threads, which a behaviour's captures, a service's messages and replies, and the instances of
+// generic code that sends or schedules a value of a type parameter all go through (README, "Services"). It is decided by the
+// type alone: a value crosses by move, so the sender keeps no part of it, or it is shared and immutable, a frozen value or
+// a closure, whose counts are stepped atomically, and a cown or a handle lets only a behaviour touch its value. A value
+// that holds a borrow (README, "Borrowing values") does not cross, since the borrow ends with a frame of the sender, and a
+// promise does not, since its coroutine belongs to the strand that started it.
+
+// holdsBorrow is whether a value of the type t holds a borrow: a cursor of a raw buffer points into the buffer it was made
+// from, and so does every value of a type that holds one, a record with a field of such a type, a union with such a payload,
+// a tuple or a collection of such elements. A type parameter holds one only where its code is checked as code over one.
+export function holdsBorrow(mutates tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	var visiting = TypeIDList.create(0)
+	return holdsBorrowWithin(tt, reads: reads, t: t, visiting: visiting)
+end 'holdsBorrow'
+
+function holdsBorrowWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, mutates visiting TypeIDList) returns bool
+	if t == noType 'none'
+		return false
+	end 'none'
+	return match typeKind(tt, reads: reads, t: t) 'k'
+		builtinCursor gives true
+		typeParam gives typeEntry(tt, reads: reads, t: t).mayBorrow
+		record gives nominalHoldsBorrow(tt, reads: reads, t: t, visiting: visiting)
+		unionTy gives nominalHoldsBorrow(tt, reads: reads, t: t, visiting: visiting)
+		builtinArray gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
+		builtinMap gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
+		builtinList gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
+		builtinPool gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
+		builtinFrozen gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
+		builtinCown gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
+		builtinHandle gives false
+		builtinPromise gives false
+		builtinService gives false
+		invalid gives false
+		primBool gives false
+		primString gives false
+		primVoid gives false
+		primNever gives false
+		intRange gives false
+		constInt gives false
+		floatRange gives false
+		constFloat gives false
+		enumTy gives false
+		interfaceTy gives false
+		funcTy gives false
+	end 'k'
+end 'holdsBorrowWithin'
+
+// argsHoldBorrow is whether a type argument of a built-in instance holds a borrow: an element of a collection, or what a
+// frozen value or a cown holds.
+function argsHoldBorrow(mutates tt TypeSlot, reads TypeTable, t TypeID, mutates visiting TypeIDList) returns bool
+	let args = typeArgsOf(tt, reads: reads, t: t)
+	for i in 0 upto args.count() 'each'
+		if holdsBorrowWithin(tt, reads: reads, t: args[i], visiting: visiting) 'holds'
+			return true
+		end 'holds'
+	end 'each'
+	return false
+end 'argsHoldBorrow'
+
+// nominalHoldsBorrow is whether a field of a record, a tuple's element among them, or a payload of a union holds a borrow,
+// at the instance's type arguments. A type that contains itself is looked at once.
+function nominalHoldsBorrow(mutates tt TypeSlot, reads TypeTable, t TypeID, mutates visiting TypeIDList) returns bool
+	if holdsTypeID(visiting, t: t) 'again'
+		return false
+	end 'again'
+	visiting.push(t)
+	let orig = originOf(tt, reads: reads, t: t)
+	for fi in 0 upto typeEntry(tt, reads: reads, t: orig).fields.count() 'fields'
+		let field = fieldType(tt, reads: reads, owner: t, index: fi)
+		if holdsBorrowWithin(tt, reads: reads, t: field, visiting: visiting) 'field'
+			return true
+		end 'field'
+	end 'fields'
+	for ci in 0 upto typeEntry(tt, reads: reads, t: orig).cases.count() 'cases'
+		for pi in 0 upto typeEntry(tt, reads: reads, t: orig).cases[ci].payload.count() 'payload'
+			let payload = payloadType(tt, reads: reads, owner: t, caseIndex: ci, index: pi)
+			if holdsBorrowWithin(tt, reads: reads, t: payload, visiting: visiting) 'held'
+				return true
+			end 'held'
+		end 'payload'
+	end 'cases'
+	return false
+end 'nominalHoldsBorrow'
+
+function holdsTypeID(ts TypeIDList, t TypeID) returns bool
+	for i in 0 upto ts.count() 'each'
+		if ts[i] == t 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'holdsTypeID'
+
+// unsendable is why a value of type t cannot cross to another green thread, or "" when it can. A scalar, a String, an enum,
+// a value that owns its parts and holds only parts that cross, a frozen value of one, a cown, a handle and a function value
+// cross. A function value crosses as a frozen value does: its closure owns what it captured and only reads it, or has one
+// owner where it changes it, its count is stepped atomically, and a closure that borrows never escapes (E3925) nor captures
+// a promise (E3141). A borrow ends with a frame of the sender; a promise belongs to the strand that started its coroutine;
+// and a value at an interface type is of a type the send does not know. A value at a type parameter is judged at each
+// instance of the code that sends it: t mentions none there.
+export function unsendable(mutates tt TypeSlot, reads TypeTable, t TypeID) returns String
+	var visiting = TypeIDList.create(0)
+	return unsendableWithin(tt, reads: reads, t: t, functions: true, visiting: visiting)
+end 'unsendable'
+
+// unsendableToService is why a value of type t cannot cross into or out of a service, or "" when it can: what crosses
+// (unsendable), but for a function value, which maxon refuses there (E3217), and which a message could not call anyway,
+// since a call whose target the check cannot see may wait on another party (E3221).
+export function unsendableToService(mutates tt TypeSlot, reads TypeTable, t TypeID) returns String
+	var visiting = TypeIDList.create(0)
+	return unsendableWithin(tt, reads: reads, t: t, functions: false, visiting: visiting)
+end 'unsendableToService'
+
+function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, mutates visiting TypeIDList) returns String
+	if holdsTypeID(visiting, t: t) 'again'
+		return ""
+	end 'again'
+	if holdsBorrow(tt, reads: reads, t: t) 'borrow'
+		return "'{typeName(tt, reads: reads, t: t)}' holds a borrow, which ends before the other thread runs"
+	end 'borrow'
+	let name = typeName(tt, reads: reads, t: t)
+	return match typeKind(tt, reads: reads, t: t) 'k'
+		invalid gives panic("ast: a value that crosses to another thread has no type")
+		primBool gives ""
+		primString gives ""
+		primVoid gives ""
+		primNever gives ""
+		intRange gives ""
+		constInt gives ""
+		floatRange gives ""
+		constFloat gives ""
+		enumTy gives ""
+		builtinHandle gives ""
+		builtinCown gives ""
+		builtinService gives ""
+		builtinCursor gives "'{name}' borrows the buffer it walks"
+		builtinPromise gives "'{name}' is a promise, whose coroutine belongs to the strand that started it"
+		typeParam gives "'{name}' is a type parameter, whose layout the send does not know"
+		interfaceTy gives "'{name}' holds a value of a type the send does not know, which may hold what cannot cross"
+		funcTy gives "" if functions else "'{name}' is a function value, a closure that a message could call only by waiting on what it cannot see"
+		record gives partsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+		unionTy gives partsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+		builtinArray gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+		builtinMap gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+		builtinList gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+		builtinPool gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+		builtinFrozen gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+	end 'k'
+end 'unsendableWithin'
+
+// partsUnsendable is why a record or a union cannot cross: the first of its fields or payloads that cannot.
+function partsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, mutates visiting TypeIDList) returns String
+	visiting.push(t)
+	let orig = originOf(tt, reads: reads, t: t)
+	var why = ""
+	if typeKind(tt, reads: reads, t: t) == TypeKind.record 'record'
+		for i in 0 upto typeEntry(tt, reads: reads, t: orig).fields.count() 'fields'
+			let field = fieldType(tt, reads: reads, owner: t, index: i)
+			why = unsendableWithin(tt, reads: reads, t: field, functions: functions, visiting: visiting)
+			if why != "" 'found'
+				break 'fields'
+			end 'found'
+		end 'fields'
+	end 'record' else 'union'
+		for ci in 0 upto typeEntry(tt, reads: reads, t: orig).cases.count() 'cases'
+			for pi in 0 upto typeEntry(tt, reads: reads, t: orig).cases[ci].payload.count() 'payload'
+				let part = payloadType(tt, reads: reads, owner: t, caseIndex: ci, index: pi)
+				why = unsendableWithin(tt, reads: reads, t: part, functions: functions, visiting: visiting)
+				if why != "" 'found'
+					break 'cases'
+				end 'found'
+			end 'payload'
+		end 'cases'
+	end 'union'
+	_ = try visiting.pop() otherwise panic("ast: a type left that was never visited")
+	return why
+end 'partsUnsendable'
+
+// argsUnsendable is why a built-in container or a frozen value cannot cross: the first of what it holds that cannot.
+function argsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, mutates visiting TypeIDList) returns String
+	let args = typeEntry(tt, reads: reads, t: t).typeArgs.clone()
+	for i in 0 upto args.count() 'args'
+		let why = unsendableWithin(tt, reads: reads, t: args[i], functions: functions, visiting: visiting)
+		if why != "" 'found'
+			return why
+		end 'found'
+	end 'args'
+	return ""
+end 'argsUnsendable'
+
+// behaviourCrossingText is the refusal of a value a behaviour takes that cannot cross to the thread that runs it, why being
+// the reason.
+export function behaviourCrossingText(name String, why String) returns String
+	return "the behaviour takes '{name}', and a behaviour runs on another thread, where only what a message may carry crosses: {why}; give it a value it owns from then on, or a 'frozen with T' to share"
+end 'behaviourCrossingText'

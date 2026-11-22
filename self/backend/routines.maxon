@@ -362,7 +362,7 @@ function emitDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 		return
 	end 'cursor'
 	if kind == ast.TypeKind.builtinPromise 'promise'
-		dropPromise(u)
+		dropPromise(u, p: p, ms: ms, ty: ty)
 		return
 	end 'promise'
 	panic("routines: no drop routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
@@ -413,17 +413,45 @@ function emitCopy(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 	panic("routines: no copy routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitCopy'
 
-// promiseDropped is the panic of the drop of a promise that holds a coroutine.
-let promiseDropped = "a promise is dropped without being awaited"
-
-// dropPromise is the drop of a promise. The ownership pass leaves no promise to drop, since each is awaited (E3213), so the
-// routine meets only the empty place an await leaves, and a coroutine there is a broken invariant.
-function dropPromise(mutates u CodeUnit)
+// dropPromise is the drop of a promise, which cancels it as `p.cancel()` does: the coroutine is marked, so it does not
+// start or its sleeps end at once, it is waited for, and what its function gave, a value or an error, is dropped. The
+// ownership pass drops no promise a program holds (E3213), so this meets the empty place an await leaves, and a promise
+// that a coroutine cancelled before it started was given to own.
+function dropPromise(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 0)
+	routinePrologue(u, locals: 1)
 	returnIfEmpty(u, done: done)
-	u.asm.leaData(argWord(), dataOffset: u.data.textOffset(promiseDropped))
-	u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtPanic))
+	callRuntimeWithRax(u, entry: ir.Rt.rtAsyncCancel)
+	let result = ast.promiseResult(ms.types, reads: p.types, t: ty)
+	let errTy = ast.promiseError(ms.types, reads: p.types, t: ty)
+	let managed = ast.isManagedType(ms.types, reads: p.types, t: result)
+	u.asm.load(rax, base: rbp, disp: routineArg)
+	if errTy == ast.noType 'plain'
+		callRuntimeWithRax(u, entry: ir.Rt.rtAsyncAwait)
+		if managed 'value'
+			routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: result)
+		end 'value'
+	end 'plain' else 'throws'
+		callRuntimeWithRax(u, entry: ir.Rt.rtAsyncWait)
+		u.asm.load(rax, base: rbp, disp: routineArg)
+		callRuntimeWithRax(u, entry: ir.Rt.rtAsyncError)
+		u.asm.store(rbp, disp: routineLocal0, src: rax)
+		u.asm.load(rax, base: rbp, disp: routineArg)
+		callRuntimeWithRax(u, entry: ir.Rt.rtAsyncTake)
+		let returned = u.asm.newLabel()
+		u.asm.load(rcx, base: rbp, disp: routineLocal0)
+		u.asm.test(rcx, right: rcx)
+		u.asm.jcc(X64CondCode.equal, label: returned)
+		if ast.isUnionError(ms.types, reads: p.types, t: errTy) 'unionError'
+			u.asm.load(rax, base: rbp, disp: routineLocal0)
+			routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: errTy)
+		end 'unionError'
+		u.asm.jmp(done)
+		u.asm.bind(returned)
+		if managed 'value'
+			routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: result)
+		end 'value'
+	end 'throws'
 	u.asm.bind(done)
 	routineEpilogue(u)
 end 'dropPromise'
@@ -794,41 +822,87 @@ export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms
 end 'emitBehaviourThunk'
 
 // emitAsyncThunk writes the thunk a coroutine runs, which greenMain calls with the coroutine by the internal convention: it
-// calls the function an async call starts with the coroutine's argument words, a word to each parameter, keeps what the
-// function failed with in the coroutine for the await, and gives back what it returned. Every unit that starts the
-// function writes it, and the link keeps one, as it does an instance.
+// calls the function an async call starts with the coroutine's argument words, each in the place the convention passes
+// its parameter in (a float's bits in an xmm register), keeps what the function failed with in the coroutine for the
+// await, and gives back what it returned as a word, a float's bits among them. Every unit that starts the function writes
+// it, and the link keeps one, as it does an instance.
 export function emitAsyncThunk(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, callee ast.FuncID, calleeSymbol String)
 	let params = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).params.count()
 	let fails = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).errTy != ast.noType
+	let sig = ir.funcSignature(p, ms: ms, fid: callee)
+	var floats as Array with bool
+	floats = Array.create(0)
+	for i in 0 upto params 'floats'
+		floats.push(ir.isFloatAt(sig.args, place: i))
+	end 'floats'
+	var places = CountList.create(0)
+	let stacked = placeArgs(floats, places: places)
 	u.beginSection()
 	u.defineFunction(symbol, instance: true)
 	routinePrologue(u, locals: 0)
-	let inRegisters = argsInRegisters(ConventionKind.internal, count: params)
 	let scratch = regMaskOf(thunkBase) or regMaskOf(thunkWord)
-	if (scratch and (wordArgRegs(ConventionKind.internal, count: inRegisters) or not x64InternalCallerSaved())) != 0 'scratch'
+	if (scratch and (wordArgRegs(ConventionKind.internal, count: argsInRegisters(ConventionKind.internal, count: params)) or not x64InternalCallerSaved())) != 0 'scratch'
 		panic("routines: a thunk's scratch register passes an argument or is one a call keeps")
 	end 'scratch'
+	let skip = u.asm.newLabel()
+	let join = u.asm.newLabel()
 	u.asm.load(thunkBase, base: rbp, disp: routineArg)
+	u.asm.load(thunkWord, base: thunkBase, disp: imm32Of(greenCancelOffset))
+	u.asm.test(thunkWord, right: thunkWord)
+	u.asm.jcc(X64CondCode.notEqual, label: skip)
 	var w = params
-	while w > inRegisters 'stack'
+	while w > 0 'stack'
 		w = prevCount(w)
-		u.asm.load(thunkWord, base: thunkBase, disp: coroutineWordDisp(w))
-		u.asm.push(thunkWord)
+		if isStackPlace(places[w]) 'pushed'
+			u.asm.load(thunkWord, base: thunkBase, disp: coroutineWordDisp(w))
+			u.asm.push(thunkWord)
+		end 'pushed'
 	end 'stack'
-	for i in 0 upto inRegisters 'registers'
-		u.asm.load(argRegister(ConventionKind.internal, index: i), base: thunkBase, disp: coroutineWordDisp(i))
+	for i in 0 upto params 'registers'
+		if isStackPlace(places[i]) 'onStack'
+			continue 'registers'
+		end 'onStack'
+		let number = try places[i] as RegNum otherwise panic("routines: a place past the register file")
+		if floats[i] 'vector'
+			u.asm.loadFloatWord(x64RegisterOf(try (number - x64FirstVector) as RegNum otherwise panic("routines: a float in a general register")), base: thunkBase, disp: coroutineWordDisp(i))
+		end 'vector' else 'word'
+			u.asm.load(x64RegisterOf(number), base: thunkBase, disp: coroutineWordDisp(i))
+		end 'word'
 	end 'registers'
 	u.asm.callSymbol(calleeSymbol)
-	let pushed = try params - inRegisters otherwise panic("routines: more arguments in registers than a function takes")
-	if pushed > 0 'pop'
-		u.asm.addImm(rsp, imm: imm32Of(try pushed * wordBytes otherwise panic("routines: a coroutine past memory")))
+	if stacked > 0 'pop'
+		u.asm.addImm(rsp, imm: imm32Of(try stacked * wordBytes otherwise panic("routines: a coroutine past memory")))
 	end 'pop'
+	if sig.result 'floatResult'
+		u.asm.moveFromVector(resultWord(), src: x64RegisterOf(try (x64InternalFloatResult - x64FirstVector) as RegNum otherwise panic("routines: a float result in a general register")))
+	end 'floatResult'
+	u.asm.jmp(join)
+	u.asm.bind(skip)
+	dropOwnedArguments(u, p: p, ms: ms, callee: callee)
+	u.asm.movImm(resultWord(), imm: 0)
+	u.asm.movImm(x64InternalError, imm: 0)
+	u.asm.bind(join)
 	if fails 'fails'
 		u.asm.load(thunkBase, base: rbp, disp: routineArg)
 		u.asm.store(thunkBase, disp: imm32Of(greenErrorOffset), src: x64InternalError)
 	end 'fails'
 	routineEpilogue(u)
 end 'emitAsyncThunk'
+
+// dropOwnedArguments drops, for a coroutine whose promise was cancelled before it started, the arguments its function would
+// have owned: what a consumes parameter took. The rest the caller lent, and keeps.
+function dropOwnedArguments(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, callee ast.FuncID)
+	let params = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).params.count()
+	for i in 0 upto params 'params'
+		let conv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).params[i].conv
+		let ty = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).paramTypes[i]
+		if (conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs) and ast.isManagedType(ms.types, reads: p.types, t: ty) 'owned'
+			u.asm.load(thunkBase, base: rbp, disp: routineArg)
+			u.asm.load(rax, base: thunkBase, disp: coroutineWordDisp(i))
+			routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: ty)
+		end 'owned'
+	end 'params'
+end 'dropOwnedArguments'
 
 // coroutineWordDisp is where a coroutine holds its argument word at index.
 function coroutineWordDisp(index Count) returns Imm32

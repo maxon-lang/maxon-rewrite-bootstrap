@@ -327,6 +327,9 @@ function isExit(kind OwnDropKind) returns bool
 	return kind == OwnDropKind.dropReturn or kind == OwnDropKind.dropBreak or kind == OwnDropKind.dropContinue or kind == OwnDropKind.dropFailure
 end 'isExit'
 
+// cancelDoor names a promise's cancel, which consumes it as an await does, in a message about a later use of it.
+let cancelDoor = "cancel"
+
 // promiseUsedAgain is E3142 for a use of a promise an await consumed, and E3100 for an await of a promise started outside
 // the loop it is awaited in, which its next iteration would await again.
 function promiseUsedAgain(mutates o Ownership, p ast.Project, site diag.U32, fact OwnFact) returns bool
@@ -337,21 +340,19 @@ function promiseUsedAgain(mutates o Ownership, p ast.Project, site diag.U32, fac
 		fail(o, p: p, site: site, code: diag.errPromiseAlreadyAwaited, msg: diag.promiseAwaitedAgain())
 		return true
 	end 'loop'
-	fail(o, p: p, site: site, code: diag.errPromiseConsumed, msg: diag.promiseConsumedEarlier("await"))
+	let door = "await" if fact.dest.name == "" else fact.dest.name.clone()
+	fail(o, p: p, site: site, code: diag.errPromiseConsumed, msg: diag.promiseConsumedEarlier(door))
 	return true
 end 'promiseUsedAgain'
 
-// requireNoPromiseCaptured refuses a promise that a closure or a behaviour captures, as maxon does: a closure's body may
-// run any number of times and give it away each time, and a behaviour runs on another green thread, while a coroutine
-// belongs to the strand that started it.
-function requireNoPromiseCaptured(mutates o Ownership, p ast.Project, ms ast.ModuleState, ref ast.NodeID, name String, behaviour bool)
+// requireNoPromiseCaptured refuses a promise that a closure captures, as maxon does: a closure's body may run any number of
+// times and give it away each time. A behaviour's captures cross by the rule of a message's arguments (requireCrossing).
+// It is false when it refused one.
+function requireNoPromiseCaptured(mutates o Ownership, p ast.Project, ms ast.ModuleState, ref ast.NodeID, name String) returns bool
 	if not ast.isPromiseType(ms.types, reads: p.types, t: ownType(o, node: ref)) 'notPromise'
-		return
+		return true
 	end 'notPromise'
 	let site = offsetOfOwn(o, p: p, ms: ms, node: ref)
-	if behaviour 'behaviour'
-		fail(o, p: p, site: site, code: diag.errBehaviourBorrow, msg: "the behaviour captures the promise '{name}', and a coroutine belongs to the strand that started it, which a behaviour runs apart from: await '{name}' here and capture its result")
-		return
-	end 'behaviour'
 	fail(o, p: p, site: site, code: diag.errPromiseBorrowed, msg: "the closure captures the promise '{name}', and its body may run any number of times, so no run of it may give the promise away: await it in the function that started it, or hand the closure what it needs as a parameter")
+	return false
 end 'requireNoPromiseCaptured'

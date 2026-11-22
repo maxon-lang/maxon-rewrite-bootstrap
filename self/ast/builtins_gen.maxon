@@ -319,6 +319,8 @@ export enum Intrinsic
 	intrSchedulerYield
 	intrSleep
 	intrServiceShutdown
+	intrPromiseCancel
+	intrPromiseIsComplete
 	intrFilePathFrom
 	intrFilePathInit
 	intrFilePathToString
@@ -641,6 +643,7 @@ function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	declareClockMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareSchedulerMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareServiceMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
+	declarePromiseMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareFilePathMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareFileMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareDirectoryMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
@@ -1544,6 +1547,11 @@ end 'declareSchedulerMethods'
 function declareServiceMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceShutdown, name: "shutdown", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareServiceMethods'
+
+function declarePromiseMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.promiseOrigin, op: Intrinsic.intrPromiseCancel, name: "cancel", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.promiseOrigin, op: Intrinsic.intrPromiseIsComplete, name: "isComplete", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
+end 'declarePromiseMethods'
 
 function declareFilePathMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.filePathTy)

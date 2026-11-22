@@ -144,37 +144,51 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	return l.b.body(body)
 end 'lowerServiceBody'
 
-// dropReply drops the reply of a handler that no one keeps: its error where it failed, and else its value.
+// dropReply drops the reply of a handler that no one keeps: its error where it failed, and else its value. The types are
+// the outer lowerer's, whose type arguments the body's are.
 function dropReply(mutates inner Lowerer, p ast.Project, mutates ms ast.ModuleState, mutates l Lowerer, dst Reg, resultTy ast.TypeID, err Reg, errTy ast.TypeID)
-	let managed = dst != noReg and kindOf(l, p: p, ms: ms, t: resultTy) == IrKind.kindManaged
+	var valueDrop = ast.noType
+	if dst != noReg and kindOf(l, p: p, ms: ms, t: resultTy) == IrKind.kindManaged 'managed'
+		valueDrop = dropType(l, p: p, ms: ms, t: resultTy)
+	end 'managed'
+	var errDrop = ast.noType
+	if err != noReg 'throws'
+		errDrop = errorDropType(l, p: p, ms: ms, t: errTy)
+	end 'throws'
+	dropOutcome(inner, dst: dst, valueDrop: valueDrop, err: err, errDrop: errDrop)
+end 'dropReply'
+
+// dropOutcome drops what a function gave that no one keeps: where err says it failed, the error, of the type errDrop where
+// that is a managed one, and else the value in dst, of the type valueDrop where that is one. err is noReg for a function
+// that cannot fail.
+export function dropOutcome(mutates l Lowerer, dst Reg, valueDrop ast.TypeID, err Reg, errDrop ast.TypeID)
 	if err == noReg 'plain'
-		if managed 'value'
-			emitDropReg(inner, src: dst, ty: dropType(l, p: p, ms: ms, t: resultTy))
+		if valueDrop != ast.noType 'value'
+			emitDropReg(l, src: dst, ty: valueDrop)
 		end 'value'
 		return
 	end 'plain'
-	let errDrop = errorDropType(l, p: p, ms: ms, t: errTy)
-	if not managed and errDrop == ast.noType 'scalars'
+	if valueDrop == ast.noType and errDrop == ast.noType 'scalars'
 		return
 	end 'scalars'
-	let failedBlock = inner.b.newBlock()
-	let returned = inner.b.newBlock()
-	let join = inner.b.newBlock()
-	let zero = konst(inner, value: 0 as Word)
-	let failed = compare(inner, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
-	inner.b.terminate(inner.cur, t: newBranch(failed, ifTrue: failedBlock, ifFalse: returned))
-	inner.cur = failedBlock
+	let failedBlock = l.b.newBlock()
+	let returned = l.b.newBlock()
+	let join = l.b.newBlock()
+	let zero = konst(l, value: 0 as Word)
+	let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(failed, ifTrue: failedBlock, ifFalse: returned))
+	l.cur = failedBlock
 	if errDrop != ast.noType 'unionError'
-		emitDropReg(inner, src: err, ty: errDrop)
+		emitDropReg(l, src: err, ty: errDrop)
 	end 'unionError'
-	inner.b.terminate(inner.cur, t: newJump(join))
-	inner.cur = returned
-	if managed 'value'
-		emitDropReg(inner, src: dst, ty: dropType(l, p: p, ms: ms, t: resultTy))
+	l.b.terminate(l.cur, t: newJump(join))
+	l.cur = returned
+	if valueDrop != ast.noType 'value'
+		emitDropReg(l, src: dst, ty: valueDrop)
 	end 'value'
-	inner.b.terminate(inner.cur, t: newJump(join))
-	inner.cur = join
-end 'dropReply'
+	l.b.terminate(l.cur, t: newJump(join))
+	l.cur = join
+end 'dropOutcome'
 
 function lowerServiceShutdown(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceShutdown, args: argsOf1(recv))

@@ -500,7 +500,7 @@ register files and nothing more.
 function scaled(count Integer, factor Factor) returns Integer
 	Scheduler.yield()
 	if factor > 2.5 'large'
-		return count * 3
+		return try count * 3 otherwise panic("out of range")
 	end 'large'
 	return count
 end 'scaled'
@@ -508,7 +508,7 @@ end 'scaled'
 function main() returns ExitCode
 	let p = async scaled(12, factor: 3.0)
 	let total = await p
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Factor = float(0.0 to 10.0)

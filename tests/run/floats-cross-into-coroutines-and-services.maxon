@@ -1,0 +1,63 @@
+// native-only
+// A float crosses into a coroutine and into a service as its bits, a word, and reaches the function in an xmm register:
+// an async call passes floats mixed with words, a coroutine of a generic function instantiated with a float gives one
+// back through its promise, and a message takes floats and replies with one.
+//> 24.5
+//> 6.25
+//> 6.75 3
+typealias Real = float(f64.min to f64.max)
+
+typealias Integer = int(i64.min to i64.max)
+
+function blend(a Integer, x Real, b Integer, y Real, z Real) returns Integer
+	sleep(1)
+	return try trunc(x + y * 2.0 + z * 4.0) as Integer + a + b * 10 otherwise 0
+end 'blend'
+
+function later(x T) uses T returns T where T implements Copyable
+	sleep(1)
+	return x.clone()
+end 'later'
+
+// awaitLater starts later at its own type argument, which a float instance of it gives a float through the promise.
+function awaitLater(x T) uses T returns T where T implements Copyable
+	let p = async later(x)
+	return await p
+end 'awaitLater'
+
+type Meter
+	var total as Real
+	var count as Integer
+
+	static function create(start Real) returns Self
+		return Self{total: start, count: 0}
+	end 'create'
+
+	export function add(mutates self, x Real, times Integer)
+		self.total = self.total + x * times as Real
+		self.count = try self.count + 1 otherwise 0
+	end 'add'
+
+	export function reading() returns Real
+		return self.total
+	end 'reading'
+
+	export function adds() returns Integer
+		return self.count
+	end 'adds'
+end 'Meter'
+
+function main() returns ExitCode
+	let p = async blend(1, x: 0.5, b: 2, y: 0.25, z: 0.5)
+	let words = await p
+	print("{words as Real + 0.5}\n")
+	print("{awaitLater(6.25 as Real)}\n")
+	let m = spawn Meter.create(0.25)
+	try m.add(1.5, times: 3) otherwise ignore
+	try m.add(1.0, times: 1) otherwise ignore
+	try m.add(0.5, times: 2) otherwise ignore
+	let reading = try await m.reading() otherwise 0.0
+	let adds = try await m.adds() otherwise 0
+	print("{reading} {adds}\n")
+	return 0
+end 'main'

@@ -150,6 +150,28 @@ function asyncTake(promise Count) returns Count
 	return greenTake(promise)
 end 'asyncTake'
 
+// cancelled is a coroutine's greenCancelOffset once its promise is cancelled.
+let cancelled = 1 as Count
+
+// asyncCancel is the first half of a promise's cancel, which the compiled code follows with an await of it: the coroutine is
+// marked cancelled, so its thunk does not start a function that has not started, and a sleep it is in ends at once, as do
+// the sleeps it makes after. A reply's cell is marked too, and changes nothing: its message runs on.
+function asyncCancel(promise Count)
+	__Raw.storeWord(promise, offset: greenCancelOffset, value: cancelled)
+	expireSleep(__Raw.threadContext(), g: promise)
+end 'asyncCancel'
+
+// asyncComplete is whether the coroutine or the reply of a promise has finished, which its finish publishes by the exchange
+// of greenFinished into its waiter.
+function asyncComplete(promise Count) returns bool
+	return __Raw.atomicAdd(promise, offset: greenWaiterOffset, value: 0) == greenFinished
+end 'asyncComplete'
+
+// isCancelled is whether the running green thread is a coroutine whose promise was cancelled.
+function isCancelled(g Count) returns bool
+	return __Raw.loadWord(g, offset: greenCancelOffset) == cancelled
+end 'isCancelled'
+
 // longestSleepNanos is the most a sleep waits, about 146 years, so that its deadline never passes the clock's word.
 let longestSleepNanos = 0x4000000000000000 as Count
 

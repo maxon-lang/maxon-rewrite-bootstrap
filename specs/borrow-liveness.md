@@ -2933,7 +2933,7 @@ function main() returns ExitCode
 	let inner = b.inner
 	var p = async nothing()
 	if inner.label.byteLength() > 0 'nested'
-		let peek = function() gives inner.label.byteLength() as Integer
+		let peek = function() gives try inner.label.byteLength() as Integer otherwise panic("out of range")
 		p.cancel()
 		p = async later(peek)
 	end 'nested'

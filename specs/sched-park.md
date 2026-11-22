@@ -273,7 +273,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function flip(v Integer) returns Integer
 	Scheduler.yield()
-	return v + 1
+	return try v + 1 otherwise panic("out of range")
 end 'flip'
 
 type Handler
@@ -288,11 +288,11 @@ type Handler
 		var naps = 0 as Integer
 		while not p.isComplete() 'untilFlipped'
 			sleep(1)
-			naps = naps + 1
+			naps = try naps + 1 otherwise panic("out of range")
 		end 'untilFlipped'
 		let doneDuringSleep = 1 if naps > 0 else 0
 		let v = await p
-		return v * 10 + doneDuringSleep
+		return try v * 10 + doneDuringSleep otherwise panic("out of range")
 	end 'work'
 end 'Handler'
 

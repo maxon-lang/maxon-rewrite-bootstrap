@@ -657,7 +657,12 @@ function passArguments(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	var out = s
 	let n = call.ordered.count()
 	if receiver != 0 'receiver'
-		out = argument(o, p: p, ms: ms, e: receiver, conv: call.selfConv, dest: OwnDest.make(OwnDestKind.destParameter, name: "self"), s: out)
+		var dest = OwnDest.make(OwnDestKind.destParameter, name: "self")
+		if call.intrinsic == ast.Intrinsic.intrPromiseCancel 'cancel'
+			// A cancel waits for the coroutine, so it ends what the promise borrows, as an await does.
+			dest = OwnDest.make(OwnDestKind.destAwait, name: cancelDoor)
+		end 'cancel'
+		out = argument(o, p: p, ms: ms, e: receiver, conv: call.selfConv, dest: dest, s: out)
 		if n > 0 'more'
 			hold(o, p: p, ms: ms, place: receiver, kind: OwnProjectionKind.projectArgument, byAddress: ast.isByAddress(call.selfConv))
 		end 'more'
@@ -786,9 +791,14 @@ function closureCaptures(mutates o Ownership, p ast.Project, mutates ms ast.Modu
 		let ref = info.captures[i].refNode
 		let conv = info.captures[i].conv
 		if conv == ast.Convention.convConsumes 'moved'
-			out = consume(o, p: p, ms: ms, e: ref, dest: OwnDest.of(OwnDestKind.destClosure), s: out)
+			// A promise the closure may not capture is refused once: it is taken as an await takes it, which ends what it
+			// borrows, so neither its tie (E3212) nor its drop (E3213) is refused again.
+			var dest = OwnDest.of(OwnDestKind.destClosure)
+			if not requireNoPromiseCaptured(o, p: p, ms: ms, ref: ref, name: info.captures[i].name) 'refused'
+				dest = OwnDest.of(OwnDestKind.destAwait)
+			end 'refused'
+			out = consume(o, p: p, ms: ms, e: ref, dest: dest, s: out)
 			let t = ownType(o, node: ref)
-			requireNoPromiseCaptured(o, p: p, ms: ms, ref: ref, name: info.captures[i].name, behaviour: false)
 			if isManagedOwn(p, ms: ms, t: t) and lacksDroppable(o, p: p, ms: ms, t: t) and not ast.isPromiseType(ms.types, reads: p.types, t: t) 'obliged'
 				fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: ref), code: diag.errNotDroppable, msg: "'{info.captures[i].name}' has a destructor, so it must be ended by one, and a closure drops what it owns; end it before the closure, or pass it to the closure's call as an argument")
 			end 'obliged'

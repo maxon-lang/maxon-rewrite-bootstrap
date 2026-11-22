@@ -117,7 +117,7 @@ function main() returns ExitCode
 	let r = await b
 	let done = 1 if a.isComplete() else 0
 	a.cancel()
-	return (r + done) as ExitCode
+	return try (r + done) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -283,7 +283,7 @@ end 'pick'
 function main() returns ExitCode
 	let a = pick(1)
 	let b = pick(0)
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -854,7 +854,7 @@ function main() returns ExitCode
 		p = async seven()
 	end 'b'
 	let r = await p
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -883,7 +883,7 @@ function main() returns ExitCode
 		p = async five()
 		i = i + 1
 	end 'loop'
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1123,7 +1123,7 @@ function plain() returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	let s = IntPromiseArray.create(0)
+	var s = IntPromiseArray.create(0)
 	s.push(async plain())
 	let p = try s.pop() otherwise panic("just pushed one")
 	print("popped a thread complete={p.isComplete()}, array now {s.count()}")
@@ -1191,7 +1191,7 @@ end 'plain'
 type Holder
 	public let p as IntPromise
 
-	static function of(p IntPromise) returns Holder
+	static function of(consumes p IntPromise) returns Holder
 		return Holder{p: p}
 	end 'of'
 end 'Holder'
@@ -1255,7 +1255,7 @@ end 'plain'
 type Holder
 	public let p as IntPromise
 
-	static function of(p IntPromise) returns Holder
+	static function of(consumes p IntPromise) returns Holder
 		return Holder{p: p}
 	end 'of'
 end 'Holder'
@@ -2319,7 +2319,7 @@ function work() returns Integer
 	return 1
 end 'work'
 
-function abandon(p IntPromise)
+function abandon(consumes p IntPromise)
 	p.cancel()
 end 'abandon'
 
@@ -2420,10 +2420,10 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
-function finish(p IntPromise) returns Integer
+function finish(consumes p IntPromise) returns Integer
 	p.cancel()
 	let p = async work(5)
 	return await p
@@ -2431,7 +2431,7 @@ end 'finish'
 
 function main() returns ExitCode
 	let outer = async work(1)
-	return finish(outer) as ExitCode
+	return try finish(outer) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2710,7 +2710,7 @@ end 'plain'
 type Holder
 	public var p as IntPromise
 
-	static function of(p IntPromise) returns Holder
+	static function of(consumes p IntPromise) returns Holder
 		return Holder{p: p}
 	end 'of'
 end 'Holder'
@@ -2718,7 +2718,7 @@ end 'Holder'
 function main() returns ExitCode
 	let h = Holder.of(async plain(7))
 	h.p.cancel()
-	return (await h.p) as ExitCode
+	return try (await h.p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3467,7 +3467,7 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function start() returns IntPromise
@@ -3504,7 +3504,7 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function start() returns IntPromise
@@ -3610,12 +3610,12 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
-function finish(p IntPromise, q IntPromise) returns Integer
+function finish(p IntPromise, consumes q IntPromise) returns Integer
 	let ran = 1 if p.isComplete() else 0
-	return (await q) + ran
+	return try (await q) + ran otherwise panic("out of range")
 end 'finish'
 
 function main() returns ExitCode
@@ -3644,12 +3644,12 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
-function finish(p IntPromise, q IntPromise) returns Integer
+function finish(p IntPromise, consumes q IntPromise) returns Integer
 	let ran = 1 if p.isComplete() else 0
-	return (await q) + ran
+	return try (await q) + ran otherwise panic("out of range")
 end 'finish'
 
 function main() returns ExitCode
@@ -3830,11 +3830,11 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
-function finish(q IntPromise) returns Integer
-	return (await q) + 1
+function finish(consumes q IntPromise) returns Integer
+	return try (await q) + 1 otherwise panic("out of range")
 end 'finish'
 
 function main() returns ExitCode
@@ -3860,7 +3860,7 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function watch(p IntPromise, q IntPromise, n Integer) returns Integer
@@ -4014,7 +4014,7 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function slow(n Integer) returns Integer
@@ -4106,7 +4106,7 @@ end 'Holder'
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function slow(n Integer) returns Integer
@@ -4565,16 +4565,16 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
-function peekBack(p IntPromise, v Integer) returns IntPromise
+function peekBack(consumes p IntPromise, v Integer) returns IntPromise
 	print("{v}\n")
 	return p
 end 'peekBack'
 
 function peekText(_ IntPromise, v String) returns Integer
-	return v.count() as Integer
+	return try v.count() as Integer otherwise panic("out of range")
 end 'peekText'
 
 function decide(x Integer) returns bool
@@ -4625,11 +4625,11 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function peekText(_ IntPromise, v String) returns Integer
-	return v.count() as Integer
+	return try v.count() as Integer otherwise panic("out of range")
 end 'peekText'
 
 function decide(x Integer) returns bool
@@ -4640,7 +4640,7 @@ function joinReassignedAndHandedOver(x Integer) returns Integer
 	var p = async work(x)
 	if decide(x) 'rearm'
 		p.cancel()
-		p = async work(x * 10)
+		p = async work(try x * 10 otherwise panic("out of range"))
 	end 'rearm' else 'read'
 		print("read {peekText(p, v: "ab")}\n")
 	end 'read'

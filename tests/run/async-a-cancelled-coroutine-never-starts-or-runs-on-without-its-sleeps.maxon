@@ -1,0 +1,61 @@
+// native-only
+// A cancel consumes a promise and waits for its coroutine: one that has not started never runs, and what it was given to
+// own is dropped; one that has started runs on, the sleep it is in and every later one ending at once, and what it gave
+// is dropped. A promise that a coroutine cancelled before it started was given is dropped by cancelling it, which waits
+// for its coroutine, started first in the strand's order. isComplete neither waits nor consumes the promise.
+//> woke inner
+//> woke 2 early
+//> c complete=false
+//> woke 3
+//> c complete=true
+//> 3
+//> failed
+typealias Tally = int(0 to 1000)
+
+typealias Words = Promise with String
+
+enum NapError implements Error
+	tooLong
+end 'NapError'
+
+function nap(ms Milliseconds, consumes tag String) returns String
+	sleep(ms)
+	sleep(ms)
+	print("woke {tag}\n")
+	return tag
+end 'nap'
+
+function relay(consumes q Words) returns String
+	return await q
+end 'relay'
+
+function fails(ms Milliseconds) returns Tally throws NapError
+	sleep(ms)
+	throw NapError.tooLong
+end 'fails'
+
+function main() returns ExitCode
+	let a = async nap(1000, tag: "1")
+	a.cancel()
+	let inner = async nap(1, tag: "inner")
+	let outer = async relay(inner)
+	outer.cancel()
+	let b = async nap(60000, tag: "2 early")
+	sleep(10)
+	b.cancel()
+	let c = async nap(1, tag: "3")
+	print("c complete={c.isComplete()}\n")
+	sleep(50)
+	print("c complete={c.isComplete()}\n")
+	let three = await c
+	print("{three}\n" if three == "3" else "wrong\n")
+	let d = async fails(60000)
+	sleep(5)
+	d.cancel()
+	let e = async fails(1)
+	let n = try await e otherwise (err) 'failed'
+		print("failed\n")
+		return 0
+	end 'failed'
+	return n as ExitCode
+end 'main'

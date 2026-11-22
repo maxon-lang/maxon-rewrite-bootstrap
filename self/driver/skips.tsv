@@ -55,6 +55,7 @@ first	ErrUncheckedFailure	language difference: arithmetic that can fail needs a 
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 run	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending
 first	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending
+run	ErrHolderMayWait	language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service
 test	fold-constants.md	a-float-division-by-a-constant-zero-is-not-folded	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero
 test	nominal-generic-alias.md	error.xs-into-ys-parameter	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
 test	nominal-generic-alias.md	error.rebind-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own

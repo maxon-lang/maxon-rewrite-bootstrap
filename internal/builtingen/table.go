@@ -698,6 +698,11 @@ var tableFunctions = []function{
 	// shutdown is maxon's: the service's mailbox closes, so every later send fails with serviceStopped, and the messages
 	// queued already run. It always succeeds.
 	{Owner: "Service", Name: "shutdown", Intrinsic: "ServiceShutdown"},
+	// cancel is maxon's: it consumes the promise; a coroutine that has not started never runs, and one that has runs on with
+	// each sleep it is in or makes ending at once, and the cancel waits for it to finish and drops what it gave.
+	{Owner: "Promise", Name: "cancel", Self: "consumes", Intrinsic: "PromiseCancel"},
+	// isComplete is maxon's: whether the coroutine or the reply has finished, which neither waits nor consumes the promise.
+	{Owner: "Promise", Name: "isComplete", Result: "Bool", Intrinsic: "PromiseIsComplete"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
 	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
@@ -850,6 +855,8 @@ var entries = []entry{
 	{"AsyncWait", "rt.async.wait", "Source", roleCall, "(promise): the wait of an await of a promise whose function throws"},
 	{"AsyncError", "rt.async.error", "Source", roleCall, "(promise) -> error: what the function of a coroutine that rt.async.wait waited for failed with, 0 when it returned"},
 	{"AsyncTake", "rt.async.take", "Source", roleCall, "(promise) -> value: what the function of a coroutine that rt.async.wait waited for returned, which frees the coroutine"},
+	{"AsyncCancel", "rt.async.cancel", "Source", roleCall, "(promise): marks the coroutine of a promise cancelled, which ends the sleep it is in at once, before the cancel awaits it"},
+	{"AsyncComplete", "rt.async.complete", "Source", roleCall, "(promise) -> bool: whether the coroutine or the reply of a promise has finished"},
 	{"Sleep", "rt.sleep", "Source", roleCall, "(milliseconds): parks the running green thread for at least that long"},
 	{"Yield", "rt.yield", "Source", roleCall, "(): lets the members of the strand that wait, else the runnable green threads, run first"},
 	{"HashSeed", "rt.hash.seed", "Source", roleCall, "() -> the fold of no bytes under the process's secret, which the first hash of the process draws or reads from MAXON_HASH_SEED"},
@@ -1004,6 +1011,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"AsyncWait", "asyncWait(promise Count)"},
 	{"AsyncError", "asyncError(promise Count) Count"},
 	{"AsyncTake", "asyncTake(promise Count) Count"},
+	{"AsyncCancel", "asyncCancel(promise Count)"},
+	{"AsyncComplete", "asyncComplete(promise Count) Bool"},
 	{"Sleep", "sleepMs(milliseconds Count)"},
 	{"Yield", "schedYield()"},
 	{"HashSeed", "hashSeed() Count"},

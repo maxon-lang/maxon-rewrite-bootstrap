@@ -1,0 +1,38 @@
+// A call through an interface runs a method the check cannot see, which may wait on another party, so a message that
+// makes one could hold its service while it waits.
+export typealias Amount = int(0 to 1000000)
+
+interface Scale
+	function apply(n Amount) returns Amount
+end 'Scale'
+
+type Twice implements Scale
+	static function make() returns Self
+		return Self{}
+	end 'make'
+
+	function apply(n Amount) returns Amount
+		return try n * 2 otherwise 0
+	end 'apply'
+end 'Twice'
+
+type Runner
+	var n as Amount
+	var scale as Scale
+
+	static function create() returns Self
+		return Self{n: 1, scale: Twice.make() as Scale}
+	end 'create'
+
+	export function run(mutates self)
+		self.n = self.scale.apply(self.n)
+	end 'run'
+end 'Runner'
+
+function main() returns ExitCode
+	let h = spawn Runner.create()
+	try h.run() otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3221 at 27:2

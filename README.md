@@ -3439,7 +3439,10 @@ end 'transfer'
   body is a function of its own that sees the variables around it by capturing them: **a scalar is copied; an owned
   value moves in at the `when`**, so using it afterwards is `E3102` (a loop that schedules a behaviour that takes a
   variable declared outside it fails the same way); a frozen value and a cown reference are owned values too, so one
-  that the enclosing code keeps is shared first (`let own = share(f)`). A borrow cannot be captured, because the
+  that the enclosing code keeps is shared first (`let own = share(f)`). The behaviour runs on another thread, so what it
+  takes crosses by the rule of a message's arguments (`ast.unsendable`, see "Services"): a promise or a value at an
+  interface type is `E3909`, and in generic code each instance is judged at its own type arguments, where the lower finds
+  it (`ir.requireCrossings`). A borrow cannot be captured, because the
   behaviour outlives it: a `let`, `mutates` or `sets` parameter, the receiver and its fields, a `match` binding, and `x`
   or `y` of an enclosing behaviour are `E3909`, with the fix named (`share` for a shared value, `clone()` for the rest).
   A captured value is not mutable in the body (it is moved into a `var` to change it), like a `consumes` parameter. `x`
@@ -3468,11 +3471,15 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
   is `E3057`. `sleep(milliseconds)` (a `Milliseconds`) parks the green thread, and `Scheduler.yield()` lets the members of
   its strand that wait run first, else the runnable green threads. `File.exists(path)` is maxon's, as I/O.
 - Refused as maxon refuses them (`E2015`): `async` of what is not a call, of a method of a value, of a built-in, of a
-  function that returns a float (and, minimaxon's, one that takes a float or more than eight arguments, the words a
-  coroutine holds). `await` of what is not a promise is `E3005`. A function the async call starts must be able to wait
-  (`E3073`, maxon's inference, `self/check/waits.maxon`): it awaits, sleeps, yields, does file or process I/O, calls
-  through a function value or an interface, calls a function of another module, or calls or starts one of its module that
-  may.
+  function that returns a float (and, minimaxon's, one that takes more than eight arguments, the words a coroutine holds,
+  or gives a `consumes` parameter a value that is not `Droppable`, a promise aside, which a cancel before the start would
+  have to drop).
+  A float argument is written into the coroutine as its bits, and the coroutine's thunk passes it in the xmm register the
+  function takes it in; a float that an instance of generic code gives back comes back as its bits, the same way.
+  `await` of what is not a promise is `E3005`. A function the async call starts must be able to wait (`E3073`, maxon's
+  inference, `self/check/waits.maxon`): it awaits, sleeps, yields, does file or process I/O, cancels a promise, calls
+  through a function value or an interface, or calls or starts a function that may, one of another module by what its
+  module's check published (`ast.Typing.waiting`, which the verify of a module reads of the modules it names).
 - **What the coroutine takes of its caller** (`self/check/ownership_async.maxon`), where maxon shares by counts:
   - a scalar is copied, and a value passed to a `consumes` parameter moves in;
   - a place passed to a `let` parameter is lent to be read until the promise is awaited: the caller may read it, but
@@ -3482,25 +3489,32 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
     `E3102`, maxon's message; anything else by reference is `E2015`, and a function value that lives on and borrows
     what is lent is `E3186`;
   - a promise is taken only by a `consumes` parameter (`E3141` at a `let` one).
-- **A promise is linear.** It is never copied and never dropped: on every path out of its scope it is awaited, returned
-  or passed to a `consumes` parameter, else `E3213`. Awaiting it again is `E3142`, and awaiting inside a loop one started
-  outside it `E3100`. A promise whose call lent anything is **tied** to what it borrows: it is bound by the declaration
+- **A promise is linear.** It is never copied and never dropped: on every path out of its scope it is awaited, cancelled,
+  returned or passed to a `consumes` parameter, else `E3213`. Awaiting or cancelling it again is `E3142`, and awaiting
+  inside a loop one started outside it `E3100` (the loop's paths meeting refuse it no second time). A promise whose call lent anything is **tied** to what it borrows: it is bound by the declaration
   of a local, which ends inside the scope of everything it borrows, and awaited there; returning it, storing it, passing
   it on or assigning it to a variable declared before it is `E3212`, and so is an exit that leaves it unawaited. A
-  closure that captures a promise is `E3141`, and a behaviour that does `E3909`: the coroutine belongs to its strand.
+  closure that captures a promise is `E3141` (once: neither its tie nor its drop is refused again), and a behaviour that
+  does `E3909`: the coroutine belongs to its strand.
+- **`p.cancel()`** consumes the promise as an await does, so it ends what a tied one borrows: the coroutine is marked
+  (`rt.async.cancel`), so its thunk does not start a function that has not started, dropping what the function was given
+  to own, and a sleep it is in or makes ends at once after a yield (`expireSleep` moves its timer to now); the cancel then
+  waits for it as an await does and drops what its function gave, a value or an error. `p.isComplete()` is whether the
+  coroutine or the reply has finished (`rt.async.complete`), which neither waits nor consumes the promise.
   So every coroutine ends before the frames that lent it anything do, and its borrows are those frames' own.
 - **In the IR** an async call is one instruction, `%p = async f(%a, %b)`, whose arguments are lowered as the call's
   would be; the backend makes the coroutine with the address of the function's thunk (`async <f>`, written in each unit
   that starts `f`, the link keeping one), writes the words into it and queues it in the strand. An await is the
   runtime's: `rt.async.await` for a function that throws nothing, and `rt.async.wait`, `rt.async.error` and
-  `rt.async.take` with the failure branch of a call for one that throws. A promise's drop routine meets only the empty
-  place an await leaves, and panics on a coroutine.
+  `rt.async.take` with the failure branch of a call for one that throws. A promise's drop routine cancels it as
+  `p.cancel()` does; it meets the empty place an await leaves, and a promise that a coroutine cancelled before it started
+  was given to own.
 - **The interpreter** runs no coroutine: an async call ends an interpreted run with `async calls are not supported by the
   interpreter`, so a test that starts one is `// native-only`. Running them needs a strand of its threads (the
   scheduler already keeps each thread's frames apart, so a coroutine is a thread that runs only while it holds its
   strand) and a clock that sleeps advance; `sleep` and `Scheduler.yield()` change nothing there.
-- Not yet: `p.cancel()`, `p.isComplete()`, `awaitAny`, promises in containers and fields (a promise is not `Copyable`
-  nor `Droppable`, which arrays need), `sendTimeout:`, the deadlock exit 92, and I/O on the poller.
+- Not yet: `awaitAny`, promises in containers and fields (a promise is not `Copyable` nor `Droppable`, which arrays need),
+  an async call of a built-in such as `File.readText`, `sendTimeout:`, the deadlock exit 92, and I/O on the poller.
 
 ### Services
 
@@ -3520,10 +3534,14 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
   never tied: nothing is lent to a service.
-- **What crosses** is one predicate, `check.unsendable`, for every parameter of a message and of the factory, every reply
-  and every error a message throws, at the spawn: a scalar, a `String`, an enum, a value that owns its parts and holds only
-  what crosses, a `frozen with T` of such a value, a cown and a handle cross; a borrow, a promise, a function value, a
-  value at a type parameter or an interface type, and anything that holds one do not (`E3217`, `E3140` for a reply). A
+- **What crosses** is one predicate, `ast.unsendable` (`self/ast/crossing.maxon`), for every parameter of a message and of
+  the factory, every reply and every error a message throws, at the spawn, and for what a behaviour takes: a scalar, a
+  float, a `String`, an enum, a value that owns its parts and holds only what crosses, a `frozen with T` of such a value, a
+  cown, a handle and a function value cross; a borrow, a promise, a value at an interface type, and anything that holds
+  one do not (`E3217`, `E3140` for a reply). A function value crosses as a frozen value does: its closure owns what it
+  captured and only reads it, or has one owner where it changes it, its count is atomic, and a closure that borrows never
+  escapes (`E3925`) nor captures a promise (`E3141`). A service still refuses one, as maxon does (`E3217`,
+  `ast.unsendableToService`): a message could call it only by waiting on what the check cannot see (`E3221`). A
   parameter is `let` or `consumes`, never `mutates` or `sets` (`E3217`); either way its argument moves into the service,
   so the sender's variable is spent (`E3102`), and the contents of a frozen value, which are lent, are not sent (`E3217`).
   The state holds no promise (`E3216`) and reaches no handle to its own service, through fields, containers, cowns and
@@ -3534,9 +3552,11 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   behaviour that takes a green thread's record and a stack from its processor's pools when it runs and gives them back
   when it ends, so a handler that sleeps or awaits holds one of each for that long. maxon runs a service's messages on one
   runner, up to 64 a turn; here each is its own behaviour on the one cown.
-- **Holders never wait** (`E3221`): a message or a factory of a type the module spawns that keeps a reply, or starts a
-  service whose factory throws, directly or through a function of its module, is refused, so services never wait on each
-  other in a cycle. A function of another module, a function value and an interface call are not seen.
+- **Holders never wait** (`E3221`): a message or a factory of a type the module spawns that keeps a reply, starts a
+  service whose factory throws, calls through a function value or an interface, whose target the check cannot see, or
+  calls a function that may do one of these, is refused, so services never wait on each other in a cycle. A function of
+  another module is judged by what its module's check published (`ast.Typing.waiting`), one that published nothing as one
+  that may wait; a type of another module that this one spawns is held to the rule here, at the spawn.
 - **In the IR** a spawn is `rt.service.new` (a cown whose value is the state, with the mailbox's gate after the cown's
   words) and, for a factory that cannot throw, a `when` on it whose body calls the factory and stores the state. A send
   reads the handle, lowers the arguments as a `consumes` call's, takes a place in the mailbox (`rt.service.reserve`, which
@@ -3703,8 +3723,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   coroutine reads, kept alive by reference counts; a temporary at a `let` parameter is refused (`E2015`), where maxon
   counts it. The spec tests that write such a variable while the call is pending are skipped with that reason. A tied
   promise is any whose call lent a place, not only mutable data, and it may not be assigned to a variable declared before
-  it. An async call takes no float and at most eight arguments (`E2015`), where maxon refuses only a float result; maxon's
-  `cancel`, `isComplete`, `awaitAny` and promises held in containers and fields are not there yet.
+  it. An async call takes at most eight arguments, and none that is not `Droppable` at a `consumes` parameter (`E2015`),
+  where maxon refuses only a float result. `p.cancel()` waits for a coroutine that has started, as maxon's does for a tied
+  promise, where maxon's returns at once for any other and lets the coroutine run on behind it: what the coroutine prints
+  after its cancel comes before what the caller prints after it. maxon's `awaitAny` and promises held in containers and
+  fields are not there yet.
 
 - `Clock` has only `nowNanos()`, which maxon's gives as `InstantNanos`, here a `Count`; maxon's `nowMs`, `osTickMs`,
   `threadCpuTicks`, `elapsedMs`, `elapsedNanos`, `remainingMs` and `WallClock` are not there. Natively a reading is the
@@ -3917,13 +3940,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   move in, or are a `frozen with T` that both sides share, and nothing borrowed crosses. `cmd/convert` turns maxon's
   parameter `x isolated T` into `consumes x T` and `x immutable T` into `x frozen with T`, and `returns isolated T` and
   `returns immutable T` into `returns T` and `returns frozen with T`; a `let` parameter of a message is given its own
-  value, which the behaviour drops once the handler returns. What crosses is one rule (`check.unsendable`), so `E3200`,
-  `E3207` and `E3214` do not exist and a value that cannot cross is `E3217` at the spawn, or `E3140` for a reply. A
+  value, which the behaviour drops once the handler returns. What crosses is one rule (`ast.unsendable`), which a
+  behaviour's captures follow too, so `E3200`, `E3207` and `E3214` do not exist and a value that cannot cross is `E3217`
+  at the spawn, or `E3140` for a reply. A message that calls through a function value or an interface is `E3221`, where
+  maxon's inference counts such a call as no wait: the check cannot see what it runs, so it cannot show that the holder
+  never waits on another party (the spec tests that run one are skipped with that reason). A
   factory that throws runs on the spawner's green thread, where maxon's runs on the service's while the spawner waits.
   A send's error is the built-in `SendError` (`mailboxFull`, `serviceStopped`) and gives the arguments no way back,
   where maxon's `<Service>.<message>.sendError` carries them. Not yet: `sendTimeout:`, interface handles (`I.handle`),
-  `T.request`, `acquire`, `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters
-  or a float, one `try await h.m()` over a message that throws, and services in the interpreter.
+  `T.request`, `acquire`, `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
+  one `try await h.m()` over a message that throws, and services in the interpreter.
 - No alias subtyping (an alias implementing another), characters, region capabilities (`isolated` and `immutable` of a
   local, a payload or a receiver, and `modify`), static fields, default parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and

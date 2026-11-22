@@ -422,7 +422,9 @@ var layouts = []layoutConst{
 		"where a green thread holds the address the monitor stopped it at, which rt.asyncPreempt returns to, from the stop until asyncPreempted writes it into the slot of greenResumeSlotOffset."},
 	{"greenResumeSlotOffset", 55, false, toRuntime,
 		"where a green thread holds the address of the word on its stack that rt.asyncPreempt returns through, below the stack pointer it was stopped at, which the stop leaves unwritten."},
-	{"greenBytes", 56, false, toRuntime,
+	{"greenCancelOffset", 56, false, toRuntime | toSelfBack,
+		"where a coroutine holds 1 once its promise is cancelled: its thunk does not start a function that has not started, and its sleeps end at once."},
+	{"greenBytes", 57, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A pooled stack: a reserve of stackReserveBytes that the system commits a page at a time, its lowest page the guard.

@@ -1641,6 +1641,46 @@ function loadIntMapOfTypeID(mutates r table.CacheReader) returns table.IntMap wi
 	return table.IntMap.restored(states, keys: keys, values: values, length: length, used: used)
 end 'loadIntMapOfTypeID'
 
+function storeIntMapOfWaiting(mutates w table.CacheWriter, v table.IntMap with Waiting)
+	let slots = v.capacity()
+	w.word64(slots as table.Word64)
+	for i in 0 upto slots 'states'
+		w.word8(v.stateAt(i) as table.Word64)
+	end 'states'
+	for i in 0 upto slots 'entries'
+		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
+			w.word64(v.keyAt(i) as table.Word64)
+			storeTableOptionOfWaiting(w, v: v.valueAt(i))
+		end 'occupied'
+	end 'entries'
+	w.word64(v.count() as table.Word64)
+	w.word64(v.usedSlots() as table.Word64)
+end 'storeIntMapOfWaiting'
+
+function loadIntMapOfWaiting(mutates r table.CacheReader) returns table.IntMap with Waiting
+	let slots = r.items()
+	var states = ByteArray.create(0)
+	for _ in 0 upto slots 'states'
+		states.push(try (r.word8() as Byte) otherwise panic("cache: a stored state of a map is no byte"))
+	end 'states'
+	var keys as Array with Count
+	keys = Array.create(0)
+	var values as Array with (table.Option with Waiting)
+	values = Array.create(0)
+	for i in 0 upto slots 'entries'
+		if table.mapSlotOccupied(states[i] as Count) 'occupied'
+			keys.push(r.word64() as Count)
+			values.push(loadTableOptionOfWaiting(r))
+		end 'occupied' else 'free'
+			keys.push(0)
+			values.push(table.Option.none)
+		end 'free'
+	end 'entries'
+	let length = r.word64() as Count
+	let used = r.word64() as Count
+	return table.IntMap.restored(states, keys: keys, values: values, length: length, used: used)
+end 'loadIntMapOfWaiting'
+
 function storeIntMapOfWhenInfo(mutates w table.CacheWriter, v table.IntMap with WhenInfo)
 	let slots = v.capacity()
 	w.word64(slots as table.Word64)
@@ -2376,6 +2416,30 @@ function loadTableOptionOfTypeID(mutates r table.CacheReader) returns table.Opti
 	panic("cache: a stored Option has no case {tag}")
 end 'loadTableOptionOfTypeID'
 
+function storeTableOptionOfWaiting(mutates w table.CacheWriter, v table.Option with Waiting)
+	match v 'v'
+		some(p0) then storeTableOptionOfWaitingSome(w, p0: p0)
+		none then w.word8(1 as table.Word64)
+	end 'v'
+end 'storeTableOptionOfWaiting'
+
+function storeTableOptionOfWaitingSome(mutates w table.CacheWriter, p0 Waiting)
+	w.word8(0 as table.Word64)
+	w.word8(p0.ordinal as table.Word64)
+end 'storeTableOptionOfWaitingSome'
+
+function loadTableOptionOfWaiting(mutates r table.CacheReader) returns table.Option with Waiting
+	let tag = r.word8()
+	if tag == 0 'some'
+		let theValue = Waiting.allCases[r.word8() as Count]
+		return table.Option.some(theValue)
+	end 'some'
+	if tag == 1 'none'
+		return table.Option.none
+	end 'none'
+	panic("cache: a stored Option has no case {tag}")
+end 'loadTableOptionOfWaiting'
+
 function storeTableOptionOfWhenInfo(mutates w table.CacheWriter, v table.Option with WhenInfo)
 	match v 'v'
 		some(p0) then storeTableOptionOfWhenInfoSome(w, p0: p0)
@@ -2570,6 +2634,7 @@ export function storeTyping(mutates w table.CacheWriter, v Typing)
 	storeIntMapOfArrayOfNodeID(w, v: v.fieldUses)
 	storeIntMapOfBool(w, v: v.consumed)
 	storeIntMapOfTypeID(w, v: v.boxes)
+	storeIntMapOfWaiting(w, v: v.waiting)
 	w.flag(v.declared)
 end 'storeTyping'
 
@@ -2597,8 +2662,9 @@ extension Typing
 		let theFieldUses = loadIntMapOfArrayOfNodeID(r)
 		let theConsumed = loadIntMapOfBool(r)
 		let theBoxes = loadIntMapOfTypeID(r)
+		let theWaiting = loadIntMapOfWaiting(r)
 		let theDeclared = r.flag()
-		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, boxes: theBoxes, declared: theDeclared}
+		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, boxes: theBoxes, waiting: theWaiting, declared: theDeclared}
 	end 'cacheLoad'
 end 'Typing'
 

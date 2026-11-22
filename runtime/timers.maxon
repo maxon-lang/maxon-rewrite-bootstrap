@@ -9,10 +9,15 @@ let noTimer = 0 as Count
 // timersFirstCapacity is the heap's first room, which doubles when full.
 let timersFirstCapacity = 64 as Count
 
-// greenSleep is Go's timeSleep: the running green thread parks until at least a number of nanoseconds have passed.
+// greenSleep is Go's timeSleep: the running green thread parks until at least a number of nanoseconds have passed. A
+// cancelled coroutine's sleep ends at once, after a yield that lets its strand's other members run, as maxon's does.
 function greenSleep(nanoseconds Count)
 	let context = __Raw.threadContext()
 	let g = greenCurrent()
+	if isCancelled(g) 'cancelled'
+		greenYield()
+		return
+	end 'cancelled'
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	let wake = try nanotime(context) + nanoseconds otherwise panic("a sleep past the end of the clock")
 	__Raw.storeWord(g, offset: greenWhenOffset, value: wake)
@@ -28,6 +33,39 @@ function greenSleep(nanoseconds Count)
 		panic("a sleeping green thread was readied before its timer")
 	end 'early'
 end 'greenSleep'
+
+// expireSleep makes the sleep of g, if it is on the timers' heap, due now, as Go's modtimer moves a timer earlier: the timer
+// rises to its place in the heap, and the next search for work readies g. g holds no timer otherwise.
+function expireSleep(context Count, g Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler == noScheduler 'none'
+		return
+	end 'none'
+	let now = nanotime(context)
+	lockScheduler(scheduler)
+	let count = __Raw.loadWord(scheduler, offset: schedTimerCountOffset)
+	var at = 0 as Count
+	while at < count and timerAt(scheduler, index: at) != g 'find'
+		at = __Raw.wrappingAdd(at, right: 1)
+	end 'find'
+	if at == count or __Raw.loadWord(g, offset: greenWhenOffset) <= now 'notSleeping'
+		unlockScheduler(scheduler)
+		return
+	end 'notSleeping'
+	__Raw.storeWord(g, offset: greenWhenOffset, value: now)
+	while at > 0 'up'
+		let parent = __Raw.wrappingSub(at, right: 1) / 2
+		if timerWhen(scheduler, index: parent) <= now 'placed'
+			break 'up'
+		end 'placed'
+		__Raw.storeWord(timerSlot(scheduler, index: at), offset: 0, value: timerAt(scheduler, index: parent))
+		at = parent
+	end 'up'
+	__Raw.storeWord(timerSlot(scheduler, index: at), offset: 0, value: g)
+	__Raw.storeWord(scheduler, offset: schedTimerNextOffset, value: timerWhen(scheduler, index: 0))
+	unlockScheduler(scheduler)
+	wakePoller(scheduler, at: now)
+end 'expireSleep'
 
 // wakePoller is Go's wakeNetPoller for a timer due at when: the thread that waits in the poller is woken when it waits
 // past when, and when none waits a thread is woken for an idle processor, which waits for the timer in its turn.

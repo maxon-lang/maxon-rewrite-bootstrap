@@ -432,7 +432,7 @@ end 'StartError'
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function start(fail bool) returns IntPromise throws StartError
@@ -459,7 +459,7 @@ end 'run'
 function main() returns ExitCode
 	let failed = run(true)
 	let started = run(false)
-	print("{failed + started}\n")
+	print("{try failed + started otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -484,7 +484,7 @@ end 'StartError'
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function start(fail bool) returns IntPromise throws StartError

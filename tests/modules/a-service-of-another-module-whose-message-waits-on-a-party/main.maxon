@@ -1,0 +1,10 @@
+// A type of another module becomes a service where this module spawns it, so its messages are held to E3221 here, at the
+// spawn: the module that declares the type does not spawn it, and never sees it as a service.
+function main() returns ExitCode
+	let peer = spawn lib.Peer.create()
+	let asker = spawn lib.Asker.create()
+	try asker.ask(peer.clone()) otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3221 at 5:14

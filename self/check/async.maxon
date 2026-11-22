@@ -38,7 +38,7 @@ function checkAsync(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 end 'checkAsync'
 
 // requireStartable refuses, at the async call e, what it cannot start, as maxon does: a method of a value, a function value, a
-// built-in the compiler lowers in place, a float result, and more arguments than a coroutine holds.
+// built-in the compiler lowers in place and a float result; and more arguments than a coroutine holds.
 function requireStartable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, call ast.NodeID, info ast.CallInfo, result ast.TypeID, mutates errs diag.ErrorList) returns bool
 	let name = calleeText(ms.tree(), call: call)
 	if info.kind == ast.CallKind.callMethod or info.kind == ast.CallKind.callBound 'method'
@@ -58,12 +58,14 @@ function requireStartable(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: diag.asyncFloatResult(name), errs: errs)
 		return false
 	end 'float'
-	for i in 0 upto info.paramSpecs.count() 'floats'
-		if ast.isFloatType(ms.types, reads: p.types, t: info.paramSpecs[i].ty) and info.paramSpecs[i].conv == ast.Convention.convLet 'float'
-			failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "`async {name}(…)` passes a float to the parameter '{info.paramSpecs[i].name}', and a coroutine is handed its arguments as words, which carry no float yet: pass the float in a record, or start a function that takes its bits", errs: errs)
+	for i in 0 upto info.paramSpecs.count() 'owned'
+		let conv = info.paramSpecs[i].conv
+		let promise = ast.isPromiseType(ms.types, reads: p.types, t: info.paramSpecs[i].ty)
+		if (conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs) and not promise and lacksCap(c, p: p, ms: ms, wantCopy: false, t: info.paramSpecs[i].ty).missing 'undroppable'
+			failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "`async {name}(…)` gives the parameter '{info.paramSpecs[i].name}' a '{nameOfType(p, ms: ms, t: info.paramSpecs[i].ty)}', which is not Droppable, and a cancel of the promise before the coroutine starts drops what the function was given: end the value before the call, or pass what the function needs to make it", errs: errs)
 			return false
-		end 'float'
-	end 'floats'
+		end 'undroppable'
+	end 'owned'
 	for i in 0 upto info.paramSpecs.count() 'borrows'
 		if holdsBorrow(p, ms: ms, t: info.paramSpecs[i].ty) 'borrow'
 			failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "`async {name}(…)` passes a value that holds a borrow to the parameter '{info.paramSpecs[i].name}', and a coroutine outlives the call that starts it, so the buffer the value borrows may be gone by then: pass the buffer and make the cursor inside the function", errs: errs)
