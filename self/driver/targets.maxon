@@ -1,0 +1,119 @@
+// The targets on the command line: the one --target names, the one a compile with no --target is for, and what the name
+// of an executable for each ends with.
+
+let rosterSeparator = ", "
+
+// targetNamed is the target that --target names, or none for a name of no target the compiler has.
+function targetNamed(name String) returns table.Option with ast.Target
+	let targets = ast.knownTargets()
+	for i in 0 upto targets.count() 'targets'
+		if targets[i].name() == name 'named'
+			return table.Option.some(targets[i].clone())
+		end 'named'
+	end 'targets'
+	return table.Option.none
+end 'targetNamed'
+
+// targetRoster is the names of the targets, as the refusal of an unknown one lists them.
+function targetRoster() returns String
+	let targets = ast.knownTargets()
+	var out = ByteArray.create(0)
+	for i in 0 upto targets.count() 'targets'
+		if i > 0 'separator'
+			out.append(rosterSeparator.toByteArray())
+		end 'separator'
+		out.append(targets[i].name().toByteArray())
+	end 'targets'
+	return String.from(out)
+end 'targetRoster'
+
+// hostTarget is the target of the system the compiler runs on, which a compile with no --target is for.
+function hostTarget() returns ast.Target
+	#if os(Linux)
+		return ast.Target.linuxX64()
+	#else
+		return ast.Target.windowsX64()
+	#endif
+end 'hostTarget'
+
+// TargetRunner is how the test runner starts an executable of a target on the system the compiler runs on, as maxon's
+// targets.tsv names a runner for each target: itself when the target is the host's, and an x64-linux executable on Windows
+// through WSL, in its default distribution, which sees the Windows drives under wslMountRoot. An executable that WSL runs
+// gets the variables of the runner's environment that WSLENV names.
+enum TargetRunner
+	native
+	wsl
+end 'TargetRunner'
+
+let wslCommand = "wsl.exe"
+
+// wslExecFlag has WSL run the executable itself, with no shell between.
+let wslExecFlag = "--exec"
+
+let wslMountRoot = "/mnt/"
+
+let driveColon = 0x3A as Byte
+
+let windowsSeparator = 0x5C as Byte
+
+let wslSeparator = 0x2F as Byte
+
+// runnerFor is the runner of the target's executables on the system the compiler runs on, or none when there is none.
+function runnerFor(target ast.Target) returns table.Option with TargetRunner
+	let host = hostTarget().system
+	if target.system == host 'native'
+		return table.Option.some(TargetRunner.native)
+	end 'native'
+	if host == ast.TargetSystem.windows and target.system == ast.TargetSystem.linux 'wsl'
+		return table.Option.some(TargetRunner.wsl)
+	end 'wsl'
+	return table.Option.none
+end 'runnerFor'
+
+// runnerExecutable is what a run of the executable at exe starts: the executable, or its runner.
+function runnerExecutable(runner TargetRunner, exe FilePath) returns Executable
+	return match runner 'runner'
+		native gives Executable.path(exe.clone())
+		wsl gives Executable.name(wslCommand)
+	end 'runner'
+end 'runnerExecutable'
+
+// runnerArguments are the arguments of what a run of the executable at exe with none of its own starts.
+function runnerArguments(runner TargetRunner, exe String) returns CommandNames
+	return match runner 'runner'
+		native gives CommandNames.create(0)
+		wsl gives wslArguments(exe)
+	end 'runner'
+end 'runnerArguments'
+
+// wslArguments are the arguments of a run of WSL that executes the executable at exe.
+function wslArguments(exe String) returns CommandNames
+	var arguments = CommandNames.create(0)
+	arguments.push(wslExecFlag)
+	arguments.push(wslPath(exe))
+	return arguments
+end 'wslArguments'
+
+// wslPath is the path in WSL of a Windows path with a drive, C:\dir\file as /mnt/c/dir/file.
+function wslPath(path String) returns String
+	if path.byteLength() < 2 or path.byteAt(1) != driveColon 'noDrive'
+		panic("test: the executable {path} has no drive, which WSL would find it on")
+	end 'noDrive'
+	var out = ByteArray.create(0)
+	out.append(wslMountRoot.toByteArray())
+	out.append(path.sliceBytes(0, endPos: 1).toLower().toByteArray())
+	for i in 2 upto path.byteLength() 'bytes'
+		let c = path.byteAt(i)
+		out.push(wslSeparator if c == windowsSeparator else c)
+	end 'bytes'
+	return String.from(out)
+end 'wslPath'
+
+// executableExtension is what the name of an executable for the target ends with, as maxon names them: .exe on Windows
+// and nothing on Linux.
+function executableExtension(t ast.Target) returns String
+	return match t.system 'system'
+		windows gives ".exe"
+		linux gives ""
+	end 'system'
+end 'executableExtension'

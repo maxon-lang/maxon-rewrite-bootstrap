@@ -55,6 +55,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opCallImport 'opcodeCallImport'
 		return false
 	end 'opcodeCallImport'
+	if op == ir.Opcode.opSyscall 'opcodeSyscall'
+		return false
+	end 'opcodeSyscall'
 	if op == ir.Opcode.opAtomicAdd 'opcodeAtomicAdd'
 		return false
 	end 'opcodeAtomicAdd'

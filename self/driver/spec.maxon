@@ -45,8 +45,6 @@ let traceFences = "-trace"
 // A fence qualified for a target is written name:target, as Stdout:x64-windows.
 let targetSeparator = ":"
 
-let hostTarget = "x64-windows"
-
 // What a fragment is called in diagnostics, and the line that maxon puts above a fragment's source, which the positions of
 // the expectations count.
 let fragmentToken = "<fragment>"
@@ -358,8 +356,8 @@ let commaByte = 44 as Byte
 function directiveSkip(directive String) returns table.Option with String
 	let key = directiveKey(directive)
 	if key == targetsDirective 'targets'
-		if listsTarget(directiveValue(directive), target: hostTarget) 'excluded'
-			return table.Option.some("unsupported on {hostTarget}")
+		if listsTarget(directiveValue(directive), target: hostTarget().name()) 'excluded'
+			return table.Option.some("unsupported on {hostTarget().name()}")
 		end 'excluded'
 		return table.Option.none
 	end 'targets'
@@ -409,7 +407,7 @@ function fenceSkip(fence SpecFence) returns table.Option with String
 		return table.Option.some("unknown result block {fence.name}")
 	end 'unknown'
 	let target = fenceTarget(fence.name)
-	if target != "" and target != hostTarget 'other'
+	if target != "" and target != hostTarget().name() 'other'
 		return table.Option.some("a result block for the target {target}")
 	end 'other'
 	return table.Option.none
@@ -462,7 +460,7 @@ function resultFence(test SpecTest, base String) returns table.Option with SpecF
 	var found = false
 	for i in 0 upto test.fences.count() 'fences'
 		if fenceBase(test.fences[i].name) == base 'named'
-			if fenceTarget(test.fences[i].name) == hostTarget 'qualified'
+			if fenceTarget(test.fences[i].name) == hostTarget().name() 'qualified'
 				return table.Option.some(test.fences[i].clone())
 			end 'qualified'
 			if not found 'first'
@@ -1008,7 +1006,7 @@ function runSpecs(path String, options SpecOptions, width RunWidth) returns Exit
 	for f in 0 upto paths.count() 'files'
 		addSpecJobs(paths[f], file: f, tally: tally, jobs: jobs, files: files)
 	end 'files'
-	startTests(prepareSharedRuntime(), jobs: jobs, files: files, corpus: CorpusOptions.new(), verbose: options.verbose, scratch: Scratch.make("spec"), width: width, tally: Tally.spec(tally))
+	startTests(prepareSharedRuntime(hostTarget()), jobs: jobs, files: files, corpus: CorpusOptions.new(), verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(hostTarget())), width: width, tally: Tally.spec(tally))
 	return compiledByBehaviours
 end 'runSpecs'
 
@@ -1141,7 +1139,7 @@ end 'joinLines'
 // checkSpecRun runs the compiled program and checks its exit code, when the test gives one, and its output, which must be
 // what the blocks say or else nothing.
 function checkSpecRun(test SpecTest, text String, exe String) returns TestResult
-	match consumes runExecutable(exe) 'run'
+	match consumes runExecutable(exe, runner: TargetRunner.native) 'run'
 		ran(out) then return checkSpecOutput(test, text: text, out: out)
 		cannotStart then return TestResult.failed("cannot run the executable")
 		timedOut then return TestResult.failed("timed out")

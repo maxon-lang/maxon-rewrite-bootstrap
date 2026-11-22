@@ -116,3 +116,57 @@ export let stackReserveBytes = 268435456
 
 // byteBytes is the size of an element of a byte array.
 export let byteBytes = 1
+
+// linuxSysWrite is write(fd, buffer, count).
+export let linuxSysWrite = 1
+
+// linuxSysMmap is mmap(address, length, protection, flags, fd, offset).
+export let linuxSysMmap = 9
+
+// linuxSysMprotect is mprotect(address, length, protection).
+export let linuxSysMprotect = 10
+
+// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
+export let linuxSysRtSigaction = 13
+
+// linuxSysRtSigreturn is rt_sigreturn(), which a signal handler's restorer calls.
+export let linuxSysRtSigreturn = 15
+
+// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
+export let linuxSysClone = 56
+
+// linuxSysExit is exit(code), which ends the calling thread alone.
+export let linuxSysExit = 60
+
+// linuxSysSigaltstack is sigaltstack(stack, old stack).
+export let linuxSysSigaltstack = 131
+
+// linuxSysArchPrctl is arch_prctl(code, address).
+export let linuxSysArchPrctl = 158
+
+// linuxSysExitGroup is exit_group(code), which ends every thread of the process.
+export let linuxSysExitGroup = 231
+
+// linuxErrnoLimit is one past the largest errno: a result above the word -linuxErrnoLimit is a failure.
+export let linuxErrnoLimit = 4096
+
+// linuxPageBytes is the size of a page.
+export let linuxPageBytes = 4096
+
+// linuxProtNone is PROT_NONE: a page that faults when touched, a stack's guard.
+export let linuxProtNone = 0
+
+// linuxProtReadWrite is PROT_READ | PROT_WRITE.
+export let linuxProtReadWrite = 3
+
+// linuxMapAnonPrivate is MAP_PRIVATE | MAP_ANONYMOUS: zeroed pages of no file.
+export let linuxMapAnonPrivate = 34
+
+// linuxMapNoReserve is MAP_NORESERVE: a stack's address space, committed a page at a time as it is touched.
+export let linuxMapNoReserve = 16384
+
+// linuxArchSetFs is ARCH_SET_FS: arch_prctl sets the base that fs addresses from.
+export let linuxArchSetFs = 4098
+
+// linuxCloneWorkerFlags is CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS: a thread of the process with the thread pointer it is given, maxon's worker flags but CLONE_CHILD_CLEARTID, since nothing waits for a worker to end.
+export let linuxCloneWorkerFlags = 593664

@@ -114,9 +114,12 @@ export type Selector
 	var allocator as Allocator
 	// classes decides the register class of each register of the function being selected.
 	var classes as ClassChoice
+	// system is the system of the target the module is compiled for, which reads a thread's context and reaches the kernel
+	// its own way.
+	var system as ast.TargetSystem
 
 	static function new(verifies bool) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies), classes: ClassChoice.new()}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies), classes: ClassChoice.new(), system: ast.TargetSystem.windows}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -250,6 +253,11 @@ export type Selector
 	function inXmm(r ir.Reg) returns bool
 		return mir.classes[regIndex(r)] == RegClass.xmm
 	end 'inXmm'
+
+	// onLinux is whether the module is compiled for Linux, whose threads keep their context through fs.
+	function onLinux() returns bool
+		return system == ast.TargetSystem.linux
+	end 'onLinux'
 
 	// floatRef is the word of the unit's data that holds the bits of a constant, which a form reads into an xmm register.
 	function floatRef(mutates self, bits ir.Word) returns Referent
@@ -784,18 +792,21 @@ end 'emitCompareExchange'
 // stack above the shadow space the callee may write, rsp aligned at the call. A value holds rsp across the call, which
 // allocation keeps in a register the callee preserves or in the frame.
 function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if sel.system != ast.TargetSystem.windows 'imports'
+		panic("backend: the runtime calls the DLL function {ir.callImportName(fn, x: ins)} on a target with no DLLs: its source for the target lacks that function")
+	end 'imports'
 	let start = ir.callImportArgsStart(ins)
 	let count = ir.callImportArgsCount(ins)
 	let inRegisters = argsInRegisters(ConventionKind.host, count: count)
 	let stackWords = try count - inRegisters otherwise panic("backend: more arguments in registers than a call has")
-	let frame = alignUp(try x64HostShadowBytes + stackWords * wordBytes otherwise panic("backend: more arguments than memory"), alignment: x64StackAlignment)
+	let frame = alignUp(try x64WindowsHostShadowBytes + stackWords * wordBytes otherwise panic("backend: more arguments than memory"), alignment: x64StackAlignment)
 	let sp = physReg(rsp)
 	let saved = sel.define(X64Form.movRegReg, b: sp, c: noMReg, aux: 0, imm: 0)
 	sel.target(chooseAndRegImm(-x64StackAlignment), a: sp, b: sp, c: noMReg, aux: 0, imm: -x64StackAlignment)
 	let bytes = imm32Of(frame)
 	sel.target(chooseSubRegImm(bytes), a: sp, b: sp, c: noMReg, aux: 0, imm: bytes as FullRangeInt)
 	for i in inRegisters upto count 'stack'
-		let at = try x64HostShadowBytes + (i - inRegisters) * wordBytes otherwise panic("backend: more arguments than memory")
+		let at = try x64WindowsHostShadowBytes + (i - inRegisters) * wordBytes otherwise panic("backend: more arguments than memory")
 		sel.store(sp, disp: imm32Of(at), src: argAt(fn, start: start, index: i))
 	end 'stack'
 	for i in 0 upto inRegisters 'registers'
@@ -805,6 +816,28 @@ function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.target(X64Form.movRegReg, a: sp, b: saved, c: noMReg, aux: 0, imm: 0)
 	sel.takeFrom(ins.dst, r: resultRegister(ConventionKind.host))
 end 'emitCallImport'
+
+// emitSyscall calls the kernel by Linux's system call convention: the number and the words in its registers, the result
+// in its result register. A system call takes no more words than the convention has registers for.
+function emitSyscall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if sel.system != ast.TargetSystem.linux 'kernel'
+		panic("backend: the runtime makes a system call on a target whose programs reach the kernel through its DLLs")
+	end 'kernel'
+	let start = ir.syscallArgsStart(ins)
+	let count = ir.syscallArgsCount(ins)
+	let words = try count - 1 otherwise panic("backend: a system call with no number")
+	if words > argRegisterCount(ConventionKind.syscall) 'many'
+		panic("backend: a system call of more words than the system call convention has registers for")
+	end 'many'
+	let first = try start + 1 otherwise panic("backend: an argument past the pool")
+	for i in 0 upto words 'registers'
+		sel.copy(physReg(argRegister(ConventionKind.syscall, index: i)), src: argAt(fn, start: first, index: i))
+	end 'registers'
+	sel.copy(physReg(x64LinuxSyscallNumber), src: argAt(fn, start: start, index: 0))
+	let reads = wordArgRegs(ConventionKind.syscall, count: words) or regMaskOf(x64LinuxSyscallNumber)
+	sel.emit(newCall(X64Form.syscall, a: noMReg, ref: MRef.none, aux: 0, argRegs: reads))
+	sel.takeFrom(ins.dst, r: resultRegister(ConventionKind.syscall))
+end 'emitSyscall'
 
 // emitCallCode calls the code at the address that is the first of the arguments with the rest, words: the run of a
 // behaviour's record, which takes a word.
@@ -1348,6 +1381,7 @@ end 'selectFunctionTree'
 // is charged the time of each phase.
 export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, fallbacks ir.Fallbacks, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) returns CodeUnit
 	var sel = Selector.new(verifies)
+	sel.system = p.target.system
 	sel.allocator.spiller.clock = exchange(clock, value: EmitClock.off())
 	sel.allocator.spiller.clock.restart()
 	for i in 0 upto fns.count() 'each'

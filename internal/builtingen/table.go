@@ -368,8 +368,23 @@ func rawFunctions() []function {
 		f.Checked = true
 		fs = append(fs, own(f))
 	}
+	// A system call of a target whose programs call the kernel themselves takes its number and up to maxSyscallArgs
+	// words, and gives what the kernel returns: a negative errno, as a word, when it failed.
+	for n := 0; n <= maxSyscallArgs; n++ {
+		params := []string{"number Count"}
+		for i := 1; i <= n; i++ {
+			params = append(params, fmt.Sprintf("arg%d Count", i))
+		}
+		fs = append(fs, raw(fmt.Sprintf("syscall%d", n), params, "Count", "RawSyscall"))
+	}
+	// processStartAddress is the address of the global where the entry of a Linux executable keeps the stack pointer the
+	// kernel started the process with, which points at the argument count, the arguments and the environment.
+	fs = append(fs, raw("processStartAddress", nil, "Count", "RawProcessStartAddress"))
 	return fs
 }
+
+// maxSyscallArgs is the most words a system call takes, as many as the kernel's convention passes in registers.
+const maxSyscallArgs = 6
 
 var tableFunctions = []function{
 	{Owner: "Array", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "ArrayCreate", Checked: true},
@@ -635,9 +650,10 @@ var entries = []entry{
 	{"ImageDataStart", "g.imageDataStart", "Linker", roleGlobal, "the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap"},
 	{"ImageDataEnd", "g.imageDataEnd", "Linker", roleGlobal, "the end of the data section"},
 	{"CheckLeaks", "rt.checkLeaks", "Source", roleInternal, "(exit code) -> exit code: what the entry of an executable built to count its allocations calls after main, which exits with a leak report when a box is still live"},
-	{"TlsSlot", "g.tlsSlot", "Runtime", roleGlobal, "the thread-local slot that each thread keeps its context in, which the entry takes with TlsAlloc and a thread sets with TlsSetValue"},
+	{"TlsSlot", "g.tlsSlot", "Runtime", roleGlobal, "the thread-local slot that each thread keeps its context in, which on Windows the entry takes with TlsAlloc and a thread sets with TlsSetValue, and on Linux is the main thread's word that fs points at"},
 	{"TlsOffset", "g.tlsOffset", "Runtime", roleGlobal, "where the thread-local slot is in a thread's TEB, which a read of the thread's context loads at"},
 	{"MainContext", "g.mainContext", "Runtime", roleGlobal, "the context of the main thread, which the entry stores in the thread-local slot"},
+	{"ProcessStart", "g.processStart", "Runtime", roleGlobal, "the stack pointer a Linux process starts with, at the argument count, then the arguments and the environment, which the entry keeps"},
 	{"ThreadStart", "rt.threadStart", "Runtime", roleInternal, "(context) by Win64: the start of a thread the runtime makes, which keeps stack for the fault handler, stores the context in the thread-local slot and calls workerMain"},
 	{"SchedDrain", "rt.schedDrain", "Source", roleInternal, "(exit code) -> exit code: what the entry calls after main, which runs behaviours until none is left"},
 	{"WorkerMain", "rt.workerMain", "Source", roleInternal, "(context): what a thread the runtime makes runs"},

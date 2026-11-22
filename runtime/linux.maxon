@@ -1,0 +1,566 @@
+// The runtime's OS layer on Linux, which calls the kernel itself, by its x86-64 system calls (the linux constants of
+// layout_gen.maxon), with no C library: output and exit, the pages the heap is carved from, the arguments and the
+// environment the process started with, the clock, files and directories, a worker's thread and the futex it parks on.
+// What each entry does is what its Windows twin does, in the files of the entries; a failure gives the case of its error
+// that the same failure gives there (failureOf).
+
+#if os(Linux)
+	// noFd is the fd of an anonymous mapping, -1.
+	let noFd = 0xFFFFFFFFFFFFFFFF as Count
+
+	// noMappingOffset is the offset of an anonymous mapping, which has no file.
+	let noMappingOffset = 0 as Count
+
+	// noFlags asks a call for nothing special.
+	let noFlags = 0 as Count
+
+	// noTimeout is a futex wait's timeout: none, so it waits until it is woken.
+	let noTimeout = 0 as Count
+
+	let wakeOneSleeper = 1 as Count
+
+	// linuxPathBytes is PATH_MAX, the longest path the kernel gives back, with its terminator.
+	let linuxPathBytes = 4096 as Count
+
+	// affinityMaskBytes is the room for the mask of the processors a thread may run on: 1024 of them, a bit each.
+	let affinityMaskBytes = 128 as Count
+
+	let lowBit = 1 as Count
+
+	// The bytes of a path that the runtime reads: the separator, the other one that FilePath.from turns into it, as maxon's
+	// does, and the terminator of a C string.
+	let slashByte = 0x2F as Byte
+
+	let terminatorByte = 0 as Byte
+
+	let equalsByte = 0x3D as Byte
+
+	let dotEntryByte = 0x2E as Byte
+
+	let selfExecutable = "/proc/self/exe"
+
+	// The process starts with the argument count at its stack pointer, the arguments' addresses after it, a null, and then
+	// the environment's, ended by a null.
+	let argumentsOffset = 8 as Count
+
+	let directoryBufferBytes = 4096 as Count
+
+	// failed is whether what a system call returned is -errno, a word in the last page of the address space.
+	function failed(result Count) returns bool
+		return result > __Raw.wrappingSub(0, right: linuxErrnoLimit)
+	end 'failed'
+
+	// errnoOf is the errno of a system call that failed.
+	function errnoOf(result Count) returns Count
+		return __Raw.wrappingSub(0, right: result)
+	end 'errnoOf'
+
+	// osErrorOf is the errno of a system call's result, or 0 when it did not fail.
+	function osErrorOf(result Count) returns Count
+		if failed(result) 'failed'
+			return errnoOf(result)
+		end 'failed'
+		return 0
+	end 'osErrorOf'
+
+	// failureOf is the failure that an errno is, by the Win32 error that names the same failure on Windows.
+	function failureOf(errno Count) returns Failure
+		if errno == linuxEnoent or errno == linuxEnotdir 'missing'
+			return failureNotFound
+		end 'missing'
+		if errno == linuxEacces or errno == linuxEperm or errno == linuxEisdir 'denied'
+			return failureAccessDenied
+		end 'denied'
+		if errno == linuxEbusy or errno == linuxEtxtbsy 'busy'
+			return failureBusy
+		end 'busy'
+		if errno == linuxEexist or errno == linuxEnotempty 'exists'
+			return failureAlreadyExists
+		end 'exists'
+		return failureOther
+	end 'failureOf'
+
+	// writeAll writes the bytes at an address to an fd, as many calls as the kernel takes, and gives the errno that
+	// stopped it, or 0.
+	function writeAll(fd Count, data Count, length Count) returns Count
+		var done = 0 as Count
+		while done < length 'write'
+			let written = __Raw.syscall3(linuxSysWrite, arg1: fd, arg2: __Raw.wrappingAdd(data, right: done), arg3: length - done)
+			if failed(written) 'failed'
+				if errnoOf(written) == linuxEintr 'again'
+					continue 'write'
+				end 'again'
+				return errnoOf(written)
+			end 'failed'
+			done = __Raw.wrappingAdd(done, right: written)
+		end 'write'
+		return 0
+	end 'writeAll'
+
+	// write writes a string to an fd, all of it.
+	function write(handle Count, text String)
+		let box = __Raw.stringAddress(text)
+		_ = writeAll(handle, data: bytesOf(box), length: boxLength(box))
+	end 'write'
+
+	// exitProcess ends the process, every thread of it, with a code; it does not return.
+	function exitProcess(code Count)
+		_ = __Raw.syscall1(linuxSysExitGroup, arg1: code)
+	end 'exitProcess'
+
+	function closeFd(fd Count)
+		_ = __Raw.syscall1(linuxSysClose, arg1: fd)
+	end 'closeFd'
+
+	// mapPages is a block of zeroed pages that holds a number of bytes, which the kernel maps.
+	function mapPages(bytes Count) returns Count
+		let block = __Raw.syscall6(linuxSysMmap, arg1: 0, arg2: bytes, arg3: linuxProtReadWrite, arg4: linuxMapAnonPrivate, arg5: noFd, arg6: noMappingOffset)
+		if failed(block) 'refused'
+			panic("out of memory: the kernel maps no more pages")
+		end 'refused'
+		return block
+	end 'mapPages'
+
+	// unmapPages gives back the pages of a block of a number of bytes that mapPages made.
+	function unmapPages(block Count, bytes Count)
+		_ = __Raw.syscall2(linuxSysMunmap, arg1: block, arg2: bytes)
+	end 'unmapPages'
+
+	// processStart is the stack pointer the process started with.
+	function processStart() returns Count
+		return __Raw.loadWord(__Raw.processStartAddress(), offset: 0)
+	end 'processStart'
+
+	// startWord is the word at an index of the words the process started with: the argument count is the first.
+	function startWord(index Count) returns Count
+		return __Raw.loadWord(processStart(), offset: try index * wordBytes otherwise panic("a word past the process's start"))
+	end 'startWord'
+
+	// cLength is the length of the zero-terminated bytes at an address.
+	function cLength(address Count) returns Count
+		var length = 0 as Count
+		while __Raw.loadByte(address, offset: length) != terminatorByte 'each'
+			length = __Raw.wrappingAdd(length, right: 1)
+		end 'each'
+		return length
+	end 'cLength'
+
+	// boxOfBytes is a new string box of a number of bytes at an address.
+	function boxOfBytes(address Count, length Count) returns Count
+		let box = newStringBox(length)
+		copyBytes(address, target: bytesOf(box), count: length)
+		return box
+	end 'boxOfBytes'
+
+	// cStringOf is a new zero-terminated copy of a string, which the caller frees: a path or an argument as the kernel
+	// reads it.
+	function cStringOf(text String) returns Count
+		return cStringOfBox(__Raw.stringAddress(text))
+	end 'cStringOf'
+
+	// cStringOfBox is cStringOf of the string a box holds.
+	function cStringOfBox(box Count) returns Count
+		let length = boxLength(box)
+		let copy = alloc(__Raw.wrappingAdd(length, right: 1))
+		copyBytes(bytesOf(box), target: copy, count: length)
+		return copy
+	end 'cStringOfBox'
+
+	// atCwd is the directory fd of a path relative to the working directory, AT_FDCWD.
+	function atCwd() returns Count
+		return __Raw.wrappingSub(0, right: linuxAtCwdNegated)
+	end 'atCwd'
+
+	// osArgs is the program's arguments, the program's own name first, as the kernel gives them.
+	function osArgs() returns Count
+		let count = startWord(0)
+		let args = stringArrayNew()
+		for i in 0 upto count 'each'
+			let arg = startWord(i + 1)
+			stringArrayPush(args, box: boxOfBytes(arg, length: cLength(arg)))
+		end 'each'
+		return args
+	end 'osArgs'
+
+	// environment is the address of the first of the environment's entries, each `NAME=value`, which a null ends.
+	function environment() returns Count
+		return __Raw.wrappingAdd(processStart(), right: try (startWord(0) + 2) * wordBytes otherwise panic("an environment past memory"))
+	end 'environment'
+
+	// namesEntry is whether the zero-terminated entry of the environment at an address is the one of a name: the name, then
+	// '='.
+	function namesEntry(entry Count, name Count, length Count) returns bool
+		for i in 0 upto length 'bytes'
+			if __Raw.loadByte(entry, offset: i) != __Raw.loadByte(name, offset: i) 'differs'
+				return false
+			end 'differs'
+		end 'bytes'
+		return __Raw.loadByte(entry, offset: length) == equalsByte
+	end 'namesEntry'
+
+	// osEnvironmentVariable is the value of a variable of the environment the process started with, which a variable that
+	// is not set has none of.
+	function osEnvironmentVariable(name String, errorAddress Count) returns String
+		let nameBox = __Raw.stringAddress(name)
+		let length = boxLength(nameBox)
+		var at = environment()
+		while __Raw.loadWord(at, offset: 0) != 0 'entries'
+			let entry = __Raw.loadWord(at, offset: 0)
+			if namesEntry(entry, name: bytesOf(nameBox), length: length) 'found'
+				let value = __Raw.wrappingAdd(entry, right: __Raw.wrappingAdd(length, right: 1))
+				succeed(errorAddress)
+				return __Raw.stringAt(boxOfBytes(value, length: cLength(value)))
+			end 'found'
+			at = __Raw.wrappingAdd(at, right: wordBytes)
+		end 'entries'
+		failWith(errorAddress, errorCase: variableUnset)
+		return noString()
+	end 'osEnvironmentVariable'
+
+	// osExecutablePath is the full path of the running executable, which the link /proc/self/exe names, as maxon's runtime
+	// reads it; a kernel with no /proc cannot give it.
+	function osExecutablePath(errorAddress Count) returns String
+		let link = cStringOf(selfExecutable)
+		let buffer = alloc(linuxPathBytes)
+		let length = __Raw.syscall4(linuxSysReadlinkat, arg1: atCwd(), arg2: link, arg3: buffer, arg4: linuxPathBytes)
+		free(link)
+		if failed(length) or length == linuxPathBytes 'failed'
+			free(buffer)
+			failWith(errorAddress, errorCase: pathUnavailable)
+			return noString()
+		end 'failed'
+		let box = boxOfBytes(buffer, length: length)
+		free(buffer)
+		succeed(errorAddress)
+		return __Raw.stringAt(box)
+	end 'osExecutablePath'
+
+	// osCurrentPath is the working directory, which stops the program when the kernel cannot give it.
+	function osCurrentPath() returns String
+		let buffer = alloc(linuxPathBytes)
+		let size = __Raw.syscall2(linuxSysGetcwd, arg1: buffer, arg2: linuxPathBytes)
+		if failed(size) or size == 0 'failed'
+			free(buffer)
+			panic("Directory.currentPath: getcwd failed")
+		end 'failed'
+		let box = boxOfBytes(buffer, length: size - 1)
+		free(buffer)
+		return __Raw.stringAt(box)
+	end 'osCurrentPath'
+
+	// osClockNanos is the monotonic clock in nanoseconds.
+	function osClockNanos() returns Count
+		let time = alloc(linuxTimespecBytes)
+		_ = __Raw.syscall2(linuxSysClockGettime, arg1: linuxClockMonotonic, arg2: time)
+		let seconds = __Raw.loadWord(time, offset: 0)
+		let nanos = __Raw.loadWord(time, offset: wordBytes)
+		free(time)
+		let wholeNanos = try seconds * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
+		return try wholeNanos + nanos otherwise panic("the monotonic clock is past a word of nanoseconds")
+	end 'osClockNanos'
+
+	function osProcessId() returns Count
+		return __Raw.syscall0(linuxSysGetpid)
+	end 'osProcessId'
+
+	// osPathFrom is a path with the native separator in place of the other one; a Linux path may hold any other byte.
+	function osPathFrom(path String, errorAddress Count) returns String
+		let box = __Raw.stringAddress(path)
+		let length = boxLength(box)
+		let source = bytesOf(box)
+		let native = newStringBox(length)
+		let dest = bytesOf(native)
+		for i in 0 upto length 'copy'
+			let byte = __Raw.loadByte(source, offset: i)
+			__Raw.storeByte(dest, offset: i, value: slashByte if byte == backslashByte else byte)
+		end 'copy'
+		succeed(errorAddress)
+		return __Raw.stringAt(native)
+	end 'osPathFrom'
+
+	// openPath is the fd of the file a path names, opened with flags, or -errno.
+	function openPath(path String, flags Count, mode Count) returns Count
+		let cPath = cStringOf(path)
+		let fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: flags, arg4: mode)
+		free(cPath)
+		return fd
+	end 'openPath'
+
+	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno.
+	function statPath(path String, stat Count) returns Count
+		let cPath = cStringOf(path)
+		let result = __Raw.syscall4(linuxSysNewfstatat, arg1: atCwd(), arg2: cPath, arg3: stat, arg4: noFlags)
+		free(cPath)
+		return result
+	end 'statPath'
+
+	// osReadText is the whole content of a file.
+	function osReadText(path String, errorAddress Count) returns String
+		let fd = openPath(path, flags: linuxOpenReadOnly, mode: 0)
+		if failed(fd) 'open'
+			endWithError(errorAddress, osError: errnoOf(fd), table: readFailures())
+			return noString()
+		end 'open'
+		let stat = alloc(linuxStatBytes)
+		let statted = __Raw.syscall2(linuxSysFstat, arg1: fd, arg2: stat)
+		let size = __Raw.loadWord(stat, offset: linuxStatSizeOffset)
+		free(stat)
+		if failed(statted) 'sized'
+			closeFd(fd)
+			endWithError(errorAddress, osError: errnoOf(statted), table: readFailures())
+			return noString()
+		end 'sized'
+		let box = newStringBox(size)
+		let bytes = bytesOf(box)
+		var done = 0 as Count
+		var readError = 0 as Count
+		var reading = true
+		while done < size and reading 'read'
+			let chunk = __Raw.syscall3(linuxSysRead, arg1: fd, arg2: __Raw.wrappingAdd(bytes, right: done), arg3: size - done)
+			if failed(chunk) 'failed'
+				if errnoOf(chunk) != linuxEintr 'stop'
+					readError = errnoOf(chunk)
+					reading = false
+				end 'stop'
+			end 'failed' else if chunk == 0 'shrunk'
+				reading = false
+			end 'shrunk' else 'more'
+				done = __Raw.wrappingAdd(done, right: chunk)
+			end 'more'
+		end 'read'
+		closeFd(fd)
+		if readError != 0 'failedRead'
+			free(box)
+			endWithError(errorAddress, osError: readError, table: readFailures())
+			return noString()
+		end 'failedRead'
+		__Raw.storeWord(box, offset: stringLengthOffset, value: done)
+		succeed(errorAddress)
+		return __Raw.stringAt(box)
+	end 'osReadText'
+
+	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0.
+	function writeFile(path String, data Count, length Count) returns Count
+		let fd = openPath(path, flags: linuxOpenReplace, mode: linuxFileMode)
+		if failed(fd) 'open'
+			return errnoOf(fd)
+		end 'open'
+		let errno = writeAll(fd, data: data, length: length)
+		closeFd(fd)
+		return errno
+	end 'writeFile'
+
+	// osRename moves a file or a directory, and replaces what is at the destination.
+	function osRename(source String, destination String, errorAddress Count)
+		let oldPath = cStringOf(source)
+		let newPath = cStringOf(destination)
+		let result = __Raw.syscall2(linuxSysRename, arg1: oldPath, arg2: newPath)
+		free(oldPath)
+		free(newPath)
+		endWithError(errorAddress, osError: osErrorOf(result), table: renameFailures())
+	end 'osRename'
+
+	// osDelete deletes a file, which a directory is not: unlink refuses it.
+	function osDelete(path String, errorAddress Count)
+		let cPath = cStringOf(path)
+		let result = __Raw.syscall1(linuxSysUnlink, arg1: cPath)
+		free(cPath)
+		endWithError(errorAddress, osError: osErrorOf(result), table: deleteFailures())
+	end 'osDelete'
+
+	// negativeWordBit is set in a word that holds a negative number, such as the seconds of a time before 1970.
+	let negativeWordBit = 0x8000000000000000 as Count
+
+	// secondsAt is the seconds of the statx timestamp at an offset of a record, or 0 for a time before 1970, as the
+	// Windows entry gives.
+	function secondsAt(record Count, offset Count) returns Count
+		let seconds = __Raw.loadWord(record, offset: offset)
+		if (seconds and negativeWordBit) != 0 'before'
+			return 0
+		end 'before'
+		return seconds
+	end 'secondsAt'
+
+	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last
+	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. A file system that
+	// records no birth time fails the entry, since the time it was made is not a time to invent.
+	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
+		let cPath = cStringOf(path)
+		let record = alloc(linuxStatxBytes)
+		let result = __Raw.syscall5(linuxSysStatx, arg1: atCwd(), arg2: cPath, arg3: noFlags, arg4: linuxStatxWanted, arg5: record)
+		free(cPath)
+		let osError = osErrorOf(result)
+		if osError == 0 and (__Raw.loadWord32(record, offset: linuxStatxMaskOffset) and linuxStatxBirthTime) == 0 'noBirthTime'
+			failWith(errorAddress, errorCase: infoFailed)
+			free(record)
+			return 0
+		end 'noBirthTime'
+		if osError != 0 'failed'
+			free(record)
+			endWithError(errorAddress, osError: osError, table: infoFailures())
+			return 0
+		end 'failed'
+		let mode = __Raw.loadWord32(record, offset: linuxStatxModeOffset)
+		var flags = 0 as Count
+		if (mode and linuxModeTypeMask) == linuxModeDirectory 'directory'
+			flags = flags or infoDirectoryFlag
+		end 'directory'
+		if (mode and linuxModeOwnerWrite) == 0 'readOnly'
+			flags = flags or infoReadOnlyFlag
+		end 'readOnly'
+		__Raw.storeWord(size, offset: 0, value: __Raw.loadWord(record, offset: linuxStatxSizeOffset))
+		__Raw.storeWord(created, offset: 0, value: secondsAt(record, offset: linuxStatxCreatedOffset))
+		__Raw.storeWord(accessed, offset: 0, value: secondsAt(record, offset: linuxStatxAccessedOffset))
+		__Raw.storeWord(attributes, offset: 0, value: flags)
+		let modified = secondsAt(record, offset: linuxStatxModifiedOffset)
+		free(record)
+		succeed(errorAddress)
+		return modified
+	end 'osFileInfo'
+
+	function osIsDirectory(path String) returns bool
+		let stat = alloc(linuxStatBytes)
+		let result = statPath(path, stat: stat)
+		let mode = __Raw.loadWord32(stat, offset: linuxStatModeOffset)
+		free(stat)
+		return not failed(result) and (mode and linuxModeTypeMask) == linuxModeDirectory
+	end 'osIsDirectory'
+
+	// osCreateDirectory makes a directory and the parents it is missing, each prefix that ends before a separator first,
+	// and gives whether the directory is there after it. A directory that is there already fails to be made, which is no
+	// matter.
+	function osCreateDirectory(path String) returns bool
+		let cPath = cStringOf(path)
+		let length = cLength(cPath)
+		for i in 1 upto length 'prefixes'
+			if __Raw.loadByte(cPath, offset: i) == slashByte 'separator'
+				__Raw.storeByte(cPath, offset: i, value: terminatorByte)
+				_ = __Raw.syscall2(linuxSysMkdir, arg1: cPath, arg2: linuxDirectoryMode)
+				__Raw.storeByte(cPath, offset: i, value: slashByte)
+			end 'separator'
+		end 'prefixes'
+		_ = __Raw.syscall2(linuxSysMkdir, arg1: cPath, arg2: linuxDirectoryMode)
+		free(cPath)
+		return osIsDirectory(path)
+	end 'osCreateDirectory'
+
+	// isDotName is whether the zero-terminated name of a directory entry is `.` or `..`, which a listing leaves out.
+	function isDotName(name Count) returns bool
+		if __Raw.loadByte(name, offset: 0) != dotEntryByte 'other'
+			return false
+		end 'other'
+		let second = __Raw.loadByte(name, offset: 1)
+		return second == terminatorByte or (second == dotEntryByte and __Raw.loadByte(name, offset: 2) == terminatorByte)
+	end 'isDotName'
+
+	// entryPath is a new box of the path joined to the zero-terminated name of an entry: a separator goes between them
+	// unless the path is empty or ends with one.
+	function entryPath(path String, name Count) returns Count
+		let pathBox = __Raw.stringAddress(path)
+		let pathLength = boxLength(pathBox)
+		let nameLength = cLength(name)
+		let separate = pathLength != 0 and __Raw.loadByte(bytesOf(pathBox), offset: pathLength - 1) != slashByte
+		var length = __Raw.wrappingAdd(pathLength, right: nameLength)
+		if separate 'separator'
+			length = __Raw.wrappingAdd(length, right: 1)
+		end 'separator'
+		let box = newStringBox(length)
+		let bytes = bytesOf(box)
+		copyBytes(bytesOf(pathBox), target: bytes, count: pathLength)
+		var at = pathLength
+		if separate 'slash'
+			at = storeNextByte(bytes, offset: at, value: slashByte)
+		end 'slash'
+		copyBytes(name, target: __Raw.wrappingAdd(bytes, right: at), count: nameLength)
+		return box
+	end 'entryPath'
+
+	// osList is the path joined to the name of each entry of a directory, `.` and `..` left out, in the order the kernel
+	// gives.
+	function osList(path String, errorAddress Count) returns Count
+		let fd = openPath(path, flags: linuxOpenDirectory, mode: 0)
+		if failed(fd) 'open'
+			endWithError(errorAddress, osError: errnoOf(fd), table: listFailures())
+			return noBox
+		end 'open'
+		let buffer = alloc(directoryBufferBytes)
+		let entries = stringArrayNew()
+		var listing = true
+		var listError = 0 as Count
+		while listing 'batches'
+			let filled = __Raw.syscall3(linuxSysGetdents64, arg1: fd, arg2: buffer, arg3: directoryBufferBytes)
+			if failed(filled) 'failed'
+				listError = errnoOf(filled)
+				listing = false
+			end 'failed' else if filled == 0 'done'
+				listing = false
+			end 'done' else 'batch'
+				var at = 0 as Count
+				while at < filled 'records'
+					let record = __Raw.wrappingAdd(buffer, right: at)
+					let name = __Raw.wrappingAdd(record, right: linuxDirentNameOffset)
+					if not isDotName(name) 'entry'
+						stringArrayPush(entries, box: entryPath(path, name: name))
+					end 'entry'
+					at = __Raw.wrappingAdd(at, right: __Raw.loadWord16(record, offset: linuxDirentLengthOffset))
+				end 'records'
+			end 'batch'
+		end 'batches'
+		free(buffer)
+		closeFd(fd)
+		if listError != 0 'failedList'
+			endWithError(errorAddress, osError: listError, table: listFailures())
+			return entries
+		end 'failedList'
+		succeed(errorAddress)
+		return entries
+	end 'osList'
+
+	// futexWait sleeps while the 32-bit word at an address holds a value, until a wake of the word. It may return early,
+	// which a caller that rereads its word after it loses nothing by.
+	function futexWait(address Count, value Count)
+		_ = __Raw.syscall4(linuxSysFutex, arg1: address, arg2: linuxFutexWaitPrivate, arg3: value, arg4: noTimeout)
+	end 'futexWait'
+
+	// futexWakeOne wakes one thread that sleeps on the 32-bit word at an address.
+	function futexWakeOne(address Count)
+		_ = __Raw.syscall3(linuxSysFutex, arg1: address, arg2: linuxFutexWakePrivate, arg3: wakeOneSleeper)
+	end 'futexWakeOne'
+
+	// startThread starts a worker's thread at once, on a stack of the main thread's reserve that the kernel maps and
+	// commits a page at a time, its lowest page the guard. The top word of the stack holds the thread's context, and is the
+	// word that the thread's fs points at (rt.threadStart).
+	function startThread(context Count)
+		let block = __Raw.syscall6(linuxSysMmap, arg1: 0, arg2: stackReserveBytes, arg3: linuxProtReadWrite, arg4: linuxMapAnonPrivate or linuxMapNoReserve, arg5: noFd, arg6: noMappingOffset)
+		if failed(block) 'unmapped'
+			panic("cannot map a worker thread's stack")
+		end 'unmapped'
+		if failed(__Raw.syscall3(linuxSysMprotect, arg1: block, arg2: linuxPageBytes, arg3: linuxProtNone)) 'unguarded'
+			panic("cannot guard a worker thread's stack")
+		end 'unguarded'
+		let top = __Raw.wrappingAdd(block, right: stackReserveBytes - 2 * wordBytes)
+		__Raw.storeWord(top, offset: 0, value: context)
+		if failed(__Raw.callCode1(__Raw.threadStartAddress(), arg1: top)) 'failed'
+			panic("cannot start a worker thread")
+		end 'failed'
+	end 'startThread'
+
+	// onlineProcessors is how many processors the process may run on, the bits of its affinity mask, which maxon's runtime
+	// counts too; 0 when the kernel does not say.
+	function onlineProcessors() returns Count
+		let mask = alloc(affinityMaskBytes)
+		let filled = __Raw.syscall3(linuxSysSchedGetaffinity, arg1: 0, arg2: affinityMaskBytes, arg3: mask)
+		var count = 0 as Count
+		if not failed(filled) 'counted'
+			for i in 0 upto filled 'bytes'
+				var bits = __Raw.loadByte(mask, offset: i) as Count
+				while bits != 0 'bits'
+					count = __Raw.wrappingAdd(count, right: bits and lowBit)
+					bits = bits shr 1
+				end 'bits'
+			end 'bytes'
+		end 'counted'
+		free(mask)
+		return count
+	end 'onlineProcessors'
+#endif

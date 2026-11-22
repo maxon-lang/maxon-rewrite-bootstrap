@@ -76,7 +76,7 @@ export function joinPath(dir String, name String) returns String
 	let clean = trimTrailingSlash(dir)
 	if clean == "" or clean == "." 'cur'
 		if clean == "." 'dot'
-			return ".\\{name}"
+			return ".{nativeSeparator}{name}"
 		end 'dot'
 		return name.clone()
 	end 'cur'
@@ -87,7 +87,7 @@ export function joinPath(dir String, name String) returns String
 			return "{clean}{name}"
 		end 'hasSep'
 	end 'chkLast'
-	return "{clean}\\{name}"
+	return "{clean}{nativeSeparator}{name}"
 end 'joinPath'
 
 // parentDir is the directory a path is in: the path up to its last separator, or '.' for a path that has none.
@@ -139,6 +139,18 @@ let runtimeDirName = "runtime"
 let slashByte = 47 as Byte
 
 let backslashByte = 92 as Byte
+
+// The native separator of the paths of the system the compiler runs on, which it joins paths with, and Directory.list and
+// absolutePath give, as maxon's FilePath has it.
+#if os(Windows)
+	let nativeSeparator = "\\"
+
+	let nativeSeparatorByte = backslashByte
+#else
+	let nativeSeparator = "/"
+
+	let nativeSeparatorByte = slashByte
+#endif
 
 let colonByte = 58 as Byte
 
@@ -213,7 +225,7 @@ export function absolutePath(path String) returns String
 	var out = ByteArray.create(0)
 	for i in 0 upto parts.count() 'join'
 		if i > 0 'separator'
-			out.push(backslashByte)
+			out.push(nativeSeparatorByte)
 		end 'separator'
 		out.append(parts[i].toByteArray())
 	end 'join'
@@ -280,7 +292,7 @@ export function lastComponent(path String) returns String
 	var at = path.byteLength()
 	while at > 0 'back'
 		let before = try at - 1 otherwise 0
-		if path.byteAt(before) == 92 'separator'
+		if path.byteAt(before) == nativeSeparatorByte 'separator'
 			break 'back'
 		end 'separator'
 		at = before
@@ -334,7 +346,7 @@ export typealias SourceFiles = Array with SourceFile
 // belowDirectory is whether a path begins with a directory's path and a separator, so that it is below the directory.
 function belowDirectory(path String, dir String) returns bool
 	let n = dir.byteLength()
-	if path.byteLength() <= n or path.byteAt(n) != backslashByte 'short'
+	if path.byteLength() <= n or path.byteAt(n) != nativeSeparatorByte 'short'
 		return false
 	end 'short'
 	return path.sliceBytes(0, endPos: n) == dir
@@ -357,7 +369,7 @@ function listMemory(dir String, memory SourceFiles, mutates files ast.StringList
 		end 'file' else if belowDirectory(path, dir: dir) 'below'
 			let rest = path.sliceBytes(try dir.byteLength() + 1 otherwise panic("project: a path longer than memory"), endPos: path.byteLength())
 			var cut = 0 as Count
-			while rest.byteAt(cut) != backslashByte 'name'
+			while rest.byteAt(cut) != nativeSeparatorByte 'name'
 				cut = try cut + 1 otherwise panic("project: a path longer than memory")
 			end 'name'
 			let name = rest.sliceBytes(0, endPos: cut)

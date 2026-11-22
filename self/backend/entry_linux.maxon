@@ -1,0 +1,314 @@
+// The entry stub of a Linux executable, which calls the kernel itself: the code the process starts at keeps the stack
+// pointer the kernel started it with, where the arguments and the environment are, sets the standard handles, makes fs
+// point at the main thread's thread-local slot, moves to a stack of the main thread's reserve, calls main, runs the
+// behaviours it scheduled and exits with what main returns. A thread the runtime makes starts in the routine the runtime
+// calls to make it, which clones the process's thread onto the stack the runtime mapped.
+
+// The standard handles of a Linux process are its file descriptors 1 and 2.
+let linuxStdoutFd = 1
+
+let linuxStderrFd = 2
+
+// The words the kernel ignores in the system calls the stub makes: mmap's address, fd and offset of an anonymous
+// mapping, and clone's tid addresses, which nothing reads.
+let noAddress = 0
+
+let noFile = -1
+
+let noOffset = 0
+
+let noTid = 0
+
+// workerExitCode is what a thread the runtime made ends with when its worker returns, which it does not.
+let workerExitCode = 0
+
+let tlsUnpublished = "the runtime could not make fs point at the main thread's context (arch_prctl(ARCH_SET_FS) failed)"
+
+let stackUnmapped = "the runtime could not map the main thread's stack"
+
+// emitLinuxRuntime is the Linux unit of the entry: the standard handles, the main thread's thread-local slot and context,
+// and the stack pointer the process started with, which the runtime's source reads; the entry, the routine that starts a
+// thread, and the fault handler with the restorer its signals return through.
+function emitLinuxRuntime(calls EntryCalls, options RuntimeOptions) returns CodeUnit
+	var u = CodeUnit.new()
+	u.defineData(ir.rtSymbol(ir.Rt.rtStdout), size: wordBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtStderr), size: wordBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtTlsSlot), size: wordBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtMainContext), size: contextBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtProcessStart), size: wordBytes)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
+	emitLinuxEntry(u, calls: calls, count: options.countAllocations)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
+	emitLinuxThreadStart(u)
+	u.defineCode(faultSymbol)
+	emitLinuxFaultHandler(u)
+	u.defineCode(sigreturnSymbol)
+	emitSigreturn(u)
+	return u
+end 'emitLinuxRuntime'
+
+// emitLinuxEntry writes the executable's entry point, where the kernel starts the process with rsp at the argument count.
+function emitLinuxEntry(mutates u CodeUnit, calls EntryCalls, count bool)
+	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtProcessStart), src: rsp)
+	u.asm.movImm(rax, imm: linuxStdoutFd)
+	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStdout), src: rax)
+	u.asm.movImm(rax, imm: linuxStderrFd)
+	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStderr), src: rax)
+	let unpublished = u.asm.newLabel()
+	let unmapped = u.asm.newLabel()
+	// fs points at the main thread's slot, which holds the address of its context, as a worker's start makes it point at
+	// the slot at the top of the worker's stack.
+	u.asm.leaSymbol(rax, symbol: ir.rtSymbol(ir.Rt.rtMainContext))
+	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtTlsSlot), src: rax)
+	u.asm.movImm(rdi, imm: linuxArchSetFs)
+	u.asm.leaSymbol(rsi, symbol: ir.rtSymbol(ir.Rt.rtTlsSlot))
+	stubSyscall(u, number: linuxSysArchPrctl)
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(X64CondCode.notEqual, label: unpublished)
+	emitMainStack(u, unmapped: unmapped)
+	emitSignalStack(u)
+	emitFaultActions(u)
+	for i in 0 upto calls.symbols.count() 'calls'
+		u.asm.callSymbol(calls.symbols[i])
+	end 'calls'
+	if not calls.exitsWithResult 'passed'
+		u.asm.movImm(resultWord(), imm: 0)
+	end 'passed'
+	callRuntime(u, entry: ir.Rt.rtSchedDrain, arg: resultWord())
+	if count 'leaks'
+		callRuntime(u, entry: ir.Rt.rtCheckLeaks, arg: resultWord())
+	end 'leaks'
+	u.asm.mov(rdi, src: resultWord())
+	stubSyscall(u, number: linuxSysExitGroup)
+	emitStubPanic(u, at: unpublished, message: tlsUnpublished)
+	emitStubPanic(u, at: unmapped, message: stackUnmapped)
+end 'emitLinuxEntry'
+
+// stubSyscall makes the system call of a number with the words in the registers of the system call convention.
+function stubSyscall(mutates u CodeUnit, number FullRangeInt)
+	u.asm.movImm(x64LinuxSyscallNumber, imm: number)
+	u.asm.syscall()
+end 'stubSyscall'
+
+// emitStubPanic writes, at a label, the panic of a step of the entry that failed.
+function emitStubPanic(mutates u CodeUnit, at LabelID, message String)
+	u.asm.bind(at)
+	u.asm.leaData(argWord(), dataOffset: u.data.textOffset(message))
+	callRuntime(u, entry: ir.Rt.rtPanic, arg: argWord())
+end 'emitStubPanic'
+
+// emitMainStack moves the main thread to a stack of stackReserveBytes of its own, as a worker's: the kernel's stack is as
+// large as the soft limit of the shell that started the process, often 8 MB, and the main thread runs what a worker
+// does. The lowest page is the guard, which faults when the stack overflows. It goes to unmapped when the kernel refuses.
+function emitMainStack(mutates u CodeUnit, unmapped LabelID)
+	u.asm.movImm(rdi, imm: noAddress)
+	u.asm.movImm(rsi, imm: stackReserveBytes)
+	u.asm.movImm(rdx, imm: linuxProtReadWrite)
+	u.asm.movImm(r10, imm: linuxMapAnonPrivate or linuxMapNoReserve)
+	u.asm.movImm(r8, imm: noFile)
+	u.asm.movImm(r9, imm: noOffset)
+	stubSyscall(u, number: linuxSysMmap)
+	u.asm.cmpImm(rax, imm: -linuxErrnoLimit)
+	u.asm.jcc(X64CondCode.above, label: unmapped)
+	u.asm.mov(r12, src: rax)
+	u.asm.mov(rdi, src: rax)
+	u.asm.movImm(rsi, imm: linuxPageBytes)
+	u.asm.movImm(rdx, imm: linuxProtNone)
+	stubSyscall(u, number: linuxSysMprotect)
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(X64CondCode.notEqual, label: unmapped)
+	u.asm.lea(rsp, base: r12, disp: stackReserveBytes)
+end 'emitMainStack'
+
+// emitLinuxThreadStart writes the routine that starts a worker's thread, which the runtime calls by the internal
+// convention with the top of the stack it mapped for the thread, where it has stored the thread's context: the word that
+// fs is to point at. The routine gives the kernel's answer, the thread's id or -errno. The new thread starts after the
+// clone with that stack and that fs, and calls the runtime's workerMain with its context.
+function emitLinuxThreadStart(mutates u CodeUnit)
+	let child = u.asm.newLabel()
+	u.asm.mov(rsi, src: argWord())
+	u.asm.mov(r8, src: argWord())
+	u.asm.movImm(rdi, imm: linuxCloneWorkerFlags)
+	u.asm.movImm(rdx, imm: noTid)
+	u.asm.movImm(r10, imm: noTid)
+	stubSyscall(u, number: linuxSysClone)
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(X64CondCode.equal, label: child)
+	u.asm.mov(resultWord(), src: rax)
+	u.asm.ret()
+	u.asm.bind(child)
+	emitSignalStack(u)
+	u.asm.load(argWord(), base: rsp, disp: 0)
+	u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtWorkerMain))
+	u.asm.movImm(rdi, imm: workerExitCode)
+	stubSyscall(u, number: linuxSysExit)
+end 'emitLinuxThreadStart'
+
+// The signals of a hardware fault that the handler turns into a panic line, as maxon's runtime does: SIGSEGV, an address
+// that is not mapped or the guard page of a stack; SIGBUS, an access a mapped address does not allow; and SIGFPE, an
+// integer division's fault.
+let linuxSigsegv = 11
+
+let linuxSigbus = 7
+
+let linuxSigfpe = 8
+
+// FPE_INTOVF, the si_code of a SIGFPE from an integer overflow; every other SIGFPE the handler reads as a division by
+// zero, which is what the processor's divide fault is.
+let fpeIntegerOverflow = 2
+
+// The kernel's struct sigaction: the handler, the flags, the restorer and the mask, a word each. SA_SIGINFO hands the
+// handler the siginfo and the context, SA_ONSTACK runs it on the thread's signal stack, and SA_RESTORER, which x86-64
+// requires, names the code it returns through.
+let sigactionHandlerOffset = 0
+
+let sigactionFlagsOffset = 8
+
+let sigactionRestorerOffset = 16
+
+let sigactionMaskOffset = 24
+
+let sigactionBytes = 32
+
+let sigactionFlags = 0x0C000004
+
+// signalMaskBytes is the size of the signal mask that rt_sigaction takes.
+let signalMaskBytes = 8
+
+let noOldAction = 0
+
+// A stack_t: the stack, its flags, 0 for one in use, and its size, a word each.
+let stackSpOffset = 0
+
+let stackFlagsOffset = 8
+
+let stackSizeOffset = 16
+
+let stackRecordBytes = 24
+
+let noOldStack = 0
+
+// The siginfo the handler gets holds si_code at siginfoCodeOffset, 32 bits, and the faulting address at
+// siginfoAddressOffset; the context, a ucontext_t, holds the faulting rsp and rip among its registers.
+let siginfoCodeOffset = 8
+
+let siginfoAddressOffset = 16
+
+let contextRspOffset = 160
+
+let contextRipOffset = 168
+
+// stackFaultReach is how far from the faulting stack pointer, on either side, a fault is a stack overflow, maxon's
+// StackFaultReachBytes: a frame's first touch is within a page of it, and the probe of a large frame at it, while a nil
+// or a wild address is nowhere near a live stack.
+let stackFaultReach = 0x10000
+
+// sigreturnSymbol is the restorer that the fault handler's signals return through, which they never do.
+let sigreturnSymbol = "rt.sigreturn"
+
+// emitSignalStack gives the running thread a stack of faultStackGuarantee bytes that its signals run on, so the handler
+// runs after the thread's stack is spent. A thread whose stack the kernel does not map gets none, as maxon's runtime
+// skips the call, and a stack overflow there ends it with the signal.
+function emitSignalStack(mutates u CodeUnit)
+	let skip = u.asm.newLabel()
+	u.asm.movImm(rdi, imm: noAddress)
+	u.asm.movImm(rsi, imm: faultStackGuarantee)
+	u.asm.movImm(rdx, imm: linuxProtReadWrite)
+	u.asm.movImm(r10, imm: linuxMapAnonPrivate)
+	u.asm.movImm(r8, imm: noFile)
+	u.asm.movImm(r9, imm: noOffset)
+	stubSyscall(u, number: linuxSysMmap)
+	u.asm.cmpImm(rax, imm: -linuxErrnoLimit)
+	u.asm.jcc(X64CondCode.above, label: skip)
+	u.asm.subImm(rsp, imm: stackRecordBytes)
+	u.asm.store(rsp, disp: stackSpOffset, src: rax)
+	u.asm.movImm(rax, imm: 0)
+	u.asm.store(rsp, disp: stackFlagsOffset, src: rax)
+	u.asm.movImm(rax, imm: faultStackGuarantee)
+	u.asm.store(rsp, disp: stackSizeOffset, src: rax)
+	u.asm.mov(rdi, src: rsp)
+	u.asm.movImm(rsi, imm: noOldStack)
+	stubSyscall(u, number: linuxSysSigaltstack)
+	u.asm.addImm(rsp, imm: stackRecordBytes)
+	u.asm.bind(skip)
+end 'emitSignalStack'
+
+// emitFaultActions makes the fault handler the action of each signal of a hardware fault, for every thread.
+function emitFaultActions(mutates u CodeUnit)
+	u.asm.subImm(rsp, imm: sigactionBytes)
+	u.asm.leaSymbol(rax, symbol: faultSymbol)
+	u.asm.store(rsp, disp: sigactionHandlerOffset, src: rax)
+	u.asm.movImm(rax, imm: sigactionFlags)
+	u.asm.store(rsp, disp: sigactionFlagsOffset, src: rax)
+	u.asm.leaSymbol(rax, symbol: sigreturnSymbol)
+	u.asm.store(rsp, disp: sigactionRestorerOffset, src: rax)
+	u.asm.movImm(rax, imm: 0)
+	u.asm.store(rsp, disp: sigactionMaskOffset, src: rax)
+	emitFaultAction(u, signal: linuxSigsegv)
+	emitFaultAction(u, signal: linuxSigbus)
+	emitFaultAction(u, signal: linuxSigfpe)
+	u.asm.addImm(rsp, imm: sigactionBytes)
+end 'emitFaultActions'
+
+function emitFaultAction(mutates u CodeUnit, signal FullRangeInt)
+	u.asm.movImm(rdi, imm: signal)
+	u.asm.mov(rsi, src: rsp)
+	u.asm.movImm(rdx, imm: noOldAction)
+	u.asm.movImm(r10, imm: signalMaskBytes)
+	stubSyscall(u, number: linuxSysRtSigaction)
+end 'emitFaultAction'
+
+// emitLinuxFaultHandler writes the handler of the signals of a hardware fault (System V: the signal in rdi, the siginfo in
+// rsi, the context in rdx), on the thread's signal stack: it writes `panic: <what> at rip=0x<address>` to standard error
+// and exits with the panic code, as the Windows one does, making nothing but system calls.
+function emitLinuxFaultHandler(mutates u CodeUnit)
+	let report = u.asm.newLabel()
+	let memory = u.asm.newLabel()
+	let wild = u.asm.newLabel()
+	let overflowed = u.asm.newLabel()
+	u.asm.subImm(rsp, imm: faultFrameSize)
+	u.asm.load(r11, base: rdx, disp: contextRipOffset)
+	u.asm.store(rsp, disp: faultAddressSlot, src: r11)
+	u.asm.cmpImm(rdi, imm: linuxSigfpe)
+	u.asm.jcc(X64CondCode.notEqual, label: memory)
+	u.asm.loadWord32(rax, base: rsi, disp: siginfoCodeOffset)
+	u.asm.cmpImm(rax, imm: fpeIntegerOverflow)
+	u.asm.jcc(X64CondCode.equal, label: overflowed)
+	u.asm.leaData(rax, dataOffset: u.data.textOffset(faultLineOpening(divideByZeroWords)))
+	u.asm.jmp(report)
+	u.asm.bind(overflowed)
+	u.asm.leaData(rax, dataOffset: u.data.textOffset(faultLineOpening(integerOverflowWords)))
+	u.asm.jmp(report)
+	u.asm.bind(memory)
+	u.asm.load(rax, base: rsi, disp: siginfoAddressOffset)
+	u.asm.load(rcx, base: rdx, disp: contextRspOffset)
+	u.asm.sub(rax, src: rcx)
+	u.asm.addImm(rax, imm: stackFaultReach)
+	u.asm.cmpImm(rax, imm: 2 * stackFaultReach)
+	u.asm.jcc(X64CondCode.aboveEqual, label: wild)
+	u.asm.leaData(rax, dataOffset: u.data.textOffset(faultLineOpening(stackOverflowWords)))
+	u.asm.jmp(report)
+	u.asm.bind(wild)
+	u.asm.leaData(rax, dataOffset: u.data.textOffset(faultLineOpening(accessViolationWords)))
+	u.asm.bind(report)
+	u.asm.load(rdx, base: rax, disp: 0)
+	u.asm.lea(rsi, base: rax, disp: wordBytes)
+	emitStderrSyscall(u)
+	emitAddressDigits(u)
+	u.asm.lea(rsi, base: rsp, disp: faultDigitsSlot)
+	u.asm.movImm(rdx, imm: addressDigits + 1)
+	emitStderrSyscall(u)
+	u.asm.movImm(rdi, imm: faultExitCode)
+	stubSyscall(u, number: linuxSysExitGroup)
+end 'emitLinuxFaultHandler'
+
+// emitStderrSyscall writes the rdx bytes at rsi to standard error.
+function emitStderrSyscall(mutates u CodeUnit)
+	u.asm.loadSymbol(rdi, symbol: ir.rtSymbol(ir.Rt.rtStderr))
+	stubSyscall(u, number: linuxSysWrite)
+end 'emitStderrSyscall'
+
+// emitSigreturn writes the restorer a signal's handler returns through, rt_sigreturn.
+function emitSigreturn(mutates u CodeUnit)
+	stubSyscall(u, number: linuxSysRtSigreturn)
+end 'emitSigreturn'

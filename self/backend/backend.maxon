@@ -40,13 +40,13 @@ function linkCalling(mutates p ast.Project, consumes modules UnitList, ready fro
 		symbols.push(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: entries[i]))
 	end 'entries'
 	var stub = UnitList.create(0)
-	stub.push(emitRuntime(EntryCalls.make(symbols, exitsWithResult: exitsWithResult), options: options))
+	stub.push(emitRuntime(EntryCalls.make(symbols, exitsWithResult: exitsWithResult), options: options, system: p.target.system))
 	var units = LinkUnits.make(share(ready), own: stub)
 	units.add(modules)
 	let routines = emitTypeRoutines(p, ms: ms, units: units)
 	ast.giveBack(p, ms: ms)
 	units.add(routines)
-	return link(units, entry: ir.rtSymbol(ir.Rt.rtEntry), mapsSymbols: mapsSymbols)
+	return link(units, entry: ir.rtSymbol(ir.Rt.rtEntry), system: p.target.system, mapsSymbols: mapsSymbols)
 end 'linkCalling'
 
 // compileProgram writes the executable that linkProgram makes of the modules' units to out, and the map of its code's symbols
@@ -59,7 +59,7 @@ export function compileProgram(mutates p ast.Project, consumes modules UnitList,
 		entries.push(entry)
 	end 'main'
 	let linked = linkCalling(p, modules: modules, ready: ready, entries: entries, exitsWithResult: not runsTests, options: options, mapsSymbols: symbolMap != "")
-	try writePeImage(linked.image, path: out)
+	try writeImage(linked.image, path: out)
 	if symbolMap != "" 'map'
 		let mapPath = try FilePath.from(symbolMap) otherwise panic("backend: the symbol map {symbolMap} is not a path")
 		try File.writeText(mapPath, content: linked.symbolMap)

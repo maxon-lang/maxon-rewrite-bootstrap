@@ -1,7 +1,8 @@
-// The OS entries for files, directories, paths, the environment and the command line. Each calls Win32's `W` functions
-// with UTF-16 that it converts from the program's UTF-8 (text.maxon), and reports a failure so: an entry that can fail
-// takes last the address of a word of the caller's, which it sets to the case of the error that the operation throws
-// plus 1, or to 0 when it did not fail. What such an entry returns on a failure is nothing to read.
+// The OS entries for files, directories, paths, the environment and the command line. On Windows each calls Win32's `W`
+// functions with UTF-16 that it converts from the program's UTF-8 (text.maxon), and on Linux the kernel (linux.maxon), and
+// each reports a failure so: an entry that can fail takes last the address of a word of the caller's, which it sets to the
+// case of the error that the operation throws plus 1, or to 0 when it did not fail. What such an entry returns on a failure
+// is nothing to read.
 
 // What the entries read of an array and of a byte array until the array routines' layouts are in layout.maxon.
 let osArrayHeaderBytes = 24 as Count
@@ -22,52 +23,54 @@ let osBytesLengthOffset = 0 as Count
 
 let osBytesDataOffset = 16 as Count
 
-// The Win32 values the entries use.
-let genericRead = 0x80000000
+#if os(Windows)
+	// The Win32 values the entries use.
+	let genericRead = 0x80000000
 
-let genericWrite = 0x40000000
+	let genericWrite = 0x40000000
 
-let fileShareRead = 1
+	let fileShareRead = 1
 
-let noSharing = 0
+	let noSharing = 0
 
-let createAlways = 2
+	let createAlways = 2
 
-let openExisting = 3
+	let openExisting = 3
 
-let fileAttributeNormal = 0x80
+	let fileAttributeNormal = 0x80
 
-let fileAttributeDirectory = 0x10
+	let fileAttributeDirectory = 0x10
 
-let invalidHandle = 0xFFFFFFFFFFFFFFFF as Count
+	let invalidHandle = 0xFFFFFFFFFFFFFFFF as Count
 
-let invalidFileAttributes = 0xFFFFFFFF
+	let invalidFileAttributes = 0xFFFFFFFF
 
-let moveFileReplaceExisting = 1
+	let moveFileReplaceExisting = 1
 
-let dwordMask = 0xFFFFFFFF
+	let dwordMask = 0xFFFFFFFF
 
-// dwordBits is the width of a DWORD, which the high half of a 64-bit quantity that Windows gives in two is shifted by.
-let dwordBits = 32
+	// dwordBits is the width of a DWORD, which the high half of a 64-bit quantity that Windows gives in two is shifted by.
+	let dwordBits = 32
 
-let noSecurity = 0
+	let noSecurity = 0
 
-let noTemplate = 0
+	let noTemplate = 0
 
-let noTarget = 0
+	let noTarget = 0
 
-let noBytes = 0
+	let noBytes = 0
 
-// The Win32 errors that are told apart, and the failures they are.
-let win32FileNotFound = 2
+	// The Win32 errors that are told apart, and the failures they are.
+	let win32FileNotFound = 2
 
-let win32PathNotFound = 3
+	let win32PathNotFound = 3
 
-let win32AccessDenied = 5
+	let win32AccessDenied = 5
 
-let win32SharingViolation = 32
+	let win32SharingViolation = 32
 
-let win32FileExists = 80
+	let win32FileExists = 80
+#endif
 
 let failureNotFound = 0
 
@@ -144,71 +147,75 @@ let listAccessDenied = 1
 
 let listFailed = 2
 
-// What FilePath.from refuses: the control characters and these. A path's native separator is a backslash.
-let lastControlByte = 31
-
-let invalidPathBytes = "<>\"|?*"
-
-let pathSeparator = 0x5C
-
-let otherSeparator = 0x2F
-
-let dotByte = 0x2E
-
-let listPatternSuffix = "\\*"
-
-// WIN32_FIND_DATAW: the size of the structure, and where it holds the entry's name.
-let findDataBytes = 592
-
-let findDataNameOffset = 44
-
-// Where WIN32_FIND_DATAW holds the attributes (a DWORD), the three FILETIMEs and the two halves of the size, the high
-// one first. The FILETIMEs sit at offsets that are not multiples of 8, which a word load on x64 does not mind.
-let findDataAttributesOffset = 0
-
-let findDataCreatedOffset = 4
-
-let findDataAccessedOffset = 12
-
-let findDataModifiedOffset = 20
-
-let findDataSizeHighOffset = 28
-
-let findDataSizeLowOffset = 32
-
-let fileAttributeReadOnly = 0x1
-
-// A FILETIME counts 100-nanosecond ticks from 1601: these make it Unix seconds.
-let fileTimeTicksPerSecond = 10000000
-
-let fileTimeTicksFrom1601To1970 = 116444736000000000
-
 // The bits of the attributes word that osFileInfo gives, which lowering reads FileInfo's flags from.
 let infoDirectoryFlag = 1
 
 let infoReadOnlyFlag = 2
 
-// longPathUnits is the longest path Windows has, which a buffer for the executable's path or the working directory is
-// made to hold.
-let longPathUnits = 32768
+#if os(Windows)
+	// What FilePath.from refuses: the control characters and these. A path's native separator is a backslash.
+	let lastControlByte = 31
 
-// maxEnvironmentReads is how many times a variable's value is read again when it grows between the call that sizes it
-// and the one that reads it.
-let maxEnvironmentReads = 4
+	let invalidPathBytes = "<>\"|?*"
 
-// win32Error is the error of the last Win32 call that failed.
-function win32Error() returns Count
-	return __Raw.callImport0("GetLastError")
-end 'win32Error'
+	let pathSeparator = 0x5C
 
-// dword is the low 32 bits of what a Win32 function returns, which is all that a DWORD or a BOOL has.
-function dword(value Count) returns Count
-	return value and dwordMask
-end 'dword'
+	let otherSeparator = 0x2F
 
-function closeHandle(handle Count)
-	_ = __Raw.callImport1("CloseHandle", arg1: handle)
-end 'closeHandle'
+	let dotByte = 0x2E
+
+	let listPatternSuffix = "\\*"
+
+	// WIN32_FIND_DATAW: the size of the structure, and where it holds the entry's name.
+	let findDataBytes = 592
+
+	let findDataNameOffset = 44
+
+	// Where WIN32_FIND_DATAW holds the attributes (a DWORD), the three FILETIMEs and the two halves of the size, the high
+	// one first. The FILETIMEs sit at offsets that are not multiples of 8, which a word load on x64 does not mind.
+	let findDataAttributesOffset = 0
+
+	let findDataCreatedOffset = 4
+
+	let findDataAccessedOffset = 12
+
+	let findDataModifiedOffset = 20
+
+	let findDataSizeHighOffset = 28
+
+	let findDataSizeLowOffset = 32
+
+	let fileAttributeReadOnly = 0x1
+
+	// A FILETIME counts 100-nanosecond ticks from 1601: these make it Unix seconds.
+	let fileTimeTicksPerSecond = 10000000
+
+	let fileTimeTicksFrom1601To1970 = 116444736000000000
+
+	// longPathUnits is the longest path Windows has, which a buffer for the executable's path or the working directory is
+	// made to hold.
+	let longPathUnits = 32768
+
+	// maxEnvironmentReads is how many times a variable's value is read again when it grows between the call that sizes it
+	// and the one that reads it.
+	let maxEnvironmentReads = 4
+#endif
+
+#if os(Windows)
+	// win32Error is the error of the last Win32 call that failed.
+	function win32Error() returns Count
+		return __Raw.callImport0("GetLastError")
+	end 'win32Error'
+
+	// dword is the low 32 bits of what a Win32 function returns, which is all that a DWORD or a BOOL has.
+	function dword(value Count) returns Count
+		return value and dwordMask
+	end 'dword'
+
+	function closeHandle(handle Count)
+		_ = __Raw.callImport1("CloseHandle", arg1: handle)
+	end 'closeHandle'
+#endif
 
 // Failure is one of the failures above.
 typealias Failure = int(0 to 4)
@@ -216,22 +223,24 @@ typealias Failure = int(0 to 4)
 // FailureCase is a case of an error enum, which a table of failures keeps a field of caseBits for.
 typealias FailureCase = int(0 to 255)
 
-// failureOf is the failure that a Win32 error is.
-function failureOf(win32 Count) returns Failure
-	if win32 == win32FileNotFound or win32 == win32PathNotFound 'missing'
-		return failureNotFound
-	end 'missing'
-	if win32 == win32AccessDenied 'denied'
-		return failureAccessDenied
-	end 'denied'
-	if win32 == win32SharingViolation 'busy'
-		return failureBusy
-	end 'busy'
-	if win32 == win32FileExists 'exists'
-		return failureAlreadyExists
-	end 'exists'
-	return failureOther
-end 'failureOf'
+#if os(Windows)
+	// failureOf is the failure that a Win32 error is.
+	function failureOf(win32 Count) returns Failure
+		if win32 == win32FileNotFound or win32 == win32PathNotFound 'missing'
+			return failureNotFound
+		end 'missing'
+		if win32 == win32AccessDenied 'denied'
+			return failureAccessDenied
+		end 'denied'
+		if win32 == win32SharingViolation 'busy'
+			return failureBusy
+		end 'busy'
+		if win32 == win32FileExists 'exists'
+			return failureAlreadyExists
+		end 'exists'
+		return failureOther
+	end 'failureOf'
+#endif
 
 // failureCases is a table of the case that each failure is for one operation, a field of caseBits for each failure.
 function failureCases(notFound FailureCase, accessDenied FailureCase, busy FailureCase, alreadyExists FailureCase, other FailureCase) returns Count
@@ -273,14 +282,14 @@ function failWith(errorAddress Count, errorCase Count)
 	__Raw.storeWord(errorAddress, offset: 0, value: __Raw.wrappingAdd(errorCase, right: 1))
 end 'failWith'
 
-// endWithError ends an entry that did one Win32 call: it did not fail when the error is 0, and otherwise it fails with
-// the case that the failure of the error has in a table.
-function endWithError(errorAddress Count, win32 Count, table Count)
-	if win32 == 0 'none'
+// endWithError ends an entry that did one call of the system: it did not fail when the system's error, a Win32 error or
+// an errno, is 0, and otherwise it fails with the case that the failure of the error has in a table.
+function endWithError(errorAddress Count, osError Count, table Count)
+	if osError == 0 'none'
 		succeed(errorAddress)
 		return
 	end 'none'
-	failWith(errorAddress, errorCase: (table shr (failureOf(win32) * caseBits)) and caseMask)
+	failWith(errorAddress, errorCase: (table shr (failureOf(osError) * caseBits)) and caseMask)
 end 'endWithError'
 
 // noString is what an entry that returns a string gives when it failed.
@@ -314,389 +323,393 @@ function stringArrayPush(array Count, box Count)
 	__Raw.storeWord(array, offset: osArrayLengthOffset, value: length + 1)
 end 'stringArrayPush'
 
-// osArgs is the program's arguments, the program's own name first, as the command line splits by the C runtime's rules.
-function osArgs() returns Count
-	let wideLine = __Raw.callImport0("GetCommandLineW")
-	let units = wideLength(wideLine)
-	if units >= textUnitLimit 'outside'
-		panic("command line too long to split")
-	end 'outside'
-	let line = alloc(units * maxUtf8BytesPerUnit + 1)
-	let length = utf8FromUtf16(wideLine, units: units, dst: line)
-	let scratch = newStringBox(length)
-	let args = stringArrayNew()
-	var position = skipSeparators(line, length: length, position: 0)
-	while position < length 'each'
-		let next = scanArgument(line, length: length, position: position, box: scratch)
-		stringArrayPush(args, box: copyStringBox(scratch))
-		position = skipSeparators(line, length: length, position: next)
-	end 'each'
-	free(scratch)
-	free(line)
-	return args
-end 'osArgs'
-
-// osEnvironmentVariable is the value of a variable of the environment, which a variable that is not set has none of.
-function osEnvironmentVariable(name String, errorAddress Count) returns String
-	let wideName = wideOf(name)
-	var capacity = dword(__Raw.callImport3("GetEnvironmentVariableW", arg1: wideName, arg2: noBytes, arg3: 0))
-	var reads = 0 as Count
-	while capacity != 0 and reads < maxEnvironmentReads 'read'
-		if capacity >= textUnitLimit 'outside'
-			panic("environment variable too long to read")
-		end 'outside'
-		let value = alloc(capacity * wideUnitBytes)
-		let units = dword(__Raw.callImport3("GetEnvironmentVariableW", arg1: wideName, arg2: value, arg3: capacity))
-		if units < capacity 'fits'
-			let text = stringOfUnits(value, units: units)
-			free(value)
-			free(wideName)
-			succeed(errorAddress)
-			return text
-		end 'fits'
-		free(value)
-		capacity = units
-		reads = reads + 1
-	end 'read'
-	free(wideName)
-	failWith(errorAddress, errorCase: variableUnset)
-	return noString()
-end 'osEnvironmentVariable'
-
-// osExecutablePath is the full path of the running executable, which Windows may not be able to give.
-function osExecutablePath(errorAddress Count) returns String
-	let buffer = alloc(longPathUnits * wideUnitBytes)
-	let units = dword(__Raw.callImport3("GetModuleFileNameW", arg1: noBytes, arg2: buffer, arg3: longPathUnits))
-	if units == 0 or units == longPathUnits 'failed'
-		free(buffer)
-		failWith(errorAddress, errorCase: pathUnavailable)
-		return noString()
-	end 'failed'
-	let text = stringOfUnits(buffer, units: units)
-	free(buffer)
-	succeed(errorAddress)
-	return text
-end 'osExecutablePath'
-
-// osCurrentPath is the working directory, which stops the program when Windows cannot give it.
-function osCurrentPath() returns String
-	let buffer = alloc(longPathUnits * wideUnitBytes)
-	let units = dword(__Raw.callImport2("GetCurrentDirectoryW", arg1: longPathUnits, arg2: buffer))
-	if units == 0 or units >= longPathUnits 'failed'
-		free(buffer)
-		panic("Directory.currentPath: GetCurrentDirectory failed")
-	end 'failed'
-	let text = stringOfUnits(buffer, units: units)
-	free(buffer)
-	return text
-end 'osCurrentPath'
-
 // nanosPerSecond is what a count of whole seconds is scaled to.
 let nanosPerSecond = 1000000000 as Count
 
-// osClockNanos is the monotonic clock in nanoseconds, from the performance counter. The seconds and the remainder of
-// a second are scaled apart so that neither product passes a word whatever the counter's rate is.
-function osClockNanos() returns Count
-	var ticks = 0 as Count
-	var frequency = 0 as Count
-	_ = __Raw.callImport1("QueryPerformanceFrequency", arg1: __Raw.addressOf(frequency))
-	_ = __Raw.callImport1("QueryPerformanceCounter", arg1: __Raw.addressOf(ticks))
-	if frequency <= 0 'unreadable'
-		panic("the performance counter has no frequency")
-	end 'unreadable'
-	let wholeSeconds = ticks / frequency
-	let remainder = ticks mod frequency
-	let wholeNanos = try wholeSeconds * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
-	let partNanos = try remainder * nanosPerSecond otherwise panic("the performance counter's rate is past a word of nanoseconds")
-	return try wholeNanos + partNanos / frequency otherwise panic("the monotonic clock is past a word of nanoseconds")
-end 'osClockNanos'
+#if os(Windows)
+	// osArgs is the program's arguments, the program's own name first, as the command line splits by the C runtime's rules.
+	function osArgs() returns Count
+		let wideLine = __Raw.callImport0("GetCommandLineW")
+		let units = wideLength(wideLine)
+		if units >= textUnitLimit 'outside'
+			panic("command line too long to split")
+		end 'outside'
+		let line = alloc(units * maxUtf8BytesPerUnit + 1)
+		let length = utf8FromUtf16(wideLine, units: units, dst: line)
+		let scratch = newStringBox(length)
+		let args = stringArrayNew()
+		var position = skipSeparators(line, length: length, position: 0)
+		while position < length 'each'
+			let next = scanArgument(line, length: length, position: position, box: scratch)
+			stringArrayPush(args, box: copyStringBox(scratch))
+			position = skipSeparators(line, length: length, position: next)
+		end 'each'
+		free(scratch)
+		free(line)
+		return args
+	end 'osArgs'
 
-// osProcessId is the id of the running process, which Windows answers as a DWORD.
-function osProcessId() returns Count
-	return dword(__Raw.callImport0("GetCurrentProcessId"))
-end 'osProcessId'
+	// osEnvironmentVariable is the value of a variable of the environment, which a variable that is not set has none of.
+	function osEnvironmentVariable(name String, errorAddress Count) returns String
+		let wideName = wideOf(name)
+		var capacity = dword(__Raw.callImport3("GetEnvironmentVariableW", arg1: wideName, arg2: noBytes, arg3: 0))
+		var reads = 0 as Count
+		while capacity != 0 and reads < maxEnvironmentReads 'read'
+			if capacity >= textUnitLimit 'outside'
+				panic("environment variable too long to read")
+			end 'outside'
+			let value = alloc(capacity * wideUnitBytes)
+			let units = dword(__Raw.callImport3("GetEnvironmentVariableW", arg1: wideName, arg2: value, arg3: capacity))
+			if units < capacity 'fits'
+				let text = stringOfUnits(value, units: units)
+				free(value)
+				free(wideName)
+				succeed(errorAddress)
+				return text
+			end 'fits'
+			free(value)
+			capacity = units
+			reads = reads + 1
+		end 'read'
+		free(wideName)
+		failWith(errorAddress, errorCase: variableUnset)
+		return noString()
+	end 'osEnvironmentVariable'
 
-// osPathFrom is a path with the native separator in place of the other one, which refuses a character that Windows does
-// not allow in a path.
-function osPathFrom(path String, errorAddress Count) returns String
-	let box = __Raw.stringAddress(path)
-	let length = boxLength(box)
-	let source = bytesOf(box)
-	for i in 0 upto length 'check'
-		let byte = __Raw.loadByte(source, offset: i)
-		if byte <= lastControlByte 'control'
-			failWith(errorAddress, errorCase: pathInvalidCharacter)
+	// osExecutablePath is the full path of the running executable, which Windows may not be able to give.
+	function osExecutablePath(errorAddress Count) returns String
+		let buffer = alloc(longPathUnits * wideUnitBytes)
+		let units = dword(__Raw.callImport3("GetModuleFileNameW", arg1: noBytes, arg2: buffer, arg3: longPathUnits))
+		if units == 0 or units == longPathUnits 'failed'
+			free(buffer)
+			failWith(errorAddress, errorCase: pathUnavailable)
 			return noString()
-		end 'control'
-		for j in 0 upto stringLength(invalidPathBytes) 'invalid'
-			if byte == stringByteAt(invalidPathBytes, index: j) 'refused'
+		end 'failed'
+		let text = stringOfUnits(buffer, units: units)
+		free(buffer)
+		succeed(errorAddress)
+		return text
+	end 'osExecutablePath'
+
+	// osCurrentPath is the working directory, which stops the program when Windows cannot give it.
+	function osCurrentPath() returns String
+		let buffer = alloc(longPathUnits * wideUnitBytes)
+		let units = dword(__Raw.callImport2("GetCurrentDirectoryW", arg1: longPathUnits, arg2: buffer))
+		if units == 0 or units >= longPathUnits 'failed'
+			free(buffer)
+			panic("Directory.currentPath: GetCurrentDirectory failed")
+		end 'failed'
+		let text = stringOfUnits(buffer, units: units)
+		free(buffer)
+		return text
+	end 'osCurrentPath'
+
+	// osClockNanos is the monotonic clock in nanoseconds, from the performance counter. The seconds and the remainder of
+	// a second are scaled apart so that neither product passes a word whatever the counter's rate is.
+	function osClockNanos() returns Count
+		var ticks = 0 as Count
+		var frequency = 0 as Count
+		_ = __Raw.callImport1("QueryPerformanceFrequency", arg1: __Raw.addressOf(frequency))
+		_ = __Raw.callImport1("QueryPerformanceCounter", arg1: __Raw.addressOf(ticks))
+		if frequency <= 0 'unreadable'
+			panic("the performance counter has no frequency")
+		end 'unreadable'
+		let wholeSeconds = ticks / frequency
+		let remainder = ticks mod frequency
+		let wholeNanos = try wholeSeconds * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
+		let partNanos = try remainder * nanosPerSecond otherwise panic("the performance counter's rate is past a word of nanoseconds")
+		return try wholeNanos + partNanos / frequency otherwise panic("the monotonic clock is past a word of nanoseconds")
+	end 'osClockNanos'
+
+	// osProcessId is the id of the running process, which Windows answers as a DWORD.
+	function osProcessId() returns Count
+		return dword(__Raw.callImport0("GetCurrentProcessId"))
+	end 'osProcessId'
+
+	// osPathFrom is a path with the native separator in place of the other one, which refuses a character that Windows does
+	// not allow in a path.
+	function osPathFrom(path String, errorAddress Count) returns String
+		let box = __Raw.stringAddress(path)
+		let length = boxLength(box)
+		let source = bytesOf(box)
+		for i in 0 upto length 'check'
+			let byte = __Raw.loadByte(source, offset: i)
+			if byte <= lastControlByte 'control'
 				failWith(errorAddress, errorCase: pathInvalidCharacter)
 				return noString()
-			end 'refused'
-		end 'invalid'
-	end 'check'
-	let native = newStringBox(length)
-	let dest = bytesOf(native)
-	for i in 0 upto length 'copy'
-		let byte = __Raw.loadByte(source, offset: i)
-		__Raw.storeByte(dest, offset: i, value: pathSeparator if byte == otherSeparator else byte)
-	end 'copy'
-	succeed(errorAddress)
-	return __Raw.stringAt(native)
-end 'osPathFrom'
+			end 'control'
+			for j in 0 upto stringLength(invalidPathBytes) 'invalid'
+				if byte == stringByteAt(invalidPathBytes, index: j) 'refused'
+					failWith(errorAddress, errorCase: pathInvalidCharacter)
+					return noString()
+				end 'refused'
+			end 'invalid'
+		end 'check'
+		let native = newStringBox(length)
+		let dest = bytesOf(native)
+		for i in 0 upto length 'copy'
+			let byte = __Raw.loadByte(source, offset: i)
+			__Raw.storeByte(dest, offset: i, value: pathSeparator if byte == otherSeparator else byte)
+		end 'copy'
+		succeed(errorAddress)
+		return __Raw.stringAt(native)
+	end 'osPathFrom'
 
-// openFile is the handle of a file that CreateFileW opened, or invalidHandle with the Win32 error stored at win32Address.
-// The error is read before anything else runs, since another call would replace it.
-function openFile(path String, access Count, share Count, disposition Count, win32Address Count) returns Count
-	let widePath = wideOf(path)
-	let file = __Raw.callImport7("CreateFileW", arg1: widePath, arg2: access, arg3: share, arg4: noSecurity, arg5: disposition, arg6: fileAttributeNormal, arg7: noTemplate)
-	if file == invalidHandle 'failed'
-		__Raw.storeWord(win32Address, offset: 0, value: win32Error())
-	end 'failed'
-	free(widePath)
-	return file
-end 'openFile'
+	// openFile is the handle of a file that CreateFileW opened, or invalidHandle with the Win32 error stored at win32Address.
+	// The error is read before anything else runs, since another call would replace it.
+	function openFile(path String, access Count, share Count, disposition Count, win32Address Count) returns Count
+		let widePath = wideOf(path)
+		let file = __Raw.callImport7("CreateFileW", arg1: widePath, arg2: access, arg3: share, arg4: noSecurity, arg5: disposition, arg6: fileAttributeNormal, arg7: noTemplate)
+		if file == invalidHandle 'failed'
+			__Raw.storeWord(win32Address, offset: 0, value: win32Error())
+		end 'failed'
+		free(widePath)
+		return file
+	end 'openFile'
 
-// osReadText is the whole content of a file.
-function osReadText(path String, errorAddress Count) returns String
-	var win32 = 0 as Count
-	let file = openFile(path, access: genericRead, share: fileShareRead, disposition: openExisting, win32Address: __Raw.addressOf(win32))
-	if file == invalidHandle 'open'
-		endWithError(errorAddress, win32: win32, table: readFailures())
-		return noString()
-	end 'open'
-	var size = 0 as Count
-	if dword(__Raw.callImport2("GetFileSizeEx", arg1: file, arg2: __Raw.addressOf(size))) == 0 'sized'
-		let sizeError = win32Error()
+	// osReadText is the whole content of a file.
+	function osReadText(path String, errorAddress Count) returns String
+		var win32 = 0 as Count
+		let file = openFile(path, access: genericRead, share: fileShareRead, disposition: openExisting, win32Address: __Raw.addressOf(win32))
+		if file == invalidHandle 'open'
+			endWithError(errorAddress, osError: win32, table: readFailures())
+			return noString()
+		end 'open'
+		var size = 0 as Count
+		if dword(__Raw.callImport2("GetFileSizeEx", arg1: file, arg2: __Raw.addressOf(size))) == 0 'sized'
+			let sizeError = win32Error()
+			closeHandle(file)
+			endWithError(errorAddress, osError: sizeError, table: readFailures())
+			return noString()
+		end 'sized'
+		let box = newStringBox(size)
+		let bytes = bytesOf(box)
+		var done = 0 as Count
+		var readError = 0 as Count
+		var reading = true
+		while done < size and reading 'read'
+			var chunk = 0 as Count
+			let ok = __Raw.callImport5("ReadFile", arg1: file, arg2: __Raw.wrappingAdd(bytes, right: done), arg3: size - done, arg4: __Raw.addressOf(chunk), arg5: noOverlapped)
+			if dword(ok) == 0 'failed'
+				readError = win32Error()
+				reading = false
+			end 'failed' else if chunk == 0 'shrunk'
+				reading = false
+			end 'shrunk' else 'more'
+				done = __Raw.wrappingAdd(done, right: chunk)
+			end 'more'
+		end 'read'
 		closeHandle(file)
-		endWithError(errorAddress, win32: sizeError, table: readFailures())
-		return noString()
-	end 'sized'
-	let box = newStringBox(size)
-	let bytes = bytesOf(box)
-	var done = 0 as Count
-	var readError = 0 as Count
-	var reading = true
-	while done < size and reading 'read'
-		var chunk = 0 as Count
-		let ok = __Raw.callImport5("ReadFile", arg1: file, arg2: __Raw.wrappingAdd(bytes, right: done), arg3: size - done, arg4: __Raw.addressOf(chunk), arg5: noOverlapped)
-		if dword(ok) == 0 'failed'
-			readError = win32Error()
-			reading = false
-		end 'failed' else if chunk == 0 'shrunk'
-			reading = false
-		end 'shrunk' else 'more'
-			done = __Raw.wrappingAdd(done, right: chunk)
-		end 'more'
-	end 'read'
-	closeHandle(file)
-	if readError != 0 'failedRead'
-		free(box)
-		endWithError(errorAddress, win32: readError, table: readFailures())
-		return noString()
-	end 'failedRead'
-	__Raw.storeWord(box, offset: stringLengthOffset, value: done)
-	succeed(errorAddress)
-	return __Raw.stringAt(box)
-end 'osReadText'
+		if readError != 0 'failedRead'
+			free(box)
+			endWithError(errorAddress, osError: readError, table: readFailures())
+			return noString()
+		end 'failedRead'
+		__Raw.storeWord(box, offset: stringLengthOffset, value: done)
+		succeed(errorAddress)
+		return __Raw.stringAt(box)
+	end 'osReadText'
 
-// writeFile replaces a file with bytes at an address, and gives the Win32 error that stopped it, or 0.
-function writeFile(path String, data Count, length Count) returns Count
-	var win32 = 0 as Count
-	let file = openFile(path, access: genericWrite, share: noSharing, disposition: createAlways, win32Address: __Raw.addressOf(win32))
-	if file == invalidHandle 'open'
+	// writeFile replaces a file with bytes at an address, and gives the Win32 error that stopped it, or 0.
+	function writeFile(path String, data Count, length Count) returns Count
+		var win32 = 0 as Count
+		let file = openFile(path, access: genericWrite, share: noSharing, disposition: createAlways, win32Address: __Raw.addressOf(win32))
+		if file == invalidHandle 'open'
+			return win32
+		end 'open'
+		var done = 0 as Count
+		while done < length and win32 == 0 'write'
+			var written = 0 as Count
+			let ok = __Raw.callImport5("WriteFile", arg1: file, arg2: __Raw.wrappingAdd(data, right: done), arg3: length - done, arg4: __Raw.addressOf(written), arg5: noOverlapped)
+			if dword(ok) == 0 'failed'
+				win32 = win32Error()
+			end 'failed' else 'more'
+				done = __Raw.wrappingAdd(done, right: written)
+			end 'more'
+		end 'write'
+		closeHandle(file)
 		return win32
-	end 'open'
-	var done = 0 as Count
-	while done < length and win32 == 0 'write'
-		var written = 0 as Count
-		let ok = __Raw.callImport5("WriteFile", arg1: file, arg2: __Raw.wrappingAdd(data, right: done), arg3: length - done, arg4: __Raw.addressOf(written), arg5: noOverlapped)
-		if dword(ok) == 0 'failed'
-			win32 = win32Error()
-		end 'failed' else 'more'
-			done = __Raw.wrappingAdd(done, right: written)
-		end 'more'
-	end 'write'
-	closeHandle(file)
-	return win32
-end 'writeFile'
+	end 'writeFile'
+#endif
 
 // osWriteText replaces a file with a string.
 function osWriteText(path String, content String, errorAddress Count)
 	let box = __Raw.stringAddress(content)
-	endWithError(errorAddress, win32: writeFile(path, data: bytesOf(box), length: boxLength(box)), table: writeFailures())
+	endWithError(errorAddress, osError: writeFile(path, data: bytesOf(box), length: boxLength(box)), table: writeFailures())
 end 'osWriteText'
 
 // osWriteBinary replaces a file with the bytes of a byte array.
 function osWriteBinary(path String, content Count, errorAddress Count)
 	let data = __Raw.loadWord(content, offset: osBytesDataOffset)
 	let length = __Raw.loadWord(content, offset: osBytesLengthOffset)
-	endWithError(errorAddress, win32: writeFile(path, data: data, length: length), table: writeFailures())
+	endWithError(errorAddress, osError: writeFile(path, data: data, length: length), table: writeFailures())
 end 'osWriteBinary'
 
-// osRename moves a file or a directory, and replaces what is at the destination.
-function osRename(source String, destination String, errorAddress Count)
-	let wideSource = wideOf(source)
-	let wideDestination = wideOf(destination)
-	var win32 = 0 as Count
-	if dword(__Raw.callImport3("MoveFileExW", arg1: wideSource, arg2: wideDestination, arg3: moveFileReplaceExisting)) == 0 'failed'
-		win32 = win32Error()
-	end 'failed'
-	free(wideSource)
-	free(wideDestination)
-	endWithError(errorAddress, win32: win32, table: renameFailures())
-end 'osRename'
+#if os(Windows)
+	// osRename moves a file or a directory, and replaces what is at the destination.
+	function osRename(source String, destination String, errorAddress Count)
+		let wideSource = wideOf(source)
+		let wideDestination = wideOf(destination)
+		var win32 = 0 as Count
+		if dword(__Raw.callImport3("MoveFileExW", arg1: wideSource, arg2: wideDestination, arg3: moveFileReplaceExisting)) == 0 'failed'
+			win32 = win32Error()
+		end 'failed'
+		free(wideSource)
+		free(wideDestination)
+		endWithError(errorAddress, osError: win32, table: renameFailures())
+	end 'osRename'
 
-// osDelete deletes a file, which a directory is not: DeleteFileW refuses it.
-function osDelete(path String, errorAddress Count)
-	let widePath = wideOf(path)
-	var win32 = 0 as Count
-	if dword(__Raw.callImport1("DeleteFileW", arg1: widePath)) == 0 'failed'
-		win32 = win32Error()
-	end 'failed'
-	free(widePath)
-	endWithError(errorAddress, win32: win32, table: deleteFailures())
-end 'osDelete'
-
-// unixSecondsOf is the FILETIME at an offset of a record in Unix seconds, or 0 for a time before 1970.
-function unixSecondsOf(record Count, offset Count) returns Count
-	let ticks = __Raw.loadWord(record, offset: offset)
-	if ticks < fileTimeTicksFrom1601To1970 'before'
-		return 0
-	end 'before'
-	return (ticks - fileTimeTicksFrom1601To1970) / fileTimeTicksPerSecond
-end 'unixSecondsOf'
-
-// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last
-// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. FindFirstFileW reads
-// the directory's record of the file, as maxon does, so a file that another process holds open is no failure.
-function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
-	let widePath = wideOf(path)
-	let findData = alloc(findDataBytes)
-	let search = __Raw.callImport2("FindFirstFileW", arg1: widePath, arg2: findData)
-	if search == invalidHandle 'missing'
-		let win32 = win32Error()
+	// osDelete deletes a file, which a directory is not: DeleteFileW refuses it.
+	function osDelete(path String, errorAddress Count)
+		let widePath = wideOf(path)
+		var win32 = 0 as Count
+		if dword(__Raw.callImport1("DeleteFileW", arg1: widePath)) == 0 'failed'
+			win32 = win32Error()
+		end 'failed'
 		free(widePath)
+		endWithError(errorAddress, osError: win32, table: deleteFailures())
+	end 'osDelete'
+
+	// unixSecondsOf is the FILETIME at an offset of a record in Unix seconds, or 0 for a time before 1970.
+	function unixSecondsOf(record Count, offset Count) returns Count
+		let ticks = __Raw.loadWord(record, offset: offset)
+		if ticks < fileTimeTicksFrom1601To1970 'before'
+			return 0
+		end 'before'
+		return (ticks - fileTimeTicksFrom1601To1970) / fileTimeTicksPerSecond
+	end 'unixSecondsOf'
+
+	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last
+	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. FindFirstFileW reads
+	// the directory's record of the file, as maxon does, so a file that another process holds open is no failure.
+	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
+		let widePath = wideOf(path)
+		let findData = alloc(findDataBytes)
+		let search = __Raw.callImport2("FindFirstFileW", arg1: widePath, arg2: findData)
+		if search == invalidHandle 'missing'
+			let win32 = win32Error()
+			free(widePath)
+			free(findData)
+			endWithError(errorAddress, osError: win32, table: infoFailures())
+			return 0
+		end 'missing'
+		_ = __Raw.callImport1("FindClose", arg1: search)
+		free(widePath)
+		let high = dword(__Raw.loadWord(findData, offset: findDataSizeHighOffset))
+		let low = dword(__Raw.loadWord(findData, offset: findDataSizeLowOffset))
+		let highPart = try high shl dwordBits otherwise panic("a file's size is past a word")
+		__Raw.storeWord(size, offset: 0, value: highPart or low)
+		__Raw.storeWord(created, offset: 0, value: unixSecondsOf(findData, offset: findDataCreatedOffset))
+		__Raw.storeWord(accessed, offset: 0, value: unixSecondsOf(findData, offset: findDataAccessedOffset))
+		let raw = dword(__Raw.loadWord(findData, offset: findDataAttributesOffset))
+		var flags = 0 as Count
+		if (raw and fileAttributeDirectory) != 0 'directory'
+			flags = flags or infoDirectoryFlag
+		end 'directory'
+		if (raw and fileAttributeReadOnly) != 0 'readOnly'
+			flags = flags or infoReadOnlyFlag
+		end 'readOnly'
+		__Raw.storeWord(attributes, offset: 0, value: flags)
+		let modified = unixSecondsOf(findData, offset: findDataModifiedOffset)
 		free(findData)
-		endWithError(errorAddress, win32: win32, table: infoFailures())
-		return 0
-	end 'missing'
-	_ = __Raw.callImport1("FindClose", arg1: search)
-	free(widePath)
-	let high = dword(__Raw.loadWord(findData, offset: findDataSizeHighOffset))
-	let low = dword(__Raw.loadWord(findData, offset: findDataSizeLowOffset))
-	let highPart = try high shl dwordBits otherwise panic("a file's size is past a word")
-	__Raw.storeWord(size, offset: 0, value: highPart or low)
-	__Raw.storeWord(created, offset: 0, value: unixSecondsOf(findData, offset: findDataCreatedOffset))
-	__Raw.storeWord(accessed, offset: 0, value: unixSecondsOf(findData, offset: findDataAccessedOffset))
-	let raw = dword(__Raw.loadWord(findData, offset: findDataAttributesOffset))
-	var flags = 0 as Count
-	if (raw and fileAttributeDirectory) != 0 'directory'
-		flags = flags or infoDirectoryFlag
-	end 'directory'
-	if (raw and fileAttributeReadOnly) != 0 'readOnly'
-		flags = flags or infoReadOnlyFlag
-	end 'readOnly'
-	__Raw.storeWord(attributes, offset: 0, value: flags)
-	let modified = unixSecondsOf(findData, offset: findDataModifiedOffset)
-	free(findData)
-	succeed(errorAddress)
-	return modified
-end 'osFileInfo'
+		succeed(errorAddress)
+		return modified
+	end 'osFileInfo'
 
-// directoryAt is whether a zero-terminated UTF-16 path names a directory.
-function directoryAt(widePath Count) returns bool
-	let attributes = dword(__Raw.callImport1("GetFileAttributesW", arg1: widePath))
-	return attributes != invalidFileAttributes and (attributes and fileAttributeDirectory) != 0
-end 'directoryAt'
+	// directoryAt is whether a zero-terminated UTF-16 path names a directory.
+	function directoryAt(widePath Count) returns bool
+		let attributes = dword(__Raw.callImport1("GetFileAttributesW", arg1: widePath))
+		return attributes != invalidFileAttributes and (attributes and fileAttributeDirectory) != 0
+	end 'directoryAt'
 
-function osIsDirectory(path String) returns bool
-	let widePath = wideOf(path)
-	let there = directoryAt(widePath)
-	free(widePath)
-	return there
-end 'osIsDirectory'
+	function osIsDirectory(path String) returns bool
+		let widePath = wideOf(path)
+		let there = directoryAt(widePath)
+		free(widePath)
+		return there
+	end 'osIsDirectory'
 
-// createDirectoryAt makes the directory that a zero-terminated UTF-16 path names, if it is not there.
-function createDirectoryAt(widePath Count)
-	_ = __Raw.callImport2("CreateDirectoryW", arg1: widePath, arg2: noSecurity)
-end 'createDirectoryAt'
+	// createDirectoryAt makes the directory that a zero-terminated UTF-16 path names, if it is not there.
+	function createDirectoryAt(widePath Count)
+		_ = __Raw.callImport2("CreateDirectoryW", arg1: widePath, arg2: noSecurity)
+	end 'createDirectoryAt'
 
-// osCreateDirectory makes a directory and the parents it is missing, each prefix that ends before a separator first,
-// and gives whether the directory is there after it. A directory that is there already fails to be made, which is no
-// matter.
-function osCreateDirectory(path String) returns bool
-	let widePath = wideOf(path)
-	let units = wideLength(widePath)
-	for i in 1 upto units 'prefixes'
-		let unit = unitAt(widePath, index: i)
-		if unit == pathSeparator or unit == otherSeparator 'separator'
-			storeUnit(widePath, index: i, value: 0)
-			createDirectoryAt(widePath)
-			storeUnit(widePath, index: i, value: unit)
+	// osCreateDirectory makes a directory and the parents it is missing, each prefix that ends before a separator first,
+	// and gives whether the directory is there after it. A directory that is there already fails to be made, which is no
+	// matter.
+	function osCreateDirectory(path String) returns bool
+		let widePath = wideOf(path)
+		let units = wideLength(widePath)
+		for i in 1 upto units 'prefixes'
+			let unit = unitAt(widePath, index: i)
+			if unit == pathSeparator or unit == otherSeparator 'separator'
+				storeUnit(widePath, index: i, value: 0)
+				createDirectoryAt(widePath)
+				storeUnit(widePath, index: i, value: unit)
+			end 'separator'
+		end 'prefixes'
+		createDirectoryAt(widePath)
+		let there = directoryAt(widePath)
+		free(widePath)
+		return there
+	end 'osCreateDirectory'
+
+	// isDotEntry is whether the name of a directory entry is `.` or `..`, which a listing leaves out.
+	function isDotEntry(name Count, units Count) returns bool
+		if units == 1 'one'
+			return unitAt(name, index: 0) == dotByte
+		end 'one'
+		return units == 2 and unitAt(name, index: 0) == dotByte and unitAt(name, index: 1) == dotByte
+	end 'isDotEntry'
+
+	// entryPathBox is a new box of the path joined to the name of an entry: a separator goes between them unless the path
+	// is empty or ends with one.
+	function entryPathBox(path String, name Count, units Count) returns Count
+		let pathBox = __Raw.stringAddress(path)
+		let pathLength = boxLength(pathBox)
+		let separate = pathLength != 0 and __Raw.loadByte(bytesOf(pathBox), offset: __Raw.wrappingSub(pathLength, right: 1)) != pathSeparator
+		if units >= textUnitLimit 'outside'
+			panic("entry name too long to list")
+		end 'outside'
+		let box = newStringBox(__Raw.wrappingAdd(__Raw.wrappingAdd(pathLength, right: 1), right: units * maxUtf8BytesPerUnit))
+		let bytes = bytesOf(box)
+		copyBytes(bytesOf(pathBox), target: bytes, count: pathLength)
+		var at = pathLength
+		if separate 'separator'
+			at = storeNextByte(bytes, offset: at, value: pathSeparator)
 		end 'separator'
-	end 'prefixes'
-	createDirectoryAt(widePath)
-	let there = directoryAt(widePath)
-	free(widePath)
-	return there
-end 'osCreateDirectory'
+		at = __Raw.wrappingAdd(at, right: utf8FromUtf16(name, units: units, dst: __Raw.wrappingAdd(bytes, right: at)))
+		__Raw.storeWord(box, offset: stringLengthOffset, value: at)
+		return box
+	end 'entryPathBox'
 
-// isDotEntry is whether the name of a directory entry is `.` or `..`, which a listing leaves out.
-function isDotEntry(name Count, units Count) returns bool
-	if units == 1 'one'
-		return unitAt(name, index: 0) == dotByte
-	end 'one'
-	return units == 2 and unitAt(name, index: 0) == dotByte and unitAt(name, index: 1) == dotByte
-end 'isDotEntry'
-
-// entryPathBox is a new box of the path joined to the name of an entry: a separator goes between them unless the path
-// is empty or ends with one.
-function entryPathBox(path String, name Count, units Count) returns Count
-	let pathBox = __Raw.stringAddress(path)
-	let pathLength = boxLength(pathBox)
-	let separate = pathLength != 0 and __Raw.loadByte(bytesOf(pathBox), offset: __Raw.wrappingSub(pathLength, right: 1)) != pathSeparator
-	if units >= textUnitLimit 'outside'
-		panic("entry name too long to list")
-	end 'outside'
-	let box = newStringBox(__Raw.wrappingAdd(__Raw.wrappingAdd(pathLength, right: 1), right: units * maxUtf8BytesPerUnit))
-	let bytes = bytesOf(box)
-	copyBytes(bytesOf(pathBox), target: bytes, count: pathLength)
-	var at = pathLength
-	if separate 'separator'
-		at = storeNextByte(bytes, offset: at, value: pathSeparator)
-	end 'separator'
-	at = __Raw.wrappingAdd(at, right: utf8FromUtf16(name, units: units, dst: __Raw.wrappingAdd(bytes, right: at)))
-	__Raw.storeWord(box, offset: stringLengthOffset, value: at)
-	return box
-end 'entryPathBox'
-
-// osList is the path joined to the name of each entry of a directory, `.` and `..` left out, in the order Windows gives.
-function osList(path String, errorAddress Count) returns Count
-	let pattern = concat(path, right: listPatternSuffix)
-	let widePattern = wideOf(pattern)
-	let findData = alloc(findDataBytes)
-	let search = __Raw.callImport2("FindFirstFileW", arg1: widePattern, arg2: findData)
-	if search == invalidHandle 'open'
-		let win32 = win32Error()
+	// osList is the path joined to the name of each entry of a directory, `.` and `..` left out, in the order Windows gives.
+	function osList(path String, errorAddress Count) returns Count
+		let pattern = concat(path, right: listPatternSuffix)
+		let widePattern = wideOf(pattern)
+		let findData = alloc(findDataBytes)
+		let search = __Raw.callImport2("FindFirstFileW", arg1: widePattern, arg2: findData)
+		if search == invalidHandle 'open'
+			let win32 = win32Error()
+			free(widePattern)
+			free(findData)
+			endWithError(errorAddress, osError: win32, table: listFailures())
+			return noBox
+		end 'open'
 		free(widePattern)
+		let entries = stringArrayNew()
+		let name = __Raw.wrappingAdd(findData, right: findDataNameOffset)
+		var more = true
+		while more 'entries'
+			let units = wideLength(name)
+			if not isDotEntry(name, units: units) 'entry'
+				stringArrayPush(entries, box: entryPathBox(path, name: name, units: units))
+			end 'entry'
+			more = dword(__Raw.callImport2("FindNextFileW", arg1: search, arg2: findData)) != 0
+		end 'entries'
+		_ = __Raw.callImport1("FindClose", arg1: search)
 		free(findData)
-		endWithError(errorAddress, win32: win32, table: listFailures())
-		return noBox
-	end 'open'
-	free(widePattern)
-	let entries = stringArrayNew()
-	let name = __Raw.wrappingAdd(findData, right: findDataNameOffset)
-	var more = true
-	while more 'entries'
-		let units = wideLength(name)
-		if not isDotEntry(name, units: units) 'entry'
-			stringArrayPush(entries, box: entryPathBox(path, name: name, units: units))
-		end 'entry'
-		more = dword(__Raw.callImport2("FindNextFileW", arg1: search, arg2: findData)) != 0
-	end 'entries'
-	_ = __Raw.callImport1("FindClose", arg1: search)
-	free(findData)
-	succeed(errorAddress)
-	return entries
-end 'osList'
+		succeed(errorAddress)
+		return entries
+	end 'osList'
+#endif

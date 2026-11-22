@@ -271,7 +271,7 @@ function compareNative(shared SharedRuntime, source String, outcome GeneratedRun
 	if outcome.behaviours > 0 and not scheduleIndependent 'scheduleDependent'
 		return NativeCheck.agreed(false)
 	end 'scheduleDependent'
-	let exe = temporaryExecutable("fuzz.maxon")
+	let exe = temporaryExecutable("fuzz.maxon", suffix: executableExtension(hostTarget()))
 	var options = Options.new()
 	options.countAllocations = true
 	var errs = diag.ErrorList.create(0)
@@ -468,7 +468,7 @@ end 'fail'
 // checking and compiling it is what no other run needs.
 function nativeRuntime(options FuzzOptions) returns SharedRuntime
 	if options.native 'native'
-		return prepareSharedRuntime()
+		return prepareSharedRuntime(hostTarget())
 	end 'native'
 	return SharedRuntime.none()
 end 'nativeRuntime'

@@ -137,10 +137,10 @@ end 'newLinkUnit'
 
 // Linked is the executable of a link, and the map of its code's symbols when the link was asked for one.
 export type Linked
-	export var image as PeImage
+	export var image as Image
 	export var symbolMap as String
 
-	static function make(consumes image PeImage, consumes symbolMap String) returns Linked
+	static function make(consumes image Image, consumes symbolMap String) returns Linked
 		return Linked{image: image, symbolMap: symbolMap}
 	end 'make'
 end 'Linked'
@@ -182,9 +182,9 @@ export type LinkUnits
 	end 'add'
 end 'LinkUnits'
 
-// link is the executable of the units, with the code reachable from the entry symbol. With mapsSymbols it also gives the
-// map of the code's symbols (see symbolMapText).
-export function link(units LinkUnits, entry String, mapsSymbols bool) returns Linked
+// link is the executable of the units for the system, with the code reachable from the entry symbol. With mapsSymbols it
+// also gives the map of the code's symbols (see symbolMapText).
+export function link(units LinkUnits, entry String, system ast.TargetSystem, mapsSymbols bool) returns Linked
 	var links = LinkUnitList.create(0)
 	for i in 0 upto units.count() 'units'
 		links.push(newLinkUnit(units.at(i)))
@@ -213,17 +213,12 @@ export function link(units LinkUnits, entry String, mapsSymbols bool) returns Li
 	end 'entry'
 	markLive(links, units: units, symbols: symbols, defined: defined, start: start)
 	let sizes = layOut(links)
-	var imports = NameList.create(0)
-	let names = rtImports()
-	for i in 0 upto names.count() 'imports'
-		imports.push(names[i].clone())
-	end 'imports'
 	let pointers = livePointers(links, units: units)
 	var relocated = CountList.create(0)
 	for i in 0 upto pointers.count() 'relocated'
 		relocated.push(pointers[i].pos)
 	end 'relocated'
-	var image = buildPeImage(sizes.code, dataSize: sizes.data, dll: rtDll, imports: imports, entryOffset: finalOffset(links, t: start), relocated: relocated)
+	var image = buildImage(system, layout: ImageLayout.make(sizes.code, dataSize: sizes.data, entryOffset: finalOffset(links, t: start), relocated: relocated))
 	var symbolMap = ""
 	if mapsSymbols 'map'
 		symbolMap = symbolMapText(links, units: units, symbols: symbols, defined: defined, textRva: image.textRva, codeSize: sizes.code)
@@ -234,7 +229,7 @@ export function link(units LinkUnits, entry String, mapsSymbols bool) returns Li
 		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image)
 	end 'copy'
 	for i in 0 upto pointers.count() 'pointers'
-		let address = try peImageBase + image.dataRva + pointers[i].target otherwise panic("link: an address past the image")
+		let address = try image.base + image.dataRva + pointers[i].target otherwise panic("link: an address past the image")
 		patch64(data, at: pointers[i].pos, value: address)
 	end 'pointers'
 	placeCode(image, at: 0, bytes: code)
@@ -532,7 +527,7 @@ end 'linkPatch'
 
 // copyAndPatch puts the live sections and pieces of a unit, u at place unit of the layout, into the code and the data of the
 // image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it.
-function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image PeImage)
+function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image)
 	let l = links[unit].clone()
 	for p in 0 upto l.liveData.count() 'data'
 		if l.liveData[p] 'live'
@@ -556,6 +551,9 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 		end 'dataFixups'
 		for j in begin.importFixups upto finish.importFixups 'importFixups'
 			let fixup = u.asm.importFixups[j].clone()
+			if fixup.index >= image.importSlots 'slot'
+				panic("link: a call of an import that the executable has no slot for")
+			end 'slot'
 			let slot = try fixup.index * importSlotBytes otherwise panic("link: an import past memory")
 			linkPatch(code, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: try image.iatRva + slot otherwise panic("link: an address past the image"))
 		end 'importFixups'

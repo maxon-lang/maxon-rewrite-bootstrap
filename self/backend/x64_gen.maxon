@@ -851,6 +851,20 @@ export function encodeLoadRegGsBaseDisp(mutates code ByteArray, dest X64Register
 	writeMem(code, regBits: regLow3(dest), base: base, disp: disp)
 end 'encodeLoadRegGsBaseDisp'
 
+// mov dest, [base + disp]: 64 REX.W 8B /r.
+export function encodeLoadRegFsBaseDisp(mutates code ByteArray, dest X64Register, base X64Register, disp Imm32)
+	code.push(0x64)
+	emitRex(code, wide: true, regField: dest, indexField: X64Register.rax, rmField: base, force: false)
+	code.push(0x8B)
+	writeMem(code, regBits: regLow3(dest), base: base, disp: disp)
+end 'encodeLoadRegFsBaseDisp'
+
+// syscall : 0F 05.
+export function encodeSyscall(mutates code ByteArray)
+	code.push(0x0F)
+	code.push(0x05)
+end 'encodeSyscall'
+
 // jmp rel: E9.
 export function encodeJmpRel32(mutates code ByteArray, rel Imm32)
 	code.push(0xE9)
@@ -1184,6 +1198,8 @@ export enum X64Form
 	lockCmpxchgBaseDispReg
 	pause
 	loadRegGsBaseDisp
+	loadRegFsBaseDisp
+	syscall
 	jmpRel32
 	callRel32
 	jccRel32
@@ -1218,19 +1234,19 @@ function formTableDigit(table String, form X64Form) returns Count
 end 'formTableDigit'
 
 export function setsFlags(form X64Form) returns bool
-	return formTableDigit("0111111110000000000000000000000011111111111111111100111110111100000001000001010000000000001000000000000", form: form) == 1
+	return formTableDigit("011111111000000000000000000000001111111111111111110011111011110000000100000101000000000000001000000000000", form: form) == 1
 end 'setsFlags'
 
 export function readsFlags(form X64Form) returns bool
-	return formTableDigit("0000000000000000000000000000100000000000000000000000000000000000000000000000000000100000000000000000000", form: form) == 1
+	return formTableDigit("000000000000000000000000000010000000000000000000000000000000000000000000000000000000100000000000000000000", form: form) == 1
 end 'readsFlags'
 
 export function readsMemory(form X64Form) returns bool
-	return formTableDigit("0000000001001010010101100000000000000000000000001010000000000000110101010111110100000000000000001010110", form: form) == 1
+	return formTableDigit("000000000100101001010110000000000000000000000000101000000000000011010101011111011100000000000000001010110", form: form) == 1
 end 'readsMemory'
 
 export function writesMemory(form X64Form) returns bool
-	return formTableDigit("0000000000100101001010011110000000000000000000000000000000000011000110001111110001000000000000000101001", form: form) == 1
+	return formTableDigit("000000000010010100101001111000000000000000000000000000000000001100011000111111000101000000000000000101001", form: form) == 1
 end 'writesMemory'
 
 // x64FirstVector is the number of xmm0 in the register file, after the general registers.
@@ -1238,7 +1254,7 @@ export let x64FirstVector = 16
 
 export let x64RegisterFileSize = 32
 
-export let x64FormCount = 103
+export let x64FormCount = 105
 
 // x64RegisterOf is the general register with a number of the register file.
 export function x64RegisterOf(number RegNum) returns X64Register
@@ -1346,64 +1362,66 @@ export function x64FormOf(number Count) returns X64Form
 		77 gives X64Form.lockCmpxchgBaseDispReg
 		78 gives X64Form.pause
 		79 gives X64Form.loadRegGsBaseDisp
-		80 gives X64Form.jmpRel32
-		81 gives X64Form.callRel32
-		82 gives X64Form.jccRel32
-		83 gives X64Form.movapsRegReg
-		84 gives X64Form.xorpsRegReg
-		85 gives X64Form.addsdRegReg
-		86 gives X64Form.subsdRegReg
-		87 gives X64Form.mulsdRegReg
-		88 gives X64Form.divsdRegReg
-		89 gives X64Form.sqrtsdRegReg
-		90 gives X64Form.ucomisdRegReg
-		91 gives X64Form.roundsdRegRegImm8
-		92 gives X64Form.cvtsi2sdRegReg
-		93 gives X64Form.cvttsd2siRegReg
-		94 gives X64Form.movqXmmReg
-		95 gives X64Form.movqRegXmm
-		96 gives X64Form.movsdRegBaseDisp
-		97 gives X64Form.movsdBaseDispReg
-		98 gives X64Form.movsdRegBaseIndex8Disp
-		99 gives X64Form.movsdBaseIndex8DispReg
-		100 gives X64Form.movsdRegRip
-		101 gives X64Form.movupsRegBaseDisp
-		102 gives X64Form.movupsBaseDispReg
+		80 gives X64Form.loadRegFsBaseDisp
+		81 gives X64Form.syscall
+		82 gives X64Form.jmpRel32
+		83 gives X64Form.callRel32
+		84 gives X64Form.jccRel32
+		85 gives X64Form.movapsRegReg
+		86 gives X64Form.xorpsRegReg
+		87 gives X64Form.addsdRegReg
+		88 gives X64Form.subsdRegReg
+		89 gives X64Form.mulsdRegReg
+		90 gives X64Form.divsdRegReg
+		91 gives X64Form.sqrtsdRegReg
+		92 gives X64Form.ucomisdRegReg
+		93 gives X64Form.roundsdRegRegImm8
+		94 gives X64Form.cvtsi2sdRegReg
+		95 gives X64Form.cvttsd2siRegReg
+		96 gives X64Form.movqXmmReg
+		97 gives X64Form.movqRegXmm
+		98 gives X64Form.movsdRegBaseDisp
+		99 gives X64Form.movsdBaseDispReg
+		100 gives X64Form.movsdRegBaseIndex8Disp
+		101 gives X64Form.movsdBaseIndex8DispReg
+		102 gives X64Form.movsdRegRip
+		103 gives X64Form.movupsRegBaseDisp
+		104 gives X64Form.movupsBaseDispReg
 		default panic("backend: a number that is no x64 form")
 	end 'number'
 end 'x64FormOf'
 
 // machineOperandCount is how many register operands a machine instruction of a form has.
 export function machineOperandCount(form X64Form) returns Count
-	return formTableDigit("2333332232222233333332222112111122222211222222222302211110222210100000111013320200023333322222222233122", form: form)
+	return formTableDigit("233333223222223333333222211211112222221122222222230221111022221010000011101332022000023333322222222233122", form: form)
 end 'machineOperandCount'
 
 export function definesOperand(form X64Form) returns bool
-	return formTableDigit("1111110011011010110101100001111111111100111111110101100000111100100000110001100100011111110111111010110", form: form) == 1
+	return formTableDigit("111111001101101011010110000111111111110011111111010110000011110010000011000110011000011111110111111010110", form: form) == 1
 end 'definesOperand'
 
 export function reusesOperand(form X64Form) returns bool
-	return formTableDigit("0111110010000000000000000000000011111100111100110101100000111100000000000001100000001111100000000000000", form: form) == 1
+	return formTableDigit("011111001000000000000000000000001111110011110011010110000011110000000000000110000000001111100000000000000", form: form) == 1
 end 'reusesOperand'
 
 export function isCall(form X64Form) returns bool
-	return formTableDigit("0000000000000000000000000000000000000000000000000000000000000000000000000110000001000000000000000000000", form: form) == 1
+	return formTableDigit("000000000000000000000000000000000000000000000000000000000000000000000000011000000101000000000000000000000", form: form) == 1
 end 'isCall'
 
 export function isReturn(form X64Form) returns bool
-	return formTableDigit("0000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000", form: form) == 1
+	return formTableDigit("000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000", form: form) == 1
 end 'isReturn'
 
 export function hasPatchField(form X64Form) returns bool
-	return formTableDigit("0000000000000000000000000000000000000000000000000000000000000000000000111100000011100000000000000000100", form: form) == 1
+	return formTableDigit("000000000000000000000000000000000000000000000000000000000000000000000011110000000011100000000000000000100", form: form) == 1
 end 'hasPatchField'
 
 export function rematerializable(form X64Form) returns bool
-	return formTableDigit("0000000000000000000000000000011100000000000000000000000000000000000000000000000000000000000000000000000", form: form) == 1
+	return formTableDigit("000000000000000000000000000001110000000000000000000000000000000000000000000000000000000000000000000000000", form: form) == 1
 end 'rematerializable'
 
 export function commutesOperands(form X64Form) returns bool
-	return formTableDigit("0101110010000000000000000000000000000000000000000000000000000000000000000000000000001101000000000000000", form: form) == 1
+	return formTableDigit("010111001000000000000000000000000000000000000000000000000000000000000000000000000000001101000000000000000", form: form) == 1
 end 'commutesOperands'
 
 // fixedUses is the registers a form reads that no operand names.
@@ -1477,6 +1495,8 @@ export function fixedUses(form X64Form) returns RegMask
 		xchgBaseDispReg or
 		pause or
 		loadRegGsBaseDisp or
+		loadRegFsBaseDisp or
+		syscall or
 		jmpRel32 or
 		callRel32 or
 		jccRel32 or
@@ -1592,6 +1612,8 @@ export function fixedDefs(form X64Form) returns RegMask
 		xchgBaseDispReg or
 		pause or
 		loadRegGsBaseDisp or
+		loadRegFsBaseDisp or
+		syscall or
 		jmpRel32 or
 		callRel32 or
 		jccRel32 or
@@ -1704,6 +1726,8 @@ export function clobbers(form X64Form) returns RegMask
 		lockCmpxchgBaseDispReg or
 		pause or
 		loadRegGsBaseDisp or
+		loadRegFsBaseDisp or
+		syscall or
 		jmpRel32 or
 		callRel32 or
 		jccRel32 or
@@ -1816,6 +1840,8 @@ export function vectorOperands(form X64Form) returns Count
 		lockCmpxchgBaseDispReg or
 		pause or
 		loadRegGsBaseDisp or
+		loadRegFsBaseDisp or
+		syscall or
 		jmpRel32 or
 		callRel32 or
 		jccRel32 gives 0
@@ -1969,6 +1995,8 @@ export function encodeMachineForm(mutates code ByteArray, form X64Form, a X64Reg
 		lockCmpxchgBaseDispReg then encodeLockCmpxchgBaseDispReg(code, base: a, disp: aux, src: b)
 		pause then encodePause(code)
 		loadRegGsBaseDisp then encodeLoadRegGsBaseDisp(code, dest: a, base: b, disp: aux)
+		loadRegFsBaseDisp then encodeLoadRegFsBaseDisp(code, dest: a, base: b, disp: aux)
+		syscall then encodeSyscall(code)
 		jmpRel32 then encodeJmpRel32(code, rel: 0)
 		callRel32 then encodeCallRel32(code, rel: 0)
 		jccRel32 then encodeJccRel32(code, cond: cond, rel: 0)

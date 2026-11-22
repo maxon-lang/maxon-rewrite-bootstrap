@@ -94,6 +94,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opStoreAt or
 		opStoreRaw or
 		opCallImport or
+		opSyscall or
 		opAtomicAdd or
 		opAtomicExchange or
 		opCompareExchange or

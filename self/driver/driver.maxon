@@ -26,7 +26,7 @@ let testsFlag = "--tests"
 
 let outputFlag = "-o"
 
-let executableExtension = ".exe"
+let targetFlag = "--target="
 
 let irExtension = ".ir"
 
@@ -35,7 +35,7 @@ let mapExtension = ".map"
 typealias CommandNames = Array with String
 
 export function usage() returns String
-	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check [--tests] <file.maxon|dir>      report diagnostics only; --tests also checks the files of tests (.maxtest) of\n                                        every module\n  test [--update-positions] [dir]       run the corpus of tests (default: the nearest tests directory)\n  test <specs> [--require-passed|--skip-passed] [--record-passed]\n                                        run maxon's spec tests: failing if a test of specs/passed.txt does not pass, or leaving\n                                        them out; and writing the list again with the tests that pass\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  fix [--check] <path>...               apply the fix that each diagnostic names, to a fixpoint, in a .maxon file, a project or\n                                        the maxon blocks of the tests of spec files\n  qualify <dir>...                      write the module before each name of another module's declaration in the projects\n  rename [--prelude=f,...] [--rules=file] <rule>... <program>...\n                                        rename built-in types and method calls by what the checker resolved\n  test <module dir>                     run the tests of the modules under the directory (the files of tests, .maxtest)\n  selftest                              run the compiler's own tests: test self\n  cache [trim|clear]                    say where the build cache is and what it holds; delete what was unused for five days,\n                                        or everything\n\n--emit-ir writes the IR beside the executable, as <out>.ir; --verify-ir checks the IR of every function against the verifier's rules\nbefore code is made and its register allocation against its invariants, and stops at the first function that breaks one; --emit-map writes the map of its code symbols, as <out>.map, which\ncmd/sample profiles with. --timings prints the time of each stage and of the slowest modules on standard error. --trace=<file> writes the timeline\nof a build or check's tasks to the file in Chrome's trace format. --count-allocations builds executables that count their live heap boxes and fail at exit with\ncode 99 if any is left (development only). --reverse-modules runs the modules of each stage in another order that keeps each after the\nmodules it names, which must make the same executable (development only). --verify-reads stops a compile at a task's read of a type or function\nentry that a stage it did not wait on made (development only). --update-positions makes test rewrite the position of an expect-error whose code\nwas reported at another place. build and test of modules keep each module's code in the build cache (MINIMAXON_CACHE names its directory, or is off;\n%LOCALAPPDATA%\\minimaxon\\cache otherwise) and link a module whose key is unchanged from it; --no-cache uses none, and --verify-cache compiles every\nmodule and stops at the first whose code or summary differs from the entry under its key (development only).\n"
+	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to an executable of the target\n  run <file.maxon|dir>                  compile and run\n  check [--tests] <file.maxon|dir>      report diagnostics only; --tests also checks the files of tests (.maxtest) of\n                                        every module\n  test [--update-positions] [dir]       run the corpus of tests (default: the nearest tests directory)\n  test <specs> [--require-passed|--skip-passed] [--record-passed]\n                                        run maxon's spec tests: failing if a test of specs/passed.txt does not pass, or leaving\n                                        them out; and writing the list again with the tests that pass\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  fix [--check] <path>...               apply the fix that each diagnostic names, to a fixpoint, in a .maxon file, a project or\n                                        the maxon blocks of the tests of spec files\n  qualify <dir>...                      write the module before each name of another module's declaration in the projects\n  rename [--prelude=f,...] [--rules=file] <rule>... <program>...\n                                        rename built-in types and method calls by what the checker resolved\n  test <module dir>                     run the tests of the modules under the directory (the files of tests, .maxtest)\n  selftest                              run the compiler's own tests: test self\n  cache [trim|clear]                    say where the build cache is and what it holds; delete what was unused for five days,\n                                        or everything\n\n--target=<arch>-<os> compiles for x64-windows or x64-linux (a static ELF executable that needs no library), and test runs the corpus\nfor it; the default is the system the compiler runs on. --emit-ir writes the IR beside the executable, as <out>.ir; --verify-ir checks the IR of every function against the verifier's rules\nbefore code is made and its register allocation against its invariants, and stops at the first function that breaks one; --emit-map writes the map of its code symbols, as <out>.map, which\ncmd/sample profiles with. --timings prints the time of each stage and of the slowest modules on standard error. --trace=<file> writes the timeline\nof a build or check's tasks to the file in Chrome's trace format. --count-allocations builds executables that count their live heap boxes and fail at exit with\ncode 99 if any is left (development only). --reverse-modules runs the modules of each stage in another order that keeps each after the\nmodules it names, which must make the same executable (development only). --verify-reads stops a compile at a task's read of a type or function\nentry that a stage it did not wait on made (development only). --update-positions makes test rewrite the position of an expect-error whose code\nwas reported at another place. build and test of modules keep each module's code in the build cache (MINIMAXON_CACHE names its directory, or is off;\n%LOCALAPPDATA%\\minimaxon\\cache otherwise) and link a module whose key is unchanged from it; --no-cache uses none, and --verify-cache compiles every\nmodule and stops at the first whose code or summary differs from the entry under its key (development only).\n"
 end 'usage'
 
 // absentFlagPrefixes start the flags that other compilers of the language have and this one does not.
@@ -103,9 +103,11 @@ type Options
 	var usesCache as bool
 	// speculates lets the compile take a module's summary from before it is lowered (CacheSetup.speculates).
 	var speculates as bool
+	// target is the platform the executable is made for, and whose branches of a #if the compile reads.
+	var target as ast.Target
 
 	static function new() returns Options
-		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, usesCache: true, speculates: false}
+		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, usesCache: true, speculates: false, target: hostTarget()}
 	end 'new'
 
 	// timesTasks is whether a compile reads the clock around each task, for --timings or --trace.
@@ -145,7 +147,15 @@ export function run(args Array with String) returns ExitCode
 			options.timings = true
 		end 'timings' else if hasPrefix(args[i], prefix: traceFlag) 'trace'
 			options.trace = args[i].sliceBytes(traceFlag.byteLength(), endPos: args[i].byteLength())
-		end 'trace' else 'argument'
+		end 'trace' else if hasPrefix(args[i], prefix: targetFlag) 'target'
+			let name = args[i].sliceBytes(targetFlag.byteLength(), endPos: args[i].byteLength())
+			let named = targetNamed(name)
+			if not named.isSome() 'unknown'
+				printError("error: unknown --target '{name}' (expected one of: {targetRoster()})\n")
+				return diagnosticsExitCode
+			end 'unknown'
+			options.target = named.unwrap()
+		end 'target' else 'argument'
 			rest.push(args[i].clone())
 		end 'argument'
 	end 'flags'
@@ -191,7 +201,7 @@ export function run(args Array with String) returns ExitCode
 		return buildPath(path, output: "", options: options)
 	end 'check'
 	if command == "build" 'build'
-		var output = defaultOutput(path)
+		var output = defaultOutput(path, suffix: executableExtension(options.target))
 		if rest.count() >= 4 and rest[2] == outputFlag 'named'
 			output = rest[3].clone()
 		end 'named'
@@ -222,7 +232,7 @@ end 'isAbsentCommand'
 
 // defaultOutput is the executable a build of path makes when no -o names one: the path without its extension and with the
 // executable's.
-function defaultOutput(path String) returns String
+function defaultOutput(path String, suffix String) returns String
 	var finish = path.byteLength()
 	while finish > 0 and isSeparator(path.byteAt(try finish - 1 otherwise 0)) 'trim'
 		finish = try finish - 1 otherwise 0
@@ -236,11 +246,11 @@ function defaultOutput(path String) returns String
 			break 'back'
 		end 'separator'
 		if c == dotByte 'extension'
-			return "{trimmed.sliceBytes(0, endPos: before)}{executableExtension}"
+			return "{trimmed.sliceBytes(0, endPos: before)}{suffix}"
 		end 'extension'
 		at = before
 	end 'back'
-	return "{trimmed}{executableExtension}"
+	return "{trimmed}{suffix}"
 end 'defaultOutput'
 
 let slashByte = 47 as Byte
@@ -255,7 +265,7 @@ end 'isSeparator'
 
 // runProgram builds the program to a temporary executable, runs it and passes on what it wrote and its exit code.
 function runProgram(path String, options Options) returns ExitCode
-	let exe = temporaryExecutable(path)
+	let exe = temporaryExecutable(path, suffix: executableExtension(options.target))
 	let built = compilePath(path, output: exe, options: options)
 	if built != 0 'failed'
 		return built
@@ -270,9 +280,9 @@ end 'runProgram'
 
 // temporaryExecutable is where run builds the program at path: in the temporary directory, named after the process and the
 // program, so that two compilers running at once never write the same file.
-function temporaryExecutable(path String) returns String
+function temporaryExecutable(path String, suffix String) returns String
 	let dir = try Process.environmentVariable("TEMP") otherwise panic("driver: TEMP is not set")
-	let name = defaultOutput(path)
+	let name = defaultOutput(path, suffix: suffix)
 	var at = name.byteLength()
 	while at > 0 and not isSeparator(name.byteAt(try at - 1 otherwise 0)) 'back'
 		at = try at - 1 otherwise 0

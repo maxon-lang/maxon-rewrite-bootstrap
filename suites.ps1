@@ -123,8 +123,8 @@ $steps = @(
 	@('Go tests', { $env:MINIMAXON = $compiler; go test ./... }),
 	@('selftest', { & $compiler selftest }),
 	# Nothing compiles the runtime's source until a program is built, so this is what holds it to the language and to
-	# the signatures the compiler calls.
-	@('runtime', { & $compiler check runtime }),
+	# the signatures the compiler calls, for each target, whose branches of the source differ.
+	@('runtime', { & $compiler check runtime; if ($LASTEXITCODE -eq 0) { & $compiler check runtime --target=x64-linux } }),
 	# The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
 	@('self', { & $compiler check self --tests --verify-reads }),
 	@('layout', { & $compiler fmt --check self runtime tests }),

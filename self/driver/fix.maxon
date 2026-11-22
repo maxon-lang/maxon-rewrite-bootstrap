@@ -482,8 +482,8 @@ function fixCommand(rest CommandNames) returns ExitCode
 		if isSpecPath(paths[i]) 'specs'
 			unit = "tests"
 			let files = specFiles(paths[i])
-			var shared = prepareSharedRuntime()
-			var scratch = Scratch.make("fix")
+			var shared = prepareSharedRuntime(hostTarget())
+			var scratch = Scratch.make("fix", suffix: executableExtension(hostTarget()))
 			let skips = codeSkipTable()
 			for f in 0 upto files.count() 'files'
 				fixSpecFile(shared, scratch: scratch, skips: skips, file: files[f], checkOnly: checkOnly, tally: tally)

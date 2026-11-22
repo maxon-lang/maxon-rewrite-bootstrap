@@ -326,6 +326,8 @@ export enum Intrinsic
 	intrRawThreadStartAddress
 	intrRawCodeAddress
 	intrRawCallImport
+	intrRawSyscall
+	intrRawProcessStartAddress
 end 'Intrinsic'
 
 // intrinsicRuntimeOnly is whether only the runtime module may call the intrinsic (E3152).
@@ -405,6 +407,12 @@ export function intrinsicRuntimeOnly(op Intrinsic) returns bool
 	if op == Intrinsic.intrRawCallImport 'intrRawCallImport'
 		return true
 	end 'intrRawCallImport'
+	if op == Intrinsic.intrRawSyscall 'intrRawSyscall'
+		return true
+	end 'intrRawSyscall'
+	if op == Intrinsic.intrRawProcessStartAddress 'intrRawProcessStartAddress'
+		return true
+	end 'intrRawProcessStartAddress'
 	return false
 end 'intrinsicRuntimeOnly'
 
@@ -1507,4 +1515,47 @@ function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Func
 	ps29.push(ParamSpec.make("arg9", ty: b.countTy, conv: Convention.convLet))
 	ps29.push(ParamSpec.make("arg10", ty: b.countTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawCallImport, name: "callImport10", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps29, listed: true)
+	var ps30 = ParamSpecList.create(0)
+	ps30.push(ParamSpec.make("number", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSyscall, name: "syscall0", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps30, listed: true)
+	var ps31 = ParamSpecList.create(0)
+	ps31.push(ParamSpec.make("number", ty: b.countTy, conv: Convention.convLet))
+	ps31.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSyscall, name: "syscall1", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps31, listed: true)
+	var ps32 = ParamSpecList.create(0)
+	ps32.push(ParamSpec.make("number", ty: b.countTy, conv: Convention.convLet))
+	ps32.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps32.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSyscall, name: "syscall2", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps32, listed: true)
+	var ps33 = ParamSpecList.create(0)
+	ps33.push(ParamSpec.make("number", ty: b.countTy, conv: Convention.convLet))
+	ps33.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps33.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps33.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSyscall, name: "syscall3", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps33, listed: true)
+	var ps34 = ParamSpecList.create(0)
+	ps34.push(ParamSpec.make("number", ty: b.countTy, conv: Convention.convLet))
+	ps34.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps34.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps34.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps34.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSyscall, name: "syscall4", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps34, listed: true)
+	var ps35 = ParamSpecList.create(0)
+	ps35.push(ParamSpec.make("number", ty: b.countTy, conv: Convention.convLet))
+	ps35.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps35.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps35.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps35.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	ps35.push(ParamSpec.make("arg5", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSyscall, name: "syscall5", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps35, listed: true)
+	var ps36 = ParamSpecList.create(0)
+	ps36.push(ParamSpec.make("number", ty: b.countTy, conv: Convention.convLet))
+	ps36.push(ParamSpec.make("arg1", ty: b.countTy, conv: Convention.convLet))
+	ps36.push(ParamSpec.make("arg2", ty: b.countTy, conv: Convention.convLet))
+	ps36.push(ParamSpec.make("arg3", ty: b.countTy, conv: Convention.convLet))
+	ps36.push(ParamSpec.make("arg4", ty: b.countTy, conv: Convention.convLet))
+	ps36.push(ParamSpec.make("arg5", ty: b.countTy, conv: Convention.convLet))
+	ps36.push(ParamSpec.make("arg6", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawSyscall, name: "syscall6", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps36, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.rawTy, op: Intrinsic.intrRawProcessStartAddress, name: "processStartAddress", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareRawMethods'

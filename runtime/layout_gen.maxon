@@ -179,3 +179,246 @@ let byteBytes = 1 as Count
 
 // bytesFirstCapacity is the capacity of an empty byte array's first buffer, which it doubles from.
 let bytesFirstCapacity = 16 as Count
+
+// linuxSysRead is read(fd, buffer, count).
+let linuxSysRead = 0 as Count
+
+// linuxSysWrite is write(fd, buffer, count).
+let linuxSysWrite = 1 as Count
+
+// linuxSysClose is close(fd).
+let linuxSysClose = 3 as Count
+
+// linuxSysFstat is fstat(fd, stat).
+let linuxSysFstat = 5 as Count
+
+// linuxSysPoll is poll(fds, count, timeout in milliseconds).
+let linuxSysPoll = 7 as Count
+
+// linuxSysMmap is mmap(address, length, protection, flags, fd, offset).
+let linuxSysMmap = 9 as Count
+
+// linuxSysMprotect is mprotect(address, length, protection).
+let linuxSysMprotect = 10 as Count
+
+// linuxSysMunmap is munmap(address, length).
+let linuxSysMunmap = 11 as Count
+
+// linuxSysSchedYield is sched_yield().
+let linuxSysSchedYield = 24 as Count
+
+// linuxSysGetpid is getpid().
+let linuxSysGetpid = 39 as Count
+
+// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
+let linuxSysClone = 56 as Count
+
+// linuxSysExecve is execve(path, argv, envp).
+let linuxSysExecve = 59 as Count
+
+// linuxSysExit is exit(code), which ends the calling thread alone.
+let linuxSysExit = 60 as Count
+
+// linuxSysWait4 is wait4(pid, status, options, usage).
+let linuxSysWait4 = 61 as Count
+
+// linuxSysKill is kill(pid, signal).
+let linuxSysKill = 62 as Count
+
+// linuxSysGetcwd is getcwd(buffer, size).
+let linuxSysGetcwd = 79 as Count
+
+// linuxSysRename is rename(old, new), which replaces what is at new.
+let linuxSysRename = 82 as Count
+
+// linuxSysMkdir is mkdir(path, mode).
+let linuxSysMkdir = 83 as Count
+
+// linuxSysUnlink is unlink(path), which refuses a directory.
+let linuxSysUnlink = 87 as Count
+
+// linuxSysFutex is futex(address, operation, value, timeout, address2, value3).
+let linuxSysFutex = 202 as Count
+
+// linuxSysSchedGetaffinity is sched_getaffinity(pid, size of the mask, mask).
+let linuxSysSchedGetaffinity = 204 as Count
+
+// linuxSysGetdents64 is getdents64(fd, buffer, size).
+let linuxSysGetdents64 = 217 as Count
+
+// linuxSysClockGettime is clock_gettime(clock, timespec).
+let linuxSysClockGettime = 228 as Count
+
+// linuxSysExitGroup is exit_group(code), which ends every thread of the process.
+let linuxSysExitGroup = 231 as Count
+
+// linuxSysOpenat is openat(directory fd, path, flags, mode).
+let linuxSysOpenat = 257 as Count
+
+// linuxSysNewfstatat is newfstatat(directory fd, path, stat, flags).
+let linuxSysNewfstatat = 262 as Count
+
+// linuxSysStatx is statx(directory fd, path, flags, mask, statx): the times of a file with the one it was made, which stat has no field for.
+let linuxSysStatx = 332 as Count
+
+// linuxSysReadlinkat is readlinkat(directory fd, path, buffer, size).
+let linuxSysReadlinkat = 267 as Count
+
+// linuxSysDup3 is dup3(old fd, new fd, flags).
+let linuxSysDup3 = 292 as Count
+
+// linuxSysPipe2 is pipe2(fds, flags).
+let linuxSysPipe2 = 293 as Count
+
+// linuxErrnoLimit is one past the largest errno: a result above the word -linuxErrnoLimit is a failure.
+let linuxErrnoLimit = 4096 as Count
+
+// linuxPageBytes is the size of a page.
+let linuxPageBytes = 4096 as Count
+
+// linuxProtNone is PROT_NONE: a page that faults when touched, a stack's guard.
+let linuxProtNone = 0 as Count
+
+// linuxProtReadWrite is PROT_READ | PROT_WRITE.
+let linuxProtReadWrite = 3 as Count
+
+// linuxMapAnonPrivate is MAP_PRIVATE | MAP_ANONYMOUS: zeroed pages of no file.
+let linuxMapAnonPrivate = 34 as Count
+
+// linuxMapNoReserve is MAP_NORESERVE: a stack's address space, committed a page at a time as it is touched.
+let linuxMapNoReserve = 16384 as Count
+
+// linuxCloneChildFlags is SIGCHLD alone: clone makes a child process with a copy of the memory, as fork does, which signals the parent when it ends.
+let linuxCloneChildFlags = 17 as Count
+
+// linuxFutexWaitPrivate is FUTEX_WAIT | FUTEX_PRIVATE_FLAG: sleep while the 32-bit word holds the value.
+let linuxFutexWaitPrivate = 128 as Count
+
+// linuxFutexWakePrivate is FUTEX_WAKE | FUTEX_PRIVATE_FLAG: wake as many sleepers of the word as the value says.
+let linuxFutexWakePrivate = 129 as Count
+
+// linuxClockMonotonic is CLOCK_MONOTONIC.
+let linuxClockMonotonic = 1 as Count
+
+// linuxTimespecBytes is a timespec: the seconds, then the nanoseconds, a word each.
+let linuxTimespecBytes = 16 as Count
+
+// linuxAtCwdNegated is AT_FDCWD, -100, negated: the directory fd of a path relative to the working directory.
+let linuxAtCwdNegated = 100 as Count
+
+// linuxOpenReadOnly is O_RDONLY | O_CLOEXEC.
+let linuxOpenReadOnly = 524288 as Count
+
+// linuxOpenReplace is O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC.
+let linuxOpenReplace = 524865 as Count
+
+// linuxOpenCloseOnExec is O_CLOEXEC: an fd that an execve closes, as pipe2 takes it.
+let linuxOpenCloseOnExec = 524288 as Count
+
+// linuxOpenDirectory is O_RDONLY | O_DIRECTORY | O_CLOEXEC.
+let linuxOpenDirectory = 589824 as Count
+
+// linuxFileMode is 0666, which the umask narrows: the mode of a file the runtime makes.
+let linuxFileMode = 438 as Count
+
+// linuxDirectoryMode is 0777, which the umask narrows: the mode of a directory the runtime makes.
+let linuxDirectoryMode = 511 as Count
+
+// linuxStatBytes is the size of a struct stat.
+let linuxStatBytes = 144 as Count
+
+// linuxStatModeOffset is where a struct stat holds st_mode, 32 bits.
+let linuxStatModeOffset = 24 as Count
+
+// linuxStatSizeOffset is where a struct stat holds st_size.
+let linuxStatSizeOffset = 48 as Count
+
+// linuxStatxBytes is the size of a struct statx.
+let linuxStatxBytes = 256 as Count
+
+// linuxStatxMaskOffset is where a struct statx holds stx_mask, 32 bits: the fields the kernel filled.
+let linuxStatxMaskOffset = 0 as Count
+
+// linuxStatxModeOffset is where a struct statx holds stx_mode, 16 bits.
+let linuxStatxModeOffset = 28 as Count
+
+// linuxStatxSizeOffset is where a struct statx holds stx_size.
+let linuxStatxSizeOffset = 40 as Count
+
+// linuxStatxAccessedOffset is where a struct statx holds stx_atime, whose first word is its seconds.
+let linuxStatxAccessedOffset = 64 as Count
+
+// linuxStatxCreatedOffset is where a struct statx holds stx_btime, whose first word is its seconds.
+let linuxStatxCreatedOffset = 80 as Count
+
+// linuxStatxModifiedOffset is where a struct statx holds stx_mtime, whose first word is its seconds.
+let linuxStatxModifiedOffset = 112 as Count
+
+// linuxStatxWanted is STATX_BASIC_STATS | STATX_BTIME: the fields to fill.
+let linuxStatxWanted = 4095 as Count
+
+// linuxStatxBirthTime is STATX_BTIME: set in stx_mask when the file system records when a file was made.
+let linuxStatxBirthTime = 2048 as Count
+
+// linuxModeTypeMask is S_IFMT: the bits of st_mode that say what a file is.
+let linuxModeTypeMask = 61440 as Count
+
+// linuxModeDirectory is S_IFDIR.
+let linuxModeDirectory = 16384 as Count
+
+// linuxModeOwnerWrite is S_IWUSR: a file without it is the read-only one of FileInfo.
+let linuxModeOwnerWrite = 128 as Count
+
+// linuxDirentLengthOffset is where a linux_dirent64 holds the length of its record, 16 bits.
+let linuxDirentLengthOffset = 16 as Count
+
+// linuxDirentNameOffset is where a linux_dirent64 holds its name, zero-terminated.
+let linuxDirentNameOffset = 19 as Count
+
+// linuxEperm is EPERM.
+let linuxEperm = 1 as Count
+
+// linuxEnoent is ENOENT.
+let linuxEnoent = 2 as Count
+
+// linuxEintr is EINTR: a call that a signal broke off, which is made again.
+let linuxEintr = 4 as Count
+
+// linuxEagain is EAGAIN.
+let linuxEagain = 11 as Count
+
+// linuxEacces is EACCES.
+let linuxEacces = 13 as Count
+
+// linuxEbusy is EBUSY.
+let linuxEbusy = 16 as Count
+
+// linuxEexist is EEXIST.
+let linuxEexist = 17 as Count
+
+// linuxEnotdir is ENOTDIR.
+let linuxEnotdir = 20 as Count
+
+// linuxEisdir is EISDIR.
+let linuxEisdir = 21 as Count
+
+// linuxEtxtbsy is ETXTBSY.
+let linuxEtxtbsy = 26 as Count
+
+// linuxEnotempty is ENOTEMPTY.
+let linuxEnotempty = 39 as Count
+
+// linuxSigkill is SIGKILL.
+let linuxSigkill = 9 as Count
+
+// linuxPollIn is POLLIN.
+let linuxPollIn = 1 as Count
+
+// linuxPollRecordBytes is a struct pollfd: the fd and the events asked, then the events that came, 16 bits.
+let linuxPollRecordBytes = 8 as Count
+
+// linuxPollEventsOffset is where a struct pollfd holds the events asked.
+let linuxPollEventsOffset = 4 as Count
+
+// linuxPollReturnedOffset is where a struct pollfd holds the events that came.
+let linuxPollReturnedOffset = 6 as Count

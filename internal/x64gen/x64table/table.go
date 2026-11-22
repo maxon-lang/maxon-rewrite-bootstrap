@@ -51,8 +51,10 @@ const (
 	scalarDoublePrefix = 0xF2
 	// lockPrefix makes the read, change and write of a memory operand one indivisible step, and a full fence.
 	lockPrefix = 0xF0
-	// gsSegmentPrefix addresses memory from the base of gs, which on Windows x64 is the running thread's TEB.
+	// gsSegmentPrefix addresses memory from the base of gs, which on Windows x64 is the running thread's TEB, and
+	// fsSegmentPrefix from the base of fs, which on Linux x64 is the thread pointer that arch_prctl and clone set.
 	gsSegmentPrefix = 0x65
+	fsSegmentPrefix = 0x64
 	// repPrefix is also the mandatory prefix of pause, which is a rep nop.
 	repPrefix = 0xF3
 )
@@ -99,8 +101,8 @@ var constants = []constant{
 // and vectorRegisters the xmm registers, which the register allocator numbers after the general ones: a register's
 // number is its index in registers, or len(registers) plus its index here. Both are the target table's.
 var (
-	registers       = target.X64Windows.Names(target.General)
-	vectorRegisters = target.X64Windows.Names(target.Vector)
+	registers       = target.X64.Names(target.General)
+	vectorRegisters = target.X64.Names(target.Vector)
 )
 
 // condition is a condition code and the number that is added to the opcode of jcc and setcc. The names are maxon's
@@ -573,6 +575,16 @@ func buildForms() []form {
 		form{
 			name: "LoadRegGsBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			prefix: []byte{gsSegmentPrefix}, rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
+		},
+		form{
+			name: "LoadRegFsBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
+			prefix: []byte{fsSegmentPrefix}, rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
+		},
+		// A system call is a call of the system call convention, which says what it reads and clobbers: rcx and r11,
+		// which the instruction itself overwrites, among them.
+		form{
+			name: "Syscall", mnemonic: "syscall", opcode: []byte{opcodeHigh, 0x05}, readsMemory: true, writesMemory: true,
+			call: true,
 		},
 		form{name: "JmpRel32", mnemonic: "jmp", operands: []operand{rel32()}, opcode: []byte{0xE9}, effects: noEffects},
 		form{name: "CallRel32", mnemonic: "call", operands: []operand{rel32()}, opcode: []byte{0xE8}, effects: writes, call: true},

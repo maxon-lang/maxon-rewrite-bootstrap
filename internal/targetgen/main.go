@@ -43,8 +43,8 @@ func generate(t target.Target) (string, error) {
 	if err := emitMask(&b, t, t.Name+"Reserved", "the registers that hold the stack and the frame, which no value is given", t.Reserved); err != nil {
 		return "", err
 	}
-	fmt.Fprintf(&b, "// %sStackAlignment is the alignment of the stack pointer at a call of the host convention.\nexport let %sStackAlignment = %d\n\n", t.Name, t.Name, t.StackAlignment)
-	for _, c := range []target.Convention{t.Internal, t.Host} {
+	fmt.Fprintf(&b, "// %sStackAlignment is the alignment of the stack pointer at a call of a host convention.\nexport let %sStackAlignment = %d\n\n", t.Name, t.Name, t.StackAlignment)
+	for _, c := range t.Conventions() {
 		if err := emitConvention(&b, t, c); err != nil {
 			return "", err
 		}
@@ -77,8 +77,8 @@ func generalRegister(t target.Target, name string) (string, error) {
 
 // emitFloats writes where a convention passes floats, as numbers in the register file, since the backend's register enum
 // names only the general registers.
-func emitFloats(b *strings.Builder, t target.Target, c target.Convention) error {
-	p := t.Name + c.Prefix
+func emitFloats(b *strings.Builder, t target.Target, named target.NamedConvention) error {
+	p, c := named.Prefix, named.Convention
 	fmt.Fprintf(b, "// %sFloatArgCount is how many float arguments a call passes in registers, counted apart from the integer ones; the\n// rest go on the stack.\nexport let %sFloatArgCount = %d\n\n", p, p, len(c.FloatArgs))
 	fmt.Fprintf(b, "// %sFloatArg is the number in the register file of the register of a float argument, of the first\n// %sFloatArgCount.\n", p, p)
 	fmt.Fprintf(b, "export function %sFloatArg(index Count) returns RegNum\n\treturn match index 'index'\n", p)
@@ -89,7 +89,7 @@ func emitFloats(b *strings.Builder, t target.Target, c target.Convention) error 
 		}
 		fmt.Fprintf(b, "\t\t%d gives %d as RegNum\n", i, n)
 	}
-	fmt.Fprintf(b, "\t\tdefault panic(\"backend: a float argument past the registers of the %s convention\")\n\tend 'index'\nend '%sFloatArg'\n\n", strings.ToLower(c.Prefix), p)
+	fmt.Fprintf(b, "\t\tdefault panic(\"backend: a float argument past the registers of the %s convention\")\n\tend 'index'\nend '%sFloatArg'\n\n", named.Title, p)
 	n, err := t.Number(c.FloatResult)
 	if err != nil {
 		return err
@@ -98,9 +98,9 @@ func emitFloats(b *strings.Builder, t target.Target, c target.Convention) error 
 	return nil
 }
 
-func emitConvention(b *strings.Builder, t target.Target, c target.Convention) error {
-	p := t.Name + c.Prefix
-	fmt.Fprintf(b, "// The %s convention: %s.\n\n", strings.ToLower(c.Prefix), c.Doc)
+func emitConvention(b *strings.Builder, t target.Target, named target.NamedConvention) error {
+	p, c := named.Prefix, named.Convention
+	fmt.Fprintf(b, "// The %s convention: %s.\n\n", named.Title, c.Doc)
 	fmt.Fprintf(b, "// %sArgCount is how many integer arguments a call passes in registers; the rest go on the stack.\nexport let %sArgCount = %d\n\n", p, p, len(c.Args))
 	fmt.Fprintf(b, "// %sArg is the register of an argument, of the first %sArgCount.\n", p, p)
 	fmt.Fprintf(b, "export function %sArg(index Count) returns %sRegister\n\treturn match index 'index'\n", p, strings.ToUpper(t.Name[:1])+t.Name[1:])
@@ -111,14 +111,21 @@ func emitConvention(b *strings.Builder, t target.Target, c target.Convention) er
 		}
 		fmt.Fprintf(b, "\t\t%d gives %s\n", i, r)
 	}
-	fmt.Fprintf(b, "\t\tdefault panic(\"backend: an argument past the registers of the %s convention\")\n\tend 'index'\nend '%sArg'\n\n", strings.ToLower(c.Prefix), p)
+	fmt.Fprintf(b, "\t\tdefault panic(\"backend: an argument past the registers of the %s convention\")\n\tend 'index'\nend '%sArg'\n\n", named.Title, p)
 	r, err := generalRegister(t, c.Result)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(b, "// %sResult is the register of a call's result.\nexport let %sResult = %s\n\n", p, p, r)
+	if c.Number != "" {
+		n, err := generalRegister(t, c.Number)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(b, "// %sNumber is the register of a system call's number.\nexport let %sNumber = %s\n\n", p, p, n)
+	}
 	if len(c.FloatArgs) > 0 {
-		if err := emitFloats(b, t, c); err != nil {
+		if err := emitFloats(b, t, named); err != nil {
 			return err
 		}
 	}

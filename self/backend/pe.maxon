@@ -117,22 +117,6 @@ type ImportTable
 	end 'make'
 end 'ImportTable'
 
-// PeImage is the executable's file in memory, with the code and the data zeroed at the places they have in the file.
-// The linker writes them there with placeCode and placeData and reads the addresses it patches calls and references
-// with from the Rva fields, which are counted from the image base.
-export type PeImage
-	export var file as ByteArray
-	export var textRva as Count
-	export var dataRva as Count
-	export var iatRva as Count
-	export var codeOffset as Count
-	export var dataOffset as Count
-
-	static function make(consumes file ByteArray, textRva Count, dataRva Count, iatRva Count, codeOffset Count, dataOffset Count) returns PeImage
-		return PeImage{file: file, textRva: textRva, dataRva: dataRva, iatRva: iatRva, codeOffset: codeOffset, dataOffset: dataOffset}
-	end 'make'
-end 'PeImage'
-
 function byteOf(v Count) returns Byte
 	return try v as Byte otherwise panic("a value that is not a byte")
 end 'byteOf'
@@ -270,7 +254,7 @@ end 'buildRelocations'
 // point at an offset in the code. The import slot of the i-th name is at importSlotRva(image, index: i). relocated are the
 // offsets of the data, in increasing order, of the words that hold addresses of the image, which a base relocation table
 // lets the loader move with it.
-export function buildPeImage(codeSize Count, dataSize Count, dll String, imports NameList, entryOffset Count, relocated CountList) returns PeImage
+export function buildPeImage(codeSize Count, dataSize Count, dll String, imports NameList, entryOffset Count, relocated CountList) returns Image
 	let codeSpan = codeSize if codeSize > 0 else 1
 	let dataSpan = dataSize if dataSize > 0 else 1
 	let dataRva = sum(peTextRva, b: alignUp(codeSpan, alignment: peSectionAlignment))
@@ -366,24 +350,11 @@ export function buildPeImage(codeSize Count, dataSize Count, dll String, imports
 	if relocSize > 0 'relocBytes'
 		copyInto(file, at: fileOffsets[3], src: relocations)
 	end 'relocBytes'
-	return PeImage.make(file, textRva: peTextRva, dataRva: dataRva, iatRva: sum(idataRva, b: table.iatOffset), codeOffset: fileOffsets[0], dataOffset: fileOffsets[1])
+	return Image.make(file, base: peImageBase, textRva: peTextRva, dataRva: dataRva, iatRva: sum(idataRva, b: table.iatOffset), importSlots: imports.count(), codeOffset: fileOffsets[0], dataOffset: fileOffsets[1])
 end 'buildPeImage'
 
 // importSlotRva is the address of the slot the loader fills with the index-th imported function, which code calls
 // through.
-export function importSlotRva(image PeImage, index Count) returns Count
+export function importSlotRva(image Image, index Count) returns Count
 	return sum(image.iatRva, b: product(index, b: peThunkSize))
 end 'importSlotRva'
-
-export function placeCode(mutates image PeImage, at Count, bytes ByteArray)
-	copyInto(image.file, at: sum(image.codeOffset, b: at), src: bytes)
-end 'placeCode'
-
-export function placeData(mutates image PeImage, at Count, bytes ByteArray)
-	copyInto(image.file, at: sum(image.dataOffset, b: at), src: bytes)
-end 'placeData'
-
-// writePeImage replaces the file at path with the image.
-export function writePeImage(image PeImage, path FilePath) throws FileWriteError
-	try File.writeBinary(path, content: image.file)
-end 'writePeImage'

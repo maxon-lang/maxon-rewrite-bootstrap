@@ -1,126 +1,128 @@
-// Running a program: CreateProcessW over pipes for the child's standard output and error, read by the run while the child
-// goes on, so that a child that fills one pipe cannot block waiting for the run to read the other. The child's standard
-// input is the run's own.
+// Running a program over pipes for the child's standard output and error, read by the run while the child goes on, so
+// that a child that fills one pipe cannot block waiting for the run to read the other: CreateProcessW on Windows, and on
+// Linux a clone and an execve (linux_subprocess.maxon). The child's standard input is the run's own.
 
-// The Win32 values the run uses.
-let infinite = 0xFFFFFFFF
+#if os(Windows)
+	// The Win32 values the run uses.
+	let infinite = 0xFFFFFFFF
 
-let stdInputHandle = 0xFFFFFFF6
+	let stdInputHandle = 0xFFFFFFF6
 
-let handleFlagInherit = 1
+	let handleFlagInherit = 1
 
-let startfUseStdHandles = 0x100
+	let startfUseStdHandles = 0x100
 
-let noApplication = 0
+	let noApplication = 0
 
-let noThreadSecurity = 0
+	let noThreadSecurity = 0
 
-let inheritHandles = 1
+	let inheritHandles = 1
 
-let noEnvironment = 0
+	let noEnvironment = 0
 
-let noCurrentDirectory = 0
+	let noCurrentDirectory = 0
 
-let defaultPipeSize = 0
+	let defaultPipeSize = 0
 
-let noMask = 0
+	let noMask = 0
 
-let noName = 0
+	let noName = 0
 
-let noBuffer = 0
+	let noBuffer = 0
 
-let noLeft = 0
+	let noLeft = 0
 
-let noInput = 0
+	let noInput = 0
 
-// pollMillis is how long the run waits for its child when neither pipe had anything to read.
-let pollMillis = 1
+	// pollMillis is how long the run waits for its child when neither pipe had anything to read.
+	let pollMillis = 1
 
-// SECURITY_ATTRIBUTES: a pipe is made with it so that its handles can be inherited.
-let securityBytes = 24
+	// SECURITY_ATTRIBUTES: a pipe is made with it so that its handles can be inherited.
+	let securityBytes = 24
 
-let securityLengthOffset = 0
+	let securityLengthOffset = 0
 
-let securityInheritOffset = 16
+	let securityInheritOffset = 16
 
-// STARTUPINFOEXW: STARTUPINFOW, of which the run sets the size, the flag that says the standard handles are given and the three
-// handles, and then the list of attributes the child is created with.
-let startupBytes = 112
+	// STARTUPINFOEXW: STARTUPINFOW, of which the run sets the size, the flag that says the standard handles are given and the three
+	// handles, and then the list of attributes the child is created with.
+	let startupBytes = 112
 
-let startupSizeOffset = 0
+	let startupSizeOffset = 0
 
-let startupFlagsOffset = 60
+	let startupFlagsOffset = 60
 
-let startupInputOffset = 80
+	let startupInputOffset = 80
 
-let startupOutputOffset = 88
+	let startupOutputOffset = 88
 
-let startupErrorOffset = 96
+	let startupErrorOffset = 96
 
-let startupAttributeListOffset = 104
+	let startupAttributeListOffset = 104
 
-// The child inherits only the handles that PROC_THREAD_ATTRIBUTE_HANDLE_LIST names: bInheritHandles alone hands it every
-// inheritable handle of the process, the pipe ends of a run that is going on at the same time among them, and a reader
-// then waits for that other child's end of the pipe as well.
-let extendedStartupInfoPresent = 0x80000
+	// The child inherits only the handles that PROC_THREAD_ATTRIBUTE_HANDLE_LIST names: bInheritHandles alone hands it every
+	// inheritable handle of the process, the pipe ends of a run that is going on at the same time among them, and a reader
+	// then waits for that other child's end of the pipe as well.
+	let extendedStartupInfoPresent = 0x80000
 
-let attributeHandleList = 0x20002
+	let attributeHandleList = 0x20002
 
-let attributeCount = 1
+	let attributeCount = 1
 
-let noAttributeFlags = 0
+	let noAttributeFlags = 0
 
-let noAttributeList = 0
+	let noAttributeList = 0
 
-let noPreviousValue = 0
+	let noPreviousValue = 0
 
-let noReturnSize = 0
+	let noReturnSize = 0
 
-// The array of the handles the child inherits has room for a word each of its standard input, output and error.
-let inheritedHandlesBytes = 24
+	// The array of the handles the child inherits has room for a word each of its standard input, output and error.
+	let inheritedHandlesBytes = 24
 
-// PROCESS_INFORMATION: the handles of the child and of its first thread.
-let processBytes = 24
+	// PROCESS_INFORMATION: the handles of the child and of its first thread.
+	let processBytes = 24
 
-let processHandleOffset = 0
+	let processHandleOffset = 0
 
-let processThreadOffset = 8
+	let processThreadOffset = 8
 
-// A pipe the run reads, as a record of words: the read end it keeps, the write end the child gets, the string read so
-// far with the room it has, whether the child may still write, and the two counts that PeekNamedPipe and ReadFile set.
-let pipeReadOffset = 0
+	// A pipe the run reads, as a record of words: the read end it keeps, the write end the child gets, the string read so
+	// far with the room it has, whether the child may still write, and the two counts that PeekNamedPipe and ReadFile set.
+	let pipeReadOffset = 0
 
-let pipeWriteOffset = 8
+	let pipeWriteOffset = 8
 
-let pipeTextOffset = 16
+	let pipeTextOffset = 16
 
-let pipeCapacityOffset = 24
+	let pipeCapacityOffset = 24
 
-let pipeOpenOffset = 32
+	let pipeOpenOffset = 32
 
-let pipeAvailableOffset = 40
+	let pipeAvailableOffset = 40
 
-let pipeReceivedOffset = 48
+	let pipeReceivedOffset = 48
 
-let pipeBytes = 56
+	let pipeBytes = 56
 
-// The run's frame, one allocation: a security descriptor, the startup record, the array of the handles the child inherits
-// (which the attribute list points into until the child is created), the process record, and the two pipes.
-let frameSecurityOffset = 0
+	// The run's frame, one allocation: a security descriptor, the startup record, the array of the handles the child inherits
+	// (which the attribute list points into until the child is created), the process record, and the two pipes.
+	let frameSecurityOffset = 0
 
-let frameStartupOffset = frameSecurityOffset + securityBytes
+	let frameStartupOffset = frameSecurityOffset + securityBytes
 
-let frameInheritedOffset = frameStartupOffset + startupBytes
+	let frameInheritedOffset = frameStartupOffset + startupBytes
 
-let frameProcessOffset = frameInheritedOffset + inheritedHandlesBytes
+	let frameProcessOffset = frameInheritedOffset + inheritedHandlesBytes
 
-let frameOutputOffset = frameProcessOffset + processBytes
+	let frameOutputOffset = frameProcessOffset + processBytes
 
-let frameErrorOffset = frameOutputOffset + pipeBytes
+	let frameErrorOffset = frameOutputOffset + pipeBytes
 
-let frameBytes = frameErrorOffset + pipeBytes
+	let frameBytes = frameErrorOffset + pipeBytes
+#endif
 
-// The cases of SubprocessError that the run fails with besides the ones a Win32 error gives.
+// The cases of SubprocessError that the run fails with besides the ones the system's error gives.
 let executableNotFound = 0
 
 let spawnFailed = 1
@@ -157,234 +159,236 @@ function argumentBox(arguments Count, index Count) returns Count
 	return __Raw.loadWord(__Raw.loadWord(arguments, offset: osArrayDataOffset), offset: index * osArrayElementBytes)
 end 'argumentBox'
 
-// commandLineOf is a new zero-terminated UTF-16 command line of the executable and the arguments, each quoted by the
-// rules that the C runtime splits them by, with a space between them. CreateProcessW may write in it.
-function commandLineOf(executable String, arguments Count) returns Count
-	let count = wordAt(arguments, offset: osArrayLengthOffset)
-	if count >= osArrayLimit 'outside'
-		panic("too many arguments to quote")
-	end 'outside'
-	let executableBox = __Raw.stringAddress(executable)
-	var capacity = __Raw.wrappingAdd(quotedBound(boxLength(executableBox)), right: 1)
-	for i in 0 upto count 'size'
-		let spaceAndArgument = __Raw.wrappingAdd(quotedBound(boxLength(argumentBox(arguments, index: i))), right: 1)
-		capacity = __Raw.wrappingAdd(capacity, right: spaceAndArgument)
-	end 'size'
-	let line = alloc(capacity)
-	var length = quoteArgument(bytesOf(executableBox), length: boxLength(executableBox), dst: line)
-	for i in 0 upto count 'write'
-		let box = argumentBox(arguments, index: i)
-		length = storeNextByte(line, offset: length, value: spaceByte)
-		length = __Raw.wrappingAdd(length, right: quoteArgument(bytesOf(box), length: boxLength(box), dst: __Raw.wrappingAdd(line, right: length)))
-	end 'write'
-	if length >= textUnitLimit 'long'
-		panic("command line too long to convert")
-	end 'long'
-	let wide = alloc((length + 1) * wideUnitBytes)
-	_ = utf16FromUtf8(line, byteLength: length, dst: wide)
-	free(line)
-	return wide
-end 'commandLineOf'
+#if os(Windows)
+	// commandLineOf is a new zero-terminated UTF-16 command line of the executable and the arguments, each quoted by the
+	// rules that the C runtime splits them by, with a space between them. CreateProcessW may write in it.
+	function commandLineOf(executable String, arguments Count) returns Count
+		let count = wordAt(arguments, offset: osArrayLengthOffset)
+		if count >= osArrayLimit 'outside'
+			panic("too many arguments to quote")
+		end 'outside'
+		let executableBox = __Raw.stringAddress(executable)
+		var capacity = __Raw.wrappingAdd(quotedBound(boxLength(executableBox)), right: 1)
+		for i in 0 upto count 'size'
+			let spaceAndArgument = __Raw.wrappingAdd(quotedBound(boxLength(argumentBox(arguments, index: i))), right: 1)
+			capacity = __Raw.wrappingAdd(capacity, right: spaceAndArgument)
+		end 'size'
+		let line = alloc(capacity)
+		var length = quoteArgument(bytesOf(executableBox), length: boxLength(executableBox), dst: line)
+		for i in 0 upto count 'write'
+			let box = argumentBox(arguments, index: i)
+			length = storeNextByte(line, offset: length, value: spaceByte)
+			length = __Raw.wrappingAdd(length, right: quoteArgument(bytesOf(box), length: boxLength(box), dst: __Raw.wrappingAdd(line, right: length)))
+		end 'write'
+		if length >= textUnitLimit 'long'
+			panic("command line too long to convert")
+		end 'long'
+		let wide = alloc((length + 1) * wideUnitBytes)
+		_ = utf16FromUtf8(line, byteLength: length, dst: wide)
+		free(line)
+		return wide
+	end 'commandLineOf'
 
-// openPipe makes a pipe whose write end the child can inherit and whose read end it cannot, and gives whether it did.
-function openPipe(pipe Count, security Count) returns bool
-	__Raw.storeWord(pipe, offset: pipeTextOffset, value: newStringBox(0))
-	let made = __Raw.callImport4("CreatePipe", arg1: fieldAt(pipe, offset: pipeReadOffset), arg2: fieldAt(pipe, offset: pipeWriteOffset), arg3: security, arg4: defaultPipeSize)
-	if dword(made) == 0 'failed'
-		return false
-	end 'failed'
-	_ = __Raw.callImport3("SetHandleInformation", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: handleFlagInherit, arg3: noMask)
-	return true
-end 'openPipe'
+	// openPipe makes a pipe whose write end the child can inherit and whose read end it cannot, and gives whether it did.
+	function openPipe(pipe Count, security Count) returns bool
+		__Raw.storeWord(pipe, offset: pipeTextOffset, value: newStringBox(0))
+		let made = __Raw.callImport4("CreatePipe", arg1: fieldAt(pipe, offset: pipeReadOffset), arg2: fieldAt(pipe, offset: pipeWriteOffset), arg3: security, arg4: defaultPipeSize)
+		if dword(made) == 0 'failed'
+			return false
+		end 'failed'
+		_ = __Raw.callImport3("SetHandleInformation", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: handleFlagInherit, arg3: noMask)
+		return true
+	end 'openPipe'
 
-// inheritedBytes is the size of the first count handles of the array of the handles the child inherits.
-function inheritedBytes(count Count) returns Count
-	return try count * wordBytes otherwise panic("the handles the child inherits are past a word")
-end 'inheritedBytes'
+	// inheritedBytes is the size of the first count handles of the array of the handles the child inherits.
+	function inheritedBytes(count Count) returns Count
+		return try count * wordBytes otherwise panic("the handles the child inherits are past a word")
+	end 'inheritedBytes'
 
-// listInherited adds a handle to the array of the handles the child inherits, unless it is no handle or is in it already,
-// and gives how many handles the array holds then.
-function listInherited(inherited Count, count Count, handle Count) returns Count
-	if handle == 0 or handle == invalidHandle 'unusable'
-		return count
-	end 'unusable'
-	for i in 0 upto count 'seen'
-		if wordAt(inherited, offset: inheritedBytes(i)) == handle 'listed'
+	// listInherited adds a handle to the array of the handles the child inherits, unless it is no handle or is in it already,
+	// and gives how many handles the array holds then.
+	function listInherited(inherited Count, count Count, handle Count) returns Count
+		if handle == 0 or handle == invalidHandle 'unusable'
 			return count
-		end 'listed'
-	end 'seen'
-	__Raw.storeWord(inherited, offset: inheritedBytes(count), value: handle)
-	return __Raw.wrappingAdd(count, right: 1)
-end 'listInherited'
+		end 'unusable'
+		for i in 0 upto count 'seen'
+			if wordAt(inherited, offset: inheritedBytes(i)) == handle 'listed'
+				return count
+			end 'listed'
+		end 'seen'
+		__Raw.storeWord(inherited, offset: inheritedBytes(count), value: handle)
+		return __Raw.wrappingAdd(count, right: 1)
+	end 'listInherited'
 
-// createChild creates the child that command and the startup record describe, inheriting the handles of the array and no
-// others, and gives the Win32 error of the step that failed, or 0 when the child was created.
-function createChild(command Count, startup Count, inherited Count, inheritedCount Count, process Count) returns Count
-	var listBytes = 0 as Count
-	// The call that asks for the size fails by design.
-	_ = __Raw.callImport4("InitializeProcThreadAttributeList", arg1: noAttributeList, arg2: attributeCount, arg3: noAttributeFlags, arg4: __Raw.addressOf(listBytes))
-	let list = alloc(listBytes)
-	if dword(__Raw.callImport4("InitializeProcThreadAttributeList", arg1: list, arg2: attributeCount, arg3: noAttributeFlags, arg4: __Raw.addressOf(listBytes))) == 0 'unlisted'
-		let failure = win32Error()
+	// createChild creates the child that command and the startup record describe, inheriting the handles of the array and no
+	// others, and gives the Win32 error of the step that failed, or 0 when the child was created.
+	function createChild(command Count, startup Count, inherited Count, inheritedCount Count, process Count) returns Count
+		var listBytes = 0 as Count
+		// The call that asks for the size fails by design.
+		_ = __Raw.callImport4("InitializeProcThreadAttributeList", arg1: noAttributeList, arg2: attributeCount, arg3: noAttributeFlags, arg4: __Raw.addressOf(listBytes))
+		let list = alloc(listBytes)
+		if dword(__Raw.callImport4("InitializeProcThreadAttributeList", arg1: list, arg2: attributeCount, arg3: noAttributeFlags, arg4: __Raw.addressOf(listBytes))) == 0 'unlisted'
+			let failure = win32Error()
+			free(list)
+			return failure
+		end 'unlisted'
+		var failure = 0 as Count
+		let updated = __Raw.callImport7("UpdateProcThreadAttribute", arg1: list, arg2: noAttributeFlags, arg3: attributeHandleList, arg4: inherited, arg5: inheritedBytes(inheritedCount), arg6: noPreviousValue, arg7: noReturnSize)
+		if dword(updated) == 0 'unupdated'
+			failure = win32Error()
+		end 'unupdated' else 'update'
+			__Raw.storeWord(startup, offset: startupAttributeListOffset, value: list)
+			let created = __Raw.callImport10("CreateProcessW", arg1: noApplication, arg2: command, arg3: noSecurity, arg4: noThreadSecurity, arg5: inheritHandles, arg6: extendedStartupInfoPresent, arg7: noEnvironment, arg8: noCurrentDirectory, arg9: startup, arg10: process)
+			if dword(created) == 0 'uncreated'
+				failure = win32Error()
+			end 'uncreated'
+		end 'update'
+		_ = __Raw.callImport1("DeleteProcThreadAttributeList", arg1: list)
 		free(list)
 		return failure
-	end 'unlisted'
-	var failure = 0 as Count
-	let updated = __Raw.callImport7("UpdateProcThreadAttribute", arg1: list, arg2: noAttributeFlags, arg3: attributeHandleList, arg4: inherited, arg5: inheritedBytes(inheritedCount), arg6: noPreviousValue, arg7: noReturnSize)
-	if dword(updated) == 0 'unupdated'
-		failure = win32Error()
-	end 'unupdated' else 'update'
-		__Raw.storeWord(startup, offset: startupAttributeListOffset, value: list)
-		let created = __Raw.callImport10("CreateProcessW", arg1: noApplication, arg2: command, arg3: noSecurity, arg4: noThreadSecurity, arg5: inheritHandles, arg6: extendedStartupInfoPresent, arg7: noEnvironment, arg8: noCurrentDirectory, arg9: startup, arg10: process)
-		if dword(created) == 0 'uncreated'
-			failure = win32Error()
-		end 'uncreated'
-	end 'update'
-	_ = __Raw.callImport1("DeleteProcThreadAttributeList", arg1: list)
-	free(list)
-	return failure
-end 'createChild'
+	end 'createChild'
 
-// closeIfOpen closes the handle that is in a word, unless it is 0.
-function closeIfOpen(base Count, offset Count)
-	let handle = wordAt(base, offset: offset)
-	if handle != 0 'open'
-		closeHandle(handle)
-	end 'open'
-end 'closeIfOpen'
+	// closeIfOpen closes the handle that is in a word, unless it is 0.
+	function closeIfOpen(base Count, offset Count)
+		let handle = wordAt(base, offset: offset)
+		if handle != 0 'open'
+			closeHandle(handle)
+		end 'open'
+	end 'closeIfOpen'
 
-// abandonRun undoes a run that did not start its child: it closes the pipes' ends that are open and frees the texts and
-// the command line.
-function abandonRun(output Count, errors Count, command Count)
-	closeIfOpen(output, offset: pipeReadOffset)
-	closeIfOpen(output, offset: pipeWriteOffset)
-	closeIfOpen(errors, offset: pipeReadOffset)
-	closeIfOpen(errors, offset: pipeWriteOffset)
-	free(wordAt(output, offset: pipeTextOffset))
-	free(wordAt(errors, offset: pipeTextOffset))
-	free(command)
-end 'abandonRun'
+	// abandonRun undoes a run that did not start its child: it closes the pipes' ends that are open and frees the texts and
+	// the command line.
+	function abandonRun(output Count, errors Count, command Count)
+		closeIfOpen(output, offset: pipeReadOffset)
+		closeIfOpen(output, offset: pipeWriteOffset)
+		closeIfOpen(errors, offset: pipeReadOffset)
+		closeIfOpen(errors, offset: pipeWriteOffset)
+		free(wordAt(output, offset: pipeTextOffset))
+		free(wordAt(errors, offset: pipeTextOffset))
+		free(command)
+	end 'abandonRun'
 
-// drainPipe reads what a pipe holds now, and gives whether it read anything. It never waits. A pipe whose child has closed
-// its end is no longer open. The text keeps room beyond its length, which grows by doubling.
-function drainPipe(pipe Count) returns bool
-	if wordAt(pipe, offset: pipeOpenOffset) == 0 'closed'
-		return false
-	end 'closed'
-	__Raw.storeWord(pipe, offset: pipeAvailableOffset, value: 0)
-	let peeked = __Raw.callImport6("PeekNamedPipe", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: noBuffer, arg3: 0, arg4: noInput, arg5: fieldAt(pipe, offset: pipeAvailableOffset), arg6: noLeft)
-	if dword(peeked) == 0 'broken'
-		__Raw.storeWord(pipe, offset: pipeOpenOffset, value: 0)
-		return false
-	end 'broken'
-	let available = wordAt(pipe, offset: pipeAvailableOffset)
-	if available == 0 'nothing'
-		return false
-	end 'nothing'
-	var text = wordAt(pipe, offset: pipeTextOffset)
-	let length = boxLength(text)
-	let needed = __Raw.wrappingAdd(length, right: available)
-	let capacity = wordAt(pipe, offset: pipeCapacityOffset)
-	if needed > capacity 'grow'
-		let doubled = __Raw.wrappingAdd(capacity, right: capacity)
-		let grown = doubled if doubled > needed else needed
-		let box = newStringBox(grown)
-		copyBytes(bytesOf(text), target: bytesOf(box), count: length)
-		__Raw.storeWord(box, offset: stringLengthOffset, value: length)
-		free(text)
-		text = box
-		__Raw.storeWord(pipe, offset: pipeTextOffset, value: box)
-		__Raw.storeWord(pipe, offset: pipeCapacityOffset, value: grown)
-	end 'grow'
-	__Raw.storeWord(pipe, offset: pipeReceivedOffset, value: 0)
-	_ = __Raw.callImport5("ReadFile", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: __Raw.wrappingAdd(bytesOf(text), right: length), arg3: available, arg4: fieldAt(pipe, offset: pipeReceivedOffset), arg5: noOverlapped)
-	__Raw.storeWord(text, offset: stringLengthOffset, value: __Raw.wrappingAdd(length, right: wordAt(pipe, offset: pipeReceivedOffset)))
-	return true
-end 'drainPipe'
+	// drainPipe reads what a pipe holds now, and gives whether it read anything. It never waits. A pipe whose child has closed
+	// its end is no longer open. The text keeps room beyond its length, which grows by doubling.
+	function drainPipe(pipe Count) returns bool
+		if wordAt(pipe, offset: pipeOpenOffset) == 0 'closed'
+			return false
+		end 'closed'
+		__Raw.storeWord(pipe, offset: pipeAvailableOffset, value: 0)
+		let peeked = __Raw.callImport6("PeekNamedPipe", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: noBuffer, arg3: 0, arg4: noInput, arg5: fieldAt(pipe, offset: pipeAvailableOffset), arg6: noLeft)
+		if dword(peeked) == 0 'broken'
+			__Raw.storeWord(pipe, offset: pipeOpenOffset, value: 0)
+			return false
+		end 'broken'
+		let available = wordAt(pipe, offset: pipeAvailableOffset)
+		if available == 0 'nothing'
+			return false
+		end 'nothing'
+		var text = wordAt(pipe, offset: pipeTextOffset)
+		let length = boxLength(text)
+		let needed = __Raw.wrappingAdd(length, right: available)
+		let capacity = wordAt(pipe, offset: pipeCapacityOffset)
+		if needed > capacity 'grow'
+			let doubled = __Raw.wrappingAdd(capacity, right: capacity)
+			let grown = doubled if doubled > needed else needed
+			let box = newStringBox(grown)
+			copyBytes(bytesOf(text), target: bytesOf(box), count: length)
+			__Raw.storeWord(box, offset: stringLengthOffset, value: length)
+			free(text)
+			text = box
+			__Raw.storeWord(pipe, offset: pipeTextOffset, value: box)
+			__Raw.storeWord(pipe, offset: pipeCapacityOffset, value: grown)
+		end 'grow'
+		__Raw.storeWord(pipe, offset: pipeReceivedOffset, value: 0)
+		_ = __Raw.callImport5("ReadFile", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: __Raw.wrappingAdd(bytesOf(text), right: length), arg3: available, arg4: fieldAt(pipe, offset: pipeReceivedOffset), arg5: noOverlapped)
+		__Raw.storeWord(text, offset: stringLengthOffset, value: __Raw.wrappingAdd(length, right: wordAt(pipe, offset: pipeReceivedOffset)))
+		return true
+	end 'drainPipe'
 
-// endAtDeadline ends a child that is still running when its deadline passes, gives back what the run holds, and fails the
-// run with the timeout case.
-function endAtDeadline(child Count, output Count, errors Count, frame Count, errorAddress Count)
-	_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
-	_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
-	closeHandle(child)
-	closeHandle(wordAt(output, offset: pipeReadOffset))
-	closeHandle(wordAt(errors, offset: pipeReadOffset))
-	free(wordAt(output, offset: pipeTextOffset))
-	free(wordAt(errors, offset: pipeTextOffset))
-	free(frame)
-	failWith(errorAddress, errorCase: timedOut)
-end 'endAtDeadline'
-
-// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard output
-// and error as strings at the two addresses. An executable that is not found fails with the first case of the error. A
-// child still running deadlineMs milliseconds after it started, when that is not noDeadline, is ended and fails the run
-// with the timeout case.
-function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
-	let frame = alloc(frameBytes)
-	let output = fieldAt(frame, offset: frameOutputOffset)
-	let errors = fieldAt(frame, offset: frameErrorOffset)
-	let command = commandLineOf(executable, arguments: arguments)
-	let security = fieldAt(frame, offset: frameSecurityOffset)
-	__Raw.storeWord32(security, offset: securityLengthOffset, value: securityBytes)
-	__Raw.storeWord32(security, offset: securityInheritOffset, value: 1)
-	if not openPipe(output, security: security) or not openPipe(errors, security: security) 'pipes'
-		abandonRun(output, errors: errors, command: command)
+	// endAtDeadline ends a child that is still running when its deadline passes, gives back what the run holds, and fails the
+	// run with the timeout case.
+	function endAtDeadline(child Count, output Count, errors Count, frame Count, errorAddress Count)
+		_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
+		_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
+		closeHandle(child)
+		closeHandle(wordAt(output, offset: pipeReadOffset))
+		closeHandle(wordAt(errors, offset: pipeReadOffset))
+		free(wordAt(output, offset: pipeTextOffset))
+		free(wordAt(errors, offset: pipeTextOffset))
 		free(frame)
-		failWith(errorAddress, errorCase: ioFailed)
-		return 0
-	end 'pipes'
-	let startup = fieldAt(frame, offset: frameStartupOffset)
-	__Raw.storeWord32(startup, offset: startupSizeOffset, value: startupBytes)
-	__Raw.storeWord32(startup, offset: startupFlagsOffset, value: startfUseStdHandles)
-	__Raw.storeWord(startup, offset: startupInputOffset, value: __Raw.callImport1("GetStdHandle", arg1: stdInputHandle))
-	__Raw.storeWord(startup, offset: startupOutputOffset, value: wordAt(output, offset: pipeWriteOffset))
-	__Raw.storeWord(startup, offset: startupErrorOffset, value: wordAt(errors, offset: pipeWriteOffset))
-	let inherited = fieldAt(frame, offset: frameInheritedOffset)
-	var inheritedCount = listInherited(inherited, count: 0, handle: wordAt(startup, offset: startupInputOffset))
-	inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupOutputOffset))
-	inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupErrorOffset))
-	let process = fieldAt(frame, offset: frameProcessOffset)
-	let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process)
-	if win32 != 0 'spawn'
-		abandonRun(output, errors: errors, command: command)
-		free(frame)
-		endWithError(errorAddress, win32: win32, table: spawnFailures())
-		return 0
-	end 'spawn'
-	closeHandle(wordAt(output, offset: pipeWriteOffset))
-	closeHandle(wordAt(errors, offset: pipeWriteOffset))
-	closeHandle(wordAt(process, offset: processThreadOffset))
-	free(command)
-	__Raw.storeWord(output, offset: pipeOpenOffset, value: 1)
-	__Raw.storeWord(errors, offset: pipeOpenOffset, value: 1)
-	let child = wordAt(process, offset: processHandleOffset)
-	let startedAt = __Raw.callImport0("GetTickCount64")
-	var draining = true
-	while draining 'drain'
-		if deadlineMs != noDeadline and __Raw.wrappingSub(__Raw.callImport0("GetTickCount64"), right: startedAt) >= deadlineMs 'late'
-			endAtDeadline(child, output: output, errors: errors, frame: frame, errorAddress: errorAddress)
+		failWith(errorAddress, errorCase: timedOut)
+	end 'endAtDeadline'
+
+	// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard output
+	// and error as strings at the two addresses. An executable that is not found fails with the first case of the error. A
+	// child still running deadlineMs milliseconds after it started, when that is not noDeadline, is ended and fails the run
+	// with the timeout case.
+	function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		let frame = alloc(frameBytes)
+		let output = fieldAt(frame, offset: frameOutputOffset)
+		let errors = fieldAt(frame, offset: frameErrorOffset)
+		let command = commandLineOf(executable, arguments: arguments)
+		let security = fieldAt(frame, offset: frameSecurityOffset)
+		__Raw.storeWord32(security, offset: securityLengthOffset, value: securityBytes)
+		__Raw.storeWord32(security, offset: securityInheritOffset, value: 1)
+		if not openPipe(output, security: security) or not openPipe(errors, security: security) 'pipes'
+			abandonRun(output, errors: errors, command: command)
+			free(frame)
+			failWith(errorAddress, errorCase: ioFailed)
 			return 0
-		end 'late'
-		let movedOutput = drainPipe(output)
-		let movedErrors = drainPipe(errors)
-		if not movedOutput and not movedErrors 'idle'
-			if wordAt(output, offset: pipeOpenOffset) == 0 and wordAt(errors, offset: pipeOpenOffset) == 0 'ended'
-				draining = false
-			end 'ended' else 'wait'
-				_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: pollMillis)
-			end 'wait'
-		end 'idle'
-	end 'drain'
-	_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
-	var exitCode = 0 as Count
-	_ = __Raw.callImport2("GetExitCodeProcess", arg1: child, arg2: __Raw.addressOf(exitCode))
-	closeHandle(child)
-	closeHandle(wordAt(output, offset: pipeReadOffset))
-	closeHandle(wordAt(errors, offset: pipeReadOffset))
-	__Raw.storeWord(stdout, offset: 0, value: wordAt(output, offset: pipeTextOffset))
-	__Raw.storeWord(stderr, offset: 0, value: wordAt(errors, offset: pipeTextOffset))
-	free(frame)
-	succeed(errorAddress)
-	return exitCode
-end 'osRun'
+		end 'pipes'
+		let startup = fieldAt(frame, offset: frameStartupOffset)
+		__Raw.storeWord32(startup, offset: startupSizeOffset, value: startupBytes)
+		__Raw.storeWord32(startup, offset: startupFlagsOffset, value: startfUseStdHandles)
+		__Raw.storeWord(startup, offset: startupInputOffset, value: __Raw.callImport1("GetStdHandle", arg1: stdInputHandle))
+		__Raw.storeWord(startup, offset: startupOutputOffset, value: wordAt(output, offset: pipeWriteOffset))
+		__Raw.storeWord(startup, offset: startupErrorOffset, value: wordAt(errors, offset: pipeWriteOffset))
+		let inherited = fieldAt(frame, offset: frameInheritedOffset)
+		var inheritedCount = listInherited(inherited, count: 0, handle: wordAt(startup, offset: startupInputOffset))
+		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupOutputOffset))
+		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupErrorOffset))
+		let process = fieldAt(frame, offset: frameProcessOffset)
+		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process)
+		if win32 != 0 'spawn'
+			abandonRun(output, errors: errors, command: command)
+			free(frame)
+			endWithError(errorAddress, osError: win32, table: spawnFailures())
+			return 0
+		end 'spawn'
+		closeHandle(wordAt(output, offset: pipeWriteOffset))
+		closeHandle(wordAt(errors, offset: pipeWriteOffset))
+		closeHandle(wordAt(process, offset: processThreadOffset))
+		free(command)
+		__Raw.storeWord(output, offset: pipeOpenOffset, value: 1)
+		__Raw.storeWord(errors, offset: pipeOpenOffset, value: 1)
+		let child = wordAt(process, offset: processHandleOffset)
+		let startedAt = __Raw.callImport0("GetTickCount64")
+		var draining = true
+		while draining 'drain'
+			if deadlineMs != noDeadline and __Raw.wrappingSub(__Raw.callImport0("GetTickCount64"), right: startedAt) >= deadlineMs 'late'
+				endAtDeadline(child, output: output, errors: errors, frame: frame, errorAddress: errorAddress)
+				return 0
+			end 'late'
+			let movedOutput = drainPipe(output)
+			let movedErrors = drainPipe(errors)
+			if not movedOutput and not movedErrors 'idle'
+				if wordAt(output, offset: pipeOpenOffset) == 0 and wordAt(errors, offset: pipeOpenOffset) == 0 'ended'
+					draining = false
+				end 'ended' else 'wait'
+					_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: pollMillis)
+				end 'wait'
+			end 'idle'
+		end 'drain'
+		_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
+		var exitCode = 0 as Count
+		_ = __Raw.callImport2("GetExitCodeProcess", arg1: child, arg2: __Raw.addressOf(exitCode))
+		closeHandle(child)
+		closeHandle(wordAt(output, offset: pipeReadOffset))
+		closeHandle(wordAt(errors, offset: pipeReadOffset))
+		__Raw.storeWord(stdout, offset: 0, value: wordAt(output, offset: pipeTextOffset))
+		__Raw.storeWord(stderr, offset: 0, value: wordAt(errors, offset: pipeTextOffset))
+		free(frame)
+		succeed(errorAddress)
+		return exitCode
+	end 'osRun'
+#endif

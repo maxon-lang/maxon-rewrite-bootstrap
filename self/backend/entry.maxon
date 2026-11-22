@@ -48,10 +48,19 @@ type EntryCalls
 	end 'make'
 end 'EntryCalls'
 
-// emitRuntime is the unit with the entry point and the globals the runtime's source reads: the process heap and the
-// standard handles, which the entry sets, and the count of live boxes, which the runtime keeps in every executable so
-// that it is the same code whatever the options. calls are the functions the entry calls.
-function emitRuntime(calls EntryCalls, options RuntimeOptions) returns CodeUnit
+// emitRuntime is the unit with the entry point, the start of a thread the runtime makes, and the globals the runtime's
+// source reads, for the system the executable runs on. calls are the functions the entry calls.
+function emitRuntime(calls EntryCalls, options RuntimeOptions, system ast.TargetSystem) returns CodeUnit
+	return match system 'system'
+		windows gives emitWindowsRuntime(calls, options: options)
+		linux gives emitLinuxRuntime(calls, options: options)
+	end 'system'
+end 'emitRuntime'
+
+// emitWindowsRuntime is the Windows unit of the entry: the globals the runtime's source reads, the process heap and the
+// standard handles, which the entry sets, and the thread-local slot; the entry, the start of a thread, and the vectored
+// exception handler.
+function emitWindowsRuntime(calls EntryCalls, options RuntimeOptions) returns CodeUnit
 	var u = CodeUnit.new()
 	u.defineData(ir.rtSymbol(ir.Rt.rtHeap), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtStdout), size: wordBytes)
@@ -66,7 +75,7 @@ function emitRuntime(calls EntryCalls, options RuntimeOptions) returns CodeUnit
 	u.defineCode(faultSymbol)
 	emitFaultHandler(u)
 	return u
-end 'emitRuntime'
+end 'emitWindowsRuntime'
 
 // callRuntime calls an entry of the runtime by the internal convention with the word a register holds as its one
 // argument. The entries the stub calls take one word each: main's exit code, the thread's context or the message.
@@ -104,7 +113,7 @@ function emitEntry(mutates u CodeUnit, calls EntryCalls, count bool)
 	if count 'leaks'
 		callRuntime(u, entry: ir.Rt.rtCheckLeaks, arg: resultWord())
 	end 'leaks'
-	u.asm.mov(x64HostArg(0), src: resultWord())
+	u.asm.mov(x64WindowsHostArg(0), src: resultWord())
 	u.asm.callImport(impExitProcess)
 	u.asm.bind(pastTheTeb)
 	u.asm.leaData(argWord(), dataOffset: u.data.textOffset(tlsSlotPastTheTeb))
@@ -136,7 +145,7 @@ end 'emitTlsStore'
 // threadContextRegister is where a thread's start holds the thread's context across its calls: a register the internal
 // convention keeps, so that workerMain and the DLL functions leave it.
 function threadContextRegister() returns X64Register
-	let kept = x64InternalCalleeSaved() and x64HostCalleeSaved() and classMask(RegClass.gpr)
+	let kept = x64InternalCalleeSaved() and x64WindowsHostCalleeSaved() and classMask(RegClass.gpr)
 	for r in 0 upto x64FirstVector 'registers'
 		if maskHas(kept, number: regNumOfCount(r)) 'kept'
 			return x64RegisterOf(regNumOfCount(r))
@@ -149,7 +158,7 @@ end 'threadContextRegister'
 // by the internal convention may change, and the one it holds the context in. The frame pointer is no value's, and the
 // code it runs keeps it.
 function threadSaves() returns RegMask
-	let changed = x64HostCalleeSaved() and not x64InternalCalleeSaved()
+	let changed = x64WindowsHostCalleeSaved() and not x64InternalCalleeSaved()
 	return (changed or regMaskOf(threadContextRegister())) and classMask(RegClass.gpr) and not reservedMask()
 end 'threadSaves'
 
@@ -191,14 +200,14 @@ function emitThreadStart(mutates u CodeUnit)
 	let context = threadContextRegister()
 	let frame = imm32Of(threadFrameBytes(emitThreadSaves(u)))
 	u.asm.subImm(rsp, imm: frame)
-	u.asm.mov(context, src: x64HostArg(0))
+	u.asm.mov(context, src: x64WindowsHostArg(0))
 	emitStackGuarantee(u)
 	u.asm.mov(rdx, src: context)
 	emitTlsStore(u)
 	callRuntime(u, entry: ir.Rt.rtWorkerMain, arg: context)
 	u.asm.addImm(rsp, imm: frame)
 	emitThreadRestores(u)
-	u.asm.movImm(x64HostResult, imm: threadExitCode)
+	u.asm.movImm(x64WindowsHostResult, imm: threadExitCode)
 	u.asm.ret()
 end 'emitThreadStart'
 
@@ -237,6 +246,20 @@ let exceptionRecordOffset = 0
 let exceptionCodeOffset = 0
 
 let exceptionAddressOffset = 16
+
+// What a fault's panic line says it was, as maxon's runtime words it, after "panic: " and before the faulting address.
+let stackOverflowWords = "stack overflow"
+
+let accessViolationWords = "nil pointer or invalid memory access"
+
+let divideByZeroWords = "integer divide by zero"
+
+let integerOverflowWords = "integer overflow"
+
+// faultLineOpening is a fault's panic line up to the faulting address.
+function faultLineOpening(words String) returns String
+	return "panic: {words} at rip=0x"
+end 'faultLineOpening'
 
 // The Windows exception codes the handler converts, those maxon's does.
 let excStackOverflow = 3221225725
@@ -303,10 +326,10 @@ function emitFaultHandler(mutates u CodeUnit)
 	u.asm.loadWord32(rdx, base: rax, disp: exceptionCodeOffset)
 	u.asm.load(r11, base: rax, disp: exceptionAddressOffset)
 	u.asm.store(rsp, disp: faultAddressSlot, src: r11)
-	emitFaultArm(u, code: excStackOverflow, words: "stack overflow", report: report)
-	emitFaultArm(u, code: excAccessViolation, words: "nil pointer or invalid memory access", report: report)
-	emitFaultArm(u, code: excIntDivideByZero, words: "integer divide by zero", report: report)
-	emitFaultArm(u, code: excIntOverflow, words: "integer overflow", report: report)
+	emitFaultArm(u, code: excStackOverflow, words: stackOverflowWords, report: report)
+	emitFaultArm(u, code: excAccessViolation, words: accessViolationWords, report: report)
+	emitFaultArm(u, code: excIntDivideByZero, words: divideByZeroWords, report: report)
+	emitFaultArm(u, code: excIntOverflow, words: integerOverflowWords, report: report)
 	u.asm.addImm(rsp, imm: faultFrameSize)
 	u.asm.movImm(rax, imm: continueSearch)
 	u.asm.ret()
@@ -314,6 +337,17 @@ function emitFaultHandler(mutates u CodeUnit)
 	u.asm.load(r8, base: rax, disp: 0)
 	u.asm.lea(rdx, base: rax, disp: wordBytes)
 	emitStderrWrite(u)
+	emitAddressDigits(u)
+	u.asm.lea(rdx, base: rsp, disp: faultDigitsSlot)
+	u.asm.movImm(r8, imm: addressDigits + 1)
+	emitStderrWrite(u)
+	u.asm.movImm(rcx, imm: faultExitCode)
+	u.asm.callImport(impExitProcess)
+end 'emitFaultHandler'
+
+// emitAddressDigits writes the faulting address, in the handler's frame, as addressDigits hexadecimal digits and a newline
+// at faultDigitsSlot, with rax, rcx, rdx, r10 and r11.
+function emitAddressDigits(mutates u CodeUnit)
 	u.asm.load(rax, base: rsp, disp: faultAddressSlot)
 	u.asm.leaData(r10, dataOffset: u.data.textOffset(hexDigits))
 	u.asm.movImm(rcx, imm: nibbleBits)
@@ -328,12 +362,7 @@ function emitFaultHandler(mutates u CodeUnit)
 	end 'digits'
 	u.asm.movImm(r11, imm: newlineByte)
 	u.asm.storeByte(rsp, disp: faultNewlineSlot, src: r11)
-	u.asm.lea(rdx, base: rsp, disp: faultDigitsSlot)
-	u.asm.movImm(r8, imm: addressDigits + 1)
-	emitStderrWrite(u)
-	u.asm.movImm(rcx, imm: faultExitCode)
-	u.asm.callImport(impExitProcess)
-end 'emitFaultHandler'
+end 'emitAddressDigits'
 
 // emitFaultArm goes to report with the panic line's opening in rax when the exception code in rdx is code.
 function emitFaultArm(mutates u CodeUnit, code FullRangeInt, words String, report LabelID)
@@ -341,7 +370,7 @@ function emitFaultArm(mutates u CodeUnit, code FullRangeInt, words String, repor
 	u.asm.movImm(r10, imm: code)
 	u.asm.cmp(rdx, right: r10)
 	u.asm.jcc(X64CondCode.notEqual, label: next)
-	u.asm.leaData(rax, dataOffset: u.data.textOffset("panic: {words} at rip=0x"))
+	u.asm.leaData(rax, dataOffset: u.data.textOffset(faultLineOpening(words)))
 	u.asm.jmp(report)
 	u.asm.bind(next)
 end 'emitFaultArm'

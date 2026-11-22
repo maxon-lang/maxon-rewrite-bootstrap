@@ -39,7 +39,7 @@ end 'emitRel32'
 
 // peExitProgram is ExitProcess(42):
 //   sub rsp, 40; mov ecx, 42; call [ExitProcess]
-function peExitProgram(image PeImage) returns ByteArray
+function peExitProgram(image Image) returns ByteArray
 	var code = ByteArray.create(0)
 	emitHex(code, hex: "48 83 EC 28 B9 2A 00 00 00 FF 15")
 	emitRel32(code, target: importSlotRva(image, index: 0), textRva: image.textRva)
@@ -49,7 +49,7 @@ end 'peExitProgram'
 // peHelloProgram writes the string at the start of the data section to standard output, then ExitProcess(7):
 //   sub rsp, 56; mov ecx, -11; call [GetStdHandle]; mov rcx, rax; lea rdx, [rip+msg]; mov r8d, len
 //   lea r9, [rsp+48]; mov qword [rsp+32], 0; call [WriteFile]; mov ecx, 7; call [ExitProcess]
-function peHelloProgram(image PeImage, messageLength Count) returns ByteArray
+function peHelloProgram(image Image, messageLength Count) returns ByteArray
 	var code = ByteArray.create(0)
 	emitHex(code, hex: "48 83 EC 38 B9 F5 FF FF FF FF 15")
 	emitRel32(code, target: importSlotRva(image, index: 1), textRva: image.textRva)

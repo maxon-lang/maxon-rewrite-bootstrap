@@ -259,6 +259,8 @@ var ops = []op{
 	{Name: "CallImport", Eval: noEval, Doc: "CallImport calls the DLL import Name, a string of the function, with the words Args, by the\n// Win64 convention, and gives what it returns.",
 		Result: valueResult, Operands: []operand{{Name: "Name", Kind: kText, Field: fC}, argsOp},
 		Effects: []effect{effReads, effWrites, effCalls}, Text: "import {Name}({Args})"},
+	{Name: "Syscall", Eval: noEval, Doc: "Syscall calls the kernel with the number that is the first of Args and the words that follow it, by the\n// target's system call convention, and gives what it returns.",
+		Result: valueResult, Operands: []operand{argsOp}, Effects: []effect{effReads, effWrites, effCalls}, Text: "syscall({Args})"},
 	// The atomic operations and the thread's context are what the runtime's scheduler is written on. Each reads and
 	// writes memory, so no pass moves another memory operation across one.
 	{Name: "AtomicAdd", Eval: noEval, Doc: "AtomicAdd adds Src to the word at an address as one indivisible step, a full fence, and gives the word it found.",

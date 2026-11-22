@@ -3,7 +3,8 @@
 // thread. Each worker owns a queue of runnable behaviours (a Chase-Lev deque): a behaviour that a thread schedules or
 // makes runnable goes on that thread's queue, whose owner takes the newest first, so the work it just made runs next on
 // the core that has its data, while an idle worker steals the oldest of another's. A worker that finds nothing parks on
-// its event until a push wakes it. The program ends when main has returned and no behaviour is left.
+// its event (on Linux, a futex on its sleeping flag) until a push wakes it. The program ends when main has returned and no
+// behaviour is left.
 //
 // What a behaviour is to the scheduler: a record whose run field (behaviourRunOffset) is the address of code that takes
 // the record, runs the behaviour, and is done with the record when it returns, having released and freed what it holds.
@@ -48,24 +49,26 @@ let randomStep = 0x9E3779B97F4A7C15 as Count
 // randomShift keeps the high half of the sequence's word, which varies more from one step to the next than the low.
 let randomShift = 32 as Count
 
-// The Win32 values the scheduler passes.
-let allProcessorGroups = 0xFFFF
+#if os(Windows)
+	// The Win32 values the scheduler passes.
+	let allProcessorGroups = 0xFFFF
 
-let stackSizeIsReservation = 0x10000
+	let stackSizeIsReservation = 0x10000
 
-let noThreadAttributes = 0
+	let noThreadAttributes = 0
 
-let noThreadId = 0
+	let noThreadId = 0
 
-let noEventAttributes = 0
+	let noEventAttributes = 0
 
-let autoReset = 0
+	let autoReset = 0
 
-let startsUnset = 0
+	let startsUnset = 0
 
-let noEventName = 0
+	let noEventName = 0
 
-let waitForever = 0xFFFFFFFF
+	let waitForever = 0xFFFFFFFF
+#endif
 
 // The number of workers is the number of processors, or MAXON_MAX_PROCS when it holds a decimal count in
 // [fewestWorkers, mostRequestedWorkers], with an optional leading '+', as maxon's runtime reads it; any other value is
@@ -193,7 +196,11 @@ function findWork(context Count, scheduler Count) returns Count
 				__Raw.spinPause()
 			end 'pauses'
 		end 'spin' else 'yield'
-			_ = __Raw.callImport0("SwitchToThread")
+			#if os(Windows)
+				_ = __Raw.callImport0("SwitchToThread")
+			#else
+				_ = __Raw.syscall0(linuxSysSchedYield)
+			#endif
 		end 'yield'
 	end 'rounds'
 	return noBehaviour
@@ -246,7 +253,11 @@ function park(context Count, scheduler Count, watchesEnd bool)
 	_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: 1)
 	let ended = watchesEnd and liveBehaviours(scheduler) == 0
 	if not ended and not anyQueued(scheduler) 'wait'
-		_ = __Raw.callImport2("WaitForSingleObject", arg1: __Raw.loadWord(context, offset: contextParkEventOffset), arg2: waitForever)
+		#if os(Windows)
+			_ = __Raw.callImport2("WaitForSingleObject", arg1: __Raw.loadWord(context, offset: contextParkEventOffset), arg2: waitForever)
+		#else
+			futexWait(__Raw.wrappingAdd(queue, right: queueSleepingOffset), value: sleeping)
+		#endif
 	end 'wait'
 	if __Raw.compareExchange(queue, offset: queueSleepingOffset, expected: sleeping, desired: awake) == sleeping 'ownWake'
 		_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: stepDown)
@@ -277,7 +288,11 @@ function wakeWorker(scheduler Count, context Count) returns bool
 		return false
 	end 'claimed'
 	_ = __Raw.atomicAdd(scheduler, offset: schedSleepersOffset, value: stepDown)
-	_ = __Raw.callImport1("SetEvent", arg1: __Raw.loadWord(context, offset: contextParkEventOffset))
+	#if os(Windows)
+		_ = __Raw.callImport1("SetEvent", arg1: __Raw.loadWord(context, offset: contextParkEventOffset))
+	#else
+		futexWakeOne(__Raw.wrappingAdd(queue, right: queueSleepingOffset))
+	#endif
 	return true
 end 'wakeWorker'
 
@@ -424,7 +439,9 @@ function makeScheduler(mainContext Count) returns Count
 		seed = __Raw.wrappingAdd(seed, right: randomStep)
 		__Raw.storeWord(context, offset: contextSchedulerOffset, value: scheduler)
 		__Raw.storeWord(context, offset: contextQueueOffset, value: newQueue())
-		__Raw.storeWord(context, offset: contextParkEventOffset, value: newEvent())
+		#if os(Windows)
+			__Raw.storeWord(context, offset: contextParkEventOffset, value: newEvent())
+		#endif
 		__Raw.storeWord(context, offset: contextRandomOffset, value: seed)
 		__Raw.storeWord(scheduler, offset: try schedContextsOffset + i * wordBytes otherwise panic("too many workers for memory"), value: context)
 	end 'contexts'
@@ -439,24 +456,26 @@ function startThreads(scheduler Count)
 	end 'threads'
 end 'startThreads'
 
-// startThread starts a worker's thread at once, with the main thread's stack reserve, which CreateThread reserves rather
-// than commits when told so. The thread's handle is closed, since nothing waits for a worker to end.
-function startThread(context Count)
-	let thread = __Raw.callImport6("CreateThread", arg1: noThreadAttributes, arg2: stackReserveBytes, arg3: __Raw.threadStartAddress(), arg4: context, arg5: stackSizeIsReservation, arg6: noThreadId)
-	if thread == 0 'failed'
-		panic("cannot start a worker thread")
-	end 'failed'
-	closeHandle(thread)
-end 'startThread'
+#if os(Windows)
+	// startThread starts a worker's thread at once, with the main thread's stack reserve, which CreateThread reserves rather
+	// than commits when told so. The thread's handle is closed, since nothing waits for a worker to end.
+	function startThread(context Count)
+		let thread = __Raw.callImport6("CreateThread", arg1: noThreadAttributes, arg2: stackReserveBytes, arg3: __Raw.threadStartAddress(), arg4: context, arg5: stackSizeIsReservation, arg6: noThreadId)
+		if thread == 0 'failed'
+			panic("cannot start a worker thread")
+		end 'failed'
+		closeHandle(thread)
+	end 'startThread'
 
-// newEvent is a worker's park event: auto-reset, so that a wait consumes the wake that ended it, and unset.
-function newEvent() returns Count
-	let event = __Raw.callImport4("CreateEventW", arg1: noEventAttributes, arg2: autoReset, arg3: startsUnset, arg4: noEventName)
-	if event == 0 'failed'
-		panic("cannot make a worker's event")
-	end 'failed'
-	return event
-end 'newEvent'
+	// newEvent is a worker's park event: auto-reset, so that a wait consumes the wake that ended it, and unset.
+	function newEvent() returns Count
+		let event = __Raw.callImport4("CreateEventW", arg1: noEventAttributes, arg2: autoReset, arg3: startsUnset, arg4: noEventName)
+		if event == 0 'failed'
+			panic("cannot make a worker's event")
+		end 'failed'
+		return event
+	end 'newEvent'
+#endif
 
 // workerCount is how many workers run behaviours: the processors of every group, which Windows may fail to count, or the
 // count MAXON_MAX_PROCS asks for.
@@ -465,7 +484,11 @@ function workerCount() returns Count
 	if requested != noRequest 'requested'
 		return requested
 	end 'requested'
-	let processors = dword(__Raw.callImport1("GetActiveProcessorCount", arg1: allProcessorGroups))
+	#if os(Windows)
+		let processors = dword(__Raw.callImport1("GetActiveProcessorCount", arg1: allProcessorGroups))
+	#else
+		let processors = onlineProcessors()
+	#endif
 	if processors < fewestWorkers 'uncounted'
 		return fewestWorkers
 	end 'uncounted'

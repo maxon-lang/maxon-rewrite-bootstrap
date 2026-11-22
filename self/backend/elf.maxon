@@ -1,0 +1,102 @@
+// The Linux ELF64 writer, after maxon's (Targets/Linux/ElfWriter.maxon): a static ET_EXEC at a fixed load address, with
+// no interpreter, no dynamic section and no relocation, since a Linux program calls the kernel itself and the image is
+// never moved, so the link writes every address it holds as the image's own. Two PT_LOAD segments: the first, readable
+// and executable, maps the file from its start, the headers and then the code; the second, readable and writable, is the
+// data, from a page of the file of its own.
+
+// elfLoadAddress is where the image is loaded, maxon's: the address of the first byte of the file.
+let elfLoadAddress = 0x400000 as Count
+
+let elfPageBytes = 0x1000 as Count
+
+let elfHeaderBytes = 64 as Count
+
+let elfProgramHeaderBytes = 56 as Count
+
+let elfProgramHeaderCount = 2 as Count
+
+// elfCodeAlignment is the alignment of the code's start, which the link lays its sections out from.
+let elfCodeAlignment = 16 as Count
+
+// elfEmptyDataBytes is the data segment of a program with no data: a PT_LOAD with no bytes in the file is one a loader may
+// refuse, as maxon's writer notes.
+let elfEmptyDataBytes = 8 as Count
+
+// The identification: the magic, a 64-bit little-endian file of the current version for the System V ABI.
+let elfMagic = 0x464C457F as Count
+
+let elfClass64 = 2 as Count
+
+let elfDataLittleEndian = 1 as Count
+
+let elfVersionCurrent = 1 as Count
+
+let elfAbiSystemV = 0 as Count
+
+// elfIdentPadBytes are the bytes of the identification after the ABI's, the ABI's version first, all zero.
+let elfIdentPadBytes = 8 as Count
+
+let elfTypeExecutable = 2 as Count
+
+let elfMachineX64 = 0x3E as Count
+
+let elfProgramLoad = 1 as Count
+
+let elfSegmentExecute = 1 as Count
+
+let elfSegmentWrite = 2 as Count
+
+let elfSegmentRead = 4 as Count
+
+// elfNoSections is the section header table's place, size and count, and the index of its names, of an image that has
+// none: the loader reads the program headers alone.
+let elfNoSections = 0 as Count
+
+// buildElfImage lays out the file for the code and the data of the layout, with the entry point at its offset in the code.
+// The data's pointers hold the image's own addresses, which the link writes, so the layout's relocated offsets need no
+// table here.
+export function buildElfImage(layout ImageLayout) returns Image
+	let headersSize = sum(elfHeaderBytes, b: product(elfProgramHeaderBytes, b: elfProgramHeaderCount))
+	let codeOffset = alignUp(headersSize, alignment: elfCodeAlignment)
+	let codeEnd = sum(codeOffset, b: layout.codeSize)
+	let dataOffset = alignUp(codeEnd, alignment: elfPageBytes)
+	let dataLength = layout.dataSize if layout.dataSize > 0 else elfEmptyDataBytes
+	var w = ByteArray.create(0)
+	pushU32(w, v: elfMagic)
+	pushU8(w, v: elfClass64)
+	pushU8(w, v: elfDataLittleEndian)
+	pushU8(w, v: elfVersionCurrent)
+	pushU8(w, v: elfAbiSystemV)
+	pushZeros(w, n: elfIdentPadBytes)
+	pushU16(w, v: elfTypeExecutable)
+	pushU16(w, v: elfMachineX64)
+	pushU32(w, v: elfVersionCurrent)
+	pushU64(w, v: sum(elfLoadAddress, b: sum(codeOffset, b: layout.entryOffset)))
+	pushU64(w, v: elfHeaderBytes)
+	pushU64(w, v: elfNoSections)
+	pushU32(w, v: 0)
+	pushU16(w, v: elfHeaderBytes)
+	pushU16(w, v: elfProgramHeaderBytes)
+	pushU16(w, v: elfProgramHeaderCount)
+	pushU16(w, v: elfNoSections)
+	pushU16(w, v: elfNoSections)
+	pushU16(w, v: elfNoSections)
+	pushProgramHeader(w, flags: elfSegmentRead or elfSegmentExecute, fileOffset: 0, size: codeEnd)
+	pushProgramHeader(w, flags: elfSegmentRead or elfSegmentWrite, fileOffset: dataOffset, size: dataLength)
+	var file = ByteArray.create(sum(dataOffset, b: dataLength))
+	copyInto(file, at: 0, src: w)
+	return Image.make(file, base: elfLoadAddress, textRva: codeOffset, dataRva: dataOffset, iatRva: 0, importSlots: 0, codeOffset: codeOffset, dataOffset: dataOffset)
+end 'buildElfImage'
+
+// pushProgramHeader writes the header of a PT_LOAD segment that maps size bytes of the file from fileOffset at the address
+// that is as far from the load address, with as many bytes in memory as in the file.
+function pushProgramHeader(mutates w ByteArray, flags Count, fileOffset Count, size Count)
+	pushU32(w, v: elfProgramLoad)
+	pushU32(w, v: flags)
+	pushU64(w, v: fileOffset)
+	pushU64(w, v: sum(elfLoadAddress, b: fileOffset))
+	pushU64(w, v: sum(elfLoadAddress, b: fileOffset))
+	pushU64(w, v: size)
+	pushU64(w, v: size)
+	pushU64(w, v: elfPageBytes)
+end 'pushProgramHeader'

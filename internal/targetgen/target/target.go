@@ -1,11 +1,13 @@
-// Package target holds the tables of the targets the backend writes code for: each one's register file and calling
-// conventions. The x64 instruction table (internal/x64gen/x64table) takes its registers from here, and internal/targetgen
-// writes the Maxon declarations the backend reads the conventions from.
+// Package target holds the tables of the targets the backend writes code for: each processor's register file and the
+// convention between the compiler's own functions, and each system's conventions on it. The x64 instruction table
+// (internal/x64gen/x64table) takes its registers from here, and internal/targetgen writes the Maxon declarations the backend
+// reads the conventions from.
 package target
 
 import (
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // Class is the register file a register belongs to.
@@ -44,9 +46,23 @@ type Convention struct {
 	CalleeSaved, CallerSaved []string
 	// ShadowBytes is the stack the caller keeps below the stack arguments for the callee to write.
 	ShadowBytes int
+	// Number is the register of a system call's number, or "" for a convention of calls.
+	Number string
 }
 
-// Target is one target's register file and calling conventions.
+// System is what an operating system adds to a processor's table: the convention of its libraries' functions, and the
+// one of its system calls where a program calls the kernel itself.
+type System struct {
+	// Name follows the target's in the names of the system's declarations.
+	Name string
+	// Host is the convention of the system's libraries.
+	Host Convention
+	// Syscall is the convention of a system call, or nil for a system whose programs reach the kernel only through its
+	// libraries.
+	Syscall *Convention
+}
+
+// Target is one processor's register file and calling conventions, and those of the systems it runs.
 type Target struct {
 	// Name starts the name of every declaration the generator writes for the target.
 	Name string
@@ -54,10 +70,31 @@ type Target struct {
 	Registers []Register
 	// Reserved are the registers that hold the stack and the frame, which no value is given.
 	Reserved []string
-	// StackAlignment is the alignment of the stack pointer at a call of the host convention.
+	// StackAlignment is the alignment of the stack pointer at a call of a host convention.
 	StackAlignment int
-	// Internal is the convention between the compiler's own functions, Host the one of the system's libraries.
-	Internal, Host Convention
+	// Internal is the convention between the compiler's own functions, the same on every system.
+	Internal Convention
+	// Systems are the systems the target runs, in the order their declarations are written.
+	Systems []System
+}
+
+// Conventions are the target's conventions, the internal one first, each with the prefix of its declarations' names.
+func (t Target) Conventions() []NamedConvention {
+	out := []NamedConvention{{t.Name + t.Internal.Prefix, strings.ToLower(t.Internal.Prefix), t.Internal}}
+	for _, s := range t.Systems {
+		out = append(out, NamedConvention{t.Name + s.Name + s.Host.Prefix, s.Name + " " + strings.ToLower(s.Host.Prefix), s.Host})
+		if s.Syscall != nil {
+			out = append(out, NamedConvention{t.Name + s.Name + s.Syscall.Prefix, s.Name + " " + strings.ToLower(s.Syscall.Prefix), *s.Syscall})
+		}
+	}
+	return out
+}
+
+// NamedConvention is a convention, the prefix of its declarations' names, and what the generated file calls it.
+type NamedConvention struct {
+	Prefix     string
+	Title      string
+	Convention Convention
 }
 
 // Names are the names of a target's registers of a class, in the order of the register file.
@@ -122,7 +159,9 @@ func (t Target) Check() error {
 		return err
 	}
 	all := uint64(1)<<len(t.Registers) - 1
-	for _, c := range []Convention{t.Internal, t.Host} {
+	for _, named := range t.Conventions() {
+		c := named.Convention
+		c.Prefix = named.Prefix
 		kept, err := t.Mask(c.CalleeSaved)
 		if err != nil {
 			return err
@@ -133,6 +172,15 @@ func (t Target) Check() error {
 		}
 		if kept&lost != 0 || kept&reserved != 0 || lost&reserved != 0 || kept|lost|reserved != all {
 			return fmt.Errorf("%s %s: the callee-saved, caller-saved and reserved registers do not split the register file", t.Name, c.Prefix)
+		}
+		if c.Number != "" {
+			m, err := t.Mask([]string{c.Number})
+			if err != nil {
+				return err
+			}
+			if m&lost == 0 || slices.Contains(c.Args, c.Number) || len(c.FloatArgs) > 0 {
+				return fmt.Errorf("%s %s: a system call's number is in a register it may lose that passes no argument, and it passes no float", t.Name, c.Prefix)
+			}
 		}
 		if (len(c.FloatArgs) == 0) != (c.FloatResult == "") {
 			return fmt.Errorf("%s %s: a convention has float arguments exactly when it has a float result", t.Name, c.Prefix)
@@ -182,8 +230,9 @@ func regs(class Class, names ...string) []Register {
 	return out
 }
 
-// X64Windows is x64 on Windows. The internal convention is maxon's, the same on every x64 system; the host one is Win64.
-var X64Windows = Target{
+// X64 is x64 on Windows and on Linux. The internal convention is maxon's, the same on every x64 system; Windows' host
+// convention is Win64, and Linux's System V, whose kernel a program calls itself, with no library between.
+var X64 = Target{
 	Name: "x64",
 	Registers: append(
 		regs(General, "rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"),
@@ -201,17 +250,48 @@ var X64Windows = Target{
 		CalleeSaved: []string{"rbx", "r12", "r13", "r14", "r15", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"},
 		CallerSaved: []string{"rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
 	},
-	// No function of a DLL that the runtime imports takes or returns a float, so the host convention passes only words.
-	Host: Convention{
-		Doc:         "Win64, the convention of a DLL's functions",
-		Prefix:      "Host",
-		Args:        []string{"rcx", "rdx", "r8", "r9"},
-		Result:      "rax",
-		CalleeSaved: []string{"rbx", "rsi", "rdi", "r12", "r13", "r14", "r15", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"},
-		CallerSaved: []string{"rax", "rcx", "rdx", "r8", "r9", "r10", "r11", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
-		ShadowBytes: 32,
+	Systems: []System{
+		{
+			Name: "Windows",
+			// No function of a DLL that the runtime imports takes or returns a float, so the host convention passes only
+			// words.
+			Host: Convention{
+				Doc:         "Win64, the convention of a DLL's functions",
+				Prefix:      "Host",
+				Args:        []string{"rcx", "rdx", "r8", "r9"},
+				Result:      "rax",
+				CalleeSaved: []string{"rbx", "rsi", "rdi", "r12", "r13", "r14", "r15", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"},
+				CallerSaved: []string{"rax", "rcx", "rdx", "r8", "r9", "r10", "r11", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
+				ShadowBytes: 32,
+			},
+		},
+		{
+			Name: "Linux",
+			Host: Convention{
+				Doc:         "System V, the convention of a shared library's functions",
+				Prefix:      "Host",
+				Args:        []string{"rdi", "rsi", "rdx", "rcx", "r8", "r9"},
+				FloatArgs:   []string{"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"},
+				Result:      "rax",
+				FloatResult: "xmm0",
+				CalleeSaved: []string{"rbx", "r12", "r13", "r14", "r15"},
+				CallerSaved: []string{"rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"},
+			},
+			// The kernel keeps every register but rcx and r11, which syscall overwrites, and rax, the result. The table
+			// has the call lose its argument registers too, as a call of every other convention does, so that the
+			// allocator treats a system call as it does any call.
+			Syscall: &Convention{
+				Doc:         "a system call: the number in rax and up to six words, the result in rax, or -errno",
+				Prefix:      "Syscall",
+				Args:        []string{"rdi", "rsi", "rdx", "r10", "r8", "r9"},
+				Result:      "rax",
+				Number:      "rax",
+				CalleeSaved: []string{"rbx", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"},
+				CallerSaved: []string{"rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"},
+			},
+		},
 	},
 }
 
 // Targets are every target's table, in the order their declarations are written.
-var Targets = []Target{X64Windows}
+var Targets = []Target{X64}

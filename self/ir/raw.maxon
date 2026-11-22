@@ -173,6 +173,20 @@ function lowerRawThreadStartAddress(mutates l Lowerer, p ast.Project, ms ast.Mod
 	return globalAddress(l, symbol: Rt.rtThreadStart)
 end 'lowerRawThreadStartAddress'
 
+// lowerRawSyscall calls the kernel with the number and the words, all of them values.
+function lowerRawSyscall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	let instr = l.b.syscall(d, args: args)
+	emit(l, i: instr)
+	return d
+end 'lowerRawSyscall'
+
+// lowerRawProcessStartAddress is the address of the global where the entry of a Linux executable keeps the stack pointer
+// the process started with.
+function lowerRawProcessStartAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtProcessStart)
+end 'lowerRawProcessStartAddress'
+
 // lowerRawCallImport calls the DLL function that its first operand, a string literal, names. The call evaluates its
 // operands itself, since the name is read as text and is no value.
 function lowerRawCallImport(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

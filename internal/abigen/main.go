@@ -1,5 +1,6 @@
 // Command abigen generates what the runtime and the compilers must agree on: from the layouts table in table.go the
-// offsets and sizes of the string, array, byte array and union boxes, and from the import list in imports.go the slots
+// offsets and sizes of the string, array, byte array and union boxes, from linux.go the numbers of the Linux kernel's
+// calls, and from the import list in imports.go the slots
 // of the DLL functions the executable imports. `go generate ./internal/abigen` runs it.
 package main
 
@@ -8,6 +9,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -43,7 +45,7 @@ func main() {
 // generate is the text of one output file.
 func generate(o output) string {
 	var rows []layoutConst
-	for _, c := range layouts {
+	for _, c := range slices.Concat(layouts, linuxABI) {
 		if c.to&o.to != 0 {
 			rows = append(rows, c)
 		}

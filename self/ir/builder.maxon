@@ -192,6 +192,12 @@ export type Builder
 		return newCompareExchange(dst, argsStart: start, argsCount: regOf(args.count()))
 	end 'compareExchange'
 
+	// syscall calls the kernel: args are the system call's number and then its words.
+	export function syscall(mutates self, dst Reg, args RegList) returns Instr
+		let start = self.arguments(args)
+		return newSyscall(dst, argsStart: start, argsCount: regOf(args.count()))
+	end 'syscall'
+
 	// callCode calls the code at an address with words: args are the address and then the words.
 	export function callCode(mutates self, dst Reg, args RegList) returns Instr
 		let start = self.arguments(args)

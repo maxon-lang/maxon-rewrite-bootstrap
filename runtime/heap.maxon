@@ -3,6 +3,7 @@
 // serialize the workers, and a call into it costs more than the whole of a class's alloc.
 //
 // A box of up to largestSmallBytes is a slot of a size class, and a larger one is a block of the process heap of its own.
+// The process heap is Windows' (HeapAlloc); on Linux a block is pages that the kernel maps (mapPages), zeroed.
 // Each class keeps the addresses of the slots freed in it on a stack of its own, so a free and the next alloc of the class
 // are a push and a pop; a class whose stack is empty takes a new slot from the end of the heap's current chunk, a block of
 // chunkBytes of the process heap that every class of the heap carves from, so boxes allocated together lie together. The
@@ -78,8 +79,11 @@ let lastKey = 416 as Count
 let chunkBytes = 1048576 as Count
 
 // largeBoxPadBytes is what a large box's block holds before the box: the header in its last word, and a word before it so
-// that the box keeps the 16-byte alignment that HeapAlloc gives the block, as a buffer that a loop walks wants.
+// that the box keeps the 16-byte alignment that HeapAlloc gives the block, as a buffer that a loop walks wants. On Linux
+// that word holds the length of the block's pages (largeBoxLengthOffset), which unmapping them takes.
 let largeBoxPadBytes = 16 as Count
+
+let largeBoxLengthOffset = 0 as Count
 
 // firstStackBytes is the size of a class's first stack of its own, 512 addresses; a full stack doubles.
 let firstStackBytes = 4096 as Count
@@ -242,7 +246,11 @@ end 'countOut'
 // with every stack the empty one, no chunk yet, and the size of each class's boxes; it holds the ladder's constants to
 // the keys and the record they lay out.
 function newHeapRecord() returns Count
-	let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: __Raw.wrappingAdd(heapRecordBytes, right: heapAlignBytes))
+	#if os(Windows)
+		let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: __Raw.wrappingAdd(heapRecordBytes, right: heapAlignBytes))
+	#else
+		let block = mapPages(__Raw.wrappingAdd(heapRecordBytes, right: heapAlignBytes))
+	#endif
 	let heap = __Raw.wrappingAdd(block, right: heapKeyMask) and heapRecordMask
 	let empty = __Raw.wrappingAdd(heap, right: heapEmptyStackOffset)
 	var key = 0 as Count
@@ -304,7 +312,11 @@ function allocFresh(heap Count, key Count, bytes Count) returns Count
 	let slotBytes = __Raw.wrappingAdd(boxHeaderBytes, right: __Raw.loadWord(heap, offset: __Raw.wrappingAdd(key, right: heapBoxBytesOffset)))
 	var slot = __Raw.loadWord(heap, offset: heapNextOffset)
 	if __Raw.wrappingSub(__Raw.loadWord(heap, offset: heapEndOffset), right: slot) < slotBytes 'chunk'
-		slot = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: chunkBytes)
+		#if os(Windows)
+			slot = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: chunkBytes)
+		#else
+			slot = mapPages(chunkBytes)
+		#endif
 		__Raw.storeWord(heap, offset: heapEndOffset, value: __Raw.wrappingAdd(slot, right: chunkBytes))
 	end 'chunk'
 	__Raw.storeWord(heap, offset: heapNextOffset, value: __Raw.wrappingAdd(slot, right: slotBytes))
@@ -325,10 +337,18 @@ function growStack(heap Count, key Count) returns Count
 	if base == empty 'first'
 		grown = firstStackBytes
 	end 'first'
-	let bigger = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: noHeapFlags, arg3: grown)
+	#if os(Windows)
+		let bigger = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: noHeapFlags, arg3: grown)
+	#else
+		let bigger = mapPages(grown)
+	#endif
 	copyBytes(base, target: bigger, count: used)
 	if base != empty 'old'
-		_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: base)
+		#if os(Windows)
+			_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: base)
+		#else
+			unmapPages(base, bytes: used)
+		#endif
 	end 'old'
 	__Raw.storeWord(heap, offset: baseAt, value: bigger)
 	__Raw.storeWord(heap, offset: limitAt, value: __Raw.wrappingAdd(bigger, right: grown))
@@ -338,24 +358,41 @@ end 'growStack'
 // freeLarge gives a large box's block back to the process heap, and counts it on heap, the freeing thread's.
 function freeLarge(heap Count, box Count)
 	countOut(heap, change: __Raw.wrappingSub(0, right: 1))
-	_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: __Raw.wrappingSub(box, right: largeBoxPadBytes))
+	#if os(Windows)
+		_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: __Raw.wrappingSub(box, right: largeBoxPadBytes))
+	#else
+		let block = __Raw.wrappingSub(box, right: largeBoxPadBytes)
+		unmapPages(block, bytes: __Raw.loadWord(block, offset: largeBoxLengthOffset))
+	#endif
 end 'freeLarge'
 
 // allocLarge is a box of more than largestSmallBytes: a zeroed block of the process heap with the header before it.
 function allocLarge(heap Count, bytes Count) returns Count
 	countOut(heap, change: 1)
-	let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: __Raw.wrappingAdd(bytes, right: largeBoxPadBytes))
+	#if os(Windows)
+		let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: __Raw.wrappingAdd(bytes, right: largeBoxPadBytes))
+	#else
+		let length = __Raw.wrappingAdd(bytes, right: largeBoxPadBytes)
+		let block = mapPages(length)
+		__Raw.storeWord(block, offset: largeBoxLengthOffset, value: length)
+	#endif
 	let box = __Raw.wrappingAdd(block, right: largeBoxPadBytes)
 	__Raw.storeWord(__Raw.wrappingSub(box, right: boxHeaderBytes), offset: 0, value: __Raw.wrappingAdd(heap, right: heapLargeKey))
 	return box
 end 'allocLarge'
 
-function processHeap() returns Count
-	return __Raw.loadWord(__Raw.heapAddress(), offset: 0)
-end 'processHeap'
+#if os(Windows)
+	function processHeap() returns Count
+		return __Raw.loadWord(__Raw.heapAddress(), offset: 0)
+	end 'processHeap'
+#endif
 
 // keep is a zeroed block that the runtime keeps until the process ends, such as a worker's context and queue, which no
 // program drops: it is not one of the program's boxes, so the leak check does not count it.
 function keep(bytes Count) returns Count
-	return __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
+	#if os(Windows)
+		return __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
+	#else
+		return mapPages(bytes)
+	#endif
 end 'keep'

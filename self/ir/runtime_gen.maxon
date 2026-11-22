@@ -46,6 +46,7 @@ export enum Rt
 	rtTlsSlot
 	rtTlsOffset
 	rtMainContext
+	rtProcessStart
 	rtThreadStart
 	rtSchedDrain
 	rtWorkerMain
@@ -253,6 +254,9 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtMainContext 'rtMainContext'
 		return "g.mainContext"
 	end 'rtMainContext'
+	if r == Rt.rtProcessStart 'rtProcessStart'
+		return "g.processStart"
+	end 'rtProcessStart'
 	if r == Rt.rtThreadStart 'rtThreadStart'
 		return "rt.threadStart"
 	end 'rtThreadStart'
@@ -609,6 +613,9 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtMainContext 'rtMainContext'
 		return "g.mainContext"
 	end 'rtMainContext'
+	if r == Rt.rtProcessStart 'rtProcessStart'
+		return "g.processStart"
+	end 'rtProcessStart'
 	if r == Rt.rtThreadStart 'rtThreadStart'
 		return "rt.threadStart"
 	end 'rtThreadStart'
@@ -965,227 +972,230 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtMainContext 'rtMainContext'
 		return 43
 	end 'rtMainContext'
-	if r == Rt.rtThreadStart 'rtThreadStart'
+	if r == Rt.rtProcessStart 'rtProcessStart'
 		return 44
+	end 'rtProcessStart'
+	if r == Rt.rtThreadStart 'rtThreadStart'
+		return 45
 	end 'rtThreadStart'
 	if r == Rt.rtSchedDrain 'rtSchedDrain'
-		return 45
+		return 46
 	end 'rtSchedDrain'
 	if r == Rt.rtWorkerMain 'rtWorkerMain'
-		return 46
+		return 47
 	end 'rtWorkerMain'
 	if r == Rt.rtCownAcquire 'rtCownAcquire'
-		return 47
+		return 48
 	end 'rtCownAcquire'
 	if r == Rt.rtCownRelease 'rtCownRelease'
-		return 48
+		return 49
 	end 'rtCownRelease'
 	if r == Rt.rtArrayNew 'rtArrayNew'
-		return 49
+		return 50
 	end 'rtArrayNew'
 	if r == Rt.rtArrayLen 'rtArrayLen'
-		return 50
+		return 51
 	end 'rtArrayLen'
 	if r == Rt.rtArrayElem 'rtArrayElem'
-		return 51
+		return 52
 	end 'rtArrayElem'
 	if r == Rt.rtArrayInsert 'rtArrayInsert'
-		return 52
+		return 53
 	end 'rtArrayInsert'
 	if r == Rt.rtArrayRemove 'rtArrayRemove'
-		return 53
+		return 54
 	end 'rtArrayRemove'
 	if r == Rt.rtArrayShrink 'rtArrayShrink'
-		return 54
+		return 55
 	end 'rtArrayShrink'
 	if r == Rt.rtMapNew 'rtMapNew'
-		return 55
+		return 56
 	end 'rtMapNew'
 	if r == Rt.rtMapLen 'rtMapLen'
-		return 56
+		return 57
 	end 'rtMapLen'
 	if r == Rt.rtMapHas 'rtMapHas'
-		return 57
+		return 58
 	end 'rtMapHas'
 	if r == Rt.rtMapElem 'rtMapElem'
-		return 58
+		return 59
 	end 'rtMapElem'
 	if r == Rt.rtMapKeyAt 'rtMapKeyAt'
-		return 59
+		return 60
 	end 'rtMapKeyAt'
 	if r == Rt.rtMapValueAt 'rtMapValueAt'
-		return 60
+		return 61
 	end 'rtMapValueAt'
 	if r == Rt.rtMapInsert 'rtMapInsert'
-		return 61
+		return 62
 	end 'rtMapInsert'
 	if r == Rt.rtMapRemove 'rtMapRemove'
-		return 62
+		return 63
 	end 'rtMapRemove'
 	if r == Rt.rtMapCopy 'rtMapCopy'
-		return 63
+		return 64
 	end 'rtMapCopy'
 	if r == Rt.rtListNew 'rtListNew'
-		return 64
+		return 65
 	end 'rtListNew'
 	if r == Rt.rtListLen 'rtListLen'
-		return 65
+		return 66
 	end 'rtListLen'
 	if r == Rt.rtListContains 'rtListContains'
-		return 66
+		return 67
 	end 'rtListContains'
 	if r == Rt.rtListElem 'rtListElem'
-		return 67
+		return 68
 	end 'rtListElem'
 	if r == Rt.rtListPushFront 'rtListPushFront'
-		return 68
+		return 69
 	end 'rtListPushFront'
 	if r == Rt.rtListPushBack 'rtListPushBack'
-		return 69
+		return 70
 	end 'rtListPushBack'
 	if r == Rt.rtListPopFront 'rtListPopFront'
-		return 70
+		return 71
 	end 'rtListPopFront'
 	if r == Rt.rtListPopBack 'rtListPopBack'
-		return 71
+		return 72
 	end 'rtListPopBack'
 	if r == Rt.rtListFirst 'rtListFirst'
-		return 72
+		return 73
 	end 'rtListFirst'
 	if r == Rt.rtListLast 'rtListLast'
-		return 73
+		return 74
 	end 'rtListLast'
 	if r == Rt.rtListNext 'rtListNext'
-		return 74
+		return 75
 	end 'rtListNext'
 	if r == Rt.rtListPrev 'rtListPrev'
-		return 75
+		return 76
 	end 'rtListPrev'
 	if r == Rt.rtListRemove 'rtListRemove'
-		return 76
+		return 77
 	end 'rtListRemove'
 	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
-		return 77
+		return 78
 	end 'rtListMoveToFront'
 	if r == Rt.rtListCopy 'rtListCopy'
-		return 78
+		return 79
 	end 'rtListCopy'
 	if r == Rt.rtPoolNew 'rtPoolNew'
-		return 79
+		return 80
 	end 'rtPoolNew'
 	if r == Rt.rtPoolLen 'rtPoolLen'
-		return 80
+		return 81
 	end 'rtPoolLen'
 	if r == Rt.rtPoolContains 'rtPoolContains'
-		return 81
+		return 82
 	end 'rtPoolContains'
 	if r == Rt.rtPoolElem 'rtPoolElem'
-		return 82
+		return 83
 	end 'rtPoolElem'
 	if r == Rt.rtPoolInsert 'rtPoolInsert'
-		return 83
+		return 84
 	end 'rtPoolInsert'
 	if r == Rt.rtPoolRemove 'rtPoolRemove'
-		return 84
+		return 85
 	end 'rtPoolRemove'
 	if r == Rt.rtPoolCopy 'rtPoolCopy'
-		return 85
+		return 86
 	end 'rtPoolCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
-		return 86
+		return 87
 	end 'rtFrozenFreeze'
 	if r == Rt.rtFrozenGet 'rtFrozenGet'
-		return 87
+		return 88
 	end 'rtFrozenGet'
 	if r == Rt.rtShare 'rtShare'
-		return 88
+		return 89
 	end 'rtShare'
 	if r == Rt.rtCownNew 'rtCownNew'
-		return 89
+		return 90
 	end 'rtCownNew'
 	if r == Rt.rtBytesNew 'rtBytesNew'
-		return 90
+		return 91
 	end 'rtBytesNew'
 	if r == Rt.rtBytesLen 'rtBytesLen'
-		return 91
+		return 92
 	end 'rtBytesLen'
 	if r == Rt.rtBytesGet 'rtBytesGet'
-		return 92
+		return 93
 	end 'rtBytesGet'
 	if r == Rt.rtBytesSet 'rtBytesSet'
-		return 93
+		return 94
 	end 'rtBytesSet'
 	if r == Rt.rtBytesInsert 'rtBytesInsert'
-		return 94
+		return 95
 	end 'rtBytesInsert'
 	if r == Rt.rtBytesRemove 'rtBytesRemove'
-		return 95
+		return 96
 	end 'rtBytesRemove'
 	if r == Rt.rtBytesAppend 'rtBytesAppend'
-		return 96
+		return 97
 	end 'rtBytesAppend'
 	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
-		return 97
+		return 98
 	end 'rtBytesAppendStr'
 	if r == Rt.rtBytesToString 'rtBytesToString'
-		return 98
+		return 99
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
-		return 99
+		return 100
 	end 'rtOsArgs'
 	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
-		return 100
+		return 101
 	end 'rtOsEnvironmentVariable'
 	if r == Rt.rtOsExecutablePath 'rtOsExecutablePath'
-		return 101
+		return 102
 	end 'rtOsExecutablePath'
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
-		return 102
+		return 103
 	end 'rtOsCurrentPath'
 	if r == Rt.rtOsProcessId 'rtOsProcessId'
-		return 103
+		return 104
 	end 'rtOsProcessId'
 	if r == Rt.rtOsSetExitCode 'rtOsSetExitCode'
-		return 104
+		return 105
 	end 'rtOsSetExitCode'
 	if r == Rt.rtOsClockNanos 'rtOsClockNanos'
-		return 105
+		return 106
 	end 'rtOsClockNanos'
 	if r == Rt.rtOsProcessorCount 'rtOsProcessorCount'
-		return 106
+		return 107
 	end 'rtOsProcessorCount'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
-		return 107
+		return 108
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return 108
+		return 109
 	end 'rtOsReadText'
 	if r == Rt.rtOsWriteText 'rtOsWriteText'
-		return 109
+		return 110
 	end 'rtOsWriteText'
 	if r == Rt.rtOsWriteBinary 'rtOsWriteBinary'
-		return 110
+		return 111
 	end 'rtOsWriteBinary'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return 111
+		return 112
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return 112
+		return 113
 	end 'rtOsDelete'
 	if r == Rt.rtOsFileInfo 'rtOsFileInfo'
-		return 113
+		return 114
 	end 'rtOsFileInfo'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return 114
+		return 115
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return 115
+		return 116
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return 116
+		return 117
 	end 'rtOsList'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return 117
+		return 118
 	end 'rtOsRun'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -1236,80 +1246,81 @@ export function rtOf(code Count) returns Rt
 		41 gives Rt.rtTlsSlot
 		42 gives Rt.rtTlsOffset
 		43 gives Rt.rtMainContext
-		44 gives Rt.rtThreadStart
-		45 gives Rt.rtSchedDrain
-		46 gives Rt.rtWorkerMain
-		47 gives Rt.rtCownAcquire
-		48 gives Rt.rtCownRelease
-		49 gives Rt.rtArrayNew
-		50 gives Rt.rtArrayLen
-		51 gives Rt.rtArrayElem
-		52 gives Rt.rtArrayInsert
-		53 gives Rt.rtArrayRemove
-		54 gives Rt.rtArrayShrink
-		55 gives Rt.rtMapNew
-		56 gives Rt.rtMapLen
-		57 gives Rt.rtMapHas
-		58 gives Rt.rtMapElem
-		59 gives Rt.rtMapKeyAt
-		60 gives Rt.rtMapValueAt
-		61 gives Rt.rtMapInsert
-		62 gives Rt.rtMapRemove
-		63 gives Rt.rtMapCopy
-		64 gives Rt.rtListNew
-		65 gives Rt.rtListLen
-		66 gives Rt.rtListContains
-		67 gives Rt.rtListElem
-		68 gives Rt.rtListPushFront
-		69 gives Rt.rtListPushBack
-		70 gives Rt.rtListPopFront
-		71 gives Rt.rtListPopBack
-		72 gives Rt.rtListFirst
-		73 gives Rt.rtListLast
-		74 gives Rt.rtListNext
-		75 gives Rt.rtListPrev
-		76 gives Rt.rtListRemove
-		77 gives Rt.rtListMoveToFront
-		78 gives Rt.rtListCopy
-		79 gives Rt.rtPoolNew
-		80 gives Rt.rtPoolLen
-		81 gives Rt.rtPoolContains
-		82 gives Rt.rtPoolElem
-		83 gives Rt.rtPoolInsert
-		84 gives Rt.rtPoolRemove
-		85 gives Rt.rtPoolCopy
-		86 gives Rt.rtFrozenFreeze
-		87 gives Rt.rtFrozenGet
-		88 gives Rt.rtShare
-		89 gives Rt.rtCownNew
-		90 gives Rt.rtBytesNew
-		91 gives Rt.rtBytesLen
-		92 gives Rt.rtBytesGet
-		93 gives Rt.rtBytesSet
-		94 gives Rt.rtBytesInsert
-		95 gives Rt.rtBytesRemove
-		96 gives Rt.rtBytesAppend
-		97 gives Rt.rtBytesAppendStr
-		98 gives Rt.rtBytesToString
-		99 gives Rt.rtOsArgs
-		100 gives Rt.rtOsEnvironmentVariable
-		101 gives Rt.rtOsExecutablePath
-		102 gives Rt.rtOsCurrentPath
-		103 gives Rt.rtOsProcessId
-		104 gives Rt.rtOsSetExitCode
-		105 gives Rt.rtOsClockNanos
-		106 gives Rt.rtOsProcessorCount
-		107 gives Rt.rtOsPathFrom
-		108 gives Rt.rtOsReadText
-		109 gives Rt.rtOsWriteText
-		110 gives Rt.rtOsWriteBinary
-		111 gives Rt.rtOsRename
-		112 gives Rt.rtOsDelete
-		113 gives Rt.rtOsFileInfo
-		114 gives Rt.rtOsIsDirectory
-		115 gives Rt.rtOsCreateDirectory
-		116 gives Rt.rtOsList
-		117 gives Rt.rtOsRun
+		44 gives Rt.rtProcessStart
+		45 gives Rt.rtThreadStart
+		46 gives Rt.rtSchedDrain
+		47 gives Rt.rtWorkerMain
+		48 gives Rt.rtCownAcquire
+		49 gives Rt.rtCownRelease
+		50 gives Rt.rtArrayNew
+		51 gives Rt.rtArrayLen
+		52 gives Rt.rtArrayElem
+		53 gives Rt.rtArrayInsert
+		54 gives Rt.rtArrayRemove
+		55 gives Rt.rtArrayShrink
+		56 gives Rt.rtMapNew
+		57 gives Rt.rtMapLen
+		58 gives Rt.rtMapHas
+		59 gives Rt.rtMapElem
+		60 gives Rt.rtMapKeyAt
+		61 gives Rt.rtMapValueAt
+		62 gives Rt.rtMapInsert
+		63 gives Rt.rtMapRemove
+		64 gives Rt.rtMapCopy
+		65 gives Rt.rtListNew
+		66 gives Rt.rtListLen
+		67 gives Rt.rtListContains
+		68 gives Rt.rtListElem
+		69 gives Rt.rtListPushFront
+		70 gives Rt.rtListPushBack
+		71 gives Rt.rtListPopFront
+		72 gives Rt.rtListPopBack
+		73 gives Rt.rtListFirst
+		74 gives Rt.rtListLast
+		75 gives Rt.rtListNext
+		76 gives Rt.rtListPrev
+		77 gives Rt.rtListRemove
+		78 gives Rt.rtListMoveToFront
+		79 gives Rt.rtListCopy
+		80 gives Rt.rtPoolNew
+		81 gives Rt.rtPoolLen
+		82 gives Rt.rtPoolContains
+		83 gives Rt.rtPoolElem
+		84 gives Rt.rtPoolInsert
+		85 gives Rt.rtPoolRemove
+		86 gives Rt.rtPoolCopy
+		87 gives Rt.rtFrozenFreeze
+		88 gives Rt.rtFrozenGet
+		89 gives Rt.rtShare
+		90 gives Rt.rtCownNew
+		91 gives Rt.rtBytesNew
+		92 gives Rt.rtBytesLen
+		93 gives Rt.rtBytesGet
+		94 gives Rt.rtBytesSet
+		95 gives Rt.rtBytesInsert
+		96 gives Rt.rtBytesRemove
+		97 gives Rt.rtBytesAppend
+		98 gives Rt.rtBytesAppendStr
+		99 gives Rt.rtBytesToString
+		100 gives Rt.rtOsArgs
+		101 gives Rt.rtOsEnvironmentVariable
+		102 gives Rt.rtOsExecutablePath
+		103 gives Rt.rtOsCurrentPath
+		104 gives Rt.rtOsProcessId
+		105 gives Rt.rtOsSetExitCode
+		106 gives Rt.rtOsClockNanos
+		107 gives Rt.rtOsProcessorCount
+		108 gives Rt.rtOsPathFrom
+		109 gives Rt.rtOsReadText
+		110 gives Rt.rtOsWriteText
+		111 gives Rt.rtOsWriteBinary
+		112 gives Rt.rtOsRename
+		113 gives Rt.rtOsDelete
+		114 gives Rt.rtOsFileInfo
+		115 gives Rt.rtOsIsDirectory
+		116 gives Rt.rtOsCreateDirectory
+		117 gives Rt.rtOsList
+		118 gives Rt.rtOsRun
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -1457,6 +1468,9 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtMainContext 'rtMainContext'
 		return RtUnit.rtUnitRuntime
 	end 'rtMainContext'
+	if r == Rt.rtProcessStart 'rtProcessStart'
+		return RtUnit.rtUnitRuntime
+	end 'rtProcessStart'
 	if r == Rt.rtThreadStart 'rtThreadStart'
 		return RtUnit.rtUnitRuntime
 	end 'rtThreadStart'

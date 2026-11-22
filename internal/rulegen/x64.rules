@@ -68,13 +68,16 @@
 (storeRaw.32 a v) => (StoreBaseDispReg32 a [0] v)
 (storeRaw.64 a v) => (StoreBaseDispReg a [0] v)
 
-// The atomic operations are a locked instruction each, so a full fence, and the thread's context is read from its TEB
-// as TlsGetValue does for a slot below 64, which the entry made sure the runtime's is.
+// The atomic operations are a locked instruction each, so a full fence. On Windows the thread's context is read from its
+// TEB as TlsGetValue does for a slot below 64, which the entry made sure the runtime's is; on Linux it is the word that fs
+// points at, which the entry and a thread's start set.
 (atomicAdd a v) => (LockXaddBaseDispReg a [0] v)
 (atomicExchange a v) => (XchgBaseDispReg a [0] v)
 (compareExchange) => (emitCompareExchange)
 (spinPause) => (Pause)
+(threadContext) && sel.onLinux() => (MovRegImm32 z [0]) (LoadRegFsBaseDisp r z [0])
 (threadContext) => (LoadRegRip t [sel.symbolRef(ir.rtSymbol(ir.Rt.rtTlsOffset))]) (LoadRegGsBaseDisp r t [tebTlsSlotsOffset])
+(syscall) => (emitSyscall)
 
 // The collection operations: a length is a load of the box, a bounds check a compare and a branch to its failure block,
 // which calls the entry the access is the common case of (emitBounds), and an element an access at the index into the

@@ -66,18 +66,20 @@ function vectorRegister(r MReg) returns X64Register
 	return x64RegisterOf(try (number - x64FirstVector) as RegNum otherwise panic("backend: an xmm register past the register file"))
 end 'vectorRegister'
 
-// ConventionKind is the calling convention of a call: the compiler's own for Maxon functions, the host's (Win64) for a
-// DLL import. The registers of each are the target table's (regs_x64_gen.maxon).
+// ConventionKind is the calling convention of a call: the compiler's own for Maxon functions, Windows' host one (Win64)
+// for a DLL import, and Linux's for a system call. The registers of each are the target table's (regs_x64_gen.maxon).
 enum ConventionKind
 	internal
 	host
+	syscall
 end 'ConventionKind'
 
 // argRegisterCount is how many arguments a convention passes in registers.
 function argRegisterCount(kind ConventionKind) returns Count
 	return match kind 'kind'
 		internal gives x64InternalArgCount
-		host gives x64HostArgCount
+		host gives x64WindowsHostArgCount
+		syscall gives x64LinuxSyscallArgCount
 	end 'kind'
 end 'argRegisterCount'
 
@@ -85,7 +87,8 @@ end 'argRegisterCount'
 function argRegister(kind ConventionKind, index Count) returns X64Register
 	return match kind 'kind'
 		internal gives x64InternalArg(index)
-		host gives x64HostArg(index)
+		host gives x64WindowsHostArg(index)
+		syscall gives x64LinuxSyscallArg(index)
 	end 'kind'
 end 'argRegister'
 
@@ -108,7 +111,8 @@ end 'wordArgRegs'
 function resultRegister(kind ConventionKind) returns X64Register
 	return match kind 'kind'
 		internal gives x64InternalResult
-		host gives x64HostResult
+		host gives x64WindowsHostResult
+		syscall gives x64LinuxSyscallResult
 	end 'kind'
 end 'resultRegister'
 
@@ -200,31 +204,37 @@ end 'CallConvention'
 function conventionOf(kind ConventionKind) returns CallConvention
 	return match kind 'kind'
 		internal gives CallConvention.make(x64InternalCalleeSaved())
-		host gives CallConvention.make(x64HostCalleeSaved())
+		host gives CallConvention.make(x64WindowsHostCalleeSaved())
+		syscall gives CallConvention.make(x64LinuxSyscallCalleeSaved())
 	end 'kind'
 end 'conventionOf'
 
-// Conventions are the tables of both conventions, which the allocator makes once.
+// Conventions are the tables of the conventions, which the allocator makes once.
 export type Conventions
 	var internal as CallConvention
 	var host as CallConvention
+	var syscall as CallConvention
 
 	export static function make() returns Conventions
-		return Conventions{internal: conventionOf(ConventionKind.internal), host: conventionOf(ConventionKind.host)}
+		return Conventions{internal: conventionOf(ConventionKind.internal), host: conventionOf(ConventionKind.host), syscall: conventionOf(ConventionKind.syscall)}
 	end 'make'
 
 	// keeping is the conventions with an internal one that keeps calleeSaved across a call instead of the target's
 	// callee-saved registers, for the allocator's tests.
 	export static function keeping(calleeSaved RegMask) returns Conventions
-		return Conventions{internal: CallConvention.make(calleeSaved), host: conventionOf(ConventionKind.host)}
+		return Conventions{internal: CallConvention.make(calleeSaved), host: conventionOf(ConventionKind.host), syscall: conventionOf(ConventionKind.syscall)}
 	end 'keeping'
 end 'Conventions'
 
-// callConvention is the convention of a call instruction: a call through an import's slot is a DLL's.
+// callConvention is the convention of a call instruction: a call through an import's slot is a DLL's, and a syscall the
+// kernel's.
 function callConvention(x MInstr) returns ConventionKind
 	if x.ref == MRef.importSlot 'import'
 		return ConventionKind.host
 	end 'import'
+	if x.form == X64Form.syscall 'kernel'
+		return ConventionKind.syscall
+	end 'kernel'
 	return ConventionKind.internal
 end 'callConvention'
 
@@ -377,6 +387,7 @@ function callClobbers(x MInstr, convs Conventions) returns RegMask
 	return match callConvention(x) 'kind'
 		internal gives convs.internal.clobbered
 		host gives convs.host.clobbered
+		syscall gives convs.syscall.clobbered
 	end 'kind'
 end 'callClobbers'
 
@@ -385,6 +396,7 @@ function keptBy(x MInstr, convs Conventions) returns RegMask
 	return match callConvention(x) 'kind'
 		internal gives convs.internal.calleeSaved
 		host gives convs.host.calleeSaved
+		syscall gives convs.syscall.calleeSaved
 	end 'kind'
 end 'keptBy'
 

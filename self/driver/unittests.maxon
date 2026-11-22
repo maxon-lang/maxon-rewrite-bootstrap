@@ -19,7 +19,7 @@ end 'moduleTests'
 // the process and the directory, so that two compilers running at once never write the same file.
 function testExecutable(dir String) returns String
 	let temp = try Process.environmentVariable("TEMP") otherwise panic("driver: TEMP is not set")
-	return "{temp}\\minimaxon-test-{Process.id()}-{project.lastComponent(dir)}{executableExtension}"
+	return "{temp}\\minimaxon-test-{Process.id()}-{project.lastComponent(dir)}{executableExtension(hostTarget())}"
 end 'testExecutable'
 
 // runTestExecutable runs the executable of tests at path, which a compile of the tests under dir made, passes on what it

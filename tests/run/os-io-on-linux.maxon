@@ -1,0 +1,172 @@
+// The OS entries on Linux's paths, under /tmp, as os-io.maxon has them on Windows'.
+// unsupported-targets: x64-windows
+// native-only
+//> args=true
+//> unset=variableUnset
+//> exe=true false
+//> cwd=true
+//> path=a/b/c.txt
+//> any=a?b
+//> created=true isDirectory=true
+//> read=hello world
+//> binary=ABC
+//> renamed=ABC
+//> listed=1 true
+//> readMissing=notFound
+//> renameMissing=notFound
+//> deleteMissing=notFound
+//> listMissing=notFound
+//> deleteDirectory=accessDenied
+//> info=3 false false true
+//> infoDirectory=true
+//> infoMissing=notFound
+//> gone=false
+
+function readError(path FilePath) returns String
+	try 'read'
+		let text = File.readText(path)
+		return "read {text}"
+	end 'read' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then return "notFound"
+			accessDenied then return "accessDenied"
+			busy then return "busy"
+			failed then return "failed"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'readError'
+
+function infoError(path FilePath) returns String
+	try 'info'
+		let info = File.info(path)
+		return "size {info.size}"
+	end 'info' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then return "notFound"
+			accessDenied then return "accessDenied"
+			busy then return "busy"
+			failed then return "failed"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'infoError'
+
+// lateIn2020 is a time in Unix seconds that a file written now is later than.
+let lateIn2020 = 1600000000
+
+function renameError(from FilePath, dest FilePath) returns String
+	try 'rename'
+		File.rename(from, to: dest)
+		return "renamed"
+	end 'rename' otherwise (e) 'failed'
+		match e 'kind'
+			failed then return "failed"
+			notFound then return "notFound"
+			accessDenied then return "accessDenied"
+			busy then return "busy"
+			alreadyExists then return "alreadyExists"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'renameError'
+
+function deleteError(path FilePath) returns String
+	try 'delete'
+		File.delete(path)
+		return "deleted"
+	end 'delete' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then return "notFound"
+			accessDenied then return "accessDenied"
+			busy then return "busy"
+			failed then return "failed"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'deleteError'
+
+function listError(path FilePath) returns String
+	try 'list'
+		let entries = Directory.list(path)
+		return "listed {entries.count()}"
+	end 'list' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then return "notFound"
+			accessDenied then return "accessDenied"
+			listFailed then return "listFailed"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'listError'
+
+function pathError(text String) returns String
+	try 'from'
+		let path = FilePath.from(text)
+		return path.toString()
+	end 'from' otherwise (e) 'failed'
+		match e 'kind'
+			invalidCharacter then return "invalidCharacter"
+			notFileURL then return "notFileURL"
+			malformedURL then return "malformedURL"
+			noParent then return "noParent"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'pathError'
+
+function envError(name String) returns String
+	try 'env'
+		return Process.environmentVariable(name)
+	end 'env' otherwise (e) 'failed'
+		match e 'kind'
+			pathUnavailable then return "pathUnavailable"
+			variableUnset then return "variableUnset"
+			environmentUnreadable then return "environmentUnreadable"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'envError'
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'path'
+
+function main() returns ExitCode
+	print("args={CommandLine.args().count() >= 1}\n")
+	print("unset={envError("MINIMAXON_NO_SUCH_ENV_98765")}\n")
+	let exe = try Process.executablePath() otherwise panic("no executable path")
+	print("exe={exe.toString().byteLength() > 0} {Directory.isDirectory(exe)}\n")
+	print("cwd={Directory.isDirectory(Directory.currentPath())}\n")
+	print("path={pathError("a/b\\c.txt")}\n")
+	print("any={pathError("a?b")}\n")
+	let dir = "/tmp/minimaxon_os_io_test_{Process.id()}/nested"
+	let created = Directory.create(path(dir))
+	print("created={created} isDirectory={Directory.isDirectory(path(dir))}\n")
+	let f1 = path("{dir}/a.txt")
+	let f2 = path("{dir}/b.txt")
+	try File.writeText(f1, content: "hello world") otherwise panic("cannot write")
+	print("read={try File.readText(f1) otherwise panic("cannot read")}\n")
+	var bs = ByteArray.create(0)
+	bs.push(65 as Byte)
+	bs.push(66 as Byte)
+	bs.push(67 as Byte)
+	try File.writeBinary(f1, content: bs) otherwise panic("cannot write")
+	print("binary={try File.readText(f1) otherwise panic("cannot read")}\n")
+	try File.rename(f1, to: f2) otherwise panic("cannot rename")
+	print("renamed={try File.readText(f2) otherwise panic("cannot read")}\n")
+	let entries = try Directory.list(path(dir)) otherwise panic("cannot list")
+	print("listed={entries.count()} {entries[0].toString() == f2.toString()}\n")
+	print("readMissing={readError(f1)}\n")
+	print("renameMissing={renameError(f1, dest: f2)}\n")
+	print("deleteMissing={deleteError(f1)}\n")
+	print("listMissing={listError(path("{dir}/none"))}\n")
+	print("deleteDirectory={deleteError(path(dir))}\n")
+	let info = try File.info(f2) otherwise panic("cannot read the information")
+	print("info={info.size} {info.isDirectory} {info.isReadOnly} {info.modifiedTime > lateIn2020 and info.createdTime > lateIn2020}\n")
+	print("infoDirectory={(try File.info(path(dir)) otherwise panic("cannot read the information")).isDirectory}\n")
+	print("infoMissing={infoError(f1)}\n")
+	try File.delete(f2) otherwise panic("cannot delete")
+	print("gone={Directory.isDirectory(f2)}\n")
+	return 0
+end 'main'

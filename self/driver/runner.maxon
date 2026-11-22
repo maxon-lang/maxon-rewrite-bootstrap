@@ -504,7 +504,7 @@ end 'runPending'
 // runCompiledProgram runs the executable of a program of the corpus, lets another executable run, and then runs the program under the
 // interpreter when it is to.
 function runCompiledProgram(bench frozen with Bench, consumes pending CorpusPending)
-	var result = runNativeRuns(pending.exe, expect: pending.expect, runs: pending.runs)
+	var result = runNativeRuns(pending.exe, expect: pending.expect, runs: pending.runs, runner: bench.corpus.runner)
 	releaseExecutable(bench)
 	if result.outcome != TestOutcome.testFailed and pending.interprets 'interpreted'
 		result = runInterpreted(pending.compiled, expect: pending.expect)

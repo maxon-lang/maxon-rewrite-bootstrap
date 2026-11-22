@@ -1,11 +1,39 @@
-// Target is the platform a program is compiled for, as a `#if` condition names it: `os(Windows)` and `arch(x64)`. This is
-// the one place that spells the target; the driver hands a project the target it compiles for, and a later target is
-// another function here.
+// Target is the platform a program is compiled for: its name on the command line (`--target=x64-linux`), the os and the arch
+// as a `#if` condition names them (`os(Windows)`, `arch(x64)`), and the system, which the backend writes the executable
+// for. This is the one place that spells the targets; the driver hands a project the target it compiles for, and a later
+// target is another function here and a row of knownTargets.
 export type Target
 	export let os as String
 	export let arch as String
+	export let system as TargetSystem
 
 	export static function windowsX64() returns Target
-		return Target{os: "Windows", arch: "x64"}
+		return Target{os: "Windows", arch: "x64", system: TargetSystem.windows}
 	end 'windowsX64'
+
+	export static function linuxX64() returns Target
+		return Target{os: "Linux", arch: "x64", system: TargetSystem.linux}
+	end 'linuxX64'
+
+	// name is the target's name on the command line, as maxon writes it: the arch and the os in lowercase.
+	export function name() returns String
+		return "{arch.toLower()}-{os.toLower()}"
+	end 'name'
 end 'Target'
+
+// TargetSystem is the operating system of a target, by which the backend picks the entry stub, the format of the
+// executable, the read of a thread's context and the way the runtime reaches the system.
+export enum TargetSystem
+	windows
+	linux
+end 'TargetSystem'
+
+export typealias TargetList = Array with Target
+
+// knownTargets are the targets this compiler compiles for, in the order a usage message lists them.
+export function knownTargets() returns TargetList
+	var targets = TargetList.create(0)
+	targets.push(Target.windowsX64())
+	targets.push(Target.linuxX64())
+	return targets
+end 'knownTargets'

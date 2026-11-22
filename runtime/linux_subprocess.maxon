@@ -1,0 +1,395 @@
+// Running a program on Linux, which has no call that spawns one: the run clones the process as fork does, and the child
+// puts the write ends of two pipes in place of its standard output and error and executes the program (execve), as
+// maxon's runtime builds a child out of clone, pipe2, dup3 and execve. A third pipe, closed on exec, tells the run whether
+// the execve failed and with what errno: a child that executed the program closes it unwritten. The run reads both
+// output pipes as the child goes on, waiting in poll, so that a child that fills one cannot block waiting for the run to
+// read the other. The child's standard input and environment are the run's own.
+
+#if os(Linux)
+	// A stream the run reads, as a record of words: the read end of its pipe, the string read so far with the room it
+	// has, and whether the child may still write.
+	let streamFdOffset = 0
+
+	let streamTextOffset = 8
+
+	let streamCapacityOffset = 16
+
+	let streamOpenOffset = 24
+
+	let streamBytes = 32
+
+	// The run's record, one allocation: the two streams, the three pipes as pipe2 writes them, the read end then the
+	// write end, 32 bits each, the poll records of the two streams, the child's wait status and the errno a failed execve
+	// wrote.
+	let runOutputOffset = 0
+
+	let runErrorOffset = (runOutputOffset + streamBytes) as Count
+
+	let runOutputPipeOffset = (runErrorOffset + streamBytes) as Count
+
+	let runErrorPipeOffset = (runOutputPipeOffset + pipeFdsBytes) as Count
+
+	let runStatusPipeOffset = (runErrorPipeOffset + pipeFdsBytes) as Count
+
+	let runPollsOffset = (runStatusPipeOffset + pipeFdsBytes) as Count
+
+	let runWaitStatusOffset = (runPollsOffset + 2 * linuxPollRecordBytes) as Count
+
+	let runExecErrnoOffset = (runWaitStatusOffset + wordBytes) as Count
+
+	let runRecordBytes = (runExecErrnoOffset + wordBytes) as Count
+
+	let pipeFdsBytes = 8
+
+	let pipeWriteEndOffset = 4
+
+	let stdoutFd = 1
+
+	let stderrFd = 2
+
+	// execFailedExitCode is what a child whose execve failed exits with, as a shell's does.
+	let execFailedExitCode = 127
+
+	// readChunkBytes is the least room a stream's text has past its length before a read.
+	let readChunkBytes = 4096
+
+	// pollForever is poll's timeout of a run with no deadline, -1.
+	let pollForever = 0xFFFFFFFFFFFFFFFF as Count
+
+	let nanosPerMilli = 1000000 as Count
+
+	// Decoding a wait status: the low seven bits are the signal that ended the child, 0 when it exited, with its code in
+	// the eight bits after them; a child that a signal ended reports 128 plus the signal, the POSIX shell's convention, as
+	// maxon's runtime does.
+	let waitSignalMask = 0x7F
+
+	let waitExitShift = 8
+
+	let waitExitMask = 0xFF
+
+	let signalExitCodeBase = 128
+
+	let noWaitOptions = 0
+
+	let noUsage = 0
+
+	// The separator of the directories of PATH, which a program named without a directory is looked for in.
+	let searchPathVariable = "PATH"
+
+	let searchPathSeparator = 0x3A as Byte
+
+	function pipeFd(pipes Count, writeEnd bool) returns Count
+		return __Raw.loadWord32(pipes, offset: pipeWriteEndOffset if writeEnd else 0)
+	end 'pipeFd'
+
+	// isProgramAt is whether a zero-terminated path names a file that is not a directory.
+	function isProgramAt(cPath Count) returns bool
+		let stat = alloc(linuxStatBytes)
+		let result = __Raw.syscall4(linuxSysNewfstatat, arg1: atCwd(), arg2: cPath, arg3: stat, arg4: noFlags)
+		let mode = __Raw.loadWord32(stat, offset: linuxStatModeOffset)
+		free(stat)
+		return not failed(result) and (mode and linuxModeTypeMask) != linuxModeDirectory
+	end 'isProgramAt'
+
+	// joinedPath is a new zero-terminated path of the bytes of a directory, a separator and a name.
+	function joinedPath(directory Count, directoryLength Count, name Count, nameLength Count) returns Count
+		let path = alloc(__Raw.wrappingAdd(__Raw.wrappingAdd(directoryLength, right: nameLength), right: 2))
+		copyBytes(directory, target: path, count: directoryLength)
+		let at = storeNextByte(path, offset: directoryLength, value: slashByte)
+		copyBytes(name, target: __Raw.wrappingAdd(path, right: at), count: nameLength)
+		return path
+	end 'joinedPath'
+
+	// programPath is a new zero-terminated path of the program that an executable names: the name itself when it holds a
+	// separator, and otherwise the first directory of PATH that holds a program of the name, as execvp looks; 0 when there
+	// is none.
+	function programPath(executable String) returns Count
+		let box = __Raw.stringAddress(executable)
+		let nameLength = boxLength(box)
+		let name = bytesOf(box)
+		for i in 0 upto nameLength 'separator'
+			if __Raw.loadByte(name, offset: i) == slashByte 'path'
+				return cStringOf(executable)
+			end 'path'
+		end 'separator'
+		var unset = 0 as Count
+		let search = osEnvironmentVariable(searchPathVariable, errorAddress: __Raw.addressOf(unset))
+		if unset != 0 'noSearch'
+			return 0
+		end 'noSearch'
+		let searchBox = __Raw.stringAddress(search)
+		let searchBytes = bytesOf(searchBox)
+		let searchLength = boxLength(searchBox)
+		var start = 0 as Count
+		while start <= searchLength 'directories'
+			var stop = start
+			while stop < searchLength and __Raw.loadByte(searchBytes, offset: stop) != searchPathSeparator 'directory'
+				stop = stop + 1
+			end 'directory'
+			let candidate = joinedPath(__Raw.wrappingAdd(searchBytes, right: start), directoryLength: __Raw.wrappingSub(stop, right: start), name: name, nameLength: nameLength)
+			if isProgramAt(candidate) 'found'
+				return candidate
+			end 'found'
+			free(candidate)
+			start = __Raw.wrappingAdd(stop, right: 1)
+		end 'directories'
+		return 0
+	end 'programPath'
+
+	// argumentVector is a new null-ended vector of zero-terminated copies of the executable's name and the arguments, as
+	// execve reads it.
+	function argumentVector(executable String, arguments Count) returns Count
+		let count = wordAt(arguments, offset: osArrayLengthOffset)
+		let vector = alloc(try (count + 2) * wordBytes otherwise panic("too many arguments for memory"))
+		__Raw.storeWord(vector, offset: 0, value: cStringOf(executable))
+		for i in 0 upto count 'arguments'
+			__Raw.storeWord(vector, offset: try (i + 1) * wordBytes otherwise panic("too many arguments for memory"), value: cStringOfBox(argumentBox(arguments, index: i)))
+		end 'arguments'
+		return vector
+	end 'argumentVector'
+
+	// freeVector frees an argument vector and its strings.
+	function freeVector(vector Count)
+		var at = 0 as Count
+		while __Raw.loadWord(vector, offset: at) != 0 'strings'
+			free(__Raw.loadWord(vector, offset: at))
+			at = __Raw.wrappingAdd(at, right: wordBytes)
+		end 'strings'
+		free(vector)
+	end 'freeVector'
+
+	// closePipe closes both ends of a pipe that pipe2 made.
+	function closePipe(pipes Count)
+		closeFd(pipeFd(pipes, writeEnd: false))
+		closeFd(pipeFd(pipes, writeEnd: true))
+	end 'closePipe'
+
+	// openPipes makes the three pipes of a run, each end closed on exec, and gives whether it made them all; a pipe it
+	// could not make leaves those before it closed.
+	function openPipes(run Count) returns bool
+		let output = fieldAt(run, offset: runOutputPipeOffset)
+		let errors = fieldAt(run, offset: runErrorPipeOffset)
+		let status = fieldAt(run, offset: runStatusPipeOffset)
+		if failed(__Raw.syscall2(linuxSysPipe2, arg1: output, arg2: linuxOpenCloseOnExec)) 'output'
+			return false
+		end 'output'
+		if failed(__Raw.syscall2(linuxSysPipe2, arg1: errors, arg2: linuxOpenCloseOnExec)) 'errors'
+			closePipe(output)
+			return false
+		end 'errors'
+		if failed(__Raw.syscall2(linuxSysPipe2, arg1: status, arg2: linuxOpenCloseOnExec)) 'status'
+			closePipe(output)
+			closePipe(errors)
+			return false
+		end 'status'
+		return true
+	end 'openPipes'
+
+	// execChild is the child of a run: it puts the write ends of the output pipes in place of its standard output and
+	// error, which dup3 leaves open on exec, and executes the program. When that fails it writes the errno down the
+	// status pipe and exits.
+	function execChild(run Count, path Count, vector Count)
+		_ = __Raw.syscall3(linuxSysDup3, arg1: pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), arg2: stdoutFd, arg3: noFlags)
+		_ = __Raw.syscall3(linuxSysDup3, arg1: pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), arg2: stderrFd, arg3: noFlags)
+		let result = __Raw.syscall3(linuxSysExecve, arg1: path, arg2: vector, arg3: environment())
+		__Raw.storeWord(run, offset: runExecErrnoOffset, value: errnoOf(result))
+		_ = writeAll(pipeFd(fieldAt(run, offset: runStatusPipeOffset), writeEnd: true), data: fieldAt(run, offset: runExecErrnoOffset), length: wordBytes)
+		exitProcess(execFailedExitCode)
+	end 'execChild'
+
+	// execErrno is the errno that the child of a run wrote down the status pipe, or 0 when the pipe closed unwritten, as an
+	// execve that succeeded closes it.
+	function execErrno(run Count) returns Count
+		let status = pipeFd(fieldAt(run, offset: runStatusPipeOffset), writeEnd: false)
+		while true 'read'
+			let got = __Raw.syscall3(linuxSysRead, arg1: status, arg2: fieldAt(run, offset: runExecErrnoOffset), arg3: wordBytes)
+			if failed(got) and errnoOf(got) == linuxEintr 'again'
+				continue 'read'
+			end 'again'
+			closeFd(status)
+			if got == wordBytes 'written'
+				return __Raw.loadWord(run, offset: runExecErrnoOffset)
+			end 'written'
+			return 0
+		end 'read'
+		return 0
+	end 'execErrno'
+
+	// reap waits for the child to end and gives its wait status.
+	function reap(run Count, pid Count) returns Count
+		while true 'wait'
+			let result = __Raw.syscall4(linuxSysWait4, arg1: pid, arg2: fieldAt(run, offset: runWaitStatusOffset), arg3: noWaitOptions, arg4: noUsage)
+			if not (failed(result) and errnoOf(result) == linuxEintr) 'done'
+				return __Raw.loadWord32(run, offset: runWaitStatusOffset)
+			end 'done'
+		end 'wait'
+		return 0
+	end 'reap'
+
+	// exitCodeOf is the exit code that a wait status says.
+	function exitCodeOf(status Count) returns Count
+		let signal = status and waitSignalMask
+		if signal != 0 'signalled'
+			return signalExitCodeBase + signal
+		end 'signalled'
+		return (status shr waitExitShift) and waitExitMask
+	end 'exitCodeOf'
+
+	// startStream makes a stream of the read end of a pipe, open, with an empty text.
+	function startStream(stream Count, pipes Count)
+		__Raw.storeWord(stream, offset: streamFdOffset, value: pipeFd(pipes, writeEnd: false))
+		__Raw.storeWord(stream, offset: streamTextOffset, value: newStringBox(0))
+		__Raw.storeWord(stream, offset: streamCapacityOffset, value: 0)
+		__Raw.storeWord(stream, offset: streamOpenOffset, value: 1)
+	end 'startStream'
+
+	// drainStream reads what a stream's pipe holds, which poll said it has, or its end. The text keeps room beyond its length,
+	// which grows by doubling.
+	function drainStream(stream Count)
+		var text = wordAt(stream, offset: streamTextOffset)
+		let length = boxLength(text)
+		let capacity = wordAt(stream, offset: streamCapacityOffset)
+		if __Raw.wrappingSub(capacity, right: length) < readChunkBytes 'grow'
+			let doubled = __Raw.wrappingAdd(capacity, right: capacity)
+			let needed = __Raw.wrappingAdd(length, right: readChunkBytes)
+			let grown = doubled if doubled > needed else needed
+			let box = newStringBox(grown)
+			copyBytes(bytesOf(text), target: bytesOf(box), count: length)
+			__Raw.storeWord(box, offset: stringLengthOffset, value: length)
+			free(text)
+			text = box
+			__Raw.storeWord(stream, offset: streamTextOffset, value: box)
+			__Raw.storeWord(stream, offset: streamCapacityOffset, value: grown)
+		end 'grow'
+		let room = __Raw.wrappingSub(wordAt(stream, offset: streamCapacityOffset), right: length)
+		let got = __Raw.syscall3(linuxSysRead, arg1: wordAt(stream, offset: streamFdOffset), arg2: __Raw.wrappingAdd(bytesOf(text), right: length), arg3: room)
+		if failed(got) 'failed'
+			if errnoOf(got) != linuxEintr and errnoOf(got) != linuxEagain 'broken'
+				__Raw.storeWord(stream, offset: streamOpenOffset, value: 0)
+			end 'broken'
+			return
+		end 'failed'
+		if got == 0 'ended'
+			__Raw.storeWord(stream, offset: streamOpenOffset, value: 0)
+			return
+		end 'ended'
+		__Raw.storeWord(text, offset: stringLengthOffset, value: __Raw.wrappingAdd(length, right: got))
+	end 'drainStream'
+
+	// pollStreams waits until a stream that is open has something to read or has ended, or the timeout passes, and reads
+	// from each that has.
+	function pollStreams(run Count, timeout Count)
+		let polls = fieldAt(run, offset: runPollsOffset)
+		var count = 0 as Count
+		for s in 0 upto 2 'streams'
+			let stream = fieldAt(run, offset: try runOutputOffset + s * streamBytes otherwise panic("a stream past the run's record"))
+			if wordAt(stream, offset: streamOpenOffset) != 0 'open'
+				let record = fieldAt(polls, offset: try count * linuxPollRecordBytes otherwise panic("a poll record past the run's record"))
+				__Raw.storeWord32(record, offset: 0, value: wordAt(stream, offset: streamFdOffset))
+				__Raw.storeWord16(record, offset: linuxPollEventsOffset, value: linuxPollIn)
+				__Raw.storeWord16(record, offset: linuxPollReturnedOffset, value: 0)
+				count = __Raw.wrappingAdd(count, right: 1)
+			end 'open'
+		end 'streams'
+		let ready = __Raw.syscall3(linuxSysPoll, arg1: polls, arg2: count, arg3: timeout)
+		if failed(ready) or ready == 0 'none'
+			return
+		end 'none'
+		var at = 0 as Count
+		for s in 0 upto 2 'drain'
+			let stream = fieldAt(run, offset: try runOutputOffset + s * streamBytes otherwise panic("a stream past the run's record"))
+			if wordAt(stream, offset: streamOpenOffset) != 0 'open'
+				let record = fieldAt(polls, offset: try at * linuxPollRecordBytes otherwise panic("a poll record past the run's record"))
+				if __Raw.loadWord16(record, offset: linuxPollReturnedOffset) != 0 'ready'
+					drainStream(stream)
+				end 'ready'
+				at = __Raw.wrappingAdd(at, right: 1)
+			end 'open'
+		end 'drain'
+	end 'pollStreams'
+
+	// closeStreams closes the read ends of the run's streams.
+	function closeStreams(run Count)
+		closeFd(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamFdOffset))
+		closeFd(wordAt(fieldAt(run, offset: runErrorOffset), offset: streamFdOffset))
+	end 'closeStreams'
+
+	// freeTexts frees the texts of the run's streams.
+	function freeTexts(run Count)
+		free(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamTextOffset))
+		free(wordAt(fieldAt(run, offset: runErrorOffset), offset: streamTextOffset))
+	end 'freeTexts'
+
+	// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard
+	// output and error as strings at the two addresses. An executable that is not found fails with the first case of the
+	// error. A child still running deadlineMs milliseconds after it started, when that is not noDeadline, is killed and
+	// fails the run with the timeout case.
+	function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		let path = programPath(executable)
+		if path == 0 'missing'
+			failWith(errorAddress, errorCase: executableNotFound)
+			return 0
+		end 'missing'
+		let run = alloc(runRecordBytes)
+		if not openPipes(run) 'pipes'
+			free(path)
+			free(run)
+			failWith(errorAddress, errorCase: ioFailed)
+			return 0
+		end 'pipes'
+		let vector = argumentVector(executable, arguments: arguments)
+		let pid = __Raw.syscall5(linuxSysClone, arg1: linuxCloneChildFlags, arg2: 0, arg3: 0, arg4: 0, arg5: 0)
+		if pid == 0 'child'
+			execChild(run, path: path, vector: vector)
+		end 'child'
+		freeVector(vector)
+		free(path)
+		closeFd(pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true))
+		closeFd(pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true))
+		closeFd(pipeFd(fieldAt(run, offset: runStatusPipeOffset), writeEnd: true))
+		if failed(pid) 'spawn'
+			closeFd(pipeFd(fieldAt(run, offset: runStatusPipeOffset), writeEnd: false))
+			closeFd(pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: false))
+			closeFd(pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: false))
+			free(run)
+			endWithError(errorAddress, osError: errnoOf(pid), table: spawnFailures())
+			return 0
+		end 'spawn'
+		startStream(fieldAt(run, offset: runOutputOffset), pipes: fieldAt(run, offset: runOutputPipeOffset))
+		startStream(fieldAt(run, offset: runErrorOffset), pipes: fieldAt(run, offset: runErrorPipeOffset))
+		let unexecuted = execErrno(run)
+		if unexecuted != 0 'unexecuted'
+			_ = reap(run, pid: pid)
+			closeStreams(run)
+			freeTexts(run)
+			free(run)
+			endWithError(errorAddress, osError: unexecuted, table: spawnFailures())
+			return 0
+		end 'unexecuted'
+		let startedAt = osClockNanos()
+		while wordAt(fieldAt(run, offset: runOutputOffset), offset: streamOpenOffset) != 0 or wordAt(fieldAt(run, offset: runErrorOffset), offset: streamOpenOffset) != 0 'drain'
+			var timeout = pollForever
+			if deadlineMs != noDeadline 'deadline'
+				let elapsedMs = __Raw.wrappingSub(osClockNanos(), right: startedAt) / nanosPerMilli
+				if elapsedMs >= deadlineMs 'late'
+					_ = __Raw.syscall2(linuxSysKill, arg1: pid, arg2: linuxSigkill)
+					_ = reap(run, pid: pid)
+					closeStreams(run)
+					freeTexts(run)
+					free(run)
+					failWith(errorAddress, errorCase: timedOut)
+					return 0
+				end 'late'
+				timeout = __Raw.wrappingSub(deadlineMs, right: elapsedMs)
+			end 'deadline'
+			pollStreams(run, timeout: timeout)
+		end 'drain'
+		let code = exitCodeOf(reap(run, pid: pid))
+		closeStreams(run)
+		__Raw.storeWord(stdout, offset: 0, value: wordAt(fieldAt(run, offset: runOutputOffset), offset: streamTextOffset))
+		__Raw.storeWord(stderr, offset: 0, value: wordAt(fieldAt(run, offset: runErrorOffset), offset: streamTextOffset))
+		free(run)
+		succeed(errorAddress)
+		return code
+	end 'osRun'
+#endif

@@ -19,6 +19,8 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
 | `commandline.maxon` | — | the C runtime's command-line splitter and the quoting that is its inverse |
 | `os.maxon` | `osArgs`, `osEnvironmentVariable`, `osPathFrom`, `osReadText`, `osWriteText`, `osWriteBinary`, `osRename`, `osDelete`, `osIsDirectory`, `osCreateDirectory`, `osList` | files, directories, paths and the environment, over the `W` Win32 calls |
 | `subprocess.maxon` | `osRun` | `CreateProcessW` with the child's output and error read through pipes |
+| `linux.maxon` | `osArgs`, `osEnvironmentVariable`, `osPathFrom`, `osReadText`, `osRename`, `osDelete`, `osIsDirectory`, `osCreateDirectory`, `osList`, `write`, ... on Linux | the OS layer on Linux, all of it in `#if os(Linux)`: output and exit, the pages the heap is carved from, the arguments and the environment from the stack the process started with, the clock, files and directories, a worker's thread and the futex it parks on, by system calls |
+| `linux_subprocess.maxon` | `osRun` on Linux | a clone and an `execve` with the child's output and error read through pipes in `poll`, and a pipe closed on exec that says whether the `execve` failed |
 | `frozen.maxon` | `frozenFreeze`, `frozenGet`, `share`, `cownNew` | making a frozen value and a cown, and another owner of one, a locked add on the count; the backend writes `frozenGet` in place, and a drop is the routine of the type, which `self/backend` makes (README, "Frozen values, cowns and behaviours in the IR") |
 | `sched.maxon` | `schedDrain`, `workerMain`, `osSetExitCode` | the scheduler: the workers, their Chase-Lev queues, stealing, parking and waking, the count of live behaviours, and the exit code. `cownAcquire` calls `schedEnter` for each behaviour, before it can run, and `schedPush` with its record when it is runnable, as `cownRelease` does for the behaviour it hands a cown to |
 | `cown.maxon` | `cownAcquire`, `cownRelease` | behaviours on cowns: the acquire that a compiled `when` calls with the behaviour's record (the slots sorted by cown address, the trap on a cown named twice, the behaviour's hold on each cown, and Verona's two-phase queuing on each cown's chain of request slots), and the release that a behaviour's thunk calls after its body, which hands each cown to the behaviour queued after it; the thunk then drops the holds, since only the compiled code knows the cowns' types |
@@ -40,5 +42,11 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
 - **A test of the runtime** is a program of `tests/runtime/`, which the test runner compiles as one more file of this
   module, so that it may call what no program can (root README, "Tests"). Its names start with `test` or `tally`, so
   as not to clash with the runtime's own.
+- **One source, a branch per system.** An entry whose work is the system's is written once for each, in `#if os(Windows)` and
+  `#if os(Linux)` (the Linux ones in the `linux` files), and an entry whose work is shared calls the system only in a branch of a
+  statement; the target the compile is for picks the branch (root README, "Targets"). An entry that a system's branch lacks
+  is refused by `check runtime --target=<arch>-<os>` (`E3004`), never a stub.
+- **A system call is made by its number**, a named constant of `layout_gen.maxon` (`internal/abigen/linux.go`), with
+  `__Raw.syscallN`; it gives `-errno` on a failure (`failed`, `errnoOf` of `linux.maxon`).
 - **A DLL function is called by its name**, a string literal, which must be in the executable's import list
   (`importNames` in `internal/abigen/imports.go`, which generates `self/backend/imports_gen.maxon`); `self/backend` panics on one that is not.

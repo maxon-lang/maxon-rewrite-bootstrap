@@ -80,6 +80,10 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: import is the runtime source's, which the interpreter never runs")
 	end 'visitCallImport'
 
+	function visitSyscall(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: syscall is the runtime source's, which the interpreter never runs")
+	end 'visitSyscall'
+
 	function visitAtomicAdd(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: atomicadd is the runtime source's, which the interpreter never runs")
 	end 'visitAtomicAdd'

@@ -25,17 +25,19 @@ let leakMessage = "leaked allocations: "
 
 let leakMessageEnd = "\n"
 
-// noOverlapped is WriteFile's lpOverlapped for a handle that is written in order.
-let noOverlapped = 0 as Count
+#if os(Windows)
+	// noOverlapped is WriteFile's lpOverlapped for a handle that is written in order.
+	let noOverlapped = 0 as Count
 
-// write writes a string to a handle, all of it in one WriteFile, which a console or a pipe takes whole.
-function write(handle Count, text String)
-	var written = 0 as Count
-	let box = __Raw.stringAddress(text)
-	let length = __Raw.loadWord(box, offset: stringLengthOffset)
-	let bytes = __Raw.wrappingAdd(box, right: stringBytesOffset)
-	_ = __Raw.callImport5("WriteFile", arg1: handle, arg2: bytes, arg3: length, arg4: __Raw.addressOf(written), arg5: noOverlapped)
-end 'write'
+	// write writes a string to a handle, all of it in one WriteFile, which a console or a pipe takes whole.
+	function write(handle Count, text String)
+		var written = 0 as Count
+		let box = __Raw.stringAddress(text)
+		let length = __Raw.loadWord(box, offset: stringLengthOffset)
+		let bytes = __Raw.wrappingAdd(box, right: stringBytesOffset)
+		_ = __Raw.callImport5("WriteFile", arg1: handle, arg2: bytes, arg3: length, arg4: __Raw.addressOf(written), arg5: noOverlapped)
+	end 'write'
+#endif
 
 // panicWith is what a panic runs: it writes the message to standard error and exits.
 function panicWith(message String)
@@ -82,7 +84,9 @@ function standardError() returns Count
 	return __Raw.loadWord(__Raw.stderrAddress(), offset: 0)
 end 'standardError'
 
-// exitProcess ends the process with a code; it does not return.
-function exitProcess(code Count)
-	_ = __Raw.callImport1("ExitProcess", arg1: code)
-end 'exitProcess'
+#if os(Windows)
+	// exitProcess ends the process with a code; it does not return.
+	function exitProcess(code Count)
+		_ = __Raw.callImport1("ExitProcess", arg1: code)
+	end 'exitProcess'
+#endif

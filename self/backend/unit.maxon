@@ -332,6 +332,12 @@ export type Asm
 		encodePause(code)
 	end 'pause'
 
+	// syscall calls the kernel by Linux's system call convention: the number in rax, which the result replaces, and rcx
+	// and r11 overwritten.
+	export function syscall(mutates self)
+		encodeSyscall(code)
+	end 'syscall'
+
 	// loadGs reads the word at base + disp from the start of the running thread's TEB.
 	export function loadGs(mutates self, dst X64Register, base X64Register, disp Imm32)
 		encodeLoadRegGsBaseDisp(code, dest: dst, base: base, disp: disp)

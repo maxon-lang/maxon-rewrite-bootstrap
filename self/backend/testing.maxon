@@ -48,15 +48,15 @@ export function runIr(mutates p ast.Project, fns ir.IrFunctionList, entry ast.Fu
 end 'runIr'
 
 // runPeImage writes the image to a file, runs it and gives what it printed and its exit code.
-export function runPeImage(image PeImage, name String, expectedCode ExitCode, expectedOutput String)
+export function runPeImage(image Image, name String, expectedCode ExitCode, expectedOutput String)
 	let out = runPeImageOutput(image, name: name, expectedCode: expectedCode)
 	table.assertEqStr(out.stdout, expected: expectedOutput, label: name)
 end 'runPeImage'
 
 // runPeImageOutput writes the image, runs it and checks its exit code, and gives what it wrote.
-export function runPeImageOutput(image PeImage, name String, expectedCode ExitCode) returns CollectedOutput
+export function runPeImageOutput(image Image, name String, expectedCode ExitCode) returns CollectedOutput
 	let path = peTempPath(name)
-	try writePeImage(image, path: path) otherwise panic("cannot write {name}")
+	try writeImage(image, path: path) otherwise panic("cannot write {name}")
 	let out = try Subprocess.run(Executable.path(peTempPath(name)), arguments: Array.create(0)) otherwise panic("cannot run {name}")
 	try File.delete(path) otherwise panic("cannot delete {name}")
 	if out.exitCode() != expectedCode 'code'

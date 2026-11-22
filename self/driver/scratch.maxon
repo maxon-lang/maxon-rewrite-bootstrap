@@ -4,12 +4,14 @@
 // test deletes its executable only when it can and the run tries the rest again when it is over.
 type Scratch
 	var prefix as String
+	var suffix as String
 	var made as Count
 	var left as ast.StringList
 
-	static function make(kind String) returns Scratch
+	// make is the scratch of a run of a kind of tests whose executables' names end with suffix, their target's.
+	static function make(kind String, suffix String) returns Scratch
 		let dir = try Process.environmentVariable("TEMP") otherwise panic("test: TEMP is not set")
-		return Scratch{prefix: "{dir}\\minimaxon-{kind}-{Process.id()}-", made: 0, left: ast.StringList.create(0)}
+		return Scratch{prefix: "{dir}\\minimaxon-{kind}-{Process.id()}-", suffix: suffix.clone(), made: 0, left: ast.StringList.create(0)}
 	end 'make'
 
 	// nextExecutable is the path of an executable that no other test of this run, and no other run, builds to.
@@ -21,7 +23,7 @@ type Scratch
 	// executableAt is the path of the executable of the test numbered n, which no other test of this run, and no other run,
 	// builds to.
 	function executableAt(n Count) returns String
-		return "{prefix}{n}{executableExtension}"
+		return "{prefix}{n}{suffix}"
 	end 'executableAt'
 
 	// discard deletes the executable of a finished test if the system lets it, and leaves it for finish if not.

@@ -44,6 +44,7 @@ export enum Opcode
 	opStoreRaw
 	opGlobalAddr
 	opCallImport
+	opSyscall
 	opAtomicAdd
 	opAtomicExchange
 	opCompareExchange
@@ -671,6 +672,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opCallImport 'opCallImport'
 		return 7
 	end 'opCallImport'
+	if op == Opcode.opSyscall 'opSyscall'
+		return 7
+	end 'opSyscall'
 	if op == Opcode.opAtomicAdd 'opAtomicAdd'
 		return 3
 	end 'opAtomicAdd'
@@ -1008,6 +1012,16 @@ export function newCallImport(dst Reg, name Index, argsStart Reg, argsCount Reg)
 	r.b = argsCount
 	return r
 end 'newCallImport'
+
+// Syscall calls the kernel with the number that is the first of Args and the words that follow it, by the
+// target's system call convention, and gives what it returns.
+export function newSyscall(dst Reg, argsStart Reg, argsCount Reg) returns Instr
+	var r = Instr.make(Opcode.opSyscall)
+	r.dst = dst
+	r.a = argsStart
+	r.b = argsCount
+	return r
+end 'newSyscall'
 
 // AtomicAdd adds Src to the word at an address as one indivisible step, a full fence, and gives the word it found.
 export function newAtomicAdd(dst Reg, addr Reg, src Reg) returns Instr
@@ -1639,6 +1653,16 @@ export function callImportArgsCount(x Instr) returns Count
 	return try x.b as Count otherwise panic("ir: callImport args is out of range")
 end 'callImportArgsCount'
 
+// syscallArgsStart is where the args of a Syscall start in their pool.
+export function syscallArgsStart(x Instr) returns Count
+	return try x.a as Count otherwise panic("ir: syscall args is out of range")
+end 'syscallArgsStart'
+
+// syscallArgsCount is how many args a Syscall has.
+export function syscallArgsCount(x Instr) returns Count
+	return try x.b as Count otherwise panic("ir: syscall args is out of range")
+end 'syscallArgsCount'
+
 export function atomicAddAddr(x Instr) returns Reg
 	return x.a
 end 'atomicAddAddr'
@@ -2223,6 +2247,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opCallImport 'opCallImport'
 		return table.Option.some(x.dst)
 	end 'opCallImport'
+	if x.op == Opcode.opSyscall 'opSyscall'
+		return table.Option.some(x.dst)
+	end 'opSyscall'
 	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
 		return table.Option.some(x.dst)
 	end 'opAtomicAdd'
@@ -2417,6 +2444,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opCallImport 'opCallImport'
 		return table.Option.none
 	end 'opCallImport'
+	if x.op == Opcode.opSyscall 'opSyscall'
+		return table.Option.none
+	end 'opSyscall'
 	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
 		return table.Option.none
 	end 'opAtomicAdd'
@@ -2567,6 +2597,7 @@ export function instrCanFail(x Instr) returns bool
 		opStoreRaw gives false
 		opGlobalAddr gives false
 		opCallImport gives false
+		opSyscall gives false
 		opAtomicAdd gives false
 		opAtomicExchange gives false
 		opCompareExchange gives false
@@ -2677,6 +2708,10 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		f.regsInto(callImportArgsStart(x), count: callImportArgsCount(x), out: out)
 		return
 	end 'opCallImport'
+	if x.op == Opcode.opSyscall 'opSyscall'
+		f.regsInto(syscallArgsStart(x), count: syscallArgsCount(x), out: out)
+		return
+	end 'opSyscall'
 	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
 		out.push(atomicAddAddr(x))
 		out.push(atomicAddSrc(x))
@@ -2953,6 +2988,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opCallImport'
+	if x.op == Opcode.opSyscall 'opSyscall'
+		out.push(x.dst)
+		return
+	end 'opSyscall'
 	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
 		out.push(x.dst)
 		return
@@ -3196,6 +3235,10 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		renameRegs(args, start: callImportArgsStart(x), count: callImportArgsCount(x), names: names)
 		return
 	end 'opCallImport'
+	if x.op == Opcode.opSyscall 'opSyscall'
+		renameRegs(args, start: syscallArgsStart(x), count: syscallArgsCount(x), names: names)
+		return
+	end 'opSyscall'
 	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
 		x.a = renamedReg(names, r: x.a)
 		x.b = renamedReg(names, r: x.b)
@@ -3516,6 +3559,11 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.a = shiftedReg(x.a, by: at.args)
 		return
 	end 'opCallImport'
+	if x.op == Opcode.opSyscall 'opSyscall'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opSyscall'
 	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -3822,6 +3870,7 @@ export interface InstrVisitor
 	function visitStoreRaw(mutates self, f IrFunction, x Instr)
 	function visitGlobalAddr(mutates self, f IrFunction, x Instr)
 	function visitCallImport(mutates self, f IrFunction, x Instr)
+	function visitSyscall(mutates self, f IrFunction, x Instr)
 	function visitAtomicAdd(mutates self, f IrFunction, x Instr)
 	function visitAtomicExchange(mutates self, f IrFunction, x Instr)
 	function visitCompareExchange(mutates self, f IrFunction, x Instr)
@@ -3936,6 +3985,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitCallImport(f, x: x)
 		return
 	end 'opCallImport'
+	if x.op == Opcode.opSyscall 'opSyscall'
+		visitor.visitSyscall(f, x: x)
+		return
+	end 'opSyscall'
 	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
 		visitor.visitAtomicAdd(f, x: x)
 		return
@@ -4203,6 +4256,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opCallImport 'opCallImport'
 		return "{resultText(x.dst)}import {quote(callImportName(f, x: x))}({f.regsText(callImportArgsStart(x), count: callImportArgsCount(x))})"
 	end 'opCallImport'
+	if x.op == Opcode.opSyscall 'opSyscall'
+		return "{resultText(x.dst)}syscall({f.regsText(syscallArgsStart(x), count: syscallArgsCount(x))})"
+	end 'opSyscall'
 	if x.op == Opcode.opAtomicAdd 'opAtomicAdd'
 		return "{resultText(x.dst)}atomicadd %{atomicAddAddr(x)}, %{atomicAddSrc(x)}"
 	end 'opAtomicAdd'

@@ -166,6 +166,7 @@ export type ClassChoice
 			opStoreRaw or
 			opGlobalAddr or
 			opCallImport or
+			opSyscall or
 			opAtomicAdd or
 			opAtomicExchange or
 			opCompareExchange or

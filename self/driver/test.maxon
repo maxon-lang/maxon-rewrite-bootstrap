@@ -29,6 +29,10 @@ let expectMemoryPrefix = "// memory-limit:"
 
 let nativeOnlyDirective = "// native-only"
 
+// A program that says the targets it does not run on, as a spec test of maxon's does, is not run for them: it reads what is
+// another system's only, as a path of Windows or a program that Windows has.
+let unsupportedTargetsPrefix = "// unsupported-targets:"
+
 let schedulesPrefix = "// schedules:"
 
 // whenKeyword is the word that every program that schedules a behaviour has in one of its files, so that a run of the
@@ -84,9 +88,11 @@ type Expectation
 	var schedules as Count
 	// mentionsWhen is whether a file of the program has the word when, without which it schedules no behaviour.
 	var mentionsWhen as bool
+	// unsupportedTargets are the names of the targets the program does not run on, separated by commas.
+	var unsupportedTargets as String
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, schedules: scheduleSeeds, mentionsWhen: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, schedules: scheduleSeeds, mentionsWhen: false, unsupportedTargets: ""}
 	end 'new'
 end 'Expectation'
 
@@ -289,7 +295,9 @@ function applyDirective(mutates expect Expectation, mutates stdout ByteArray, li
 		expect.schedules = n
 	end 'schedules' else if line == nativeOnlyDirective 'native'
 		expect.nativeOnly = true
-	end 'native' else if hasPrefix(line, prefix: expectStdoutPrefix) 'stdout'
+	end 'native' else if hasPrefix(line, prefix: unsupportedTargetsPrefix) 'targets'
+		expect.unsupportedTargets = trimSpace(afterPrefix(line, prefix: unsupportedTargetsPrefix))
+	end 'targets' else if hasPrefix(line, prefix: expectStdoutPrefix) 'stdout'
 		var skip = stdoutMarkerBytes
 		if line.byteLength() > stdoutMarkerBytes and line.byteAt(stdoutMarkerBytes) == spaceByte 'space'
 			skip = stdoutMarkerBytes + 1
@@ -377,9 +385,12 @@ type CorpusOptions
 	var updatePositions as bool
 	var behavioursOnly as bool
 	var repeats as Count
+	// target is the target the programs are compiled for, whose executables runner starts.
+	var target as ast.Target
+	var runner as TargetRunner
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native}
 	end 'new'
 end 'CorpusOptions'
 
@@ -457,6 +468,13 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 		return runSpecs(path, options: options, width: width)
 	end 'specs'
 	corpus.verbose = verbose
+	corpus.target = given.target.clone()
+	let runner = runnerFor(given.target)
+	if not runner.isSome() 'noRunner'
+		printError("test: no runner on {hostTarget().name()} starts the executables of {given.target.name()}\n")
+		return usageExitCode
+	end 'noRunner'
+	corpus.runner = runner.unwrap()
 	if hasPath 'given'
 		return runTests(path, options: corpus, width: width)
 	end 'given'
@@ -500,15 +518,15 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut)))
 	end 'tests'
 	let tests = jobs.count()
-	startTests(prepareSharedRuntime(), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test"), width: width, tally: Tally.corpus(CorpusTally.make(tests)))
+	startTests(prepareSharedRuntime(options.target), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test", suffix: executableExtension(options.target)), width: width, tally: Tally.corpus(CorpusTally.make(tests)))
 	return compiledByBehaviours
 end 'runTests'
 
-// prepareSharedRuntime is the runtime that every compile of a run of tests links with, checked and compiled once. It
-// panics when the runtime does not compile, since no test could then say anything about the program it compiles.
-function prepareSharedRuntime() returns SharedRuntime
+// prepareSharedRuntime is the runtime of the target that every compile of a run of tests links with, checked and compiled
+// once. It panics when the runtime does not compile, since no test could then say anything about the program it compiles.
+function prepareSharedRuntime(target ast.Target) returns SharedRuntime
 	var errs = diag.ErrorList.create(0)
-	let shared = SharedRuntime.prepare(errs)
+	let shared = SharedRuntime.prepare(target, errs: errs)
 	if errs.count() > 0 'broken'
 		panic("test: the runtime does not compile: {joinErrors(errs)}")
 	end 'broken'
@@ -577,6 +595,9 @@ end 'mayScheduleBehaviours'
 // stageProgram compiles the test program of job, which is test index of the run, to the executable at exe, and checks what
 // it can against what its directives say before the executable runs. The executable lives only as long as the test.
 function stageProgram(shared SharedRuntime, job CorpusJob, index Count, exe String, options CorpusOptions) returns Staged
+	if listsTarget(job.expect.unsupportedTargets, target: options.target.name()) 'unsupported'
+		return Staged.done(Finished.make(TestResult.unsupported("unsupported on {options.target.name()}")))
+	end 'unsupported'
 	if endsWithText(job.file, suffix: fixCaseExtension) 'fix'
 		let stem = job.file.sliceBytes(0, endPos: try job.file.byteLength() - fixCaseExtension.byteLength() otherwise 0 as Count)
 		return Staged.done(Finished.make(runFixTest(job.file, expected: "{stem}{fixedExtension}")))
@@ -584,7 +605,9 @@ function stageProgram(shared SharedRuntime, job CorpusJob, index Count, exe Stri
 	var errs = diag.ErrorList.create(0)
 	var compiled as CompiledProgram
 	if job.expect.runtimeTier 'runtimeTier'
-		compiled = compileRuntimeTest(job.file, output: exe, options: interpretedTestOptions(), errs: errs)
+		var runtimeOptions = interpretedTestOptions()
+		runtimeOptions.target = options.target.clone()
+		compiled = compileRuntimeTest(job.file, output: exe, options: runtimeOptions, errs: errs)
 		diag.sortErrors(errs)
 	end 'runtimeTier' else 'program'
 		compiled = compileForTest(shared, file: job.file, output: exe, errs: errs)
@@ -655,9 +678,9 @@ end 'hasWhen'
 
 // runNativeRuns runs the executable runs times, and each run must give what the program expects; a failure says which run
 // it was and under what worker count, since a program that schedules behaviours runs under another schedule each time.
-function runNativeRuns(exe String, expect Expectation, runs Count) returns TestResult
+function runNativeRuns(exe String, expect Expectation, runs Count, runner TargetRunner) returns TestResult
 	for run in 0 upto runs 'runs'
-		let result = runNative(exe, expect: expect)
+		let result = runNative(exe, expect: expect, runner: runner)
 		if result.outcome == TestOutcome.testFailed 'failed'
 			if runs == 1 'once'
 				return result
@@ -784,12 +807,13 @@ union ExecutableRun
 	timedOut
 end 'ExecutableRun'
 
-// runExecutable runs the executable at exe with no arguments, for no longer than testRunDeadlineMs.
-function runExecutable(exe String) returns ExecutableRun
+// runExecutable runs the executable at exe with no arguments, through the runner of its target, for no longer than
+// testRunDeadlineMs.
+function runExecutable(exe String, runner TargetRunner) returns ExecutableRun
 	let exePath = try FilePath.from(exe) otherwise return ExecutableRun.cannotStart
 	let deadline = WaitDeadline.within(testRunDeadlineMs)
 	try 'run'
-		let out = Subprocess.runWithDeadline(Executable.path(exePath.clone()), arguments: CommandNames.create(0), deadline: deadline)
+		let out = Subprocess.runWithDeadline(runnerExecutable(runner, exe: exePath), arguments: runnerArguments(runner, exe: exe), deadline: deadline)
 		return ExecutableRun.ran(out)
 	end 'run' otherwise (e) 'failed'
 		match e 'kind'
@@ -809,8 +833,8 @@ end 'runExecutable'
 
 // runNative runs the executable and checks its output and exit code against what the program expects. The memory limit
 // of the directive is not enforced.
-function runNative(exe String, expect Expectation) returns TestResult
-	match consumes runExecutable(exe) 'run'
+function runNative(exe String, expect Expectation, runner TargetRunner) returns TestResult
+	match consumes runExecutable(exe, runner: runner) 'run'
 		ran(out) then return checkNativeOutput(out, exe: exe, expect: expect)
 		cannotStart then return TestResult.failed("cannot run {exe}")
 		timedOut then return TestResult.failed("timed out")

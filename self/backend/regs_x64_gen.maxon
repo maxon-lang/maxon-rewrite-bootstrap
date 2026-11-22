@@ -6,7 +6,7 @@ export function x64Reserved() returns RegMask
 	return 0x30
 end 'x64Reserved'
 
-// x64StackAlignment is the alignment of the stack pointer at a call of the host convention.
+// x64StackAlignment is the alignment of the stack pointer at a call of a host convention.
 export let x64StackAlignment = 16
 
 // The internal convention: the convention between the compiler's own functions, maxon's.
@@ -70,36 +70,134 @@ export function x64InternalCallerSaved() returns RegMask
 	return 0x3F0FC7
 end 'x64InternalCallerSaved'
 
-// The host convention: Win64, the convention of a DLL's functions.
+// The Windows host convention: Win64, the convention of a DLL's functions.
 
-// x64HostArgCount is how many integer arguments a call passes in registers; the rest go on the stack.
-export let x64HostArgCount = 4
+// x64WindowsHostArgCount is how many integer arguments a call passes in registers; the rest go on the stack.
+export let x64WindowsHostArgCount = 4
 
-// x64HostArg is the register of an argument, of the first x64HostArgCount.
-export function x64HostArg(index Count) returns X64Register
+// x64WindowsHostArg is the register of an argument, of the first x64WindowsHostArgCount.
+export function x64WindowsHostArg(index Count) returns X64Register
 	return match index 'index'
 		0 gives X64Register.rcx
 		1 gives X64Register.rdx
 		2 gives X64Register.r8
 		3 gives X64Register.r9
-		default panic("backend: an argument past the registers of the host convention")
+		default panic("backend: an argument past the registers of the Windows host convention")
 	end 'index'
-end 'x64HostArg'
+end 'x64WindowsHostArg'
 
-// x64HostResult is the register of a call's result.
-export let x64HostResult = X64Register.rax
+// x64WindowsHostResult is the register of a call's result.
+export let x64WindowsHostResult = X64Register.rax
 
-// x64HostShadowBytes is the stack a caller keeps below the stack arguments for the callee to write.
-export let x64HostShadowBytes = 32
+// x64WindowsHostShadowBytes is the stack a caller keeps below the stack arguments for the callee to write.
+export let x64WindowsHostShadowBytes = 32
 
-// x64HostCalleeSaved are the registers a call keeps:
+// x64WindowsHostCalleeSaved are the registers a call keeps:
 // rbx rsi rdi r12 r13 r14 r15 xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15.
-export function x64HostCalleeSaved() returns RegMask
+export function x64WindowsHostCalleeSaved() returns RegMask
 	return 0xFFC0F0C8
-end 'x64HostCalleeSaved'
+end 'x64WindowsHostCalleeSaved'
 
-// x64HostCallerSaved are the registers a call may leave holding anything:
+// x64WindowsHostCallerSaved are the registers a call may leave holding anything:
 // rax rcx rdx r8 r9 r10 r11 xmm0 xmm1 xmm2 xmm3 xmm4 xmm5.
-export function x64HostCallerSaved() returns RegMask
+export function x64WindowsHostCallerSaved() returns RegMask
 	return 0x3F0F07
-end 'x64HostCallerSaved'
+end 'x64WindowsHostCallerSaved'
+
+// The Linux host convention: System V, the convention of a shared library's functions.
+
+// x64LinuxHostArgCount is how many integer arguments a call passes in registers; the rest go on the stack.
+export let x64LinuxHostArgCount = 6
+
+// x64LinuxHostArg is the register of an argument, of the first x64LinuxHostArgCount.
+export function x64LinuxHostArg(index Count) returns X64Register
+	return match index 'index'
+		0 gives X64Register.rdi
+		1 gives X64Register.rsi
+		2 gives X64Register.rdx
+		3 gives X64Register.rcx
+		4 gives X64Register.r8
+		5 gives X64Register.r9
+		default panic("backend: an argument past the registers of the Linux host convention")
+	end 'index'
+end 'x64LinuxHostArg'
+
+// x64LinuxHostResult is the register of a call's result.
+export let x64LinuxHostResult = X64Register.rax
+
+// x64LinuxHostFloatArgCount is how many float arguments a call passes in registers, counted apart from the integer ones; the
+// rest go on the stack.
+export let x64LinuxHostFloatArgCount = 8
+
+// x64LinuxHostFloatArg is the number in the register file of the register of a float argument, of the first
+// x64LinuxHostFloatArgCount.
+export function x64LinuxHostFloatArg(index Count) returns RegNum
+	return match index 'index'
+		0 gives 16 as RegNum
+		1 gives 17 as RegNum
+		2 gives 18 as RegNum
+		3 gives 19 as RegNum
+		4 gives 20 as RegNum
+		5 gives 21 as RegNum
+		6 gives 22 as RegNum
+		7 gives 23 as RegNum
+		default panic("backend: a float argument past the registers of the Linux host convention")
+	end 'index'
+end 'x64LinuxHostFloatArg'
+
+// x64LinuxHostFloatResult is the number in the register file of the register of a call's float result.
+export let x64LinuxHostFloatResult = 16 as RegNum
+
+// x64LinuxHostShadowBytes is the stack a caller keeps below the stack arguments for the callee to write.
+export let x64LinuxHostShadowBytes = 0
+
+// x64LinuxHostCalleeSaved are the registers a call keeps:
+// rbx r12 r13 r14 r15.
+export function x64LinuxHostCalleeSaved() returns RegMask
+	return 0xF008
+end 'x64LinuxHostCalleeSaved'
+
+// x64LinuxHostCallerSaved are the registers a call may leave holding anything:
+// rax rcx rdx rsi rdi r8 r9 r10 r11 xmm0 xmm1 xmm2 xmm3 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15.
+export function x64LinuxHostCallerSaved() returns RegMask
+	return 0xFFFF0FC7
+end 'x64LinuxHostCallerSaved'
+
+// The Linux syscall convention: a system call: the number in rax and up to six words, the result in rax, or -errno.
+
+// x64LinuxSyscallArgCount is how many integer arguments a call passes in registers; the rest go on the stack.
+export let x64LinuxSyscallArgCount = 6
+
+// x64LinuxSyscallArg is the register of an argument, of the first x64LinuxSyscallArgCount.
+export function x64LinuxSyscallArg(index Count) returns X64Register
+	return match index 'index'
+		0 gives X64Register.rdi
+		1 gives X64Register.rsi
+		2 gives X64Register.rdx
+		3 gives X64Register.r10
+		4 gives X64Register.r8
+		5 gives X64Register.r9
+		default panic("backend: an argument past the registers of the Linux syscall convention")
+	end 'index'
+end 'x64LinuxSyscallArg'
+
+// x64LinuxSyscallResult is the register of a call's result.
+export let x64LinuxSyscallResult = X64Register.rax
+
+// x64LinuxSyscallNumber is the register of a system call's number.
+export let x64LinuxSyscallNumber = X64Register.rax
+
+// x64LinuxSyscallShadowBytes is the stack a caller keeps below the stack arguments for the callee to write.
+export let x64LinuxSyscallShadowBytes = 0
+
+// x64LinuxSyscallCalleeSaved are the registers a call keeps:
+// rbx r12 r13 r14 r15 xmm0 xmm1 xmm2 xmm3 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15.
+export function x64LinuxSyscallCalleeSaved() returns RegMask
+	return 0xFFFFF008
+end 'x64LinuxSyscallCalleeSaved'
+
+// x64LinuxSyscallCallerSaved are the registers a call may leave holding anything:
+// rax rcx rdx rsi rdi r8 r9 r10 r11.
+export function x64LinuxSyscallCallerSaved() returns RegMask
+	return 0xFC7
+end 'x64LinuxSyscallCallerSaved'

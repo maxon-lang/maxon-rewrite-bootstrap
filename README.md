@@ -1,8 +1,8 @@
 # minimaxon
 
 A Maxon compiler for trying out language changes, and the seed of the next full Maxon compiler. It is written in
-Maxon (`self/`), compiles itself, targets x64 Windows only, and writes a PE executable directly, with no external
-assembler, linker or C runtime.
+Maxon (`self/`), compiles itself, targets x64 Windows and x64 Linux (`--target`), and writes a PE executable or a static ELF
+one directly, with no external assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it, but it
 replaces it: `self/` grows into the full compiler. It is compatible with current Maxon except for the language changes
@@ -35,10 +35,10 @@ generator.
 
 | Command | What it does |
 |---|---|
-| `minimaxon build <file\|dir> [-o out.exe]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules") |
+| `minimaxon build <file\|dir> [-o out.exe] [--target=<arch>-<os>]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules"); `--target` names the target, `x64-windows` or `x64-linux` (see "Targets"), the system the compiler runs on by default |
 | `minimaxon run <file\|dir>` | compile to the temporary directory, as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check [--tests] <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime"); `--tests` checks every module's files of tests (`.maxtest`) with its source |
-| `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--executables=N] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
+| `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--executables=N] [--target=<arch>-<os>] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests"), compiled for the target and run through its runner |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
 | `minimaxon test <module dir>` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests") |
 | `minimaxon selftest` | run the compiler's own tests: `test self`, from the root of the repository |
@@ -115,12 +115,36 @@ products of the stages it waited on, as an executor of behaviours gives it); the
 (`check.ps1` checks `self` with it). `--update-positions` makes `test` rewrite the `at L:C` of an
 `expect-error` whose code was reported at another place, and count the test as passed.
 
+### Targets
+
+`--target=<arch>-<os>` (on `build`, `run`, `check` and `test`) names what a compile is for, as maxon spells it: `x64-windows`, a PE
+executable that imports kernel32, or `x64-linux`, a static ELF executable (`ET_EXEC` at maxon's fixed load address,
+0x400000, with no interpreter, no dynamic section and no relocation) that calls the kernel itself. A name of no target is refused
+with the list of the targets and exit code 1, as maxon's is. The default is the system the compiler runs on (`hostTarget`, a
+`#if` of `self/driver/targets.maxon`), and a `build` with no `-o` names its executable with the target's extension, `.exe` or
+none. The target picks the branches of every `#if` of the compile, the runtime's among them (see "The runtime"), and is part of
+the key of every module in the build cache. Code generation is the same for both: one IR, one x64 selection, one internal
+convention; what differs is stated in tables (`internal/targetgen`'s systems, `internal/abigen`'s imports and Linux
+numbers) and behind one choice per place, by `ast.TargetSystem`: the entry stub (`entry.maxon`, `entry_linux.maxon`), the
+writer of the executable (`buildImage`: `pe.maxon` or `elf.maxon`), the read of a thread's context (`x64.rules`) and the way
+the runtime reaches the system (`import` or `syscall`, each refused by the backend on the other system). `minimaxon test
+--target=x64-linux` on Windows compiles each test for Linux and runs its executable through WSL (`wsl.exe --exec` and the
+executable's path under `/mnt/`, in the default distribution), as maxon's `targets.tsv` names a runner for each target; the
+executables' count of workers reaches WSL through `WSLENV=MAXON_MAX_PROCS`, which the caller sets. A program that the
+target cannot run says so with `// unsupported-targets: x64-linux` (maxon's directive of a spec test), and a run for that target
+prints it as `SKIP` and counts it as not supported; `os-io`, `subprocess` and `conditional-compilation` are Windows'
+and `os-io-on-linux` and `subprocess-on-linux` Linux's.
+The compiler cross-compiles itself: `build self --target=x64-linux` makes a Linux compiler, which checks and builds programs
+under WSL, and builds itself there to the same bytes. On Linux a compiler finds `runtime/` as on Windows and joins paths
+with `/` (`nativeSeparator` of `self/project`); its build cache is under `MINIMAXON_CACHE` only, since there is no
+`LOCALAPPDATA`, and `run` and `test` still put their executables under `TEMP`.
+
 ### Tests
 
 `.\check.ps1` is the gate. In order, it formats, `go fix`es and vets the Go of the generators and tools; runs the
 generators and fails if a generated file (`*_gen.*`) changed; has the seed build `bin\minimaxon.exe`; and then runs
 `suites.ps1` on it, which runs the Go tests of the generators and tools (`go test ./...`, with that compiler as
-`cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime`, `check self --tests` (the compiler's own source and its files of tests under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
+`cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime` for each target, `check self --tests` (the compiler's own source and its files of tests under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
 input), the programs that schedule behaviours again under one worker and under two (`test --behaviours` with
 `MAXON_MAX_PROCS` set), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
 an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
@@ -303,7 +327,7 @@ layering cannot erode:
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, what its arithmetic computes (`evaluate_gen.maxon`, generated from the IR table: `evalBin`, `evalCmp`, `evalGuard` and the rest, one per operation that computes a word from its operands, which the interpreter and the fold pass both call; `evaluate.maxon` has the algorithms the table names: the 64-bit wraps, the wide product, the shifts, the overflow tests and the float conversions), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: leaf inlining (`Leaves`, `Inliner`, `self/opt/inline.maxon`), its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters) and the fold pass (`Fold`, `self/opt/fold.maxon`), which `optimizeModule` (`self/opt/optimizer.maxon`) runs in that order on every function a native build compiles; after leaf inlining, loop rotation (`Rotator`, `rotate.maxon`), loop-invariant code motion (`Licm`, `licm.maxon`) and common subexpression elimination (`Cse`, `cse.maxon`), over what may be merged or moved of each operation (`motionOf`, `motion.maxon`), the loops' facts (`LoopFacts`, `loops.maxon`) and the edits they share (`Editor`, `edit.maxon`) | `ast`, `ir` |
-| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
+| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub of each system (`entry.maxon`, `entry_linux.maxon`), the linker, and the writers of the executable's formats behind one image (`image.maxon`: the PE writer `pe.maxon` and the ELF writer `elf.maxon`) | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; `cache.maxon` is the build cache, `unittests.maxon` the compile of a module's tests; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -326,9 +350,9 @@ run.
 | `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv`, `self/driver/skips.tsv` (the code pairs and the tests `fix specs` skips; it names codes of the first) | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon`, `self/driver/skips_gen.maxon` |
 | `internal/irgen` | `internal/irgen/irtable/table.go` and `semantics.go` | `self/ir/ir_gen.maxon`, `self/ir/evaluate_gen.maxon` |
 | `internal/x64gen` | `internal/x64gen/x64table/table.go` | `self/backend/x64_gen.maxon` |
-| `internal/targetgen` | `internal/targetgen/target/target.go`: each target's register file (names, encodings, classes), reserved registers and calling conventions (the internal one and the host's: argument registers in order, result, error flag, callee-saved and caller-saved), checked to split the register file; `x64table` takes its registers from it | `self/backend/regs_x64_gen.maxon` (`x64Reserved`, `x64InternalArg`, `x64InternalResult`, `x64InternalError`, `x64InternalCalleeSaved`, the `x64Host...` ones for Win64, `x64StackAlignment`) |
+| `internal/targetgen` | `internal/targetgen/target/target.go`: each processor's register file (names, encodings, classes), reserved registers and the internal calling convention, and the conventions of each system it runs (a `System`: its host convention, and the system call convention of one whose programs call the kernel themselves): argument registers in order, result, error flag, a system call's number, callee-saved and caller-saved, checked to split the register file; `x64table` takes its registers from it | `self/backend/regs_x64_gen.maxon` (`x64Reserved`, `x64InternalArg`, `x64InternalResult`, `x64InternalError`, `x64InternalCalleeSaved`, the `x64WindowsHost...` ones for Win64, the `x64LinuxHost...` ones for System V and the `x64LinuxSyscall...` ones for a Linux system call, `x64StackAlignment`) |
 | `internal/rulegen` | `internal/rulegen/generic.rules`, `internal/rulegen/pressure.rules` and `internal/rulegen/x64.rules`, checked against the IR table and the x64 rules against the instruction table | `self/opt/rewrite_gen.maxon`, `self/backend/lower_x64_gen.maxon` |
-| `internal/abigen` | `internal/abigen/table.go`, `internal/abigen/imports.go` (the kernel32 functions of the import table, in slot order; a test checks that every name the runtime and the entry stub call is listed) | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon`, `self/backend/imports_gen.maxon` (`rtDll`, a slot constant `imp<Name>` for each import, `rtImports`) |
+| `internal/abigen` | `internal/abigen/table.go`, `internal/abigen/linux.go` (the Linux x64 kernel's system call numbers, flags and record layouts that the runtime's Linux source and the Linux entry stub pass), `internal/abigen/imports.go` (the kernel32 functions of the import table, in slot order; a test checks that every name the runtime and the entry stub call is listed) | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon`, `self/backend/imports_gen.maxon` (`rtDll`, a slot constant `imp<Name>` for each import, `rtImports`) |
 | `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
 | `internal/cachegen` | the `type`, `union`, `enum` and `typealias` declarations of `table`, `ast`, `ir`, `opt` and `check` themselves, from the types the build cache stores of a module's checked state (`ast.TypeSlot`, `FuncSlot`, `ModuleTables`, `Tree`, `Typing`, `ir.IrFunction`, `opt.Leaves`, `check.ModuleChecked`) through every type their fields reach; a field of a type it cannot store fails generation, naming it | `self/<module>/cache_gen.maxon` of each of those modules: `store<T>` and, for a record, a `cacheLoad` that an extension adds (only a record's own methods make one), for a union or an array `load<T>` |
 
@@ -1100,7 +1124,10 @@ is nearest the return address, which the caller pops (`placeArgs`); the result i
 error flag of a function that throws in `r10`; `rbx`, `r12` to `r15` and `xmm6` to `xmm15` are callee-saved, and a
 function pushes those it uses. A function copies its parameters out of the argument registers in its prologue
 (`Selector.takeParams`), and reads one passed on the stack from the frame. The Win64 ABI applies only to the DLL imports
-that the runtime calls (`import`), none of which takes or returns a float.
+that the runtime calls on Windows (`import`), none of which takes or returns a float, and the system call convention
+(the number in `rax`, up to six words in `rdi`, `rsi`, `rdx`, `r10`, `r8` and `r9`, the result in `rax`, `rcx` and `r11` lost) only to the
+system calls that it makes on Linux (`syscall`, `emitSyscall`); System V's host convention is in the table for a later call of a
+shared library, which no Linux executable makes.
 
 **Floats across calls.** Which arguments of a call and whether its result are floats is its float signature
 (`ir.FloatSignature`, `self/ir/convention.maxon`): a bit for each argument by its place (an `ir.FloatMask` of 64) and a
@@ -1537,7 +1564,8 @@ of the backend. `regs_x64.maxon` holds the constraints the allocator reads, neve
 `defines`, `reuses`, `implicitUses` (a form's fixed uses, and the result registers at a return) and `implicitDefs` (fixed
 results, clobbers and a call's convention), the register file's masks (`classMask`, `allocatable`, `reservedMask`) and the
 calling conventions (`CallConvention`: the argument registers a call reads, and what it keeps), built from the
-target table's declarations (`regs_x64_gen.maxon`): the internal one and Win64 for an import. A call's `imm` is the
+target table's declarations (`regs_x64_gen.maxon`): the internal one, Win64 for an import and Linux's for a `syscall`, whose
+form is a call of that convention (`callConvention`). A call's `imm` is the
 registers its arguments are in, which `implicitUses` counts as read by it (`newCall`), and a return reads the result
 register of its function's class (`MirFunction.floatResult`).
 
@@ -1749,27 +1777,30 @@ are a `Count`:
 | `__Raw.addressOf(word)` | the address of a local `Count`, passed `mutates`: an out-parameter of a DLL function |
 | `__Raw.stringAddress(text)`, `__Raw.stringAt(box)` | the box address of a borrowed `String`; a `String` that owns a box the runtime built |
 | `__Raw.heapAddress()`, `stdoutAddress()`, `stderrAddress()` | the address of a global of the entry stub |
-| `__Raw.callImport0(name)` to `__Raw.callImport10(name, arg1: a, ..., arg10: j)` | calls the DLL function `name`, a string literal (`E2004` otherwise), with that many words by the Win64 convention, and gives what it returns |
+| `__Raw.callImport0(name)` to `__Raw.callImport10(name, arg1: a, ..., arg10: j)` | calls the DLL function `name`, a string literal (`E2004` otherwise), with that many words by the Win64 convention, and gives what it returns; Windows only |
+| `__Raw.syscall0(number)` to `__Raw.syscall6(number, arg1: a, ..., arg6: f)` | makes the system call of the number with that many words by Linux's system call convention, and gives what the kernel returns, `-errno` as a word when it failed; Linux only |
+| `__Raw.processStartAddress()` | the address of `g.processStart`, where the Linux entry keeps the stack pointer the process started with: the argument count, the arguments, a null, the environment |
 | `__Raw.atomicAdd(address, offset: o, value: v)`, `__Raw.atomicExchange(address, offset: o, value: v)` | adds `v` to the word at `address + o`, or puts `v` there, as one locked step (a full fence), and gives the word it found |
 | `__Raw.compareExchange(address, offset: o, expected: e, desired: d)` | puts `d` in the word at `address + o` when `e` is there, as one locked step, and gives the word it found: it succeeded when that is `e` |
 | `__Raw.spinPause()` | `pause`, in a loop that waits for another thread |
 | `__Raw.threadContext()` | the running thread's context: the word in the runtime's thread-local slot |
 | `__Raw.callCode1(code, arg1: a)` | calls the code at the address `code` with one word by the internal convention, as a behaviour's thunk is called with its record, and gives what it returns |
-| `__Raw.threadStartAddress()` | the address of `rt.threadStart`, the code a thread that `CreateThread` makes starts at |
+| `__Raw.threadStartAddress()` | the address of `rt.threadStart`: on Windows the code a thread that `CreateThread` makes starts at, and on Linux the routine that clones the worker's thread (see "Threads") |
 | `__Raw.codeAddress(name)` | the address of the code of the function of the module that `name`, a string literal, names (`E2004` otherwise, and `E3004` when there is none): what a `callCode1` calls, as a test of the scheduler builds a behaviour's `run` |
 
 Only the runtime module may call them: a call anywhere else is `E3152` (maxon's `rawIntrinsicOutsideRuntimeTier`, with
 its message), which `callFunction` in `self/check/calls.maxon` raises from the rows' runtime-only flag
 (`ast.intrinsicRuntimeOnly`). They lower to IR operations that only the runtime's code has: `loadraw.W`
 and `storeraw.W`, W the width in bits, at the address plus the offset; `globaladdr` of an `Rt` global; `import`,
-which names the DLL function among the function's strings; `atomicadd`, `atomicxchg` and `cmpxchg` at the address plus
-the offset (`lock xadd`, `xchg`, `lock cmpxchg`); `spinpause`; `threadcontext`, which reads the slot straight from the
-TEB (`mov rax, gs:[rcx + 0x1480]`, `rcx` the slot's offset in `g.tlsOffset`); and `callcode`, an indirect call. Each
+which names the DLL function among the function's strings; `syscall`, a call of the system call convention; `atomicadd`, `atomicxchg` and `cmpxchg` at the address plus
+the offset (`lock xadd`, `xchg`, `lock cmpxchg`); `spinpause`; `threadcontext`, which on Windows reads the slot straight from the
+TEB (`mov rax, gs:[rcx + 0x1480]`, `rcx` the slot's offset in `g.tlsOffset`) and on Linux the word that `fs` points at
+(`mov rax, fs:[0]`), maxon's thread pointer; and `callcode`, an indirect call. Each
 atomic operation and `spinpause` reads and writes memory, so no pass moves a load or a store across one; on x64 a plain
 load is an acquire and a plain store a release, so these are all the scheduler needs. The interpreter never runs the
 runtime's source, so it panics on each of them. The wrapping arithmetic is an unchecked `bin`, `addressOf`
 the `addr` of the local's slot, and `stringAddress` and `stringAt` the word itself. `self/backend` writes them
-(`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, and `emitCallImport`, which aligns the stack itself, since a Maxon
+(`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, `emitSyscall`, and `emitCallImport`, which aligns the stack itself, since a Maxon
 function's frame is not aligned, and keeps `rsp` in a value that allocation puts in a register Win64 keeps).
 
 **From an entry to a function.** The runtime entries the compiler calls are the rows of the table's `entries`
@@ -1787,7 +1818,8 @@ mapped function exists with exactly that signature (`E3004` when it is missing, 
 `rtSymbol` says. A new entry is a row of each table and a function in `runtime/`.
 
 **Globals.** The entry stub keeps the process heap and the two standard handles (`g.heap`, `g.stdout`, `g.stderr`),
-which it sets before `main`; the linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a global through its address intrinsic.
+which it sets before `main`, on Linux the standard handles, fds 1 and 2, and the stack pointer the process started with
+(`g.processStart`), and no heap; the linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a global through its address intrinsic.
 The runtime is the same code whatever the build: each thread's heap always knows its live boxes, and `--count-allocations` changes only
 the stub, which then passes the exit code to the runtime's `checkLeaks`, which sums the live boxes of the threads' heaps;
 that exits with the leak report and 99 when
@@ -1803,6 +1835,18 @@ context: it saves the registers Win64 keeps that the internal convention does no
 the context in (`rbx`), keeps the fault handler's stack (`SetThreadStackGuarantee`), stores the
 context with `TlsSetValue` and calls the runtime's `workerMain` with it. `abigen` also has the layouts of a frozen
 value's box, a cown and a behaviour's record with its request slots, the scheduler's record and a worker's queue.
+
+**Threads on Linux.** The context of a thread is the word that its `fs` points at, as maxon's runtime keeps its slot block: the entry
+makes `fs` point at `g.tlsSlot`, which holds the address of `g.mainContext` (`arch_prctl(ARCH_SET_FS)`), and moves the main
+thread to a stack of the same 256 MB reserve that a worker has (`mmap` with `MAP_NORESERVE`, its lowest page the guard), since
+the kernel's is as large as the shell's soft limit. To start a worker the runtime maps its stack the same way, stores the
+context in the stack's top word and calls `rt.threadStart` with that word's address (`callCode1`), which clones the thread
+(`CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS`, maxon's worker flags but the join) with the
+word as both its stack and its thread pointer; the new thread starts after the `clone`, gives itself a signal stack and calls
+`workerMain` with the word it finds at its stack pointer. A worker parks on a futex on its queue's sleeping flag in place of an
+event (`FUTEX_WAIT_PRIVATE` while the flag is 1, and a waker's `FUTEX_WAKE_PRIVATE` after its compare-exchange takes the flag
+to 0, so a wake before the wait makes the wait return at once, as a set event does), yields with `sched_yield`, and counts the
+processors by its affinity mask (`sched_getaffinity`), as maxon's does. The process ends with `exit_group`.
 
 **The scheduler** (`runtime/sched.maxon`) runs behaviours to completion on worker threads, Verona's model with no green
 thread and no stack switch. The main thread is worker 0; the first behaviour scheduled (`schedEnter`) starts the other
@@ -1827,7 +1871,11 @@ operators, which each pass walks with a loop (`ast.leftChain`), so a sum of 200,
 past the stack's guard page (`SetThreadStackGuarantee`) and registers a vectored exception handler (`rt.fault`), as
 maxon's runtime does: a stack overflow, an access violation or an integer divide fault writes `panic: stack overflow at
 rip=0x<address>` (or `nil pointer or invalid memory access`, `integer divide by zero`, `integer overflow`) to standard
-error and exits with 1, the panic code, so a program, the compiler among them, never dies without a word. The handler
+error and exits with 1, the panic code, so a program, the compiler among them, never dies without a word. On Linux the entry
+makes the handler (`rt.fault` of `entry_linux.maxon`) the action of `SIGSEGV`, `SIGBUS` and `SIGFPE` (`rt_sigaction`, with`SA_ONSTACK` and the
+restorer `rt.sigreturn` that x86-64 requires), and each thread maps a signal stack of the same 32 KB (`sigaltstack`); a
+`SIGSEGV` or `SIGBUS` within 64 KB of the faulting `rsp` is a stack overflow (maxon's `StackFaultReachBytes`), any other an
+access violation, and a `SIGFPE` an integer divide fault, an integer overflow when its `si_code` says so. The handler
 calls only kernel32 and allocates nothing; it prints no backtrace, which maxon's does. Every other exception goes on to
 the system. A `panic(message)` of the program, or of the runtime's source, writes maxon's line, `panic at <file>:<line>:
 <message>`, with the last component of the file's path (`runtime::panicAt`, the location a constant of the call), and
@@ -3274,6 +3322,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- x64-linux: a file the Linux runtime writes (`File.writeText`, `File.writeBinary`) is made with mode 0666 under the umask, and
+  there is no `mode:` argument, so an executable that a compiler running on Linux builds is not executable until it is made so;
+  maxon's ELF writer writes its executable with `FilePermission.executable`. `FilePath.from` turns a backslash into a slash
+  and refuses nothing on Linux, as maxon's does. A run of a program found on `PATH` looks for it as `execvp` does, in the run's
+  own `PATH`; the run passes the child the run's environment.
 - `Process.setExitCode(code)` sets the code the process ends with when `main` has returned and no behaviour is left,
   in place of `main`'s; the last code set wins. Maxon has none: its programs wait for their behaviours with `await`,
   which minimaxon does not have, so a behaviour that finds the program's result needs this to report it.
@@ -3286,8 +3339,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 - Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
   directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch
-  be any run of tokens); the target is x64 Windows only, so `os(Windows)` and `arch(x64)` are the conditions that hold, and
-  `debugstream` is never on. A `test` runs nowhere: there is no `maxon test` and no `Expect` or `TestFailure`, a test is
+  be any run of tokens); the targets are x64 Windows and x64 Linux, so `os(Windows)` or `os(Linux)` and `arch(x64)` are the conditions
+  that hold, and `debugstream` is never on. A `test` runs nowhere: there is no `maxon test` and no `Expect` or `TestFailure`, a test is
   checked and left out of the program, and a `.maxtest` file is read only where a project names its files itself (a spec
   test). `@heap` on a value that owns no heap is reported
   by the checker and not the parser, and its message names the kind of the value (`int`, `float`, `bool`, `enum`, `function`).

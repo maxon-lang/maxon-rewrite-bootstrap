@@ -21,7 +21,7 @@ end 'goalOf'
 function buildPath(path String, output String, options Options) returns ExitCode
 	let trace = Trace.start(options.trace)
 	var errs = diag.ErrorList.create(0)
-	var p = ast.Project.new("")
+	var p = projectFor(options.target)
 	let ready = runtimeFor(p, path: path, output: output, options: options, errs: errs)
 	if errs.count() > 0 'broken'
 		return report(errs)
@@ -56,7 +56,7 @@ let compiledByBehaviours = 0 as ExitCode
 
 // compileProject is compilePath's compile, which leaves the diagnostics in errs for the caller to report.
 function compileProject(path String, output String, options Options, mutates errs diag.ErrorList)
-	var p = ast.Project.new("")
+	var p = projectFor(options.target)
 	let ready = runtimeFor(p, path: path, output: output, options: options, errs: errs)
 	if errs.count() > 0 'broken'
 		return
@@ -90,9 +90,11 @@ type SharedRuntime
 	var p as frozen with ast.Project
 	var ready as frozen with backend.UnitList
 
-	static function prepare(mutates errs diag.ErrorList) returns SharedRuntime
-		var p = ast.Project.new("")
-		let ready = prepareRuntime(p, options: Options.new(), errs: errs)
+	static function prepare(target ast.Target, mutates errs diag.ErrorList) returns SharedRuntime
+		var p = projectFor(target)
+		var options = Options.new()
+		options.target = target.clone()
+		let ready = prepareRuntime(p, options: options, errs: errs)
 		_ = ast.takeBody(p, module: runtimeModule)
 		return SharedRuntime{p: freeze(p), ready: freeze(ready)}
 	end 'prepare'
@@ -107,6 +109,13 @@ type SharedRuntime
 		return copyOfProject(p)
 	end 'projectForProgram'
 end 'SharedRuntime'
+
+// projectFor is a new project of the target, which no module is in yet.
+function projectFor(target ast.Target) returns ast.Project
+	var p = ast.Project.new("")
+	p.target = target.clone()
+	return p
+end 'projectFor'
 
 // copyOfProject is a copy of p, which a frozen project's contents are copied by.
 function copyOfProject(p ast.Project) returns ast.Project
@@ -174,7 +183,7 @@ end 'compileSourceWith'
 // compileRuntimeTest compiles a test of the runtime: the file is compiled as one more file of the runtime's module,
 // whose main it holds, so that it may call the runtime's functions and the __Raw intrinsics, as a program may not.
 function compileRuntimeTest(file String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
-	var p = ast.Project.new("")
+	var p = projectFor(options.target)
 	project.discoverRuntime(p)
 	p.modules[ast.modIndex(p.rootModule)].filePaths.push(file.clone())
 	let generated = compileDiscovered(p, memory: project.SourceFiles.create(0), first: 0, ready: noReadyUnits(), output: output, options: options, errs: errs)
@@ -192,6 +201,7 @@ function prepareRuntime(mutates p ast.Project, options Options, mutates errs dia
 	runtimeOptions.cacheDir = options.cacheDir.clone()
 	runtimeOptions.compiler = options.compiler.clone()
 	runtimeOptions.verifiesCache = options.verifiesCache
+	runtimeOptions.target = options.target.clone()
 	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: noReadyUnits(), errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)

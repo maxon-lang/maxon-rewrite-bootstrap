@@ -1,0 +1,56 @@
+// The executable's file in memory, whatever its format: the writer of the target's format (pe.maxon, elf.maxon) lays it
+// out with its headers and leaves the code and the data zeroed at the places they have in the file, and the link writes
+// them there and patches the addresses they refer to by where the image puts each part.
+
+// Image is an executable's file and where its parts are: the address the image is loaded at, and the code, the data and
+// the import slots by their offset from it (their RVA), how many import slots there are, and the code and the data by
+// their offset in the file.
+export type Image
+	export var file as ByteArray
+	export var base as Count
+	export var textRva as Count
+	export var dataRva as Count
+	export var iatRva as Count
+	export var importSlots as Count
+	export var codeOffset as Count
+	export var dataOffset as Count
+
+	static function make(consumes file ByteArray, base Count, textRva Count, dataRva Count, iatRva Count, importSlots Count, codeOffset Count, dataOffset Count) returns Image
+		return Image{file: file, base: base, textRva: textRva, dataRva: dataRva, iatRva: iatRva, importSlots: importSlots, codeOffset: codeOffset, dataOffset: dataOffset}
+	end 'make'
+end 'Image'
+
+// ImageLayout is what a writer lays an image out for: the sizes of the code and the data, the offset of the entry point
+// in the code, and the offsets of the data, in increasing order, of the words that hold addresses of the image.
+export type ImageLayout
+	export var codeSize as Count
+	export var dataSize as Count
+	export var entryOffset as Count
+	export var relocated as CountList
+
+	static function make(codeSize Count, dataSize Count, entryOffset Count, consumes relocated CountList) returns ImageLayout
+		return ImageLayout{codeSize: codeSize, dataSize: dataSize, entryOffset: entryOffset, relocated: relocated}
+	end 'make'
+end 'ImageLayout'
+
+// buildImage lays out the executable of the system's format: a PE with the table of the runtime's imports for Windows,
+// and a static ELF, which imports nothing, for Linux.
+export function buildImage(system ast.TargetSystem, layout ImageLayout) returns Image
+	return match system 'system'
+		windows gives buildPeImage(layout.codeSize, dataSize: layout.dataSize, dll: rtDll, imports: rtImports(), entryOffset: layout.entryOffset, relocated: layout.relocated)
+		linux gives buildElfImage(layout)
+	end 'system'
+end 'buildImage'
+
+export function placeCode(mutates image Image, at Count, bytes ByteArray)
+	copyInto(image.file, at: sum(image.codeOffset, b: at), src: bytes)
+end 'placeCode'
+
+export function placeData(mutates image Image, at Count, bytes ByteArray)
+	copyInto(image.file, at: sum(image.dataOffset, b: at), src: bytes)
+end 'placeData'
+
+// writeImage replaces the file at path with the image.
+export function writeImage(image Image, path FilePath) throws FileWriteError
+	try File.writeBinary(path, content: image.file)
+end 'writeImage'
