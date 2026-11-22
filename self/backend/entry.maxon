@@ -49,13 +49,21 @@ type EntryCalls
 end 'EntryCalls'
 
 // emitRuntime is the unit with the entry point, the start of a thread the runtime makes, and the globals the runtime's
-// source reads, for the system the executable runs on. calls are the functions the entry calls.
-function emitRuntime(calls EntryCalls, options RuntimeOptions, system ast.TargetSystem) returns CodeUnit
+// source reads, for the target the executable runs on. calls are the functions the entry calls. The stub is code of the
+// processor's and the system's interfaces, written for each by hand.
+function emitRuntime(calls EntryCalls, options RuntimeOptions, target ast.Target) returns CodeUnit
+	return match target.arch 'arch'
+		x64 gives emitX64Runtime(calls, options: options, system: target.system)
+	end 'arch'
+end 'emitRuntime'
+
+function emitX64Runtime(calls EntryCalls, options RuntimeOptions, system ast.TargetSystem) returns CodeUnit
 	return match system 'system'
 		windows gives emitWindowsRuntime(calls, options: options)
 		linux gives emitLinuxRuntime(calls, options: options)
+		macos gives panic("backend: x64 has no entry stub for macOS")
 	end 'system'
-end 'emitRuntime'
+end 'emitX64Runtime'
 
 // emitWindowsRuntime is the Windows unit of the entry: the globals the runtime's source reads, the process heap and the
 // standard handles, which the entry sets, and the thread-local slot; the entry, the start of a thread, and the vectored
@@ -136,7 +144,7 @@ function emitTlsSetup(mutates u CodeUnit, pastTheTeb LabelID)
 	u.asm.storeWord32(rsp, disp: dwordSlot, src: rax)
 	u.asm.loadWord32(rax, base: rsp, disp: dwordSlot)
 	u.asm.cmpImm(rax, imm: tebTlsSlots)
-	u.asm.jcc(X64CondCode.aboveEqual, label: pastTheTeb)
+	u.asm.jcc(MCond.aboveEqual, label: pastTheTeb)
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtTlsSlot), src: rax)
 	u.asm.movImm(rcx, imm: wordBytes)
 	u.asm.imul(rcx, src: rax)
@@ -154,7 +162,7 @@ end 'emitTlsStore'
 // threadContextRegister is where a thread's start holds the thread's context across its calls: a register the internal
 // convention keeps, so that workerMain and the DLL functions leave it.
 function threadContextRegister() returns X64Register
-	let kept = x64InternalCalleeSaved() and x64WindowsHostCalleeSaved() and classMask(RegClass.gpr)
+	let kept = x64InternalCalleeSaved() and x64WindowsHostCalleeSaved() and classMask(x64Arch, class: RegClass.gpr)
 	for r in 0 upto x64FirstVector 'registers'
 		if maskHas(kept, number: regNumOfCount(r)) 'kept'
 			return x64RegisterOf(regNumOfCount(r))
@@ -168,7 +176,7 @@ end 'threadContextRegister'
 // code it runs keeps it.
 function threadSaves() returns RegMask
 	let changed = x64WindowsHostCalleeSaved() and not x64InternalCalleeSaved()
-	return (changed or regMaskOf(threadContextRegister())) and classMask(RegClass.gpr) and not reservedMask()
+	return (changed or regMaskOf(threadContextRegister())) and classMask(x64Arch, class: RegClass.gpr) and not reservedMask(x64Arch)
 end 'threadSaves'
 
 // emitThreadSaves pushes threadSaves, and is how many it pushed. The xmm registers Win64 keeps, the internal convention
@@ -364,16 +372,16 @@ function emitExitClaim(mutates u CodeUnit)
 	let retry = u.asm.newLabel()
 	emitLoadContext(u, system: ast.TargetSystem.windows, dst: rdx)
 	u.asm.test(rdx, right: rdx)
-	u.asm.jcc(X64CondCode.equal, label: claimed)
+	u.asm.jcc(MCond.equal, label: claimed)
 	u.asm.load(r10, base: rdx, disp: imm32Of(contextSchedulerOffset))
 	u.asm.test(r10, right: r10)
-	u.asm.jcc(X64CondCode.equal, label: claimed)
+	u.asm.jcc(MCond.equal, label: claimed)
 	u.asm.bind(retry)
 	u.asm.movImm(rax, imm: 0)
 	u.asm.lockCmpxchg(r10, disp: imm32Of(schedExitClaimOffset), src: rdx)
-	u.asm.jcc(X64CondCode.equal, label: claimed)
+	u.asm.jcc(MCond.equal, label: claimed)
 	u.asm.cmp(rax, right: rdx)
-	u.asm.jcc(X64CondCode.equal, label: claimed)
+	u.asm.jcc(MCond.equal, label: claimed)
 	u.asm.pause()
 	u.asm.jmp(retry)
 	u.asm.bind(claimed)
@@ -403,7 +411,7 @@ function emitFaultArm(mutates u CodeUnit, code FullRangeInt, words String, repor
 	let next = u.asm.newLabel()
 	u.asm.movImm(r10, imm: code)
 	u.asm.cmp(rdx, right: r10)
-	u.asm.jcc(X64CondCode.notEqual, label: next)
+	u.asm.jcc(MCond.notEqual, label: next)
 	u.asm.leaData(rax, dataOffset: u.data.textOffset(faultLineOpening(words)))
 	u.asm.jmp(report)
 	u.asm.bind(next)

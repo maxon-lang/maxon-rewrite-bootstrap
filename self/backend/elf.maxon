@@ -50,8 +50,8 @@ let elfSegmentRead = 4 as Count
 let elfNoSections = 0 as Count
 
 // buildElfImage lays out the file for the code and the data of the layout, with the entry point at its offset in the code.
-// The data's pointers hold the image's own addresses, which the link writes, so the layout's relocated offsets need no
-// table here.
+// The data's pointers hold the image's own addresses, which writePointers fills in, so the layout's pointers need no table
+// here.
 export function buildElfImage(layout ImageLayout) returns Image
 	let headersSize = sum(elfHeaderBytes, b: product(elfProgramHeaderBytes, b: elfProgramHeaderCount))
 	let codeOffset = alignUp(headersSize, alignment: codeLineBytes)

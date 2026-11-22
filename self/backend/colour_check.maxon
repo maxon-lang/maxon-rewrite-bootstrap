@@ -13,9 +13,12 @@ type ColourCheck
 	var state as CountList
 	var phys as CountList
 	var next as Count
+	// reserved are the registers of the function's architecture that hold the stack and the frame, which no value is
+	// given and nothing fixes.
+	var reserved as RegMask
 
-	static function new(regs Count) returns ColourCheck
-		var check = ColourCheck{problems: NameList.create(0), content: CountList.create(0), hasContent: BoolList.create(0), state: CountList.create(0), phys: CountList.create(0), next: 0}
+	static function new(regs Count, reserved RegMask) returns ColourCheck
+		var check = ColourCheck{problems: NameList.create(0), content: CountList.create(0), hasContent: BoolList.create(0), state: CountList.create(0), phys: CountList.create(0), next: 0, reserved: reserved}
 		ir.resetCounts(check.content, n: regs)
 		ir.resetFlags(check.hasContent, n: regs)
 		ir.resetCounts(check.state, n: firstVirtual as Count)
@@ -84,7 +87,7 @@ type ColourCheck
 			state[countOfMReg(y.a)] = state[countOfMReg(y.b)]
 			return
 		end 'copy'
-		if y.kind == MKind.target and y.form == X64Form.xorRegReg 'exchange'
+		if y.kind == MKind.target and isExclusiveOr(y.form) 'exchange'
 			let a = countOfMReg(y.a)
 			state[a] = state[a] xor state[countOfMReg(y.c)]
 			return
@@ -145,7 +148,7 @@ type ColourCheck
 			problems.push("{site}: a fixed operand {xr} became {yr}")
 			return
 		end 'moved'
-		if isPhysical(xr) and (regBit(physicalNumber(xr)) and reservedMask()) == 0 'fixed'
+		if isPhysical(xr) and (regBit(physicalNumber(xr)) and reserved) == 0 'fixed'
 			let token = phys[countOfMReg(xr)]
 			self.expect(countOfMReg(yr), token: token, what: "the value fixed in it", site: site)
 		end 'fixed'
@@ -194,14 +197,14 @@ type ColourCheck
 			end 'swap'
 			self.operand(operandAt(x, index: at), yr: operandAt(y, index: i), site: site)
 		end 'uses'
-		var fixed = implicitUses(x, fn: fn) and not reservedMask()
+		var fixed = implicitUses(x, fn: fn) and not reserved
 		while fixed != 0 'fixedUses'
 			let r = lowestRegister(fixed)
 			fixed = fixed and not maskOfCount(r)
 			let token = phys[r]
 			self.expect(r, token: token, what: "the value fixed in it", site: site)
 		end 'fixedUses'
-		var clobbered = implicitDefs(x, convs: convs) and not reservedMask()
+		var clobbered = implicitDefs(x, convs: convs) and not reserved
 		while clobbered != 0 'fixedDefs'
 			let r = lowestRegister(clobbered)
 			clobbered = clobbered and not maskOfCount(r)
@@ -218,7 +221,7 @@ type ColourCheck
 		end 'copy' else 'made'
 			token = self.fresh()
 		end 'made'
-		if isVirtual(x.a) or (isPhysical(x.a) and (regBit(physicalNumber(x.a)) and reservedMask()) == 0) 'held'
+		if isVirtual(x.a) or (isPhysical(x.a) and (regBit(physicalNumber(x.a)) and reserved) == 0) 'held'
 			self.assign(x.a, token: token)
 			state[countOfMReg(y.a)] = token
 		end 'held'
@@ -240,7 +243,7 @@ end 'commutedSlot'
 // checkColouring holds fn, which colourFunction has just coloured with s and c, to the function it was given, and gives
 // what it finds wrong, nothing when the colouring is right.
 export function checkColouring(fn MirFunction, s Spiller, c Colourer) returns NameList
-	var check = ColourCheck.new(fn.vregCount())
+	var check = ColourCheck.new(fn.vregCount(), reserved: reservedMask(fn.arch))
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
 		check.enterBlock(fn, c: c, lv: s.lv, b: b)

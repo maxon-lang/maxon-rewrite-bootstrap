@@ -1,4 +1,4 @@
-// The encoder of machine IR: an allocated function, every operand physical, into a code unit, with the same label
+// The x64 encoder of machine IR: an allocated function, every operand physical, into a code unit, with the same label
 // uses and fixups for the linker as the rest of the backend writes. The blocks are laid out as a BlockLayout plans
 // (branches.maxon), which also says where the flags are dead: there a constant 0 is the short exclusive or, and a copy
 // before the addition of a constant to it is one lea. The head of a loop is placed by fitLine (align.maxon).
@@ -7,11 +7,12 @@
 // page on the way down, so the guard page is met in order.
 let machinePageSize = 4096
 
-// encodeMachineFunction writes a function whose registers are allocated into the unit, as a section of its own, and
+// encodeX64Function writes a function whose registers are allocated into the unit, as a section of its own, and
 // defines its symbol. A function with a loop is written twice: first without padding, which gives each loop's length, and
 // then for good, with each loop's head placed so that the loop spans no more lines of code than its length needs.
-export function encodeMachineFunction(mutates u CodeUnit, fn MirFunction, instance bool, mutates lay BlockLayout)
+export function encodeX64Function(mutates u CodeUnit, fn MirFunction, instance bool, mutates lay BlockLayout)
 	lay.plan(fn)
+	lay.framed = needsFrame(fn)
 	u.beginSection()
 	if lay.heads 'loops'
 		lay.starts.clear()
@@ -21,7 +22,7 @@ export function encodeMachineFunction(mutates u CodeUnit, fn MirFunction, instan
 	end 'loops'
 	u.defineFunction(fn.symbol, instance: instance)
 	encodeBlocks(u, fn: fn, lay: lay, measure: false)
-end 'encodeMachineFunction'
+end 'encodeX64Function'
 
 // encodeBlocks writes the blocks of fn in the order of the layout. Measuring, it notes where each starts in lay.starts and
 // pads nothing; otherwise it pads before the head of each loop as fitLine says.
@@ -86,7 +87,7 @@ end 'encodeAt'
 
 // isEdgeBranch is whether an instruction is a conditional branch along an edge.
 function isEdgeBranch(x MInstr) returns bool
-	return x.kind == MKind.target and x.form == X64Form.jccRel32 and x.ref == MRef.edge
+	return isX64Form(x, form: X64Form.jccRel32) and x.ref == MRef.edge
 end 'isEdgeBranch'
 
 // isCopyAdded is whether add adds a constant to the register a copy before it wrote, the copy that allocation makes of
@@ -95,12 +96,12 @@ function isCopyAdded(copy MInstr, add MInstr) returns bool
 	if copy.kind != MKind.copy or copy.a == copy.b or add.kind != MKind.target or add.a != copy.a or add.b != copy.a 'apart'
 		return false
 	end 'apart'
-	return add.form == X64Form.addRegImm8 or add.form == X64Form.addRegImm32 or add.form == X64Form.subRegImm8 or add.form == X64Form.subRegImm32
+	return isX64Form(add, form: X64Form.addRegImm8) or isX64Form(add, form: X64Form.addRegImm32) or isX64Form(add, form: X64Form.subRegImm8) or isX64Form(add, form: X64Form.subRegImm32)
 end 'isCopyAdded'
 
 // addedDisp is the displacement that a lea adds for an addition or a subtraction of a constant.
 function addedDisp(add MInstr) returns Imm32
-	if add.form == X64Form.subRegImm8 or add.form == X64Form.subRegImm32 'sub'
+	if isX64Form(add, form: X64Form.subRegImm8) or isX64Form(add, form: X64Form.subRegImm32) 'sub'
 		return try (0 - add.imm) as Imm32 otherwise panic("backend: a subtraction of a constant whose negation is past 32 bits")
 	end 'sub'
 	return try add.imm as Imm32 otherwise panic("backend: an addition of a constant past 32 bits")
@@ -108,7 +109,7 @@ end 'addedDisp'
 
 // isZeroConstant is whether an instruction sets a register to 0.
 function isZeroConstant(x MInstr) returns bool
-	return x.kind == MKind.target and (x.form == X64Form.movRegImm32 or x.form == X64Form.movRegImm32Signed or x.form == X64Form.movRegImm64) and x.imm == 0
+	return (isX64Form(x, form: X64Form.movRegImm32) or isX64Form(x, form: X64Form.movRegImm32Signed) or isX64Form(x, form: X64Form.movRegImm64)) and x.imm == 0
 end 'isZeroConstant'
 
 function encodeMachineInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout, x MInstr)
@@ -130,7 +131,7 @@ function encodeCopy(mutates u CodeUnit, x MInstr)
 	if x.a == x.b 'same'
 		return
 	end 'same'
-	match classOfNumber(physicalNumber(x.a)) 'class'
+	match classOfNumber(x64Arch, number: physicalNumber(x.a)) 'class'
 		gpr then encodeMovRegReg(u.asm.code, dest: generalRegister(x.a), src: generalRegister(x.b))
 		xmm then encodeMovapsRegReg(u.asm.code, dest: vectorRegister(x.a), src: vectorRegister(x.b))
 	end 'class'
@@ -139,7 +140,7 @@ end 'encodeCopy'
 // encodeSpill stores a register in its spill slot, a word, the low 64 bits of an xmm register.
 function encodeSpill(mutates u CodeUnit, x MInstr)
 	let disp = spillSlotOffset(spillSlotOf(x))
-	match classOfNumber(physicalNumber(x.a)) 'class'
+	match classOfNumber(x64Arch, number: physicalNumber(x.a)) 'class'
 		gpr then encodeStoreBaseDispReg(u.asm.code, base: X64Register.rbp, disp: disp, src: generalRegister(x.a))
 		xmm then encodeMovsdBaseDispReg(u.asm.code, base: X64Register.rbp, disp: disp, src: vectorRegister(x.a))
 	end 'class'
@@ -147,7 +148,7 @@ end 'encodeSpill'
 
 function encodeReload(mutates u CodeUnit, x MInstr)
 	let disp = spillSlotOffset(spillSlotOf(x))
-	match classOfNumber(physicalNumber(x.a)) 'class'
+	match classOfNumber(x64Arch, number: physicalNumber(x.a)) 'class'
 		gpr then encodeLoadRegBaseDisp(u.asm.code, dest: generalRegister(x.a), base: X64Register.rbp, disp: disp)
 		xmm then encodeMovsdRegBaseDisp(u.asm.code, dest: vectorRegister(x.a), base: X64Register.rbp, disp: disp)
 	end 'class'
@@ -180,7 +181,7 @@ function encodeTargetInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout, 
 		edge then u.asm.useLabel(lay.label(fn, edge: refIndex(x)))
 		symbol then u.asm.noteSymbolFixup(fn.symbols[refIndex(x)])
 		data then u.asm.noteDataFixup(refIndex(x))
-		importSlot then u.asm.importFixups.push(ImportFixup.make(lastField32(u.asm.code), index: refIndex(x)))
+		importSlot then u.asm.noteImportFixup(refIndex(x))
 	end 'ref'
 end 'encodeTargetInstr'
 
@@ -197,7 +198,7 @@ end 'vectorSaveDisp'
 
 // savedVectorBytes is the room the xmm registers the prologue saves take below the slots.
 function savedVectorBytes(fn MirFunction) returns Count
-	return try maskCount(fn.savedRegs and classMask(RegClass.xmm)) * vectorSaveBytes otherwise panic("backend: a frame past memory")
+	return try maskCount(fn.savedRegs and classMask(x64Arch, class: RegClass.xmm)) * vectorSaveBytes otherwise panic("backend: a frame past memory")
 end 'savedVectorBytes'
 
 // encodeFrameSetup is the prologue. A function with a frame saves rbp, points it at the frame, and makes room for its
@@ -208,7 +209,7 @@ function encodeFrameSetup(mutates u CodeUnit, fn MirFunction, framed bool)
 	if framed 'frame'
 		encodePushReg(u.asm.code, reg: X64Register.rbp)
 		encodeMovRegReg(u.asm.code, dest: X64Register.rbp, src: X64Register.rsp)
-		let saved = try maskCount(fn.savedRegs and classMask(RegClass.gpr)) * wordBytes otherwise panic("backend: a frame past memory")
+		let saved = try maskCount(fn.savedRegs and classMask(x64Arch, class: RegClass.gpr)) * wordBytes otherwise panic("backend: a frame past memory")
 		let slots = try alignUp(fn.frameBytes() + savedVectorBytes(fn) + saved, alignment: x64StackAlignment) - saved otherwise panic("backend: a frame below zero")
 		var frame = slots as Count
 		let probes = addCounts(slots, b: saved) > machinePageSize
@@ -259,3 +260,44 @@ function encodeFrameTeardown(mutates u CodeUnit, fn MirFunction, framed bool)
 		encodeLeave(u.asm.code)
 	end 'frame'
 end 'encodeFrameTeardown'
+
+// needsFrame is whether a function needs a frame of its own: it has slots or spills, which are addressed from rbp, or it
+// calls, which needs rsp aligned, or it names rbp or rsp itself. Otherwise it is a leaf that keeps only the callee-saved
+// registers it was given.
+function needsFrame(fn MirFunction) returns bool
+	if fn.slotsGiven() > 0 or (fn.savedRegs and classMask(x64Arch, class: RegClass.xmm)) != 0 'slots'
+		return true
+	end 'slots'
+	let fp = physReg(rbp)
+	let sp = physReg(rsp)
+	for k in 0 upto fn.instrs.count() 'instrs'
+		if usesFrame(fn.instrs[k], fp: fp, sp: sp) 'uses'
+			return true
+		end 'uses'
+	end 'instrs'
+	return false
+end 'needsFrame'
+
+function usesFrame(x MInstr, fp MReg, sp MReg) returns bool
+	return match x.kind 'kind'
+		target gives isCall(x.form) or isX64Form(x, form: X64Form.pushReg) or isX64Form(x, form: X64Form.popReg) or isX64Form(x, form: X64Form.pushImm32) or namesFrame(x, fp: fp, sp: sp)
+		copy gives namesFrame(x, fp: fp, sp: sp)
+		spill or
+		reload or
+		restore gives true
+		parallelCopy gives panic("backend: a parallel copy that allocation left")
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'usesFrame'
+
+// namesFrame is whether an instruction names rbp or rsp as an operand.
+function namesFrame(x MInstr, fp MReg, sp MReg) returns bool
+	for i in 0 upto operandCount(x) 'operands'
+		let r = operandAt(x, index: i)
+		if r == fp or r == sp 'frame'
+			return true
+		end 'frame'
+	end 'operands'
+	return false
+end 'namesFrame'

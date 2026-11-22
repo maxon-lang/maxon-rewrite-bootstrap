@@ -91,8 +91,8 @@ end 'maskCount'
 // Operands are the registers one instruction reads and writes: its virtual uses, the first readLen of reads, each with
 // its slot, its virtual definitions, the first writeLen of writes, and the physical registers it reads and writes,
 // whether an operand names them or not. The lists keep their room from one instruction to the next. The fixed registers
-// each form reads and writes, and the stack and frame pointers, are looked up once, since every pass of allocation asks
-// them of every instruction.
+// each form reads and writes are looked up once, and the stack and frame pointers are the conventions', since every pass
+// of allocation asks them of every instruction.
 type Operands
 	var reads as MRegList
 	var slots as Array with Count
@@ -108,12 +108,12 @@ type Operands
 	static function new() returns Operands
 		var fixedReads = RegMaskList.create(0)
 		var fixedWrites = RegMaskList.create(0)
-		for i in 0 upto x64FormCount 'forms'
-			let form = x64FormOf(i)
+		for i in 0 upto formCount 'forms'
+			let form = try i as FormID otherwise panic("backend: more forms than a FormID names")
 			fixedReads.push(fixedUses(form))
 			fixedWrites.push(formWrites(form))
 		end 'forms'
-		return Operands{reads: MRegList.create(0), slots: Array.create(0), readLen: 0, writes: MRegList.create(0), writeLen: 0, physReads: 0, physWrites: 0, usesOfForm: fixedReads, writesOfForm: fixedWrites, reserved: reservedMask()}
+		return Operands{reads: MRegList.create(0), slots: Array.create(0), readLen: 0, writes: MRegList.create(0), writeLen: 0, physReads: 0, physWrites: 0, usesOfForm: fixedReads, writesOfForm: fixedWrites, reserved: 0}
 	end 'new'
 
 	function addRead(mutates self, r MReg, slot Count)
@@ -147,6 +147,7 @@ type Operands
 	// gather finds the operands of the instruction x of fn. A restore neither reads nor defines its register: the value
 	// it brings back is live across the bracket, and only its register is out for the bracketed instruction.
 	function gather(mutates self, fn MirFunction, x MInstr, convs Conventions)
+		reserved = convs.reserved
 		readLen = 0
 		writeLen = 0
 		physReads = 0
@@ -198,9 +199,9 @@ type Operands
 			end 'args'
 		end 'edge'
 		// The stack and frame pointers are never a value's, so nothing counts them as held.
-		let form = x.form.rawValue as Count
-		physReads = physReads or ((usesOfForm[form] or returnUses(x, fn: fn) or callUses(x)) and not reserved)
-		physWrites = physWrites or ((writesOfForm[form] or callClobbers(x, convs: convs)) and not reserved)
+		let form = x.form
+		physReads = physReads or ((usesOfForm[form as Count] or returnUses(x, fn: fn) or callUses(x)) and not reserved)
+		physWrites = physWrites or ((writesOfForm[form as Count] or callClobbers(x, convs: convs)) and not reserved)
 	end 'gatherTarget'
 
 	// load takes the operands of the instruction at k from what the liveness lv gathered of it, which a rename since has
@@ -373,7 +374,7 @@ function newEdgeBlock(mutates fn MirFunction, from Count, likelihood Likelihood)
 	let at = try jump as Count otherwise panic("backend: an edge below 0")
 	fn.edges[at].args = fn.edges[from].args
 	fn.edges[at].argCount = fn.edges[from].argCount
-	fn.emit(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: jump))
+	fn.emit(newMachineReferring(jumpForm(fn.arch), a: noMReg, ref: MRef.edge, aux: jump))
 	var block = MBlock.make(first, params: fn.blockParams.count())
 	block.endAt = fn.instrs.count()
 	block.likelihood = likelihood
@@ -531,7 +532,7 @@ function addPreheaders(mutates fn MirFunction, g MirGraph) returns bool
 			args.push(r)
 		end 'params'
 		let jump = fn.addEdge(blockIdOf(head), args: args)
-		fn.emit(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: jump))
+		fn.emit(newMachineReferring(jumpForm(fn.arch), a: noMReg, ref: MRef.edge, aux: jump))
 		var block = MBlock.make(first, params: params)
 		block.paramCount = args.count()
 		block.endAt = fn.instrs.count()

@@ -60,15 +60,28 @@ let wslSeparator = 0x2F as Byte
 
 // runnerFor is the runner of the target's executables on the system the compiler runs on, or none when there is none.
 function runnerFor(target ast.Target) returns table.Option with TargetRunner
-	let host = hostTarget().system
-	if target.system == host 'native'
+	let host = hostTarget()
+	if target.arch != host.arch 'foreign'
+		return table.Option.none
+	end 'foreign'
+	if target.system == host.system 'native'
 		return table.Option.some(TargetRunner.native)
 	end 'native'
-	if host == ast.TargetSystem.windows and target.system == ast.TargetSystem.linux 'wsl'
-		return table.Option.some(TargetRunner.wsl)
-	end 'wsl'
-	return table.Option.none
+	return match host.system 'host'
+		windows gives runnerOnWindows(target.system)
+		linux or
+		macos gives table.Option.none
+	end 'host'
 end 'runnerFor'
+
+// runnerOnWindows is the runner on Windows of the executables of a system on its processor: WSL runs Linux's.
+function runnerOnWindows(system ast.TargetSystem) returns table.Option with TargetRunner
+	return match system 'system'
+		linux gives table.Option.some(TargetRunner.wsl)
+		windows or
+		macos gives table.Option.none
+	end 'system'
+end 'runnerOnWindows'
 
 // runnerExecutable is what a run of the executable at exe starts: the executable, or its runner.
 function runnerExecutable(runner TargetRunner, exe FilePath) returns Executable
@@ -109,11 +122,8 @@ function wslPath(path String) returns String
 	return String.from(out)
 end 'wslPath'
 
-// executableExtension is what the name of an executable for the target ends with, as maxon names them: .exe on Windows
-// and nothing on Linux.
+// executableExtension is what the name of an executable for the target ends with, as maxon names them: the target
+// table's suffix of its system, .exe on Windows and nothing elsewhere.
 function executableExtension(t ast.Target) returns String
-	return match t.system 'system'
-		windows gives ".exe"
-		linux gives ""
-	end 'system'
+	return ast.executableSuffix(t.system)
 end 'executableExtension'

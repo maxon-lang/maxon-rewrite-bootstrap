@@ -1,12 +1,13 @@
 // Command rulegen generates, from the rewrite rules in generic.rules and pressure.rules, the matcher of self/opt that
 // rewrites an IR instruction by the first rule that matches it and the instructions that define its operands (the rules
-// of pressure.rules only where the caller says they may raise register pressure), and from x64.rules the
-// instruction selection of self/backend, which writes the machine instructions of each IR instruction. `go generate
-// ./internal/rulegen` runs it. README "Generated code", "The rewrite rules", describes the rule language.
+// of pressure.rules only where the caller says they may raise register pressure), and from the rules of each
+// instruction set (x64.rules) its instruction selection in self/backend (lower_x64_gen.maxon), which writes the machine
+// instructions of each IR instruction. `go generate ./internal/rulegen` runs it. README "Generated code", "The rewrite
+// rules", describes the rule language.
 //
 // The operations and operands a rule names are checked against the IR table (internal/irgen/irtable), and those of an
-// instruction selection rule against the x64 instruction table (internal/x64gen/x64table), so a rule that names what
-// the tables do not have fails here, at the rule, rather than in the Maxon compile of what it generates.
+// instruction selection rule against its instruction set (internal/isa, which internal/machines lists), so a rule that
+// names what the tables do not have fails here, at the rule, rather than in the Maxon compile of what it generates.
 package main
 
 //go:generate go run .
@@ -14,15 +15,21 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"minimaxon/internal/isa"
+	"minimaxon/internal/machines"
 )
 
 const (
 	genericRules  = "generic.rules"
 	pressureRules = "pressure.rules"
 	genericFile   = "../../self/opt/rewrite_gen.maxon"
-	x64Rules      = "x64.rules"
-	machineFile   = "../../self/backend/lower_x64_gen.maxon"
 )
+
+// machineRules is the file of an instruction set's selection rules, and machineFile the selection it generates.
+func machineRules(m isa.ISA) string { return m.Name() + ".rules" }
+
+func machineFile(m isa.ISA) string { return "../../self/backend/lower_" + m.Name() + "_gen.maxon" }
 
 type output struct {
 	path string
@@ -59,15 +66,19 @@ func generate() ([]output, error) {
 	if err != nil {
 		return nil, err
 	}
-	src, err := os.ReadFile(x64Rules)
-	if err != nil {
-		return nil, err
+	outs := []output{{genericFile, []byte(code)}}
+	for _, m := range machines.All {
+		src, err := os.ReadFile(machineRules(m))
+		if err != nil {
+			return nil, err
+		}
+		machine, err := generateMachine(machineRules(m), string(src), m)
+		if err != nil {
+			return nil, err
+		}
+		outs = append(outs, output{machineFile(m), []byte(machine)})
 	}
-	machine, err := generateMachine(x64Rules, string(src))
-	if err != nil {
-		return nil, err
-	}
-	return []output{{genericFile, []byte(code)}, {machineFile, []byte(machine)}}, nil
+	return outs, nil
 }
 
 // ruleSource is a file of generic rules: its name, its text, and whether its rules may raise register pressure, which
@@ -94,10 +105,11 @@ func generateRuleSets(sources []ruleSource) (code string, err error) {
 	return emitGeneric(sets), nil
 }
 
-// generateMachine is the Maxon of instruction selection from a file of rules for x64.
-func generateMachine(file, src string) (code string, err error) {
+// generateMachine is the Maxon of instruction selection from a file of rules for an instruction set.
+func generateMachine(file, src string, m isa.ISA) (code string, err error) {
 	defer recoverRuleError(&err)
-	return emitMachine(file, checkRules(file, parseRules(file, src), x64Target)), nil
+	tg := machineTarget(m)
+	return emitMachine(file, checkRules(file, parseRules(file, src), tg), tg), nil
 }
 
 // ruleError is a rule that the generator cannot make code of.

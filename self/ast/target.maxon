@@ -1,39 +1,37 @@
-// Target is the platform a program is compiled for: its name on the command line (`--target=x64-linux`), the os and the arch
-// as a `#if` condition names them (`os(Windows)`, `arch(x64)`), and the system, which the backend writes the executable
-// for. This is the one place that spells the targets; the driver hands a project the target it compiles for, and a later
-// target is another function here and a row of knownTargets.
+// Target is the platform a program is compiled for: an architecture on a system, as the target table has them
+// (targets_gen.maxon, from internal/targetgen). Its name on the command line (`--target=x64-linux`) and the os and the arch
+// as a `#if` condition names them (`os(Windows)`, `arch(x64)`) are the table's; the driver hands a project the target it
+// compiles for.
 export type Target
-	export let os as String
-	export let arch as String
+	export let arch as TargetArch
 	export let system as TargetSystem
 
+	export static function make(arch TargetArch, system TargetSystem) returns Target
+		return Target{arch: arch, system: system}
+	end 'make'
+
 	export static function windowsX64() returns Target
-		return Target{os: "Windows", arch: "x64", system: TargetSystem.windows}
+		return Target.make(TargetArch.x64, system: TargetSystem.windows)
 	end 'windowsX64'
 
 	export static function linuxX64() returns Target
-		return Target{os: "Linux", arch: "x64", system: TargetSystem.linux}
+		return Target.make(TargetArch.x64, system: TargetSystem.linux)
 	end 'linuxX64'
+
+	// os is the name of the target's system, as `#if os(...)` names it.
+	export function os() returns String
+		return systemName(system)
+	end 'os'
+
+	// archText is the name of the target's architecture, as `#if arch(...)` names it.
+	export function archText() returns String
+		return archName(arch)
+	end 'archText'
 
 	// name is the target's name on the command line, as maxon writes it: the arch and the os in lowercase.
 	export function name() returns String
-		return "{arch.toLower()}-{os.toLower()}"
+		return "{self.archText().toLower()}-{self.os().toLower()}"
 	end 'name'
 end 'Target'
 
-// TargetSystem is the operating system of a target, by which the backend picks the entry stub, the format of the
-// executable, the read of a thread's context and the way the runtime reaches the system.
-export enum TargetSystem
-	windows
-	linux
-end 'TargetSystem'
-
 export typealias TargetList = Array with Target
-
-// knownTargets are the targets this compiler compiles for, in the order a usage message lists them.
-export function knownTargets() returns TargetList
-	var targets = TargetList.create(0)
-	targets.push(Target.windowsX64())
-	targets.push(Target.linuxX64())
-	return targets
-end 'knownTargets'

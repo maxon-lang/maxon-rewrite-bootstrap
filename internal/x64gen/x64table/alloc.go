@@ -166,20 +166,6 @@ func hasPatchField(f form) bool {
 	return rip || rel
 }
 
-// allocPredicates are the allocation columns that are a yes or no of each form.
-var allocPredicates = []struct {
-	name string
-	of   func(form) bool
-}{
-	{"definesOperand", func(f form) bool { _, ok := f.defOperand(); return ok }},
-	{"reusesOperand", form.reuses},
-	{"isCall", func(f form) bool { return f.call }},
-	{"isReturn", func(f form) bool { return f.ret }},
-	{"hasPatchField", hasPatchField},
-	{"rematerializable", rematerializable},
-	{"commutesOperands", func(f form) bool { return f.commutes }},
-}
-
 // rematerializable is whether a form makes its result from its immediate alone: it reads no register, no memory and no
 // flag, writes nothing but its result and refers to nothing, so the allocator may write it again before a use instead
 // of keeping its result in a register or a spill slot.
@@ -189,69 +175,24 @@ func rematerializable(f form) bool {
 		len(f.fixedUses) == 0 && len(f.fixedDefs) == 0 && len(f.clobbers) == 0 && !f.call && !f.ret && !hasPatchField(f)
 }
 
-// allocMasks are the allocation columns that are a set of registers.
-var allocMasks = []struct {
-	name, doc string
-	of        func(form) []string
-}{
-	{"fixedUses", "the registers a form reads that no operand names", func(f form) []string { return f.fixedUses }},
-	{"fixedDefs", "the registers a form writes a result to that no operand names", func(f form) []string { return f.fixedDefs }},
-	{"clobbers", "the registers a form leaves holding nothing, besides a call's", func(f form) []string { return f.clobbers }},
-}
-
+// emitAlloc writes what the backend's x64 code asks of the forms and the registers by number: the FormID of a form, the
+// general register of a number, the form a choice picks, and the encoder of a machine instruction.
 func emitAlloc(b *strings.Builder) {
-	fmt.Fprintf(b, "// x64FirstVector is the number of xmm0 in the register file, after the general registers.\nexport let x64FirstVector = %d\n\n", len(registers))
-	fmt.Fprintf(b, "export let x64RegisterFileSize = %d\n\n", len(registers)+len(vectorRegisters))
-	fmt.Fprintf(b, "export let x64FormCount = %d\n\n", len(forms))
+	if formBase != 0 {
+		fail("x64's FormIDs start at %d, and x64FormID gives a form's rawValue", formBase)
+	}
+	b.WriteString("// x64FormID is the FormID of a form: x64's forms are the first FormIDs.\n")
+	b.WriteString("export function x64FormID(form X64Form) returns FormID\n\treturn try form.rawValue as FormID otherwise panic(\"backend: an x64 form past the FormIDs\")\nend 'x64FormID'\n\n")
 	b.WriteString("// x64RegisterOf is the general register with a number of the register file.\n")
 	b.WriteString("export function x64RegisterOf(number RegNum) returns X64Register\n\treturn match number 'number'\n")
 	for i, r := range registers {
 		fmt.Fprintf(b, "\t\t%d gives X64Register.%s\n", i, r)
 	}
 	b.WriteString("\t\tdefault panic(\"backend: a register number that is no general register\")\n\tend 'number'\nend 'x64RegisterOf'\n\n")
-	b.WriteString("// x64FormOf is the form with a number, its rawValue.\n")
-	b.WriteString("export function x64FormOf(number Count) returns X64Form\n\treturn match number 'number'\n")
-	for i, f := range forms {
-		fmt.Fprintf(b, "\t\t%d gives X64Form.%s\n", i, lowerFirst(f.name))
-	}
-	b.WriteString("\t\tdefault panic(\"backend: a number that is no x64 form\")\n\tend 'number'\nend 'x64FormOf'\n\n")
-	b.WriteString("// machineOperandCount is how many register operands a machine instruction of a form has.\n")
-	emitFormTable(b, "machineOperandCount", "Count", form.machineOperands)
-	for _, p := range allocPredicates {
-		emitEffect(b, p.name, p.of)
-	}
-	for _, m := range allocMasks {
-		emitGrouped(b, m.name, "RegMask", m.doc, func(f form) string {
-			return fmt.Sprintf("0x%X", maskOf(m.of(f)))
-		})
-	}
-	emitGrouped(b, "vectorOperands", "Count", "the register operands of a form, in machine order, that are xmm registers, a bit each from bit 0 for a",
-		func(f form) string { return fmt.Sprint(f.vectorMask()) })
 	for _, c := range choices {
 		emitChooser(b, c)
 	}
 	emitMachineEncoder(b)
-}
-
-// emitGrouped writes a match over every form that gives what of says, with the forms of one value in one arm.
-func emitGrouped(b *strings.Builder, name, ty, doc string, of func(form) string) {
-	var values []string
-	byValue := map[string][]string{}
-	for _, f := range forms {
-		v := of(f)
-		if _, ok := byValue[v]; !ok {
-			values = append(values, v)
-		}
-		byValue[v] = append(byValue[v], lowerFirst(f.name))
-	}
-	fmt.Fprintf(b, "// %s is %s.\n", name, doc)
-	fmt.Fprintf(b, "export function %s(form X64Form) returns %s\n", name, ty)
-	b.WriteString("\treturn match form 'form'\n")
-	for _, v := range values {
-		fmt.Fprintf(b, "\t\t%s gives %s\n", strings.Join(byValue[v], " or\n\t\t"), v)
-	}
-	b.WriteString("\tend 'form'\n")
-	fmt.Fprintf(b, "end '%s'\n\n", name)
 }
 
 // emitChooser writes the form a choice encodes for an immediate, for instruction selection to put in a machine
@@ -317,10 +258,11 @@ func machineArgs(f form) []string {
 func emitMachineEncoder(b *strings.Builder) {
 	b.WriteString("// encodeMachineForm encodes a form from the fields of a machine instruction: a defines, a reused register is\n")
 	b.WriteString("// the same as a, and the registers a form does not have are not read.\n")
-	b.WriteString("export function encodeMachineForm(mutates code ByteArray, form X64Form, a X64Register, b X64Register, c X64Register, aux Imm32, imm FullRangeInt, cond X64CondCode)\n")
+	b.WriteString("export function encodeMachineForm(mutates code ByteArray, form FormID, a X64Register, b X64Register, c X64Register, aux Imm32, imm FullRangeInt, cond MCond)\n")
 	b.WriteString("\tmatch form 'form'\n")
-	for _, f := range forms {
-		fmt.Fprintf(b, "\t\t%s then %s\n", lowerFirst(f.name), call(f.name, f.params(), machineArgs(f)))
+	for i, f := range forms {
+		fmt.Fprintf(b, "\t\t%d then %s\n", formBase+i, call(f.name, f.params(), machineArgs(f)))
 	}
+	b.WriteString("\t\tdefault then panic(\"backend: a machine instruction of a form of no x64 form\")\n")
 	b.WriteString("\tend 'form'\nend 'encodeMachineForm'\n")
 }

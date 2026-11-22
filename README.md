@@ -126,10 +126,16 @@ with the list of the targets and exit code 1, as maxon's is. The default is the 
 `#if` of `self/driver/targets.maxon`), and a `build` with no `-o` names its executable with the target's extension, `.exe` or
 none. The target picks the branches of every `#if` of the compile, the runtime's among them (see "The runtime"), and is part of
 the key of every module in the build cache. Code generation is the same for both: one IR, one x64 selection, one internal
-convention; what differs is stated in tables (`internal/targetgen`'s systems, `internal/abigen`'s imports and Linux
-numbers) and behind one choice per place, by `ast.TargetSystem`: the entry stub (`entry.maxon`, `entry_linux.maxon`), the
-writer of the executable (`buildImage`: `pe.maxon` or `elf.maxon`), the read of a thread's context (`x64.rules`) and the way
-the runtime reaches the system (`import` or `syscall`, each refused by the backend on the other system). `minimaxon test
+convention; what differs is stated in tables (`internal/targetgen`'s target model and systems, `internal/abigen`'s imports and
+Linux numbers) and behind one choice per place. The target model is generated (`self/ast/targets_gen.maxon`): an
+`ast.Target` is an architecture (`ast.TargetArch`: x64) on a system (`ast.TargetSystem`: Windows, Linux, and macOS, which no
+architecture runs yet), each system with its format of executable (`imageFormatOf`: PE, ELF, Mach-O), the way its programs
+reach it (`systemReach`: imports or system calls, each refused by the backend on a system that reaches it the other way),
+the suffix of an executable's name, and `knownTargets`, every architecture on each system its table runs. The backend
+matches on the architecture where its code is the processor's (the selection, the encoder, the entry stub) and on the
+system's table where it is the system's: the entry stub (`entry.maxon`, `entry_linux.maxon`), the writer of the executable
+(`buildImage` and `writePointers`: `pe.maxon` or `elf.maxon`), the host and system call conventions
+(`x64HostArg(system, index:)`), and the read of a thread's context (`x64ThreadContext`, which `x64.rules` reads). `minimaxon test
 --target=x64-linux` on Windows compiles each test for Linux and runs its executable through WSL (`wsl.exe --exec` and the
 executable's path under `/mnt/`, in the default distribution), as maxon's `targets.tsv` names a runner for each target; the
 executables' count of workers reaches WSL through `WSLENV=MAXON_MAX_PROCS`, which the caller sets. A program that the
@@ -384,7 +390,7 @@ layering cannot erode:
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, what its arithmetic computes (`evaluate_gen.maxon`, generated from the IR table: `evalBin`, `evalCmp`, `evalGuard` and the rest, one per operation that computes a word from its operands, which the interpreter and the fold pass both call; `evaluate.maxon` has the algorithms the table names: the 64-bit wraps, the wide product, the shifts, the overflow tests and the float conversions), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: leaf inlining (`Leaves`, `Inliner`, `self/opt/inline.maxon`), its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters) and the fold pass (`Fold`, `self/opt/fold.maxon`), which `optimizeModule` (`self/opt/optimizer.maxon`) runs in that order on every function a native build compiles; after leaf inlining, loop rotation (`Rotator`, `rotate.maxon`), loop-invariant code motion (`Licm`, `licm.maxon`) and common subexpression elimination (`Cse`, `cse.maxon`), over what may be merged or moved of each operation (`motionOf`, `motion.maxon`), the loops' facts (`LoopFacts`, `loops.maxon`) and the edits they share (`Editor`, `edit.maxon`) | `ast`, `ir`, `table` |
-| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub of each system (`entry.maxon`, `entry_linux.maxon`) and the two ways it starts main (`start.maxon`), the linker, which decides between them by what the program reaches, and the writers of the executable's formats behind one image (`image.maxon`: the PE writer `pe.maxon` and the ELF writer `elf.maxon`) | `ast`, `diag`, `ir`, `table` |
+| `backend` | the x64 encoder (generated), the assembler and code unit (`unit.maxon`: labels, fixups of a kind, sections; x64's instructions in `asm_x64.maxon`), instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of each instruction set, `internal/rulegen/x64.rules` generated into `lower_x64_gen.maxon`, the helpers every architecture shares, and the primitives of the machine they call, which `isel_x64.maxon` writes for x64 with its half of the calls and the helpers only x64's rules name; `rules.maxon`), the machine IR (`mir.maxon`: forms by `FormID`, conditions by `MCond`), what the allocator asks of every architecture and form (`machine.maxon`, over `machine_gen.maxon`), x64's register file and conventions (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and x64's encoder of the machine IR (`encode_x64.maxon`), the drop and copy routine of each type, the entry stub of each system (`entry.maxon`, `entry_linux.maxon`) and the two ways it starts main (`start.maxon`), the linker, which decides between them by what the program reaches, and the writers of the executable's formats behind one image (`image.maxon`: the PE writer `pe.maxon` and the ELF writer `elf.maxon`) | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; `cache.maxon` is the build cache, `unittests.maxon` the compile of a module's tests; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -406,9 +412,9 @@ run.
 | `internal/builtingen` | `internal/builtingen/table.go` | `self/ast/builtins_gen.maxon`, `self/ast/builtins_record_gen.maxon` (the `Builtins` record, its `empty()` and `isCapability`: a field for each type row, function handle and primitive of the table, and the few fields `extraFields` lists), `self/ir/runtime_gen.maxon`, `self/ir/intrinsics_gen.maxon`, `self/check/builtins_gen.maxon`, `self/interp/builtins_gen.maxon`, and the top-level names of the built-ins, which `cmd/convert` leaves out of a converted library file (`cmd/convert/builtins_gen.go`) |
 | `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv`, `self/driver/skips.tsv` (the code pairs and the tests `fix specs` skips; it names codes of the first) | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon`, `self/driver/skips_gen.maxon` |
 | `internal/irgen` | `internal/irgen/irtable/table.go` and `semantics.go` | `self/ir/ir_gen.maxon`, `self/ir/evaluate_gen.maxon` |
-| `internal/x64gen` | `internal/x64gen/x64table/table.go` | `self/backend/x64_gen.maxon` |
-| `internal/targetgen` | `internal/targetgen/target/target.go`: each processor's register file (names, encodings, classes), reserved registers and the internal calling convention, and the conventions of each system it runs (a `System`: its host convention, and the system call convention of one whose programs call the kernel themselves): argument registers in order, result, error flag, a system call's number, callee-saved and caller-saved, checked to split the register file; `x64table` takes its registers from it | `self/backend/regs_x64_gen.maxon` (`x64Reserved`, `x64InternalArg`, `x64InternalResult`, `x64InternalError`, `x64InternalCalleeSaved`, the `x64WindowsHost...` ones for Win64, the `x64LinuxHost...` ones for System V and the `x64LinuxSyscall...` ones for a Linux system call, `x64StackAlignment`) |
-| `internal/rulegen` | `internal/rulegen/generic.rules`, `internal/rulegen/pressure.rules` and `internal/rulegen/x64.rules`, checked against the IR table and the x64 rules against the instruction table | `self/opt/rewrite_gen.maxon`, `self/backend/lower_x64_gen.maxon` |
+| `internal/x64gen` | `internal/x64gen/x64table/table.go` | `self/backend/x64_gen.maxon`: the encoders, `X64Register`, `X64Form` and `x64FormID` (the form's FormID), the `choose` functions and `encodeMachineForm` |
+| `internal/targetgen` | `internal/targetgen/target/target.go`: each processor's register file (names, encodings, classes), reserved registers and the internal calling convention, and the conventions of each system it runs (a `System`: its host convention, and the system call convention of one whose programs call the kernel themselves): argument registers in order, result, error flag, a system call's number, callee-saved and caller-saved, checked to split the register file, the thread's read of its context on each system; and each operating system (`OS`: its format of executable, its reach, its executable suffix), which `ast.TargetSystem` has a case for whether or not a target runs it; `x64table` takes its registers from it, and with the instruction sets of `internal/machines` (`internal/isa`) it writes the machine IR's tables | `self/ast/targets_gen.maxon` (`TargetArch`, `TargetSystem`, `ImageFormat`, `SystemReach`, what each system is asked, `knownTargets`); `self/backend/machine_gen.maxon` (`MCond`, the constraints of every form by FormID, each architecture's register file and the forms the target-neutral passes write: `jumpForm`, `exclusiveOrForm`, `classMoveForm`); `self/backend/regs_x64_gen.maxon` (`x64Reserved`, `x64InternalArg`, `x64InternalResult`, `x64InternalError`, `x64InternalCalleeSaved`, the `x64WindowsHost...` ones for Win64, the `x64LinuxHost...` ones for System V and the `x64LinuxSyscall...` ones for a Linux system call, `x64Host...(system)` and `x64Syscall...(system)` by the system compiled for, `x64ThreadContext`, `x64FirstVector`, `x64RegisterFileSize`, `x64StackAlignment`) |
+| `internal/rulegen` | `internal/rulegen/generic.rules`, `internal/rulegen/pressure.rules` and the selection rules of each instruction set of `internal/machines` (`x64.rules`), checked against the IR table and a selection rule against its instruction set through `internal/isa` | `self/opt/rewrite_gen.maxon`, `self/backend/lower_x64_gen.maxon` |
 | `internal/abigen` | `internal/abigen/table.go`, `internal/abigen/linux.go` (the Linux x64 kernel's system call numbers, flags and record layouts that the runtime's Linux source and the Linux entry stub pass), `internal/abigen/imports.go` (the kernel32 functions of the import table, in slot order; a test checks that every name the runtime and the entry stub call is listed) | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon`, `self/backend/imports_gen.maxon` (`rtDll`, a slot constant `imp<Name>` for each import, `rtImports`) |
 | `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
 | `internal/cachegen` | the `type`, `union`, `enum` and `typealias` declarations of `table`, `ast`, `ir`, `opt` and `check` themselves, from the types the build cache stores of a module's checked state (`ast.TypeSlot`, `FuncSlot`, `ModuleTables`, `Tree`, `Typing`, `ir.IrFunction`, `opt.Leaves`, `check.ModuleChecked`) through every type their fields reach; a field of a type it cannot store fails generation, naming it | `self/<module>/cache_gen.maxon` of each of those modules: `store<T>` and, for a record, a `cacheLoad` that an extension adds (only a record's own methods make one), for a union or an array `load<T>` |
@@ -487,7 +493,7 @@ one shape of operands, named as maxon's `X64Backend.maxon` names its encoders (`
 | `operands` | in assembly order, each a register, a memory operand `[base + disp]` or, through a SIB byte, `[base + index*scale + disp]` (an element of a buffer: a word at `index*8`, a byte at `index`), a `[rip + disp]` operand, an immediate (`imm8`, `imm32`, `imm32U`, `imm64`), a `rel32` or a condition code, and the part of the encoding that holds it: the reg or r/m field of the ModRM byte, or the low three bits of the opcode (`+r`) |
 | `prefix`, `rexW`, `opcode` | the mandatory prefix (`rep`), REX.W, and the opcode with its `0F` escape; a condition code is added to the last opcode byte |
 | `modrm`, `digit` | no ModRM byte, one the operands fill, or one whose reg field is the form's `/digit` |
-| `setsFlags`, `readsFlags`, `readsMemory`, `writesMemory` | what instruction selection asks of a form; written as `X64Form` predicates of the same names |
+| `setsFlags`, `readsFlags`, `readsMemory`, `writesMemory` | what instruction selection asks of a form; columns of the machine IR's tables (`machine_gen.maxon`) of the same names |
 | `access` of each register operand | read, written, or both (a two-address form, whose definition reuses the operand's register); the base and the index of a memory operand are read |
 | `fixedUses`, `fixedDefs`, `clobbers` | the registers a form reads, writes a result to, or leaves holding nothing, that no operand names (`idiv`: rdx:rax in, rax and rdx out; `mul` and `imul` of one operand: rax in, rdx:rax out; a shift by `cl`: rcx; `rep movsb`: rsi, rdi and rcx) |
 | `vector` of a register operand | the register is an xmm one: the SSE2 forms name xmm registers in their ModRM fields as the general forms name general ones, the encoder takes one as the general register of its encoding number, and `vectorOperands` says which of a form's machine operands are xmm registers |
@@ -499,7 +505,7 @@ doubleword (a base of `rbp` or `r13` takes at least a byte; one of `rsp` or `r12
 operands take a displacement that the backend writes as 0 and patches (`lastField32`, `rel32To`, `patch32`, `patchRel32`). A
 choice picks the first of several forms whose immediate holds the value (`AddRegImm`: a byte, else a doubleword;
 `MovRegImm`: an unsigned doubleword, a sign-extended doubleword, else a quadword), and a sequence is forms the backend always
-emits together (`SetccRax`). The generated file holds the register and condition code enums (`X64Register`, `X64CondCode`),
+emits together (`SetccRax`). The generated file holds the register enum (`X64Register`); a condition is the machine IR's `MCond`, whose cases are in the order of x64's condition codes, which the generator checks,
 the immediate types, the helpers the encoders share and one encoder per form, choice and sequence, taking a `mutates code
 ByteArray` first. `go test ./internal/x64gen/...` also encodes every form with registers `rax` to `r15`, displacements from none
 to 32 bits, bases of `rsp`, `rbp`, `r12` and `r13`, immediates at the limits of each kind and every condition code, with a
@@ -514,11 +520,17 @@ its immediate sizes by a condition (`fitsImm8`), since a choice is compared with
 The allocation columns are what the machine IR asks of a form (see "The machine IR"), and the generator refuses a table in
 which they contradict the operands: a register operand with no access, two written operands, more than three register operands
 in machine order, a fixed `rsp` or `rbp`, a register both a result and a clobber, an immediate after a field a reference
-patches, or a form marked commutative that is not two-address with two uses. From them it writes `machineOperandCount`,
-`definesOperand`, `reusesOperand`, `commutesOperands` (add, and, or, xor and imul, whose uses the allocator may swap),
-`isCall`, `isReturn`, `hasPatchField` and the masks `fixedUses`, `fixedDefs` and `clobbers` (a `RegMask` over the register file: the general registers, then xmm0
-to xmm15 from `x64FirstVector`), `x64RegisterOf` and `x64FormOf` from a number, a `choose` function per choice that names
-the form an immediate selects (`chooseAddRegImm`), and `encodeMachineForm`, which encodes a form from the fields of a machine
+patches, or a form marked commutative that is not two-address with two uses. The table gives them to the other generators as
+an instruction set (`x64table.Table`, an `isa.ISA`): its forms' constraints, the shapes a selection rule names, and the forms
+the target-neutral passes write (its jump, its trap, its system call, the exclusive or of each class and the moves between
+the classes). `internal/targetgen` writes from every instruction set of `internal/machines` one table per column indexed by
+`FormID` (`machine_gen.maxon`: `machineOperandCount`, `definesOperand`, `reusesOperand`, `commutesOperands` (add, and,
+or, xor and imul, whose uses the allocator may swap), `isCall`, `isReturn`, `hasPatchField`, `isJump`, `isTrap`,
+`isKernelCall`, `isExclusiveOr`, the effects, `vectorOperands` and the masks `fixedUses`, `fixedDefs` and `clobbers`, a
+`RegMask` over the register file: the general registers, then xmm0 to xmm15 from `x64FirstVector`), each instruction set's
+forms in a range of FormIDs of its own (x64's from 0), so that no question of a form names its architecture. x64gen
+writes `x64FormID`, `x64RegisterOf` from a number, a `choose` function per choice that names the form an immediate selects
+(`chooseAddRegImm`), and `encodeMachineForm`, which encodes an x64 form, by its FormID, from the fields of a machine
 instruction.
 
 The IR table and the x64 instruction table are Go packages of their own (`internal/irgen/irtable`,
@@ -534,9 +546,9 @@ a line that starts with `&&` or `=>` goes on with the rule before it, and `//` s
 (bin.mul.!checked x (const [c])) && isPowerOfTwo(c)       => (bin.shl x (const [log2(c)]))
 (bin.div.!unsigned.checked x (const [-1]) [fail])         => (neg x [fail])
 (loadField obj [off])                                     => (LoadRegBaseDisp r obj [off])     // x64.rules
-(bin.add.unsigned.checked x y [f])                        => (AddRegReg x y) (JccRel32 [X64CondCode.below] [f])
-(branch c [yes] [no])                                     => (TestRegReg c c) (JccRel32 [X64CondCode.equal] [no]) (JmpRel32 [yes])
-(bin.mul.unsigned.checked x y [f])                        => (Copy rax x) (MulReg y) (Copy r rax) (JccRel32 [X64CondCode.below] [f])
+(bin.add.unsigned.checked x y [f])                        => (AddRegReg x y) (JccRel32 [MCond.below] [f])
+(branch c [yes] [no])                                     => (TestRegReg c c) (JccRel32 [MCond.equal] [no]) (JmpRel32 [yes])
+(bin.mul.unsigned.checked x y [f])                        => (Copy rax x) (MulReg y) (Copy r rax) (JccRel32 [MCond.below] [f])
 (call)                                                    => (emitCall)
 ```
 
@@ -590,8 +602,10 @@ defining instruction of a register from `defs` (the `ir.Defs` of the function's 
 in a reused `opt.Rewrite`; the fold pass (`opt.Fold`) applies it to each instruction it visits. `selftest` runs it on instructions built by
 hand (`self/opt/opt.maxtest`).
 
-It writes `self/backend/lower_x64_gen.maxon` from `x64.rules`: `selectInstr(sel, fn, ins)` and `selectTerm(sel, fn, ins)`
-dispatch on the opcode to `select<Op>`, which tries the operation's rules in the order of the file and ends in a panic
+It writes, for each instruction set of `internal/machines`, `self/backend/lower_<isa>_gen.maxon` from `<isa>.rules`
+(`lower_x64_gen.maxon` from `x64.rules`), every name of it after the instruction set's, so that two share the module:
+`x64SelectInstr(sel, fn, ins)` and `x64SelectTerm(sel, fn, ins)`, which the selector calls for the architecture compiled
+for, dispatch on the opcode to `x64Select<Op>`, which tries the operation's rules in the order of the file and ends in a panic
 that the rule with no condition never lets it reach; each rule is a function of flat `if`s over the instruction and the
 instructions that define its operands (`Selector.definedBy`, `defOf`) that returns false at the first thing that does not
 match, and otherwise writes the machine instructions (`newTarget`, `newCopy`, a `choose` function for a choice) into the
@@ -1619,19 +1633,21 @@ an operand below that is a physical register by its number in the register file,
 register: it copies the value into, say, rcx before a shift by `cl`, and the allocator sees the fixed register at the copy.
 
 An instruction (`MInstr`, 32 bytes when packed: kind, reference kind, form, condition, three register operands `a b c`, a
-32-bit `aux` and a 64-bit `imm`) is an x64 form (`MKind.target`) or a pseudo-instruction: `copy`, `parallelCopy` (a range
+32-bit `aux` and a 64-bit `imm`) is a form of the function's architecture (`MKind.target`, its `FormID`; `MirFunction.arch`) or a pseudo-instruction: `copy`, `parallelCopy` (a range
 of `copies`, every source read before any target is written), `spill` and `reload` against a spill slot, `restore` (the end of a bracket that a `spill` of the same register opened:
 the value comes back into its own register, which the instructions between were lent), and `frameSetup`
 and `frameTeardown`. A form's register operands are in one order: the register it defines, then the one a two-address form
 reads and writes (which the definition must be given the register of: `reuses`), then the ones it reads. `aux` is a
 memory operand's displacement, or what the reference of a form's last 32-bit field names (`MRef`: an edge, a symbol of the
 function's `symbols`, a data offset, an import), which the encoder turns into the same label uses and fixups as the rest
-of the backend. `regs_x64.maxon` holds the constraints the allocator reads, never the encodings: `operandCount`,
+of the backend. `machine.maxon` holds the constraints the allocator reads, never the encodings, over the tables of every
+form by FormID and of every architecture (`machine_gen.maxon`): `operandCount`,
 `defines`, `reuses`, `implicitUses` (a form's fixed uses, and the result registers at a return) and `implicitDefs` (fixed
-results, clobbers and a call's convention), the register file's masks (`classMask`, `allocatable`, `reservedMask`) and the
-calling conventions (`CallConvention`: the argument registers a call reads, and what it keeps), built from the
-target table's declarations (`regs_x64_gen.maxon`): the internal one, Win64 for an import and Linux's for a `syscall`, whose
-form is a call of that convention (`callConvention`). A call's `imm` is the
+results, clobbers and a call's convention), the register file's masks by architecture (`classMask`, `allocatable`, `reservedMask`) and the
+calling conventions of the target compiled for (`Conventions.make(target)`, each a `CallConvention`: what a call keeps),
+built from the target table's declarations (`regs_x64_gen.maxon`, through `x64KeptBy`): the internal one, the system's host
+one for an import (Win64) and its system call's for a `syscall` (Linux's), whose form is the call of that convention
+(`isKernelCall`, `callConvention`). A call's `imm` is the
 registers its arguments are in, which `implicitUses` counts as read by it (`newCall`), and a return reads the result
 register of its function's class (`MirFunction.floatResult`).
 
@@ -1892,7 +1908,8 @@ function's frame is not aligned, and keeps `rsp` in a value that allocation puts
 `ir.rtSymbol`, which gives a mapped entry its function's link name (`runtime::alloc`) and an entry that
 the stub or the linker defines its own symbol (`rt.entry`, `g.heap`); the linker resolves `rtSymbol(x)` by that text as
 it does any call. The two calling conventions are one by construction: a `callruntime` and a `call` of a Maxon function
-both pass their arguments through `Selector.callForm` (`self/backend/isel.maxon`) by the internal convention, a
+both pass their arguments through the architecture's call (`Selector.callSymbol`, on x64 `callForm` of
+`self/backend/isel_x64.maxon`) by the internal convention, a
 `callruntime` all of them as words (`Selector.callWords`), and the callee returns a word in `r8`. So a runtime function
 takes only words (an integer, a `bool`, a `String` as
 its box address), takes none `mutates`, is not generic and throws nothing, since a function that throws returns its

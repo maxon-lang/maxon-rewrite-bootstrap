@@ -67,7 +67,7 @@ type BlockScan
 	end 'new'
 
 	// reset sizes the scan for a function's registers and empties the log.
-	function reset(mutates self, regs Count, logs bool)
+	function reset(mutates self, regs Count, arch ast.TargetArch, logs bool)
 		ir.resetCounts(liveStamp, n: regs)
 		liveMark = 0
 		ir.resetFlags(out, n: regs)
@@ -82,8 +82,8 @@ type BlockScan
 		pools.clear()
 		classMasks.clear()
 		for c in 0 upto classCount 'pools'
-			pools.push(fullPool(classAt(c)))
-			classMasks.push(allocatable(classAt(c)))
+			pools.push(fullPool(arch, class: classAt(c)))
+			classMasks.push(allocatable(arch, class: classAt(c)))
 		end 'pools'
 		seenMark = 0
 		logging = logs
@@ -419,9 +419,9 @@ function acrossKind(read Count) returns Count
 	return entryCarried
 end 'acrossKind'
 
-// fullPool is how many registers of a class a value can be given.
-function fullPool(class RegClass) returns Count
-	return maskCount(allocatable(class))
+// fullPool is how many registers of a class of an architecture a value can be given.
+function fullPool(arch ast.TargetArch, class RegClass) returns Count
+	return maskCount(allocatable(arch, class: class))
 end 'fullPool'
 
 function classDescription(class RegClass) returns String
@@ -431,14 +431,10 @@ function classDescription(class RegClass) returns String
 	end 'class'
 end 'classDescription'
 
-// verifyPressure checks a spilled function: every virtual register has one definition, at every instruction the values
-// of each class fit its free registers, and no spill code stands on a loop's hot path where the loop neither defines nor
-// reads the value it moves. It gives what it finds wrong, nothing when the function is as colouring needs it.
-export function verifyPressure(fn MirFunction) returns NameList
-	return verifyPressureUnder(fn, convs: Conventions.make())
-end 'verifyPressure'
-
-// verifyPressureUnder is verifyPressure for a function whose calls follow convs.
+// verifyPressureUnder checks a spilled function whose calls follow convs: every virtual register has one definition, at
+// every instruction the values of each class fit its free registers, and no spill code stands on a loop's hot path where
+// the loop neither defines nor reads the value it moves. It gives what it finds wrong, nothing when the function is as
+// colouring needs it.
 export function verifyPressureUnder(fn MirFunction, convs Conventions) returns NameList
 	var problems = NameList.create(0)
 	var g = MirGraph.new()
@@ -446,7 +442,7 @@ export function verifyPressureUnder(fn MirFunction, convs Conventions) returns N
 	var lv = Liveness.new()
 	lv.compute(fn, g: g, convs: convs)
 	var scan = BlockScan.new()
-	scan.reset(fn.vregCount(), logs: false)
+	scan.reset(fn.vregCount(), arch: fn.arch, logs: false)
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
 		scan.scan(fn, g: g, lv: lv, b: b)
@@ -651,7 +647,7 @@ function refuseHotLoops(fn MirFunction, g MirGraph, lv Liveness, mutates scan Bl
 	if not anyOver(over) 'fits'
 		return refusals
 	end 'fits'
-	scan.reset(fn.vregCount(), logs: true)
+	scan.reset(fn.vregCount(), arch: fn.arch, logs: true)
 	scan.webs = websOf(fn)
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
@@ -766,7 +762,7 @@ end 'webRoot'
 function refusalOf(fn MirFunction, g MirGraph, lv Liveness, scan BlockScan, group CountList) returns PressureRefusal
 	let c = scan.logClass[group[0]]
 	let class = classAt(c)
-	let pool = fullPool(class)
+	let pool = fullPool(fn.arch, class: class)
 	let webs = scan.webs.clone()
 	var t = CountList.create(0)
 	var d = CountList.create(0)

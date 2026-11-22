@@ -1,9 +1,20 @@
 // The machine IR: a function as blocks of target instructions over virtual registers, in SSA form with block
-// parameters, between instruction selection and the encoder. It is target-independent but for the types of two fields,
-// the form and the condition code, which are x64's until a second target makes them a union: an instruction is a
-// target's form or one of the pseudo-instructions the allocator and the frame need, and what an operand must be
-// (defined or used, reused by a two-address definition, a fixed register, a clobber) is asked of the target's tables
-// (`regs_x64.maxon`), never of the forms' encodings. Every reference is an index into one of the function's pools.
+// parameters, between instruction selection and the encoder. It names no target: an instruction is a form of the
+// function's architecture, by its FormID, or one of the pseudo-instructions the allocator and the frame need, and what an
+// operand must be (defined or used, reused by a two-address definition, a fixed register, a clobber) is asked of the
+// tables of the forms (machine_gen.maxon, through machine.maxon), never of the forms' encodings. Every reference is an
+// index into one of the function's pools.
+
+// FormID is a form of an instruction set: the forms of every instruction set the backend writes are numbered in one space
+// (machine_gen.maxon), each set's in a range of its own, so that what the machine IR asks of a form is one table indexed
+// by its FormID, whatever the target.
+export typealias FormID = int(0 to 65535)
+
+// noForm is the form field of a pseudo-instruction, which nothing reads.
+let noForm = 0 as FormID
+
+// noCond is the condition of an instruction that has none, which nothing reads.
+let noCond = MCond.overflow
 
 // RegNum is a register's number in the target's register file.
 export typealias RegNum = int(0 to 63)
@@ -34,7 +45,7 @@ export typealias SpillSlot = int(0 to 2147483647)
 // spillSlotBytes is the size of a spill slot: a word, whatever the value's class.
 let spillSlotBytes = 8
 
-// RegClass is the register file a value lives in. Floats are words in general registers until the xmm class is used.
+// RegClass is the register file a value lives in: a general register, or a vector register, which holds a float.
 export enum RegClass
 	gpr
 	xmm
@@ -44,7 +55,7 @@ export typealias RegClassList = Array with RegClass
 
 // MKind is what an instruction is: a form of the target, or a pseudo-instruction.
 export enum MKind
-	// target is the form `form` with the registers a, b and c, in the order regs_x64.maxon gives.
+	// target is the form `form` with the registers a, b and c, in the order machine.maxon gives.
 	target
 	// copy sets a to b; either may be physical, which is how selection fixes a value to a register.
 	copy
@@ -83,72 +94,65 @@ end 'MRef'
 export type MInstr
 	export var kind as MKind
 	export var ref as MRef
-	export var form as X64Form
-	export var cond as X64CondCode
+	export var form as FormID
+	export var cond as MCond
 	export var a as MReg
 	export var b as MReg
 	export var c as MReg
 	export var aux as Imm32
 	export var imm as FullRangeInt
 
-	export static function make(kind MKind, form X64Form, a MReg, b MReg, c MReg) returns MInstr
-		return MInstr{kind: kind, ref: MRef.none, form: form, cond: unusedCond, a: a, b: b, c: c, aux: 0, imm: 0}
+	export static function make(kind MKind, form FormID, a MReg, b MReg, c MReg) returns MInstr
+		return MInstr{kind: kind, ref: MRef.none, form: form, cond: noCond, a: a, b: b, c: c, aux: 0, imm: 0}
 	end 'make'
 end 'MInstr'
 
 export typealias MInstrList = Array with MInstr
 
-// newTarget is a form with its register operands, the displacement of a memory operand and an immediate.
-export function newTarget(form X64Form, a MReg, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MInstr
+// newMachine is a form with its register operands, the displacement of a memory operand and an immediate.
+export function newMachine(form FormID, a MReg, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MInstr
 	var x = MInstr.make(MKind.target, form: form, a: a, b: b, c: c)
 	x.aux = aux
 	x.imm = imm
 	return x
-end 'newTarget'
+end 'newMachine'
 
-// newReferring is a form whose last field refers to an edge, a symbol, data or an import.
-export function newReferring(form X64Form, a MReg, ref MRef, aux Imm32) returns MInstr
+// newMachineReferring is a form whose last field refers to an edge, a symbol, data or an import.
+export function newMachineReferring(form FormID, a MReg, ref MRef, aux Imm32) returns MInstr
 	var x = MInstr.make(MKind.target, form: form, a: a, b: noMReg, c: noMReg)
 	x.ref = ref
 	x.aux = aux
 	return x
-end 'newReferring'
-
-// newConditional is a form with a condition code: a branch along an edge, or a setcc of a.
-export function newConditional(form X64Form, cond X64CondCode, a MReg, ref MRef, aux Imm32) returns MInstr
-	var x = newReferring(form, a: a, ref: ref, aux: aux)
-	x.cond = cond
-	return x
-end 'newConditional'
+end 'newMachineReferring'
 
 export function newCopy(dst MReg, src MReg) returns MInstr
-	return MInstr.make(MKind.copy, form: pseudoForm, a: dst, b: src, c: noMReg)
+	return MInstr.make(MKind.copy, form: noForm, a: dst, b: src, c: noMReg)
 end 'newCopy'
 
 export function newSpill(src MReg, slot SpillSlot) returns MInstr
-	var x = MInstr.make(MKind.spill, form: pseudoForm, a: src, b: noMReg, c: noMReg)
+	var x = MInstr.make(MKind.spill, form: noForm, a: src, b: noMReg, c: noMReg)
 	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
 	return x
 end 'newSpill'
 
 export function newReload(dst MReg, slot SpillSlot) returns MInstr
-	var x = MInstr.make(MKind.reload, form: pseudoForm, a: dst, b: noMReg, c: noMReg)
+	var x = MInstr.make(MKind.reload, form: noForm, a: dst, b: noMReg, c: noMReg)
 	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
 	return x
 end 'newReload'
 
 function newRestore(r MReg, slot SpillSlot) returns MInstr
-	var x = MInstr.make(MKind.restore, form: pseudoForm, a: r, b: noMReg, c: noMReg)
+	var x = MInstr.make(MKind.restore, form: noForm, a: r, b: noMReg, c: noMReg)
 	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
 	return x
 end 'newRestore'
 
 export function newFrameSetup() returns MInstr
-	return MInstr.make(MKind.frameSetup, form: pseudoForm, a: noMReg, b: noMReg, c: noMReg)
+	return MInstr.make(MKind.frameSetup, form: noForm, a: noMReg, b: noMReg, c: noMReg)
 end 'newFrameSetup'
 
 export function newFrameTeardown() returns MInstr
-	return MInstr.make(MKind.frameTeardown, form: pseudoForm, a: noMReg, b: noMReg, c: noMReg)
+	return MInstr.make(MKind.frameTeardown, form: noForm, a: noMReg, b: noMReg, c: noMReg)
 end 'newFrameTeardown'
 
 // spillSlotOf is the slot an instruction spills to or reloads from.
@@ -203,6 +207,11 @@ end 'isPhysical'
 function physicalNumber(r MReg) returns RegNum
 	return try r as RegNum otherwise panic("backend: a register operand that is not physical")
 end 'physicalNumber'
+
+// physOfNumber is the physical register of a number in the register file.
+function physOfNumber(number RegNum) returns MReg
+	return number as MReg
+end 'physOfNumber'
 
 function regBit(number RegNum) returns RegMask
 	return (1 as RegMask) shl number
@@ -262,10 +271,12 @@ end 'MCopy'
 
 export typealias MCopyList = Array with MCopy
 
-// MirFunction is the machine IR of one function. Its blocks are numbered in the order they are made, and order is the
-// order the encoder lays them out in. classes holds the class of each virtual register, from firstVirtual.
+// MirFunction is the machine IR of one function, whose forms are its architecture's. Its blocks are numbered in the
+// order they are made, and order is the order the encoder lays them out in. classes holds the class of each virtual
+// register, from firstVirtual.
 export type MirFunction
 	export var symbol as String
+	export var arch as ast.TargetArch
 	export var instrs as MInstrList
 	export var blocks as MBlockList
 	export var order as MBlockIDList
@@ -290,8 +301,8 @@ export type MirFunction
 	// register rather than its word's.
 	export var floatResult as bool
 
-	export static function new(symbol String, canThrow bool) returns MirFunction
-		return MirFunction{symbol: symbol.clone(), instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false}
+	export static function new(symbol String, canThrow bool, arch ast.TargetArch) returns MirFunction
+		return MirFunction{symbol: symbol.clone(), arch: arch, instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false}
 	end 'new'
 
 	export function newVReg(mutates self, class RegClass) returns MReg
@@ -392,7 +403,7 @@ export type MirFunction
 		if dsts.count() != srcs.count() 'paired'
 			panic("backend: a parallel copy with more targets than sources")
 		end 'paired'
-		var x = MInstr.make(MKind.parallelCopy, form: pseudoForm, a: noMReg, b: noMReg, c: noMReg)
+		var x = MInstr.make(MKind.parallelCopy, form: noForm, a: noMReg, b: noMReg, c: noMReg)
 		x.aux = try copies.count() as Imm32 otherwise panic("backend: more copies than an instruction names")
 		x.imm = try dsts.count() as FullRangeInt otherwise panic("backend: more copies than memory")
 		for i in 0 upto dsts.count() 'pairs'

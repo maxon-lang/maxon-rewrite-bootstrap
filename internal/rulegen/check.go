@@ -8,19 +8,29 @@ import (
 	"strings"
 
 	"minimaxon/internal/irgen/irtable"
-	"minimaxon/internal/x64gen/x64table"
+	"minimaxon/internal/isa"
 )
 
-// target is what the rules of a file rewrite to.
-type target int
+// target is what the rules of a file rewrite to: the IR, or the forms of an instruction set.
+type target struct {
+	// machine is the instruction set whose forms the rules select for an IR operation, so that every operation needs a
+	// rule that matches all of it; or nil for generic rules, which rewrite an IR instruction to a register or to IR
+	// instructions, and leave an instruction no rule matches as it is.
+	machine isa.ISA
+}
 
-const (
-	// genericTarget rules rewrite an IR instruction to a register or to IR instructions, and an instruction no rule
-	// matches stays as it is.
-	genericTarget target = iota
-	// x64Target rules select the x64 forms of an IR operation, so every operation needs a rule that matches all of it.
-	x64Target
-)
+var genericTarget = target{}
+
+// machineTarget is the target of the instruction selection rules of an instruction set.
+func machineTarget(m isa.ISA) target { return target{machine: m} }
+
+// selects is whether the rules select machine forms.
+func (t target) selects() bool { return t.machine != nil }
+
+// isRegister is whether a name of a selection rule is one of the instruction set's registers.
+func (t target) isRegister(name string) bool {
+	return t.selects() && slices.Contains(t.machine.Registers(), name)
+}
 
 // checked is a rule that the generator makes code of: the rule, and its patterns, the rule's own and those that swap the
 // operands of a commutative operation, without one that an earlier one matches everything of.
@@ -44,19 +54,16 @@ func checkRules(file string, rules []*rule, tg target) []checked {
 	for _, r := range rules {
 		vars := map[string]*binding{}
 		checkMatch(r, r.match, vars, true, tg)
-		if tg == x64Target {
-			checkMachineNames(r, vars)
+		if tg.selects() {
+			checkMachineNames(r, vars, tg)
 		}
 		if r.cond != "" {
-			rewriteExpr(r, r.cond, vars, nil, tg == x64Target)
+			rewriteExpr(r, r.cond, vars, nil, tg.selects())
 		}
-		switch tg {
-		case genericTarget:
+		if tg.selects() {
+			checkMachineResults(r, vars, tg)
+		} else {
 			checkGenericResult(r, vars)
-		case x64Target:
-			checkMachineResults(r, vars)
-		default:
-			panic(fmt.Sprintf("rulegen: target %d", tg))
 		}
 		c := checked{r: r}
 		for _, v := range variants(r.match) {
@@ -69,7 +76,7 @@ func checkRules(file string, rules []*rule, tg target) []checked {
 		}
 		out = append(out, c)
 	}
-	if tg == x64Target {
+	if tg.selects() {
 		checkTotal(file, rules)
 	}
 	return out
@@ -106,6 +113,8 @@ func opNamed(name string) (irtable.Op, bool) {
 }
 
 func lowerFirst(s string) string { return strings.ToLower(s[:1]) + s[1:] }
+
+func capitalize(s string) string { return strings.ToUpper(s[:1]) + s[1:] }
 
 func upperFirst(s string) string { return strings.ToUpper(s[:1]) + s[1:] }
 
@@ -238,7 +247,7 @@ var (
 func checkMatch(r *rule, t *term, vars map[string]*binding, root bool, tg target) {
 	resolveOp(r, t)
 	o := t.op
-	if root && o.Term && tg == genericTarget {
+	if root && o.Term && !tg.selects() {
 		r.fail("a generic rule rewrites an instruction, and %s is a terminator", t.name)
 	}
 	if (!root || t.bind != "") && o.Result == irtable.NoResult {
@@ -399,14 +408,14 @@ var machineContext = []string{"sel", "fn", "ins"}
 const copyForm = "Copy"
 
 // shapeOf is the shape of what a result names: a form, a choice or the copy.
-func shapeOf(r *rule, res *term) x64table.Shape {
+func shapeOf(tg target, r *rule, res *term) isa.Shape {
 	if res.name == copyForm {
-		return x64table.Shape{Form: copyForm, Params: []x64table.ShapeParam{
-			{Name: "dst", Role: x64table.RoleDef, Letter: "a"}, {Name: "src", Role: x64table.RoleUse, Letter: "b"}}}
+		return isa.Shape{Form: copyForm, Params: []isa.ShapeParam{
+			{Name: "dst", Role: isa.RoleDef, Letter: "a"}, {Name: "src", Role: isa.RoleUse, Letter: "b"}}}
 	}
-	sh, ok := x64table.ShapeOf(res.name)
+	sh, ok := tg.machine.ShapeOf(res.name)
 	if !ok {
-		r.fail("there is no x64 form or choice %s", res.name)
+		r.fail("there is no %s form or choice %s", tg.machine.Name(), res.name)
 	}
 	return sh
 }
@@ -417,22 +426,20 @@ func isHelper(res *term) bool {
 	return res.kind == termOp && res.name[0] >= 'a' && res.name[0] <= 'z'
 }
 
-func isRegisterName(name string) bool { return slices.Contains(x64table.Registers(), name) }
-
 // checkMachineNames refuses a variable of a pattern that is named like a register or a name of the context, which the
 // results and conditions would read as that instead.
-func checkMachineNames(r *rule, vars map[string]*binding) {
+func checkMachineNames(r *rule, vars map[string]*binding, tg target) {
 	for name := range vars {
-		if isRegisterName(name) || slices.Contains(machineContext, name) {
+		if tg.isRegister(name) || slices.Contains(machineContext, name) {
 			r.fail("%s is a register or a name of the selector's, and no variable", name)
 		}
 	}
 }
 
-// checkMachineResults refuses results that the selection code cannot build: an x64 form that the table does not have,
+// checkMachineResults refuses results that the selection code cannot build: a form that the instruction set does not have,
 // one given the wrong number or kind of operands, a register read before it is defined or defined twice, or a rule
 // that gives the operation no result.
-func checkMachineResults(r *rule, vars map[string]*binding) {
+func checkMachineResults(r *rule, vars map[string]*binding, tg target) {
 	if len(r.results) == 1 && isHelper(r.results[0]) {
 		h := r.results[0]
 		if h.bind != "" || len(h.suffixes) > 0 || len(h.args) > 0 {
@@ -443,11 +450,11 @@ func checkMachineResults(r *rule, vars map[string]*binding) {
 	root := r.match
 	defined := map[string]bool{}
 	defs := 0
-	use := func(res *term, p x64table.ShapeParam, a *term) {
+	use := func(res *term, p isa.ShapeParam, a *term) {
 		if a.kind != termVar {
 			r.fail("%s's %s is a register: a variable or a register's name", res.name, p.Name)
 		}
-		if isRegisterName(a.name) || defined[a.name] {
+		if tg.isRegister(a.name) || defined[a.name] {
 			return
 		}
 		b, ok := vars[a.name]
@@ -462,15 +469,15 @@ func checkMachineResults(r *rule, vars map[string]*binding) {
 	}
 	for _, res := range r.results {
 		if res.kind != termOp {
-			r.fail("an instruction selection rule rewrites to x64 forms, and %s is none", res)
+			r.fail("an instruction selection rule rewrites to %s forms, and %s is none", tg.machine.Name(), res)
 		}
 		if isHelper(res) {
 			r.fail("%s: a helper is the only result of its rule", res)
 		}
 		if res.bind != "" || len(res.suffixes) > 0 {
-			r.fail("%s: an x64 form has no binding and no suffixes", res)
+			r.fail("%s: an %s form has no binding and no suffixes", res, tg.machine.Name())
 		}
-		sh := shapeOf(r, res)
+		sh := shapeOf(tg, r, res)
 		if len(res.args) != len(sh.Params) {
 			names := make([]string, len(sh.Params))
 			for i, p := range sh.Params {
@@ -481,21 +488,21 @@ func checkMachineResults(r *rule, vars map[string]*binding) {
 		for i, a := range res.args {
 			p := sh.Params[i]
 			switch p.Role {
-			case x64table.RoleUse:
+			case isa.RoleUse:
 				use(res, p, a)
-			case x64table.RoleReuse:
+			case isa.RoleReuse:
 				use(res, p, a)
-				if !isRegisterName(a.name) {
+				if !tg.isRegister(a.name) {
 					defs++
 					if a.name == root.bind {
 						defined[a.name] = true
 					}
 				}
-			case x64table.RoleDef:
+			case isa.RoleDef:
 				if a.kind != termVar {
 					r.fail("%s's %s is a register: a variable or a register's name", res.name, p.Name)
 				}
-				if isRegisterName(a.name) {
+				if tg.isRegister(a.name) {
 					continue
 				}
 				if slices.Contains(machineContext, a.name) {
@@ -509,7 +516,7 @@ func checkMachineResults(r *rule, vars map[string]*binding) {
 				}
 				defined[a.name] = true
 				defs++
-			case x64table.RoleRel:
+			case isa.RoleRel:
 				if a.kind != termAux {
 					r.fail("%s's %s is a [value]", res.name, p.Name)
 				}
@@ -517,7 +524,7 @@ func checkMachineResults(r *rule, vars map[string]*binding) {
 					continue
 				}
 				rewriteExpr(r, a.text, vars, nil, true)
-			case x64table.RoleDisp, x64table.RoleImm, x64table.RoleCond, x64table.RoleRip:
+			case isa.RoleDisp, isa.RoleImm, isa.RoleCond, isa.RoleRip:
 				if a.kind != termAux {
 					r.fail("%s's %s is a [value]", res.name, p.Name)
 				}

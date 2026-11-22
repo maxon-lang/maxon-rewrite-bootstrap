@@ -33,7 +33,7 @@ end 'wrapAdd'
 
 // spillOf spills a function and requires it to fit and to have no refusal.
 function spillOf(label String, mutates fn MirFunction) returns SpillResult
-	return spillUnder(label, fn: fn, convs: Conventions.make())
+	return spillUnder(label, fn: fn, convs: Conventions.make(ast.Target.windowsX64()))
 end 'spillOf'
 
 // spillUnder is spillOf under the conventions convs.
@@ -129,7 +129,7 @@ let coldUseValue = 5
 
 // mirShapedLoop builds the loop of a shape.
 function mirShapedLoop(symbol String, shape LoopShape) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let header = 1 as MBlockID
 	let body = 2 as MBlockID
 	let exit = 3 as MBlockID
@@ -166,7 +166,7 @@ function mirShapedLoop(symbol String, shape LoopShape) returns MirFunction
 		acc.push(fn.addParam(RegClass.gpr))
 	end 'params'
 	mirOp(fn, form: X64Form.cmpRegReg, a: i, b: bound, c: noMReg, imm: 0)
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	var current = acc.clone()
@@ -197,7 +197,7 @@ function mirShapedLoop(symbol String, shape LoopShape) returns MirFunction
 		end 'hotCall' else 'cold'
 			let bit = mirDef(fn, form: chooseAndRegImm(coldEvery), b: i, c: noMReg, imm: coldEvery as FullRangeInt)
 			mirOp(fn, form: chooseCmpRegImm(0), a: bit, b: noMReg, c: noMReg, imm: 0)
-			mirBranch(fn, cond: X64CondCode.notEqual, target: cold, args: MRegList.create(0))
+			mirBranch(fn, cond: MCond.notEqual, target: cold, args: MRegList.create(0))
 			mirJump(fn, target: header, args: through)
 		end 'cold'
 	end 'branches' else 'plain'
@@ -292,9 +292,9 @@ end 'mirCallDouble'
 function runSpilledLoop(mutates p ast.Project, label String, shape LoopShape, spills Count, reloads Count, hotSpills Count, hotReloads Count, restores Count) returns SpillResult
 	let entry = addFunction(p, name: "main", errTy: ast.noType)
 	var fn = mirShapedLoop(ast.funcLinkName(p, fid: entry), shape: shape)
-	var convs = Conventions.make()
+	var convs = Conventions.make(ast.Target.windowsX64())
 	if shape.keepsNothing 'nothing'
-		convs = Conventions.keeping(0)
+		convs = Conventions.keeping(ast.Target.windowsX64(), calleeSaved: 0)
 	end 'nothing'
 	let result = spillUnder(label, fn: fn, convs: convs)
 	expectSpillCode(label, fn: fn, spills: spills, reloads: reloads, hotSpills: hotSpills, hotReloads: hotReloads, restores: restores)
@@ -309,7 +309,7 @@ end 'runSpilledLoop'
 // refusalOf spills a shape's loop and gives its refusal, which it requires there to be.
 function refusalOfShape(label String, shape LoopShape) returns PressureRefusal
 	var fn = mirShapedLoop("refused", shape: shape)
-	var s = Spiller.new()
+	var s = Spiller.new(ast.Target.windowsX64())
 	let result = spillFunction(fn, s: s)
 	if result.refusals.count() != 1 'one'
 		panic("{label}: {result.refusals.count()} refusals, not one")
@@ -399,7 +399,7 @@ let outerIterations = 3
 // mirNested is two loops: the inner one updates the accumulators and reads the outer counter; the outer one carries a
 // value w that only it reads, after the inner loop, idle across the inner loop's peak.
 function mirNested(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let outer = 1 as MBlockID
 	let inner = 2 as MBlockID
 	let body = 3 as MBlockID
@@ -422,7 +422,7 @@ function mirNested(symbol String) returns MirFunction
 		outerAcc.push(fn.addParam(RegClass.gpr))
 	end 'outerParams'
 	fn.emit(newTarget(chooseCmpRegImm(outerIterations), a: j, b: noMReg, c: noMReg, aux: 0, imm: outerIterations as FullRangeInt))
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	var into = MRegList.create(0)
 	into.push(mirConst(fn, value: 0))
 	for k in 0 upto nestedAccs 'into'
@@ -436,7 +436,7 @@ function mirNested(symbol String) returns MirFunction
 		acc.push(fn.addParam(RegClass.gpr))
 	end 'innerParams'
 	fn.emit(newTarget(chooseCmpRegImm(spillIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: spillIterations as FullRangeInt))
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: latch, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: latch, args: MRegList.create(0))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	var current = acc.clone()
@@ -509,7 +509,7 @@ function testSpillStraightLine(mutates p ast.Project)
 	// x1 to x24, each x(k) + k, then their sum from x24 down: at its peak 24 values are live, so the ten read last are
 	// spilled by farthest next use, each stored once and reloaded once.
 	let entry = addFunction(p, name: "main", errTy: ast.noType)
-	var fn = MirFunction.new(ast.funcLinkName(p, fid: entry), canThrow: false)
+	var fn = MirFunction.new(ast.funcLinkName(p, fid: entry), canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	var xs = MRegList.create(0)
@@ -544,7 +544,7 @@ function testSpillFixedRegisters(mutates p ast.Project)
 	// Thirteen values live across a division by a register: rax and rdx hold the dividend and the result, and two of
 	// the values are spilled.
 	let entry = addFunction(p, name: "main", errTy: ast.noType)
-	var fn = MirFunction.new(ast.funcLinkName(p, fid: entry), canThrow: false)
+	var fn = MirFunction.new(ast.funcLinkName(p, fid: entry), canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	var live = MRegList.create(0)
@@ -571,7 +571,7 @@ function testSpillFixedRegisters(mutates p ast.Project)
 	runSpilledMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_division.exe", expectedCode: exitOf(wrapAdd(expected, b: 16)))
 	// The same with a shift by a count in rcx.
 	let shiftEntry = addFunction(p, name: "main", errTy: ast.noType)
-	var shift = MirFunction.new(ast.funcLinkName(p, fid: shiftEntry), canThrow: false)
+	var shift = MirFunction.new(ast.funcLinkName(p, fid: shiftEntry), canThrow: false, arch: ast.TargetArch.x64)
 	_ = shift.startBlock()
 	shift.emit(newFrameSetup())
 	var held = MRegList.create(0)
@@ -622,7 +622,7 @@ let scaleBlocks = 5
 // mirScale is a synthetic function of many segments, each a loop that fits, straight-line code over its pool, and a
 // cold call, which the scale test spills to see that the work stays near linear.
 function mirScale(segments Count, straight Count) returns MirFunction
-	var fn = MirFunction.new("scale", canThrow: false)
+	var fn = MirFunction.new("scale", canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	var carry = mirValue(fn, n: 1)
@@ -646,7 +646,7 @@ function mirScale(segments Count, straight Count) returns MirFunction
 			acc.push(fn.addParam(RegClass.gpr))
 		end 'params'
 		fn.emit(newTarget(chooseCmpRegImm(spillIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: spillIterations as FullRangeInt))
-		mirBranch(fn, cond: X64CondCode.greaterEqual, target: after, args: MRegList.create(0))
+		mirBranch(fn, cond: MCond.greaterEqual, target: after, args: MRegList.create(0))
 		mirJump(fn, target: body, args: MRegList.create(0))
 		_ = fn.startBlock()
 		var back = MRegList.create(0)
@@ -674,7 +674,7 @@ function mirScale(segments Count, straight Count) returns MirFunction
 			total = mirAdd(fn, left: total, right: xs[k])
 		end 'fold'
 		mirOp(fn, form: chooseCmpRegImm(0), a: total, b: noMReg, c: noMReg, imm: 0)
-		mirBranch(fn, cond: X64CondCode.equal, target: cold, args: MRegList.create(0))
+		mirBranch(fn, cond: MCond.equal, target: cold, args: MRegList.create(0))
 		var through = MRegList.create(0)
 		through.push(total)
 		mirJump(fn, target: join, args: through)
@@ -693,7 +693,7 @@ end 'mirScale'
 
 function testSpillScale()
 	var fn = mirScale(scaleSegments, straight: scaleStraight)
-	var s = Spiller.new()
+	var s = Spiller.new(ast.Target.windowsX64())
 	let result = spillFunction(fn, s: s)
 	if result.refusals.count() > 0 'refused'
 		panic("scale: refused")
@@ -704,7 +704,7 @@ function testSpillScale()
 	expectCount("scale", what: "stores", got: result.stores, want: scaleSegments * over)
 	expectCount("scale", what: "reloads", got: result.reloads, want: scaleSegments * over)
 	expectCount("scale", what: "rounds", got: result.rounds, want: 2)
-	let problems = verifyPressure(fn)
+	let problems = verifyPressureUnder(fn, convs: s.convs)
 	if problems.count() > 0 'problems'
 		panic("scale: {problems[0]}")
 	end 'problems'

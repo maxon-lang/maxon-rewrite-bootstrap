@@ -12,7 +12,7 @@ end 'colourOf'
 
 // colourChecked is colourOf for a function spilled already, when spilled says so, which it colours as it is.
 function colourChecked(label String, mutates fn MirFunction, calleeSaved RegMask, spilled bool) returns ColourResult
-	var s = Spiller.under(Conventions.keeping(calleeSaved))
+	var s = Spiller.under(Conventions.keeping(ast.Target.windowsX64(), calleeSaved: calleeSaved))
 	if spilled 'adopt'
 		s.adopt(fn)
 	end 'adopt' else 'spill'
@@ -21,11 +21,11 @@ function colourChecked(label String, mutates fn MirFunction, calleeSaved RegMask
 			panic("{label}: refused with E5001")
 		end 'refused'
 	end 'spill'
-	let problems = verifyPressureUnder(fn, convs: Conventions.keeping(calleeSaved))
+	let problems = verifyPressureUnder(fn, convs: Conventions.keeping(ast.Target.windowsX64(), calleeSaved: calleeSaved))
 	if problems.count() > 0 'problems'
 		panic("{label}: {problems[0]}")
 	end 'problems'
-	var c = Colourer.new()
+	var c = Colourer.new(ast.TargetArch.x64)
 	let result = colourFunction(fn, s: s, c: c)
 	let wrong = checkColouring(fn, s: s, c: c)
 	if wrong.count() > 0 'wrong'
@@ -60,7 +60,7 @@ function loopCost(fn MirFunction, depth Count, skip CountList) returns LoopCost
 		end 'follows'
 		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
 			let x = fn.instrs[k].clone()
-			if x.kind == MKind.target and x.form == X64Form.jmpRel32 and x.ref == MRef.edge 'jump'
+			if isX64Form(x, form: X64Form.jmpRel32) and x.ref == MRef.edge 'jump'
 				let edge = try x.aux as Count otherwise panic("an edge below 0")
 				if fn.edges[edge].target as Count == next 'falls'
 					continue 'instrs'
@@ -98,7 +98,7 @@ let colourIterations = 10
 
 // mirCountedLoop sums 0 to 9 in a loop whose counter and sum are its header's parameters: 45.
 function mirCountedLoop(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let header = 1 as MBlockID
 	let body = 2 as MBlockID
 	let exit = 3 as MBlockID
@@ -111,7 +111,7 @@ function mirCountedLoop(symbol String) returns MirFunction
 	let i = fn.addParam(RegClass.gpr)
 	let s = fn.addParam(RegClass.gpr)
 	mirOp(fn, form: X64Form.cmpRegReg, a: i, b: bound, c: noMReg, imm: 0)
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let sum = mirAdd(fn, left: s, right: i)
@@ -130,7 +130,7 @@ let innerCount = 6
 
 // mirNestedLoops adds i + j for i below 4 and j below 6: 96.
 function mirNestedLoops(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let outerHead = 1 as MBlockID
 	let outerBody = 2 as MBlockID
 	let innerHead = 3 as MBlockID
@@ -145,7 +145,7 @@ function mirNestedLoops(symbol String) returns MirFunction
 	let i = fn.addParam(RegClass.gpr)
 	let acc = fn.addParam(RegClass.gpr)
 	fn.emit(newTarget(chooseCmpRegImm(outerCount), a: i, b: noMReg, c: noMReg, aux: 0, imm: outerCount as FullRangeInt))
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	mirJump(fn, target: outerBody, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let start = mirConst(fn, value: 0)
@@ -154,7 +154,7 @@ function mirNestedLoops(symbol String) returns MirFunction
 	let j = fn.addParam(RegClass.gpr)
 	let a = fn.addParam(RegClass.gpr)
 	fn.emit(newTarget(chooseCmpRegImm(innerCount), a: j, b: noMReg, c: noMReg, aux: 0, imm: innerCount as FullRangeInt))
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: outerNext, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: outerNext, args: MRegList.create(0))
 	mirJump(fn, target: innerBody, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let t = mirAdd(fn, left: a, right: j)
@@ -174,7 +174,7 @@ end 'mirNestedLoops'
 // bound, and live - 2 accumulators, the first adding the call's result and each other one the one before it.
 function mirCallLoop(symbol String, live Count) returns MirFunction
 	let accs = try live - 2 otherwise panic("fewer than two values live across the call")
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let header = 1 as MBlockID
 	let body = 2 as MBlockID
 	let exit = 3 as MBlockID
@@ -194,7 +194,7 @@ function mirCallLoop(symbol String, live Count) returns MirFunction
 		acc.push(fn.addParam(RegClass.gpr))
 	end 'params'
 	mirOp(fn, form: X64Form.cmpRegReg, a: i, b: bound, c: noMReg, imm: 0)
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	var back = MRegList.create(0)
@@ -243,7 +243,7 @@ let branchyOdd = 4
 
 // mirBranchyLoop adds the even counters to one sum and the odd ones to another, in arms that rejoin: 20 + 2 * 25.
 function mirBranchyLoop(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let header = 1 as MBlockID
 	let body = 2 as MBlockID
 	let even = branchyEven as MBlockID
@@ -261,12 +261,12 @@ function mirBranchyLoop(symbol String) returns MirFunction
 	let s = fn.addParam(RegClass.gpr)
 	let t = fn.addParam(RegClass.gpr)
 	fn.emit(newTarget(chooseCmpRegImm(colourIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: colourIterations as FullRangeInt))
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let bit = mirDef(fn, form: chooseAndRegImm(1), b: i, c: noMReg, imm: 1)
 	fn.emit(newTarget(chooseCmpRegImm(0), a: bit, b: noMReg, c: noMReg, aux: 0, imm: 0))
-	mirBranch(fn, cond: X64CondCode.notEqual, target: odd, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.notEqual, target: odd, args: MRegList.create(0))
 	mirJump(fn, target: even, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let evenSum = mirAdd(fn, left: s, right: i)
@@ -297,7 +297,7 @@ let shiftMask = 3
 
 // mirDivShiftLoop divides and shifts by a variable count in a loop, with rax, rdx and rcx fixed.
 function mirDivShiftLoop(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let header = 1 as MBlockID
 	let body = 2 as MBlockID
 	let exit = 3 as MBlockID
@@ -309,7 +309,7 @@ function mirDivShiftLoop(symbol String) returns MirFunction
 	let i = fn.addParam(RegClass.gpr)
 	let acc = fn.addParam(RegClass.gpr)
 	fn.emit(newTarget(chooseCmpRegImm(colourIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: colourIterations as FullRangeInt))
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let divisor = mirAddImm(fn, left: i, imm: 1)
@@ -355,7 +355,7 @@ let swapOther = 100
 
 // mirSwapLoop swaps two parameters around the back edge nine times and gives p + 2q: 100 + 2.
 function mirSwapLoop(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let header = 1 as MBlockID
 	let body = 2 as MBlockID
 	let exit = 3 as MBlockID
@@ -371,7 +371,7 @@ function mirSwapLoop(symbol String) returns MirFunction
 	let q = fn.addParam(RegClass.gpr)
 	let trips = colourIterations - 1
 	fn.emit(newTarget(chooseCmpRegImm(trips), a: i, b: noMReg, c: noMReg, aux: 0, imm: trips as FullRangeInt))
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let step = mirAddImm(fn, left: i, imm: 1)
@@ -395,7 +395,7 @@ let hallConfined = 11
 // values live across a division, which may not be in rax or rdx, find only ten free registers of the twelve they may
 // be in, with w and z in the other two. The repair moves w into rax for the rest of its life.
 function mirHallFixed(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	let u0 = mirValue(fn, n: 1)
@@ -439,7 +439,7 @@ let hallKept = 3
 // once, though no call keeps more than three. The repair moves one of the first three, which no call holds any more,
 // into a caller-saved register.
 function mirHallCalls(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	var xs = MRegList.create(0)
@@ -478,7 +478,7 @@ let shiftBy = 1
 // of it before the second shift's count is set, once the values it gave way to have died, and back into it before the
 // jump to the third block, which reads it there.
 function mirHallAcross(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let second = 1 as MBlockID
 	let third = 2 as MBlockID
 	_ = fn.startBlock()
@@ -530,7 +530,7 @@ let subSubtrahend = 30
 // and the copy of the minuend into the difference's register comes before the subtraction reads the subtrahend. The
 // difference needs a fifteenth register, and one value is spilled around the subtraction.
 function mirSubLive(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	var held = MRegList.create(0)

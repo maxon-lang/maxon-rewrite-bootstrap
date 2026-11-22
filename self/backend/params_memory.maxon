@@ -33,7 +33,7 @@ function paramsToMemory(mutates fn MirFunction, g MirGraph, convs Conventions) r
 	var any = false
 	for b in 0 upto fn.blocks.count() 'blocks'
 		for c in 0 upto classCount 'classes'
-			let pool = fullPool(classAt(c))
+			let pool = fullPool(fn.arch, class: classAt(c))
 			let held = paramsOfClass(fn, b: b, c: c)
 			var over = 0 as Count
 			if held > pool 'over'

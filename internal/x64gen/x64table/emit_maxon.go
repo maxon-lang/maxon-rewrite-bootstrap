@@ -6,8 +6,8 @@ import (
 )
 
 // emitMaxon writes the whole of x64_gen.maxon: the types and constants, the helpers every encoder is written with, one
-// encoder per form, the choices and sequences, the effects of the forms, and what the register allocator and the
-// encoder of the machine IR ask of them.
+// encoder per form, the choices and sequences, the form enum and its FormIDs, and what the encoder of the machine IR asks
+// of the forms. What the allocator asks of them is in the target-neutral tables (internal/targetgen's machine_gen.maxon).
 func emitMaxon() string {
 	var b strings.Builder
 	b.WriteString(header)
@@ -24,10 +24,6 @@ func emitMaxon() string {
 		emitSequence(&b, s)
 	}
 	emitFormEnum(&b)
-	b.WriteString(formTableHelper)
-	for _, e := range effectList {
-		emitEffect(&b, e.name, e.of)
-	}
 	emitAlloc(&b)
 	return strings.TrimRight(b.String(), "\n") + "\n"
 }
@@ -44,11 +40,6 @@ func emitTypes(b *strings.Builder) {
 		fmt.Fprintf(b, "\t%s\n", r)
 	}
 	b.WriteString("end 'X64Register'\n\n")
-	b.WriteString("export enum X64CondCode\n")
-	for _, c := range conditions {
-		fmt.Fprintf(b, "\t%s = 0x%X\n", c.name, c.code)
-	}
-	b.WriteString("end 'X64CondCode'\n\n")
 }
 
 func emitConstants(b *strings.Builder) {
@@ -76,7 +67,8 @@ function needsByteRex(r X64Register) returns bool
 	return r.rawValue >= byteRegisters
 end 'needsByteRex'
 
-function conditionBits(cond X64CondCode) returns Nibble
+// A condition's case of MCond is its x64 condition code, which jcc and setcc add to their opcode.
+function conditionBits(cond MCond) returns Nibble
 	return (cond.rawValue mod conditionCodes) as Nibble
 end 'conditionBits'
 
@@ -492,45 +484,4 @@ func emitFormEnum(b *strings.Builder) {
 		fmt.Fprintf(b, "\t%s\n", lowerFirst(f.name))
 	}
 	b.WriteString("end 'X64Form'\n\n")
-}
-
-func emitEffect(b *strings.Builder, name string, of func(form) bool) {
-	emitFormTable(b, name, "bool", func(f form) int {
-		if of(f) {
-			return 1
-		}
-		return 0
-	})
-}
-
-// formTableHelper reads the tables that emitFormTable writes: a string of one digit per form, in the order of X64Form,
-// so that what an allocator or an encoder asks of a form for every instruction is one read of data rather than a
-// match over every form.
-const formTableHelper = `// formTableZero is the byte of the digit 0, which a form table's digits count from.
-let formTableZero = 48
-
-// formTableDigit is the digit a form table holds for a form.
-function formTableDigit(table String, form X64Form) returns Count
-	return try (table.byteAt(form.rawValue) as Count) - formTableZero otherwise panic("backend: a form table holds a byte that is no digit")
-end 'formTableDigit'
-
-`
-
-// emitFormTable writes a function of a form that gives a digit, or a bool that is the digit 1, from a form table.
-func emitFormTable(b *strings.Builder, name, ty string, of func(form) int) {
-	var digits strings.Builder
-	for _, f := range forms {
-		v := of(f)
-		if v < 0 || v > 9 {
-			panic(fmt.Sprintf("%s of %s is %d, which no digit is", name, f.name, v))
-		}
-		digits.WriteByte(byte('0' + v))
-	}
-	fmt.Fprintf(b, "export function %s(form X64Form) returns %s\n", name, ty)
-	test := ""
-	if ty == "bool" {
-		test = " == 1"
-	}
-	fmt.Fprintf(b, "\treturn formTableDigit(\"%s\", form: form)%s\n", digits.String(), test)
-	fmt.Fprintf(b, "end '%s'\n\n", name)
 }

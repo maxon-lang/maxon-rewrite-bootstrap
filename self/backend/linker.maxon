@@ -310,21 +310,14 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, syst
 	let tableAt = alignUp(sizes.data, alignment: linkDataAlignment)
 	let dataSize = try tableAt + table.bytes() otherwise panic("link: data past memory")
 	let pointers = livePointers(links, units: units)
-	var relocated = CountList.create(0)
-	for i in 0 upto pointers.count() 'relocated'
-		relocated.push(pointers[i].pos)
-	end 'relocated'
-	var image = buildImage(system, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), relocated: relocated))
+	var image = buildImage(system, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), pointers: pointers.clone()))
 	var code = ByteArray.create(0)
 	var data = ByteArray.create(dataSize)
 	for i in 0 upto links.count() 'copy'
 		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image, tableAt: tableAt)
 	end 'copy'
 	table.write(data, at: tableAt, image: image)
-	for i in 0 upto pointers.count() 'pointers'
-		let address = try image.base + image.dataRva + pointers[i].target otherwise panic("link: an address past the image")
-		patch64(data, at: pointers[i].pos, value: address)
-	end 'pointers'
+	writePointers(system, image: image, data: data, pointers: pointers)
 	placeCode(image, at: 0, bytes: code)
 	placeData(image, at: 0, bytes: data)
 	var symbolMap = ""
@@ -633,13 +626,19 @@ function appendRange(mutates dest ByteArray, src ByteArray, begin Count, finish 
 	end 'each'
 end 'appendRange'
 
-// linkPatch makes the 32-bit field at pos of the code, which sits at textRva, reach target, an address of the image. The
-// field counts from its own end.
-function linkPatch(mutates code ByteArray, pos Count, textRva Count, target Count)
+// linkPatch makes the field of a kind at pos of the code, which sits at textRva, reach target, an address of the image.
+function linkPatch(mutates code ByteArray, kind FixupKind, pos Count, textRva Count, target Count)
+	match kind 'kind'
+		rel32 then patchLinkRel32(code, pos: pos, textRva: textRva, target: target)
+	end 'kind'
+end 'linkPatch'
+
+// patchLinkRel32 makes the 32-bit field at pos, which counts from its own end, reach target.
+function patchLinkRel32(mutates code ByteArray, pos Count, textRva Count, target Count)
 	let after = try textRva + pos + linkFieldBytes otherwise panic("link: an address past the image")
 	let relative = try (target as FullRangeInt) - (after as FullRangeInt) otherwise panic("link: a reference past the range of the image")
 	patch32(code, at: pos, value: try relative as Imm32 otherwise panic("link: a reference past 2 GiB"))
-end 'linkPatch'
+end 'patchLinkRel32'
 
 // copyAndPatch puts the live sections and pieces of a unit, u at place unit of the layout, into the code and the data of the
 // image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it. The units
@@ -665,7 +664,7 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 			let piece = l.dataPieces[j]
 			let inPiece = try fixup.dataOffset - l.pieces[piece] otherwise panic("link: a reference before its piece")
 			let offset = try l.dataBase + l.dataAt[piece] + inPiece otherwise panic("link: data past memory")
-			linkPatch(code, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: try image.dataRva + offset otherwise panic("link: an address past the image"))
+			linkPatch(code, kind: fixup.kind, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: try image.dataRva + offset otherwise panic("link: an address past the image"))
 		end 'dataFixups'
 		for j in begin.importFixups upto finish.importFixups 'importFixups'
 			let fixup = u.asm.importFixups[j].clone()
@@ -673,7 +672,7 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 				panic("link: a call of an import that the executable has no slot for")
 			end 'slot'
 			let slot = try fixup.index * importSlotBytes otherwise panic("link: an import past memory")
-			linkPatch(code, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: try image.iatRva + slot otherwise panic("link: an address past the image"))
+			linkPatch(code, kind: fixup.kind, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: try image.iatRva + slot otherwise panic("link: an address past the image"))
 		end 'importFixups'
 		for j in begin.symbolFixups upto finish.symbolFixups 'symbolFixups'
 			let target = defined[l.targets[j]].clone()
@@ -692,7 +691,7 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 				panic("link: a live fixup has a target of kind {target.kind.name}")
 			end 'unknown'
 			let fixup = u.asm.symbolFixups[j].clone()
-			linkPatch(code, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: address)
+			linkPatch(code, kind: fixup.kind, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: address)
 		end 'symbolFixups'
 	end 'sections'
 end 'copyAndPatch'

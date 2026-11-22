@@ -132,16 +132,19 @@ export type Colourer
 	var outStart as CountList
 	var outSelf as IndexList
 	var outEnd as CountList
+	// arch is the architecture of the function being coloured, whose register file it is given.
+	var arch as ast.TargetArch
 
-	export static function new() returns Colourer
-		return Colourer{result: ColourResult.new(), callerSaved: 0, calleeSaved: 0, reg: CountList.create(0), coloured: BoolList.create(0), loc: CountList.create(0), forbid: Array.create(0), hint: Array.create(0), contested: Array.create(0), pairFrom: CountList.create(0), pairTo: CountList.create(0), partnerStart: CountList.create(0), partnerList: CountList.create(0), deathAt: CountList.create(0), deathStamp: CountList.create(0), stamp: 0, physBefore: Array.create(0), physAfter: Array.create(0), throughAt: Array.create(0), written: Array.create(0), dieAt: CountList.create(0), dieValue: CountList.create(0), dieStart: CountList.create(0), dieList: CountList.create(0), opens: BoolList.create(0), bracketEnd: CountList.create(0), commuted: BoolList.create(0), live: BoolList.create(0), liveList: CountList.create(0), livePos: CountList.create(0), bracketed: BoolList.create(0), restoreAt: CountList.create(0), holder: CountList.create(0), busy: 0, openValue: CountList.create(0), openReg: CountList.create(0), openEnd: CountList.create(0), winValue: CountList.create(0), winBlock: CountList.create(0), winFrom: CountList.create(0), winTo: CountList.create(0), winReg: CountList.create(0), winFirst: IndexList.create(0), winNext: IndexList.create(0), openWin: IndexList.create(0), homeless: BoolList.create(0), homes: 0, flagged: CountList.create(0), moveValue: CountList.create(0), moveTo: CountList.create(0), moveDsts: CountList.create(0), moveSrcs: CountList.create(0), moveOut: MInstrList.create(0), insAt: CountList.create(0), insIndex: CountList.create(0), insInstr: MInstrList.create(0), insStart: CountList.create(0), insList: CountList.create(0), parent: CountList.create(0), queue: CountList.create(0), ops: Operands.new(), origInstrs: MInstrList.create(0), origBlocks: MBlockList.create(0), origEdges: MEdgeList.create(0), outStart: CountList.create(0), outSelf: IndexList.create(0), outEnd: CountList.create(0)}
+	export static function new(arch ast.TargetArch) returns Colourer
+		return Colourer{result: ColourResult.new(), callerSaved: 0, calleeSaved: 0, reg: CountList.create(0), coloured: BoolList.create(0), loc: CountList.create(0), forbid: Array.create(0), hint: Array.create(0), contested: Array.create(0), pairFrom: CountList.create(0), pairTo: CountList.create(0), partnerStart: CountList.create(0), partnerList: CountList.create(0), deathAt: CountList.create(0), deathStamp: CountList.create(0), stamp: 0, physBefore: Array.create(0), physAfter: Array.create(0), throughAt: Array.create(0), written: Array.create(0), dieAt: CountList.create(0), dieValue: CountList.create(0), dieStart: CountList.create(0), dieList: CountList.create(0), opens: BoolList.create(0), bracketEnd: CountList.create(0), commuted: BoolList.create(0), live: BoolList.create(0), liveList: CountList.create(0), livePos: CountList.create(0), bracketed: BoolList.create(0), restoreAt: CountList.create(0), holder: CountList.create(0), busy: 0, openValue: CountList.create(0), openReg: CountList.create(0), openEnd: CountList.create(0), winValue: CountList.create(0), winBlock: CountList.create(0), winFrom: CountList.create(0), winTo: CountList.create(0), winReg: CountList.create(0), winFirst: IndexList.create(0), winNext: IndexList.create(0), openWin: IndexList.create(0), homeless: BoolList.create(0), homes: 0, flagged: CountList.create(0), moveValue: CountList.create(0), moveTo: CountList.create(0), moveDsts: CountList.create(0), moveSrcs: CountList.create(0), moveOut: MInstrList.create(0), insAt: CountList.create(0), insIndex: CountList.create(0), insInstr: MInstrList.create(0), insStart: CountList.create(0), insList: CountList.create(0), parent: CountList.create(0), queue: CountList.create(0), ops: Operands.new(), origInstrs: MInstrList.create(0), origBlocks: MBlockList.create(0), origEdges: MEdgeList.create(0), outStart: CountList.create(0), outSelf: IndexList.create(0), outEnd: CountList.create(0), arch: arch}
 	end 'new'
 
 	// start sizes the state for fn under the conventions convs.
 	function start(mutates self, fn MirFunction, convs Conventions)
 		result = ColourResult.new()
+		arch = fn.arch
 		calleeSaved = convs.internal.calleeSaved
-		callerSaved = (allocatable(RegClass.gpr) or allocatable(RegClass.xmm)) and not calleeSaved
+		callerSaved = (allocatable(arch, class: RegClass.gpr) or allocatable(arch, class: RegClass.xmm)) and not calleeSaved
 		let regs = fn.vregCount()
 		let n = fn.instrs.count()
 		ir.resetCounts(reg, n: regs)
@@ -212,10 +215,10 @@ export type Colourer
 			self.pair(dst, b: src)
 		end 'partners' else if isVirtual(dst) and isPhysical(src) 'fromFixed'
 			let v = vregIndex(dst)
-			hint[v] = hint[v] or (regBit(physicalNumber(src)) and not reservedMask())
+			hint[v] = hint[v] or (regBit(physicalNumber(src)) and not reservedMask(arch))
 		end 'fromFixed' else if isPhysical(dst) and isVirtual(src) 'toFixed'
 			let v = vregIndex(src)
-			hint[v] = hint[v] or (regBit(physicalNumber(dst)) and not reservedMask())
+			hint[v] = hint[v] or (regBit(physicalNumber(dst)) and not reservedMask(arch))
 		end 'toFixed'
 	end 'hintCopy'
 
@@ -478,8 +481,8 @@ export type Colourer
 		while left > 0 'levels'
 			for p in 0 upto fn.blocks[b].paramCount 'params'
 				let v = vregIndex(fn.blockParams[addCounts(fn.blocks[b].params, b: p)])
-				if lv.useStart[v] != lv.useStart[nextCount(v)] and not coloured[v] and maskCount(self.allowed(fn, v: v, k: first, avail: allocatable(fn.classes[v]))) <= room 'due'
-					self.colourAt(fn, v: v, b: b, k: first, avail: allocatable(fn.classes[v]), reads: 0, operand: noDef, atEntry: true)
+				if lv.useStart[v] != lv.useStart[nextCount(v)] and not coloured[v] and maskCount(self.allowed(fn, v: v, k: first, avail: allocatable(arch, class: fn.classes[v]))) <= room 'due'
+					self.colourAt(fn, v: v, b: b, k: first, avail: allocatable(arch, class: fn.classes[v]), reads: 0, operand: noDef, atEntry: true)
 					left = prevCount(left)
 				end 'due'
 			end 'params'
@@ -528,7 +531,7 @@ export type Colourer
 			if kind == MKind.target and reuses(fn.instrs[k]) and isVirtual(fn.instrs[k].b) 'reuse'
 				self.colourReuse(fn, v: v, b: b, k: k, useMask: useMask)
 			end 'reuse' else 'plain'
-				self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(fn.classes[v]), reads: useMask, operand: noDef, atEntry: false)
+				self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(arch, class: fn.classes[v]), reads: useMask, operand: noDef, atEntry: false)
 			end 'plain'
 		end 'defs'
 		for e in dieStart[k] upto dieStart[nextCount(k)] 'deadDefs'
@@ -583,7 +586,7 @@ export type Colourer
 				return
 			end 'swapped'
 		end 'commutes'
-		self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(fn.classes[v]) and not useMask, reads: useMask, operand: indexOfCount(operand), atEntry: false)
+		self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(arch, class: fn.classes[v]) and not useMask, reads: useMask, operand: indexOfCount(operand), atEntry: false)
 		let from = loc[operand]
 		if loc[v] != from 'copy'
 			let r = loc[v]
@@ -597,7 +600,7 @@ export type Colourer
 	function takeDying(mutates self, fn MirFunction, v Count, k Count, operand Count) returns bool
 		let r = loc[operand]
 		let bit = maskOfCount(r)
-		if ((busy or (homes and not self.lentMask())) and bit) != 0 or (self.allowed(fn, v: v, k: k, avail: allocatable(fn.classes[v])) and bit) == 0 'kept'
+		if ((busy or (homes and not self.lentMask())) and bit) != 0 or (self.allowed(fn, v: v, k: k, avail: allocatable(arch, class: fn.classes[v])) and bit) == 0 'kept'
 			return false
 		end 'kept'
 		reg[v] = r
@@ -623,7 +626,7 @@ export type Colourer
 
 	// allowed is the registers v may be given at k, out of avail, whoever holds them now.
 	function allowed(fn MirFunction, v Count, k Count, avail RegMask) returns RegMask
-		return avail and allocatable(fn.classes[v]) and not forbid[v] and not self.bracketMask(v, k: k)
+		return avail and allocatable(arch, class: fn.classes[v]) and not forbid[v] and not self.bracketMask(v, k: k)
 	end 'allowed'
 
 	// lentMask is the registers the open brackets lend, which stay the homes of the values bracketed: a value that dies
@@ -678,7 +681,7 @@ export type Colourer
 	function homeElsewhere(mutates self, fn MirFunction, v Count, b Count, k Count, avail RegMask, atEntry bool)
 		let class = fn.classes[v]
 		let lent = self.bracketMask(v, k: k)
-		let unclaimed = allocatable(class) and not (homes and not self.lentMask())
+		let unclaimed = allocatable(arch, class: class) and not (homes and not self.lentMask())
 		var pick = unclaimed and not forbid[v] and not lent
 		if pick == 0 'risky'
 			pick = unclaimed and not lent
@@ -693,7 +696,7 @@ export type Colourer
 		reg[v] = h
 		coloured[v] = true
 		homes = homes or maskOfCount(h)
-		let suits = allocatable(class) and avail and not busy and not physAfter[k] and not written[k] and not lent
+		let suits = allocatable(arch, class: class) and avail and not busy and not physAfter[k] and not written[k] and not lent
 		if atEntry or maskHas(suits, number: regNumOfCount(h)) 'home'
 			self.occupy(v, r: h)
 		end 'home' else 'window'
@@ -790,7 +793,7 @@ export type Colourer
 			if not self.movable(w, k: k) 'fixed'
 				continue 'search'
 			end 'fixed'
-			let next = allocatable(fn.classes[w]) and not self.windowMask(w, k: k) and not self.bracketMask(w, k: k) and not reads and not seen and not foreign
+			let next = allocatable(arch, class: fn.classes[w]) and not self.windowMask(w, k: k) and not self.bracketMask(w, k: k) and not reads and not seen and not foreign
 			var s = 0 as Count
 			while s < firstVirtual as Count 'next'
 				if maskHas(next, number: regNumOfCount(s)) 'reach'
@@ -869,7 +872,7 @@ export type Colourer
 		for j in 0 upto moving 'moves'
 			let w = moveValue[j]
 			let lent = self.bracketMask(w, k: k)
-			let room = allocatable(fn.classes[w]) and not busy and not keep and not lent
+			let room = allocatable(arch, class: fn.classes[w]) and not busy and not keep and not lent
 			if room != 0 'free'
 				var pick = room and not homes and not forbid[w]
 				if pick == 0 'claimed'
@@ -900,14 +903,14 @@ export type Colourer
 	// the register of a value that dies at k and may be anywhere k does not fix before it: that value moves to a free
 	// register, or with none, takes w's.
 	function takeFromDying(mutates self, fn MirFunction, w Count, k Count, keep RegMask, lent RegMask)
-		let suits = allocatable(fn.classes[w]) and not keep and not lent
+		let suits = allocatable(arch, class: fn.classes[w]) and not keep and not lent
 		var r = 0 as Count
 		while r < firstVirtual as Count 'registers'
 			let bit = maskOfCount(r)
 			if (suits and busy and bit) != 0 'held'
 				let d = holder[r]
 				if self.dyingAt(d, k: k) and not self.isMoving(d) and fn.classes[d] == fn.classes[w] 'dying'
-					let spare = allocatable(fn.classes[d]) and not busy and not physBefore[k] and not self.bracketMask(d, k: k)
+					let spare = allocatable(arch, class: fn.classes[d]) and not busy and not physBefore[k] and not self.bracketMask(d, k: k)
 					if spare != 0 'spare'
 						moveValue.push(d)
 						self.moveTo(d, r: lowestRegister(spare))
@@ -972,7 +975,7 @@ export type Colourer
 				if not homeless[x] 'owned'
 					panic("backend: virtual register {vregAt(w)} and virtual register {vregAt(x)} share a home")
 				end 'owned'
-				let room = allocatable(fn.classes[x]) and not busy and not homes and not self.windowMask(x, k: k) and not self.bracketMask(x, k: k)
+				let room = allocatable(arch, class: fn.classes[x]) and not busy and not homes and not self.windowMask(x, k: k) and not self.bracketMask(x, k: k)
 				if room == 0 'none'
 					panic("backend: virtual register {vregAt(x)} has nowhere to go out of a home before the branch at instruction {k}, which spilling rules out")
 				end 'none'
@@ -989,7 +992,7 @@ export type Colourer
 	// of through, and moves the windows of the values moved: one out of its home is in a window from k on.
 	function emitMoves(mutates self, b Count, k Count, through RegMask)
 		moveOut.clear()
-		sequenceCopies(moveOut, dsts: moveDsts, srcs: moveSrcs, through: through, callerSaved: callerSaved, result: result)
+		sequenceCopies(moveOut, arch: arch, dsts: moveDsts, srcs: moveSrcs, through: through, callerSaved: callerSaved, result: result)
 		for i in 0 upto moveOut.count() 'moves'
 			self.insertInstr(k, x: moveOut[i].clone())
 			result.repairMoves = nextCount(result.repairMoves)
@@ -1175,7 +1178,7 @@ export type Colourer
 			srcs.push(countOfMReg(self.physAt(fn.copies[at].src, b: b, k: k)))
 		end 'pairs'
 		let through = throughAt[k]
-		sequenceCopies(out, dsts: dsts, srcs: srcs, through: through, callerSaved: callerSaved, result: result)
+		sequenceCopies(out, arch: arch, dsts: dsts, srcs: srcs, through: through, callerSaved: callerSaved, result: result)
 	end 'rewriteParallelCopy'
 
 	// edgeCopies writes the parallel copy of an edge's arguments into its target's parameters' registers.
@@ -1195,7 +1198,7 @@ export type Colourer
 		for i in lv.liveInStart[target] upto lv.liveInStart[nextCount(target)] 'live'
 			through = through or maskOfCount(reg[lv.liveIn[i]])
 		end 'live'
-		sequenceCopies(out, dsts: dsts, srcs: srcs, through: through, callerSaved: callerSaved, result: result)
+		sequenceCopies(out, arch: arch, dsts: dsts, srcs: srcs, through: through, callerSaved: callerSaved, result: result)
 	end 'edgeCopies'
 
 	// savedRegisters is the callee-saved registers the coloured function writes, which its frame keeps for its caller.
@@ -1208,7 +1211,7 @@ export type Colourer
 				end 'defines'
 			end 'writes'
 		end 'instrs'
-		return used and calleeSaved and not reservedMask()
+		return used and calleeSaved and not reservedMask(arch)
 	end 'savedRegisters'
 end 'Colourer'
 
@@ -1283,8 +1286,8 @@ export type Allocator
 	var colourer as Colourer
 	var verifies as bool
 
-	export static function new(verifies bool) returns Allocator
-		return Allocator{spiller: Spiller.new(), colourer: Colourer.new(), verifies: verifies}
+	export static function new(verifies bool, target ast.Target) returns Allocator
+		return Allocator{spiller: Spiller.new(target), colourer: Colourer.new(target.arch), verifies: verifies}
 	end 'new'
 
 	// allocate gives every virtual register of fn a physical register, spilling first where the registers do not

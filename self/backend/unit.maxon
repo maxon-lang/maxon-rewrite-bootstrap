@@ -1,38 +1,7 @@
 // The assembler and the code unit: what codegen, the routines and the entry stub write instructions into, and what the
-// linker reads. The encoder is x64_gen.maxon; this is what the encoder leaves to the backend: labels, the fixups that the
-// linker patches, and the symbols a unit defines.
-
-export let rax = X64Register.rax
-
-export let rcx = X64Register.rcx
-
-export let rdx = X64Register.rdx
-
-export let rbx = X64Register.rbx
-
-export let rsp = X64Register.rsp
-
-export let rbp = X64Register.rbp
-
-export let rsi = X64Register.rsi
-
-export let rdi = X64Register.rdi
-
-export let r8 = X64Register.r8
-
-export let r9 = X64Register.r9
-
-export let r10 = X64Register.r10
-
-export let r11 = X64Register.r11
-
-export let r12 = X64Register.r12
-
-export let r13 = X64Register.r13
-
-export let r14 = X64Register.r14
-
-export let r15 = X64Register.r15
+// linker reads. The architecture's assembler (asm_x64.maxon, over the encoder of x64_gen.maxon) writes the instructions;
+// this is what every one leaves to the backend: labels, the fixups that the linker patches, each of a kind, and the
+// symbols a unit defines.
 
 // imm32Of is a size or an offset that an instruction holds in 32 bits.
 export function imm32Of(value Count) returns Imm32
@@ -46,52 +15,69 @@ typealias WordOffsets = table.IntMap with Count
 // LabelID is a label of the function or routine being written, an index into its Asm.
 export typealias LabelID = int(0 to 2147483647)
 
-// Label is a place in the code that a branch goes to. A branch to a label that is not bound yet leaves the previous such
-// branch's position in its own 32-bit field, so the uses of a label are a chain through the code that binding walks.
+// Label is a place in the code that a branch goes to. The uses of a label that is not bound yet are a chain through the
+// assembler's table of uses, which binding walks.
 type Label
 	var bound as bool
 	var pos as Count
-	// chain is one past the position of the last field that went to the label before it was bound, and 0 for none.
-	var chain as Count
+	// last is one past the index in the table of uses of the last use of the label before it was bound, and 0 for none.
+	var last as Count
 
 	static function make() returns Label
-		return Label{bound: false, pos: 0 as Count, chain: 0 as Count}
+		return Label{bound: false, pos: 0 as Count, last: 0 as Count}
 	end 'make'
 end 'Label'
 
 typealias LabelList = Array with Label
 
-// DataFixup is a RIP-relative reference to an offset of the data section, written at pos.
+// FixupKind is what a field that the link or a label fills in holds: on x64 a 32-bit offset from the field's end to
+// the target (rel32), in a branch, a call or a rip-relative operand.
+export enum FixupKind
+	rel32
+end 'FixupKind'
+
+// fixupKindOf is the kind with a number, its rawValue, which a unit kept by the build cache holds.
+function fixupKindOf(number Count) returns FixupKind
+	return match number 'number'
+		0 gives FixupKind.rel32
+		default panic("backend: a kept unit holds a fixup of no kind")
+	end 'number'
+end 'fixupKindOf'
+
+// DataFixup is a reference of a kind to an offset of the data section, written at pos.
 export type DataFixup
+	export var kind as FixupKind
 	export var pos as Count
 	export var dataOffset as Count
 
-	export static function make(pos Count, dataOffset Count) returns DataFixup
-		return DataFixup{pos: pos, dataOffset: dataOffset}
+	export static function make(kind FixupKind, pos Count, dataOffset Count) returns DataFixup
+		return DataFixup{kind: kind, pos: pos, dataOffset: dataOffset}
 	end 'make'
 end 'DataFixup'
 
 export typealias DataFixupList = Array with DataFixup
 
-// ImportFixup is a call through the import slot of the index-th imported name, written at pos.
+// ImportFixup is a reference of a kind to the import slot of the index-th imported name, written at pos.
 export type ImportFixup
+	export var kind as FixupKind
 	export var pos as Count
 	export var index as Count
 
-	export static function make(pos Count, index Count) returns ImportFixup
-		return ImportFixup{pos: pos, index: index}
+	export static function make(kind FixupKind, pos Count, index Count) returns ImportFixup
+		return ImportFixup{kind: kind, pos: pos, index: index}
 	end 'make'
 end 'ImportFixup'
 
 export typealias ImportFixupList = Array with ImportFixup
 
-// SymbolFixup is a reference, written at pos, to a symbol that this unit or another one defines.
+// SymbolFixup is a reference of a kind, written at pos, to a symbol that this unit or another one defines.
 export type SymbolFixup
+	export var kind as FixupKind
 	export var pos as Count
 	export var symbol as String
 
-	export static function make(pos Count, consumes symbol String) returns SymbolFixup
-		return SymbolFixup{pos: pos, symbol: symbol}
+	export static function make(kind FixupKind, pos Count, consumes symbol String) returns SymbolFixup
+		return SymbolFixup{kind: kind, pos: pos, symbol: symbol}
 	end 'make'
 end 'SymbolFixup'
 
@@ -113,6 +99,100 @@ end 'SymbolDef'
 
 export typealias SymbolDefList = Array with SymbolDef
 
+// Asm is the code of a unit and the references in it that are not known until the link: what every architecture's
+// assembler writes into (asm_x64.maxon). A branch to a label not bound yet is a use in a table of its own, which the
+// label's binding patches by the use's kind, so that no field has to hold the chain of a label's uses.
+export type Asm
+	export var code as ByteArray
+	export var dataFixups as DataFixupList
+	export var importFixups as ImportFixupList
+	export var symbolFixups as SymbolFixupList
+	var labels as LabelList
+	// The uses of labels not bound yet: where each field is, its kind, and the use before it of the same label, one past
+	// its index, or 0 for none.
+	var useAt as CountList
+	var useKind as Array with FixupKind
+	var usePrevious as CountList
+
+	export static function new() returns Asm
+		return Asm{code: ByteArray.create(0), dataFixups: DataFixupList.create(0), importFixups: ImportFixupList.create(0), symbolFixups: SymbolFixupList.create(0), labels: LabelList.create(0), useAt: CountList.create(0), useKind: Array.create(0), usePrevious: CountList.create(0)}
+	end 'new'
+
+	export function pos() returns Count
+		return code.count()
+	end 'pos'
+
+	// addDataFixup notes a field of a kind at at that refers to an offset of the data section.
+	function addDataFixup(mutates self, kind FixupKind, at Count, dataOffset Count)
+		dataFixups.push(DataFixup.make(kind, pos: at, dataOffset: dataOffset))
+	end 'addDataFixup'
+
+	// addSymbolFixup notes a field of a kind at at that refers to a symbol.
+	function addSymbolFixup(mutates self, kind FixupKind, at Count, symbol String)
+		symbolFixups.push(SymbolFixup.make(kind, pos: at, symbol: symbol.clone()))
+	end 'addSymbolFixup'
+
+	// addImportFixup notes a field of a kind at at that refers to the import slot of the index-th imported name.
+	function addImportFixup(mutates self, kind FixupKind, at Count, index Count)
+		importFixups.push(ImportFixup.make(kind, pos: at, index: index))
+	end 'addImportFixup'
+
+	// newLabel makes a label that stays valid until the next section starts.
+	export function newLabel(mutates self) returns LabelID
+		let id = try labels.count() as LabelID otherwise panic("a function has more labels than any code can name")
+		labels.push(Label.make())
+		return id
+	end 'newLabel'
+
+	// addLabelUse makes the field of a kind at at go to the label: now, if it is bound, and when it is otherwise.
+	function addLabelUse(mutates self, label LabelID, kind FixupKind, at Count)
+		let index = label as Count
+		if labels[index].bound 'bound'
+			patchLabelField(code, kind: kind, at: at, target: labels[index].pos)
+			return
+		end 'bound'
+		useAt.push(at)
+		useKind.push(kind)
+		usePrevious.push(labels[index].last)
+		labels[index].last = useAt.count()
+	end 'addLabelUse'
+
+	// bind puts the label here and makes every branch that went to it before go here.
+	export function bind(mutates self, label LabelID)
+		let index = label as Count
+		let target = code.count()
+		var use = labels[index].last
+		while use != 0 'uses'
+			let at = try use - 1 otherwise panic("a label use is before the table")
+			patchLabelField(code, kind: useKind[at], at: useAt[at], target: target)
+			use = usePrevious[at]
+		end 'uses'
+		labels[index].bound = true
+		labels[index].pos = target
+		labels[index].last = 0
+	end 'bind'
+
+	// endLabels checks that every label of the section that ends was bound, and forgets them.
+	export function endLabels(mutates self)
+		for i in 0 upto labels.count() 'each'
+			if labels[i].last != 0 'unbound'
+				panic("backend: a branch goes to a label that was never bound")
+			end 'unbound'
+		end 'each'
+		labels = LabelList.create(0)
+		useAt.clear()
+		useKind.clear()
+		usePrevious.clear()
+	end 'endLabels'
+end 'Asm'
+
+// patchLabelField makes the field of a kind at at of the code go to target, an offset of the same code.
+function patchLabelField(mutates code ByteArray, kind FixupKind, at Count, target Count)
+	match kind 'kind'
+		rel32 then patchRel32(code, at: at, target: target)
+	end 'kind'
+end 'patchLabelField'
+
 // CodeSection is where a part of a unit's code begins, and where its fixups of each kind begin, which are in the order of
 // their positions, and the boundary the link starts it on: the code in it is aligned from its start, so it is aligned in
 // the image only on that boundary. preemptible says that the monitor may stop a green thread anywhere in it: it is the
@@ -132,384 +212,6 @@ export type CodeSection
 end 'CodeSection'
 
 export typealias CodeSectionList = Array with CodeSection
-
-// Asm is the code of a unit and the references in it that are not known until the link.
-export type Asm
-	export var code as ByteArray
-	export var dataFixups as DataFixupList
-	export var importFixups as ImportFixupList
-	export var symbolFixups as SymbolFixupList
-	var labels as LabelList
-
-	export static function new() returns Asm
-		return Asm{code: ByteArray.create(0), dataFixups: DataFixupList.create(0), importFixups: ImportFixupList.create(0), symbolFixups: SymbolFixupList.create(0), labels: LabelList.create(0)}
-	end 'new'
-
-	export function pos() returns Count
-		return code.count()
-	end 'pos'
-
-	export function mov(mutates self, dst X64Register, src X64Register)
-		encodeMovRegReg(code, dest: dst, src: src)
-	end 'mov'
-
-	export function add(mutates self, dst X64Register, src X64Register)
-		encodeAddRegReg(code, dest: dst, src: src)
-	end 'add'
-
-	export function sub(mutates self, dst X64Register, src X64Register)
-		encodeSubRegReg(code, dest: dst, src: src)
-	end 'sub'
-
-	export function bitAnd(mutates self, dst X64Register, src X64Register)
-		encodeAndRegReg(code, dest: dst, src: src)
-	end 'bitAnd'
-
-	export function bitOr(mutates self, dst X64Register, src X64Register)
-		encodeOrRegReg(code, dest: dst, src: src)
-	end 'bitOr'
-
-	export function bitXor(mutates self, dst X64Register, src X64Register)
-		encodeXorRegReg(code, dest: dst, src: src)
-	end 'bitXor'
-
-	export function cmp(mutates self, left X64Register, right X64Register)
-		encodeCmpRegReg(code, left: left, right: right)
-	end 'cmp'
-
-	export function test(mutates self, left X64Register, right X64Register)
-		encodeTestRegReg(code, left: left, right: right)
-	end 'test'
-
-	export function imul(mutates self, dst X64Register, src X64Register)
-		encodeImulRegReg(code, dest: dst, src: src)
-	end 'imul'
-
-	export function load(mutates self, dst X64Register, base X64Register, disp Imm32)
-		encodeLoadRegBaseDisp(code, dest: dst, base: base, disp: disp)
-	end 'load'
-
-	export function store(mutates self, base X64Register, disp Imm32, src X64Register)
-		encodeStoreBaseDispReg(code, base: base, disp: disp, src: src)
-	end 'store'
-
-	// loadVector loads the word at base plus disp into the xmm register dst, as movsd does.
-	export function loadFloatWord(mutates self, dst X64Register, base X64Register, disp Imm32)
-		encodeMovsdRegBaseDisp(code, dest: dst, base: base, disp: disp)
-	end 'loadFloatWord'
-
-	// moveFromVector copies the bits of the xmm register src into the general register dst, as movq does.
-	export function moveFromVector(mutates self, dst X64Register, src X64Register)
-		encodeMovqRegXmm(code, dest: dst, src: src)
-	end 'moveFromVector'
-
-	export function lea(mutates self, dst X64Register, base X64Register, disp Imm32)
-		encodeLeaRegBaseDisp(code, dest: dst, base: base, disp: disp)
-	end 'lea'
-
-	export function loadByte(mutates self, dst X64Register, base X64Register, disp Imm32)
-		encodeMovzxRegByteBaseDisp(code, dest: dst, base: base, disp: disp)
-	end 'loadByte'
-
-	export function loadWord16(mutates self, dst X64Register, base X64Register, disp Imm32)
-		encodeMovzxRegWordBaseDisp(code, dest: dst, base: base, disp: disp)
-	end 'loadWord16'
-
-	export function loadWord32(mutates self, dst X64Register, base X64Register, disp Imm32)
-		encodeLoadReg32BaseDisp(code, dest: dst, base: base, disp: disp)
-	end 'loadWord32'
-
-	export function storeByte(mutates self, base X64Register, disp Imm32, src X64Register)
-		encodeStoreBaseDispReg8(code, base: base, disp: disp, src: src)
-	end 'storeByte'
-
-	export function storeWord16(mutates self, base X64Register, disp Imm32, src X64Register)
-		encodeStoreBaseDispReg16(code, base: base, disp: disp, src: src)
-	end 'storeWord16'
-
-	export function storeWord32(mutates self, base X64Register, disp Imm32, src X64Register)
-		encodeStoreBaseDispReg32(code, base: base, disp: disp, src: src)
-	end 'storeWord32'
-
-	export function movImm(mutates self, dst X64Register, imm FullRangeInt)
-		encodeMovRegImm(code, dest: dst, imm: imm)
-	end 'movImm'
-
-	export function addImm(mutates self, dst X64Register, imm Imm32)
-		encodeAddRegImm(code, dest: dst, imm: imm)
-	end 'addImm'
-
-	export function andImm(mutates self, dst X64Register, imm Imm32)
-		encodeAndRegImm(code, dest: dst, imm: imm)
-	end 'andImm'
-
-	export function subImm(mutates self, dst X64Register, imm Imm32)
-		encodeSubRegImm(code, dest: dst, imm: imm)
-	end 'subImm'
-
-	export function cmpImm(mutates self, dst X64Register, imm Imm32)
-		encodeCmpRegImm(code, dest: dst, imm: imm)
-	end 'cmpImm'
-
-	export function bitNot(mutates self, reg X64Register)
-		encodeNotReg(code, reg: reg)
-	end 'bitNot'
-
-	export function neg(mutates self, reg X64Register)
-		encodeNegReg(code, reg: reg)
-	end 'neg'
-
-	export function mulRax(mutates self, reg X64Register)
-		encodeMulReg(code, reg: reg)
-	end 'mulRax'
-
-	export function div(mutates self, reg X64Register)
-		encodeDivReg(code, reg: reg)
-	end 'div'
-
-	export function idiv(mutates self, reg X64Register)
-		encodeIdivReg(code, reg: reg)
-	end 'idiv'
-
-	export function cqo(mutates self)
-		encodeCqo(code)
-	end 'cqo'
-
-	export function shlCl(mutates self, reg X64Register)
-		encodeShlRegCl(code, reg: reg)
-	end 'shlCl'
-
-	export function shrCl(mutates self, reg X64Register)
-		encodeShrRegCl(code, reg: reg)
-	end 'shrCl'
-
-	export function sarCl(mutates self, reg X64Register)
-		encodeSarRegCl(code, reg: reg)
-	end 'sarCl'
-
-	export function sarImm(mutates self, reg X64Register, imm Imm8)
-		encodeSarRegImm8(code, reg: reg, imm: imm)
-	end 'sarImm'
-
-	export function push(mutates self, reg X64Register)
-		encodePushReg(code, reg: reg)
-	end 'push'
-
-	export function pop(mutates self, reg X64Register)
-		encodePopReg(code, reg: reg)
-	end 'pop'
-
-	export function setccRax(mutates self, cond X64CondCode)
-		encodeSetccRax(code, cond: cond)
-	end 'setccRax'
-
-	// setccByte sets the low byte of a register to a condition and zero-extends it.
-	export function setccByte(mutates self, cond X64CondCode, reg X64Register)
-		encodeSetccReg(code, cond: cond, dest: reg)
-		encodeMovzxRegReg8(code, dest: reg, src: reg)
-	end 'setccByte'
-
-	export function ret(mutates self)
-		encodeRet(code)
-	end 'ret'
-
-	export function ud2(mutates self)
-		encodeUd2(code)
-	end 'ud2'
-
-	export function repMovsb(mutates self)
-		encodeRepMovsb(code)
-	end 'repMovsb'
-
-	export function repStosq(mutates self)
-		encodeRepStosq(code)
-	end 'repStosq'
-
-	export function repeCmpsb(mutates self)
-		encodeRepeCmpsb(code)
-	end 'repeCmpsb'
-
-	// The atomic forms are full fences. lockXadd adds src to the word at base + disp and leaves the word it found in src,
-	// xchg swaps them, and lockCmpxchg stores src there when the word is rax, leaving the word it found in rax.
-	export function lockXadd(mutates self, base X64Register, disp Imm32, src X64Register)
-		encodeLockXaddBaseDispReg(code, base: base, disp: disp, src: src)
-	end 'lockXadd'
-
-	export function xchg(mutates self, base X64Register, disp Imm32, src X64Register)
-		encodeXchgBaseDispReg(code, base: base, disp: disp, src: src)
-	end 'xchg'
-
-	export function lockCmpxchg(mutates self, base X64Register, disp Imm32, src X64Register)
-		encodeLockCmpxchgBaseDispReg(code, base: base, disp: disp, src: src)
-	end 'lockCmpxchg'
-
-	export function pause(mutates self)
-		encodePause(code)
-	end 'pause'
-
-	// syscall calls the kernel by Linux's system call convention: the number in rax, which the result replaces, and rcx
-	// and r11 overwritten.
-	export function syscall(mutates self)
-		encodeSyscall(code)
-	end 'syscall'
-
-	// loadGs reads the word at base + disp from the start of the running thread's TEB.
-	export function loadGs(mutates self, dst X64Register, base X64Register, disp Imm32)
-		encodeLoadRegGsBaseDisp(code, dest: dst, base: base, disp: disp)
-	end 'loadGs'
-
-	// storeGs writes a word at base + disp from the start of the running thread's TEB.
-	export function storeGs(mutates self, base X64Register, disp Imm32, src X64Register)
-		encodeStoreGsBaseDispReg(code, base: base, disp: disp, src: src)
-	end 'storeGs'
-
-	// loadFs reads the word at base + disp from the thread pointer of a Linux thread.
-	export function loadFs(mutates self, dst X64Register, base X64Register, disp Imm32)
-		encodeLoadRegFsBaseDisp(code, dest: dst, base: base, disp: disp)
-	end 'loadFs'
-
-	// pushFlags and popFlags push the flags register and pop it back.
-	export function pushFlags(mutates self)
-		encodePushfq(code)
-	end 'pushFlags'
-
-	export function popFlags(mutates self)
-		encodePopfq(code)
-	end 'popFlags'
-
-	// storeVector and loadVector move all 128 bits of xmm register n, which need not be aligned.
-	export function storeVector(mutates self, base X64Register, disp Imm32, n Count)
-		encodeMovupsBaseDispReg(code, base: base, disp: disp, src: x64RegisterOf(try n as RegNum otherwise panic("backend: an xmm register past the register file")))
-	end 'storeVector'
-
-	export function loadVector(mutates self, n Count, base X64Register, disp Imm32)
-		encodeMovupsRegBaseDisp(code, dest: x64RegisterOf(try n as RegNum otherwise panic("backend: an xmm register past the register file")), base: base, disp: disp)
-	end 'loadVector'
-
-	// leaData, loadData and storeData reference an offset of the data section, which the link makes an address.
-	export function leaData(mutates self, dst X64Register, dataOffset Count)
-		encodeLeaRegRip(code, dest: dst, disp: 0)
-		self.noteDataFixup(dataOffset)
-	end 'leaData'
-
-	function noteDataFixup(mutates self, dataOffset Count)
-		dataFixups.push(DataFixup.make(lastField32(code), dataOffset: dataOffset))
-	end 'noteDataFixup'
-
-	function noteSymbolFixup(mutates self, symbol String)
-		symbolFixups.push(SymbolFixup.make(lastField32(code), symbol: symbol.clone()))
-	end 'noteSymbolFixup'
-
-	export function loadSymbol(mutates self, dst X64Register, symbol String)
-		encodeLoadRegRip(code, dest: dst, disp: 0)
-		self.noteSymbolFixup(symbol)
-	end 'loadSymbol'
-
-	export function storeSymbol(mutates self, symbol String, src X64Register)
-		encodeStoreRipReg(code, disp: 0, src: src)
-		self.noteSymbolFixup(symbol)
-	end 'storeSymbol'
-
-	export function leaSymbol(mutates self, dst X64Register, symbol String)
-		encodeLeaRegRip(code, dest: dst, disp: 0)
-		self.noteSymbolFixup(symbol)
-	end 'leaSymbol'
-
-	// callImport calls through the import slot of the index-th name of the executable's imports.
-	export function callImport(mutates self, index Count)
-		encodeCallRip(code, disp: 0)
-		importFixups.push(ImportFixup.make(lastField32(code), index: index))
-	end 'callImport'
-
-	// callSymbol calls a function that another unit, or this one, defines, which the linker finds by its symbol.
-	export function callSymbol(mutates self, symbol String)
-		encodeCallRel32(code, rel: 0)
-		self.noteSymbolFixup(symbol)
-	end 'callSymbol'
-
-	// jmpSymbol jumps to a function or a routine that this unit or another one defines.
-	export function jmpSymbol(mutates self, symbol String)
-		encodeJmpRel32(code, rel: 0)
-		self.noteSymbolFixup(symbol)
-	end 'jmpSymbol'
-
-	// callRegister calls the code at the address a register holds.
-	export function callRegister(mutates self, reg X64Register)
-		encodeCallReg(code, reg: reg)
-	end 'callRegister'
-
-	// newLabel makes a label that stays valid until the next section starts.
-	export function newLabel(mutates self) returns LabelID
-		let id = try labels.count() as LabelID otherwise panic("a function has more labels than any code can name")
-		labels.push(Label.make())
-		return id
-	end 'newLabel'
-
-	// useLabel makes the 32-bit field the last instruction ended with go to the label.
-	function useLabel(mutates self, label LabelID)
-		let at = lastField32(code)
-		let index = label as Count
-		if labels[index].bound 'bound'
-			patchRel32(code, at: at, target: labels[index].pos)
-		end 'bound' else 'forward'
-			patch32(code, at: at, value: try labels[index].chain as Imm32 otherwise panic("a branch reaches past 2 GiB"))
-			labels[index].chain = try at + 1 otherwise panic("a field is past the end of memory")
-		end 'forward'
-	end 'useLabel'
-
-	export function jmp(mutates self, label LabelID)
-		encodeJmpRel32(code, rel: 0)
-		self.useLabel(label)
-	end 'jmp'
-
-	export function jcc(mutates self, cond X64CondCode, label LabelID)
-		encodeJccRel32(code, cond: cond, rel: 0)
-		self.useLabel(label)
-	end 'jcc'
-
-	export function call(mutates self, label LabelID)
-		encodeCallRel32(code, rel: 0)
-		self.useLabel(label)
-	end 'call'
-
-	// bind puts the label here and makes every branch that went to it before go here.
-	export function bind(mutates self, label LabelID)
-		let index = label as Count
-		let target = code.count()
-		var use = labels[index].chain
-		while use != 0 'uses'
-			let at = try use - 1 otherwise panic("a label use is before the code")
-			let next = readField32(code, at: at)
-			patchRel32(code, at: at, target: target)
-			use = next
-		end 'uses'
-		labels[index].bound = true
-		labels[index].pos = target
-		labels[index].chain = 0
-	end 'bind'
-
-	// endLabels checks that every label of the section that ends was bound, and forgets them.
-	export function endLabels(mutates self)
-		for i in 0 upto labels.count() 'each'
-			if labels[i].chain != 0 'unbound'
-				panic("backend: a branch goes to a label that was never bound")
-			end 'unbound'
-		end 'each'
-		labels = LabelList.create(0)
-	end 'endLabels'
-end 'Asm'
-
-// readField32 is the 32-bit little-endian field at an offset of the code.
-function readField32(code ByteArray, at Count) returns Count
-	var word = 0 as Count
-	var i = imm32Bytes as Count
-	while i > 0 'bytes'
-		i = try i - 1 otherwise 0
-		let place = try at + i otherwise panic("a field is past the end of memory")
-		word = try word * byteValues + (code[place] as Count) otherwise panic("a field is wider than 32 bits")
-	end 'bytes'
-	return word
-end 'readField32'
 
 // DataPointer is a word of the data that holds the address of other data of the same piece: the link writes the address,
 // and the loader moves it with the image.

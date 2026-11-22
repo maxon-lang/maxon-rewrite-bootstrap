@@ -21,26 +21,54 @@ export type Image
 end 'Image'
 
 // ImageLayout is what a writer lays an image out for: the sizes of the code and the data, the offset of the entry point
-// in the code, and the offsets of the data, in increasing order, of the words that hold addresses of the image.
+// in the code, and the words of the data, in increasing order of their offsets, that hold addresses of the data, which
+// the format says how the loader moves.
 export type ImageLayout
 	export var codeSize as Count
 	export var dataSize as Count
 	export var entryOffset as Count
-	export var relocated as CountList
+	export var pointers as DataPointerList
 
-	static function make(codeSize Count, dataSize Count, entryOffset Count, consumes relocated CountList) returns ImageLayout
-		return ImageLayout{codeSize: codeSize, dataSize: dataSize, entryOffset: entryOffset, relocated: relocated}
+	static function make(codeSize Count, dataSize Count, entryOffset Count, consumes pointers DataPointerList) returns ImageLayout
+		return ImageLayout{codeSize: codeSize, dataSize: dataSize, entryOffset: entryOffset, pointers: pointers}
 	end 'make'
+
+	// relocated are the offsets of the words of the data that hold addresses.
+	function relocated() returns CountList
+		var out = CountList.create(0)
+		for i in 0 upto pointers.count() 'pointers'
+			out.push(pointers[i].pos)
+		end 'pointers'
+		return out
+	end 'relocated'
 end 'ImageLayout'
 
-// buildImage lays out the executable of the system's format: a PE with the table of the runtime's imports for Windows,
-// and a static ELF, which imports nothing, for Linux.
+// buildImage lays out the executable of the system's format, as the target table names it: a PE with the table of the
+// runtime's imports for Windows, and a static ELF, which imports nothing, for Linux.
 export function buildImage(system ast.TargetSystem, layout ImageLayout) returns Image
-	return match system 'system'
-		windows gives buildPeImage(layout.codeSize, dataSize: layout.dataSize, dll: rtDll, imports: rtImports(), entryOffset: layout.entryOffset, relocated: layout.relocated)
-		linux gives buildElfImage(layout)
-	end 'system'
+	return match ast.imageFormatOf(system) 'format'
+		pe gives buildPeImage(layout.codeSize, dataSize: layout.dataSize, dll: rtDll, imports: rtImports(), entryOffset: layout.entryOffset, relocated: layout.relocated())
+		elf gives buildElfImage(layout)
+		machO gives panic("backend: no writer of Mach-O executables yet")
+	end 'format'
 end 'buildImage'
+
+// writePointers fills in the words of the data that hold addresses of the data, as the system's format has them: the
+// address in the image at its base for PE, whose base relocations move it, and for a static ELF, which is never moved.
+export function writePointers(system ast.TargetSystem, image Image, mutates data ByteArray, pointers DataPointerList)
+	match ast.imageFormatOf(system) 'format'
+		pe or
+		elf then writeAbsolutePointers(image, data: data, pointers: pointers)
+		machO then panic("backend: no writer of Mach-O executables yet")
+	end 'format'
+end 'writePointers'
+
+function writeAbsolutePointers(image Image, mutates data ByteArray, pointers DataPointerList)
+	for i in 0 upto pointers.count() 'pointers'
+		let address = try image.base + image.dataRva + pointers[i].target otherwise panic("link: an address past the image")
+		patch64(data, at: pointers[i].pos, value: address)
+	end 'pointers'
+end 'writeAbsolutePointers'
 
 export function placeCode(mutates image Image, at Count, bytes ByteArray)
 	copyInto(image.file, at: sum(image.codeOffset, b: at), src: bytes)

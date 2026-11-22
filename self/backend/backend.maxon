@@ -41,7 +41,7 @@ function linkCalling(mutates p ast.Project, consumes modules UnitList, ready fro
 		symbols.push(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: entries[i]))
 	end 'entries'
 	var stub = UnitList.create(0)
-	stub.push(emitRuntime(EntryCalls.make(symbols, exitsWithResult: exitsWithResult), options: options, system: p.target.system))
+	stub.push(emitRuntime(EntryCalls.make(symbols, exitsWithResult: exitsWithResult), options: options, target: p.target))
 	var units = LinkUnits.make(share(ready), own: stub)
 	units.add(modules)
 	let routines = emitTypeRoutines(p, ms: ms, units: units)

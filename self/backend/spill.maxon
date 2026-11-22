@@ -184,8 +184,9 @@ export type Spiller
 	// clock times the phases of the emit stage.
 	var clock as EmitClock
 
-	export static function new() returns Spiller
-		return Spiller.under(Conventions.make())
+	// new is a spiller for functions compiled for a target, whose calls follow its conventions.
+	export static function new(target ast.Target) returns Spiller
+		return Spiller.under(Conventions.make(target))
 	end 'new'
 
 	// under is a spiller for functions whose calls follow convs.
@@ -327,7 +328,7 @@ export type Spiller
 			end 'all'
 		end 'first'
 		self.findLiveChanges(blocks)
-		scan.reset(fn.vregCount(), logs: false)
+		scan.reset(fn.vregCount(), arch: fn.arch, logs: false)
 		for o in 0 upto fn.order.count() 'blocks'
 			let b = fn.order[o] as Count
 			if not self.needsScan(b) 'unchanged'
@@ -920,7 +921,7 @@ function loopTier(mutates fn MirFunction, mutates s Spiller, level Count) return
 			continue 'loops'
 		end 'level'
 		for c in 0 upto classCount 'classes'
-			let pool = fullPool(classAt(c))
+			let pool = fullPool(fn.arch, class: classAt(c))
 			let most = s.loopMax[addCounts(pointSlots(loop), b: c)]
 			if most <= pool 'fits'
 				continue 'classes'
@@ -1238,7 +1239,7 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 			return
 		end 'none'
 		crossing = crossingCall(fn, s: s, c: c, callAt: callAfter)
-		keptByCall = maskCount(keptBy(fn.instrs[callAfter], convs: s.convs) and allocatable(classAt(c)))
+		keptByCall = maskCount(keptBy(fn.instrs[callAfter], convs: s.convs) and allocatable(fn.arch, class: classAt(c)))
 	end 'beforeCall'
 	let class = classAt(c)
 	var free = s.scan.pools[c]
@@ -1338,7 +1339,7 @@ end 'nextClobberingCall'
 
 function clobberingCallIn(fn MirFunction, s Spiller, b Count, from Count, class RegClass) returns Count
 	for k in from upto fn.blocks[b].endAt 'instrs'
-		if isCallInstr(fn.instrs[k]) and (allocatable(class) and not keptBy(fn.instrs[k], convs: s.convs)) != 0 'call'
+		if isCallInstr(fn.instrs[k]) and (allocatable(fn.arch, class: class) and not keptBy(fn.instrs[k], convs: s.convs)) != 0 'call'
 			return k
 		end 'call'
 	end 'instrs'

@@ -14,7 +14,7 @@ export type BlockLayout
 	// after each instruction before they are written again.
 	var flagsLiveIn as BoolList
 	var flagsLiveAfter as BoolList
-	// framed is whether the function needs a frame of its own: its rbp-based slots, a spill, a call or the stack.
+	// framed is whether the function needs a frame of its own, which the architecture's encoder decides.
 	var framed as bool
 	// position is where each block is in order. loopEnd is, for the head of a loop as the code runs it, the position past
 	// the last block that branches back to it, and 0 for any other block; heads says whether there is a loop. starts are
@@ -29,7 +29,6 @@ export type BlockLayout
 	end 'new'
 
 	function plan(mutates self, fn MirFunction)
-		framed = needsFrame(fn)
 		self.findFlags(fn)
 		order.clear()
 		resolved.clear()
@@ -180,46 +179,5 @@ function endsInTransfers(fn MirFunction) returns bool
 end 'endsInTransfers'
 
 function transfers(x MInstr) returns bool
-	return x.kind == MKind.target and (x.form == X64Form.jmpRel32 or x.form == X64Form.ret or x.form == X64Form.ud2)
+	return x.kind == MKind.target and (isJump(x.form) or isReturn(x.form) or isTrap(x.form))
 end 'transfers'
-
-// needsFrame is whether a function needs a frame of its own: it has slots or spills, which are addressed from rbp, or it
-// calls, which needs rsp aligned, or it names rbp or rsp itself. Otherwise it is a leaf that keeps only the callee-saved
-// registers it was given.
-function needsFrame(fn MirFunction) returns bool
-	if fn.slotsGiven() > 0 or (fn.savedRegs and classMask(RegClass.xmm)) != 0 'slots'
-		return true
-	end 'slots'
-	let fp = physReg(rbp)
-	let sp = physReg(rsp)
-	for k in 0 upto fn.instrs.count() 'instrs'
-		if usesFrame(fn.instrs[k], fp: fp, sp: sp) 'uses'
-			return true
-		end 'uses'
-	end 'instrs'
-	return false
-end 'needsFrame'
-
-function usesFrame(x MInstr, fp MReg, sp MReg) returns bool
-	return match x.kind 'kind'
-		target gives isCall(x.form) or x.form == X64Form.pushReg or x.form == X64Form.popReg or x.form == X64Form.pushImm32 or namesFrame(x, fp: fp, sp: sp)
-		copy gives namesFrame(x, fp: fp, sp: sp)
-		spill or
-		reload or
-		restore gives true
-		parallelCopy gives panic("backend: a parallel copy that allocation left")
-		frameSetup or
-		frameTeardown gives false
-	end 'kind'
-end 'usesFrame'
-
-// namesFrame is whether an instruction names rbp or rsp as an operand.
-function namesFrame(x MInstr, fp MReg, sp MReg) returns bool
-	for i in 0 upto operandCount(x) 'operands'
-		let r = operandAt(x, index: i)
-		if r == fp or r == sp 'frame'
-			return true
-		end 'frame'
-	end 'operands'
-	return false
-end 'namesFrame'

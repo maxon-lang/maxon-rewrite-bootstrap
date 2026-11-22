@@ -52,7 +52,7 @@ function mirJump(mutates fn MirFunction, target MBlockID, args MRegList)
 	fn.emit(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: edge))
 end 'mirJump'
 
-function mirBranch(mutates fn MirFunction, cond X64CondCode, target MBlockID, args MRegList)
+function mirBranch(mutates fn MirFunction, cond MCond, target MBlockID, args MRegList)
 	let edge = fn.addEdge(target, args: args)
 	fn.emit(newConditional(X64Form.jccRel32, cond: cond, a: noMReg, ref: MRef.edge, aux: edge))
 end 'mirBranch'
@@ -73,7 +73,7 @@ end 'mirArgs4'
 
 // mirArithmetic returns 42 by way of a two-address multiply, immediates of both sizes, a copy and xor and or.
 function mirArithmetic(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	let seven = mirConst(fn, value: 7)
@@ -93,7 +93,7 @@ end 'mirArithmetic'
 // mirLoop sums 0 to 8 in a loop whose header has four parameters, two of which swap on every iteration, and leaves it
 // along a conditional edge with arguments: 36 plus the 100 that nine swaps leave in the fourth, 136.
 function mirLoop(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let header = 1 as MBlockID
 	let body = 2 as MBlockID
 	let exit = 3 as MBlockID
@@ -108,7 +108,7 @@ function mirLoop(symbol String) returns MirFunction
 	let p = fn.addParam(RegClass.gpr)
 	let q = fn.addParam(RegClass.gpr)
 	fn.emit(newTarget(chooseCmpRegImm(9), a: i, b: noMReg, c: noMReg, aux: 0, imm: 9))
-	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: mirArgs2(s, b: q))
+	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: mirArgs2(s, b: q))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let sum = mirAdd(fn, left: s, right: i)
@@ -127,7 +127,7 @@ let mirDoubleSymbol = "mir.double"
 
 // mirDouble gives twice its one argument, which the internal convention passes in its first argument register.
 function mirDouble() returns MirFunction
-	var fn = MirFunction.new(mirDoubleSymbol, canThrow: false)
+	var fn = MirFunction.new(mirDoubleSymbol, canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	let x = mirCopyOut(fn, src: x64InternalArg(0))
@@ -139,7 +139,7 @@ end 'mirDouble'
 
 // mirCalling calls mirDouble with 21 and keeps the 21 across the call: 42 + 21 - 21.
 function mirCalling(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	let v = mirConst(fn, value: 21)
@@ -153,7 +153,7 @@ end 'mirCalling'
 
 // mirDivision divides 100 by 7 with the dividend fixed in rdx:rax and gives 14 * 3 + 2.
 function mirDivision(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	let dividend = mirConst(fn, value: 100)
@@ -173,7 +173,7 @@ end 'mirDivision'
 
 // mirShift shifts 5 left by a count fixed in rcx, then the result right by 1: 40 + 20.
 function mirShift(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	_ = fn.startBlock()
 	fn.emit(newFrameSetup())
 	let five = mirConst(fn, value: 5)
@@ -191,7 +191,7 @@ end 'mirShift'
 
 // mirConditional compares 3 with 5, keeps the flag as a byte, and branches on it: 41 + 1 where 3 < 5, else 1.
 function mirConditional(symbol String) returns MirFunction
-	var fn = MirFunction.new(symbol, canThrow: false)
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.x64)
 	let less = 1 as MBlockID
 	let other = 2 as MBlockID
 	_ = fn.startBlock()
@@ -200,9 +200,9 @@ function mirConditional(symbol String) returns MirFunction
 	let b = mirConst(fn, value: 5)
 	mirOp(fn, form: X64Form.cmpRegReg, a: a, b: b, c: noMReg, imm: 0)
 	let flag = mirGpr(fn)
-	fn.emit(newConditional(X64Form.setccReg, cond: X64CondCode.less, a: flag, ref: MRef.none, aux: 0))
+	fn.emit(newConditional(X64Form.setccReg, cond: MCond.less, a: flag, ref: MRef.none, aux: 0))
 	let bit = mirDef(fn, form: X64Form.movzxRegReg8, b: flag, c: noMReg, imm: 0)
-	mirBranch(fn, cond: X64CondCode.less, target: less, args: MRegList.create(0))
+	mirBranch(fn, cond: MCond.less, target: less, args: MRegList.create(0))
 	mirJump(fn, target: other, args: MRegList.create(0))
 	_ = fn.startBlock()
 	let fortyOne = mirConst(fn, value: 41)
@@ -239,7 +239,7 @@ function linkAndRun(mutates p ast.Project, fns MirFunctionList, entry ast.FuncID
 	var u = CodeUnit.new()
 	var lay = BlockLayout.new()
 	for i in 0 upto fns.count() 'each'
-		encodeMachineFunction(u, fn: fns[i], instance: false, lay: lay)
+		encodeX64Function(u, fn: fns[i], instance: false, lay: lay)
 	end 'each'
 	u.asm.endLabels()
 	var units = UnitList.create(0)
@@ -259,12 +259,12 @@ end 'oneMir'
 // testMachineForms checks the allocation columns of every form: a reuse names a use, and every fixed register is an
 // allocatable one of its class, neither both a result and a clobber, nor a call's, which its convention says.
 function testMachineForms()
-	let file = allocatable(RegClass.gpr) or allocatable(RegClass.xmm)
-	for i in 0 upto x64FormCount 'forms'
-		let form = x64FormOf(i)
-		if form.rawValue != i 'number'
-			panic("x64 form {i} has the number {form.rawValue}")
-		end 'number'
+	let file = allocatable(x64Arch, class: RegClass.gpr) or allocatable(x64Arch, class: RegClass.xmm)
+	if x64FormID(X64Form.nop9) != formCount - 1 'number'
+		panic("x64's last form has the FormID {x64FormID(X64Form.nop9)}, and there are {formCount}")
+	end 'number'
+	for i in 0 upto formCount 'forms'
+		let form = try i as FormID otherwise panic("more forms than a FormID names")
 		let n = machineOperandCount(form)
 		if n > 3 'operands'
 			panic("x64 form {i} has {n} register operands")
@@ -278,7 +278,7 @@ function testMachineForms()
 		end 'allocatable'
 		for r in 0 upto x64RegisterFileSize 'registers'
 			let number = try r as RegNum otherwise panic("a register past a mask")
-			if maskHas(fixed, number: number) and not maskHas(allocatable(classOfNumber(number)), number: number) 'class'
+			if maskHas(fixed, number: number) and not maskHas(allocatable(x64Arch, class: classOfNumber(x64Arch, number: number)), number: number) 'class'
 				panic("x64 form {i} fixes register {r} outside its class")
 			end 'class'
 		end 'registers'

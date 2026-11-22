@@ -1,0 +1,352 @@
+// x64's assembler: the methods of Asm that write x64's instructions by the encoder (x64_gen.maxon), and note the 32-bit
+// fields relative to their end that a label, a symbol, data or an import slot fills in, and the names of x64's registers
+// that the routines and the entry stub write them with.
+
+export let rax = X64Register.rax
+
+export let rcx = X64Register.rcx
+
+export let rdx = X64Register.rdx
+
+export let rbx = X64Register.rbx
+
+export let rsp = X64Register.rsp
+
+export let rbp = X64Register.rbp
+
+export let rsi = X64Register.rsi
+
+export let rdi = X64Register.rdi
+
+export let r8 = X64Register.r8
+
+export let r9 = X64Register.r9
+
+export let r10 = X64Register.r10
+
+export let r11 = X64Register.r11
+
+export let r12 = X64Register.r12
+
+export let r13 = X64Register.r13
+
+export let r14 = X64Register.r14
+
+export let r15 = X64Register.r15
+
+extension Asm
+	export function mov(mutates self, dst X64Register, src X64Register)
+		encodeMovRegReg(code, dest: dst, src: src)
+	end 'mov'
+
+	export function add(mutates self, dst X64Register, src X64Register)
+		encodeAddRegReg(code, dest: dst, src: src)
+	end 'add'
+
+	export function sub(mutates self, dst X64Register, src X64Register)
+		encodeSubRegReg(code, dest: dst, src: src)
+	end 'sub'
+
+	export function bitAnd(mutates self, dst X64Register, src X64Register)
+		encodeAndRegReg(code, dest: dst, src: src)
+	end 'bitAnd'
+
+	export function bitOr(mutates self, dst X64Register, src X64Register)
+		encodeOrRegReg(code, dest: dst, src: src)
+	end 'bitOr'
+
+	export function bitXor(mutates self, dst X64Register, src X64Register)
+		encodeXorRegReg(code, dest: dst, src: src)
+	end 'bitXor'
+
+	export function cmp(mutates self, left X64Register, right X64Register)
+		encodeCmpRegReg(code, left: left, right: right)
+	end 'cmp'
+
+	export function test(mutates self, left X64Register, right X64Register)
+		encodeTestRegReg(code, left: left, right: right)
+	end 'test'
+
+	export function imul(mutates self, dst X64Register, src X64Register)
+		encodeImulRegReg(code, dest: dst, src: src)
+	end 'imul'
+
+	export function load(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLoadRegBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'load'
+
+	export function store(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'store'
+
+	// loadVector loads the word at base plus disp into the xmm register dst, as movsd does.
+	export function loadFloatWord(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeMovsdRegBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadFloatWord'
+
+	// moveFromVector copies the bits of the xmm register src into the general register dst, as movq does.
+	export function moveFromVector(mutates self, dst X64Register, src X64Register)
+		encodeMovqRegXmm(code, dest: dst, src: src)
+	end 'moveFromVector'
+
+	export function lea(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLeaRegBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'lea'
+
+	export function loadByte(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeMovzxRegByteBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadByte'
+
+	export function loadWord16(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeMovzxRegWordBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadWord16'
+
+	export function loadWord32(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLoadReg32BaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadWord32'
+
+	export function storeByte(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreBaseDispReg8(code, base: base, disp: disp, src: src)
+	end 'storeByte'
+
+	export function storeWord16(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreBaseDispReg16(code, base: base, disp: disp, src: src)
+	end 'storeWord16'
+
+	export function storeWord32(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreBaseDispReg32(code, base: base, disp: disp, src: src)
+	end 'storeWord32'
+
+	export function movImm(mutates self, dst X64Register, imm FullRangeInt)
+		encodeMovRegImm(code, dest: dst, imm: imm)
+	end 'movImm'
+
+	export function addImm(mutates self, dst X64Register, imm Imm32)
+		encodeAddRegImm(code, dest: dst, imm: imm)
+	end 'addImm'
+
+	export function andImm(mutates self, dst X64Register, imm Imm32)
+		encodeAndRegImm(code, dest: dst, imm: imm)
+	end 'andImm'
+
+	export function subImm(mutates self, dst X64Register, imm Imm32)
+		encodeSubRegImm(code, dest: dst, imm: imm)
+	end 'subImm'
+
+	export function cmpImm(mutates self, dst X64Register, imm Imm32)
+		encodeCmpRegImm(code, dest: dst, imm: imm)
+	end 'cmpImm'
+
+	export function bitNot(mutates self, reg X64Register)
+		encodeNotReg(code, reg: reg)
+	end 'bitNot'
+
+	export function neg(mutates self, reg X64Register)
+		encodeNegReg(code, reg: reg)
+	end 'neg'
+
+	export function mulRax(mutates self, reg X64Register)
+		encodeMulReg(code, reg: reg)
+	end 'mulRax'
+
+	export function div(mutates self, reg X64Register)
+		encodeDivReg(code, reg: reg)
+	end 'div'
+
+	export function idiv(mutates self, reg X64Register)
+		encodeIdivReg(code, reg: reg)
+	end 'idiv'
+
+	export function cqo(mutates self)
+		encodeCqo(code)
+	end 'cqo'
+
+	export function shlCl(mutates self, reg X64Register)
+		encodeShlRegCl(code, reg: reg)
+	end 'shlCl'
+
+	export function shrCl(mutates self, reg X64Register)
+		encodeShrRegCl(code, reg: reg)
+	end 'shrCl'
+
+	export function sarCl(mutates self, reg X64Register)
+		encodeSarRegCl(code, reg: reg)
+	end 'sarCl'
+
+	export function sarImm(mutates self, reg X64Register, imm Imm8)
+		encodeSarRegImm8(code, reg: reg, imm: imm)
+	end 'sarImm'
+
+	export function push(mutates self, reg X64Register)
+		encodePushReg(code, reg: reg)
+	end 'push'
+
+	export function pop(mutates self, reg X64Register)
+		encodePopReg(code, reg: reg)
+	end 'pop'
+
+	export function setccRax(mutates self, cond MCond)
+		encodeSetccRax(code, cond: cond)
+	end 'setccRax'
+
+	// setccByte sets the low byte of a register to a condition and zero-extends it.
+	export function setccByte(mutates self, cond MCond, reg X64Register)
+		encodeSetccReg(code, cond: cond, dest: reg)
+		encodeMovzxRegReg8(code, dest: reg, src: reg)
+	end 'setccByte'
+
+	export function ret(mutates self)
+		encodeRet(code)
+	end 'ret'
+
+	export function ud2(mutates self)
+		encodeUd2(code)
+	end 'ud2'
+
+	export function repMovsb(mutates self)
+		encodeRepMovsb(code)
+	end 'repMovsb'
+
+	export function repStosq(mutates self)
+		encodeRepStosq(code)
+	end 'repStosq'
+
+	export function repeCmpsb(mutates self)
+		encodeRepeCmpsb(code)
+	end 'repeCmpsb'
+
+	// The atomic forms are full fences. lockXadd adds src to the word at base + disp and leaves the word it found in src,
+	// xchg swaps them, and lockCmpxchg stores src there when the word is rax, leaving the word it found in rax.
+	export function lockXadd(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeLockXaddBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'lockXadd'
+
+	export function xchg(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeXchgBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'xchg'
+
+	export function lockCmpxchg(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeLockCmpxchgBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'lockCmpxchg'
+
+	export function pause(mutates self)
+		encodePause(code)
+	end 'pause'
+
+	// syscall calls the kernel by Linux's system call convention: the number in rax, which the result replaces, and rcx
+	// and r11 overwritten.
+	export function syscall(mutates self)
+		encodeSyscall(code)
+	end 'syscall'
+
+	// loadGs reads the word at base + disp from the start of the running thread's TEB.
+	export function loadGs(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLoadRegGsBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadGs'
+
+	// storeGs writes a word at base + disp from the start of the running thread's TEB.
+	export function storeGs(mutates self, base X64Register, disp Imm32, src X64Register)
+		encodeStoreGsBaseDispReg(code, base: base, disp: disp, src: src)
+	end 'storeGs'
+
+	// loadFs reads the word at base + disp from the thread pointer of a Linux thread.
+	export function loadFs(mutates self, dst X64Register, base X64Register, disp Imm32)
+		encodeLoadRegFsBaseDisp(code, dest: dst, base: base, disp: disp)
+	end 'loadFs'
+
+	// pushFlags and popFlags push the flags register and pop it back.
+	export function pushFlags(mutates self)
+		encodePushfq(code)
+	end 'pushFlags'
+
+	export function popFlags(mutates self)
+		encodePopfq(code)
+	end 'popFlags'
+
+	// storeVector and loadVector move all 128 bits of xmm register n, which need not be aligned.
+	export function storeVector(mutates self, base X64Register, disp Imm32, n Count)
+		encodeMovupsBaseDispReg(code, base: base, disp: disp, src: x64RegisterOf(try n as RegNum otherwise panic("backend: an xmm register past the register file")))
+	end 'storeVector'
+
+	export function loadVector(mutates self, n Count, base X64Register, disp Imm32)
+		encodeMovupsRegBaseDisp(code, dest: x64RegisterOf(try n as RegNum otherwise panic("backend: an xmm register past the register file")), base: base, disp: disp)
+	end 'loadVector'
+
+	// leaData, loadData and storeData reference an offset of the data section, which the link makes an address.
+	export function leaData(mutates self, dst X64Register, dataOffset Count)
+		encodeLeaRegRip(code, dest: dst, disp: 0)
+		self.noteDataFixup(dataOffset)
+	end 'leaData'
+
+	// noteDataFixup, noteSymbolFixup and noteImportFixup note the 32-bit field the last instruction ended with as a
+	// reference to data, a symbol or an import slot, relative to the field's end.
+	function noteDataFixup(mutates self, dataOffset Count)
+		self.addDataFixup(FixupKind.rel32, at: lastField32(code), dataOffset: dataOffset)
+	end 'noteDataFixup'
+
+	function noteSymbolFixup(mutates self, symbol String)
+		self.addSymbolFixup(FixupKind.rel32, at: lastField32(code), symbol: symbol)
+	end 'noteSymbolFixup'
+
+	function noteImportFixup(mutates self, index Count)
+		self.addImportFixup(FixupKind.rel32, at: lastField32(code), index: index)
+	end 'noteImportFixup'
+
+	export function loadSymbol(mutates self, dst X64Register, symbol String)
+		encodeLoadRegRip(code, dest: dst, disp: 0)
+		self.noteSymbolFixup(symbol)
+	end 'loadSymbol'
+
+	export function storeSymbol(mutates self, symbol String, src X64Register)
+		encodeStoreRipReg(code, disp: 0, src: src)
+		self.noteSymbolFixup(symbol)
+	end 'storeSymbol'
+
+	export function leaSymbol(mutates self, dst X64Register, symbol String)
+		encodeLeaRegRip(code, dest: dst, disp: 0)
+		self.noteSymbolFixup(symbol)
+	end 'leaSymbol'
+
+	// callImport calls through the import slot of the index-th name of the executable's imports.
+	export function callImport(mutates self, index Count)
+		encodeCallRip(code, disp: 0)
+		self.noteImportFixup(index)
+	end 'callImport'
+
+	// callSymbol calls a function that another unit, or this one, defines, which the linker finds by its symbol.
+	export function callSymbol(mutates self, symbol String)
+		encodeCallRel32(code, rel: 0)
+		self.noteSymbolFixup(symbol)
+	end 'callSymbol'
+
+	// jmpSymbol jumps to a function or a routine that this unit or another one defines.
+	export function jmpSymbol(mutates self, symbol String)
+		encodeJmpRel32(code, rel: 0)
+		self.noteSymbolFixup(symbol)
+	end 'jmpSymbol'
+
+	// callRegister calls the code at the address a register holds.
+	export function callRegister(mutates self, reg X64Register)
+		encodeCallReg(code, reg: reg)
+	end 'callRegister'
+
+	// useLabel makes the 32-bit field the last instruction ended with go to the label.
+	function useLabel(mutates self, label LabelID)
+		self.addLabelUse(label, kind: FixupKind.rel32, at: lastField32(code))
+	end 'useLabel'
+
+	export function jmp(mutates self, label LabelID)
+		encodeJmpRel32(code, rel: 0)
+		self.useLabel(label)
+	end 'jmp'
+
+	export function jcc(mutates self, cond MCond, label LabelID)
+		encodeJccRel32(code, cond: cond, rel: 0)
+		self.useLabel(label)
+	end 'jcc'
+
+	export function call(mutates self, label LabelID)
+		encodeCallRel32(code, rel: 0)
+		self.useLabel(label)
+	end 'call'
+end 'Asm'

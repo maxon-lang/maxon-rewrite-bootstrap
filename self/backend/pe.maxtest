@@ -176,7 +176,7 @@ test 'x 64 encoder'
 	encodePopReg(c, reg: rbx)
 	expectEncoded(c, expected: "5b", label: "popReg")
 	c = ByteArray.create(0)
-	encodeSetccRax(c, cond: X64CondCode.less)
+	encodeSetccRax(c, cond: MCond.less)
 	expectEncoded(c, expected: "0f9cc0480fb6c0", label: "setccRax")
 	c = ByteArray.create(0)
 	encodeCqo(c)

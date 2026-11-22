@@ -6,6 +6,12 @@ export function x64Reserved() returns RegMask
 	return 0x30
 end 'x64Reserved'
 
+// x64FirstVector is the number of the first vector register in the register file, after the general registers.
+export let x64FirstVector = 16
+
+// x64RegisterFileSize is how many registers the register file has.
+export let x64RegisterFileSize = 32
+
 // x64StackAlignment is the alignment of the stack pointer at a call of a host convention.
 export let x64StackAlignment = 16
 
@@ -201,3 +207,108 @@ end 'x64LinuxSyscallCalleeSaved'
 export function x64LinuxSyscallCallerSaved() returns RegMask
 	return 0xFC7
 end 'x64LinuxSyscallCallerSaved'
+
+// x64HostArgCount is the ArgCount of the host convention, the one of the system's libraries on a system.
+export function x64HostArgCount(system ast.TargetSystem) returns Count
+	return match system 'system'
+		windows gives x64WindowsHostArgCount
+		linux gives x64LinuxHostArgCount
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64HostArgCount'
+
+// x64HostArg is the Arg of the host convention, the one of the system's libraries on a system.
+export function x64HostArg(system ast.TargetSystem, index Count) returns X64Register
+	return match system 'system'
+		windows gives x64WindowsHostArg(index)
+		linux gives x64LinuxHostArg(index)
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64HostArg'
+
+// x64HostResult is the Result of the host convention, the one of the system's libraries on a system.
+export function x64HostResult(system ast.TargetSystem) returns X64Register
+	return match system 'system'
+		windows gives x64WindowsHostResult
+		linux gives x64LinuxHostResult
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64HostResult'
+
+// x64HostShadowBytes is the ShadowBytes of the host convention, the one of the system's libraries on a system.
+export function x64HostShadowBytes(system ast.TargetSystem) returns Count
+	return match system 'system'
+		windows gives x64WindowsHostShadowBytes
+		linux gives x64LinuxHostShadowBytes
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64HostShadowBytes'
+
+// x64HostCalleeSaved is the CalleeSaved of the host convention, the one of the system's libraries on a system.
+export function x64HostCalleeSaved(system ast.TargetSystem) returns RegMask
+	return match system 'system'
+		windows gives x64WindowsHostCalleeSaved()
+		linux gives x64LinuxHostCalleeSaved()
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64HostCalleeSaved'
+
+// x64SyscallArgCount is the ArgCount of the convention of a system call on a system.
+export function x64SyscallArgCount(system ast.TargetSystem) returns Count
+	return match system 'system'
+		windows gives panic("backend: Windows programs make no system call")
+		linux gives x64LinuxSyscallArgCount
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64SyscallArgCount'
+
+// x64SyscallArg is the Arg of the convention of a system call on a system.
+export function x64SyscallArg(system ast.TargetSystem, index Count) returns X64Register
+	return match system 'system'
+		windows gives panic("backend: Windows programs make no system call")
+		linux gives x64LinuxSyscallArg(index)
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64SyscallArg'
+
+// x64SyscallResult is the Result of the convention of a system call on a system.
+export function x64SyscallResult(system ast.TargetSystem) returns X64Register
+	return match system 'system'
+		windows gives panic("backend: Windows programs make no system call")
+		linux gives x64LinuxSyscallResult
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64SyscallResult'
+
+// x64SyscallNumber is the Number of the convention of a system call on a system.
+export function x64SyscallNumber(system ast.TargetSystem) returns X64Register
+	return match system 'system'
+		windows gives panic("backend: Windows programs make no system call")
+		linux gives x64LinuxSyscallNumber
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64SyscallNumber'
+
+// x64SyscallCalleeSaved is the CalleeSaved of the convention of a system call on a system.
+export function x64SyscallCalleeSaved(system ast.TargetSystem) returns RegMask
+	return match system 'system'
+		windows gives panic("backend: Windows programs make no system call")
+		linux gives x64LinuxSyscallCalleeSaved()
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64SyscallCalleeSaved'
+
+// X64ThreadContext is how a thread reads the word of its context on a system.
+export enum X64ThreadContext
+	tlsSlot
+	fsWord
+end 'X64ThreadContext'
+
+// x64ThreadContext is how a thread reads its context on a system.
+export function x64ThreadContext(system ast.TargetSystem) returns X64ThreadContext
+	return match system 'system'
+		windows gives X64ThreadContext.tlsSlot
+		linux gives X64ThreadContext.fsWord
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64ThreadContext'

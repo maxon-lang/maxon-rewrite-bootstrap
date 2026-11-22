@@ -28,58 +28,58 @@ function slotDisp(slot Count) returns Imm32
 end 'slotDisp'
 
 // cmpCondition is the condition code that holds when a comparison does.
-function cmpCondition(x ir.Instr) returns X64CondCode
+function cmpCondition(x ir.Instr) returns MCond
 	let unsigned = ir.cmpUnsigned(x)
 	return match ir.cmpOp(x) 'op'
-		cmpEq gives X64CondCode.equal
-		cmpNe gives X64CondCode.notEqual
-		cmpLt gives X64CondCode.below if unsigned else X64CondCode.less
-		cmpLe gives X64CondCode.belowEqual if unsigned else X64CondCode.lessEqual
-		cmpGt gives X64CondCode.above if unsigned else X64CondCode.greater
-		cmpGe gives X64CondCode.aboveEqual if unsigned else X64CondCode.greaterEqual
+		cmpEq gives MCond.equal
+		cmpNe gives MCond.notEqual
+		cmpLt gives MCond.below if unsigned else MCond.less
+		cmpLe gives MCond.belowEqual if unsigned else MCond.lessEqual
+		cmpGt gives MCond.above if unsigned else MCond.greater
+		cmpGe gives MCond.aboveEqual if unsigned else MCond.greaterEqual
 	end 'op'
 end 'cmpCondition'
 
 // condOf is the condition code that holds when the comparison that defines r does.
-function condOf(sel Selector, fn ir.IrFunction, r ir.Reg) returns X64CondCode
+function condOf(sel Selector, fn ir.IrFunction, r ir.Reg) returns MCond
 	return cmpCondition(fn.instrs[sel.defOf(r)])
 end 'condOf'
 
 // negated is the condition code that holds where cond does not.
-function negated(cond X64CondCode) returns X64CondCode
+function negated(cond MCond) returns MCond
 	return match cond 'cond'
-		overflow gives X64CondCode.noOverflow
-		noOverflow gives X64CondCode.overflow
-		below gives X64CondCode.aboveEqual
-		aboveEqual gives X64CondCode.below
-		equal gives X64CondCode.notEqual
-		notEqual gives X64CondCode.equal
-		belowEqual gives X64CondCode.above
-		above gives X64CondCode.belowEqual
-		sign gives X64CondCode.noSign
-		noSign gives X64CondCode.sign
-		parity gives X64CondCode.noParity
-		noParity gives X64CondCode.parity
-		less gives X64CondCode.greaterEqual
-		greaterEqual gives X64CondCode.less
-		lessEqual gives X64CondCode.greater
-		greater gives X64CondCode.lessEqual
+		overflow gives MCond.noOverflow
+		noOverflow gives MCond.overflow
+		below gives MCond.aboveEqual
+		aboveEqual gives MCond.below
+		equal gives MCond.notEqual
+		notEqual gives MCond.equal
+		belowEqual gives MCond.above
+		above gives MCond.belowEqual
+		sign gives MCond.noSign
+		noSign gives MCond.sign
+		parity gives MCond.noParity
+		noParity gives MCond.parity
+		less gives MCond.greaterEqual
+		greaterEqual gives MCond.less
+		lessEqual gives MCond.greater
+		greater gives MCond.lessEqual
 	end 'cond'
 end 'negated'
 
 // swapped is the condition code of a comparison whose operands are swapped: x < y where y > x.
-function swapped(cond X64CondCode) returns X64CondCode
+function swapped(cond MCond) returns MCond
 	return match cond 'cond'
 		equal or
 		notEqual gives cond
-		below gives X64CondCode.above
-		above gives X64CondCode.below
-		aboveEqual gives X64CondCode.belowEqual
-		belowEqual gives X64CondCode.aboveEqual
-		less gives X64CondCode.greater
-		greater gives X64CondCode.less
-		lessEqual gives X64CondCode.greaterEqual
-		greaterEqual gives X64CondCode.lessEqual
+		below gives MCond.above
+		above gives MCond.below
+		aboveEqual gives MCond.belowEqual
+		belowEqual gives MCond.aboveEqual
+		less gives MCond.greater
+		greater gives MCond.less
+		lessEqual gives MCond.greaterEqual
+		greaterEqual gives MCond.lessEqual
 		overflow or
 		noOverflow or
 		sign or
@@ -91,12 +91,12 @@ end 'swapped'
 
 // guardFailure is the condition code, after a comparison of a guard's value with its bound, that says the value is out
 // of the guard's range.
-function guardFailure(x ir.Instr) returns X64CondCode
+function guardFailure(x ir.Instr) returns MCond
 	return match ir.guardKind(x) 'kind'
-		guardSignedAtLeast gives X64CondCode.less
-		guardSignedAtMost gives X64CondCode.greater
-		guardUnsignedAtLeast gives X64CondCode.below
-		guardUnsignedAtMost gives X64CondCode.above
+		guardSignedAtLeast gives MCond.less
+		guardSignedAtMost gives MCond.greater
+		guardUnsignedAtLeast gives MCond.below
+		guardUnsignedAtMost gives MCond.above
 		guardNonNegative or
 		guardNonZero gives panic("backend: a guard against 0 is compared with no bound")
 	end 'kind'

@@ -1,12 +1,8 @@
-// x64's register file and calling conventions, and the constraints of its machine instructions: what the target-
-// independent machine IR, the allocator and the encoder ask of a form. The constraints of each form are generated from
-// the instruction table (x64_gen.maxon); this file adds the pseudo-instructions' and the conventions' part.
-
-// pseudoForm is the form field of a pseudo-instruction, which nothing reads.
-let pseudoForm = X64Form.ud2
-
-// unusedCond is the condition of an instruction that has none, which nothing reads.
-let unusedCond = X64CondCode.overflow
+// x64's register file and calling conventions, as the selector, the encoder and the entry stub ask of them, and the
+// constructors of machine instructions of x64's forms. What the target-neutral machine IR and the allocator ask of every
+// form is in machine.maxon, over the tables of machine_gen.maxon.
+// x64Arch is the architecture of the machine IR that x64's selector, encoder and entry stub write.
+let x64Arch = ast.TargetArch.x64
 
 export function physReg(r X64Register) returns MReg
 	return try r.rawValue as MReg otherwise panic("backend: a register past an operand")
@@ -20,32 +16,33 @@ export function regMaskOf(r X64Register) returns RegMask
 	return regBit(regNumOf(r))
 end 'regMaskOf'
 
-// classMask is every register of a class.
-function classMask(class RegClass) returns RegMask
-	let gprs = regBit(try x64FirstVector as RegNum otherwise panic("backend: a register file past a mask")) - 1
-	let file = regBit(try x64RegisterFileSize as RegNum otherwise panic("backend: a register file past a mask")) - 1
-	return match class 'class'
-		gpr gives gprs
-		xmm gives file and not gprs
-	end 'class'
-end 'classMask'
+// newTarget is an x64 form with its register operands, the displacement of a memory operand and an immediate.
+export function newTarget(form X64Form, a MReg, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MInstr
+	return newMachine(x64FormID(form), a: a, b: b, c: c, aux: aux, imm: imm)
+end 'newTarget'
 
-// reservedMask are the registers that hold the stack and the frame, which no value is given.
-function reservedMask() returns RegMask
-	return x64Reserved()
-end 'reservedMask'
+// newReferring is an x64 form whose last field refers to an edge, a symbol, data or an import.
+export function newReferring(form X64Form, a MReg, ref MRef, aux Imm32) returns MInstr
+	return newMachineReferring(x64FormID(form), a: a, ref: ref, aux: aux)
+end 'newReferring'
 
-// allocatable is the registers of a class that a value may be given.
-export function allocatable(class RegClass) returns RegMask
-	return classMask(class) and not reservedMask()
-end 'allocatable'
+// newConditional is an x64 form with a condition: a branch along an edge, or a setcc of a.
+export function newConditional(form X64Form, cond MCond, a MReg, ref MRef, aux Imm32) returns MInstr
+	var x = newReferring(form, a: a, ref: ref, aux: aux)
+	x.cond = cond
+	return x
+end 'newConditional'
 
-export function classOfNumber(number RegNum) returns RegClass
-	if number < x64FirstVector 'general'
-		return RegClass.gpr
-	end 'general'
-	return RegClass.xmm
-end 'classOfNumber'
+// newCall is a call of an x64 form whose last field refers to ref and aux (none for a call through a register, a),
+// passing arguments in the registers argRegs.
+export function newCall(form X64Form, a MReg, ref MRef, aux Imm32, argRegs RegMask) returns MInstr
+	return newMachineCall(x64FormID(form), a: a, ref: ref, aux: aux, argRegs: argRegs)
+end 'newCall'
+
+// isX64Form is whether a machine instruction is the x64 form form.
+function isX64Form(x MInstr, form X64Form) returns bool
+	return x.kind == MKind.target and x.form == x64FormID(form)
+end 'isX64Form'
 
 // generalRegister is the general register a physical operand names.
 function generalRegister(r MReg) returns X64Register
@@ -66,64 +63,62 @@ function vectorRegister(r MReg) returns X64Register
 	return x64RegisterOf(try (number - x64FirstVector) as RegNum otherwise panic("backend: an xmm register past the register file"))
 end 'vectorRegister'
 
-// ConventionKind is the calling convention of a call: the compiler's own for Maxon functions, Windows' host one (Win64)
-// for a DLL import, and Linux's for a system call. The registers of each are the target table's (regs_x64_gen.maxon).
-enum ConventionKind
-	internal
-	host
-	syscall
-end 'ConventionKind'
-
-// argRegisterCount is how many arguments a convention passes in registers.
-function argRegisterCount(kind ConventionKind) returns Count
+// argRegisterCount is how many arguments a convention passes in registers on a system.
+function argRegisterCount(kind ConventionKind, system ast.TargetSystem) returns Count
 	return match kind 'kind'
 		internal gives x64InternalArgCount
-		host gives x64WindowsHostArgCount
-		syscall gives x64LinuxSyscallArgCount
+		host gives x64HostArgCount(system)
+		syscall gives x64SyscallArgCount(system)
 	end 'kind'
 end 'argRegisterCount'
 
-// argRegister is the register of an argument that a convention passes in one.
-function argRegister(kind ConventionKind, index Count) returns X64Register
+// argRegister is the register of an argument that a convention passes in one on a system.
+function argRegister(kind ConventionKind, system ast.TargetSystem, index Count) returns X64Register
 	return match kind 'kind'
 		internal gives x64InternalArg(index)
-		host gives x64WindowsHostArg(index)
-		syscall gives x64LinuxSyscallArg(index)
+		host gives x64HostArg(system, index: index)
+		syscall gives x64SyscallArg(system, index: index)
 	end 'kind'
 end 'argRegister'
 
-// argsInRegisters is how many of a call's words, count of them, a convention passes in registers.
-function argsInRegisters(kind ConventionKind, count Count) returns Count
-	let registers = argRegisterCount(kind)
+// argsInRegisters is how many of a call's words, count of them, a convention passes in registers on a system.
+function argsInRegisters(kind ConventionKind, system ast.TargetSystem, count Count) returns Count
+	let registers = argRegisterCount(kind, system: system)
 	return count if count < registers else registers
 end 'argsInRegisters'
 
-// wordArgRegs are the registers of the first count words that a convention passes in registers.
-function wordArgRegs(kind ConventionKind, count Count) returns RegMask
+// wordArgRegs are the registers of the first count words that a convention passes in registers on a system.
+function wordArgRegs(kind ConventionKind, system ast.TargetSystem, count Count) returns RegMask
 	var mask = 0 as RegMask
 	for i in 0 upto count 'args'
-		mask = mask or regMaskOf(argRegister(kind, index: i))
+		mask = mask or regMaskOf(argRegister(kind, system: system, index: i))
 	end 'args'
 	return mask
 end 'wordArgRegs'
 
-// resultRegister is the register of a call's result.
-function resultRegister(kind ConventionKind) returns X64Register
+// resultRegister is the register of a call's result on a system.
+function resultRegister(kind ConventionKind, system ast.TargetSystem) returns X64Register
 	return match kind 'kind'
 		internal gives x64InternalResult
-		host gives x64WindowsHostResult
-		syscall gives x64LinuxSyscallResult
+		host gives x64HostResult(system)
+		syscall gives x64SyscallResult(system)
 	end 'kind'
 end 'resultRegister'
 
-// internalResult is the register, by its number in the register file, in which the internal convention returns a result:
-// a float's or a word's.
-function internalResult(float bool) returns RegNum
-	if float 'float'
-		return x64InternalFloatResult
-	end 'float'
-	return regNumOf(x64InternalResult)
-end 'internalResult'
+// internalArgsInRegisters is how many of a call's words, count of them, the internal convention passes in registers,
+// the same on every system.
+function internalArgsInRegisters(count Count) returns Count
+	return count if count < x64InternalArgCount else x64InternalArgCount
+end 'internalArgsInRegisters'
+
+// internalArgRegs are the registers of the first count words that the internal convention passes in registers.
+function internalArgRegs(count Count) returns RegMask
+	var mask = 0 as RegMask
+	for i in 0 upto count 'args'
+		mask = mask or regMaskOf(x64InternalArg(i))
+	end 'args'
+	return mask
+end 'internalArgRegs'
 
 // An argument's place is where the internal convention passes it: a register, by its number in the register file, or
 // the stack, by its place among the arguments there from stackPlaceBase on.
@@ -141,11 +136,6 @@ end 'isStackPlace'
 function stackSlotOf(place Count) returns Count
 	return try place - stackPlaceBase otherwise panic("backend: a register taken for a place on the stack")
 end 'stackSlotOf'
-
-// physOfNumber is the physical register of a number in the register file.
-function physOfNumber(number RegNum) returns MReg
-	return number as MReg
-end 'physOfNumber'
 
 // placeRegister is the physical register of a place in a register.
 function placeRegister(place Count) returns MReg
@@ -179,244 +169,20 @@ end 'placeArgs'
 // argWord is the register of the first argument of the internal convention: the one argument of the routines and the
 // runtime entries that the routines and the entry stub call.
 function argWord() returns X64Register
-	return argRegister(ConventionKind.internal, index: 0)
+	return x64InternalArg(0)
 end 'argWord'
 
 // resultWord is the register of the result of the internal convention.
 function resultWord() returns X64Register
-	return resultRegister(ConventionKind.internal)
+	return x64InternalResult
 end 'resultWord'
 
-// CallConvention is what a call of a convention keeps. Arguments past its registers go on the stack, the first of them
-// nearest the return address.
-type CallConvention
-	// clobbered are the registers a call leaves holding nothing, and calleeSaved the ones it keeps.
-	export var clobbered as RegMask
-	export var calleeSaved as RegMask
-
-	static function make(calleeSaved RegMask) returns CallConvention
-		let all = allocatable(RegClass.gpr) or allocatable(RegClass.xmm)
-		return CallConvention{clobbered: all and not calleeSaved, calleeSaved: calleeSaved}
-	end 'make'
-end 'CallConvention'
-
-// conventionOf is a convention's table.
-function conventionOf(kind ConventionKind) returns CallConvention
+// x64KeptBy is the registers a call of a convention keeps on a system: its host convention or its system call's, which
+// a system that does not have it keeps none of, since no call of it is ever made there.
+function x64KeptBy(kind ConventionKind, system ast.TargetSystem) returns RegMask
 	return match kind 'kind'
-		internal gives CallConvention.make(x64InternalCalleeSaved())
-		host gives CallConvention.make(x64WindowsHostCalleeSaved())
-		syscall gives CallConvention.make(x64LinuxSyscallCalleeSaved())
+		internal gives x64InternalCalleeSaved()
+		host gives x64HostCalleeSaved(system) if ast.systemReach(system) == ast.SystemReach.imports else 0
+		syscall gives x64SyscallCalleeSaved(system) if ast.systemReach(system) == ast.SystemReach.syscalls else 0
 	end 'kind'
-end 'conventionOf'
-
-// Conventions are the tables of the conventions, which the allocator makes once.
-export type Conventions
-	var internal as CallConvention
-	var host as CallConvention
-	var syscall as CallConvention
-
-	export static function make() returns Conventions
-		return Conventions{internal: conventionOf(ConventionKind.internal), host: conventionOf(ConventionKind.host), syscall: conventionOf(ConventionKind.syscall)}
-	end 'make'
-
-	// keeping is the conventions with an internal one that keeps calleeSaved across a call instead of the target's
-	// callee-saved registers, for the allocator's tests.
-	export static function keeping(calleeSaved RegMask) returns Conventions
-		return Conventions{internal: CallConvention.make(calleeSaved), host: conventionOf(ConventionKind.host), syscall: conventionOf(ConventionKind.syscall)}
-	end 'keeping'
-end 'Conventions'
-
-// callConvention is the convention of a call instruction: a call through an import's slot is a DLL's, and a syscall the
-// kernel's.
-function callConvention(x MInstr) returns ConventionKind
-	if x.ref == MRef.importSlot 'import'
-		return ConventionKind.host
-	end 'import'
-	if x.form == X64Form.syscall 'kernel'
-		return ConventionKind.syscall
-	end 'kernel'
-	return ConventionKind.internal
-end 'callConvention'
-
-// A call instruction's imm is the registers of its arguments, which it reads.
-
-// newCall is a call of a form whose last field refers to ref and aux (none for a call through a register, a), passing
-// arguments in the registers argRegs.
-export function newCall(form X64Form, a MReg, ref MRef, aux Imm32, argRegs RegMask) returns MInstr
-	var x = newReferring(form, a: a, ref: ref, aux: aux)
-	x.imm = argRegs as FullRangeInt
-	return x
-end 'newCall'
-
-// callUses are the argument registers a call reads.
-function callUses(x MInstr) returns RegMask
-	if not isCall(x.form) 'other'
-		return 0
-	end 'other'
-	return x.imm as RegMask
-end 'callUses'
-
-// isUnconditionalJump is whether a branch along an edge always takes it, so the edge's copies can go before it.
-function isUnconditionalJump(x MInstr) returns bool
-	return x.kind == MKind.target and x.form == X64Form.jmpRel32
-end 'isUnconditionalJump'
-
-// The constraints of an instruction. The registers of a target instruction are, in order: the one it defines, if
-// any; the one a two-address form reads and writes, which the definition reuses; and the others it reads. A physical
-// operand is a fixed register.
-
-// operandCount is how many register operands an instruction has.
-function operandCount(x MInstr) returns Count
-	return match x.kind 'kind'
-		target gives machineOperandCount(x.form)
-		copy gives 2
-		spill or
-		reload or
-		restore gives 1
-		parallelCopy or
-		frameSetup or
-		frameTeardown gives 0
-	end 'kind'
-end 'operandCount'
-
-// defines is whether operand a is a definition, and the others uses.
-function defines(x MInstr) returns bool
-	return match x.kind 'kind'
-		target gives definesOperand(x.form)
-		copy or
-		reload gives true
-		spill or
-		restore or
-		parallelCopy or
-		frameSetup or
-		frameTeardown gives false
-	end 'kind'
-end 'defines'
-
-// reuses is whether the definition a must be given the register of the use b.
-function reuses(x MInstr) returns bool
-	return match x.kind 'kind'
-		target gives reusesOperand(x.form)
-		copy or
-		reload or
-		spill or
-		restore or
-		parallelCopy or
-		frameSetup or
-		frameTeardown gives false
-	end 'kind'
-end 'reuses'
-
-// commutes is whether a two-address instruction gives the same result with its two uses swapped.
-function commutes(x MInstr) returns bool
-	return match x.kind 'kind'
-		target gives commutesOperands(x.form)
-		copy or
-		reload or
-		spill or
-		restore or
-		parallelCopy or
-		frameSetup or
-		frameTeardown gives false
-	end 'kind'
-end 'commutes'
-
-// sharesDying is whether the definition of x may be given the register of a use x reads for the last time, where
-// reusedDies and otherDies say whether its uses b and c are: an instruction reads every operand before it writes one, but a
-// two-address form's definition is a copy of b before it, so it may take only b's register, or c's where the form
-// commutes. Otherwise it needs a register beside every dying use's, which colouring gives it and pressure counts.
-function sharesDying(x MInstr, reusedDies bool, otherDies bool) returns bool
-	if not reuses(x) or not isVirtual(x.b) 'oneAddress'
-		return true
-	end 'oneAddress'
-	return reusedDies or (commutes(x) and isVirtual(x.c) and otherDies)
-end 'sharesDying'
-
-// implicitUses are the registers an instruction of fn reads that no operand names: a form's fixed uses, the argument
-// registers a call reads, and the result registers a return reads.
-function implicitUses(x MInstr, fn MirFunction) returns RegMask
-	return match x.kind 'kind'
-		target gives fixedUses(x.form) or returnUses(x, fn: fn) or callUses(x)
-		copy or
-		reload or
-		spill or
-		restore or
-		parallelCopy or
-		frameSetup or
-		frameTeardown gives 0
-	end 'kind'
-end 'implicitUses'
-
-// returnUses are the registers a return of fn reads: its result's, and its error's when it throws.
-function returnUses(x MInstr, fn MirFunction) returns RegMask
-	if not isReturn(x.form) 'other'
-		return 0
-	end 'other'
-	let result = regBit(internalResult(fn.floatResult))
-	if fn.canThrow 'error'
-		return result or regMaskOf(x64InternalError)
-	end 'error'
-	return result
-end 'returnUses'
-
-// implicitDefs are the registers an instruction writes that no operand names: a form's fixed results and clobbers,
-// and what a call's convention does not keep. A value live across the instruction may not be in one of them.
-function implicitDefs(x MInstr, convs Conventions) returns RegMask
-	return match x.kind 'kind'
-		target gives formWrites(x.form) or callClobbers(x, convs: convs)
-		copy or
-		reload or
-		spill or
-		restore or
-		parallelCopy or
-		frameSetup or
-		frameTeardown gives 0
-	end 'kind'
-end 'implicitDefs'
-
-// formWrites are the registers a form writes that no operand names, its fixed results and its clobbers, a call's
-// convention aside.
-function formWrites(form X64Form) returns RegMask
-	return fixedDefs(form) or clobbers(form)
-end 'formWrites'
-
-function callClobbers(x MInstr, convs Conventions) returns RegMask
-	if not isCall(x.form) 'other'
-		return 0
-	end 'other'
-	return match callConvention(x) 'kind'
-		internal gives convs.internal.clobbered
-		host gives convs.host.clobbered
-		syscall gives convs.syscall.clobbered
-	end 'kind'
-end 'callClobbers'
-
-// keptBy is the registers a call keeps.
-function keptBy(x MInstr, convs Conventions) returns RegMask
-	return match callConvention(x) 'kind'
-		internal gives convs.internal.calleeSaved
-		host gives convs.host.calleeSaved
-		syscall gives convs.syscall.calleeSaved
-	end 'kind'
-end 'keptBy'
-
-// isRematerializable is whether an instruction makes its result from nothing a register or memory holds, so a value it
-// defines can be made again before each use instead of being kept or spilled.
-function isRematerializable(x MInstr) returns bool
-	return match x.kind 'kind'
-		target gives rematerializable(x.form) and x.ref == MRef.none
-		copy or
-		reload or
-		spill or
-		restore or
-		parallelCopy or
-		frameSetup or
-		frameTeardown gives false
-	end 'kind'
-end 'isRematerializable'
-
-// isZeroIdiom is whether an instruction sets its register to zero whatever the register held, the exclusive or of a
-// register with itself, a general or an xmm one: it reads nothing, so no value need be in the register before it.
-function isZeroIdiom(x MInstr) returns bool
-	return x.kind == MKind.target and (x.form == X64Form.xorRegReg or x.form == X64Form.xorpsRegReg) and isPhysical(x.b) and x.b == x.c and x.a == x.b
-end 'isZeroIdiom'
+end 'x64KeptBy'

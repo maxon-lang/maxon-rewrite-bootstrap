@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"minimaxon/internal/irgen/irtable"
+	"minimaxon/internal/x64gen/x64table"
 )
 
 func TestGeneratedFilesAreCurrent(t *testing.T) {
@@ -87,12 +88,12 @@ func TestRulesThatFire(t *testing.T) {
 	}
 }
 
-// machineRules are instruction selection rules: some that select by the operands, and then one per IR operation that
+// selectionRules are instruction selection rules: some that select by the operands, and then one per IR operation that
 // matches all of it (the rule of loadField already does).
-func machineRules(leaveOut string) string {
+func selectionRules(leaveOut string) string {
 	lines := []string{
 		"(bin.add x (const [c])) && fitsImm32(c) => (AddRegImm x [c])",
-		"(branch (cmp.lt.unsigned x y) [yes] [no]) => (CmpRegReg x y) (JccRel32 [X64CondCode.below] [yes]) (JmpRel32 [no])",
+		"(branch (cmp.lt.unsigned x y) [yes] [no]) => (CmpRegReg x y) (JccRel32 [MCond.below] [yes]) (JmpRel32 [no])",
 		"d:(loadField obj [off]) => (LoadRegBaseDisp d obj [off])",
 		"(loadRaw.8 a) => (MovzxRegByteBaseDisp r a [0])",
 		"(loadRaw a) => (LoadRegBaseDisp r a [0])",
@@ -106,25 +107,25 @@ func machineRules(leaveOut string) string {
 }
 
 func TestMachineRulesAreChecked(t *testing.T) {
-	if _, err := generateMachine("x64.rules", machineRules("")); err != nil {
+	if _, err := generateMachine("x64.rules", selectionRules(""), x64table.Table); err != nil {
 		t.Fatal(err)
 	}
 	refusedMachine := []struct{ rules, err string }{
-		{machineRules("Bin"), "x64.rules: no rule matches every bin"},
-		{"(bin.add x y) => (AddRegRegReg x y)\n" + machineRules(""), "there is no x64 form or choice AddRegRegReg"},
-		{"(bin.add x y) => (AddRegReg x)\n" + machineRules(""), "AddRegReg takes 2 operands (dest src), and the rule gives it 1"},
-		{"(bin.add x y) => (AddRegReg x z)\n" + machineRules(""), "AddRegReg's src reads z, which nothing defines before it"},
-		{"(bin.add x y) => (AddRegReg.wide x y)\n" + machineRules(""), "an x64 form has no binding and no suffixes"},
-		{"(cmp x y) => (CmpRegReg x y) (SetccRax [X64CondCode.equal])\n" + machineRules(""), "there is no x64 form or choice SetccRax"},
-		{"(bin x y) => (MovRegReg x y)\n" + machineRules(""), "MovRegReg's dest defines x, a register of the pattern"},
-		{"d:(bin x y) => (AddRegReg x y)\n" + machineRules(""), "no form defines d, the result"},
-		{"(bin x y) => (CmpRegReg x y)\n" + machineRules(""), "bin gives a register, and no form defines one"},
-		{"(bin rax y) => (AddRegReg rax y)\n" + machineRules(""), "rax is a register or a name of the selector's"},
-		{"(bin x y) => (helper) (Ud2)\n" + machineRules(""), "a helper is the only result of its rule"},
-		{strings.Replace(machineRules(""), "(loadRaw a)", "(loadRaw.16 a)", 1), "no rule matches every loadRaw.32"},
+		{selectionRules("Bin"), "x64.rules: no rule matches every bin"},
+		{"(bin.add x y) => (AddRegRegReg x y)\n" + selectionRules(""), "there is no x64 form or choice AddRegRegReg"},
+		{"(bin.add x y) => (AddRegReg x)\n" + selectionRules(""), "AddRegReg takes 2 operands (dest src), and the rule gives it 1"},
+		{"(bin.add x y) => (AddRegReg x z)\n" + selectionRules(""), "AddRegReg's src reads z, which nothing defines before it"},
+		{"(bin.add x y) => (AddRegReg.wide x y)\n" + selectionRules(""), "an x64 form has no binding and no suffixes"},
+		{"(cmp x y) => (CmpRegReg x y) (SetccRax [MCond.equal])\n" + selectionRules(""), "there is no x64 form or choice SetccRax"},
+		{"(bin x y) => (MovRegReg x y)\n" + selectionRules(""), "MovRegReg's dest defines x, a register of the pattern"},
+		{"d:(bin x y) => (AddRegReg x y)\n" + selectionRules(""), "no form defines d, the result"},
+		{"(bin x y) => (CmpRegReg x y)\n" + selectionRules(""), "bin gives a register, and no form defines one"},
+		{"(bin rax y) => (AddRegReg rax y)\n" + selectionRules(""), "rax is a register or a name of the selector's"},
+		{"(bin x y) => (helper) (Ud2)\n" + selectionRules(""), "a helper is the only result of its rule"},
+		{strings.Replace(selectionRules(""), "(loadRaw a)", "(loadRaw.16 a)", 1), "no rule matches every loadRaw.32"},
 	}
 	for _, c := range refusedMachine {
-		_, err := generateMachine("x64.rules", c.rules)
+		_, err := generateMachine("x64.rules", c.rules, x64table.Table)
 		if err == nil || !strings.Contains(err.Error(), c.err) {
 			t.Errorf("%.60q is refused with %v, which does not say %q", c.rules, err, c.err)
 		}

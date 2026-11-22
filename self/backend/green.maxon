@@ -131,6 +131,7 @@ function emitSwitchStackBounds(mutates u CodeUnit, system ast.TargetSystem, reco
 	match system 'system'
 		windows then emitWindowsStackBounds(u, record: record, saves: saves)
 		linux then return
+		macos then panic("backend: x64 has no green threads for macOS")
 	end 'system'
 end 'emitSwitchStackBounds'
 
@@ -212,14 +213,14 @@ end 'emitAsyncPreempt'
 // emitLoadContext reads the running thread's context into a register, as a read of __Raw.threadContext does
 // (x64.rules).
 function emitLoadContext(mutates u CodeUnit, system ast.TargetSystem, dst X64Register)
-	match system 'system'
-		windows then u.asm.loadSymbol(dst, symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
-		linux then u.asm.movImm(dst, imm: 0)
-	end 'system'
-	match system 'system'
-		windows then u.asm.loadGs(dst, base: dst, disp: imm32Of(tebTlsSlotsOffset))
-		linux then u.asm.loadFs(dst, base: dst, disp: 0)
-	end 'system'
+	match x64ThreadContext(system) 'context'
+		tlsSlot then u.asm.loadSymbol(dst, symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
+		fsWord then u.asm.movImm(dst, imm: 0)
+	end 'context'
+	match x64ThreadContext(system) 'context'
+		tlsSlot then u.asm.loadGs(dst, base: dst, disp: imm32Of(tebTlsSlotsOffset))
+		fsWord then u.asm.loadFs(dst, base: dst, disp: 0)
+	end 'context'
 end 'emitLoadContext'
 
 // emitPreemptHandler writes rt.preemptHandler, the handler of the Linux preemption signal, which the kernel calls by

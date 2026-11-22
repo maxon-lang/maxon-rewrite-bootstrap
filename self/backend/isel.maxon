@@ -1,30 +1,28 @@
 // Instruction selection: a module's functions, from their IR, into machine IR (mir.maxon), which the allocator gives
-// registers and the encoder writes into the module's code unit. The rules of internal/rulegen/x64.rules select most
-// operations (lower_x64_gen.maxon, generated); the helpers here select the rest: the calls and what passes their
-// arguments, the operations whose code branches, the boxes, and the frame's prologue.
+// registers and the encoder of the architecture writes into the module's code unit. The rules of each instruction set
+// (internal/rulegen/x64.rules) select most operations (lower_x64_gen.maxon, generated); the helpers here select the
+// rest that every architecture selects alike: the calls of functions, function values, interface methods and runtime
+// entries, the boxes, closures, behaviours and coroutines, the drops and copies, a switch and a return. They write the
+// machine through the primitives of the architecture compiled for (isel_x64.maxon), which also holds its half of the
+// calls (where the convention puts each argument), its prologue and the helpers its rules name for what only it does.
 //
 // Every register of the IR is the virtual register of the same number from firstVirtual, so a block's parameters and an
 // edge's arguments are those registers, and the code of a block may name a register that a block written later defines.
 // IR block b is machine block b, and the blocks that the prologue and a helper's branches need are made after them.
 //
 // Calls use the internal convention of the target table (regs_x64_gen.maxon): the first words in its registers and the
-// first floats in its float registers, each class counted apart, and the rest pushed right to left, so that the first of
-// them is nearest the return address, which the caller pops (placeArgs); the result in its result register, a float's
-// in its float result register, and the error of a function that throws beside it in its error register. Which
-// arguments and results are floats is the call's float signature and the function's (ir/convention.maxon). A function
-// copies its parameters out of the argument registers first. A call of a function value passes the closure last, so
-// that the code of a named function, which takes the same arguments but the closure, never reaches it.
-
+// first floats in its float registers, each class counted apart, and the rest on the stack; the result in its result
+// register, a float's in its float result register, and the error of a function that throws beside it in its error
+// register. Which arguments and results are floats is the call's float signature and the function's
+// (ir/convention.maxon). A function copies its parameters out of the argument registers first. A call of a function value
+// passes the closure last, so that the code of a named function, which takes the same arguments but the closure, never
+// reaches it.
 // ifaceBoxWords is how many words of the frame a frame box takes.
 let ifaceBoxWords = ifaceBoxBytes / wordBytes
 
 let shiftBitCount = 64
 
 let signBitShift = 63
-
-// zeroInlineSlots is how many managed slots a frame clears with one store each; a frame with more clears all its slots
-// with one string instruction, which is shorter from there on.
-let zeroInlineSlots = 6
 
 typealias CalleeSymbols = table.IntMap with String
 
@@ -118,12 +116,13 @@ export type Selector
 	var allocator as Allocator
 	// classes decides the register class of each register of the function being selected.
 	var classes as ClassChoice
-	// system is the system of the target the module is compiled for, which reads a thread's context and reaches the kernel
-	// its own way.
+	// arch and system are the target the module is compiled for: the architecture of the machine IR, and the system,
+	// which reads a thread's context and reaches the kernel its own way.
+	var arch as ast.TargetArch
 	var system as ast.TargetSystem
 
-	static function new(verifies bool) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies), classes: ClassChoice.new(), system: ast.TargetSystem.windows}
+	static function new(verifies bool, target ast.Target) returns Selector
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -245,7 +244,7 @@ export type Selector
 		return symbol
 	end 'typeName'
 
-	// The selection rules' interface: what lower_x64_gen.maxon calls.
+	// The selection rules' interface: what the generated selections (lower_x64_gen.maxon) call.
 
 	function emit(mutates self, consumes x MInstr)
 		mir.emit(x)
@@ -264,11 +263,6 @@ export type Selector
 	function inXmm(r ir.Reg) returns bool
 		return mir.classes[regIndex(r)] == RegClass.xmm
 	end 'inXmm'
-
-	// onLinux is whether the module is compiled for Linux, whose threads keep their context through fs.
-	function onLinux() returns bool
-		return system == ast.TargetSystem.linux
-	end 'onLinux'
 
 	// floatRef is the word of the unit's data that holds the bits of a constant, which a form reads into an xmm register.
 	function floatRef(mutates self, bits ir.Word) returns Referent
@@ -339,35 +333,9 @@ export type Selector
 
 	// The helpers' own building blocks.
 
-	function target(mutates self, form X64Form, a MReg, b MReg, c MReg, aux Imm32, imm FullRangeInt)
-		mir.emit(newTarget(form, a: a, b: b, c: c, aux: aux, imm: imm))
-	end 'target'
-
-	// define is a new register that a form defines from the uses b and c.
-	function define(mutates self, form X64Form, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MReg
-		let d = self.newTemp()
-		self.target(form, a: d, b: b, c: c, aux: aux, imm: imm)
-		return d
-	end 'define'
-
-	// defineXmm is a new xmm register that a form defines from the uses b and c.
-	function defineXmm(mutates self, form X64Form, b MReg, c MReg) returns MReg
-		let d = self.newTempOf(RegClass.xmm)
-		self.target(form, a: d, b: b, c: c, aux: 0, imm: 0)
-		return d
-	end 'defineXmm'
-
-	function referring(mutates self, form X64Form, a MReg, refers Referent)
-		mir.emit(newReferring(form, a: a, ref: refers.ref, aux: refers.aux))
-	end 'referring'
-
 	function copy(mutates self, dst MReg, src MReg)
 		mir.emit(newCopy(dst, src: src))
 	end 'copy'
-
-	function constantInto(mutates self, dst MReg, value FullRangeInt)
-		self.target(chooseMovRegImm(value), a: dst, b: noMReg, c: noMReg, aux: 0, imm: value)
-	end 'constantInto'
 
 	function constant(mutates self, value FullRangeInt) returns MReg
 		let d = self.newTemp()
@@ -376,34 +344,10 @@ export type Selector
 	end 'constant'
 
 	function load(mutates self, base MReg, disp Imm32) returns MReg
-		return self.define(X64Form.loadRegBaseDisp, b: base, c: noMReg, aux: disp, imm: 0)
-	end 'load'
-
-	function store(mutates self, base MReg, disp Imm32, src MReg)
-		self.target(X64Form.storeBaseDispReg, a: base, b: src, c: noMReg, aux: disp, imm: 0)
-	end 'store'
-
-	// addImm is a register that a form defines as src plus imm.
-	function addImm(mutates self, src MReg, imm Imm32) returns MReg
-		return self.define(chooseAddRegImm(imm), b: src, c: noMReg, aux: 0, imm: imm as FullRangeInt)
-	end 'addImm'
-
-	// address is the address of a symbol.
-	function address(mutates self, symbol String) returns MReg
 		let d = self.newTemp()
-		let refers = self.symbolRef(symbol)
-		self.referring(X64Form.leaRegRip, a: d, refers: refers)
+		self.loadInto(d, base: base, disp: disp)
 		return d
-	end 'address'
-
-	// storeImm stores a word that a doubleword sign-extends to at base plus disp.
-	function storeImm(mutates self, base MReg, disp Imm32, value Imm32)
-		self.target(X64Form.storeBaseDispImm32, a: base, b: noMReg, c: noMReg, aux: disp, imm: value as FullRangeInt)
-	end 'storeImm'
-
-	function push(mutates self, v MReg)
-		self.target(X64Form.pushReg, a: v, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	end 'push'
+	end 'load'
 
 	// addArg adds an argument to the call being selected, a float or a word.
 	function addArg(mutates self, v MReg, float bool)
@@ -424,78 +368,16 @@ export type Selector
 		self.addArgs(f, start: start, count: count, floats: 0 as ir.FloatMask, first: 0)
 	end 'addWords'
 
-	// passArgs puts the arguments of the call being selected where the internal convention has the callee read them
-	// (placeArgs): those on the stack pushed right to left, then the others copied into their registers, so that no value
-	// is pushed out of one. It is the registers they are in, and stacked how many are on the stack.
-	function passArgs(mutates self, sets stacked Count) returns RegMask
-		stacked = placeArgs(callFloats, places: places)
-		var i = callArgs.count()
-		while i > 0 'stack'
-			i = prevCount(i)
-			if isStackPlace(places[i]) 'pushed'
-				let v = callArgs[i]
-				self.push(v)
-			end 'pushed'
-		end 'stack'
-		var argRegs = 0 as RegMask
-		for k in 0 upto callArgs.count() 'registers'
-			let place = places[k]
-			if not isStackPlace(place) 'register'
-				let v = callArgs[k]
-				self.copy(placeRegister(place), src: v)
-				argRegs = argRegs or regBit(physicalNumber(placeRegister(place)))
-			end 'register'
-		end 'registers'
-		return argRegs
-	end 'passArgs'
-
-	// call emits a call of the internal convention with the arguments of the call being selected, and takes those on the
-	// stack off it.
-	function callForm(mutates self, form X64Form, code MReg, refers Referent)
-		var stacked as Count
-		let argRegs = self.passArgs(stacked)
-		mir.emit(newCall(form, a: code, ref: refers.ref, aux: refers.aux, argRegs: argRegs))
-		self.popWords(stacked)
-		callArgs.clear()
-		callFloats.clear()
-	end 'callForm'
-
-	function callSymbol(mutates self, symbol String)
-		let callee = self.symbolRef(symbol)
-		self.callForm(X64Form.callRel32, code: noMReg, refers: callee)
-	end 'callSymbol'
-
-	function callRegister(mutates self, code MReg)
-		self.callForm(X64Form.callReg, code: code, refers: Referent.make(MRef.none, aux: 0))
-	end 'callRegister'
-
-	// popWords takes the arguments of a call off the stack.
-	function popWords(mutates self, count Count)
-		if count == 0 'none'
-			return
-		end 'none'
-		let sp = physReg(rsp)
-		let bytes = imm32Of(try count * wordBytes otherwise panic("backend: more arguments than memory"))
-		self.target(chooseAddRegImm(bytes), a: sp, b: sp, c: noMReg, aux: 0, imm: bytes as FullRangeInt)
-	end 'popWords'
-
-	// takeFrom puts what a register holds in dst, if the IR keeps it.
-	function takeFrom(mutates self, dst ir.Reg, r X64Register)
-		if dst != ir.noReg 'kept'
-			self.copy(vregOf(dst), src: physReg(r))
-		end 'kept'
-	end 'takeFrom'
-
 	// takeResult puts what a call returned in dst, if the IR keeps it: a float from the convention's float result register.
 	function takeResult(mutates self, dst ir.Reg, float bool)
 		if dst != ir.noReg 'kept'
-			self.copy(vregOf(dst), src: physOfNumber(internalResult(float)))
+			self.copy(vregOf(dst), src: physOfNumber(internalResult(arch, float: float)))
 		end 'kept'
 	end 'takeResult'
 
 	function takeError(mutates self, err table.Option with ir.Reg)
 		match err 'throws'
-			some(r) then self.copy(vregOf(r), src: physReg(x64InternalError))
+			some(r) then self.copy(vregOf(r), src: physOfNumber(internalErrorOf(arch)))
 			none then return
 		end 'throws'
 	end 'takeError'
@@ -520,38 +402,8 @@ export type Selector
 		let size = self.constant(try bytes as FullRangeInt otherwise panic("backend: a box past memory"))
 		self.addArg(size, float: false)
 		self.callSymbol(ir.rtSymbol(ir.Rt.rtAlloc))
-		self.copy(dst, src: physReg(resultRegister(ConventionKind.internal)))
+		self.copy(dst, src: physOfNumber(internalResultOf(arch)))
 	end 'allocInto'
-
-	// takeParams copies the parameters of f that the internal convention passes in registers out of them, before
-	// anything else can write one: each a float or a word as f's float signature says, which every call of it says too.
-	function takeParams(mutates self, f ir.IrFunction)
-		paramFloats.clear()
-		for at in 0 upto f.paramCount 'order'
-			let k = paramAtPosition(at, count: f.paramCount, closure: closureBody)
-			paramFloats.push(ir.isFloatAt(f.floatParams, place: k))
-		end 'order'
-		_ = placeArgs(paramFloats, places: places)
-		params.clear()
-		paramPlaces.clear()
-		for k in 0 upto f.paramCount 'params'
-			let place = places[paramPosition(k, count: f.paramCount, closure: closureBody)]
-			paramPlaces.push(place)
-			if isStackPlace(place) 'stack'
-				params.push(noMReg)
-			end 'stack' else 'register'
-				let v = self.newTempOf(classOfNumber(physicalNumber(placeRegister(place))))
-				self.copy(v, src: placeRegister(place))
-				params.push(v)
-			end 'register'
-		end 'params'
-	end 'takeParams'
-
-	// jumpTo ends the block being written with a jump to a block, with the arguments of args.
-	function jumpTo(mutates self, block MBlockID)
-		let edge = mir.addEdge(block, args: args)
-		mir.emit(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: edge))
-	end 'jumpTo'
 
 	// jumpWith jumps to a block that takes one parameter, passing it value.
 	function jumpWith(mutates self, block MBlockID, value MReg)
@@ -559,25 +411,6 @@ export type Selector
 		args.push(value)
 		self.jumpTo(block)
 	end 'jumpWith'
-
-	// branchTo goes to a block, which takes no arguments, when the flags meet cond, and otherwise to the block written
-	// next, which it makes and starts.
-	function branchTo(mutates self, cond X64CondCode, block MBlockID)
-		args.clear()
-		let edge = mir.addEdge(block, args: args)
-		mir.emit(newConditional(X64Form.jccRel32, cond: cond, a: noMReg, ref: MRef.edge, aux: edge))
-		let next = mir.addBlock()
-		self.jumpTo(next)
-		mir.writeBlock(next)
-	end 'branchTo'
-
-	// failTo goes to an IR failure block when the flags meet cond, in the middle of the block, as the IR's own failure
-	// edges leave.
-	function failTo(mutates self, cond X64CondCode, block ir.BlockID)
-		args.clear()
-		let edge = mir.addEdge(blockOf(block), args: args)
-		mir.emit(newConditional(X64Form.jccRel32, cond: cond, a: noMReg, ref: MRef.edge, aux: edge))
-	end 'failTo'
 
 	// reach jumps to a block where paths meet, passing value when the block takes it.
 	function reach(mutates self, block MBlockID, value MReg, keeps bool)
@@ -596,46 +429,12 @@ export type Selector
 		mir.addBlockParam(vregOf(r))
 	end 'join'
 
-	// zeroManagedSlots empties every slot that can own a value, so a drop of a slot that was moved from, or never assigned,
-	// finds 0 and does nothing. A scalar slot is never dropped and is left as it is.
-	function zeroManagedSlots(mutates self, f ir.IrFunction)
-		var managed = 0 as Count
-		for i in 0 upto f.slots.count() 'count'
-			if f.slots[i] == ir.IrKind.kindManaged 'managed'
-				managed = try managed + 1 otherwise panic("backend: more slots than memory")
-			end 'managed'
-		end 'count'
-		if managed == 0 'none'
-			return
-		end 'none'
-		let zero = physReg(rax)
-		self.target(X64Form.xorRegReg, a: zero, b: zero, c: zero, aux: 0, imm: 0)
-		let fp = physReg(rbp)
-		if managed > zeroInlineSlots 'string'
-			let slots = f.slots.count()
-			self.target(X64Form.leaRegBaseDisp, a: physReg(rdi), b: fp, c: noMReg, aux: slotDisp(try slots - 1 otherwise panic("backend: no slots")), imm: 0)
-			self.constantInto(physReg(rcx), value: try slots as FullRangeInt otherwise panic("backend: more slots than memory"))
-			self.target(X64Form.repStosq, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
-			return
-		end 'string'
-		for i in 0 upto f.slots.count() 'inline'
-			if f.slots[i] == ir.IrKind.kindManaged 'managed'
-				self.store(fp, disp: slotDisp(i), src: zero)
-			end 'managed'
-		end 'inline'
-	end 'zeroManagedSlots'
-
-	function leave(mutates self)
-		self.emit(newFrameTeardown())
-		self.target(X64Form.ret, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	end 'leave'
-
 	// inBounds goes to slow unless the index is below the length the box holds at lengthOffset. The comparison is
 	// unsigned, so no index the entry would refuse passes it.
 	function inBounds(mutates self, box MReg, index MReg, lengthOffset Count, slow MBlockID)
 		let length = self.load(box, disp: imm32Of(lengthOffset))
-		self.target(X64Form.cmpRegReg, a: index, b: length, c: noMReg, aux: 0, imm: 0)
-		self.branchTo(X64CondCode.aboveEqual, block: slow)
+		self.compare(index, b: length)
+		self.branchTo(MCond.aboveEqual, block: slow)
 	end 'inBounds'
 
 	// elementBuffer is the address of the elements of an array, after a branch to slow when the index is out of range; the
@@ -651,13 +450,13 @@ export type Selector
 	function pushInPlace(mutates self, box MReg, index MReg, atEnd bool, slow MBlockID) returns MReg
 		if not atEnd 'end'
 			let length = self.load(box, disp: imm32Of(arrayLengthOffset))
-			self.target(X64Form.cmpRegReg, a: index, b: length, c: noMReg, aux: 0, imm: 0)
-			self.branchTo(X64CondCode.notEqual, block: slow)
+			self.compare(index, b: length)
+			self.branchTo(MCond.notEqual, block: slow)
 		end 'end'
 		let capacity = self.load(box, disp: imm32Of(arrayCapacityOffset))
-		self.target(X64Form.cmpRegReg, a: index, b: capacity, c: noMReg, aux: 0, imm: 0)
-		self.branchTo(X64CondCode.aboveEqual, block: slow)
-		let longer = self.define(X64Form.leaRegBaseDisp, b: index, c: noMReg, aux: 1, imm: 0)
+		self.compare(index, b: capacity)
+		self.branchTo(MCond.aboveEqual, block: slow)
+		let longer = self.offset(index, disp: 1)
 		self.store(box, disp: imm32Of(arrayLengthOffset), src: longer)
 		return self.load(box, disp: imm32Of(arrayDataOffset))
 	end 'pushInPlace'
@@ -684,188 +483,196 @@ export type Selector
 		self.store(box, disp: imm32Of(ifaceTableOffset), src: tableAt)
 		self.store(box, disp: imm32Of(ifaceValueOffset), src: value)
 	end 'fillBox'
-end 'Selector'
 
-// frameBoxDisp is where a frame box starts, after the IR's slots: its words lie upward from there, as a box's do.
-function frameBoxDisp(f ir.IrFunction, box Count) returns Imm32
-	let last = try f.slots.count() + box * ifaceBoxWords + ifaceBoxWords - 1 otherwise panic("backend: a frame box past memory")
-	return slotDisp(last)
-end 'frameBoxDisp'
+	// The primitives of the architecture: what the shared helpers and the driver ask of the machine, each written by the
+	// architecture's selector (isel_x64.maxon), which is chosen here by the architecture compiled for.
+
+	// constantInto sets dst to a word.
+	function constantInto(mutates self, dst MReg, value FullRangeInt)
+		match arch 'arch'
+			x64 then self.x64ConstantInto(dst, value: value)
+		end 'arch'
+	end 'constantInto'
+
+	// loadInto loads the word at base plus disp into dst.
+	function loadInto(mutates self, dst MReg, base MReg, disp Imm32)
+		match arch 'arch'
+			x64 then self.x64LoadInto(dst, base: base, disp: disp)
+		end 'arch'
+	end 'loadInto'
+
+	// store stores the word src at base plus disp.
+	function store(mutates self, base MReg, disp Imm32, src MReg)
+		match arch 'arch'
+			x64 then self.x64Store(base, disp: disp, src: src)
+		end 'arch'
+	end 'store'
+
+	// storeImm stores a word that a doubleword sign-extends to at base plus disp.
+	function storeImm(mutates self, base MReg, disp Imm32, value Imm32)
+		match arch 'arch'
+			x64 then self.x64StoreImm(base, disp: disp, value: value)
+		end 'arch'
+	end 'storeImm'
+
+	// addImm is a register that src plus imm defines, which may write the flags.
+	function addImm(mutates self, src MReg, imm Imm32) returns MReg
+		return match arch 'arch'
+			x64 gives self.x64AddImm(src, imm: imm)
+		end 'arch'
+	end 'addImm'
+
+	// offset is a register that src plus disp defines, which leaves the flags as they are.
+	function offset(mutates self, src MReg, disp Imm32) returns MReg
+		return match arch 'arch'
+			x64 gives self.x64Offset(src, disp: disp)
+		end 'arch'
+	end 'offset'
+
+	// address is the address of a symbol.
+	function address(mutates self, symbol String) returns MReg
+		return match arch 'arch'
+			x64 gives self.x64Address(symbol)
+		end 'arch'
+	end 'address'
+
+	// wordAddress is the address of the word at an index of the buffer at base.
+	function wordAddress(mutates self, base MReg, index MReg) returns MReg
+		return match arch 'arch'
+			x64 gives self.x64WordAddress(base, index: index)
+		end 'arch'
+	end 'wordAddress'
+
+	// loadIndexedByte is a register that the byte at base plus index plus disp, zero-extended, defines.
+	function loadIndexedByte(mutates self, base MReg, index MReg, disp Imm32) returns MReg
+		return match arch 'arch'
+			x64 gives self.x64LoadIndexedByte(base, index: index, disp: disp)
+		end 'arch'
+	end 'loadIndexedByte'
+
+	// storeIndexedByte stores the low byte of src at base plus index.
+	function storeIndexedByte(mutates self, base MReg, index MReg, src MReg)
+		match arch 'arch'
+			x64 then self.x64StoreIndexedByte(base, index: index, src: src)
+		end 'arch'
+	end 'storeIndexedByte'
+
+	// storeIndexedWord stores the word src at an index of the buffer at base.
+	function storeIndexedWord(mutates self, base MReg, index MReg, src MReg)
+		match arch 'arch'
+			x64 then self.x64StoreIndexedWord(base, index: index, src: src)
+		end 'arch'
+	end 'storeIndexedWord'
+
+	// compare sets the flags by a comparison of a with b.
+	function compare(mutates self, a MReg, b MReg)
+		match arch 'arch'
+			x64 then self.x64Compare(a, b: b)
+		end 'arch'
+	end 'compare'
+
+	// compareWith sets the flags by a comparison of a with a constant.
+	function compareWith(mutates self, a MReg, value ir.Word)
+		match arch 'arch'
+			x64 then self.x64CompareWith(a, value: value)
+		end 'arch'
+	end 'compareWith'
+
+	// flagInto puts in the register of dst 1 where the flags meet cond and 0 where they do not.
+	function flagInto(mutates self, dst ir.Reg, cond MCond)
+		match arch 'arch'
+			x64 then self.x64FlagInto(dst, cond: cond)
+		end 'arch'
+	end 'flagInto'
+
+	// zeroInto sets the physical register r, a float's or a word's, to 0.
+	function zeroInto(mutates self, r MReg, float bool)
+		match arch 'arch'
+			x64 then self.x64ZeroInto(r, float: float)
+		end 'arch'
+	end 'zeroInto'
+
+	// callSymbol calls a symbol by the internal convention with the arguments of the call being selected.
+	function callSymbol(mutates self, symbol String)
+		match arch 'arch'
+			x64 then self.x64CallSymbol(symbol)
+		end 'arch'
+	end 'callSymbol'
+
+	// callRegister calls the code at the address in a register by the internal convention with the arguments of the
+	// call being selected.
+	function callRegister(mutates self, code MReg)
+		match arch 'arch'
+			x64 then self.x64CallRegister(code)
+		end 'arch'
+	end 'callRegister'
+
+	// jumpTo ends the block being written with a jump to a block, with the arguments of args.
+	function jumpTo(mutates self, block MBlockID)
+		match arch 'arch'
+			x64 then self.x64JumpTo(block)
+		end 'arch'
+	end 'jumpTo'
+
+	// jumpAlong ends the block being written with a jump along an edge.
+	function jumpAlong(mutates self, refers Referent)
+		match arch 'arch'
+			x64 then self.x64JumpAlong(refers)
+		end 'arch'
+	end 'jumpAlong'
+
+	// branchAlong goes along an edge when the flags meet cond.
+	function branchAlong(mutates self, cond MCond, refers Referent)
+		match arch 'arch'
+			x64 then self.x64BranchAlong(cond, refers: refers)
+		end 'arch'
+	end 'branchAlong'
+
+	// branchTo goes to a block, which takes no arguments, when the flags meet cond, and otherwise to the block written
+	// next, which it makes and starts.
+	function branchTo(mutates self, cond MCond, block MBlockID)
+		match arch 'arch'
+			x64 then self.x64BranchTo(cond, block: block)
+		end 'arch'
+	end 'branchTo'
+
+	// failTo goes to an IR failure block when the flags meet cond, in the middle of the block, as the IR's own failure
+	// edges leave.
+	function failTo(mutates self, cond MCond, block ir.BlockID)
+		match arch 'arch'
+			x64 then self.x64FailTo(cond, block: block)
+		end 'arch'
+	end 'failTo'
+
+	// leave ends the function: its epilogue and the return.
+	function leave(mutates self)
+		match arch 'arch'
+			x64 then self.x64Leave()
+		end 'arch'
+	end 'leave'
+
+	// takeParams copies the parameters of f that the internal convention passes in registers out of them, before
+	// anything else can write one: each a float or a word as f's float signature says, which every call of it says too.
+	function takeParams(mutates self, f ir.IrFunction)
+		match arch 'arch'
+			x64 then self.x64TakeParams(f)
+		end 'arch'
+	end 'takeParams'
+
+	// zeroManagedSlots empties every slot that can own a value, so a drop of a slot that was moved from, or never assigned,
+	// finds 0 and does nothing. A scalar slot is never dropped and is left as it is.
+	function zeroManagedSlots(mutates self, f ir.IrFunction)
+		match arch 'arch'
+			x64 then self.x64ZeroManagedSlots(f)
+		end 'arch'
+	end 'zeroManagedSlots'
+end 'Selector'
 
 function argAt(f ir.IrFunction, start Count, index Count) returns MReg
 	return vregOf(f.args[try start + index otherwise panic("backend: an argument past the pool")])
 end 'argAt'
 
-// The helpers that x64.rules names, one per operation that a sequence of forms does not select.
-
-// emitSignedDivide divides by a divisor that is not 0, into the quotient or the remainder. A division by -1 is the one
-// that the processor faults on, for i64.min: the quotient is then the negation, which a checked division fails on, and
-// the remainder is 0.
-function emitSignedDivide(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let remainder = ir.binOp(ins) == ir.BinOp.binMod
-	let x = vregOf(ir.binLeft(ins))
-	let y = vregOf(ir.binRight(ins))
-	let divide = sel.mir.addBlock()
-	let done = sel.mir.addBlock()
-	sel.target(chooseCmpRegImm(-1), a: y, b: noMReg, c: noMReg, aux: 0, imm: -1)
-	sel.branchTo(X64CondCode.notEqual, block: divide)
-	if remainder 'zero'
-		let zero = sel.constant(0)
-		sel.jumpWith(done, value: zero)
-	end 'zero' else 'negate'
-		let negated = sel.define(X64Form.negReg, b: x, c: noMReg, aux: 0, imm: 0)
-		if ir.binHasFail(ins) 'checked'
-			sel.failTo(X64CondCode.overflow, block: ir.binFail(ins).unwrap())
-		end 'checked'
-		sel.jumpWith(done, value: negated)
-	end 'negate'
-	sel.mir.writeBlock(divide)
-	sel.copy(physReg(rax), src: x)
-	sel.target(X64Form.cqo, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	sel.target(X64Form.idivReg, a: y, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	let result = sel.newTemp()
-	sel.copy(result, src: physReg(rdx if remainder else rax))
-	sel.jumpWith(done, value: result)
-	sel.join(done, r: ins.dst)
-end 'emitSignedDivide'
-
-// emitShift shifts by a count that is not negative. A count past the word gives what every bit leaving gives: 0, or the
-// sign for a signed right shift. A checked left shift goes to its failure block when a bit that is not 0, or the sign,
-// leaves the word: shifting the result back must give the value.
-function emitShift(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let left = ir.binOp(ins) == ir.BinOp.binShl
-	let unsigned = ir.binUnsigned(ins)
-	let checkLeft = left and ir.binHasFail(ins)
-	let x = vregOf(ir.binLeft(ins))
-	let count = vregOf(ir.binRight(ins))
-	let big = sel.mir.addBlock()
-	let done = sel.mir.addBlock()
-	sel.target(chooseCmpRegImm(shiftBitCount), a: count, b: noMReg, c: noMReg, aux: 0, imm: shiftBitCount)
-	sel.branchTo(X64CondCode.greaterEqual, block: big)
-	sel.copy(physReg(rcx), src: count)
-	var form = X64Form.sarRegCl
-	if left 'left'
-		form = X64Form.shlRegCl
-	end 'left' else if unsigned 'unsignedRight'
-		form = X64Form.shrRegCl
-	end 'unsignedRight'
-	let shifted = sel.define(form, b: x, c: noMReg, aux: 0, imm: 0)
-	if checkLeft 'verify'
-		let back = sel.define(X64Form.shrRegCl if unsigned else X64Form.sarRegCl, b: shifted, c: noMReg, aux: 0, imm: 0)
-		sel.target(X64Form.cmpRegReg, a: back, b: x, c: noMReg, aux: 0, imm: 0)
-		sel.failTo(X64CondCode.notEqual, block: ir.binFail(ins).unwrap())
-	end 'verify'
-	sel.jumpWith(done, value: shifted)
-	sel.mir.writeBlock(big)
-	if checkLeft 'lost'
-		sel.target(X64Form.testRegReg, a: x, b: x, c: noMReg, aux: 0, imm: 0)
-		sel.failTo(X64CondCode.notEqual, block: ir.binFail(ins).unwrap())
-	end 'lost'
-	if not left and not unsigned 'sign'
-		let sign = sel.define(X64Form.sarRegImm8, b: x, c: noMReg, aux: 0, imm: signBitShift)
-		sel.jumpWith(done, value: sign)
-	end 'sign' else 'zero'
-		let zero = sel.constant(0)
-		sel.jumpWith(done, value: zero)
-	end 'zero'
-	sel.join(done, r: ins.dst)
-end 'emitShift'
-
-// emitUnsignedToFloat converts an unsigned word with cvtsi2sd, which reads a signed one: a word past i64.max is halved
-// first, keeping its low bit so that it rounds as the whole would, and the double doubled.
-function emitUnsignedToFloat(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let x = vregOf(ir.intToFloatSrc(ins))
-	let large = sel.mir.addBlock()
-	let done = sel.mir.addBlock()
-	sel.target(X64Form.testRegReg, a: x, b: x, c: noMReg, aux: 0, imm: 0)
-	sel.branchTo(X64CondCode.sign, block: large)
-	let converted = sel.defineXmm(X64Form.cvtsi2sdRegReg, b: x, c: noMReg)
-	sel.jumpWith(done, value: converted)
-	sel.mir.writeBlock(large)
-	let low = sel.define(chooseAndRegImm(1), b: x, c: noMReg, aux: 0, imm: 1)
-	sel.constantInto(physReg(rcx), value: 1)
-	let half = sel.define(X64Form.shrRegCl, b: x, c: noMReg, aux: 0, imm: 0)
-	let rounded = sel.define(X64Form.orRegReg, b: half, c: low, aux: 0, imm: 0)
-	let halved = sel.defineXmm(X64Form.cvtsi2sdRegReg, b: rounded, c: noMReg)
-	let doubled = sel.defineXmm(X64Form.addsdRegReg, b: halved, c: halved)
-	sel.jumpWith(done, value: doubled)
-	sel.join(done, r: ins.dst)
-end 'emitUnsignedToFloat'
-
-function emitCompareExchange(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let start = ir.compareExchangeArgsStart(ins)
-	sel.copy(physReg(rax), src: argAt(fn, start: start, index: 1))
-	sel.target(X64Form.lockCmpxchgBaseDispReg, a: argAt(fn, start: start, index: 0), b: argAt(fn, start: start, index: 2), c: noMReg, aux: 0, imm: 0)
-	sel.takeFrom(ins.dst, r: rax)
-end 'emitCompareExchange'
-
-// emitCallImport calls a DLL import by the host convention, Win64: the first words in its registers, the rest on the
-// stack above the shadow space the callee may write, rsp aligned at the call. A value holds rsp across the call, which
-// allocation keeps in a register the callee preserves or in the frame.
-function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if sel.system != ast.TargetSystem.windows 'imports'
-		panic("backend: the runtime calls the DLL function {ir.callImportName(fn, x: ins)} on a target with no DLLs: its source for the target lacks that function")
-	end 'imports'
-	let slot = imm32Of(importIndex(ir.callImportName(fn, x: ins)))
-	emitHostCall(sel, fn: fn, ins: ins, start: ir.callImportArgsStart(ins), count: ir.callImportArgsCount(ins), form: X64Form.callRip, code: noMReg, ref: MRef.importSlot, aux: slot)
-end 'emitCallImport'
-
-// emitCallHost calls the code at an address, the first of the arguments, by the host convention with the rest, as
-// emitCallImport calls an import: a DLL function that the runtime found by its name.
-function emitCallHost(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if sel.system != ast.TargetSystem.windows 'host'
-		panic("backend: the runtime calls a DLL function by its address on a target with no DLLs: its source for the target lacks that function")
-	end 'host'
-	let start = ir.callHostArgsStart(ins)
-	let count = try ir.callHostArgsCount(ins) - 1 otherwise panic("backend: a call of code with no address")
-	let code = argAt(fn, start: start, index: 0)
-	emitHostCall(sel, fn: fn, ins: ins, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: count, form: X64Form.callReg, code: code, ref: MRef.none, aux: 0)
-end 'emitCallHost'
-
-// emitHostCall calls by the host convention, Win64, with the count words of the pool from start: through the import slot
-// or the register that form, code, ref and aux name.
-function emitHostCall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr, start Count, count Count, form X64Form, code MReg, ref MRef, aux Imm32)
-	let inRegisters = argsInRegisters(ConventionKind.host, count: count)
-	let stackWords = try count - inRegisters otherwise panic("backend: more arguments in registers than a call has")
-	let frame = alignUp(try x64WindowsHostShadowBytes + stackWords * wordBytes otherwise panic("backend: more arguments than memory"), alignment: x64StackAlignment)
-	let sp = physReg(rsp)
-	let saved = sel.define(X64Form.movRegReg, b: sp, c: noMReg, aux: 0, imm: 0)
-	sel.target(chooseAndRegImm(-x64StackAlignment), a: sp, b: sp, c: noMReg, aux: 0, imm: -x64StackAlignment)
-	let bytes = imm32Of(frame)
-	sel.target(chooseSubRegImm(bytes), a: sp, b: sp, c: noMReg, aux: 0, imm: bytes as FullRangeInt)
-	for i in inRegisters upto count 'stack'
-		let at = try x64WindowsHostShadowBytes + (i - inRegisters) * wordBytes otherwise panic("backend: more arguments than memory")
-		sel.store(sp, disp: imm32Of(at), src: argAt(fn, start: start, index: i))
-	end 'stack'
-	for i in 0 upto inRegisters 'registers'
-		sel.copy(physReg(argRegister(ConventionKind.host, index: i)), src: argAt(fn, start: start, index: i))
-	end 'registers'
-	sel.emit(newCall(form, a: code, ref: ref, aux: aux, argRegs: wordArgRegs(ConventionKind.host, count: inRegisters)))
-	sel.target(X64Form.movRegReg, a: sp, b: saved, c: noMReg, aux: 0, imm: 0)
-	sel.takeFrom(ins.dst, r: resultRegister(ConventionKind.host))
-end 'emitHostCall'
-
-// emitSyscall calls the kernel by Linux's system call convention: the number and the words in its registers, the result
-// in its result register. A system call takes no more words than the convention has registers for.
-function emitSyscall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if sel.system != ast.TargetSystem.linux 'kernel'
-		panic("backend: the runtime makes a system call on a target whose programs reach the kernel through its DLLs")
-	end 'kernel'
-	let start = ir.syscallArgsStart(ins)
-	let count = ir.syscallArgsCount(ins)
-	let words = try count - 1 otherwise panic("backend: a system call with no number")
-	if words > argRegisterCount(ConventionKind.syscall) 'many'
-		panic("backend: a system call of more words than the system call convention has registers for")
-	end 'many'
-	let first = try start + 1 otherwise panic("backend: an argument past the pool")
-	for i in 0 upto words 'registers'
-		sel.copy(physReg(argRegister(ConventionKind.syscall, index: i)), src: argAt(fn, start: first, index: i))
-	end 'registers'
-	sel.copy(physReg(x64LinuxSyscallNumber), src: argAt(fn, start: start, index: 0))
-	let reads = wordArgRegs(ConventionKind.syscall, count: words) or regMaskOf(x64LinuxSyscallNumber)
-	sel.emit(newCall(X64Form.syscall, a: noMReg, ref: MRef.none, aux: 0, argRegs: reads))
-	sel.takeFrom(ins.dst, r: resultRegister(ConventionKind.syscall))
-end 'emitSyscall'
+// The helpers that the rules of every instruction set name, one per operation that a sequence of forms does not select.
 
 // emitCallCode calls the code at the address that is the first of the arguments with the rest, words: the run of a
 // behaviour's record, which takes a word.
@@ -927,17 +734,14 @@ function emitIsType(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let entry = sel.addImm(table, imm: imm32Of(try tableTypeEntry * tableEntryBytes otherwise panic("backend: a table past memory")))
 	sel.callRegister(entry)
 	let named = sel.newTemp()
-	sel.copy(named, src: physReg(resultRegister(ConventionKind.internal)))
+	sel.copy(named, src: physOfNumber(internalResultOf(sel.arch)))
 	let symbol = match sel.typeSymbols.get(ir.isTypeTy(fn, x: ins) as Count) 'named'
 		some(name) gives name.clone()
 		none panic("backend: a cast to a type that prepare did not name")
 	end 'named'
 	let wanted = sel.address(symbol)
-	sel.target(X64Form.cmpRegReg, a: named, b: wanted, c: noMReg, aux: 0, imm: 0)
-	let flag = sel.newTemp()
-	sel.emit(newConditional(X64Form.setccReg, cond: X64CondCode.equal, a: flag, ref: MRef.none, aux: 0))
-	let result = sel.resultOf(ins.dst)
-	sel.target(X64Form.movzxRegReg8, a: result, b: flag, c: noMReg, aux: 0, imm: 0)
+	sel.compare(named, b: wanted)
+	sel.flagInto(ins.dst, cond: MCond.equal)
 end 'emitIsType'
 
 function emitAlloc(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
@@ -963,7 +767,7 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 			offset = imm32Of(frozenValueOffset)
 		end 'frozen'
 		let result = sel.resultOf(ins.dst)
-		sel.target(X64Form.loadRegBaseDisp, a: result, b: argAt(fn, start: start, index: 0), c: noMReg, aux: offset, imm: 0)
+		sel.loadInto(result, base: argAt(fn, start: start, index: 0), disp: offset)
 		return
 	end 'load'
 	if symbol == ir.Rt.rtCownNew 'cown'
@@ -985,32 +789,32 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let index = argAt(fn, start: start, index: 1)
 	if symbol == ir.Rt.rtArrayElem 'arrayElem'
 		let data = sel.elementBuffer(box, index: index, slow: slow)
-		let at = sel.define(X64Form.leaRegBaseIndex8Disp, b: data, c: index, aux: 0, imm: 0)
+		let at = sel.wordAddress(data, index: index)
 		sel.reach(done, value: at, keeps: keeps)
 	end 'arrayElem' else if symbol == ir.Rt.rtBytesGet 'bytesGet'
 		let data = sel.elementBuffer(box, index: index, slow: slow)
-		let byte = sel.define(X64Form.movzxRegByteBaseIndex1Disp, b: data, c: index, aux: 0, imm: 0)
+		let byte = sel.loadIndexedByte(data, index: index, disp: 0)
 		sel.reach(done, value: byte, keeps: keeps)
 	end 'bytesGet' else if symbol == ir.Rt.rtBytesSet 'bytesSet'
 		let data = sel.elementBuffer(box, index: index, slow: slow)
-		sel.target(X64Form.storeBaseIndex1DispReg8, a: data, b: index, c: argAt(fn, start: start, index: 2), aux: 0, imm: 0)
+		sel.storeIndexedByte(data, index: index, src: argAt(fn, start: start, index: 2))
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'bytesSet' else if symbol == ir.Rt.rtArrayInsert 'arrayInsert'
 		let atEnd = sel.knownLength(fn, box: fn.args[start], index: fn.args[nextCount(start)])
 		let data = sel.pushInPlace(box, index: index, atEnd: atEnd, slow: slow)
-		sel.target(X64Form.storeBaseIndex8DispReg, a: data, b: index, c: argAt(fn, start: start, index: 2), aux: 0, imm: 0)
+		sel.storeIndexedWord(data, index: index, src: argAt(fn, start: start, index: 2))
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'arrayInsert' else if symbol == ir.Rt.rtBytesInsert 'bytesInsert'
 		let atEnd = sel.knownLength(fn, box: fn.args[start], index: fn.args[nextCount(start)])
 		let data = sel.pushInPlace(box, index: index, atEnd: atEnd, slow: slow)
-		sel.target(X64Form.storeBaseIndex1DispReg8, a: data, b: index, c: argAt(fn, start: start, index: 2), aux: 0, imm: 0)
+		sel.storeIndexedByte(data, index: index, src: argAt(fn, start: start, index: 2))
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'bytesInsert' else if symbol == ir.Rt.rtStrByteAt 'stringByteAt'
 		sel.inBounds(box, index: index, lengthOffset: stringLengthOffset, slow: slow)
-		let byte = sel.define(X64Form.movzxRegByteBaseIndex1Disp, b: box, c: index, aux: imm32Of(stringBytesOffset), imm: 0)
+		let byte = sel.loadIndexedByte(box, index: index, disp: imm32Of(stringBytesOffset))
 		sel.reach(done, value: byte, keeps: keeps)
 	end 'stringByteAt' else 'unknown'
 		panic("backend: {ir.rtSymbol(symbol)} is not written in place")
@@ -1020,7 +824,7 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.callSymbol(ir.rtSymbol(symbol))
 	if keeps 'gives'
 		let result = sel.newTemp()
-		sel.copy(result, src: physReg(resultRegister(ConventionKind.internal)))
+		sel.copy(result, src: physOfNumber(internalResultOf(sel.arch)))
 		sel.jumpWith(done, value: result)
 		sel.join(done, r: ins.dst)
 	end 'gives' else 'none'
@@ -1029,26 +833,6 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.mir.writeBlock(done)
 	end 'none'
 end 'emitCallRuntime'
-
-// emitBounds goes to the failure block of a bounds check where the index is not below the length. The branch ends the
-// block: the failure block reads the index and the collection, which an edge in the middle of a block would keep live to
-// the block's end, across every call after the check.
-// A length that only the check reads, read right before it, is compared in the box itself.
-function emitBounds(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let index = vregOf(ir.boundsIndex(ins))
-	let length = ir.boundsLength(ins)
-	if sel.definedBy(fn, r: length, op: ir.Opcode.opLength) and sel.fuses(fn, r: length) 'inBox'
-		let read = sel.defOf(length)
-		let offset = match ir.lengthOf(fn.instrs[read]) 'of'
-			collectionArray gives arrayLengthOffset
-			collectionString gives stringLengthOffset
-		end 'of'
-		sel.target(X64Form.cmpRegBaseDisp, a: index, b: vregOf(ir.lengthSrc(fn.instrs[read])), c: noMReg, aux: imm32Of(offset), imm: 0)
-	end 'inBox' else 'register'
-		sel.target(X64Form.cmpRegReg, a: index, b: vregOf(length), c: noMReg, aux: 0, imm: 0)
-	end 'register'
-	sel.branchTo(X64CondCode.aboveEqual, block: blockOf(ir.boundsFail(ins)))
-end 'emitBounds'
 
 // cownNew passes the entry the value and the address of the code of the destructor that ends it, or 0 when it is dropped.
 function emitCownNew(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
@@ -1092,20 +876,6 @@ function emitBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.allocInto(box, bytes: ifaceBoxBytes)
 	sel.fillBox(box, table: ir.boxTable(fn, x: ins), value: vregOf(ir.boxValue(ins)))
 end 'emitBox'
-
-// emitFrameBox makes an interface value whose box is one of the function's frame boxes.
-function emitFrameBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let box = vregOf(ins.dst)
-	sel.target(X64Form.leaRegBaseDisp, a: box, b: physReg(rbp), c: noMReg, aux: frameBoxDisp(fn, box: ir.frameBoxBox(ins)), imm: 0)
-	sel.fillBox(box, table: ir.frameBoxTable(fn, x: ins), value: vregOf(ir.frameBoxValue(ins)))
-end 'emitFrameBox'
-
-// emitFrameArea gives the address of a frame area, which starts at the word of its last frame box that is lowest, and lies
-// upward from there through the boxes before it, as a box's words do.
-function emitFrameArea(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let last = try ir.frameAreaBox(ins) + ir.frameAreaBoxes(ir.frameAreaWords(ins)) - 1 otherwise panic("backend: a frame area past memory")
-	sel.target(X64Form.leaRegBaseDisp, a: vregOf(ins.dst), b: physReg(rbp), c: noMReg, aux: frameBoxDisp(fn, box: last), imm: 0)
-end 'emitFrameArea'
 
 // emitWhen makes a behaviour's record and hands it to the runtime's acquire: the thunk of its body, how many cowns it
 // names, and then, after the request slots that the acquire fills in, the cowns in source order and the captures, a
@@ -1163,14 +933,6 @@ function emitDropValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.callRoutine(RoutineKind.dropRoutine, ty: ir.dropTy(fn, x: ins), value: vregOf(ir.dropSrc(ins)))
 end 'emitDropValue'
 
-function emitDropSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let fp = physReg(rbp)
-	let disp = slotDisp(ir.dropSlotSlot(ins))
-	let value = sel.load(fp, disp: disp)
-	sel.storeImm(fp, disp: disp, value: 0)
-	sel.callRoutine(RoutineKind.dropRoutine, ty: ir.dropSlotTy(fn, x: ins), value: value)
-end 'emitDropSlot'
-
 function emitDropAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let at = vregOf(ir.dropAtAddr(ins))
 	let value = sel.load(at, disp: 0)
@@ -1189,46 +951,34 @@ function emitSwitch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	let start = ir.switchCasesStart(ins)
 	for i in 0 upto ir.switchCasesCount(ins) 'cases'
 		let at = try start + i otherwise panic("backend: a case past the pool")
-		let wanted = try fn.cases[at].value as FullRangeInt otherwise panic("backend: a case value past the word")
-		if fitsImm32(fn.cases[at].value) 'immediate'
-			let imm = try wanted as Imm32 otherwise panic("backend: a case value past 32 bits")
-			sel.target(chooseCmpRegImm(imm), a: value, b: noMReg, c: noMReg, aux: 0, imm: wanted)
-		end 'immediate' else 'register'
-			let bound = sel.constant(wanted)
-			sel.target(X64Form.cmpRegReg, a: value, b: bound, c: noMReg, aux: 0, imm: 0)
-		end 'register'
+		sel.compareWith(value, value: fn.cases[at].value)
 		let edge = sel.edgeTo(fn, target: fn.cases[at].target, start: fn.cases[at].argsStart(), count: fn.cases[at].argsCount())
-		sel.emit(newConditional(X64Form.jccRel32, cond: X64CondCode.equal, a: noMReg, ref: edge.ref, aux: edge.aux))
+		sel.branchAlong(MCond.equal, refers: edge)
 		let next = sel.mir.addBlock()
 		sel.args.clear()
 		sel.jumpTo(next)
 		sel.mir.writeBlock(next)
 	end 'cases'
 	let fallback = sel.edgeTo(fn, target: ir.switchFallback(ins), start: ir.switchFallbackArgsStart(ins), count: ir.switchFallbackArgsCount(ins))
-	sel.referring(X64Form.jmpRel32, a: noMReg, refers: fallback)
+	sel.jumpAlong(fallback)
 end 'emitSwitch'
 
 // emitRet returns a value in the convention's register for it, a float's or a word's.
 function emitRet(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	sel.copy(physOfNumber(internalResult(sel.floatResult)), src: vregOf(ir.retValue(ins)))
+	sel.copy(physOfNumber(internalResult(sel.arch, float: sel.floatResult)), src: vregOf(ir.retValue(ins)))
 	if sel.canThrow 'clear'
-		let err = physReg(x64InternalError)
-		sel.target(X64Form.xorRegReg, a: err, b: err, c: err, aux: 0, imm: 0)
+		sel.zeroInto(physOfNumber(internalErrorOf(sel.arch)), float: false)
 	end 'clear'
 	sel.leave()
 end 'emitRet'
 
 // emitThrow returns an error, with the result register cleared, which the return reads all the same.
 function emitThrow(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	sel.copy(physReg(x64InternalError), src: vregOf(ir.throwErr(ins)))
-	let result = physOfNumber(internalResult(sel.floatResult))
-	let clear = X64Form.xorpsRegReg if sel.floatResult else X64Form.xorRegReg
-	sel.target(clear, a: result, b: result, c: result, aux: 0, imm: 0)
+	sel.copy(physOfNumber(internalErrorOf(sel.arch)), src: vregOf(ir.throwErr(ins)))
+	let float = sel.floatResult
+	sel.zeroInto(physOfNumber(internalResult(sel.arch, float: float)), float: float)
 	sel.leave()
 end 'emitThrow'
-
-// paramBase is where the arguments a call pushes start: the words above the return address and the saved frame pointer.
-let paramBase = 16
 
 // paramPosition is where the internal convention passes parameter k of a function of count of them: in order, but for
 // the body of a closure, which takes the closure, its first parameter, last.
@@ -1254,26 +1004,6 @@ function paramAtPosition(position Count, count Count, closure bool) returns Coun
 	return try position + 1 otherwise panic("backend: a parameter past the count")
 end 'paramAtPosition'
 
-// paramDisp is where an argument on the stack sits above the frame pointer, by its place among those there: they are
-// pushed right to left, so the first is nearest.
-function paramDisp(place Count) returns Imm32
-	return imm32Of(try paramBase + wordBytes * stackSlotOf(place) otherwise panic("backend: a parameter past memory"))
-end 'paramDisp'
-
-// emitLoadParam reads a parameter: one the internal convention passes in a register from where the prologue copied it,
-// and one it passes on the stack from the frame.
-function emitLoadParam(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let k = ir.loadParamParam(ins)
-	let result = sel.resultOf(ins.dst)
-	let v = sel.params[k]
-	if v != noMReg 'register'
-		sel.copy(result, src: v)
-		return
-	end 'register'
-	let load = X64Form.movsdRegBaseDisp if sel.inXmm(ins.dst) else X64Form.loadRegBaseDisp
-	sel.target(load, a: result, b: physReg(rbp), c: noMReg, aux: paramDisp(sel.paramPlaces[k]), imm: 0)
-end 'emitLoadParam'
-
 // selectFunction writes the code of one function into the unit: its machine IR, by the rules and the helpers, then
 // allocated and encoded. A prologue block of its own comes first, so that a branch to the IR's first block does not
 // run it again; it copies the parameters out of the argument registers before it clears the slots, which writes some
@@ -1282,7 +1012,7 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	sel.prepare(p, ms: ms, f: f)
 	sel.fnSymbol = symbol.clone()
 	sel.closureBody = closure
-	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow)
+	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow, arch: sel.arch)
 	sel.mir.floatResult = sel.floatResult
 	sel.classes.choose(f, fn: sel.mir)
 	sel.mir.fixedSlots = try f.slots.count() + f.frameBoxes * ifaceBoxWords otherwise panic("backend: a frame past memory")
@@ -1304,16 +1034,16 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 		sel.irBlock = i
 		for k in f.blocks[i].first upto f.blocks[i].endAt 'instrs'
 			sel.irAt = k
-			selectInstr(sel, fn: f, ins: f.instrs[k])
+			selectInstruction(sel, fn: f, ins: f.instrs[k])
 		end 'instrs'
 		sel.irAt = f.blocks[i].endAt
-		selectTerm(sel, fn: f, ins: f.blocks[i].term)
+		selectTerminator(sel, fn: f, ins: f.blocks[i].term)
 		if f.blocks[i].term.kind == ir.TermKind.termTrap 'fails'
 			sel.mir.blocks[i].likelihood = Likelihood.cold
 		end 'fails'
 	end 'blocks'
 	sel.mir.endBlock()
-	var mir = exchange(sel.mir, value: MirFunction.new("", canThrow: false))
+	var mir = exchange(sel.mir, value: MirFunction.new("", canThrow: false, arch: sel.arch))
 	legalizeClasses(mir)
 	sel.dead.remove(mir)
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)
@@ -1321,10 +1051,32 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	if refusals.count() > 0 'refused'
 		return refusals
 	end 'refused'
-	encodeMachineFunction(sel.u, fn: mir, instance: instance, lay: sel.layout)
+	encodeFunction(sel, fn: mir, instance: instance)
 	sel.allocator.spiller.clock.lap(EmitPhase.encoding)
 	return refusals
 end 'selectFunction'
+
+// selectInstruction writes the machine instructions of an instruction by the selection of the architecture compiled
+// for, which its rules generate (lower_x64_gen.maxon).
+function selectInstruction(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	match sel.arch 'arch'
+		x64 then x64SelectInstr(sel, fn: fn, ins: ins)
+	end 'arch'
+end 'selectInstruction'
+
+// selectTerminator writes the machine instructions of a terminator by the selection of the architecture compiled for.
+function selectTerminator(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
+	match sel.arch 'arch'
+		x64 then x64SelectTerm(sel, fn: fn, ins: ins)
+	end 'arch'
+end 'selectTerminator'
+
+// encodeFunction writes an allocated function into the unit by the encoder of the architecture compiled for.
+function encodeFunction(mutates sel Selector, fn MirFunction, instance bool)
+	match sel.arch 'arch'
+		x64 then encodeX64Function(sel.u, fn: fn, instance: instance, lay: sel.layout)
+	end 'arch'
+end 'encodeFunction'
 
 // FallbackSource gives the emit of a module the fallback of one of its functions, the IR the function had before the
 // expansion of the primitives, leaf inlining and the passes after it, which the emit compiles where it refuses a hot loop
@@ -1400,9 +1152,6 @@ function selectBodyAt(mutates sel Selector, p ast.Project, mutates ms ast.Module
 	return selectBodyAt(sel, p: p, ms: ms, f: f.bodies[path[depth]], path: path, depth: ir.succ(depth), symbol: symbol, instance: instance, closure: closure)
 end 'selectBodyAt'
 
-// targetName is the target's name in a diagnostic.
-let targetName = "x64"
-
 // reportRefusals reports each hot loop of f that E5001 refuses, at the function's declaration, since the IR keeps no
 // place of a loop: an instance's at its generic's.
 function reportRefusals(p ast.Project, ms ast.ModuleState, f ir.IrFunction, refusals PressureRefusalList, mutates errs diag.ErrorList)
@@ -1415,7 +1164,7 @@ function reportRefusals(p ast.Project, ms ast.ModuleState, f ir.IrFunction, refu
 	let offset = p.modules[ast.modIndex(module)].tree.startOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).nodeID)
 	let place = "'{ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).name}'"
 	for i in 0 upto refusals.count() 'refusals'
-		let message = pressureRefusalMessage(refusals[i], place: place, target: targetName)
+		let message = pressureRefusalMessage(refusals[i], place: place, target: ast.archName(p.target.arch))
 		if not reported(errs, message: message, module: module, offset: offset) 'new'
 			diag.pushSiteError(errs, code: diag.errRegisterPressure, message: message, module: module, offset: offset)
 		end 'new'
@@ -1503,8 +1252,7 @@ end 'selectFunctionTree'
 // fallback of a function where a hot loop of it is refused. With verifies, register allocation holds each function to its
 // invariants. clock is charged the time of each phase.
 export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, mutates fallbacks F, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) uses F returns CodeUnit where F implements FallbackSource
-	var sel = Selector.new(verifies)
-	sel.system = p.target.system
+	var sel = Selector.new(verifies, target: p.target)
 	sel.allocator.spiller.clock = exchange(clock, value: EmitClock.off())
 	sel.allocator.spiller.clock.restart()
 	var path = CountList.create(0)

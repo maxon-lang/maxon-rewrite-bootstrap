@@ -234,21 +234,18 @@ function classOfReg(fn MirFunction, r MReg) returns RegClass
 	if isVirtual(r) 'virtual'
 		return fn.classes[vregIndex(r)]
 	end 'virtual'
-	return classOfNumber(physicalNumber(r))
+	return classOfNumber(fn.arch, number: physicalNumber(r))
 end 'classOfReg'
 
 // operandClass is the class of register operand i, in machine order, of a form.
-function operandClass(form X64Form, index Count) returns RegClass
+function operandClass(form FormID, index Count) returns RegClass
 	let bit = try (1 as Count) shl index otherwise panic("backend: an operand past a machine instruction")
 	return RegClass.xmm if (vectorOperands(form) and bit) != 0 else RegClass.gpr
 end 'operandClass'
 
-// conversion is the movq that puts in dst the bits of src, a register of the other class.
+// conversion is the move of the architecture's that puts in dst the bits of src, a register of the other class.
 function conversion(fn MirFunction, dst MReg, src MReg) returns MInstr
-	return match classOfReg(fn, r: dst) 'class'
-		xmm gives newTarget(X64Form.movqXmmReg, a: dst, b: src, c: noMReg, aux: 0, imm: 0)
-		gpr gives newTarget(X64Form.movqRegXmm, a: dst, b: src, c: noMReg, aux: 0, imm: 0)
-	end 'class'
+	return newMachine(classMoveForm(fn.arch, into: classOfReg(fn, r: dst)), a: dst, b: src, c: noMReg, aux: 0, imm: 0)
 end 'conversion'
 
 // legalizeClasses gives every operand of fn a register of the class its form names, moving a value of the other class

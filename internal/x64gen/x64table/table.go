@@ -110,8 +110,8 @@ var (
 	vectorRegisters = target.X64.Names(target.Vector)
 )
 
-// condition is a condition code and the number that is added to the opcode of jcc and setcc. The names are maxon's
-// X64CondCode, where it has one.
+// condition is a condition code and the number that is added to the opcode of jcc and setcc: the machine IR's conditions
+// (isa.Conditions), in order, whose names are maxon's X64CondCode.
 type condition struct {
 	name string
 	code int

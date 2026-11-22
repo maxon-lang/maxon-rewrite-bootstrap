@@ -357,9 +357,9 @@ type DirectiveWalker
 		pos = after(pos)
 		let name = self.textOf(nameAt)
 		if name == predicateOs 'os'
-			return equalsIgnoringCase(argument, b: target.os)
+			return equalsIgnoringCase(argument, b: target.os())
 		end 'os' else if name == predicateArch 'arch'
-			return equalsIgnoringCase(argument, b: target.arch)
+			return equalsIgnoringCase(argument, b: target.archText())
 		end 'arch' else if name == predicateTesting or name == predicateRcSanitize or name == predicateLeakReport or name == predicateDebugstream 'flag'
 			return equalsIgnoringCase(argument, b: flagOff)
 		end 'flag'

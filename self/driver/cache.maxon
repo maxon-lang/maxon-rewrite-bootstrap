@@ -128,8 +128,8 @@ function cacheSetupOf(p ast.Project, first Count, options Options) returns Cache
 	h.addText(entryMagic)
 	h.addCount(entryFormat)
 	h.addDigest(options.compiler)
-	h.addText(p.target.os)
-	h.addText(p.target.arch)
+	h.addText(p.target.os())
+	h.addText(p.target.archText())
 	h.addBool(options.countAllocations)
 	if first > 0 and p.modules[0].isRuntime 'program'
 		h.addDigest(sourceDigest(p.modules[0].path, text: p.modules[0].tree.text, files: p.modules[0].files))

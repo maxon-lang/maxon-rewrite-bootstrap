@@ -90,7 +90,7 @@ export function runtimeUnit(count bool) returns CodeUnit
 	let freed = u.asm.newLabel()
 	u.asm.mov(r8, src: x64InternalArg(0))
 	u.asm.test(r8, right: r8)
-	u.asm.jcc(X64CondCode.equal, label: freed)
+	u.asm.jcc(MCond.equal, label: freed)
 	if count 'freeCount'
 		asmCountLive(u, delta: -1)
 	end 'freeCount'
@@ -119,7 +119,7 @@ export function runtimeUnit(count bool) returns CodeUnit
 	u.asm.mov(result, src: x64InternalArg(0))
 	u.asm.loadSymbol(rcx, symbol: testLiveSymbol)
 	u.asm.test(rcx, right: rcx)
-	u.asm.jcc(X64CondCode.equal, label: clean)
+	u.asm.jcc(MCond.equal, label: clean)
 	u.asm.movImm(rcx, imm: testLeakExitCode)
 	u.asm.callImport(impExitProcess)
 	u.asm.bind(clean)

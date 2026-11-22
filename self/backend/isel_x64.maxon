@@ -1,0 +1,504 @@
+// x64's instruction selection: the primitives that the shared helpers and the driver ask of the architecture
+// (isel.maxon), x64's half of the calls (the internal convention's argument places and the pushes of the arguments past
+// its registers, which the caller pops; the host convention's calls through an import's slot or a register; a system
+// call), the prologue that takes the parameters and clears the managed slots, the frame's slots below rbp, and the
+// helpers that x64.rules names for what only x64 does: the divisions and shifts by fixed registers, compare-exchange,
+// the conversion of an unsigned word, and a bounds check fused with the load of the length.
+
+// zeroInlineSlots is how many managed slots a frame clears with one store each; a frame with more clears all its slots
+// with one string instruction, which is shorter from there on.
+let zeroInlineSlots = 6
+
+// paramBase is where the arguments a call pushes start: the words above the return address and the saved frame pointer.
+let paramBase = 16
+
+extension Selector
+	// threadContext is how a thread of the system compiled for reads its context.
+	function threadContext() returns X64ThreadContext
+		return x64ThreadContext(system)
+	end 'threadContext'
+
+	function target(mutates self, form X64Form, a MReg, b MReg, c MReg, aux Imm32, imm FullRangeInt)
+		mir.emit(newTarget(form, a: a, b: b, c: c, aux: aux, imm: imm))
+	end 'target'
+
+	// define is a new register that a form defines from the uses b and c.
+	function define(mutates self, form X64Form, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MReg
+		let d = self.newTemp()
+		self.target(form, a: d, b: b, c: c, aux: aux, imm: imm)
+		return d
+	end 'define'
+
+	// defineXmm is a new xmm register that a form defines from the uses b and c.
+	function defineXmm(mutates self, form X64Form, b MReg, c MReg) returns MReg
+		let d = self.newTempOf(RegClass.xmm)
+		self.target(form, a: d, b: b, c: c, aux: 0, imm: 0)
+		return d
+	end 'defineXmm'
+
+	function referring(mutates self, form X64Form, a MReg, refers Referent)
+		mir.emit(newReferring(form, a: a, ref: refers.ref, aux: refers.aux))
+	end 'referring'
+
+	function x64ConstantInto(mutates self, dst MReg, value FullRangeInt)
+		self.target(chooseMovRegImm(value), a: dst, b: noMReg, c: noMReg, aux: 0, imm: value)
+	end 'x64ConstantInto'
+
+	function x64Store(mutates self, base MReg, disp Imm32, src MReg)
+		self.target(X64Form.storeBaseDispReg, a: base, b: src, c: noMReg, aux: disp, imm: 0)
+	end 'x64Store'
+
+	function x64AddImm(mutates self, src MReg, imm Imm32) returns MReg
+		return self.define(chooseAddRegImm(imm), b: src, c: noMReg, aux: 0, imm: imm as FullRangeInt)
+	end 'x64AddImm'
+
+	function x64Address(mutates self, symbol String) returns MReg
+		let d = self.newTemp()
+		let refers = self.symbolRef(symbol)
+		self.referring(X64Form.leaRegRip, a: d, refers: refers)
+		return d
+	end 'x64Address'
+
+	function x64StoreImm(mutates self, base MReg, disp Imm32, value Imm32)
+		self.target(X64Form.storeBaseDispImm32, a: base, b: noMReg, c: noMReg, aux: disp, imm: value as FullRangeInt)
+	end 'x64StoreImm'
+
+	function push(mutates self, v MReg)
+		self.target(X64Form.pushReg, a: v, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	end 'push'
+
+	// passArgs puts the arguments of the call being selected where the internal convention has the callee read them
+	// (placeArgs): those on the stack pushed right to left, then the others copied into their registers, so that no value
+	// is pushed out of one. It is the registers they are in, and stacked how many are on the stack.
+	function passArgs(mutates self, sets stacked Count) returns RegMask
+		stacked = placeArgs(callFloats, places: places)
+		var i = callArgs.count()
+		while i > 0 'stack'
+			i = prevCount(i)
+			if isStackPlace(places[i]) 'pushed'
+				let v = callArgs[i]
+				self.push(v)
+			end 'pushed'
+		end 'stack'
+		var argRegs = 0 as RegMask
+		for k in 0 upto callArgs.count() 'registers'
+			let place = places[k]
+			if not isStackPlace(place) 'register'
+				let v = callArgs[k]
+				self.copy(placeRegister(place), src: v)
+				argRegs = argRegs or regBit(physicalNumber(placeRegister(place)))
+			end 'register'
+		end 'registers'
+		return argRegs
+	end 'passArgs'
+
+	// call emits a call of the internal convention with the arguments of the call being selected, and takes those on the
+	// stack off it.
+	function callForm(mutates self, form X64Form, code MReg, refers Referent)
+		var stacked as Count
+		let argRegs = self.passArgs(stacked)
+		mir.emit(newCall(form, a: code, ref: refers.ref, aux: refers.aux, argRegs: argRegs))
+		self.popWords(stacked)
+		callArgs.clear()
+		callFloats.clear()
+	end 'callForm'
+
+	function x64CallSymbol(mutates self, symbol String)
+		let callee = self.symbolRef(symbol)
+		self.callForm(X64Form.callRel32, code: noMReg, refers: callee)
+	end 'x64CallSymbol'
+
+	function x64CallRegister(mutates self, code MReg)
+		self.callForm(X64Form.callReg, code: code, refers: Referent.make(MRef.none, aux: 0))
+	end 'x64CallRegister'
+
+	// popWords takes the arguments of a call off the stack.
+	function popWords(mutates self, count Count)
+		if count == 0 'none'
+			return
+		end 'none'
+		let sp = physReg(rsp)
+		let bytes = imm32Of(try count * wordBytes otherwise panic("backend: more arguments than memory"))
+		self.target(chooseAddRegImm(bytes), a: sp, b: sp, c: noMReg, aux: 0, imm: bytes as FullRangeInt)
+	end 'popWords'
+
+	// takeFrom puts what a register holds in dst, if the IR keeps it.
+	function takeFrom(mutates self, dst ir.Reg, r X64Register)
+		if dst != ir.noReg 'kept'
+			self.copy(vregOf(dst), src: physReg(r))
+		end 'kept'
+	end 'takeFrom'
+
+	function x64TakeParams(mutates self, f ir.IrFunction)
+		paramFloats.clear()
+		for at in 0 upto f.paramCount 'order'
+			let k = paramAtPosition(at, count: f.paramCount, closure: closureBody)
+			paramFloats.push(ir.isFloatAt(f.floatParams, place: k))
+		end 'order'
+		_ = placeArgs(paramFloats, places: places)
+		params.clear()
+		paramPlaces.clear()
+		for k in 0 upto f.paramCount 'params'
+			let place = places[paramPosition(k, count: f.paramCount, closure: closureBody)]
+			paramPlaces.push(place)
+			if isStackPlace(place) 'stack'
+				params.push(noMReg)
+			end 'stack' else 'register'
+				let v = self.newTempOf(classOfNumber(arch, number: physicalNumber(placeRegister(place))))
+				self.copy(v, src: placeRegister(place))
+				params.push(v)
+			end 'register'
+		end 'params'
+	end 'x64TakeParams'
+
+	function x64JumpTo(mutates self, block MBlockID)
+		let edge = mir.addEdge(block, args: args)
+		mir.emit(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: edge))
+	end 'x64JumpTo'
+
+	function x64BranchTo(mutates self, cond MCond, block MBlockID)
+		args.clear()
+		let edge = mir.addEdge(block, args: args)
+		mir.emit(newConditional(X64Form.jccRel32, cond: cond, a: noMReg, ref: MRef.edge, aux: edge))
+		let next = mir.addBlock()
+		self.jumpTo(next)
+		mir.writeBlock(next)
+	end 'x64BranchTo'
+
+	function x64FailTo(mutates self, cond MCond, block ir.BlockID)
+		args.clear()
+		let edge = mir.addEdge(blockOf(block), args: args)
+		mir.emit(newConditional(X64Form.jccRel32, cond: cond, a: noMReg, ref: MRef.edge, aux: edge))
+	end 'x64FailTo'
+
+	function x64ZeroManagedSlots(mutates self, f ir.IrFunction)
+		var managed = 0 as Count
+		for i in 0 upto f.slots.count() 'count'
+			if f.slots[i] == ir.IrKind.kindManaged 'managed'
+				managed = try managed + 1 otherwise panic("backend: more slots than memory")
+			end 'managed'
+		end 'count'
+		if managed == 0 'none'
+			return
+		end 'none'
+		let zero = physReg(rax)
+		self.target(X64Form.xorRegReg, a: zero, b: zero, c: zero, aux: 0, imm: 0)
+		let fp = physReg(rbp)
+		if managed > zeroInlineSlots 'string'
+			let slots = f.slots.count()
+			self.target(X64Form.leaRegBaseDisp, a: physReg(rdi), b: fp, c: noMReg, aux: slotDisp(try slots - 1 otherwise panic("backend: no slots")), imm: 0)
+			self.constantInto(physReg(rcx), value: try slots as FullRangeInt otherwise panic("backend: more slots than memory"))
+			self.target(X64Form.repStosq, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
+			return
+		end 'string'
+		for i in 0 upto f.slots.count() 'inline'
+			if f.slots[i] == ir.IrKind.kindManaged 'managed'
+				self.store(fp, disp: slotDisp(i), src: zero)
+			end 'managed'
+		end 'inline'
+	end 'x64ZeroManagedSlots'
+
+	function x64Leave(mutates self)
+		self.emit(newFrameTeardown())
+		self.target(X64Form.ret, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	end 'x64Leave'
+
+	function x64LoadInto(mutates self, dst MReg, base MReg, disp Imm32)
+		self.target(X64Form.loadRegBaseDisp, a: dst, b: base, c: noMReg, aux: disp, imm: 0)
+	end 'x64LoadInto'
+
+	function x64Offset(mutates self, src MReg, disp Imm32) returns MReg
+		return self.define(X64Form.leaRegBaseDisp, b: src, c: noMReg, aux: disp, imm: 0)
+	end 'x64Offset'
+
+	function x64WordAddress(mutates self, base MReg, index MReg) returns MReg
+		return self.define(X64Form.leaRegBaseIndex8Disp, b: base, c: index, aux: 0, imm: 0)
+	end 'x64WordAddress'
+
+	function x64LoadIndexedByte(mutates self, base MReg, index MReg, disp Imm32) returns MReg
+		return self.define(X64Form.movzxRegByteBaseIndex1Disp, b: base, c: index, aux: disp, imm: 0)
+	end 'x64LoadIndexedByte'
+
+	function x64StoreIndexedByte(mutates self, base MReg, index MReg, src MReg)
+		self.target(X64Form.storeBaseIndex1DispReg8, a: base, b: index, c: src, aux: 0, imm: 0)
+	end 'x64StoreIndexedByte'
+
+	function x64StoreIndexedWord(mutates self, base MReg, index MReg, src MReg)
+		self.target(X64Form.storeBaseIndex8DispReg, a: base, b: index, c: src, aux: 0, imm: 0)
+	end 'x64StoreIndexedWord'
+
+	function x64Compare(mutates self, a MReg, b MReg)
+		self.target(X64Form.cmpRegReg, a: a, b: b, c: noMReg, aux: 0, imm: 0)
+	end 'x64Compare'
+
+	// x64CompareWith compares with an immediate where one holds the constant, and with a register that holds it otherwise.
+	function x64CompareWith(mutates self, a MReg, value ir.Word)
+		let wanted = try value as FullRangeInt otherwise panic("backend: a constant past the word")
+		if fitsImm32(value) 'immediate'
+			let imm = try wanted as Imm32 otherwise panic("backend: a constant past 32 bits")
+			self.target(chooseCmpRegImm(imm), a: a, b: noMReg, c: noMReg, aux: 0, imm: wanted)
+		end 'immediate' else 'register'
+			let bound = self.constant(wanted)
+			self.x64Compare(a, b: bound)
+		end 'register'
+	end 'x64CompareWith'
+
+	// x64FlagInto sets a byte register by the condition and zero-extends it into dst's.
+	function x64FlagInto(mutates self, dst ir.Reg, cond MCond)
+		let flag = self.newTemp()
+		self.emit(newConditional(X64Form.setccReg, cond: cond, a: flag, ref: MRef.none, aux: 0))
+		let result = self.resultOf(dst)
+		self.target(X64Form.movzxRegReg8, a: result, b: flag, c: noMReg, aux: 0, imm: 0)
+	end 'x64FlagInto'
+
+	// x64ZeroInto is the exclusive or of the register with itself, of its class.
+	function x64ZeroInto(mutates self, r MReg, float bool)
+		let clear = X64Form.xorpsRegReg if float else X64Form.xorRegReg
+		self.target(clear, a: r, b: r, c: r, aux: 0, imm: 0)
+	end 'x64ZeroInto'
+
+	function x64JumpAlong(mutates self, refers Referent)
+		self.referring(X64Form.jmpRel32, a: noMReg, refers: refers)
+	end 'x64JumpAlong'
+
+	function x64BranchAlong(mutates self, cond MCond, refers Referent)
+		self.emit(newConditional(X64Form.jccRel32, cond: cond, a: noMReg, ref: refers.ref, aux: refers.aux))
+	end 'x64BranchAlong'
+end 'Selector'
+
+// emitSignedDivide divides by a divisor that is not 0, into the quotient or the remainder. A division by -1 is the one
+// that the processor faults on, for i64.min: the quotient is then the negation, which a checked division fails on, and
+// the remainder is 0.
+function emitSignedDivide(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let remainder = ir.binOp(ins) == ir.BinOp.binMod
+	let x = vregOf(ir.binLeft(ins))
+	let y = vregOf(ir.binRight(ins))
+	let divide = sel.mir.addBlock()
+	let done = sel.mir.addBlock()
+	sel.target(chooseCmpRegImm(-1), a: y, b: noMReg, c: noMReg, aux: 0, imm: -1)
+	sel.branchTo(MCond.notEqual, block: divide)
+	if remainder 'zero'
+		let zero = sel.constant(0)
+		sel.jumpWith(done, value: zero)
+	end 'zero' else 'negate'
+		let negated = sel.define(X64Form.negReg, b: x, c: noMReg, aux: 0, imm: 0)
+		if ir.binHasFail(ins) 'checked'
+			sel.failTo(MCond.overflow, block: ir.binFail(ins).unwrap())
+		end 'checked'
+		sel.jumpWith(done, value: negated)
+	end 'negate'
+	sel.mir.writeBlock(divide)
+	sel.copy(physReg(rax), src: x)
+	sel.target(X64Form.cqo, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	sel.target(X64Form.idivReg, a: y, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	let result = sel.newTemp()
+	sel.copy(result, src: physReg(rdx if remainder else rax))
+	sel.jumpWith(done, value: result)
+	sel.join(done, r: ins.dst)
+end 'emitSignedDivide'
+
+// emitShift shifts by a count that is not negative. A count past the word gives what every bit leaving gives: 0, or the
+// sign for a signed right shift. A checked left shift goes to its failure block when a bit that is not 0, or the sign,
+// leaves the word: shifting the result back must give the value.
+function emitShift(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let left = ir.binOp(ins) == ir.BinOp.binShl
+	let unsigned = ir.binUnsigned(ins)
+	let checkLeft = left and ir.binHasFail(ins)
+	let x = vregOf(ir.binLeft(ins))
+	let count = vregOf(ir.binRight(ins))
+	let big = sel.mir.addBlock()
+	let done = sel.mir.addBlock()
+	sel.target(chooseCmpRegImm(shiftBitCount), a: count, b: noMReg, c: noMReg, aux: 0, imm: shiftBitCount)
+	sel.branchTo(MCond.greaterEqual, block: big)
+	sel.copy(physReg(rcx), src: count)
+	var form = X64Form.sarRegCl
+	if left 'left'
+		form = X64Form.shlRegCl
+	end 'left' else if unsigned 'unsignedRight'
+		form = X64Form.shrRegCl
+	end 'unsignedRight'
+	let shifted = sel.define(form, b: x, c: noMReg, aux: 0, imm: 0)
+	if checkLeft 'verify'
+		let back = sel.define(X64Form.shrRegCl if unsigned else X64Form.sarRegCl, b: shifted, c: noMReg, aux: 0, imm: 0)
+		sel.target(X64Form.cmpRegReg, a: back, b: x, c: noMReg, aux: 0, imm: 0)
+		sel.failTo(MCond.notEqual, block: ir.binFail(ins).unwrap())
+	end 'verify'
+	sel.jumpWith(done, value: shifted)
+	sel.mir.writeBlock(big)
+	if checkLeft 'lost'
+		sel.target(X64Form.testRegReg, a: x, b: x, c: noMReg, aux: 0, imm: 0)
+		sel.failTo(MCond.notEqual, block: ir.binFail(ins).unwrap())
+	end 'lost'
+	if not left and not unsigned 'sign'
+		let sign = sel.define(X64Form.sarRegImm8, b: x, c: noMReg, aux: 0, imm: signBitShift)
+		sel.jumpWith(done, value: sign)
+	end 'sign' else 'zero'
+		let zero = sel.constant(0)
+		sel.jumpWith(done, value: zero)
+	end 'zero'
+	sel.join(done, r: ins.dst)
+end 'emitShift'
+
+// emitUnsignedToFloat converts an unsigned word with cvtsi2sd, which reads a signed one: a word past i64.max is halved
+// first, keeping its low bit so that it rounds as the whole would, and the double doubled.
+function emitUnsignedToFloat(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let x = vregOf(ir.intToFloatSrc(ins))
+	let large = sel.mir.addBlock()
+	let done = sel.mir.addBlock()
+	sel.target(X64Form.testRegReg, a: x, b: x, c: noMReg, aux: 0, imm: 0)
+	sel.branchTo(MCond.sign, block: large)
+	let converted = sel.defineXmm(X64Form.cvtsi2sdRegReg, b: x, c: noMReg)
+	sel.jumpWith(done, value: converted)
+	sel.mir.writeBlock(large)
+	let low = sel.define(chooseAndRegImm(1), b: x, c: noMReg, aux: 0, imm: 1)
+	sel.constantInto(physReg(rcx), value: 1)
+	let half = sel.define(X64Form.shrRegCl, b: x, c: noMReg, aux: 0, imm: 0)
+	let rounded = sel.define(X64Form.orRegReg, b: half, c: low, aux: 0, imm: 0)
+	let halved = sel.defineXmm(X64Form.cvtsi2sdRegReg, b: rounded, c: noMReg)
+	let doubled = sel.defineXmm(X64Form.addsdRegReg, b: halved, c: halved)
+	sel.jumpWith(done, value: doubled)
+	sel.join(done, r: ins.dst)
+end 'emitUnsignedToFloat'
+
+function emitCompareExchange(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let start = ir.compareExchangeArgsStart(ins)
+	sel.copy(physReg(rax), src: argAt(fn, start: start, index: 1))
+	sel.target(X64Form.lockCmpxchgBaseDispReg, a: argAt(fn, start: start, index: 0), b: argAt(fn, start: start, index: 2), c: noMReg, aux: 0, imm: 0)
+	sel.takeFrom(ins.dst, r: rax)
+end 'emitCompareExchange'
+
+// emitCallImport calls a DLL import by the host convention, Win64: the first words in its registers, the rest on the
+// stack above the shadow space the callee may write, rsp aligned at the call. A value holds rsp across the call, which
+// allocation keeps in a register the callee preserves or in the frame.
+function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if ast.systemReach(sel.system) != ast.SystemReach.imports 'imports'
+		panic("backend: the runtime calls the library function {ir.callImportName(fn, x: ins)} on a target whose programs reach the system by system calls: its source for the target lacks that function")
+	end 'imports'
+	let slot = imm32Of(importIndex(ir.callImportName(fn, x: ins)))
+	emitHostCall(sel, fn: fn, ins: ins, start: ir.callImportArgsStart(ins), count: ir.callImportArgsCount(ins), form: X64Form.callRip, code: noMReg, ref: MRef.importSlot, aux: slot)
+end 'emitCallImport'
+
+// emitCallHost calls the code at an address, the first of the arguments, by the host convention with the rest, as
+// emitCallImport calls an import: a DLL function that the runtime found by its name.
+function emitCallHost(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if ast.systemReach(sel.system) != ast.SystemReach.imports 'host'
+		panic("backend: the runtime calls a library function by its address on a target whose programs reach the system by system calls: its source for the target lacks that function")
+	end 'host'
+	let start = ir.callHostArgsStart(ins)
+	let count = try ir.callHostArgsCount(ins) - 1 otherwise panic("backend: a call of code with no address")
+	let code = argAt(fn, start: start, index: 0)
+	emitHostCall(sel, fn: fn, ins: ins, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: count, form: X64Form.callReg, code: code, ref: MRef.none, aux: 0)
+end 'emitCallHost'
+
+// emitHostCall calls by the host convention, Win64, with the count words of the pool from start: through the import slot
+// or the register that form, code, ref and aux name.
+function emitHostCall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr, start Count, count Count, form X64Form, code MReg, ref MRef, aux Imm32)
+	let inRegisters = argsInRegisters(ConventionKind.host, system: sel.system, count: count)
+	let stackWords = try count - inRegisters otherwise panic("backend: more arguments in registers than a call has")
+	let frame = alignUp(try x64HostShadowBytes(sel.system) + stackWords * wordBytes otherwise panic("backend: more arguments than memory"), alignment: x64StackAlignment)
+	let sp = physReg(rsp)
+	let saved = sel.define(X64Form.movRegReg, b: sp, c: noMReg, aux: 0, imm: 0)
+	sel.target(chooseAndRegImm(-x64StackAlignment), a: sp, b: sp, c: noMReg, aux: 0, imm: -x64StackAlignment)
+	let bytes = imm32Of(frame)
+	sel.target(chooseSubRegImm(bytes), a: sp, b: sp, c: noMReg, aux: 0, imm: bytes as FullRangeInt)
+	for i in inRegisters upto count 'stack'
+		let at = try x64HostShadowBytes(sel.system) + (i - inRegisters) * wordBytes otherwise panic("backend: more arguments than memory")
+		sel.store(sp, disp: imm32Of(at), src: argAt(fn, start: start, index: i))
+	end 'stack'
+	for i in 0 upto inRegisters 'registers'
+		sel.copy(physReg(argRegister(ConventionKind.host, system: sel.system, index: i)), src: argAt(fn, start: start, index: i))
+	end 'registers'
+	sel.emit(newCall(form, a: code, ref: ref, aux: aux, argRegs: wordArgRegs(ConventionKind.host, system: sel.system, count: inRegisters)))
+	sel.target(X64Form.movRegReg, a: sp, b: saved, c: noMReg, aux: 0, imm: 0)
+	sel.takeFrom(ins.dst, r: resultRegister(ConventionKind.host, system: sel.system))
+end 'emitHostCall'
+
+// emitSyscall calls the kernel by Linux's system call convention: the number and the words in its registers, the result
+// in its result register. A system call takes no more words than the convention has registers for.
+function emitSyscall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if ast.systemReach(sel.system) != ast.SystemReach.syscalls 'kernel'
+		panic("backend: the runtime makes a system call on a target whose programs reach the system through its libraries")
+	end 'kernel'
+	let start = ir.syscallArgsStart(ins)
+	let count = ir.syscallArgsCount(ins)
+	let words = try count - 1 otherwise panic("backend: a system call with no number")
+	if words > argRegisterCount(ConventionKind.syscall, system: sel.system) 'many'
+		panic("backend: a system call of more words than the system call convention has registers for")
+	end 'many'
+	let first = try start + 1 otherwise panic("backend: an argument past the pool")
+	for i in 0 upto words 'registers'
+		sel.copy(physReg(argRegister(ConventionKind.syscall, system: sel.system, index: i)), src: argAt(fn, start: first, index: i))
+	end 'registers'
+	sel.copy(physReg(x64SyscallNumber(sel.system)), src: argAt(fn, start: start, index: 0))
+	let reads = wordArgRegs(ConventionKind.syscall, system: sel.system, count: words) or regMaskOf(x64SyscallNumber(sel.system))
+	sel.emit(newCall(X64Form.syscall, a: noMReg, ref: MRef.none, aux: 0, argRegs: reads))
+	sel.takeFrom(ins.dst, r: resultRegister(ConventionKind.syscall, system: sel.system))
+end 'emitSyscall'
+
+// emitBounds goes to the failure block of a bounds check where the index is not below the length. The branch ends the
+// block: the failure block reads the index and the collection, which an edge in the middle of a block would keep live to
+// the block's end, across every call after the check.
+// A length that only the check reads, read right before it, is compared in the box itself.
+function emitBounds(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let index = vregOf(ir.boundsIndex(ins))
+	let length = ir.boundsLength(ins)
+	if sel.definedBy(fn, r: length, op: ir.Opcode.opLength) and sel.fuses(fn, r: length) 'inBox'
+		let read = sel.defOf(length)
+		let offset = match ir.lengthOf(fn.instrs[read]) 'of'
+			collectionArray gives arrayLengthOffset
+			collectionString gives stringLengthOffset
+		end 'of'
+		sel.target(X64Form.cmpRegBaseDisp, a: index, b: vregOf(ir.lengthSrc(fn.instrs[read])), c: noMReg, aux: imm32Of(offset), imm: 0)
+	end 'inBox' else 'register'
+		sel.target(X64Form.cmpRegReg, a: index, b: vregOf(length), c: noMReg, aux: 0, imm: 0)
+	end 'register'
+	sel.branchTo(MCond.aboveEqual, block: blockOf(ir.boundsFail(ins)))
+end 'emitBounds'
+
+// emitFrameBox makes an interface value whose box is one of the function's frame boxes.
+function emitFrameBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let box = vregOf(ins.dst)
+	sel.target(X64Form.leaRegBaseDisp, a: box, b: physReg(rbp), c: noMReg, aux: frameBoxDisp(fn, box: ir.frameBoxBox(ins)), imm: 0)
+	sel.fillBox(box, table: ir.frameBoxTable(fn, x: ins), value: vregOf(ir.frameBoxValue(ins)))
+end 'emitFrameBox'
+
+// emitFrameArea gives the address of a frame area, which starts at the word of its last frame box that is lowest, and lies
+// upward from there through the boxes before it, as a box's words do.
+function emitFrameArea(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let last = try ir.frameAreaBox(ins) + ir.frameAreaBoxes(ir.frameAreaWords(ins)) - 1 otherwise panic("backend: a frame area past memory")
+	sel.target(X64Form.leaRegBaseDisp, a: vregOf(ins.dst), b: physReg(rbp), c: noMReg, aux: frameBoxDisp(fn, box: last), imm: 0)
+end 'emitFrameArea'
+
+function emitDropSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let fp = physReg(rbp)
+	let disp = slotDisp(ir.dropSlotSlot(ins))
+	let value = sel.load(fp, disp: disp)
+	sel.storeImm(fp, disp: disp, value: 0)
+	sel.callRoutine(RoutineKind.dropRoutine, ty: ir.dropSlotTy(fn, x: ins), value: value)
+end 'emitDropSlot'
+
+// paramDisp is where an argument on the stack sits above the frame pointer, by its place among those there: they are
+// pushed right to left, so the first is nearest.
+function paramDisp(place Count) returns Imm32
+	return imm32Of(try paramBase + wordBytes * stackSlotOf(place) otherwise panic("backend: a parameter past memory"))
+end 'paramDisp'
+
+// emitLoadParam reads a parameter: one the internal convention passes in a register from where the prologue copied it,
+// and one it passes on the stack from the frame.
+function emitLoadParam(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let k = ir.loadParamParam(ins)
+	let result = sel.resultOf(ins.dst)
+	let v = sel.params[k]
+	if v != noMReg 'register'
+		sel.copy(result, src: v)
+		return
+	end 'register'
+	let load = X64Form.movsdRegBaseDisp if sel.inXmm(ins.dst) else X64Form.loadRegBaseDisp
+	sel.target(load, a: result, b: physReg(rbp), c: noMReg, aux: paramDisp(sel.paramPlaces[k]), imm: 0)
+end 'emitLoadParam'
+
+// frameBoxDisp is where a frame box starts, after the IR's slots: its words lie upward from there, as a box's do.
+function frameBoxDisp(f ir.IrFunction, box Count) returns Imm32
+	let last = try f.slots.count() + box * ifaceBoxWords + ifaceBoxWords - 1 otherwise panic("backend: a frame box past memory")
+	return slotDisp(last)
+end 'frameBoxDisp'

@@ -1,0 +1,273 @@
+// What the target-neutral passes ask of an architecture and of a machine instruction: its register file, the calling
+// conventions of the target compiled for, and the constraints of each instruction, which the allocator reads and the
+// encoder holds to. The constraints of a form are read from the tables of every instruction set's forms by FormID
+// (machine_gen.maxon, generated from the instruction tables); this file adds the pseudo-instructions' part and the
+// conventions', which each architecture's file gives (regs_x64.maxon).
+
+// reservedMask are the registers of an architecture that hold the stack and the frame, which no value is given.
+function reservedMask(arch ast.TargetArch) returns RegMask
+	return reservedOf(arch)
+end 'reservedMask'
+
+export function classOfNumber(arch ast.TargetArch, number RegNum) returns RegClass
+	if (number as Count) < firstVectorOf(arch) 'general'
+		return RegClass.gpr
+	end 'general'
+	return RegClass.xmm
+end 'classOfNumber'
+
+// internalResult is the register, by its number in the register file, in which an architecture's internal convention
+// returns a result: a float's or a word's.
+function internalResult(arch ast.TargetArch, float bool) returns RegNum
+	if float 'float'
+		return internalFloatResultOf(arch)
+	end 'float'
+	return internalResultOf(arch)
+end 'internalResult'
+
+// ConventionKind is the calling convention of a call: the compiler's own for Maxon functions, the host one of the
+// system's libraries for an import (Win64 on Windows), and the system's for a system call (Linux's). The registers of
+// each are the target table's, the host's and the system call's by the system compiled for.
+enum ConventionKind
+	internal
+	host
+	syscall
+end 'ConventionKind'
+
+// CallConvention is what a call of a convention keeps. Arguments past its registers go on the stack, the first of them
+// nearest the return address.
+type CallConvention
+	// clobbered are the registers a call leaves holding nothing, and calleeSaved the ones it keeps.
+	export var clobbered as RegMask
+	export var calleeSaved as RegMask
+
+	static function make(arch ast.TargetArch, calleeSaved RegMask) returns CallConvention
+		let all = allocatable(arch, class: RegClass.gpr) or allocatable(arch, class: RegClass.xmm)
+		return CallConvention{clobbered: all and not calleeSaved, calleeSaved: calleeSaved}
+	end 'make'
+end 'CallConvention'
+
+// keptByConvention is the registers a call of a convention keeps on a target.
+function keptByConvention(target ast.Target, kind ConventionKind) returns RegMask
+	return match target.arch 'arch'
+		x64 gives x64KeptBy(kind, system: target.system)
+	end 'arch'
+end 'keptByConvention'
+
+// Conventions are the tables of the conventions of the target compiled for, and the registers of its architecture that
+// no value is given, which the allocator makes once.
+export type Conventions
+	var arch as ast.TargetArch
+	var reserved as RegMask
+	var internal as CallConvention
+	var host as CallConvention
+	var syscall as CallConvention
+
+	export static function make(target ast.Target) returns Conventions
+		let arch = target.arch
+		return Conventions{arch: arch, reserved: reservedMask(arch), internal: CallConvention.make(arch, calleeSaved: keptByConvention(target, kind: ConventionKind.internal)), host: CallConvention.make(arch, calleeSaved: keptByConvention(target, kind: ConventionKind.host)), syscall: CallConvention.make(arch, calleeSaved: keptByConvention(target, kind: ConventionKind.syscall))}
+	end 'make'
+
+	// keeping is the conventions of a target with an internal one that keeps calleeSaved across a call instead of the
+	// architecture's callee-saved registers, for the allocator's tests.
+	export static function keeping(target ast.Target, calleeSaved RegMask) returns Conventions
+		var convs = Conventions.make(target)
+		convs.internal = CallConvention.make(target.arch, calleeSaved: calleeSaved)
+		return convs
+	end 'keeping'
+end 'Conventions'
+
+// callConvention is the convention of a call instruction: a call through an import's slot is the host's, and the call
+// of the system call convention the kernel's.
+function callConvention(x MInstr) returns ConventionKind
+	if x.ref == MRef.importSlot 'import'
+		return ConventionKind.host
+	end 'import'
+	if isKernelCall(x.form) 'kernel'
+		return ConventionKind.syscall
+	end 'kernel'
+	return ConventionKind.internal
+end 'callConvention'
+
+// A call instruction's imm is the registers of its arguments, which it reads.
+
+// newMachineCall is a call of a form whose last field refers to ref and aux (none for a call through a register, a),
+// passing arguments in the registers argRegs.
+export function newMachineCall(form FormID, a MReg, ref MRef, aux Imm32, argRegs RegMask) returns MInstr
+	var x = newMachineReferring(form, a: a, ref: ref, aux: aux)
+	x.imm = argRegs as FullRangeInt
+	return x
+end 'newMachineCall'
+
+// callUses are the argument registers a call reads.
+function callUses(x MInstr) returns RegMask
+	if not isCall(x.form) 'other'
+		return 0
+	end 'other'
+	return x.imm as RegMask
+end 'callUses'
+
+// isUnconditionalJump is whether a branch along an edge always takes it, so the edge's copies can go before it.
+function isUnconditionalJump(x MInstr) returns bool
+	return x.kind == MKind.target and isJump(x.form)
+end 'isUnconditionalJump'
+
+// The constraints of an instruction. The registers of a target instruction are, in order: the one it defines, if
+// any; the one a two-address form reads and writes, which the definition reuses; and the others it reads. A physical
+// operand is a fixed register.
+
+// operandCount is how many register operands an instruction has.
+function operandCount(x MInstr) returns Count
+	return match x.kind 'kind'
+		target gives machineOperandCount(x.form)
+		copy gives 2
+		spill or
+		reload or
+		restore gives 1
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives 0
+	end 'kind'
+end 'operandCount'
+
+// defines is whether operand a is a definition, and the others uses.
+function defines(x MInstr) returns bool
+	return match x.kind 'kind'
+		target gives definesOperand(x.form)
+		copy or
+		reload gives true
+		spill or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'defines'
+
+// reuses is whether the definition a must be given the register of the use b.
+function reuses(x MInstr) returns bool
+	return match x.kind 'kind'
+		target gives reusesOperand(x.form)
+		copy or
+		reload or
+		spill or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'reuses'
+
+// commutes is whether a two-address instruction gives the same result with its two uses swapped.
+function commutes(x MInstr) returns bool
+	return match x.kind 'kind'
+		target gives commutesOperands(x.form)
+		copy or
+		reload or
+		spill or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'commutes'
+
+// sharesDying is whether the definition of x may be given the register of a use x reads for the last time, where
+// reusedDies and otherDies say whether its uses b and c are: an instruction reads every operand before it writes one, but a
+// two-address form's definition is a copy of b before it, so it may take only b's register, or c's where the form
+// commutes. Otherwise it needs a register beside every dying use's, which colouring gives it and pressure counts.
+function sharesDying(x MInstr, reusedDies bool, otherDies bool) returns bool
+	if not reuses(x) or not isVirtual(x.b) 'oneAddress'
+		return true
+	end 'oneAddress'
+	return reusedDies or (commutes(x) and isVirtual(x.c) and otherDies)
+end 'sharesDying'
+
+// implicitUses are the registers an instruction of fn reads that no operand names: a form's fixed uses, the argument
+// registers a call reads, and the result registers a return reads.
+function implicitUses(x MInstr, fn MirFunction) returns RegMask
+	return match x.kind 'kind'
+		target gives fixedUses(x.form) or returnUses(x, fn: fn) or callUses(x)
+		copy or
+		reload or
+		spill or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives 0
+	end 'kind'
+end 'implicitUses'
+
+// returnUses are the registers a return of fn reads: its result's, and its error's when it throws.
+function returnUses(x MInstr, fn MirFunction) returns RegMask
+	if not isReturn(x.form) 'other'
+		return 0
+	end 'other'
+	let result = regBit(internalResult(fn.arch, float: fn.floatResult))
+	if fn.canThrow 'error'
+		return result or regBit(internalErrorOf(fn.arch))
+	end 'error'
+	return result
+end 'returnUses'
+
+// implicitDefs are the registers an instruction writes that no operand names: a form's fixed results and clobbers,
+// and what a call's convention does not keep. A value live across the instruction may not be in one of them.
+function implicitDefs(x MInstr, convs Conventions) returns RegMask
+	return match x.kind 'kind'
+		target gives formWrites(x.form) or callClobbers(x, convs: convs)
+		copy or
+		reload or
+		spill or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives 0
+	end 'kind'
+end 'implicitDefs'
+
+// formWrites are the registers a form writes that no operand names, its fixed results and its clobbers, a call's
+// convention aside.
+function formWrites(form FormID) returns RegMask
+	return fixedDefs(form) or clobbers(form)
+end 'formWrites'
+
+function callClobbers(x MInstr, convs Conventions) returns RegMask
+	if not isCall(x.form) 'other'
+		return 0
+	end 'other'
+	return match callConvention(x) 'kind'
+		internal gives convs.internal.clobbered
+		host gives convs.host.clobbered
+		syscall gives convs.syscall.clobbered
+	end 'kind'
+end 'callClobbers'
+
+// keptBy is the registers a call keeps.
+function keptBy(x MInstr, convs Conventions) returns RegMask
+	return match callConvention(x) 'kind'
+		internal gives convs.internal.calleeSaved
+		host gives convs.host.calleeSaved
+		syscall gives convs.syscall.calleeSaved
+	end 'kind'
+end 'keptBy'
+
+// isRematerializable is whether an instruction makes its result from nothing a register or memory holds, so a value it
+// defines can be made again before each use instead of being kept or spilled.
+function isRematerializable(x MInstr) returns bool
+	return match x.kind 'kind'
+		target gives rematerializable(x.form) and x.ref == MRef.none
+		copy or
+		reload or
+		spill or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'isRematerializable'
+
+// isZeroIdiom is whether an instruction sets its register to zero whatever the register held, the exclusive or of a
+// register with itself, a general or a vector one: it reads nothing, so no value need be in the register before it.
+function isZeroIdiom(x MInstr) returns bool
+	return x.kind == MKind.target and isExclusiveOr(x.form) and isPhysical(x.b) and x.b == x.c and x.a == x.b
+end 'isZeroIdiom'

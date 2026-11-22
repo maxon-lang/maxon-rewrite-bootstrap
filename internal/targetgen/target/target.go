@@ -50,21 +50,68 @@ type Convention struct {
 	Number string
 }
 
-// System is what an operating system adds to a processor's table: the convention of its libraries' functions, and the
-// one of its system calls where a program calls the kernel itself.
-type System struct {
-	// Name follows the target's in the names of the system's declarations.
+// ImageFormat is the format of a system's executables, which picks the backend's writer of the file.
+type ImageFormat string
+
+const (
+	PE    ImageFormat = "pe"
+	ELF   ImageFormat = "elf"
+	MachO ImageFormat = "machO"
+)
+
+// Reach is how a system's programs reach the system: the one way the runtime's source for it may, and the backend accepts.
+type Reach string
+
+const (
+	// Imports: through the functions of the system's libraries, which the executable imports.
+	Imports Reach = "imports"
+	// Syscalls: through system calls that the program makes itself, with no library between.
+	Syscalls Reach = "syscalls"
+)
+
+// OS is an operating system as the whole compiler sees it, whatever processor it runs on: how a target's name and an
+// `#if os(...)` spell it, the format of its executables, how its programs reach it, and what an executable's name ends
+// with. ast.TargetSystem has a case for each.
+type OS struct {
+	// Name is the case of ast.TargetSystem.
 	Name string
+	// Display is the name of the system in a target's name, lowered, and in `#if os(...)`.
+	Display          string
+	Image            ImageFormat
+	Reach            Reach
+	ExecutableSuffix string
+}
+
+var (
+	Windows = OS{Name: "windows", Display: "Windows", Image: PE, Reach: Imports, ExecutableSuffix: ".exe"}
+	Linux   = OS{Name: "linux", Display: "Linux", Image: ELF, Reach: Syscalls}
+	// MacOS has no target that runs it yet; its row says what a target that does will be asked.
+	MacOS = OS{Name: "macos", Display: "macOS", Image: MachO, Reach: Imports}
+)
+
+// OSes are the systems, in the order of the cases of ast.TargetSystem.
+var OSes = []OS{Windows, Linux, MacOS}
+
+// System is what an operating system adds to a processor's table: the convention of its libraries' functions, the one
+// of its system calls where a program calls the kernel itself, and how a thread finds its context.
+type System struct {
+	OS OS
 	// Host is the convention of the system's libraries.
 	Host Convention
 	// Syscall is the convention of a system call, or nil for a system whose programs reach the kernel only through its
 	// libraries.
 	Syscall *Convention
+	// ThreadContext names how a thread reads the word of its context on this system: a case of the target's
+	// <Name>ThreadContext enum.
+	ThreadContext string
 }
+
+// Name follows the target's in the names of the system's declarations.
+func (s System) Name() string { return s.OS.Display }
 
 // Target is one processor's register file and calling conventions, and those of the systems it runs.
 type Target struct {
-	// Name starts the name of every declaration the generator writes for the target.
+	// Name is the case of ast.TargetArch, and starts the name of every declaration the generator writes for the target.
 	Name string
 	// Registers is the register file in its numbering: the general registers by encoding, then the vector ones.
 	Registers []Register
@@ -82,9 +129,9 @@ type Target struct {
 func (t Target) Conventions() []NamedConvention {
 	out := []NamedConvention{{t.Name + t.Internal.Prefix, strings.ToLower(t.Internal.Prefix), t.Internal}}
 	for _, s := range t.Systems {
-		out = append(out, NamedConvention{t.Name + s.Name + s.Host.Prefix, s.Name + " " + strings.ToLower(s.Host.Prefix), s.Host})
+		out = append(out, NamedConvention{t.Name + s.Name() + s.Host.Prefix, s.Name() + " " + strings.ToLower(s.Host.Prefix), s.Host})
 		if s.Syscall != nil {
-			out = append(out, NamedConvention{t.Name + s.Name + s.Syscall.Prefix, s.Name + " " + strings.ToLower(s.Syscall.Prefix), *s.Syscall})
+			out = append(out, NamedConvention{t.Name + s.Name() + s.Syscall.Prefix, s.Name() + " " + strings.ToLower(s.Syscall.Prefix), *s.Syscall})
 		}
 	}
 	return out
@@ -153,6 +200,14 @@ func (t Target) Check() error {
 	}
 	if len(t.Registers) > 64 {
 		return fmt.Errorf("%s: a register file past the 64 bits of a mask", t.Name)
+	}
+	for _, s := range t.Systems {
+		if !slices.Contains(OSes, s.OS) {
+			return fmt.Errorf("%s: %s is no system of OSes", t.Name, s.Name())
+		}
+		if (s.OS.Reach == Syscalls) != (s.Syscall != nil) {
+			return fmt.Errorf("%s on %s: a system has a system call convention exactly when its programs reach it by system calls", t.Name, s.Name())
+		}
 	}
 	reserved, err := t.Mask(t.Reserved)
 	if err != nil {
@@ -252,7 +307,10 @@ var X64 = Target{
 	},
 	Systems: []System{
 		{
-			Name: "Windows",
+			OS: Windows,
+			// A thread's context is in a TLS slot of its TEB, which gs points at, at the index the entry stub keeps in
+			// rt.tlsOffset.
+			ThreadContext: "tlsSlot",
 			// No function of a DLL that the runtime imports takes or returns a float, so the host convention passes only
 			// words.
 			Host: Convention{
@@ -266,7 +324,9 @@ var X64 = Target{
 			},
 		},
 		{
-			Name: "Linux",
+			OS: Linux,
+			// A thread's context is the word at fs:0, where the entry stub put it.
+			ThreadContext: "fsWord",
 			Host: Convention{
 				Doc:         "System V, the convention of a shared library's functions",
 				Prefix:      "Host",

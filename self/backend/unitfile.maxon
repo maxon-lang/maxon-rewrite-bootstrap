@@ -10,16 +10,19 @@ export function writeUnit(u CodeUnit, mutates w table.ByteWriter)
 	w.run(u.asm.code)
 	w.count(u.asm.dataFixups.count())
 	for i in 0 upto u.asm.dataFixups.count() 'data'
+		w.count(u.asm.dataFixups[i].kind.rawValue)
 		w.count(u.asm.dataFixups[i].pos)
 		w.count(u.asm.dataFixups[i].dataOffset)
 	end 'data'
 	w.count(u.asm.importFixups.count())
 	for i in 0 upto u.asm.importFixups.count() 'imports'
+		w.count(u.asm.importFixups[i].kind.rawValue)
 		w.count(u.asm.importFixups[i].pos)
 		w.count(u.asm.importFixups[i].index)
 	end 'imports'
 	w.count(u.asm.symbolFixups.count())
 	for i in 0 upto u.asm.symbolFixups.count() 'symbols'
+		w.count(u.asm.symbolFixups[i].kind.rawValue)
 		w.count(u.asm.symbolFixups[i].pos)
 		w.text(u.asm.symbolFixups[i].symbol)
 	end 'symbols'
@@ -60,16 +63,19 @@ export function readUnit(mutates r table.ByteReader) returns CodeUnit
 	var u = CodeUnit.new()
 	u.asm.code = r.run()
 	for _ in 0 upto r.items() 'data'
+		let kind = fixupKindOf(r.count())
 		let pos = r.count()
-		u.asm.dataFixups.push(DataFixup.make(pos, dataOffset: r.count()))
+		u.asm.dataFixups.push(DataFixup.make(kind, pos: pos, dataOffset: r.count()))
 	end 'data'
 	for _ in 0 upto r.items() 'imports'
+		let kind = fixupKindOf(r.count())
 		let pos = r.count()
-		u.asm.importFixups.push(ImportFixup.make(pos, index: r.count()))
+		u.asm.importFixups.push(ImportFixup.make(kind, pos: pos, index: r.count()))
 	end 'imports'
 	for _ in 0 upto r.items() 'symbols'
+		let kind = fixupKindOf(r.count())
 		let pos = r.count()
-		u.asm.symbolFixups.push(SymbolFixup.make(pos, symbol: r.text()))
+		u.asm.symbolFixups.push(SymbolFixup.make(kind, pos: pos, symbol: r.text()))
 	end 'symbols'
 	u.data.bytes = r.run()
 	for _ in 0 upto r.items() 'pieces'

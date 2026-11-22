@@ -231,7 +231,7 @@ func (e *ruleEmitter) matchRoot(v *term, instr string) {
 	}
 	e.matchOp(v, instr)
 	if e.r.cond != "" {
-		e.reject("not (" + rewriteExpr(e.r, e.r.cond, e.vars, local, e.tg == x64Target) + ")")
+		e.reject("not (" + rewriteExpr(e.r, e.r.cond, e.vars, local, e.tg.selects()) + ")")
 	}
 }
 
@@ -280,15 +280,12 @@ func (e *ruleEmitter) matchReg(a *term, expr string) {
 			e.bindOrCompare(a.bind, reg)
 		}
 		def := e.temp("def")
-		switch e.tg {
-		case genericTarget:
-			e.reject(fmt.Sprintf("not definedBy(fn, defs: defs, r: %s, op: ir.Opcode.op%s)", reg, a.op.Name))
-			e.line("let %s = defOf(defs, r: %s)", def, reg)
-		case x64Target:
+		if e.tg.selects() {
 			e.reject(fmt.Sprintf("not sel.definedBy(fn, r: %s, op: ir.Opcode.op%s)", reg, a.op.Name))
 			e.line("let %s = sel.defOf(%s)", def, reg)
-		default:
-			panic(fmt.Sprintf("rulegen: target %d", e.tg))
+		} else {
+			e.reject(fmt.Sprintf("not definedBy(fn, defs: defs, r: %s, op: ir.Opcode.op%s)", reg, a.op.Name))
+			e.line("let %s = defOf(defs, r: %s)", def, reg)
 		}
 		e.matchOp(a, "fn.instrs["+def+"]")
 	case termAux:
