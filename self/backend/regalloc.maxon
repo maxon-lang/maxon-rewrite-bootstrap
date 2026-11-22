@@ -1,0 +1,1284 @@
+// Colouring, the second half of register allocation: once spilling has brought every instruction under the registers
+// free there, each virtual register is given one physical register for its whole life by one sweep of the blocks in
+// dominance order. In SSA form a value's definition dominates its uses, so the values live where one is defined are
+// already coloured, and the sweep needs no more registers than the most values live at one point.
+//
+// What a value may not be in is known before the sweep: the registers written by an instruction it is live across (a
+// call's caller-saved registers, a division's rax and rdx), and the physical registers that hold a fixed value while it
+// is live (rcx between the copy of a shift's count and the shift). Within what is left, the choice is biased, strongest
+// first, by the fixed register the value is copied to or from; by the register of a value it is copied to or from (an
+// edge's argument and its parameter, a two-address operand, a copy), so that the copy disappears; and otherwise by the
+// lowest free caller-saved register the values defined in its life do not want, so a value live across a call, which
+// may be only in a callee-saved one, finds one free.
+//
+// Where the registers a value may be in are all taken (the count fits, but the values about it are confined to
+// different sets: Hall's condition), the point is repaired by copies. First an augmenting path from the value to a free
+// register through values that die in this block, each moved by one copy into the next register on the path for the
+// rest of its life in the block, giving up its register to the one before it. Failing that, the value is given as its
+// register (its home) one that no value live there has as its home, which the count guarantees, and it is moved by
+// copies wherever its home does not suit it: it starts its life elsewhere while its home is taken, and it leaves its
+// home before an instruction that fixes or clobbers it. Such a value is back in its home, by one parallel copy, before
+// every branch, so every block is entered with each value in its home; between, a value outside its home is in a
+// window, which the rewrite reads. Spilling's bound says the values live across an instruction fit the registers it
+// leaves, so there is always somewhere to move to, and a value that cannot be placed is an internal error.
+//
+// Then the function leaves SSA form: each edge's arguments become one parallel copy before its jump into the target's
+// parameters' registers, sequenced so no copy overwrites a source another still reads, a cycle broken through a free
+// register or, when every register holds a value, by an exchange of three xors; a copy whose source and target got the
+// same register is dropped.
+
+// ColourResult is what colouring a function wrote: the copies a two-address form needed because its operand lived on,
+// the moves and exchanges of the edges' parallel copies, the copies of repairs, and the copies that disappeared.
+export type ColourResult
+	export var reuseCopies as Count
+	export var edgeMoves as Count
+	export var edgeSwaps as Count
+	export var repairMoves as Count
+	export var elided as Count
+
+	static function new() returns ColourResult
+		return ColourResult{reuseCopies: 0, edgeMoves: 0, edgeSwaps: 0, repairMoves: 0, elided: 0}
+	end 'new'
+end 'ColourResult'
+
+// Colourer is the state of colouring, reused from one function to the next so that its arrays keep their capacity. It
+// keeps the function as it was before colouring, which the checker holds the result to.
+export type Colourer
+	var result as ColourResult
+	var callerSaved as RegMask
+	var calleeSaved as RegMask
+	// For each virtual register: its register and whether it has one, where it is now in the sweep, what it may not be
+	// in, the fixed registers it is copied to or from, and the fixed registers that values defined in its life want.
+	var reg as CountList
+	var coloured as BoolList
+	var loc as CountList
+	var forbid as Array with RegMask
+	var hint as Array with RegMask
+	var contested as Array with RegMask
+	// partnerStart and partnerList are, for each virtual register, the ones it is copied to or from.
+	var pairFrom as CountList
+	var pairTo as CountList
+	var partnerStart as CountList
+	var partnerList as CountList
+	// deathAt is the instruction of the block being swept where a value dies, if deathStamp is the block's stamp.
+	var deathAt as CountList
+	var deathStamp as CountList
+	var stamp as Count
+	// For each instruction: the physical registers that hold fixed values before and after it and that it writes, the
+	// values that die at it, and for a spill that opens a bracket, the restore that closes it.
+	var physBefore as Array with RegMask
+	var physAfter as Array with RegMask
+	// throughAt is, for a parallel copy, the registers of the values live across it, which its cycles may not use.
+	var throughAt as Array with RegMask
+	var written as Array with RegMask
+	var dieAt as CountList
+	var dieValue as CountList
+	var dieStart as CountList
+	var dieList as CountList
+	var opens as BoolList
+	var bracketEnd as CountList
+	// commuted is whether colouring swapped the two uses of a two-address instruction, to reuse the second's register.
+	var commuted as BoolList
+	// The live set of the survey's walk back through a block, and the values a bracket has out of their registers.
+	var live as BoolList
+	var liveList as CountList
+	var livePos as CountList
+	var bracketed as BoolList
+	var restoreAt as CountList
+	// The sweep of a block: the value in each busy register, the brackets open, with the register each lends.
+	var holder as CountList
+	var busy as RegMask
+	var openValue as CountList
+	var openReg as CountList
+	var openEnd as CountList
+	// Windows: value winValue is in winReg, not its own register, from winFrom up to winTo, which it leaves out, of block winBlock. winFirst and
+	// winNext chain each value's windows, the latest first.
+	var winValue as CountList
+	var winBlock as CountList
+	var winFrom as CountList
+	var winTo as CountList
+	var winReg as CountList
+	var winFirst as IndexList
+	var winNext as IndexList
+	// For each value: its window open in the block being swept, or noDef; and whether it gave its home up to a repair for
+	// the rest of its life, which ends in the block. homes are the homes of the values live in the sweep, a value's own
+	// whether it is in it or in a window; flagged are the values of the block that may have to move: the ones out of their
+	// homes and the ones whose home is a register they may not be in somewhere.
+	var openWin as IndexList
+	var homeless as BoolList
+	var homes as RegMask
+	var flagged as CountList
+	// A parallel copy that moves values before one instruction: the values, where they go, and its moves.
+	var moveValue as CountList
+	var moveTo as CountList
+	var moveDsts as CountList
+	var moveSrcs as CountList
+	var moveOut as MInstrList
+	// Copies inserted before an instruction: insAt[i] is the instruction insInstr[i] goes before.
+	var insAt as CountList
+	var insIndex as CountList
+	var insInstr as MInstrList
+	var insStart as CountList
+	var insList as CountList
+	// The search of a repair: the register each register on a path was reached from, and which ones start it.
+	var parent as CountList
+	var queue as CountList
+	var ops as Operands
+	// The function before colouring, and for each of its instructions where its output starts and the instruction it
+	// became (noDef where it disappeared).
+	var origInstrs as MInstrList
+	var origBlocks as MBlockList
+	var origEdges as MEdgeList
+	var outStart as CountList
+	var outSelf as IndexList
+	var outEnd as CountList
+
+	export static function new() returns Colourer
+		return Colourer{result: ColourResult.new(), callerSaved: 0, calleeSaved: 0, reg: CountList.create(0), coloured: BoolList.create(0), loc: CountList.create(0), forbid: Array.create(0), hint: Array.create(0), contested: Array.create(0), pairFrom: CountList.create(0), pairTo: CountList.create(0), partnerStart: CountList.create(0), partnerList: CountList.create(0), deathAt: CountList.create(0), deathStamp: CountList.create(0), stamp: 0, physBefore: Array.create(0), physAfter: Array.create(0), throughAt: Array.create(0), written: Array.create(0), dieAt: CountList.create(0), dieValue: CountList.create(0), dieStart: CountList.create(0), dieList: CountList.create(0), opens: BoolList.create(0), bracketEnd: CountList.create(0), commuted: BoolList.create(0), live: BoolList.create(0), liveList: CountList.create(0), livePos: CountList.create(0), bracketed: BoolList.create(0), restoreAt: CountList.create(0), holder: CountList.create(0), busy: 0, openValue: CountList.create(0), openReg: CountList.create(0), openEnd: CountList.create(0), winValue: CountList.create(0), winBlock: CountList.create(0), winFrom: CountList.create(0), winTo: CountList.create(0), winReg: CountList.create(0), winFirst: IndexList.create(0), winNext: IndexList.create(0), openWin: IndexList.create(0), homeless: BoolList.create(0), homes: 0, flagged: CountList.create(0), moveValue: CountList.create(0), moveTo: CountList.create(0), moveDsts: CountList.create(0), moveSrcs: CountList.create(0), moveOut: MInstrList.create(0), insAt: CountList.create(0), insIndex: CountList.create(0), insInstr: MInstrList.create(0), insStart: CountList.create(0), insList: CountList.create(0), parent: CountList.create(0), queue: CountList.create(0), ops: Operands.new(), origInstrs: MInstrList.create(0), origBlocks: MBlockList.create(0), origEdges: MEdgeList.create(0), outStart: CountList.create(0), outSelf: IndexList.create(0), outEnd: CountList.create(0)}
+	end 'new'
+
+	// start sizes the state for fn under the conventions convs.
+	function start(mutates self, fn MirFunction, convs Conventions)
+		result = ColourResult.new()
+		calleeSaved = convs.internal.calleeSaved
+		callerSaved = (allocatable(RegClass.gpr) or allocatable(RegClass.xmm)) and not calleeSaved
+		let regs = fn.vregCount()
+		let n = fn.instrs.count()
+		ir.resetCounts(reg, n: regs)
+		ir.resetFlags(coloured, n: regs)
+		ir.resetCounts(loc, n: regs)
+		resetMasks(forbid, n: regs)
+		resetMasks(hint, n: regs)
+		resetMasks(contested, n: regs)
+		ir.resetCounts(deathAt, n: regs)
+		ir.resetCounts(deathStamp, n: regs)
+		stamp = 0
+		resetMasks(physBefore, n: n)
+		resetMasks(physAfter, n: n)
+		resetMasks(throughAt, n: n)
+		resetMasks(written, n: n)
+		dieAt.clear()
+		dieValue.clear()
+		ir.resetFlags(opens, n: n)
+		ir.resetFlags(commuted, n: n)
+		ir.resetCounts(bracketEnd, n: n)
+		ir.resetFlags(live, n: regs)
+		liveList.clear()
+		ir.resetCounts(livePos, n: regs)
+		ir.resetFlags(bracketed, n: regs)
+		ir.resetCounts(restoreAt, n: regs)
+		ir.resetCounts(holder, n: firstVirtual as Count)
+		ir.resetCounts(parent, n: firstVirtual as Count)
+		winValue.clear()
+		winBlock.clear()
+		winFrom.clear()
+		winTo.clear()
+		winReg.clear()
+		winFirst.clear()
+		openWin.clear()
+		for v in 0 upto regs 'windows'
+			winFirst.push(noDef)
+			openWin.push(noDef)
+		end 'windows'
+		ir.resetFlags(homeless, n: regs)
+		winNext.clear()
+		insAt.clear()
+		insIndex.clear()
+		insInstr.clear()
+	end 'start'
+
+	// findHints finds the fixed registers each value is copied to or from and the values each is copied to or from.
+	function findHints(mutates self, fn MirFunction)
+		pairFrom.clear()
+		pairTo.clear()
+		for k in 0 upto fn.instrs.count() 'instrs'
+			let kind = fn.instrs[k].kind
+			match kind 'kind'
+				copy then self.hintCopy(fn.instrs[k].a, src: fn.instrs[k].b)
+				parallelCopy then self.hintParallelCopy(fn, k: k)
+				target then self.hintTarget(fn, k: k)
+				spill or
+				reload or
+				restore or
+				frameSetup or
+				frameTeardown then continue 'instrs'
+			end 'kind'
+		end 'instrs'
+		ir.buildCsr(pairFrom, targets: pairTo, nodes: fn.vregCount(), starts: partnerStart, list: partnerList)
+	end 'findHints'
+
+	function hintCopy(mutates self, dst MReg, src MReg)
+		if isVirtual(dst) and isVirtual(src) 'partners'
+			self.pair(dst, b: src)
+		end 'partners' else if isVirtual(dst) and isPhysical(src) 'fromFixed'
+			let v = vregIndex(dst)
+			hint[v] = hint[v] or (regBit(physicalNumber(src)) and not reservedMask())
+		end 'fromFixed' else if isPhysical(dst) and isVirtual(src) 'toFixed'
+			let v = vregIndex(src)
+			hint[v] = hint[v] or (regBit(physicalNumber(dst)) and not reservedMask())
+		end 'toFixed'
+	end 'hintCopy'
+
+	function hintParallelCopy(mutates self, fn MirFunction, k Count)
+		let start = refIndex(fn.instrs[k])
+		for i in 0 upto copyCount(fn.instrs[k]) 'pairs'
+			let at = addCounts(start, b: i)
+			self.hintCopy(fn.copies[at].dst, src: fn.copies[at].src)
+		end 'pairs'
+	end 'hintParallelCopy'
+
+	function hintTarget(mutates self, fn MirFunction, k Count)
+		if reuses(fn.instrs[k]) and isVirtual(fn.instrs[k].a) and isVirtual(fn.instrs[k].b) 'reuse'
+			self.pair(fn.instrs[k].a, b: fn.instrs[k].b)
+		end 'reuse'
+		if fn.instrs[k].ref != MRef.edge 'plain'
+			return
+		end 'plain'
+		let edge = refIndex(fn.instrs[k])
+		let target = fn.edges[edge].target as Count
+		for i in 0 upto fn.edges[edge].argCount 'args'
+			let arg = fn.edgeArgs[addCounts(fn.edges[edge].args, b: i)]
+			let param = fn.blockParams[addCounts(fn.blocks[target].params, b: i)]
+			if isVirtual(arg) 'virtual'
+				self.pair(arg, b: param)
+			end 'virtual'
+		end 'args'
+	end 'hintTarget'
+
+	function pair(mutates self, a MReg, b MReg)
+		pairFrom.push(vregIndex(a))
+		pairTo.push(vregIndex(b))
+		pairFrom.push(vregIndex(b))
+		pairTo.push(vregIndex(a))
+	end 'pair'
+
+	function setLive(mutates self, v Count)
+		if live[v] 'already'
+			return
+		end 'already'
+		live[v] = true
+		livePos[v] = liveList.count()
+		liveList.push(v)
+	end 'setLive'
+
+	function clearLive(mutates self, v Count)
+		if not live[v] 'already'
+			return
+		end 'already'
+		live[v] = false
+		let at = livePos[v]
+		let last = try liveList.pop() otherwise panic("backend: an empty live set")
+		if last != v 'moved'
+			liveList[at] = last
+			livePos[last] = at
+		end 'moved'
+	end 'clearLive'
+
+	// survey walks every block back from its end and finds, for each value, the registers it may not be in and the ones
+	// it should leave to values defined in its life, and for each instruction, the fixed registers about it and the
+	// values that die at it.
+	function survey(mutates self, fn MirFunction, g MirGraph, lv Liveness, convs Conventions)
+		for o in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[o] as Count
+			self.surveyBlock(fn, g: g, lv: lv, b: b, convs: convs)
+		end 'blocks'
+		ir.buildCsr(dieAt, targets: dieValue, nodes: fn.instrs.count(), starts: dieStart, list: dieList)
+	end 'survey'
+
+	function surveyBlock(mutates self, fn MirFunction, g MirGraph, lv Liveness, b Count, convs Conventions)
+		for e in g.succStart[b] upto g.succStart[nextCount(b)] 'succs'
+			let s = g.succ[e]
+			for i in lv.liveInStart[s] upto lv.liveInStart[nextCount(s)] 'live'
+				self.setLive(lv.liveIn[i])
+			end 'live'
+		end 'succs'
+		var phys = 0 as RegMask
+		var k = fn.blocks[b].endAt
+		while k > fn.blocks[b].first 'instrs'
+			k = prevCount(k)
+			ops.gather(fn, x: fn.instrs[k], convs: convs)
+			physAfter[k] = phys
+			written[k] = ops.physWrites
+			let held = phys or ops.physWrites
+			var wanted = 0 as RegMask
+			for d in 0 upto ops.writeLen 'defs'
+				let v = vregIndex(ops.writes[d])
+				forbid[v] = forbid[v] or held
+				wanted = wanted or hint[v]
+				if live[v] 'used'
+					self.clearLive(v)
+				end 'used' else 'dead'
+					dieAt.push(k)
+					dieValue.push(v)
+				end 'dead'
+			end 'defs'
+			if (held or wanted) != 0 'across'
+				for i in 0 upto liveList.count() 'live'
+					let v = liveList[i]
+					if not bracketed[v] 'held'
+						forbid[v] = forbid[v] or held
+						contested[v] = contested[v] or wanted
+					end 'held'
+				end 'live'
+			end 'across'
+			for u in 0 upto ops.readLen 'reads'
+				let v = vregIndex(ops.reads[u])
+				if not live[v] 'dies'
+					dieAt.push(k)
+					dieValue.push(v)
+					self.setLive(v)
+				end 'dies'
+			end 'reads'
+			phys = (phys and not ops.physWrites) or ops.physReads
+			physBefore[k] = phys
+			self.surveyBracket(fn, k: k)
+		end 'instrs'
+		for p in 0 upto fn.blocks[b].paramCount 'params'
+			let v = vregIndex(fn.blockParams[addCounts(fn.blocks[b].params, b: p)])
+			forbid[v] = forbid[v] or phys
+			self.clearLive(v)
+		end 'params'
+		while liveList.count() > 0 'clear'
+			let last = liveList[prevCount(liveList.count())]
+			self.clearLive(last)
+		end 'clear'
+	end 'surveyBlock'
+
+	// surveyBracket notes, walking back, a restore as the end of a bracket of its value and the spill of a value out
+	// of its register as the spill that opens it; within a bracket the value is not in a register, so what the
+	// instructions there write does not touch it.
+	function surveyBracket(mutates self, fn MirFunction, k Count)
+		let kind = fn.instrs[k].kind
+		if kind == MKind.restore 'restore'
+			let v = vregIndex(fn.instrs[k].a)
+			bracketed[v] = true
+			restoreAt[v] = k
+		end 'restore' else if kind == MKind.spill and isVirtual(fn.instrs[k].a) and bracketed[vregIndex(fn.instrs[k].a)] 'opens'
+			let v = vregIndex(fn.instrs[k].a)
+			bracketed[v] = false
+			opens[k] = true
+			bracketEnd[k] = restoreAt[v]
+		end 'opens'
+	end 'surveyBracket'
+
+	// occupy puts v in register r for now, its home or a window; place puts it in its home r, which it claims.
+	function occupy(mutates self, v Count, r Count)
+		let bit = maskOfCount(r)
+		if (busy and bit) != 0 'taken'
+			panic("backend: register {r} given to virtual register {vregAt(v)} while it holds virtual register {vregAt(holder[r])}")
+		end 'taken'
+		busy = busy or bit
+		holder[r] = v
+		loc[v] = r
+	end 'occupy'
+
+	function place(mutates self, v Count, r Count)
+		self.occupy(v, r: r)
+		homes = homes or maskOfCount(r)
+	end 'place'
+
+	function vacate(mutates self, r Count)
+		busy = busy and not maskOfCount(r)
+	end 'vacate'
+
+	// retire takes v, which dies at the instruction k, out of the sweep: its register and its home are free after k.
+	function retire(mutates self, v Count, k Count)
+		let r = loc[v]
+		self.vacate(r)
+		if not homeless[v] and not maskHas(self.lentMask(), number: regNumOfCount(reg[v])) 'home'
+			homes = homes and not maskOfCount(reg[v])
+		end 'home'
+		self.closeWindow(v, stop: nextCount(k))
+	end 'retire'
+
+	function dies(v Count) returns bool
+		return deathStamp[v] == stamp
+	end 'dies'
+
+	function isPlaced(v Count) returns bool
+		return (busy and maskOfCount(loc[v])) != 0 and holder[loc[v]] == v
+	end 'isPlaced'
+
+	// isDisplaced is whether v is out of its home, which it must be back in before a branch.
+	function isDisplaced(v Count) returns bool
+		return not homeless[v] and loc[v] != reg[v]
+	end 'isDisplaced'
+
+	// isAtRisk is whether v's home is a register it may not be in somewhere in its life, which it then leaves.
+	function isAtRisk(v Count) returns bool
+		return not homeless[v] and maskHas(forbid[v], number: regNumOfCount(reg[v]))
+	end 'isAtRisk'
+
+	function flag(mutates self, v Count)
+		if not self.isDisplaced(v) and not self.isAtRisk(v) 'calm'
+			return
+		end 'calm'
+		for i in 0 upto flagged.count() 'flagged'
+			if flagged[i] == v 'known'
+				return
+			end 'known'
+		end 'flagged'
+		flagged.push(v)
+	end 'flag'
+
+	// sweepBlock colours the parameters of block b and the values its instructions define, in order, with the values
+	// live into it in their registers.
+	function sweepBlock(mutates self, mutates fn MirFunction, lv Liveness, b Count, convs Conventions)
+		stamp = nextCount(stamp)
+		let first = fn.blocks[b].first
+		for k in first upto fn.blocks[b].endAt 'deaths'
+			for e in dieStart[k] upto dieStart[nextCount(k)] 'dying'
+				let v = dieList[e]
+				deathAt[v] = k
+				deathStamp[v] = stamp
+			end 'dying'
+		end 'deaths'
+		busy = 0
+		homes = 0
+		flagged.clear()
+		openValue.clear()
+		openReg.clear()
+		openEnd.clear()
+		for i in lv.liveInStart[b] upto lv.liveInStart[nextCount(b)] 'liveIn'
+			let v = lv.liveIn[i]
+			if not coloured[v] 'uncoloured'
+				panic("backend: virtual register {vregAt(v)} is live into block {b} before it is coloured")
+			end 'uncoloured'
+			let r = reg[v]
+			self.place(v, r: r)
+			self.flag(v)
+		end 'liveIn'
+		for p in 0 upto fn.blocks[b].paramCount 'params'
+			let v = vregIndex(fn.blockParams[addCounts(fn.blocks[b].params, b: p)])
+			if lv.useStart[v] != lv.useStart[nextCount(v)] 'used'
+				self.colourAt(fn, v: v, b: b, k: first, avail: allocatable(fn.classes[v]), reads: 0, operand: noDef)
+			end 'used'
+		end 'params'
+		for k in first upto fn.blocks[b].endAt 'instrs'
+			self.step(fn, b: b, k: k, convs: convs)
+		end 'instrs'
+		for i in 0 upto flagged.count() 'closed'
+			if openWin[flagged[i]] != noDef and self.isPlaced(flagged[i]) 'open'
+				panic("backend: virtual register {vregAt(flagged[i])} leaves block {b} out of its register")
+			end 'open'
+		end 'closed'
+	end 'sweepBlock'
+
+	// step colours what the instruction at k of block b defines: a definition may take the register of a value that
+	// dies there, since an instruction reads every operand before it writes one. Before a branch, every value out of its
+	// home goes back; before any instruction, a value in a register the instruction fixes or clobbers moves out of it.
+	function step(mutates self, mutates fn MirFunction, b Count, k Count, convs Conventions)
+		let kind = fn.instrs[k].kind
+		if kind == MKind.restore 'restore'
+			self.closeBracket(vregIndex(fn.instrs[k].a))
+			return
+		end 'restore'
+		if kind == MKind.spill and opens[k] 'opens'
+			let v = vregIndex(fn.instrs[k].a)
+			openValue.push(v)
+			openReg.push(loc[v])
+			openEnd.push(bracketEnd[k])
+			let r = loc[v]
+			self.vacate(r)
+			return
+		end 'opens'
+		if flagged.count() > 0 'flagged'
+			if fn.instrs[k].ref == MRef.edge 'branch'
+				self.reconcile(fn, b: b, k: k)
+			end 'branch'
+			self.relocate(fn, b: b, k: k)
+		end 'flagged'
+		ops.gather(fn, x: fn.instrs[k], convs: convs)
+		var useMask = physBefore[k]
+		for u in 0 upto ops.readLen 'uses'
+			useMask = useMask or maskOfCount(loc[vregIndex(ops.reads[u])])
+		end 'uses'
+		for e in dieStart[k] upto dieStart[nextCount(k)] 'dying'
+			let v = dieList[e]
+			if not self.definedAt(v, k: k) 'used'
+				self.retire(v, k: k)
+			end 'used'
+		end 'dying'
+		throughAt[k] = busy or physBefore[k] or physAfter[k]
+		for d in 0 upto ops.writeLen 'defs'
+			let v = vregIndex(ops.writes[d])
+			if kind == MKind.target and reuses(fn.instrs[k]) and isVirtual(fn.instrs[k].b) 'reuse'
+				self.colourReuse(fn, v: v, b: b, k: k, useMask: useMask)
+			end 'reuse' else 'plain'
+				self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(fn.classes[v]), reads: useMask, operand: noDef)
+			end 'plain'
+		end 'defs'
+		for e in dieStart[k] upto dieStart[nextCount(k)] 'deadDefs'
+			let v = dieList[e]
+			if self.definedAt(v, k: k) 'dead'
+				self.retire(v, k: k)
+			end 'dead'
+		end 'deadDefs'
+	end 'step'
+
+	function definedAt(v Count, k Count) returns bool
+		for d in 0 upto ops.writeLen 'defs'
+			if vregIndex(ops.writes[d]) == v 'found'
+				return true
+			end 'found'
+		end 'defs'
+		return false
+	end 'definedAt'
+
+	// closeBracket puts a bracketed value back in the register it lent.
+	function closeBracket(mutates self, v Count)
+		for i in 0 upto openValue.count() 'open'
+			if openValue[i] == v 'found'
+				let r = openReg[i]
+				let last = prevCount(openValue.count())
+				openValue[i] = openValue[last]
+				openReg[i] = openReg[last]
+				openEnd[i] = openEnd[last]
+				_ = try openValue.pop() otherwise panic("backend: no bracket open")
+				_ = try openReg.pop() otherwise panic("backend: no bracket open")
+				_ = try openEnd.pop() otherwise panic("backend: no bracket open")
+				self.occupy(v, r: r)
+				return
+			end 'found'
+		end 'open'
+		panic("backend: a restore of virtual register {vregAt(v)} that no spill opened")
+	end 'closeBracket'
+
+	// colourReuse gives a two-address definition the register of the operand it reuses when that operand dies there
+	// and the definition may be in it, or of its other use when that one dies and the form commutes; otherwise another
+	// register, into which a copy before the instruction puts the operand, never the register of another operand,
+	// which the instruction still reads.
+	function colourReuse(mutates self, mutates fn MirFunction, v Count, b Count, k Count, useMask RegMask)
+		let operand = vregIndex(fn.instrs[k].b)
+		if self.takeDying(fn, v: v, k: k, operand: operand) 'shared'
+			return
+		end 'shared'
+		if commutes(fn.instrs[k]) and isVirtual(fn.instrs[k].c) 'commutes'
+			if self.takeDying(fn, v: v, k: k, operand: vregIndex(fn.instrs[k].c)) 'swapped'
+				commuted[k] = true
+				return
+			end 'swapped'
+		end 'commutes'
+		self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(fn.classes[v]) and not useMask, reads: useMask, operand: indexOfCount(operand))
+		let from = loc[operand]
+		if loc[v] != from 'copy'
+			let r = loc[v]
+			self.insertCopy(k, dst: r, src: from)
+			result.reuseCopies = nextCount(result.reuseCopies)
+		end 'copy'
+	end 'colourReuse'
+
+	// takeDying gives v the register of operand, a use of the instruction at k, if operand dies there, v may be in it and
+	// no other value has it as its home.
+	function takeDying(mutates self, fn MirFunction, v Count, k Count, operand Count) returns bool
+		let r = loc[operand]
+		let bit = maskOfCount(r)
+		if ((busy or (homes and not self.lentMask())) and bit) != 0 or (self.allowed(fn, v: v, k: k, avail: allocatable(fn.classes[v])) and bit) == 0 'kept'
+			return false
+		end 'kept'
+		reg[v] = r
+		coloured[v] = true
+		self.place(v, r: r)
+		return true
+	end 'takeDying'
+
+	// takeDyingAtRisk gives v, where no register it may be in can be had, the register of operand, which dies at k, as its
+	// home though v may not be in it somewhere, which it then leaves: a two-address definition need not copy its operand.
+	function takeDyingAtRisk(mutates self, v Count, k Count, operand Count) returns bool
+		let r = loc[operand]
+		let bit = maskOfCount(r)
+		if not self.dyingAt(operand, k: k) or ((busy or (homes and not self.lentMask()) or physAfter[k] or written[k] or self.bracketMask(v, k: k)) and bit) != 0 'kept'
+			return false
+		end 'kept'
+		reg[v] = r
+		coloured[v] = true
+		self.place(v, r: r)
+		self.flag(v)
+		return true
+	end 'takeDyingAtRisk'
+
+	// allowed is the registers v may be given at k, out of avail, whoever holds them now.
+	function allowed(fn MirFunction, v Count, k Count, avail RegMask) returns RegMask
+		return avail and allocatable(fn.classes[v]) and not forbid[v] and not self.bracketMask(v, k: k)
+	end 'allowed'
+
+	// lentMask is the registers the open brackets lend, which stay the homes of the values bracketed: a value that dies
+	// before the brackets close may be in one, as bracketMask says.
+	function lentMask() returns RegMask
+		var mask = 0 as RegMask
+		for i in 0 upto openReg.count() 'open'
+			mask = mask or maskOfCount(openReg[i])
+		end 'open'
+		return mask
+	end 'lentMask'
+
+	// bracketMask is the registers lent by the brackets open at k whose restore v is live at: v may not be in them.
+	function bracketMask(v Count, k Count) returns RegMask
+		var mask = 0 as RegMask
+		for i in 0 upto openValue.count() 'open'
+			if not self.dies(v) or deathAt[v] > openEnd[i] 'past'
+				mask = mask or maskOfCount(openReg[i])
+			end 'past'
+		end 'open'
+		return mask
+	end 'bracketMask'
+
+	// colourAt gives v a free register of avail at the instruction k of block b, which reads the registers reads,
+	// repairing the point when none is free; failing that, it gives v a home of its own that it starts outside of, or that
+	// it is moved out of where it may not be in it.
+	function colourAt(mutates self, mutates fn MirFunction, v Count, b Count, k Count, avail RegMask, reads RegMask, operand ir.Index)
+		let want = self.allowed(fn, v: v, k: k, avail: avail)
+		var free = want and not busy and not (homes and not self.lentMask())
+		if free == 0 and want != 0 'stuck'
+			free = self.repair(fn, v: v, b: b, k: k, want: want, reads: reads)
+		end 'stuck'
+		if free == 0 'elsewhere'
+			if operand != noDef and self.takeDyingAtRisk(v, k: k, operand: countOfIndex(operand)) 'reused'
+				return
+			end 'reused'
+			self.homeElsewhere(fn, v: v, b: b, k: k, avail: avail)
+			return
+		end 'elsewhere'
+		let r = self.choose(v, free: free)
+		reg[v] = r
+		coloured[v] = true
+		self.place(v, r: r)
+	end 'colourAt'
+
+	// homeElsewhere gives v, defined at the instruction k of block b where no register it may be in can be freed, a home
+	// that no live value has, one it may be in if there is one, and starts it there or, where that register is taken or
+	// does not suit the instruction or avail, in a free one that does, until its next branch.
+	function homeElsewhere(mutates self, fn MirFunction, v Count, b Count, k Count, avail RegMask)
+		let class = fn.classes[v]
+		let lent = self.bracketMask(v, k: k)
+		let unclaimed = allocatable(class) and not (homes and not self.lentMask())
+		var pick = unclaimed and not forbid[v] and not lent
+		if pick == 0 'risky'
+			pick = unclaimed and not lent
+		end 'risky'
+		if pick == 0 'lent'
+			pick = unclaimed
+		end 'lent'
+		if pick == 0 'none'
+			panic("backend: virtual register {vregAt(v)} has no home at instruction {k}: more values are live there than its class has registers (homes {homes}, busy {busy}), which spilling rules out")
+		end 'none'
+		let h = self.choose(v, free: pick)
+		reg[v] = h
+		coloured[v] = true
+		homes = homes or maskOfCount(h)
+		let suits = allocatable(class) and avail and not busy and not physAfter[k] and not written[k] and not lent
+		if maskHas(suits, number: regNumOfCount(h)) 'home'
+			self.occupy(v, r: h)
+		end 'home' else 'window'
+			var start = suits and not homes
+			if start == 0 'claimed'
+				start = suits
+			end 'claimed'
+			if start == 0 'none'
+				panic("backend: virtual register {vregAt(v)} has no free register at instruction {k}, which spilling rules out")
+			end 'none'
+			let t = lowestRegister(start)
+			self.occupy(v, r: t)
+			self.openWindow(v, b: b, from: k, r: t)
+		end 'window'
+		self.flag(v)
+	end 'homeElsewhere'
+
+	// choose is the register v takes of the free ones: its fixed register, a partner's register, a partner's fixed
+	// register, then the lowest caller-saved one that the values defined in its life do not want.
+	function choose(v Count, free RegMask) returns Count
+		if (hint[v] and free) != 0 'fixed'
+			return lowestRegister(hint[v] and free)
+		end 'fixed'
+		for e in partnerStart[v] upto partnerStart[nextCount(v)] 'partners'
+			let p = partnerList[e]
+			if coloured[p] and (free and maskOfCount(reg[p])) != 0 'partner'
+				return reg[p]
+			end 'partner'
+		end 'partners'
+		for e in partnerStart[v] upto partnerStart[nextCount(v)] 'partnerHints'
+			let p = partnerList[e]
+			if (hint[p] and free) != 0 'partnerFixed'
+				return lowestRegister(hint[p] and free)
+			end 'partnerFixed'
+		end 'partnerHints'
+		var pref = free and callerSaved
+		if pref == 0 'calleeSaved'
+			pref = free
+		end 'calleeSaved'
+		let calm = pref and not contested[v]
+		if calm != 0 'calm'
+			return lowestRegister(calm)
+		end 'calm'
+		return lowestRegister(pref)
+	end 'choose'
+
+	// foreignHomes are the homes of live values that their owner is not in now: no other value may be given one.
+	function foreignHomes() returns RegMask
+		var foreign = 0 as RegMask
+		let lent = self.lentMask()
+		var r = 0 as Count
+		while r < firstVirtual as Count 'registers'
+			let bit = maskOfCount(r)
+			if (homes and bit) != 0 and (lent and bit) == 0 'home'
+				if (busy and bit) == 0 or homeless[holder[r]] or reg[holder[r]] != r 'away'
+					foreign = foreign or bit
+				end 'away'
+			end 'home'
+			r = nextCount(r)
+		end 'registers'
+		return foreign
+	end 'foreignHomes'
+
+	// repair frees a register of want for v at the instruction k of block b, where every one is taken, and gives the
+	// registers it freed, or none. It searches breadth first from want for a free register, through the values holding
+	// the registers on the way, each of which may move to the next register for the rest of its life in this block: one
+	// that dies here, and the next register one it may be in over that stretch. A value moved so gives its home up. A
+	// path is an augmenting path of the matching of the values at k to their registers. A value moves by a copy before
+	// k, so never into a register k reads, nor into a home another value is out of.
+	function repair(mutates self, mutates fn MirFunction, v Count, b Count, k Count, want RegMask, reads RegMask) returns RegMask
+		let foreign = self.foreignHomes()
+		let roots = want and not foreign
+		var seen = want
+		queue.clear()
+		var r = 0 as Count
+		while r < firstVirtual as Count 'roots'
+			if maskHas(roots, number: regNumOfCount(r)) 'root'
+				queue.push(r)
+			end 'root'
+			r = nextCount(r)
+		end 'roots'
+		var head = 0 as Count
+		var found = false
+		var at = 0 as Count
+		while head < queue.count() 'search'
+			let current = queue[head]
+			head = nextCount(head)
+			if (busy and maskOfCount(current)) == 0 'free'
+				found = true
+				at = current
+				break 'search'
+			end 'free'
+			let w = holder[current]
+			if not self.movable(w, k: k) 'fixed'
+				continue 'search'
+			end 'fixed'
+			let next = allocatable(fn.classes[w]) and not self.windowMask(w, k: k) and not self.bracketMask(w, k: k) and not reads and not seen and not foreign
+			var s = 0 as Count
+			while s < firstVirtual as Count 'next'
+				if maskHas(next, number: regNumOfCount(s)) 'reach'
+					seen = seen or maskOfCount(s)
+					parent[s] = current
+					queue.push(s)
+				end 'reach'
+				s = nextCount(s)
+			end 'next'
+		end 'search'
+		if not found 'hall'
+			return 0
+		end 'hall'
+		while not maskHas(roots, number: regNumOfCount(at)) 'moves'
+			let from = parent[at]
+			let w = holder[from]
+			self.insertCopy(k, dst: at, src: from)
+			self.closeWindow(w, stop: k)
+			if not homeless[w] 'giveUp'
+				homeless[w] = true
+				homes = homes and not maskOfCount(reg[w])
+			end 'giveUp'
+			self.vacate(from)
+			self.occupy(w, r: at)
+			self.openWindow(w, b: b, from: k, r: at)
+			result.repairMoves = nextCount(result.repairMoves)
+			at = from
+		end 'moves'
+		return maskOfCount(at)
+	end 'repair'
+
+	// movable is whether the value w may move to another register at k for the rest of its life: it dies in this block
+	// and is not defined at k.
+	function movable(w Count, k Count) returns bool
+		return self.dies(w) and deathAt[w] >= k and not self.definedAt(w, k: k)
+	end 'movable'
+
+	// windowMask is the registers w may not be in from before the instruction at k to where it dies.
+	function windowMask(w Count, k Count) returns RegMask
+		var mask = physBefore[k]
+		for j in k upto deathAt[w] 'window'
+			mask = mask or physAfter[j] or written[j]
+		end 'window'
+		return mask
+	end 'windowMask'
+
+	// dyingAt is whether the instruction at k reads v for the last time.
+	function dyingAt(v Count, k Count) returns bool
+		return self.dies(v) and deathAt[v] == k
+	end 'dyingAt'
+
+	// relocate moves out, by one parallel copy before the instruction at k of block b, each flagged value in a register
+	// the instruction fixes or, for a value live across it, clobbers or leaves fixed: into a free register it may be in
+	// there, one no other value has as its home and it may be in for good if there is one; where none is free, into the
+	// register of a value that dies at k, which moves to a free register or, with none, into the register vacated.
+	function relocate(mutates self, mutates fn MirFunction, b Count, k Count)
+		let keep = physBefore[k] or physAfter[k] or written[k]
+		moveValue.clear()
+		moveDsts.clear()
+		moveSrcs.clear()
+		var through = busy or keep
+		for i in 0 upto flagged.count() 'flagged'
+			let w = flagged[i]
+			if not self.isPlaced(w) 'away'
+				continue 'flagged'
+			end 'away'
+			let r = loc[w]
+			if maskHas(physBefore[k], number: regNumOfCount(r)) or (not self.dyingAt(w, k: k) and maskHas(keep, number: regNumOfCount(r))) 'conflict'
+				moveValue.push(w)
+			end 'conflict'
+		end 'flagged'
+		if moveValue.count() == 0 'none'
+			return
+		end 'none'
+		let moving = moveValue.count()
+		for j in 0 upto moving 'moves'
+			let w = moveValue[j]
+			let lent = self.bracketMask(w, k: k)
+			let room = allocatable(fn.classes[w]) and not busy and not keep and not lent
+			if room != 0 'free'
+				var pick = room and not homes and not forbid[w]
+				if pick == 0 'claimed'
+					pick = room and not homes
+				end 'claimed'
+				if pick == 0 'any'
+					pick = room
+				end 'any'
+				self.moveTo(w, r: lowestRegister(pick))
+			end 'free' else 'dying'
+				self.takeFromDying(fn, w: w, k: k, keep: keep, lent: lent)
+			end 'dying'
+		end 'moves'
+		through = through or busy
+		self.emitMoves(b, k: k, through: through)
+	end 'relocate'
+
+	// moveTo moves w into the free register r, noting the copy.
+	function moveTo(mutates self, w Count, r Count)
+		moveDsts.push(r)
+		moveSrcs.push(loc[w])
+		let from = loc[w]
+		self.vacate(from)
+		self.occupy(w, r: r)
+	end 'moveTo'
+
+	// takeFromDying gives w, which must leave its register before the instruction at k and finds none free that suits it,
+	// the register of a value that dies at k and may be anywhere k does not fix before it: that value moves to a free
+	// register, or with none, takes w's.
+	function takeFromDying(mutates self, fn MirFunction, w Count, k Count, keep RegMask, lent RegMask)
+		let suits = allocatable(fn.classes[w]) and not keep and not lent
+		var r = 0 as Count
+		while r < firstVirtual as Count 'registers'
+			let bit = maskOfCount(r)
+			if (suits and busy and bit) != 0 'held'
+				let d = holder[r]
+				if self.dyingAt(d, k: k) and not self.isMoving(d) and fn.classes[d] == fn.classes[w] 'dying'
+					let spare = allocatable(fn.classes[d]) and not busy and not physBefore[k] and not self.bracketMask(d, k: k)
+					if spare != 0 'spare'
+						moveValue.push(d)
+						self.moveTo(d, r: lowestRegister(spare))
+						self.moveTo(w, r: r)
+						return
+					end 'spare'
+					let mine = loc[w]
+					if not maskHas(physBefore[k], number: regNumOfCount(mine)) 'swap'
+						moveDsts.push(mine)
+						moveSrcs.push(r)
+						moveDsts.push(r)
+						moveSrcs.push(mine)
+						moveValue.push(d)
+						self.vacate(r)
+						self.vacate(mine)
+						self.occupy(d, r: mine)
+						self.occupy(w, r: r)
+						return
+					end 'swap'
+				end 'dying'
+			end 'held'
+			r = nextCount(r)
+		end 'registers'
+		panic("backend: virtual register {vregAt(w)} must leave its register before instruction {k} and has nowhere to go: the values live across it are more than the registers it leaves, which spilling rules out")
+	end 'takeFromDying'
+
+	function isMoving(v Count) returns bool
+		for i in 0 upto moveValue.count() 'moving'
+			if moveValue[i] == v 'found'
+				return true
+			end 'found'
+		end 'moving'
+		return false
+	end 'isMoving'
+
+	// reconcile puts every flagged value that is out of its home back in it, by one parallel copy before the branch at k
+	// of block b, moving out of the way, into a register no value has as its home, a value that gave its home up.
+	function reconcile(mutates self, mutates fn MirFunction, b Count, k Count)
+		moveValue.clear()
+		moveDsts.clear()
+		moveSrcs.clear()
+		var through = busy or physBefore[k] or physAfter[k] or written[k]
+		for i in 0 upto flagged.count() 'flagged'
+			let w = flagged[i]
+			if self.isPlaced(w) and self.isDisplaced(w) 'away'
+				moveValue.push(w)
+				moveSrcs.push(loc[w])
+				moveDsts.push(reg[w])
+				let from = loc[w]
+				self.vacate(from)
+			end 'away'
+		end 'flagged'
+		if moveValue.count() == 0 'none'
+			return
+		end 'none'
+		let returning = moveValue.count()
+		for j in 0 upto returning 'home'
+			let w = moveValue[j]
+			let h = reg[w]
+			if (busy and maskOfCount(h)) != 0 'taken'
+				let x = holder[h]
+				if not homeless[x] 'owned'
+					panic("backend: virtual register {vregAt(w)} and virtual register {vregAt(x)} share a home")
+				end 'owned'
+				let room = allocatable(fn.classes[x]) and not busy and not homes and not self.windowMask(x, k: k) and not self.bracketMask(x, k: k)
+				if room == 0 'none'
+					panic("backend: virtual register {vregAt(x)} has nowhere to go out of a home before the branch at instruction {k}, which spilling rules out")
+				end 'none'
+				moveValue.push(x)
+				self.moveTo(x, r: lowestRegister(room))
+			end 'taken'
+			self.occupy(w, r: h)
+		end 'home'
+		through = through or busy
+		self.emitMoves(b, k: k, through: through)
+	end 'reconcile'
+
+	// emitMoves writes the parallel copy of the moves noted before the instruction at k of block b, through no register
+	// of through, and moves the windows of the values moved: one out of its home is in a window from k on.
+	function emitMoves(mutates self, b Count, k Count, through RegMask)
+		moveOut.clear()
+		sequenceCopies(moveOut, dsts: moveDsts, srcs: moveSrcs, through: through, callerSaved: callerSaved, result: result)
+		for i in 0 upto moveOut.count() 'moves'
+			self.insertInstr(k, x: moveOut[i].clone())
+			result.repairMoves = nextCount(result.repairMoves)
+		end 'moves'
+		for j in 0 upto moveValue.count() 'windows'
+			let w = moveValue[j]
+			self.closeWindow(w, stop: k)
+			if homeless[w] or loc[w] != reg[w] 'window'
+				let r = loc[w]
+				self.openWindow(w, b: b, from: k, r: r)
+			end 'window'
+			self.flag(w)
+		end 'windows'
+	end 'emitMoves'
+
+	// openWindow notes that w is in r, not its home, from the instruction at from of block b on, until closeWindow. A window
+	// is from the instruction at winFrom up to the one at winTo, which it leaves out.
+	function openWindow(mutates self, w Count, b Count, from Count, r Count)
+		let at = winValue.count()
+		winValue.push(w)
+		winBlock.push(b)
+		winFrom.push(from)
+		winTo.push(from)
+		winReg.push(r)
+		winNext.push(winFirst[w])
+		winFirst[w] = indexOfCount(at)
+		openWin[w] = indexOfCount(at)
+	end 'openWindow'
+
+	// closeWindow ends w's open window, if it has one, before the instruction at stop.
+	function closeWindow(mutates self, w Count, stop Count)
+		if openWin[w] == noDef 'none'
+			return
+		end 'none'
+		winTo[countOfIndex(openWin[w])] = stop
+		openWin[w] = noDef
+	end 'closeWindow'
+
+	function insertCopy(mutates self, k Count, dst Count, src Count)
+		self.insertInstr(k, x: newCopy(physOfCount(dst), src: physOfCount(src)))
+	end 'insertCopy'
+
+	function insertInstr(mutates self, k Count, consumes x MInstr)
+		insAt.push(k)
+		insIndex.push(insInstr.count())
+		insInstr.push(x)
+	end 'insertInstr'
+
+	// locAt is the register value v is in at the instruction k of block b: a window's, or its own.
+	function locAt(v Count, b Count, k Count) returns Count
+		var w = winFirst[v]
+		while w != noDef 'windows'
+			let i = countOfIndex(w)
+			if winBlock[i] == b and winFrom[i] <= k and k < winTo[i] 'inside'
+				return winReg[i]
+			end 'inside'
+			w = winNext[i]
+		end 'windows'
+		if not coloured[v] 'none'
+			panic("backend: virtual register {vregAt(v)} is read but has no register")
+		end 'none'
+		return reg[v]
+	end 'locAt'
+
+	function physAt(r MReg, b Count, k Count) returns MReg
+		if isVirtual(r) 'virtual'
+			return physOfCount(self.locAt(vregIndex(r), b: b, k: k))
+		end 'virtual'
+		return r
+	end 'physAt'
+
+	// rewrite writes the coloured function over physical registers: the copies colouring inserted, each instruction with
+	// its operands' registers, a copy whose source and target got one register left out, and each edge's arguments as
+	// a parallel copy before its jump.
+	function rewrite(mutates self, mutates fn MirFunction, lv Liveness)
+		let n = fn.instrs.count()
+		origInstrs = exchange(fn.instrs, value: MInstrList.create(0))
+		origBlocks = fn.blocks.clone()
+		origEdges = fn.edges.clone()
+		ir.buildCsr(insAt, targets: insIndex, nodes: n, starts: insStart, list: insList)
+		ir.resetCounts(outStart, n: n)
+		ir.resetCounts(outEnd, n: n)
+		outSelf.clear()
+		for k in 0 upto n 'self'
+			outSelf.push(noDef)
+		end 'self'
+		var emitted = MInstrList.create(0)
+		for o in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[o] as Count
+			let first = emitted.count()
+			for k in origBlocks[b].first upto origBlocks[b].endAt 'instrs'
+				outStart[k] = emitted.count()
+				for e in insStart[k] upto insStart[nextCount(k)] 'inserted'
+					emitted.push(insInstr[insList[e]].clone())
+				end 'inserted'
+				self.rewriteInstr(fn, out: emitted, b: b, k: k, lv: lv)
+				outEnd[k] = emitted.count()
+			end 'instrs'
+			fn.blocks[b].first = first
+			fn.blocks[b].endAt = emitted.count()
+		end 'blocks'
+		for b in 0 upto fn.blocks.count() 'params'
+			fn.blocks[b].paramCount = 0
+		end 'params'
+		for e in 0 upto fn.edges.count() 'edges'
+			fn.edges[e].argCount = 0
+		end 'edges'
+		fn.instrs = emitted
+		fn.savedRegs = self.savedRegisters(fn)
+	end 'rewrite'
+
+	// rewriteInstr writes what the instruction at k of block b becomes, reading it in place.
+	function rewriteInstr(mutates self, mutates fn MirFunction, mutates out MInstrList, b Count, k Count, lv Liveness)
+		let kind = origInstrs[k].kind
+		match kind 'kind'
+			target then self.rewriteTarget(fn, out: out, b: b, k: k, lv: lv)
+			copy then self.rewriteCopy(out, b: b, k: k)
+			parallelCopy then self.rewriteParallelCopy(fn, out: out, b: b, k: k)
+			spill or
+			reload or
+			restore then self.rewriteSpillCode(out, b: b, k: k)
+			frameSetup or
+			frameTeardown then self.emitAt(out, x: origInstrs[k].clone(), k: k)
+		end 'kind'
+	end 'rewriteInstr'
+
+	function rewriteSpillCode(mutates self, mutates out MInstrList, b Count, k Count)
+		var y = origInstrs[k].clone()
+		y.a = self.physAt(origInstrs[k].a, b: b, k: k)
+		self.emitAt(out, x: y, k: k)
+	end 'rewriteSpillCode'
+
+	function emitAt(mutates self, mutates out MInstrList, consumes x MInstr, k Count)
+		outSelf[k] = indexOfCount(out.count())
+		out.push(x)
+	end 'emitAt'
+
+	function rewriteTarget(mutates self, mutates fn MirFunction, mutates out MInstrList, b Count, k Count, lv Liveness)
+		var y = origInstrs[k].clone()
+		for i in 0 upto operandCount(y) 'operands'
+			setOperand(y, index: i, r: self.physAt(operandAt(origInstrs[k], index: i), b: b, k: k))
+		end 'operands'
+		if commuted[k] 'swap'
+			let second = y.c
+			y.c = y.b
+			y.b = second
+		end 'swap' else if reuses(y) and isVirtual(origInstrs[k].b) 'reuse'
+			y.b = y.a
+		end 'reuse'
+		if y.ref == MRef.edge 'edge'
+			let edge = refIndex(y)
+			if fn.edges[edge].argCount > 0 'args'
+				if not isUnconditionalJump(y) 'conditional'
+					panic("backend: a conditional branch with arguments, which spilling gives a block of its own")
+				end 'conditional'
+				self.edgeCopies(fn, out: out, edge: edge, b: b, k: k, lv: lv)
+			end 'args'
+		end 'edge'
+		self.emitAt(out, x: y, k: k)
+	end 'rewriteTarget'
+
+	function rewriteCopy(mutates self, mutates out MInstrList, b Count, k Count)
+		let dst = self.physAt(origInstrs[k].a, b: b, k: k)
+		let src = self.physAt(origInstrs[k].b, b: b, k: k)
+		if dst == src 'same'
+			result.elided = nextCount(result.elided)
+			return
+		end 'same'
+		self.emitAt(out, x: newCopy(dst, src: src), k: k)
+	end 'rewriteCopy'
+
+	function rewriteParallelCopy(mutates self, fn MirFunction, mutates out MInstrList, b Count, k Count)
+		var dsts = CountList.create(0)
+		var srcs = CountList.create(0)
+		let start = refIndex(origInstrs[k])
+		for i in 0 upto copyCount(origInstrs[k]) 'pairs'
+			let at = addCounts(start, b: i)
+			let dst = fn.copies[at].dst
+			if isVirtual(dst) and not coloured[vregIndex(dst)] 'dead'
+				continue 'pairs'
+			end 'dead'
+			dsts.push(countOfMReg(self.physAt(dst, b: b, k: k)))
+			srcs.push(countOfMReg(self.physAt(fn.copies[at].src, b: b, k: k)))
+		end 'pairs'
+		let through = throughAt[k]
+		sequenceCopies(out, dsts: dsts, srcs: srcs, through: through, callerSaved: callerSaved, result: result)
+	end 'rewriteParallelCopy'
+
+	// edgeCopies writes the parallel copy of an edge's arguments into its target's parameters' registers.
+	function edgeCopies(mutates self, fn MirFunction, mutates out MInstrList, edge Count, b Count, k Count, lv Liveness)
+		let target = fn.edges[edge].target as Count
+		var dsts = CountList.create(0)
+		var srcs = CountList.create(0)
+		for i in 0 upto fn.edges[edge].argCount 'args'
+			let param = vregIndex(fn.blockParams[addCounts(fn.blocks[target].params, b: i)])
+			if not coloured[param] 'dead'
+				continue 'args'
+			end 'dead'
+			dsts.push(reg[param])
+			srcs.push(countOfMReg(self.physAt(fn.edgeArgs[addCounts(fn.edges[edge].args, b: i)], b: b, k: k)))
+		end 'args'
+		var through = 0 as RegMask
+		for i in lv.liveInStart[target] upto lv.liveInStart[nextCount(target)] 'live'
+			through = through or maskOfCount(reg[lv.liveIn[i]])
+		end 'live'
+		sequenceCopies(out, dsts: dsts, srcs: srcs, through: through, callerSaved: callerSaved, result: result)
+	end 'edgeCopies'
+
+	// savedRegisters is the callee-saved registers the coloured function writes, which its frame keeps for its caller.
+	function savedRegisters(fn MirFunction) returns RegMask
+		var used = 0 as RegMask
+		for k in 0 upto fn.instrs.count() 'instrs'
+			if fn.instrs[k].kind == MKind.target or fn.instrs[k].kind == MKind.copy or fn.instrs[k].kind == MKind.reload or fn.instrs[k].kind == MKind.restore 'writes'
+				if defines(fn.instrs[k]) or fn.instrs[k].kind == MKind.restore 'defines'
+					used = used or maskOfMReg(fn.instrs[k].a)
+				end 'defines'
+			end 'writes'
+		end 'instrs'
+		return used and calleeSaved and not reservedMask()
+	end 'savedRegisters'
+end 'Colourer'
+
+function resetMasks(mutates a Array with RegMask, n Count)
+	a.clear()
+	try a.resize(n) otherwise panic("backend: an analysis past memory")
+end 'resetMasks'
+
+function regNumOfCount(r Count) returns RegNum
+	return try r as RegNum otherwise panic("backend: a register past the register file")
+end 'regNumOfCount'
+
+function maskOfCount(r Count) returns RegMask
+	return regBit(regNumOfCount(r))
+end 'maskOfCount'
+
+function physOfCount(r Count) returns MReg
+	return try r as MReg otherwise panic("backend: a register past an operand")
+end 'physOfCount'
+
+function countOfMReg(r MReg) returns Count
+	return physicalNumber(r) as Count
+end 'countOfMReg'
+
+// maskOfMReg is the register a physical operand names, as a mask, or none for an operand that is absent.
+function maskOfMReg(r MReg) returns RegMask
+	if isPhysical(r) 'physical'
+		return regBit(physicalNumber(r))
+	end 'physical'
+	if r == noMReg or isVirtual(r) 'none'
+		return 0
+	end 'none'
+	panic("backend: an operand that is neither a register nor absent")
+end 'maskOfMReg'
+
+// lowestRegister is the lowest-numbered register of a mask that holds one.
+function lowestRegister(mask RegMask) returns Count
+	if mask == 0 'empty'
+		panic("backend: the lowest register of an empty mask")
+	end 'empty'
+	var m = mask
+	var r = 0 as Count
+	while (m and 1) == 0 'registers'
+		m = m shr 1
+		r = nextCount(r)
+	end 'registers'
+	return r
+end 'lowestRegister'
+
+// colourFunction colours fn, which spillFunction has spilled with s without a refusal, over physical registers, and
+// takes it out of SSA form.
+export function colourFunction(mutates fn MirFunction, mutates s Spiller, mutates c Colourer) returns ColourResult
+	s.analyze(fn)
+	c.start(fn, convs: s.convs)
+	c.findHints(fn)
+	c.survey(fn, g: s.graph, lv: s.lv, convs: s.convs)
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		c.sweepBlock(fn, lv: s.lv, b: b, convs: s.convs)
+	end 'blocks'
+	c.rewrite(fn, lv: s.lv)
+	return exchange(c.result, value: ColourResult.new())
+end 'colourFunction'
+
+// Allocator is register allocation's state, which a module's functions share so that its arrays keep their capacity.
+// verifies is whether each function is held to the invariants the two halves stand on, pressure after spilling and the
+// colouring's checker after colouring, which --verify-ir asks for.
+export type Allocator
+	var spiller as Spiller
+	var colourer as Colourer
+	var verifies as bool
+
+	export static function new(verifies bool) returns Allocator
+		return Allocator{spiller: Spiller.new(), colourer: Colourer.new(), verifies: verifies}
+	end 'new'
+
+	// allocate gives every virtual register of fn a physical register, spilling first where the registers do not
+	// suffice, after which every operand is physical, no edge has arguments and no parallel copy is left. It gives the
+	// hot loops E5001 refuses instead, leaving fn unallocated.
+	export function allocate(mutates self, mutates fn MirFunction) returns PressureRefusalList
+		var spilled = spillFunction(fn, s: spiller)
+		if spilled.refusals.count() > 0 'refused'
+			return exchange(spilled.refusals, value: PressureRefusalList.create(0))
+		end 'refused'
+		if verifies 'pressure'
+			let problems = verifyPressureUnder(fn, convs: spiller.convs)
+			if problems.count() > 0 'broken'
+				panic("backend: {fn.symbol} is spilled wrong: {problems[0]}")
+			end 'broken'
+		end 'pressure'
+		_ = colourFunction(fn, s: spiller, c: colourer)
+		if verifies 'colouring'
+			let wrong = checkColouring(fn, s: spiller, c: colourer)
+			if wrong.count() > 0 'broken'
+				panic("backend: {fn.symbol} is coloured wrong: {wrong[0]}")
+			end 'broken'
+		end 'colouring'
+		return PressureRefusalList.create(0)
+	end 'allocate'
+end 'Allocator'

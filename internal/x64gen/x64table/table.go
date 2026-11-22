@@ -180,6 +180,9 @@ type alloc struct {
 	fixedUses, fixedDefs, clobbers []string
 	// call clobbers what the calling convention of the call does not keep; ret reads the convention's result registers.
 	call, ret bool
+	// commutes says that a two-address form gives the same result with its two uses swapped, so the allocator may
+	// reuse the second one's register when only that one dies.
+	commutes bool
 }
 
 // modrm says what a form's ModRM byte is.
@@ -275,6 +278,12 @@ func aluRegReg(name, mnemonic string, opcode byte, left, right string, leftAcces
 	}
 }
 
+// commutative marks a two-address form whose uses may be swapped.
+func commutative(f form) form {
+	f.commutes = true
+	return f
+}
+
 // group1 are add, and, sub and cmp with an immediate: one opcode for a byte and one for a doubleword, and a /digit.
 func group1(mnemonic string, digit int, a access) []form {
 	return []form{
@@ -321,17 +330,17 @@ func buildForms() []form {
 	var fs []form
 	fs = append(fs,
 		aluRegReg("MovRegReg", "mov", 0x89, "dest", "src", write, noEffects),
-		aluRegReg("AddRegReg", "add", 0x01, "dest", "src", readWrite, flags),
+		commutative(aluRegReg("AddRegReg", "add", 0x01, "dest", "src", readWrite, flags)),
 		aluRegReg("SubRegReg", "sub", 0x29, "dest", "src", readWrite, flags),
-		aluRegReg("AndRegReg", "and", 0x21, "dest", "src", readWrite, flags),
-		aluRegReg("OrRegReg", "or", 0x09, "dest", "src", readWrite, flags),
-		aluRegReg("XorRegReg", "xor", 0x31, "dest", "src", readWrite, flags),
+		commutative(aluRegReg("AndRegReg", "and", 0x21, "dest", "src", readWrite, flags)),
+		commutative(aluRegReg("OrRegReg", "or", 0x09, "dest", "src", readWrite, flags)),
+		commutative(aluRegReg("XorRegReg", "xor", 0x31, "dest", "src", readWrite, flags)),
 		aluRegReg("CmpRegReg", "cmp", 0x39, "left", "right", read, flags),
 		aluRegReg("TestRegReg", "test", 0x85, "left", "right", read, flags),
-		form{
+		commutative(form{
 			name: "ImulRegReg", mnemonic: "imul", operands: []operand{reg("dest", fieldReg, readWrite), reg("src", fieldRM, read)},
 			rexW: true, opcode: []byte{opcodeHigh, 0xAF}, modrm: modOperands, effects: flags,
-		},
+		}),
 		form{
 			name: "LoadRegBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,

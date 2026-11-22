@@ -1,0 +1,98 @@
+// SSA destruction: each edge's arguments, coloured, become one parallel copy before the jump along it into the
+// registers of its target's parameters (Colourer.edgeCopies), and a parallel copy is sequenced into moves here. A
+// critical edge, and any edge with arguments out of a block with two successors, has a block of its own already
+// (prepareBlocks), so the copies run only when the edge is taken.
+
+// sequenceCopies writes the parallel copy dsts[i] := srcs[i] as moves: a copy whose target no other copy still reads
+// goes first; when only cycles are left, one target is saved in a register that holds nothing the copy or the values
+// live through it need (a caller-saved one first, which the frame need not keep), or, with none, exchanged with its
+// source by three xors, which need no register; the flags they write are dead before the jump that ends the block.
+function sequenceCopies(mutates out MInstrList, mutates dsts CountList, mutates srcs CountList, through RegMask, callerSaved RegMask, mutates result ColourResult)
+	var used = through
+	var i = 0 as Count
+	while i < dsts.count() 'trim'
+		used = used or maskOfCount(dsts[i]) or maskOfCount(srcs[i])
+		if dsts[i] == srcs[i] 'same'
+			removePair(dsts, srcs: srcs, i: i)
+			result.elided = nextCount(result.elided)
+		end 'same' else 'kept'
+			i = nextCount(i)
+		end 'kept'
+	end 'trim'
+	while dsts.count() > 0 'drain'
+		for j in 0 upto dsts.count() 'leaves'
+			if not isSourceIn(srcs, r: dsts[j]) 'leaf'
+				out.push(newCopy(physOfCount(dsts[j]), src: physOfCount(srcs[j])))
+				result.edgeMoves = nextCount(result.edgeMoves)
+				removePair(dsts, srcs: srcs, i: j)
+				continue 'drain'
+			end 'leaf'
+		end 'leaves'
+		let d = dsts[0]
+		let s = srcs[0]
+		let spare = allocatable(classOfNumber(regNumOfCount(d))) and not used
+		if spare != 0 'spare'
+			var pick = spare and callerSaved
+			if pick == 0 'kept'
+				pick = spare
+			end 'kept'
+			let t = lowestRegister(pick)
+			out.push(newCopy(physOfCount(t), src: physOfCount(d)))
+			result.edgeMoves = nextCount(result.edgeMoves)
+			renameSources(srcs, from: d, into: t)
+		end 'spare' else 'exchange'
+			let a = physOfCount(d)
+			let other = physOfCount(s)
+			out.push(newTarget(X64Form.xorRegReg, a: a, b: a, c: other, aux: 0, imm: 0))
+			out.push(newTarget(X64Form.xorRegReg, a: other, b: other, c: a, aux: 0, imm: 0))
+			out.push(newTarget(X64Form.xorRegReg, a: a, b: a, c: other, aux: 0, imm: 0))
+			result.edgeSwaps = nextCount(result.edgeSwaps)
+			removePair(dsts, srcs: srcs, i: 0)
+			swapSources(srcs, a: d, b: s)
+			var j = 0 as Count
+			while j < dsts.count() 'satisfied'
+				if dsts[j] == srcs[j] 'done'
+					removePair(dsts, srcs: srcs, i: j)
+				end 'done' else 'pending'
+					j = nextCount(j)
+				end 'pending'
+			end 'satisfied'
+		end 'exchange'
+	end 'drain'
+end 'sequenceCopies'
+
+function removePair(mutates dsts CountList, mutates srcs CountList, i Count)
+	let last = prevCount(dsts.count())
+	dsts[i] = dsts[last]
+	srcs[i] = srcs[last]
+	_ = try dsts.pop() otherwise panic("backend: an empty parallel copy")
+	_ = try srcs.pop() otherwise panic("backend: an empty parallel copy")
+end 'removePair'
+
+function isSourceIn(srcs CountList, r Count) returns bool
+	for i in 0 upto srcs.count() 'sources'
+		if srcs[i] == r 'found'
+			return true
+		end 'found'
+	end 'sources'
+	return false
+end 'isSourceIn'
+
+function renameSources(mutates srcs CountList, from Count, into Count)
+	for i in 0 upto srcs.count() 'sources'
+		if srcs[i] == from 'renamed'
+			srcs[i] = into
+		end 'renamed'
+	end 'sources'
+end 'renameSources'
+
+// swapSources follows an exchange of two registers: what a copy read from one it now reads from the other.
+function swapSources(mutates srcs CountList, a Count, b Count)
+	for i in 0 upto srcs.count() 'sources'
+		if srcs[i] == a 'a'
+			srcs[i] = b
+		end 'a' else if srcs[i] == b 'b'
+			srcs[i] = a
+		end 'b'
+	end 'sources'
+end 'swapSources'

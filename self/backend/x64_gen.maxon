@@ -1095,6 +1095,10 @@ export function rematerializable(form X64Form) returns bool
 	return formTableDigit("0000000000000000000000111000000000000000000000000000000000000000000000000000", form: form) == 1
 end 'rematerializable'
 
+export function commutesOperands(form X64Form) returns bool
+	return formTableDigit("0101110010000000000000000000000000000000000000000000000000000000000000000000", form: form) == 1
+end 'commutesOperands'
+
 // fixedUses is the registers a form reads that no operand names.
 export function fixedUses(form X64Form) returns RegMask
 	return match form 'form'

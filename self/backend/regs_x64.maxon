@@ -16,7 +16,7 @@ function regNumOf(r X64Register) returns RegNum
 	return try r.rawValue as RegNum otherwise panic("backend: a register past the register file")
 end 'regNumOf'
 
-function regMaskOf(r X64Register) returns RegMask
+export function regMaskOf(r X64Register) returns RegMask
 	return regBit(regNumOf(r))
 end 'regMaskOf'
 
@@ -82,10 +82,15 @@ end 'CallConvention'
 // and the error in rdx, and nothing kept, so a value lives across a call only in the frame.
 function conventionOf(kind ConventionKind) returns CallConvention
 	return match kind 'kind'
-		internal gives CallConvention.make(MRegList.create(0), result: regNumOf(X64Register.rax), error: regNumOf(X64Register.rdx), calleeSaved: 0)
+		internal gives internalConvention(0)
 		win64 gives CallConvention.make(win64Args(), result: regNumOf(X64Register.rax), error: regNumOf(X64Register.rdx), calleeSaved: win64CalleeSaved())
 	end 'kind'
 end 'conventionOf'
+
+// internalConvention is the internal convention keeping calleeSaved across a call.
+function internalConvention(calleeSaved RegMask) returns CallConvention
+	return CallConvention.make(MRegList.create(0), result: regNumOf(X64Register.rax), error: regNumOf(X64Register.rdx), calleeSaved: calleeSaved)
+end 'internalConvention'
 
 function win64Args() returns MRegList
 	var args = MRegList.create(0)
@@ -107,13 +112,19 @@ function win64CalleeSaved() returns RegMask
 end 'win64CalleeSaved'
 
 // Conventions are the tables of both conventions, which the allocator makes once.
-type Conventions
-	export var internal as CallConvention
-	export var win64 as CallConvention
+export type Conventions
+	var internal as CallConvention
+	var win64 as CallConvention
 
-	static function make() returns Conventions
+	export static function make() returns Conventions
 		return Conventions{internal: conventionOf(ConventionKind.internal), win64: conventionOf(ConventionKind.win64)}
 	end 'make'
+
+	// keeping is the conventions with an internal one that keeps calleeSaved across a call, as the convention to come
+	// will keep rbx and r12 to r15, for the allocator's tests.
+	export static function keeping(calleeSaved RegMask) returns Conventions
+		return Conventions{internal: internalConvention(calleeSaved), win64: conventionOf(ConventionKind.win64)}
+	end 'keeping'
 end 'Conventions'
 
 // callConvention is the convention of a call instruction: a call through an import's slot is a DLL's.
@@ -128,18 +139,6 @@ end 'callConvention'
 function isUnconditionalJump(x MInstr) returns bool
 	return x.kind == MKind.target and x.form == X64Form.jmpRel32
 end 'isUnconditionalJump'
-
-// trivialScratch are the registers the trivial allocator moves values through: no form and no convention fixes them,
-// and nothing lives in them across an instruction.
-function trivialScratch(index Count) returns MReg
-	if index == 0 'first'
-		return physReg(X64Register.r10)
-	end 'first'
-	if index == 1 'second'
-		return physReg(X64Register.r11)
-	end 'second'
-	panic("backend: an instruction reads more registers than the trivial allocator has scratch registers")
-end 'trivialScratch'
 
 // The constraints of an instruction. The registers of a target instruction are, in order: the one it defines, if
 // any; the one a two-address form reads and writes, which the definition reuses; and the others it reads. A physical
@@ -187,6 +186,20 @@ function reuses(x MInstr) returns bool
 	end 'kind'
 end 'reuses'
 
+// commutes is whether a two-address instruction gives the same result with its two uses swapped.
+function commutes(x MInstr) returns bool
+	return match x.kind 'kind'
+		target gives commutesOperands(x.form)
+		copy or
+		reload or
+		spill or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'commutes'
+
 // implicitUses are the registers an instruction reads that no operand names: a form's fixed uses, and the result
 // registers a return reads.
 function implicitUses(x MInstr, convs Conventions, canThrow bool) returns RegMask
@@ -216,7 +229,7 @@ end 'returnUses'
 // and what a call's convention does not keep. A value live across the instruction may not be in one of them.
 function implicitDefs(x MInstr, convs Conventions) returns RegMask
 	return match x.kind 'kind'
-		target gives fixedDefs(x.form) or clobbers(x.form) or callClobbers(x, convs: convs)
+		target gives formWrites(x.form) or callClobbers(x, convs: convs)
 		copy or
 		reload or
 		spill or
@@ -227,6 +240,12 @@ function implicitDefs(x MInstr, convs Conventions) returns RegMask
 	end 'kind'
 end 'implicitDefs'
 
+// formWrites are the registers a form writes that no operand names, its fixed results and its clobbers, a call's
+// convention aside.
+function formWrites(form X64Form) returns RegMask
+	return fixedDefs(form) or clobbers(form)
+end 'formWrites'
+
 function callClobbers(x MInstr, convs Conventions) returns RegMask
 	if not isCall(x.form) 'other'
 		return 0
@@ -236,6 +255,14 @@ function callClobbers(x MInstr, convs Conventions) returns RegMask
 		win64 gives convs.win64.clobbered
 	end 'kind'
 end 'callClobbers'
+
+// keptBy is the registers a call keeps.
+function keptBy(x MInstr, convs Conventions) returns RegMask
+	return match callConvention(x) 'kind'
+		internal gives convs.internal.calleeSaved
+		win64 gives convs.win64.calleeSaved
+	end 'kind'
+end 'keptBy'
 
 // isRematerializable is whether an instruction makes its result from nothing a register or memory holds, so a value it
 // defines can be made again before each use instead of being kept or spilled.
@@ -251,3 +278,9 @@ function isRematerializable(x MInstr) returns bool
 		frameTeardown gives false
 	end 'kind'
 end 'isRematerializable'
+
+// isZeroIdiom is whether an instruction sets its register to zero whatever the register held, the exclusive or of a
+// register with itself: it reads nothing, so no value need be in the register before it.
+function isZeroIdiom(x MInstr) returns bool
+	return x.kind == MKind.target and x.form == X64Form.xorRegReg and isPhysical(x.b) and x.b == x.c and x.a == x.b
+end 'isZeroIdiom'

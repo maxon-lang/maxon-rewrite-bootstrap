@@ -109,9 +109,11 @@ export type Selector
 	var typeSymbols as CalleeSymbols
 	// datums are the constants of the executable's data that the unit defines, by symbol.
 	var datums as TableSet
+	// allocator allocates the registers of every function of the module.
+	var allocator as Allocator
 
-	static function new() returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new()}
+	static function new(verifies bool) returns Selector
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), allocator: Allocator.new(verifies)}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -637,17 +639,15 @@ function emitCompareExchange(mutates sel Selector, fn ir.IrFunction, ins ir.Inst
 end 'emitCompareExchange'
 
 // emitCallImport calls a DLL import by the Win64 convention: the first four words in rcx, rdx, r8 and r9, the rest on
-// the stack above the 32 bytes of shadow space the callee may write, rsp aligned to 16 at the call. rbx, which the callee
-// preserves, holds rsp across the call and is restored.
+// the stack above the 32 bytes of shadow space the callee may write, rsp aligned to 16 at the call. A value holds rsp
+// across the call, which allocation keeps in a register the callee preserves or in the frame.
 function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let start = ir.callImportArgsStart(ins)
 	let count = ir.callImportArgsCount(ins)
 	let stackWords = count - win64RegisterArgs if count > win64RegisterArgs else 0
 	let frame = try (win64ShadowBytes + stackWords * wordBytes + stackAlignment - 1) / stackAlignment * stackAlignment otherwise panic("backend: more arguments than memory")
 	let sp = physReg(rsp)
-	let saved = physReg(rbx)
-	sel.push(saved)
-	sel.target(X64Form.movRegReg, a: saved, b: sp, c: noMReg, aux: 0, imm: 0)
+	let saved = sel.define(X64Form.movRegReg, b: sp, c: noMReg, aux: 0, imm: 0)
 	sel.target(chooseAndRegImm(-stackAlignment), a: sp, b: sp, c: noMReg, aux: 0, imm: -stackAlignment)
 	let bytes = imm32Of(frame)
 	sel.target(chooseSubRegImm(bytes), a: sp, b: sp, c: noMReg, aux: 0, imm: bytes as FullRangeInt)
@@ -661,7 +661,6 @@ function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	end 'registers'
 	sel.referring(X64Form.callRip, a: noMReg, refers: Referent.make(MRef.importSlot, aux: imm32Of(importIndex(ir.callImportName(fn, x: ins)))))
 	sel.target(X64Form.movRegReg, a: sp, b: saved, c: noMReg, aux: 0, imm: 0)
-	sel.target(X64Form.popReg, a: saved, b: noMReg, c: noMReg, aux: 0, imm: 0)
 	sel.takeResult(ins.dst)
 end 'emitCallImport'
 
@@ -970,8 +969,8 @@ end 'emitThrow'
 
 // selectFunction writes the code of one function into the unit: its machine IR, by the rules and the helpers, then
 // allocated and encoded. A prologue block of its own comes first, so that a branch to the IR's first block does not
-// run it again.
-function selectFunction(mutates sel Selector, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool)
+// run it again. A hot loop that needs more registers than the target has is E5001, reported at the function.
+function selectFunction(mutates sel Selector, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool, mutates errs diag.ErrorList)
 	sel.prepare(p, f: f)
 	sel.fnSymbol = symbol.clone()
 	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow)
@@ -1000,9 +999,46 @@ function selectFunction(mutates sel Selector, mutates p ast.Project, f ir.IrFunc
 	end 'blocks'
 	sel.mir.endBlock()
 	var mir = exchange(sel.mir, value: MirFunction.new("", canThrow: false))
-	allocateTrivially(mir)
+	let refusals = sel.allocator.allocate(mir)
+	if refusals.count() > 0 'refused'
+		reportRefusals(p, f: f, refusals: refusals, errs: errs)
+		return
+	end 'refused'
 	encodeMachineFunction(sel.u, fn: mir, instance: instance)
 end 'selectFunction'
+
+// targetName is the target's name in a diagnostic.
+let targetName = "x64"
+
+// reportRefusals reports each hot loop of f that E5001 refuses, at the function's declaration, since the IR keeps no
+// place of a loop: an instance's at its generic's.
+function reportRefusals(p ast.Project, f ir.IrFunction, refusals PressureRefusalList, mutates errs diag.ErrorList)
+	var origin = f.decl
+	let generic = p.funcs.slots[ast.funcSlot(f.decl)][ast.funcIndex(f.decl)].genericOrigin
+	if generic != ast.noFunc 'instance'
+		origin = generic
+	end 'instance'
+	let module = p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].module
+	let offset = p.modules[ast.modIndex(module)].tree.startOf(p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].nodeID)
+	let place = "'{p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].name}'"
+	for i in 0 upto refusals.count() 'refusals'
+		let message = pressureRefusalMessage(refusals[i], place: place, target: targetName)
+		if not reported(errs, message: message, module: module, offset: offset) 'new'
+			diag.pushSiteError(errs, code: diag.errRegisterPressure, message: message, module: module, offset: offset)
+		end 'new'
+	end 'refusals'
+end 'reportRefusals'
+
+// reported is whether errs holds E5001 with the message at the place already: every instance of a generic refuses the
+// same loop.
+function reported(errs diag.ErrorList, message String, module diag.ModuleID, offset diag.U32) returns bool
+	for i in 0 upto errs.count() 'errors'
+		if errs[i].code == diag.errRegisterPressure and errs[i].site.module == module and errs[i].site.offset == offset and errs[i].message == message 'same'
+			return true
+		end 'same'
+	end 'errors'
+	return false
+end 'reported'
 
 // bodySymbol is the link name of the body of a closure of the function with the link name enclosing.
 function bodySymbol(enclosing String, index Count) returns String
@@ -1045,15 +1081,15 @@ end 'ownsCaptures'
 // selectFunctionTree writes the code of a function with the link name symbol, and of the bodies of its closures and its
 // behaviours, each closure's with the routine that drops what the closure owns and each behaviour's with its thunk, and
 // the tables that they name and the unit does not have yet.
-function selectFunctionTree(mutates sel Selector, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool)
-	selectFunction(sel, p: p, f: f, symbol: symbol, instance: instance)
+function selectFunctionTree(mutates sel Selector, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool, mutates errs diag.ErrorList)
+	selectFunction(sel, p: p, f: f, symbol: symbol, instance: instance, errs: errs)
 	let due = exchange(sel.due, value: ir.WitnessTableList.create(0))
 	for i in 0 upto due.count() 'tables'
 		emitTable(sel.u, p: p, t: due[i], typeSymbol: typeNameSymbol(p, t: due[i].concrete))
 	end 'tables'
 	for i in 0 upto f.bodies.count() 'bodies'
 		let body = bodySymbol(symbol, index: i)
-		selectFunctionTree(sel, p: p, f: f.bodies[i], symbol: body, instance: instance)
+		selectFunctionTree(sel, p: p, f: f.bodies[i], symbol: body, instance: instance, errs: errs)
 		if isBehaviourBody(f.bodies[i]) 'behaviour'
 			emitBehaviourThunk(sel.u, p: p, symbol: thunkSymbol(body), body: f.bodies[i], bodySymbol: body, instance: instance)
 		end 'behaviour' else if ownsCaptures(f.bodies[i]) 'owns'
@@ -1062,11 +1098,12 @@ function selectFunctionTree(mutates sel Selector, mutates p ast.Project, f ir.Ir
 	end 'bodies'
 end 'selectFunctionTree'
 
-// emitModule is the unit with the code of a module's functions.
-export function emitModule(mutates p ast.Project, fns ir.IrFunctionList) returns CodeUnit
-	var sel = Selector.new()
+// emitModule is the unit with the code of a module's functions, and the hot loops E5001 refuses in errs. With verifies,
+// register allocation holds each function to its invariants.
+export function emitModule(mutates p ast.Project, fns ir.IrFunctionList, verifies bool, mutates errs diag.ErrorList) returns CodeUnit
+	var sel = Selector.new(verifies)
 	for i in 0 upto fns.count() 'each'
-		selectFunctionTree(sel, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.slots[ast.funcSlot(fns[i].decl)][ast.funcIndex(fns[i].decl)].genericOrigin != ast.noFunc)
+		selectFunctionTree(sel, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.slots[ast.funcSlot(fns[i].decl)][ast.funcIndex(fns[i].decl)].genericOrigin != ast.noFunc, errs: errs)
 	end 'each'
 	sel.u.asm.endLabels()
 	return exchange(sel.u, value: CodeUnit.new())

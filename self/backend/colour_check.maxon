@@ -1,0 +1,262 @@
+// The checker of a colouring: it runs the coloured function beside the one colouring was given, on symbols rather than
+// numbers. Each value and each thing a fixed register is given is a token; a register holds a token, a copy moves one,
+// an exchange of three xors swaps two (xor is exact on any two tokens), and what an instruction or a call writes
+// without a value is a token of its own. Wherever the original reads a value, a fixed register or an edge's argument,
+// or a block's live values and parameters are entered, the coloured function must hold the same token in the register
+// it reads there. That one test says that no two values live at once share a register, that every fixed constraint
+// holds and that every edge's copies deliver its arguments. It is one walk of the function.
+
+type ColourCheck
+	var problems as NameList
+	var content as CountList
+	var hasContent as BoolList
+	var state as CountList
+	var phys as CountList
+	var next as Count
+
+	static function new(regs Count) returns ColourCheck
+		var check = ColourCheck{problems: NameList.create(0), content: CountList.create(0), hasContent: BoolList.create(0), state: CountList.create(0), phys: CountList.create(0), next: 0}
+		ir.resetCounts(check.content, n: regs)
+		ir.resetFlags(check.hasContent, n: regs)
+		ir.resetCounts(check.state, n: firstVirtual as Count)
+		ir.resetCounts(check.phys, n: firstVirtual as Count)
+		return check
+	end 'new'
+
+	function fresh(mutates self) returns Count
+		next = nextCount(next)
+		return next
+	end 'fresh'
+
+	function setContent(mutates self, v Count, token Count)
+		content[v] = token
+		hasContent[v] = true
+	end 'setContent'
+
+	function contentOf(mutates self, v Count, site String) returns Count
+		if not hasContent[v] 'none'
+			problems.push("{site}: virtual register {vregAt(v)} is read before it is defined")
+		end 'none'
+		return content[v]
+	end 'contentOf'
+
+	// valueOf is the token an operand of the original holds.
+	function valueOf(mutates self, r MReg, site String) returns Count
+		if isVirtual(r) 'virtual'
+			return self.contentOf(vregIndex(r), site: site)
+		end 'virtual'
+		return phys[countOfMReg(r)]
+	end 'valueOf'
+
+	function expect(mutates self, r Count, token Count, what String, site String)
+		if state[r] != token 'differs'
+			problems.push("{site}: register {r} does not hold {what}")
+		end 'differs'
+	end 'expect'
+
+	// enterBlock starts block b with the registers holding new tokens, its live values in their registers and its
+	// parameters given new ones.
+	function enterBlock(mutates self, fn MirFunction, c Colourer, lv Liveness, b Count)
+		for r in 0 upto firstVirtual as Count 'registers'
+			let token = self.fresh()
+			state[r] = token
+			phys[r] = token
+		end 'registers'
+		let site = "block {b}"
+		for i in lv.liveInStart[b] upto lv.liveInStart[nextCount(b)] 'live'
+			let v = lv.liveIn[i]
+			let token = self.contentOf(v, site: site)
+			state[c.reg[v]] = token
+		end 'live'
+		for p in 0 upto c.origBlocks[b].paramCount 'params'
+			let v = vregIndex(fn.blockParams[addCounts(c.origBlocks[b].params, b: p)])
+			if c.coloured[v] 'held'
+				let token = self.fresh()
+				self.setContent(v, token: token)
+				state[c.reg[v]] = token
+			end 'held'
+		end 'params'
+	end 'enterBlock'
+
+	// simulate runs an instruction colouring inserted.
+	function simulate(mutates self, y MInstr, site String)
+		if y.kind == MKind.copy 'copy'
+			state[countOfMReg(y.a)] = state[countOfMReg(y.b)]
+			return
+		end 'copy'
+		if y.kind == MKind.target and y.form == X64Form.xorRegReg 'exchange'
+			let a = countOfMReg(y.a)
+			state[a] = state[a] xor state[countOfMReg(y.c)]
+			return
+		end 'exchange'
+		problems.push("{site}: colouring inserted an instruction that is neither a copy nor part of an exchange")
+	end 'simulate'
+
+	// elided applies an original copy that colouring left out.
+	function elided(mutates self, fn MirFunction, x MInstr, site String)
+		match x.kind 'kind'
+			copy then self.assignCopy(x, site: site)
+			parallelCopy then self.parallel(fn, x: x, site: site)
+			target or
+			spill or
+			reload or
+			restore or
+			frameSetup or
+			frameTeardown then problems.push("{site}: an instruction that is not a copy was left out")
+		end 'kind'
+	end 'elided'
+
+	function assignCopy(mutates self, x MInstr, site String)
+		let token = self.valueOf(x.b, site: site)
+		self.assign(x.a, token: token)
+	end 'assignCopy'
+
+	function parallel(mutates self, fn MirFunction, x MInstr, site String)
+		var tokens = CountList.create(0)
+		let start = refIndex(x)
+		for i in 0 upto copyCount(x) 'read'
+			tokens.push(self.valueOf(fn.copies[addCounts(start, b: i)].src, site: site))
+		end 'read'
+		for i in 0 upto copyCount(x) 'write'
+			self.assign(fn.copies[addCounts(start, b: i)].dst, token: tokens[i])
+		end 'write'
+	end 'parallel'
+
+	// assign gives an operand of the original a token, as the original's definition of it does.
+	function assign(mutates self, r MReg, token Count)
+		if isVirtual(r) 'virtual'
+			self.setContent(vregIndex(r), token: token)
+		end 'virtual' else if isPhysical(r) 'physical'
+			phys[countOfMReg(r)] = token
+		end 'physical'
+	end 'assign'
+
+	function operand(mutates self, xr MReg, yr MReg, site String)
+		if isVirtual(xr) 'virtual'
+			if not isPhysical(yr) 'unallocated'
+				problems.push("{site}: virtual register {xr} has no register")
+				return
+			end 'unallocated'
+			let token = self.contentOf(vregIndex(xr), site: site)
+			self.expect(countOfMReg(yr), token: token, what: "virtual register {xr}", site: site)
+			return
+		end 'virtual'
+		if yr != xr 'moved'
+			problems.push("{site}: a fixed operand {xr} became {yr}")
+			return
+		end 'moved'
+		if isPhysical(xr) and (regBit(physicalNumber(xr)) and reservedMask()) == 0 'fixed'
+			let token = phys[countOfMReg(xr)]
+			self.expect(countOfMReg(yr), token: token, what: "the value fixed in it", site: site)
+		end 'fixed'
+	end 'operand'
+
+	// edge checks that an edge's target finds its live values and its parameters' arguments in their registers.
+	function edge(mutates self, fn MirFunction, c Colourer, lv Liveness, e Count, site String)
+		let target = c.origEdges[e].target as Count
+		for i in lv.liveInStart[target] upto lv.liveInStart[nextCount(target)] 'live'
+			let v = lv.liveIn[i]
+			let token = self.contentOf(v, site: site)
+			self.expect(c.reg[v], token: token, what: "virtual register {vregAt(v)} live into block {target}", site: site)
+		end 'live'
+		for i in 0 upto c.origEdges[e].argCount 'args'
+			let param = vregIndex(fn.blockParams[addCounts(c.origBlocks[target].params, b: i)])
+			if c.coloured[param] 'held'
+				let arg = fn.edgeArgs[addCounts(c.origEdges[e].args, b: i)]
+				let token = self.valueOf(arg, site: site)
+				self.expect(c.reg[param], token: token, what: "the argument {arg} of parameter {vregAt(param)}", site: site)
+			end 'held'
+		end 'args'
+	end 'edge'
+
+	// instruction checks the instruction y that the original x became, and runs both.
+	function instruction(mutates self, fn MirFunction, c Colourer, lv Liveness, convs Conventions, x MInstr, y MInstr, commuted bool, site String)
+		if x.ref == MRef.edge 'edge'
+			self.edge(fn, c: c, lv: lv, e: refIndex(x), site: site)
+		end 'edge'
+		if x.kind == MKind.restore 'restore'
+			let token = self.contentOf(vregIndex(x.a), site: site)
+			state[countOfMReg(y.a)] = token
+			return
+		end 'restore'
+		var first = 0 as Count
+		if defines(x) 'defines'
+			first = 1
+		end 'defines'
+		var last = operandCount(x)
+		if isZeroIdiom(x) 'zero'
+			last = first
+		end 'zero'
+		for i in first upto last 'uses'
+			var at = i
+			if commuted 'swap'
+				at = commutedSlot(i)
+			end 'swap'
+			self.operand(operandAt(x, index: at), yr: operandAt(y, index: i), site: site)
+		end 'uses'
+		var fixed = implicitUses(x, convs: convs, canThrow: fn.canThrow) and not reservedMask()
+		while fixed != 0 'fixedUses'
+			let r = lowestRegister(fixed)
+			fixed = fixed and not maskOfCount(r)
+			let token = phys[r]
+			self.expect(r, token: token, what: "the value fixed in it", site: site)
+		end 'fixedUses'
+		var clobbered = implicitDefs(x, convs: convs) and not reservedMask()
+		while clobbered != 0 'fixedDefs'
+			let r = lowestRegister(clobbered)
+			clobbered = clobbered and not maskOfCount(r)
+			let token = self.fresh()
+			state[r] = token
+			phys[r] = token
+		end 'fixedDefs'
+		if not defines(x) 'noDef'
+			return
+		end 'noDef'
+		var token = 0 as Count
+		if x.kind == MKind.copy 'copy'
+			token = self.valueOf(x.b, site: site)
+		end 'copy' else 'made'
+			token = self.fresh()
+		end 'made'
+		if isVirtual(x.a) or (isPhysical(x.a) and (regBit(physicalNumber(x.a)) and reservedMask()) == 0) 'held'
+			self.assign(x.a, token: token)
+			state[countOfMReg(y.a)] = token
+		end 'held'
+	end 'instruction'
+end 'ColourCheck'
+
+// commutedSlot is the operand of a two-address instruction whose uses colouring swapped that slot i of the result
+// reads: the reused one (1) and the other use (2) trade places, and the definition (0) stays.
+function commutedSlot(i Count) returns Count
+	if i == 1 'reused'
+		return 2
+	end 'reused'
+	if i == 2 'other'
+		return 1
+	end 'other'
+	return i
+end 'commutedSlot'
+
+// checkColouring holds fn, which colourFunction has just coloured with s and c, to the function it was given, and gives
+// what it finds wrong, nothing when the colouring is right.
+export function checkColouring(fn MirFunction, s Spiller, c Colourer) returns NameList
+	var check = ColourCheck.new(fn.vregCount())
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		check.enterBlock(fn, c: c, lv: s.lv, b: b)
+		for k in c.origBlocks[b].first upto c.origBlocks[b].endAt 'instrs'
+			let site = "block {b}, instruction {k}"
+			for j in c.outStart[k] upto c.outEnd[k] 'out'
+				if c.outSelf[k] == indexOfCount(j) 'self'
+					check.instruction(fn, c: c, lv: s.lv, convs: s.convs, x: c.origInstrs[k], y: fn.instrs[j], commuted: c.commuted[k], site: site)
+				end 'self' else 'inserted'
+					check.simulate(fn.instrs[j], site: site)
+				end 'inserted'
+			end 'out'
+			if c.outSelf[k] == noDef 'elided'
+				check.elided(fn, x: c.origInstrs[k], site: site)
+			end 'elided'
+		end 'instrs'
+	end 'blocks'
+	return check.problems
+end 'checkColouring'

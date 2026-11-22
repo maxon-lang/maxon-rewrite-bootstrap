@@ -80,7 +80,8 @@ never edited by hand, except that the runner writes `specs/passed.txt` (see "Tes
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal
 and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
 `.\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
-`--verify-ir` checks the IR of every function with the IR verifier (see "The IR") as lowered and again in SSA form, before code is made, and stops the compile
+`--verify-ir` checks the IR of every function with the IR verifier (see "The IR") as lowered and again in SSA form, before code is made, and holds
+the register allocation of every function to its invariants (spilling's to `verifyPressure`, colouring's to `checkColouring`), and stops the compile
 with an internal error naming the rules the first broken function breaks. `--timings` (on `build`, `run` and `check`) prints on standard error, once the stages have run, a table with one line for
 each stage of the task graph: the wall time its tasks took, in milliseconds, and its share of the total, and the five modules whose
 tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. The tasks
@@ -260,7 +261,7 @@ layering cannot erode:
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, what its arithmetic computes (`evaluate_gen.maxon`, generated from the IR table: `evalBin`, `evalCmp`, `evalGuard` and the rest, one per operation that computes a word from its operands, which the interpreter and the fold pass both call; `evaluate.maxon` has the algorithms the table names: the 64-bit wraps, the wide product, the shifts, the overflow tests and the float conversions), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters) and the fold pass (`Fold`, `self/opt/fold.maxon`), which `optimizeModule` (`self/opt/optimizer.maxon`) runs in that order on every function a native build compiles | `ir` |
-| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), the trivial allocator (`trivial.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
+| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -382,9 +383,10 @@ generated Maxon on a set of those encodings (in `self/main.maxon`) and compares 
 
 The allocation columns are what the machine IR asks of a form (see "The machine IR"), and the generator refuses a table in
 which they contradict the operands: a register operand with no access, two written operands, more than three register operands
-in machine order, a fixed `rsp` or `rbp`, a register both a result and a clobber, or an immediate after a field a reference
-patches. From them it writes `machineOperandCount`, `definesOperand`, `reusesOperand`, `isCall`, `isReturn`, `hasPatchField`
-and the masks `fixedUses`, `fixedDefs` and `clobbers` (a `RegMask` over the register file: the general registers, then xmm0
+in machine order, a fixed `rsp` or `rbp`, a register both a result and a clobber, an immediate after a field a reference
+patches, or a form marked commutative that is not two-address with two uses. From them it writes `machineOperandCount`,
+`definesOperand`, `reusesOperand`, `commutesOperands` (add, and, or, xor and imul, whose uses the allocator may swap),
+`isCall`, `isReturn`, `hasPatchField` and the masks `fixedUses`, `fixedDefs` and `clobbers` (a `RegMask` over the register file: the general registers, then xmm0
 to xmm15 from `x64FirstVector`), `x64RegisterOf` and `x64FormOf` from a number, a `choose` function per choice that names
 the form an immediate selects (`chooseAddRegImm`), and `encodeMachineForm`, which encodes a form from the fields of a machine
 instruction.
@@ -789,8 +791,8 @@ what a later pass such as reference counting or an optimization changes.
   segment (natural loops from the retreating edges, each of which must go to a segment that dominates its source: lowering
   makes no irreducible flow, having no goto) and how often each register is read. `selftest` runs the verifier on IR built by hand
   (`self/verify_test.maxon`), and `--verify-ir` on everything a build lowers, before SSA construction and after the fold pass. The interpreter and the backend read every
-  argument of an edge before they set a parameter: the trivial allocator copies an edge's arguments to the target's
-  parameters as one parallel copy.
+  argument of an edge before they set a parameter: colouring copies an edge's arguments to the target's parameters as one
+  parallel copy.
 - What an analysis asks of every operation is generated from the IR table: the registers it reads (`instrReads`, `termReads`,
   the edges' arguments included) and writes (`instrWrites`, a call's error register included). `SuccessorVisitor` gives a
   terminator's edges with their arguments.
@@ -807,11 +809,10 @@ what a later pass such as reference counting or an optimization changes.
 | the runtime only | `loadraw.W`, `storeraw.W`, `globaladdr`, `import` (see "The runtime") |
 
 Native code goes from the IR, in SSA form, to machine IR (see "The machine IR") by instruction selection, which the rules of
-`internal/rulegen/x64.rules` and the helpers of `self/backend/isel.maxon` write; the trivial allocator then gives every
-virtual register a frame slot of its own, so each instruction loads its operands and stores its result, but for a value that
-only the next instruction reads, which stays in its register. That makes executables about twice the size of keeping
-values in registers; register allocation is the next step there. A frame larger than a page touches each page as it grows,
-as Windows requires. Calls use an internal convention:
+`internal/rulegen/x64.rules` and the helpers of `self/backend/isel.maxon` write; register allocation then spills where the
+registers do not suffice, refusing a hot loop that needs more registers than the target has (E5001), and gives every
+virtual register a register (see "The machine IR"). A frame larger than a page touches each page as it grows, as Windows
+requires. Calls use an internal convention:
 arguments are pushed left to right and the caller pops them. The Win64 ABI applies only to the DLL imports that the runtime calls
 (`import`).
 
@@ -1188,30 +1189,36 @@ results, clobbers and a call's convention), the register file's masks (`classMas
 calling conventions (`CallConvention`: argument, result and error registers, and what a call keeps): today's internal
 one (every argument on the stack, the result in rax and the error in rdx, nothing kept) and Win64 for an import.
 
-The trivial allocator (`allocateTrivially`) gives every virtual register a spill slot of its own, reloads each instruction's
-virtual operands into r10 and r11 (which no form or convention fixes) and spills its definition, but for a definition that
-only the next instruction of its block reads, which it reads from the register it was defined in; it turns each edge's
-arguments into copies, through temporary slots where a target is also a source, splitting a conditional branch's edge that
-has any into a block of its own, and moves the values spilling put in slots (`spill`, `reload`, `restore`) between those
-slots and its own. The frame holds, from the frame pointer down, the slots given before allocation (`slotsGiven`: the
-`fixedSlots`, then the slots spilling gave out), then the trivial allocator's slot of each virtual register, then the
-temporary slots of parallel copies. `encodeMachineFunction` writes an allocated function into a code unit, leaving out a
-jump to the block that follows.
+`emitModule` allocates each function it selects with an `Allocator` the module's functions share (`regalloc.maxon`):
+spilling, then colouring, below. The frame holds, from the frame pointer down, the slots given before allocation
+(`slotsGiven`: the `fixedSlots`, then the slots of block parameters in memory and those spilling gave out), then the
+callee-saved registers the function's values were given (`savedRegs`). `encodeMachineFunction` writes an allocated function
+into a code unit, leaving out a jump to the block that follows.
 
 #### Liveness, spilling and E5001
 
 The first half of the register allocator (`liveness.maxon`, `pressure.maxon`, `spill.maxon`) brings every instruction of a
-function under the registers free there, which the second half, colouring in dominance order, needs. Nothing in a build
-calls it yet; `selftest` runs it on hand-built functions (`self/spill_test.maxon`) and runs them through the trivial
-allocator.
+function under the registers free there, which the second half, colouring in dominance order, needs. Every function a
+native build compiles goes through it; `selftest` also runs it on hand-built functions (`self/spill_test.maxon`), which
+colouring then finishes and which run.
 
 - **Blocks** (`prepareBlocks`): the block laid out first, selection's prologue, becomes block 0, the graph's entry; the
   layout becomes the reverse postorder, which keeps it first and leaves each block's instructions as they are, so a
   conditional branch with arguments still ends its block before its jump; an edge out of a block with more than one
   successor is split into a block of its own when its target has more than one predecessor or it has arguments; every
-  loop gets a preheader. Dominators and natural loops come from `self/ir/graph.maxon`, the graph algorithms that
+  loop gets a preheader; then the instructions are written in the layout's order (`writeLayout`), so that an
+  instruction's index orders it as the layout does, which the walks along a block and the use lists read. Dominators and
+  natural loops come from `self/ir/graph.maxon`, the graph algorithms that
   `ir.Flow` uses too. A block is cold when it is marked so (a failing check) or a cold block dominates it; an ordinary
   `if` arm is not, however rarely it runs, since nothing says so.
+- **Block parameters in memory** (`paramsToMemory`): a block with more parameters of a class than the class has registers
+  could neither start with them in registers nor have an edge into it read all its arguments at its jump. The parameters
+  past the registers, those whose uses weigh least by loop depth, are taken off it, each with a frame slot of its own:
+  every edge into the block stores the argument into the slot before its jump, and the block starts by reloading the
+  parameter's value from it, a value spilling takes as stored, so it stays in a register while there is room and is reloaded
+  where there is not, and a reload nothing reads is dropped. An edge of a loop that passes one of its header's memory
+  parameters copies it first, so no store overwrites a slot that a later reload of the same edge reads. So an argument goes
+  register to slot at its jump and slot to register in the block, and from slot to slot through a register.
 - **Liveness** (`Liveness`): per value, a walk back from each use through predecessors to its definition, with no
   fixpoint (SSA: the definition dominates the uses). An edge's arguments are uses at its branch and a block's
   parameters definitions where it starts. It gives each value's uses in layout order and each block's live-in values.
@@ -1223,7 +1230,11 @@ allocator.
 - **Tiers**, each one placement and no search: (1) a loop over its class's whole pool sends out the values it holds idle
   (live across it, neither defined nor read on its hot path), farthest next use first, outermost loop first, so a value
   that only an outer loop reads leaves the inner loop and is reloaded in the outer one; (2) constants over a hot point
-  are made again before their uses; (3) the E5001 test; (4) everywhere, a point still over its free registers spills by
+  are made again before their uses, but one the next instruction reads, which would be made again at the same point;
+  (3) on a hot path, a value live across a call whose convention keeps no register of its class is spilled at the call,
+  or at a point over the whole pool before the call where its next use is past it (a later call in the loop, by the
+  layout): it is in memory across the call whatever the program does, so that spill code costs nothing the call does not
+  and is no reason to refuse; (4) the E5001 test; (5) everywhere, a point still over its free registers spills by
   farthest next use, constants first, then values already stored or defined outside the loop; in a cold block, a value
   live across a call, or one the loop's hot path reads, is bracketed instead: stored before the point and restored into
   its own register after it, which lends its register to the instructions between, so the hot path keeps it.
@@ -1232,18 +1243,85 @@ allocator.
   the definition. A reload defines a new value that dominates its uses, so the function stays SSA with no new
   parameter. The work is in rounds of analysis and one sweep each; an analysis is reused while nothing changed, and a
   function that fits costs one.
-- **The invariant** (`verifyPressure`, which colouring and a future `--verify-ir` read): every virtual register has one
+- **The invariant** (`verifyPressure`, which `--verify-ir` holds every function to): every virtual register has one
   definition; at every instruction each class's demand fits its free registers; and spill code in a hot block lies only
   in loops that define or read its value (a slot is one value). So a store runs where the definition does and a reload
   no deeper than its uses.
-- **E5001** (`refuseHotLoops`, a `PressureRefusal` per loop nest and class; the driver reports it once instruction
-  selection exists): after tiers 1 and 2, a point of a loop's hot path over its class's whole pool. It names the loop,
+- **E5001** (`refuseHotLoops`, a `PressureRefusal` per loop nest and class, which the emit stage reports as a compile error
+  at the function's declaration, since the IR keeps no place of a loop, and an instance's at its generic's): after tiers 1
+  to 3, a point of a loop's hot path over its class's whole pool. It names the loop,
   the target, the class's register count, the registers over at the worst point, and how many of the source's variables
   (values joined by edges) must leave the loop: found by taking out, one at a time, the variable that relieves the most
   excess, where a variable out of registers still needs one at each instruction that reads or writes it. That can be
   more than the registers over: sixteen accumulators, a counter and a bound are 19 registers at the worst point, five
   over x64's 14, yet six must go, since an accumulator in memory frees nothing at its own update. A fixed register or a
   call never refuses; it is spilled around.
+
+#### Colouring, constraints and SSA destruction
+
+The second half (`regalloc.maxon`, `ssa_destruction.maxon`) gives every virtual register of a spilled function one physical
+register and takes the function out of SSA form; `Allocator.allocate` runs both halves, `colourFunction` after
+`spillFunction`, on every function a native build compiles. `selftest` also runs it on the kernels of
+`self/colour_test.maxon` and on every function of the machine IR's and spilling's tests, each held to the checker and run.
+
+- **What a value may not be in** (`survey`, one walk back through each block): the registers written by an instruction it
+  is live across (a call's caller-saved ones, from the convention table; a division's rax and rdx) and the physical
+  registers holding a fixed value while it is live (rcx from the copy of a shift's count to the shift). Inside a bracket the
+  bracketed value is out of its register, so nothing there confines it; a value defined inside a bracket and live past its
+  restore may not take the register the bracket lends.
+- **The sweep** (`sweepBlock`): blocks in the layout's reverse postorder, the values live in in their registers, then the
+  parameters, then each instruction's definitions; a definition may take the register of a value that dies at it. Since the
+  definitions dominate their uses, the values live where one is defined are coloured already, and the sweep needs no more
+  registers than the most live at a point.
+- **The choice** (`choose`), strongest first: the fixed register the value is copied to or from; the register of a value it
+  is copied to or from (an edge's argument and its parameter, a two-address operand, a copy), so the copy disappears; that
+  partner's fixed register; then the lowest free caller-saved register that values defined in its life do not want as their
+  fixed register, and only then a callee-saved one, which a value live across a call is confined to anyway.
+- **Two-address forms** (`colourReuse`): the definition takes the reused operand's register when that operand dies there; for
+  a commutative form, the other use's when that one dies (the uses are swapped); otherwise another register, never one the
+  instruction reads, and a copy of the operand before it.
+- **The repair** (`repair`): when every register a value may be in is held (the count fits, but the values about it are
+  confined to different sets: Hall's condition), first a breadth-first search from those registers to a free one, through
+  values that die in this block, each of which may move to the next register for the rest of its life in the block and
+  gives its register up to the one before it on the path. Each move is one copy before the instruction and a window in
+  which the value is in the new register.
+- **Homes and windows** (`homeElsewhere`, `relocate`, `reconcile`): failing the search, which the confinements of values
+  that live on past the block can make fail though the point fits, the value is given as its register (its home) one that
+  no value live there has, which the count guarantees, preferring one it may be in: it starts its life in another register
+  while its home is held, by a value that gave its own up, or a two-address definition takes its dying operand's register
+  though it may not be in it somewhere. A value outside its home, or whose home is a register it may not be in somewhere,
+  is watched: before an instruction that fixes or clobbers its register while it lives across it, it moves, by one parallel
+  copy with the others that must, to a free register that suits, or to the register of a value that dies there, which moves
+  out of the way; before every branch each value out of its home goes back, by one parallel copy, and a value that gave its
+  home up moves out of a home it is in. So every block is entered with every value in its home, no parameter is added, and
+  spilling's bound (the values live across an instruction fit the registers it leaves) makes every move possible: a value
+  with nowhere to go is an internal error, never a program's.
+- **SSA destruction**: each edge's arguments become one parallel copy before its jump into the registers of the target's
+  parameters (a parameter nothing reads gets none), sequenced so no copy overwrites a source another still reads; a cycle
+  is broken through a register that holds nothing the copy or the target's live values need, caller-saved first, or, when
+  every register holds one, by exchanging two registers with three xors. A copy whose source and target got one register is
+  dropped, and so is a `copy` whose two sides did.
+- **The frame**: the callee-saved registers the function's values were given are `savedRegs`; the encoder stores them in
+  words after the spill slots in the prologue and loads them back before each epilogue.
+- **The checker** (`checkColouring`, one walk): it runs the coloured function beside the original on tokens: a register holds
+  a token, a copy moves one, an exchange swaps two, and what an instruction writes without a value gets a new one. Wherever
+  the original reads a value, a fixed register or an edge's argument, or a block's live values and parameters are entered,
+  the register the coloured function reads must hold the same token. That says that no two live values share a register,
+  every fixed constraint holds and every edge delivers its arguments.
+
+Measured on the kernels of the allocator study (moves and stack operations per iteration of the inner loop; Maxon's figures
+from the study's kernels, ours from the same shapes in machine IR): a counted loop 0 moves (Maxon 1, Go 1); nested loops 0;
+seven accumulators with the counter, the bound and the half, ten live, 7 moves, one per shift of an accumulator that lives
+on (Maxon 12, Go 4); the branchy loop 1 move on each arm, the test of the counter's bit (Maxon 4 and 7, Go 4 and 6); a
+division and a variable shift 2 moves; two parameters that swap at the back edge 3; a call with 2, 4 and 8 values live
+across it under a convention keeping five callee-saved registers 0, 0 and 5 stack operations with 0, 0 and 2 moves (Maxon 0,
+0 and 6 stack operations, 3, 5 and 14 moves), and under today's internal convention, which keeps nothing, 3, 7 and 15 stack
+operations.
+
+Against the trivial allocator that every build used before (a frame slot per virtual register), the programs of
+`tests/bench` have 42 to 44% less code and run 1.0 to 2.9 times as fast (the counted loop is the division's), the
+compiler's own code is 44% smaller (3.57 MB of `.text`), and a build of `self/` spends about 3.8 s of its emit stage
+allocating, against about 0.9 s for the whole emit stage before, which the faster code it runs on more than half repays.
 
 ## The runtime
 

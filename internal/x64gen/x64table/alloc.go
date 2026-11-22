@@ -83,6 +83,7 @@ func (f form) machineOperands() int {
 
 // checkAlloc refuses a form whose allocation columns contradict its operands or one another.
 func checkAlloc(f form) {
+	checkCommutes(f)
 	defs := 0
 	for _, o := range f.operands {
 		switch {
@@ -132,6 +133,12 @@ func checkAlloc(f form) {
 	}
 }
 
+func checkCommutes(f form) {
+	if f.commutes && (!f.reuses() || f.machineOperands() != maxMachineOperands) {
+		fail("%s commutes but is no two-address form with two uses", f.name)
+	}
+}
+
 func hasPatchField(f form) bool {
 	_, rip := f.withKind(kindRip)
 	_, rel := f.withKind(kindRel32)
@@ -149,6 +156,7 @@ var allocPredicates = []struct {
 	{"isReturn", func(f form) bool { return f.ret }},
 	{"hasPatchField", hasPatchField},
 	{"rematerializable", rematerializable},
+	{"commutesOperands", func(f form) bool { return f.commutes }},
 }
 
 // rematerializable is whether a form makes its result from its immediate alone: it reads no register, no memory and no

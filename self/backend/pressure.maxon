@@ -46,11 +46,12 @@ type BlockScan
 	var logReg as MRegList
 	var logKind as Array with Count
 	var webs as Array with Count
-	// pools is the whole pool of each class.
+	// pools is the whole pool of each class, and classMasks its registers.
 	var pools as Array with Count
+	var classMasks as RegMaskList
 
 	static function new() returns BlockScan
-		return BlockScan{live: Array.create(0), out: Array.create(0), seen: Array.create(0), liveList: MRegList.create(0), livePos: Array.create(0), liveCount: Array.create(0), outCount: Array.create(0), readCount: Array.create(0), writeCount: Array.create(0), liveWriteCount: Array.create(0), seenMark: 0, ops: Operands.new(), first: 0, demand: Array.create(0), kept: Array.create(0), physBefore: Array.create(0), physAfter: Array.create(0), written: Array.create(0), opens: Array.create(0), logging: false, logBlock: Array.create(0), logClass: Array.create(0), logT: Array.create(0), logD: Array.create(0), logF: Array.create(0), logStart: Array.create(0), logReg: MRegList.create(0), logKind: Array.create(0), webs: Array.create(0), pools: Array.create(0)}
+		return BlockScan{live: Array.create(0), out: Array.create(0), seen: Array.create(0), liveList: MRegList.create(0), livePos: Array.create(0), liveCount: Array.create(0), outCount: Array.create(0), readCount: Array.create(0), writeCount: Array.create(0), liveWriteCount: Array.create(0), seenMark: 0, ops: Operands.new(), first: 0, demand: Array.create(0), kept: Array.create(0), physBefore: Array.create(0), physAfter: Array.create(0), written: Array.create(0), opens: Array.create(0), logging: false, logBlock: Array.create(0), logClass: Array.create(0), logT: Array.create(0), logD: Array.create(0), logF: Array.create(0), logStart: Array.create(0), logReg: MRegList.create(0), logKind: Array.create(0), webs: Array.create(0), pools: Array.create(0), classMasks: RegMaskList.create(0)}
 	end 'new'
 
 	// reset sizes the scan for a function's registers and empties the log.
@@ -66,8 +67,10 @@ type BlockScan
 		ir.resetCounts(writeCount, n: classCount)
 		ir.resetCounts(liveWriteCount, n: classCount)
 		pools.clear()
+		classMasks.clear()
 		for c in 0 upto classCount 'pools'
 			pools.push(fullPool(classAt(c)))
+			classMasks.push(allocatable(classAt(c)))
 		end 'pools'
 		seenMark = 0
 		logging = logs
@@ -320,10 +323,10 @@ type BlockScan
 
 	// freeOfMask is how many registers of class c a mask of fixed registers leaves, counted only where it holds some.
 	function freeOfMask(c Count, mask RegMask) returns Count
-		if (mask and allocatable(classAt(c))) == 0 'none'
+		if (mask and classMasks[c]) == 0 'none'
 			return pools[c]
 		end 'none'
-		return freeOf(classAt(c), mask: mask)
+		return maskCount(classMasks[c] and not mask)
 	end 'freeOfMask'
 
 	// fitsAt is whether the i-th instruction's values fit its free registers.
@@ -378,13 +381,6 @@ function fullPool(class RegClass) returns Count
 	return maskCount(allocatable(class))
 end 'fullPool'
 
-function freeOf(class RegClass, mask RegMask) returns Count
-	if (mask and allocatable(class)) == 0 'none'
-		return fullPool(class)
-	end 'none'
-	return maskCount(allocatable(class) and not mask)
-end 'freeOf'
-
 function classDescription(class RegClass) returns String
 	return match class 'class'
 		gpr gives "general-purpose"
@@ -396,10 +392,14 @@ end 'classDescription'
 // of each class fit its free registers, and no spill code stands on a loop's hot path where the loop neither defines nor
 // reads the value it moves. It gives what it finds wrong, nothing when the function is as colouring needs it.
 export function verifyPressure(fn MirFunction) returns NameList
+	return verifyPressureUnder(fn, convs: Conventions.make())
+end 'verifyPressure'
+
+// verifyPressureUnder is verifyPressure for a function whose calls follow convs.
+export function verifyPressureUnder(fn MirFunction, convs Conventions) returns NameList
 	var problems = NameList.create(0)
 	var g = MirGraph.new()
 	g.build(fn)
-	let convs = Conventions.make()
 	var lv = Liveness.new()
 	lv.compute(fn, g: g, convs: convs)
 	var scan = BlockScan.new()
@@ -423,7 +423,7 @@ export function verifyPressure(fn MirFunction) returns NameList
 	end 'blocks'
 	checkPlacement(fn, g: g, convs: convs, problems: problems)
 	return problems
-end 'verifyPressure'
+end 'verifyPressureUnder'
 
 function isSpillCode(x MInstr) returns bool
 	return x.kind == MKind.spill or x.kind == MKind.reload or x.kind == MKind.restore

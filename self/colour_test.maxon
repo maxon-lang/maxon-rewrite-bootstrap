@@ -1,0 +1,660 @@
+// Colouring's tests: functions written by hand in machine IR, the allocator study's kernels in miniature, go through
+// spilling, colouring and the checker, are encoded, linked and run, and the moves and stack operations their inner loop
+// costs per iteration are held to what they should be. Every function of the machine IR's and spilling's tests is also
+// run through colouring by runMir.
+
+// calleeSavedFive is the callee-saved set of the convention to come (rbx and r12 to r15), which the call kernels are
+// coloured under beside today's internal convention, which keeps nothing.
+function calleeSavedFive() returns backend.RegMask
+	var mask = backend.regMaskOf(backend.X64Register.rbx)
+	mask = mask or backend.regMaskOf(backend.X64Register.r12) or backend.regMaskOf(backend.X64Register.r13)
+	return mask or backend.regMaskOf(backend.X64Register.r14) or backend.regMaskOf(backend.X64Register.r15)
+end 'calleeSavedFive'
+
+// colourOf spills and colours a function under a convention that keeps calleeSaved across a call, and holds it to
+// verifyPressure and to the checker.
+function colourOf(label String, mutates fn backend.MirFunction, calleeSaved backend.RegMask) returns backend.ColourResult
+	return colourChecked(label, fn: fn, calleeSaved: calleeSaved, spilled: false)
+end 'colourOf'
+
+// colourChecked is colourOf for a function spilled already, when spilled says so, which it colours as it is.
+function colourChecked(label String, mutates fn backend.MirFunction, calleeSaved backend.RegMask, spilled bool) returns backend.ColourResult
+	var s = backend.Spiller.under(backend.Conventions.keeping(calleeSaved))
+	if spilled 'adopt'
+		s.adopt(fn)
+	end 'adopt' else 'spill'
+		let result = backend.spillFunction(fn, s: s)
+		if result.refusals.count() > 0 'refused'
+			panic("{label}: refused with E5001")
+		end 'refused'
+	end 'spill'
+	let problems = backend.verifyPressureUnder(fn, convs: backend.Conventions.keeping(calleeSaved))
+	if problems.count() > 0 'problems'
+		panic("{label}: {problems[0]}")
+	end 'problems'
+	var c = backend.Colourer.new()
+	let result = backend.colourFunction(fn, s: s, c: c)
+	let wrong = backend.checkColouring(fn, s: s, c: c)
+	if wrong.count() > 0 'wrong'
+		panic("{label}: {wrong[0]}")
+	end 'wrong'
+	return result
+end 'colourChecked'
+
+// runColoured colours and encodes the functions into one unit under calleeSaved, links it and runs it.
+function runColoured(mutates p ast.Project, consumes fns backend.MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode, calleeSaved backend.RegMask)
+	var all = fns
+	for i in 0 upto all.count() 'each'
+		_ = colourOf(name, fn: all[i], calleeSaved: calleeSaved)
+	end 'each'
+	linkAndRun(p, fns: all, entry: entry, name: name, expectedCode: expectedCode)
+end 'runColoured'
+
+// LoopCost is what the hot blocks of a loop cost per iteration: instructions (a jump to the block laid out next is
+// none), register moves, and stack operations (stores and loads of spill slots).
+type LoopCost
+	var instrs as Count
+	var moves as Count
+	var stack as Count
+
+	static function zero() returns LoopCost
+		return LoopCost{instrs: 0, moves: 0, stack: 0}
+	end 'zero'
+end 'LoopCost'
+
+// loopCost is the cost of the hot blocks at loop depth `depth` of an allocated function, but those in skip.
+function loopCost(fn backend.MirFunction, depth Count, skip backend.CountList) returns LoopCost
+	var cost = LoopCost.zero()
+	for pos in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[pos] as Count
+		if fn.blocks[b].loopDepth != depth or fn.blocks[b].likelihood == backend.Likelihood.cold or skip.contains(b) 'other'
+			continue 'blocks'
+		end 'other'
+		var next = b
+		if pos + 1 < fn.order.count() 'follows'
+			next = fn.order[pos + 1] as Count
+		end 'follows'
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			let x = fn.instrs[k].clone()
+			if x.kind == backend.MKind.target and x.form == backend.X64Form.jmpRel32 and x.ref == backend.MRef.edge 'jump'
+				let edge = try x.aux as Count otherwise panic("an edge below 0")
+				if fn.edges[edge].target as Count == next 'falls'
+					continue 'instrs'
+				end 'falls'
+			end 'jump'
+			cost.instrs = nextOf(cost.instrs)
+			if x.kind == backend.MKind.copy 'move'
+				cost.moves = nextOf(cost.moves)
+			end 'move'
+			if x.kind == backend.MKind.spill or x.kind == backend.MKind.reload or x.kind == backend.MKind.restore 'stack'
+				cost.stack = nextOf(cost.stack)
+			end 'stack'
+		end 'instrs'
+	end 'blocks'
+	return cost
+end 'loopCost'
+
+function expectCost(label String, cost LoopCost, moves Count, stack Count)
+	expectCount(label, what: "moves per iteration", got: cost.moves, want: moves)
+	expectCount(label, what: "stack operations per iteration", got: cost.stack, want: stack)
+end 'expectCost'
+
+function noBlocks() returns backend.CountList
+	return backend.CountList.create(0)
+end 'noBlocks'
+
+function oneBlock(b Count) returns backend.CountList
+	var list = backend.CountList.create(0)
+	list.push(b)
+	return list
+end 'oneBlock'
+
+// colourIterations is how many times the loops of these tests run.
+let colourIterations = 10
+
+// mirCountedLoop sums 0 to 9 in a loop whose counter and sum are its header's parameters: 45.
+function mirCountedLoop(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	let header = 1 as backend.MBlockID
+	let body = 2 as backend.MBlockID
+	let exit = 3 as backend.MBlockID
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	let bound = mirValue(fn, n: colourIterations as FullRangeInt)
+	let zero = mirConst(fn, value: 0)
+	mirJump(fn, target: header, args: mirArgs2(zero, b: zero))
+	_ = fn.startBlock()
+	let i = fn.addParam(backend.RegClass.gpr)
+	let s = fn.addParam(backend.RegClass.gpr)
+	mirOp(fn, form: backend.X64Form.cmpRegReg, a: i, b: bound, c: backend.noMReg, imm: 0)
+	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: exit, args: backend.MRegList.create(0))
+	mirJump(fn, target: body, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	let sum = mirAdd(fn, left: s, right: i)
+	let step = mirAddImm(fn, left: i, imm: 1)
+	mirJump(fn, target: header, args: mirArgs2(step, b: sum))
+	_ = fn.startBlock()
+	mirReturnMasked(fn, value: s)
+	fn.endBlock()
+	return fn
+end 'mirCountedLoop'
+
+// outerCount and innerCount are the trip counts of the nested loops.
+let outerCount = 4
+
+let innerCount = 6
+
+// mirNestedLoops adds i + j for i below 4 and j below 6: 96.
+function mirNestedLoops(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	let outerHead = 1 as backend.MBlockID
+	let outerBody = 2 as backend.MBlockID
+	let innerHead = 3 as backend.MBlockID
+	let innerBody = 4 as backend.MBlockID
+	let outerNext = 5 as backend.MBlockID
+	let exit = 6 as backend.MBlockID
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	let zero = mirConst(fn, value: 0)
+	mirJump(fn, target: outerHead, args: mirArgs2(zero, b: zero))
+	_ = fn.startBlock()
+	let i = fn.addParam(backend.RegClass.gpr)
+	let acc = fn.addParam(backend.RegClass.gpr)
+	fn.emit(backend.newTarget(backend.chooseCmpRegImm(outerCount), a: i, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: outerCount as FullRangeInt))
+	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: exit, args: backend.MRegList.create(0))
+	mirJump(fn, target: outerBody, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	let start = mirConst(fn, value: 0)
+	mirJump(fn, target: innerHead, args: mirArgs2(start, b: acc))
+	_ = fn.startBlock()
+	let j = fn.addParam(backend.RegClass.gpr)
+	let a = fn.addParam(backend.RegClass.gpr)
+	fn.emit(backend.newTarget(backend.chooseCmpRegImm(innerCount), a: j, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: innerCount as FullRangeInt))
+	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: outerNext, args: backend.MRegList.create(0))
+	mirJump(fn, target: innerBody, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	let t = mirAdd(fn, left: a, right: j)
+	let u = mirAdd(fn, left: t, right: i)
+	let stepJ = mirAddImm(fn, left: j, imm: 1)
+	mirJump(fn, target: innerHead, args: mirArgs2(stepJ, b: u))
+	_ = fn.startBlock()
+	let stepI = mirAddImm(fn, left: i, imm: 1)
+	mirJump(fn, target: outerHead, args: mirArgs2(stepI, b: a))
+	_ = fn.startBlock()
+	mirReturnMasked(fn, value: acc)
+	fn.endBlock()
+	return fn
+end 'mirNestedLoops'
+
+// mirCallLoop calls mir.double on the counter in a loop with `live` values live across the call: the counter, the
+// bound, and live - 2 accumulators, the first adding the call's result and each other one the one before it.
+function mirCallLoop(symbol String, live Count) returns backend.MirFunction
+	let accs = try live - 2 otherwise panic("fewer than two values live across the call")
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	let header = 1 as backend.MBlockID
+	let body = 2 as backend.MBlockID
+	let exit = 3 as backend.MBlockID
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	let bound = mirValue(fn, n: colourIterations as FullRangeInt)
+	var args = backend.MRegList.create(0)
+	args.push(mirConst(fn, value: 0))
+	for j in 0 upto accs 'start'
+		args.push(mirValue(fn, n: accStart(j)))
+	end 'start'
+	mirJump(fn, target: header, args: args)
+	_ = fn.startBlock()
+	let i = fn.addParam(backend.RegClass.gpr)
+	var acc = backend.MRegList.create(0)
+	for j in 0 upto accs 'params'
+		acc.push(fn.addParam(backend.RegClass.gpr))
+	end 'params'
+	mirOp(fn, form: backend.X64Form.cmpRegReg, a: i, b: bound, c: backend.noMReg, imm: 0)
+	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: exit, args: backend.MRegList.create(0))
+	mirJump(fn, target: body, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	var back = backend.MRegList.create(0)
+	let doubled = mirCallDouble(fn, value: i)
+	back.push(mirAddImm(fn, left: i, imm: 1))
+	var last = doubled
+	for j in 0 upto accs 'update'
+		last = mirAdd(fn, left: acc[j], right: last)
+		back.push(last)
+	end 'update'
+	mirJump(fn, target: header, args: back)
+	_ = fn.startBlock()
+	var total = i
+	for j in 0 upto accs 'sum'
+		total = mirAdd(fn, left: total, right: acc[j])
+	end 'sum'
+	mirReturnMasked(fn, value: total)
+	fn.endBlock()
+	return fn
+end 'mirCallLoop'
+
+function callLoopExpected(live Count) returns ExitCode
+	let accs = try live - 2 otherwise panic("fewer than two values live across the call")
+	var a = WordList.create(0)
+	for j in 0 upto accs 'start'
+		a.push(accStart(j))
+	end 'start'
+	for i in 0 upto colourIterations 'iterations'
+		var last = try (i * 2) as FullRangeInt otherwise panic("a counter past 64 bits")
+		for j in 0 upto accs 'update'
+			a[j] = wrapAdd(a[j], b: last)
+			last = a[j]
+		end 'update'
+	end 'iterations'
+	var total = colourIterations as FullRangeInt
+	for j in 0 upto accs 'sum'
+		total = wrapAdd(total, b: a[j])
+	end 'sum'
+	return exitOf(total)
+end 'callLoopExpected'
+
+// The blocks of the branchy loop.
+let branchyEven = 3
+
+let branchyOdd = 4
+
+// mirBranchyLoop adds the even counters to one sum and the odd ones to another, in arms that rejoin: 20 + 2 * 25.
+function mirBranchyLoop(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	let header = 1 as backend.MBlockID
+	let body = 2 as backend.MBlockID
+	let even = branchyEven as backend.MBlockID
+	let odd = branchyOdd as backend.MBlockID
+	let join = 5 as backend.MBlockID
+	let exit = 6 as backend.MBlockID
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	let zero = mirConst(fn, value: 0)
+	var start = mirArgs2(zero, b: zero)
+	start.push(zero)
+	mirJump(fn, target: header, args: start)
+	_ = fn.startBlock()
+	let i = fn.addParam(backend.RegClass.gpr)
+	let s = fn.addParam(backend.RegClass.gpr)
+	let t = fn.addParam(backend.RegClass.gpr)
+	fn.emit(backend.newTarget(backend.chooseCmpRegImm(colourIterations), a: i, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: colourIterations as FullRangeInt))
+	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: exit, args: backend.MRegList.create(0))
+	mirJump(fn, target: body, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	let bit = mirDef(fn, form: backend.chooseAndRegImm(1), b: i, c: backend.noMReg, imm: 1)
+	fn.emit(backend.newTarget(backend.chooseCmpRegImm(0), a: bit, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: 0))
+	mirBranch(fn, cond: backend.X64CondCode.notEqual, target: odd, args: backend.MRegList.create(0))
+	mirJump(fn, target: even, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	let evenSum = mirAdd(fn, left: s, right: i)
+	mirJump(fn, target: join, args: mirArgs2(evenSum, b: t))
+	_ = fn.startBlock()
+	let oddSum = mirAdd(fn, left: t, right: i)
+	mirJump(fn, target: join, args: mirArgs2(s, b: oddSum))
+	_ = fn.startBlock()
+	let s2 = fn.addParam(backend.RegClass.gpr)
+	let t2 = fn.addParam(backend.RegClass.gpr)
+	let step = mirAddImm(fn, left: i, imm: 1)
+	var back = mirArgs2(step, b: s2)
+	back.push(t2)
+	mirJump(fn, target: header, args: back)
+	_ = fn.startBlock()
+	let twice = mirAdd(fn, left: t, right: t)
+	let result = mirAdd(fn, left: s, right: twice)
+	mirReturnMasked(fn, value: result)
+	fn.endBlock()
+	return fn
+end 'mirBranchyLoop'
+
+// divisorBase and shiftMask shape the division and shift kernel: acc becomes ((acc + 100) / (i + 1)) shifted left by
+// i and 3, plus the remainder.
+let divisorBase = 100
+
+let shiftMask = 3
+
+// mirDivShiftLoop divides and shifts by a variable count in a loop, with rax, rdx and rcx fixed.
+function mirDivShiftLoop(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	let header = 1 as backend.MBlockID
+	let body = 2 as backend.MBlockID
+	let exit = 3 as backend.MBlockID
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	let zero = mirConst(fn, value: 0)
+	mirJump(fn, target: header, args: mirArgs2(zero, b: zero))
+	_ = fn.startBlock()
+	let i = fn.addParam(backend.RegClass.gpr)
+	let acc = fn.addParam(backend.RegClass.gpr)
+	fn.emit(backend.newTarget(backend.chooseCmpRegImm(colourIterations), a: i, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: colourIterations as FullRangeInt))
+	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: exit, args: backend.MRegList.create(0))
+	mirJump(fn, target: body, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	let divisor = mirAddImm(fn, left: i, imm: 1)
+	let dividend = mirAddImm(fn, left: acc, imm: divisorBase)
+	mirCopyIn(fn, dst: backend.X64Register.rax, src: dividend)
+	mirOp(fn, form: backend.X64Form.cqo, a: backend.noMReg, b: backend.noMReg, c: backend.noMReg, imm: 0)
+	mirOp(fn, form: backend.X64Form.idivReg, a: divisor, b: backend.noMReg, c: backend.noMReg, imm: 0)
+	let quotient = mirCopyOut(fn, src: backend.X64Register.rax)
+	let remainder = mirCopyOut(fn, src: backend.X64Register.rdx)
+	let count = mirDef(fn, form: backend.chooseAndRegImm(shiftMask), b: i, c: backend.noMReg, imm: shiftMask as FullRangeInt)
+	mirCopyIn(fn, dst: backend.X64Register.rcx, src: count)
+	let shifted = mirDef(fn, form: backend.X64Form.shlRegCl, b: quotient, c: backend.noMReg, imm: 0)
+	let next = mirAdd(fn, left: shifted, right: remainder)
+	let step = mirAddImm(fn, left: i, imm: 1)
+	mirJump(fn, target: header, args: mirArgs2(step, b: next))
+	_ = fn.startBlock()
+	mirReturnMasked(fn, value: acc)
+	fn.endBlock()
+	return fn
+end 'mirDivShiftLoop'
+
+function divShiftExpected() returns ExitCode
+	var acc = 0 as FullRangeInt
+	for i in 0 upto colourIterations 'iterations'
+		let divisor = try (i + 1) as FullRangeInt otherwise panic("a counter past 64 bits")
+		let dividend = wrapAdd(acc, b: divisorBase)
+		let quotient = dividend / divisor
+		let remainder = dividend mod divisor
+		let shift = try (i and shiftMask) as Count otherwise panic("a shift below 0")
+		var shifted = quotient as FullRangeInt
+		for _ in 0 upto shift 'shift'
+			shifted = wrapAdd(shifted, b: shifted)
+		end 'shift'
+		acc = wrapAdd(shifted, b: remainder)
+	end 'iterations'
+	return exitOf(acc)
+end 'divShiftExpected'
+
+// swapStart and swapOther are the two values the swap kernel's parameters trade on every iteration.
+let swapStart = 1
+
+let swapOther = 100
+
+// mirSwapLoop swaps two parameters around the back edge nine times and gives p + 2q: 100 + 2.
+function mirSwapLoop(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	let header = 1 as backend.MBlockID
+	let body = 2 as backend.MBlockID
+	let exit = 3 as backend.MBlockID
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	let zero = mirConst(fn, value: 0)
+	var start = mirArgs2(zero, b: mirValue(fn, n: swapStart))
+	start.push(mirValue(fn, n: swapOther))
+	mirJump(fn, target: header, args: start)
+	_ = fn.startBlock()
+	let i = fn.addParam(backend.RegClass.gpr)
+	let p = fn.addParam(backend.RegClass.gpr)
+	let q = fn.addParam(backend.RegClass.gpr)
+	let trips = colourIterations - 1
+	fn.emit(backend.newTarget(backend.chooseCmpRegImm(trips), a: i, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: trips as FullRangeInt))
+	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: exit, args: backend.MRegList.create(0))
+	mirJump(fn, target: body, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	let step = mirAddImm(fn, left: i, imm: 1)
+	var back = mirArgs2(step, b: q)
+	back.push(p)
+	mirJump(fn, target: header, args: back)
+	_ = fn.startBlock()
+	let twice = mirAdd(fn, left: q, right: q)
+	let result = mirAdd(fn, left: p, right: twice)
+	mirReturnMasked(fn, value: result)
+	fn.endBlock()
+	return fn
+end 'mirSwapLoop'
+
+// hallConfined is how many values the fixed-register Hall test keeps live across its division, each of which may be in
+// none of rax and rdx.
+let hallConfined = 11
+
+// mirHallFixed is straight-line code in which the count fits everywhere but the colouring as assigned does not: three
+// short values take rax, rcx and rdx, so w and z, defined while they live, take rbx and rsi; once those die, eleven
+// values live across a division, which may not be in rax or rdx, find only ten free registers of the twelve they may
+// be in, with w and z in the other two. The repair moves w into rax for the rest of its life.
+function mirHallFixed(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	let u0 = mirValue(fn, n: 1)
+	let u1 = mirValue(fn, n: 2)
+	let u2 = mirValue(fn, n: 3)
+	let w = mirValue(fn, n: 4)
+	let z = mirValue(fn, n: 5)
+	let pair = mirAdd(fn, left: u0, right: u1)
+	let early = mirAdd(fn, left: pair, right: u2)
+	var confined = backend.MRegList.create(0)
+	for k in 0 upto hallConfined 'confined'
+		confined.push(mirAddImm(fn, left: early, imm: try k as backend.Imm32 otherwise panic("a step past 32 bits")))
+	end 'confined'
+	let dividend = mirAdd(fn, left: w, right: z)
+	let divisor = mirValue(fn, n: 2)
+	mirCopyIn(fn, dst: backend.X64Register.rax, src: dividend)
+	mirOp(fn, form: backend.X64Form.cqo, a: backend.noMReg, b: backend.noMReg, c: backend.noMReg, imm: 0)
+	mirOp(fn, form: backend.X64Form.idivReg, a: divisor, b: backend.noMReg, c: backend.noMReg, imm: 0)
+	var total = mirCopyOut(fn, src: backend.X64Register.rax)
+	for k in 0 upto hallConfined 'sum'
+		total = mirAdd(fn, left: total, right: confined[k])
+	end 'sum'
+	mirReturnMasked(fn, value: total)
+	fn.endBlock()
+	return fn
+end 'mirHallFixed'
+
+function hallFixedExpected() returns ExitCode
+	var total = 4 as FullRangeInt
+	for k in 0 upto hallConfined 'sum'
+		total = wrapAdd(total, b: try (6 + k) as FullRangeInt otherwise panic("a step past 64 bits"))
+	end 'sum'
+	return exitOf(total)
+end 'hallFixedExpected'
+
+// hallKept is how many values each call of the callee-saved Hall test keeps.
+let hallKept = 3
+
+// mirHallCalls keeps three values across one call and three others across a second, and the first three are still
+// live where the second three are defined: six values that may be only in the five callee-saved registers are live at
+// once, though no call keeps more than three. The repair moves one of the first three, which no call holds any more,
+// into a caller-saved register.
+function mirHallCalls(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	var xs = backend.MRegList.create(0)
+	for k in 0 upto hallKept 'xs'
+		xs.push(mirValue(fn, n: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits")))
+	end 'xs'
+	var last = mirCallDouble(fn, value: xs[0])
+	var ys = backend.MRegList.create(0)
+	for k in 0 upto hallKept 'ys'
+		last = mirAdd(fn, left: last, right: xs[k])
+		ys.push(last)
+	end 'ys'
+	var sum = xs[0]
+	for k in 1 upto hallKept 'sum'
+		sum = mirAdd(fn, left: sum, right: xs[k])
+	end 'sum'
+	var total = mirCallDouble(fn, value: sum)
+	for k in 0 upto hallKept 'total'
+		total = mirAdd(fn, left: total, right: ys[k])
+	end 'total'
+	mirReturnMasked(fn, value: total)
+	fn.endBlock()
+	return fn
+end 'mirHallCalls'
+
+// hallHeld is how many values the across-blocks Hall test keeps live from its first block into its second, beside the
+// shifted one: with it they hold every register but rcx.
+let hallHeld = 12
+
+// shiftBy is the count of the across-blocks Hall test's shifts.
+let shiftBy = 1
+
+// mirHallAcross fills every register but rcx in its first block with values that live on into its second, a shift by
+// cl, whose count is set in rcx itself, keeping them out of it, and then defines v, which a second shift in the second block keeps out of rcx too: v may
+// be in no free register, and no value that holds one dies in the first block. v is given rcx as its home and moves out
+// of it before the second shift's count is set, once the values it gave way to have died, and back into it before the
+// jump to the third block, which reads it there.
+function mirHallAcross(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	let second = 1 as backend.MBlockID
+	let third = 2 as backend.MBlockID
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	var held = backend.MRegList.create(0)
+	for k in 0 upto hallHeld 'held'
+		held.push(mirValue(fn, n: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits")))
+	end 'held'
+	let base = mirValue(fn, n: 3)
+	mirOp(fn, form: backend.X64Form.movRegImm32, a: mirPhys(backend.X64Register.rcx), b: backend.noMReg, c: backend.noMReg, imm: shiftBy)
+	let shifted = mirDef(fn, form: backend.X64Form.shlRegCl, b: base, c: backend.noMReg, imm: 0)
+	let v = mirValue(fn, n: 100)
+	mirJump(fn, target: second, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	var sum = shifted
+	for k in 0 upto hallHeld 'sum'
+		sum = mirAdd(fn, left: sum, right: held[k])
+	end 'sum'
+	mirOp(fn, form: backend.X64Form.movRegImm32, a: mirPhys(backend.X64Register.rcx), b: backend.noMReg, c: backend.noMReg, imm: shiftBy)
+	let doubled = mirDef(fn, form: backend.X64Form.shlRegCl, b: sum, c: backend.noMReg, imm: 0)
+	mirJump(fn, target: third, args: backend.MRegList.create(0))
+	_ = fn.startBlock()
+	let total = mirAdd(fn, left: doubled, right: v)
+	mirReturnMasked(fn, value: total)
+	fn.endBlock()
+	return fn
+end 'mirHallAcross'
+
+function hallAcrossExpected() returns ExitCode
+	var sum = 6 as FullRangeInt
+	for k in 0 upto hallHeld 'sum'
+		sum = wrapAdd(sum, b: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits"))
+	end 'sum'
+	return exitOf(wrapAdd(wrapAdd(sum, b: sum), b: 100))
+end 'hallAcrossExpected'
+
+// allocateColoured spills and colours a function with today's convention and checks it, the way runMir runs every
+// function of the machine IR's tests a second time.
+function allocateColoured(mutates fn backend.MirFunction, spilled bool)
+	let label = fn.symbol.clone()
+	_ = colourChecked(label, fn: fn, calleeSaved: 0, spilled: spilled)
+end 'allocateColoured'
+
+// runKernel colours a kernel under calleeSaved, runs it, and gives the cost of its loop at depth.
+function runKernel(mutates p ast.Project, label String, entry ast.FuncID, consumes fn backend.MirFunction, expectedCode ExitCode, calleeSaved backend.RegMask, depth Count, skip backend.CountList) returns LoopCost
+	var kernel = fn
+	_ = colourOf(label, fn: kernel, calleeSaved: calleeSaved)
+	let cost = loopCost(kernel, depth: depth, skip: skip)
+	var fns = oneMir(kernel)
+	fns.push(mirDouble())
+	let double = try fns.count() - 1 otherwise panic("no functions")
+	_ = colourOf(label, fn: fns[double], calleeSaved: calleeSaved)
+	linkAndRun(p, fns: fns, entry: entry, name: "minimaxon_colour_{label}.exe", expectedCode: expectedCode)
+	return cost
+end 'runKernel'
+
+function testColourLoops(mutates p ast.Project)
+	// The counter and the sum stay in their parameters' registers: no move on the back edge (Maxon 1, Go 1).
+	let counted = addFunction(p, name: "main", errTy: ast.noType)
+	expectCost("counted", cost: runKernel(p, label: "counted", entry: counted, fn: mirCountedLoop(ast.funcLinkName(p, fid: counted)), expectedCode: 45, calleeSaved: 0, depth: 1, skip: noBlocks()), moves: 0, stack: 0)
+	let nested = addFunction(p, name: "main", errTy: ast.noType)
+	expectCost("nested", cost: runKernel(p, label: "nested", entry: nested, fn: mirNestedLoops(ast.funcLinkName(p, fid: nested)), expectedCode: 96, calleeSaved: 0, depth: 2, skip: noBlocks()), moves: 0, stack: 0)
+	// Ten values in the loop: seven accumulators, the counter, the bound and the half in flight. Each half is a shift
+	// of an accumulator that lives on, so each costs one copy, and nothing else moves (Maxon 12, Go 4 at ten live).
+	let ten = addFunction(p, name: "main", errTy: ast.noType)
+	let shape = LoopShape.make(7, memory: 0, idle: 0)
+	expectCost("ten", cost: runKernel(p, label: "ten", entry: ten, fn: mirShapedLoop(ast.funcLinkName(p, fid: ten), shape: shape), expectedCode: loopExpected(shape), calleeSaved: 0, depth: 1, skip: noBlocks()), moves: 7, stack: 0)
+	// The arms of the branchy loop rejoin with every sum in its one register; the test of the counter's low bit is the
+	// only copy (Maxon 4 and 7, Go 4 and 6 moves on the even and the odd arm).
+	let branchy = addFunction(p, name: "main", errTy: ast.noType)
+	var evenFn = mirBranchyLoop(ast.funcLinkName(p, fid: branchy))
+	expectCost("branchy, odd arm", cost: runKernel(p, label: "branchy", entry: branchy, fn: evenFn.clone(), expectedCode: 70, calleeSaved: 0, depth: 1, skip: oneBlock(branchyEven)), moves: 1, stack: 0)
+	_ = colourOf("branchy", fn: evenFn, calleeSaved: 0)
+	expectCost("branchy, even arm", cost: loopCost(evenFn, depth: 1, skip: oneBlock(branchyOdd)), moves: 1, stack: 0)
+	// The division and the variable shift: the dividend and the quotient meet rax, the remainder rdx and the count rcx
+	// with no move; the divisor and the count are made from the counter, which lives on, so each costs a copy.
+	let divShift = addFunction(p, name: "main", errTy: ast.noType)
+	expectCost("divshift", cost: runKernel(p, label: "divshift", entry: divShift, fn: mirDivShiftLoop(ast.funcLinkName(p, fid: divShift)), expectedCode: divShiftExpected(), calleeSaved: 0, depth: 1, skip: noBlocks()), moves: 2, stack: 0)
+	// Two parameters that trade places each iteration are a cycle of the back edge's parallel copy: three moves
+	// through a free register.
+	let swap = addFunction(p, name: "main", errTy: ast.noType)
+	expectCost("swap", cost: runKernel(p, label: "swap", entry: swap, fn: mirSwapLoop(ast.funcLinkName(p, fid: swap)), expectedCode: 102, calleeSaved: 0, depth: 1, skip: noBlocks()), moves: 3, stack: 0)
+end 'testColourLoops'
+
+// callLive are the numbers of values the call kernels keep live across their call, as the study's k05.
+function callLive() returns backend.CountList
+	return countsOf(2, b: 4, c: 8)
+end 'callLive'
+
+function countsOf(a Count, b Count, c Count) returns backend.CountList
+	var list = backend.CountList.create(0)
+	list.push(a)
+	list.push(b)
+	list.push(c)
+	return list
+end 'countsOf'
+
+function testColourCalls(mutates p ast.Project)
+	// With five callee-saved registers, two and four values live across the call stay in them with no move (Maxon 0
+	// stack operations and 3 and 5 moves); of eight, three leave the registers around it, which costs five stack
+	// operations and two moves (Maxon 6 and 14). With today's convention, which keeps nothing, every value live across
+	// the call is stored or reloaded.
+	let live = callLive()
+	let keptStack = countsOf(0, b: 0, c: 5)
+	let keptMoves = countsOf(0, b: 0, c: 2)
+	let noneStack = countsOf(3, b: 7, c: 15)
+	for n in 0 upto live.count() 'live'
+		let kept = addFunction(p, name: "main", errTy: ast.noType)
+		let label = "call{live[n]}kept"
+		let cost = runKernel(p, label: label, entry: kept, fn: mirCallLoop(ast.funcLinkName(p, fid: kept), live: live[n]), expectedCode: callLoopExpected(live[n]), calleeSaved: calleeSavedFive(), depth: 1, skip: noBlocks())
+		expectCount(label, what: "stack operations per iteration", got: cost.stack, want: keptStack[n])
+		expectCount(label, what: "moves per iteration", got: cost.moves, want: keptMoves[n])
+		let none = addFunction(p, name: "main", errTy: ast.noType)
+		let noneLabel = "call{live[n]}"
+		let noneCost = runKernel(p, label: noneLabel, entry: none, fn: mirCallLoop(ast.funcLinkName(p, fid: none), live: live[n]), expectedCode: callLoopExpected(live[n]), calleeSaved: 0, depth: 1, skip: noBlocks())
+		expectCount(noneLabel, what: "stack operations per iteration", got: noneCost.stack, want: noneStack[n])
+	end 'live'
+end 'testColourCalls'
+
+function testColourHall(mutates p ast.Project)
+	let fixed = addFunction(p, name: "main", errTy: ast.noType)
+	var fixedFn = mirHallFixed(ast.funcLinkName(p, fid: fixed))
+	let fixedResult = colourOf("hall", fn: fixedFn, calleeSaved: 0)
+	expectCount("hall", what: "repair moves", got: fixedResult.repairMoves, want: 1)
+	expectCount("hall", what: "spills", got: backend.spillCodeCounts(fixedFn).spills, want: 0)
+	linkAndRun(p, fns: oneMir(fixedFn), entry: fixed, name: "minimaxon_colour_hall.exe", expectedCode: hallFixedExpected())
+	let calls = addFunction(p, name: "main", errTy: ast.noType)
+	var callsFn = mirHallCalls(ast.funcLinkName(p, fid: calls))
+	let callsResult = colourOf("hallcalls", fn: callsFn, calleeSaved: calleeSavedFive())
+	expectCount("hallcalls", what: "repair moves", got: callsResult.repairMoves, want: 1)
+	expectCount("hallcalls", what: "spills", got: backend.spillCodeCounts(callsFn).spills, want: 0)
+	var fns = oneMir(callsFn)
+	fns.push(mirDouble())
+	let double = try fns.count() - 1 otherwise panic("no functions")
+	_ = colourOf("hallcalls", fn: fns[double], calleeSaved: calleeSavedFive())
+	linkAndRun(p, fns: fns, entry: calls, name: "minimaxon_colour_hallcalls.exe", expectedCode: hallCallsExpected())
+	let across = addFunction(p, name: "main", errTy: ast.noType)
+	var acrossFn = mirHallAcross(ast.funcLinkName(p, fid: across))
+	let acrossResult = colourOf("hallacross", fn: acrossFn, calleeSaved: 0)
+	expectCount("hallacross", what: "spills", got: backend.spillCodeCounts(acrossFn).spills, want: 0)
+	expectCount("hallacross", what: "moves out of a home and back", got: acrossResult.repairMoves, want: 2)
+	linkAndRun(p, fns: oneMir(acrossFn), entry: across, name: "minimaxon_colour_hallacross.exe", expectedCode: hallAcrossExpected())
+end 'testColourHall'
+
+function hallCallsExpected() returns ExitCode
+	var last = 2 as FullRangeInt
+	var ys = 0 as FullRangeInt
+	for k in 0 upto hallKept 'ys'
+		last = wrapAdd(last, b: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits"))
+		ys = wrapAdd(ys, b: last)
+	end 'ys'
+	return exitOf(wrapAdd(12, b: ys))
+end 'hallCallsExpected'
+
+function testColouring()
+	var p = ast.Project.new("self")
+	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
+	testColourLoops(p)
+	testColourCalls(p)
+	testColourHall(p)
+	var scale = mirScale(scaleSegments, straight: scaleStraight)
+	allocateColoured(scale, spilled: false)
+end 'testColouring'

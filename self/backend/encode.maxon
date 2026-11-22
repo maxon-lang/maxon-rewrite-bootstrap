@@ -50,8 +50,8 @@ function encodeMachineInstr(mutates u CodeUnit, fn MirFunction, x MInstr)
 		reload or
 		restore then encodeLoadRegBaseDisp(u.asm.code, dest: generalRegister(x.a), base: X64Register.rbp, disp: spillSlotOffset(spillSlotOf(x)))
 		parallelCopy then panic("backend: a parallel copy that allocation left")
-		frameSetup then encodeFrameSetup(u, bytes: fn.frameBytes())
-		frameTeardown then encodeFrameTeardown(u)
+		frameSetup then encodeFrameSetup(u, fn: fn)
+		frameTeardown then encodeFrameTeardown(u, fn: fn)
 	end 'kind'
 end 'encodeMachineInstr'
 
@@ -96,7 +96,8 @@ function edgeLabel(fn MirFunction, edge Count) returns LabelID
 	return fn.edges[edge].target as LabelID
 end 'edgeLabel'
 
-function encodeFrameSetup(mutates u CodeUnit, bytes Count)
+function encodeFrameSetup(mutates u CodeUnit, fn MirFunction)
+	let bytes = fn.frameBytes()
 	encodePushReg(u.asm.code, reg: X64Register.rbp)
 	encodeMovRegReg(u.asm.code, dest: X64Register.rbp, src: X64Register.rsp)
 	var frame = alignUp(bytes, alignment: stackAlignment)
@@ -108,9 +109,24 @@ function encodeFrameSetup(mutates u CodeUnit, bytes Count)
 	if frame > 0 'rest'
 		encodeSubRegImm(u.asm.code, dest: X64Register.rsp, imm: imm32Of(frame))
 	end 'rest'
+	var slot = fn.slotsGiven()
+	for r in 0 upto x64FirstVector 'saved'
+		if maskHas(fn.savedRegs, number: regNumOfCount(r)) 'save'
+			encodeStoreBaseDispReg(u.asm.code, base: X64Register.rbp, disp: spillSlotOffset(try slot as SpillSlot otherwise panic("backend: a frame past 2 GiB")), src: x64RegisterOf(regNumOfCount(r)))
+			slot = nextCount(slot)
+		end 'save'
+	end 'saved'
 end 'encodeFrameSetup'
 
-function encodeFrameTeardown(mutates u CodeUnit)
+// encodeFrameTeardown loads back the callee-saved registers the prologue kept, then drops the frame.
+function encodeFrameTeardown(mutates u CodeUnit, fn MirFunction)
+	var slot = fn.slotsGiven()
+	for r in 0 upto x64FirstVector 'saved'
+		if maskHas(fn.savedRegs, number: regNumOfCount(r)) 'restore'
+			encodeLoadRegBaseDisp(u.asm.code, dest: x64RegisterOf(regNumOfCount(r)), base: X64Register.rbp, disp: spillSlotOffset(try slot as SpillSlot otherwise panic("backend: a frame past 2 GiB")))
+			slot = nextCount(slot)
+		end 'restore'
+	end 'saved'
 	encodeMovRegReg(u.asm.code, dest: X64Register.rsp, src: X64Register.rbp)
 	encodePopReg(u.asm.code, reg: X64Register.rbp)
 end 'encodeFrameTeardown'

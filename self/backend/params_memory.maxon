@@ -1,0 +1,225 @@
+// Block parameters in memory. A block with more parameters of a class than the class has registers cannot have them all
+// in registers where it starts, nor can an edge into it read all its arguments in registers at its jump. Before
+// spilling, the parameters past what the registers hold are taken off the block, the ones whose uses weigh least, and
+// each lives in a frame slot of its own: an edge into the block stores the argument into the parameter's slot before
+// its jump, and the block starts by reloading each one into the value the parameter was, which spilling takes as
+// stored already. So it stays in a register while there is room and is reloaded from its slot where there is not, and a
+// reload nothing reads is dropped. An edge into its own block (a loop's) that passes one of the block's memory
+// parameters copies it before the stores, so that every store reads a register and none overwrites a slot that a
+// later reload of the same edge would read.
+
+// MemoryParams are the values that held the parameters taken off their blocks, each with its slot.
+type MemoryParams
+	var values as MRegList
+	var slots as CountList
+
+	static function new() returns MemoryParams
+		return MemoryParams{values: MRegList.create(0), slots: CountList.create(0)}
+	end 'new'
+end 'MemoryParams'
+
+// loopUseWeight is how much heavier a use one loop deeper weighs in the cost of moving a parameter to memory: the factor
+// of a loop's iterations that spill costs usually assume.
+let loopUseWeight = 8
+
+// deepestWeighedDepth caps the depth a use is weighed at, so that a weight stays within a word.
+let deepestWeighedDepth = 16
+
+// paramsToMemory takes off the blocks of fn, laid out with the graph g, the parameters past what the registers of their
+// class hold, and gives the values that held them with their slots.
+function paramsToMemory(mutates fn MirFunction, g MirGraph, convs Conventions) returns MemoryParams
+	var moved = MemoryParams.new()
+	var excess = CountList.create(0)
+	var any = false
+	for b in 0 upto fn.blocks.count() 'blocks'
+		for c in 0 upto classCount 'classes'
+			let pool = fullPool(classAt(c))
+			let held = paramsOfClass(fn, b: b, c: c)
+			var over = 0 as Count
+			if held > pool 'over'
+				over = try held - pool otherwise panic("backend: an excess below 0")
+				any = true
+			end 'over'
+			excess.push(over)
+		end 'classes'
+	end 'blocks'
+	if not any 'none'
+		return moved
+	end 'none'
+	let weights = useWeights(fn, g: g, convs: convs)
+	var memory = BoolList.create(0)
+	ir.resetFlags(memory, n: fn.vregCount())
+	var slotOf = CountList.create(0)
+	ir.resetCounts(slotOf, n: fn.vregCount())
+	var touched = BoolList.create(0)
+	ir.resetFlags(touched, n: fn.blocks.count())
+	for b in 0 upto fn.blocks.count() 'choose'
+		for c in 0 upto classCount 'classes'
+			var over = excess[addCounts(pointSlots(b), b: c)]
+			while over > 0 'take'
+				let p = lightestParam(fn, b: b, c: c, weights: weights, memory: memory)
+				let slot = fn.slotsGiven()
+				memory[p] = true
+				slotOf[p] = slot
+				fn.spillSlots = nextCount(slot)
+				moved.values.push(vregAt(p))
+				moved.slots.push(slot)
+				touched[b] = true
+				over = prevCount(over)
+			end 'take'
+		end 'classes'
+	end 'choose'
+	if moved.values.count() > 0 'rewrite'
+		rewriteMemoryParams(fn, over: touched, memory: memory, slotOf: slotOf)
+	end 'rewrite'
+	return moved
+end 'paramsToMemory'
+
+function paramsOfClass(fn MirFunction, b Count, c Count) returns Count
+	var n = 0 as Count
+	for p in 0 upto fn.blocks[b].paramCount 'params'
+		if classIndex(fn.classes[vregIndex(fn.blockParams[addCounts(fn.blocks[b].params, b: p)])]) == c 'class'
+			n = nextCount(n)
+		end 'class'
+	end 'params'
+	return n
+end 'paramsOfClass'
+
+// useWeights is, for each virtual register, its uses, each weighed by the depth of the loop it is in.
+function useWeights(fn MirFunction, g MirGraph, convs Conventions) returns CountList
+	var weights = CountList.create(0)
+	ir.resetCounts(weights, n: fn.vregCount())
+	var ops = Operands.new()
+	for b in 0 upto fn.blocks.count() 'blocks'
+		var weight = 1 as Count
+		for _ in 0 upto minCount(g.loops.depth[b], b: deepestWeighedDepth) 'depth'
+			weight = try weight * loopUseWeight otherwise panic("backend: a use weight past a word")
+		end 'depth'
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			ops.gather(fn, x: fn.instrs[k], convs: convs)
+			for u in 0 upto ops.readLen 'reads'
+				let v = vregIndex(ops.reads[u])
+				weights[v] = addCounts(weights[v], b: weight)
+			end 'reads'
+		end 'instrs'
+	end 'blocks'
+	return weights
+end 'useWeights'
+
+function minCount(a Count, b Count) returns Count
+	if a < b 'a'
+		return a
+	end 'a'
+	return b
+end 'minCount'
+
+// lightestParam is the parameter of class c of block b, not in memory yet, whose uses weigh least, the last on a tie.
+function lightestParam(fn MirFunction, b Count, c Count, weights CountList, memory BoolList) returns Count
+	var best = noDef
+	var bestWeight = 0 as Count
+	for p in 0 upto fn.blocks[b].paramCount 'params'
+		let v = vregIndex(fn.blockParams[addCounts(fn.blocks[b].params, b: p)])
+		if memory[v] or classIndex(fn.classes[v]) != c 'skip'
+			continue 'params'
+		end 'skip'
+		if best == noDef or weights[v] <= bestWeight 'lighter'
+			best = indexOfCount(v)
+			bestWeight = weights[v]
+		end 'lighter'
+	end 'params'
+	if best == noDef 'none'
+		panic("backend: block {b} has more parameters of a class than registers, and none of them left to move")
+	end 'none'
+	return countOfIndex(best)
+end 'lightestParam'
+
+// rewriteMemoryParams writes fn with its memory parameters taken off: each block over its registers starts with the
+// reloads of its memory parameters, and each edge into one stores their arguments before its jump.
+function rewriteMemoryParams(mutates fn MirFunction, over BoolList, memory BoolList, slotOf CountList)
+	var out = MInstrList.create(0)
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		let first = out.count()
+		if over[b] 'reloads'
+			for p in 0 upto fn.blocks[b].paramCount 'params'
+				let r = fn.blockParams[addCounts(fn.blocks[b].params, b: p)]
+				if memory[vregIndex(r)] 'memory'
+					out.push(newReload(r, slot: spillSlotOfCount(slotOf[vregIndex(r)])))
+				end 'memory'
+			end 'params'
+		end 'reloads'
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			if fn.instrs[k].ref == MRef.edge 'edge'
+				let edge = refIndex(fn.instrs[k])
+				if over[fn.edges[edge].target as Count] 'stores'
+					storeMemoryArgs(fn, out: out, edge: edge, memory: memory, slotOf: slotOf)
+				end 'stores'
+			end 'edge'
+			out.push(fn.instrs[k].clone())
+		end 'instrs'
+		fn.blocks[b].first = first
+		fn.blocks[b].endAt = out.count()
+	end 'blocks'
+	fn.instrs = out
+	for b in 0 upto fn.blocks.count() 'params'
+		if over[b] 'over'
+			let start = fn.blocks[b].params
+			var kept = start
+			for p in 0 upto fn.blocks[b].paramCount 'each'
+				let r = fn.blockParams[addCounts(start, b: p)]
+				if not memory[vregIndex(r)] 'register'
+					fn.blockParams[kept] = r
+					kept = nextCount(kept)
+				end 'register'
+			end 'each'
+			fn.blocks[b].paramCount = try kept - start otherwise panic("backend: parameters before their block")
+		end 'over'
+	end 'params'
+end 'rewriteMemoryParams'
+
+// storeMemoryArgs writes, before the jump along edge, the copies and stores that pass its arguments for its target's
+// memory parameters, and takes those arguments off the edge. The target's parameters are still all its own here.
+function storeMemoryArgs(mutates fn MirFunction, mutates out MInstrList, edge Count, memory BoolList, slotOf CountList)
+	let target = fn.edges[edge].target as Count
+	let params = fn.blocks[target].params
+	let args = fn.edges[edge].args
+	let count = fn.edges[edge].argCount
+	for i in 0 upto count 'own'
+		let a = fn.edgeArgs[addCounts(args, b: i)]
+		if isVirtual(a) and memory[vregIndex(a)] and isParamOf(fn, r: a, b: target) 'memory'
+			let class = fn.classes[vregIndex(a)]
+			let copied = fn.newVReg(class)
+			out.push(newCopy(copied, src: a))
+			for j in i upto count 'same'
+				if fn.edgeArgs[addCounts(args, b: j)] == a 'renamed'
+					fn.edgeArgs[addCounts(args, b: j)] = copied
+				end 'renamed'
+			end 'same'
+		end 'memory'
+	end 'own'
+	var kept = args
+	for i in 0 upto count 'args'
+		let a = fn.edgeArgs[addCounts(args, b: i)]
+		let param = vregIndex(fn.blockParams[addCounts(params, b: i)])
+		if memory[param] 'memory'
+			out.push(newSpill(a, slot: spillSlotOfCount(slotOf[param])))
+		end 'memory' else 'register'
+			fn.edgeArgs[kept] = a
+			kept = nextCount(kept)
+		end 'register'
+	end 'args'
+	fn.edges[edge].argCount = try kept - args otherwise panic("backend: arguments before their edge")
+end 'storeMemoryArgs'
+
+function isParamOf(fn MirFunction, r MReg, b Count) returns bool
+	for p in 0 upto fn.blocks[b].paramCount 'params'
+		if fn.blockParams[addCounts(fn.blocks[b].params, b: p)] == r 'found'
+			return true
+		end 'found'
+	end 'params'
+	return false
+end 'isParamOf'
+
+function spillSlotOfCount(slot Count) returns SpillSlot
+	return try slot as SpillSlot otherwise panic("backend: a frame past 2 GiB")
+end 'spillSlotOfCount'

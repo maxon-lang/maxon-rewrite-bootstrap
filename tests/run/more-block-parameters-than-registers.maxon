@@ -1,0 +1,93 @@
+// Sixteen variables that a branch and a loop both change join where more values arrive than x64 has registers, so the
+// join and the loop's header keep some of them in the frame. The loop calls a function, so its values are in memory
+// across each call whatever the allocator does, which is no reason to refuse it.
+
+function bump(n Count, by Count) returns Count
+	return try (n + by) mod 1000 otherwise panic("a sum past a word")
+end 'bump'
+
+function joined(flag bool) returns Count
+	var a = 1 as Count
+	var b = 2 as Count
+	var c = 3 as Count
+	var d = 4 as Count
+	var e = 5 as Count
+	var f = 6 as Count
+	var g = 7 as Count
+	var h = 8 as Count
+	var i = 9 as Count
+	var j = 10 as Count
+	var k = 11 as Count
+	var l = 12 as Count
+	var m = 13 as Count
+	var n = 14 as Count
+	var o = 15 as Count
+	var p = 16 as Count
+	if flag 'swap'
+		a = p
+		b = o
+		c = n
+		d = m
+		e = l
+		f = k
+		g = j
+		h = i
+		i = 1
+		j = 2
+		k = 3
+		l = 4
+		m = 5
+		n = 6
+		o = 7
+		p = 8
+	end 'swap'
+	return try a * 1 + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8 + i * 9 + j * 10 + k * 11 + l * 12 + m * 13 + n * 14 + o * 15 + p * 16 otherwise panic("a sum past a word")
+end 'joined'
+
+function rotated(rounds Count) returns Count
+	var a = 1 as Count
+	var b = 2 as Count
+	var c = 3 as Count
+	var d = 4 as Count
+	var e = 5 as Count
+	var f = 6 as Count
+	var g = 7 as Count
+	var h = 8 as Count
+	var i = 9 as Count
+	var j = 10 as Count
+	var k = 11 as Count
+	var l = 12 as Count
+	var m = 13 as Count
+	var n = 14 as Count
+	var o = 15 as Count
+	var p = 16 as Count
+	var r = 0 as Count
+	while r < rounds 'rounds'
+		let t = a
+		a = bump(b, by: r)
+		b = bump(c, by: 1)
+		c = bump(d, by: 2)
+		d = bump(e, by: 3)
+		e = bump(f, by: 4)
+		f = bump(g, by: 5)
+		g = bump(h, by: 6)
+		h = bump(i, by: 7)
+		i = bump(j, by: 8)
+		j = bump(k, by: 9)
+		k = bump(l, by: 10)
+		l = bump(m, by: 11)
+		m = bump(n, by: 12)
+		n = bump(o, by: 13)
+		o = bump(p, by: 14)
+		p = bump(t, by: 15)
+		r = r + 1
+	end 'rounds'
+	return try a + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8 + i * 9 + j * 10 + k * 11 + l * 12 + m * 13 + n * 14 + o * 15 + p * 16 otherwise panic("a sum past a word")
+end 'rotated'
+
+function main() returns ExitCode
+	print("{joined(false)} {joined(true)} {rotated(37)}\n")
+	return 0
+end 'main'
+
+//> 1496 900 45568

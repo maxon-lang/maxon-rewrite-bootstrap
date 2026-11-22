@@ -1,7 +1,7 @@
 // Spilling's tests: functions written by hand in machine IR, each a shape of the allocator study in miniature, go through
 // backend.spillFunction; the result is held to verifyPressure (every instruction fits its free registers, and no spill
 // code stands in a loop that neither defines nor reads its value) and to the number of stores and reloads it may have,
-// on the hot path and in all; then the trivial allocator finishes it and it runs, which shows the values came through.
+// on the hot path and in all; then colouring finishes it and it runs, which shows the values came through.
 
 typealias WordList = Array with FullRangeInt
 
@@ -297,7 +297,7 @@ function runSpilledLoop(mutates p ast.Project, label String, shape LoopShape, sp
 	if shape.call 'callee'
 		fns.push(mirDouble())
 	end 'callee'
-	runMir(p, fns: fns, entry: entry, name: "minimaxon_spill_{label}.exe", expectedCode: loopExpected(shape))
+	runSpilledMir(p, fns: fns, entry: entry, name: "minimaxon_spill_{label}.exe", expectedCode: loopExpected(shape))
 	return result
 end 'runSpilledLoop'
 
@@ -322,7 +322,7 @@ function testSpillFits(mutates p ast.Project)
 	var fn = mirLoop(ast.funcLinkName(p, fid: entry))
 	_ = spillOf("mirLoop", fn: fn)
 	expectSpillCode("mirLoop", fn: fn, spills: 0, reloads: 0, hotSpills: 0, hotReloads: 0, restores: 0)
-	runMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_mirloop.exe", expectedCode: 136)
+	runSpilledMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_mirloop.exe", expectedCode: 136)
 end 'testSpillFits'
 
 function testSpillIdleAcrossLoop(mutates p ast.Project)
@@ -488,7 +488,7 @@ function testSpillNested(mutates p ast.Project)
 	var fn = mirNested(ast.funcLinkName(p, fid: entry))
 	_ = spillOf("nested", fn: fn)
 	expectSpillCode("nested", fn: fn, spills: 1, reloads: 1, hotSpills: 1, hotReloads: 1, restores: 0)
-	runMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_nested.exe", expectedCode: nestedExpected())
+	runSpilledMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_nested.exe", expectedCode: nestedExpected())
 end 'testSpillNested'
 
 // straightValues is how many values the straight-line test holds at once.
@@ -522,7 +522,7 @@ function testSpillStraightLine(mutates p ast.Project)
 	expectSpillCode("straight", fn: fn, spills: 10, reloads: 10, hotSpills: 0, hotReloads: 0, restores: 0)
 	expectCount("straight", what: "slots", got: fn.spillSlots, want: 10)
 	expectCount("straight", what: "stores counted", got: result.stores, want: 10)
-	runMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_straight.exe", expectedCode: exitOf(expected))
+	runSpilledMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_straight.exe", expectedCode: exitOf(expected))
 end 'testSpillStraightLine'
 
 // fixedLive is how many values the tests of fixed registers keep live across them: with the operands, one over what a
@@ -557,7 +557,7 @@ function testSpillFixedRegisters(mutates p ast.Project)
 	fn.endBlock()
 	_ = spillOf("division", fn: fn)
 	expectSpillCode("division", fn: fn, spills: 2, reloads: 2, hotSpills: 0, hotReloads: 0, restores: 0)
-	runMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_division.exe", expectedCode: exitOf(wrapAdd(expected, b: 16)))
+	runSpilledMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_division.exe", expectedCode: exitOf(wrapAdd(expected, b: 16)))
 	// The same with a shift by a count in rcx.
 	let shiftEntry = addFunction(p, name: "main", errTy: ast.noType)
 	var shift = backend.MirFunction.new(ast.funcLinkName(p, fid: shiftEntry), canThrow: false)
@@ -579,7 +579,7 @@ function testSpillFixedRegisters(mutates p ast.Project)
 	shift.endBlock()
 	_ = spillOf("shift", fn: shift)
 	expectSpillCode("shift", fn: shift, spills: 2, reloads: 2, hotSpills: 0, hotReloads: 0, restores: 0)
-	runMir(p, fns: oneMir(shift), entry: shiftEntry, name: "minimaxon_spill_shift.exe", expectedCode: exitOf(wrapAdd(expected, b: 40)))
+	runSpilledMir(p, fns: oneMir(shift), entry: shiftEntry, name: "minimaxon_spill_shift.exe", expectedCode: exitOf(wrapAdd(expected, b: 40)))
 end 'testSpillFixedRegisters'
 
 function testSpilling()

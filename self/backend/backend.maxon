@@ -8,9 +8,13 @@ export typealias FunctionLists = Array with ir.IrFunctionList
 // that main is: linkProgram of the modules' units. With mapsSymbols the result also holds the map of the code's symbols.
 export function buildProgram(mutates p ast.Project, modules FunctionLists, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions, mapsSymbols bool) returns Linked
 	var units = UnitList.create(0)
+	var errs = diag.ErrorList.create(0)
 	for i in 0 upto modules.count() 'modules'
-		units.push(emitModule(p, fns: modules[i]))
+		units.push(emitModule(p, fns: modules[i], verifies: true, errs: errs))
 	end 'modules'
+	if errs.count() > 0 'refused'
+		panic("backend: a program built without the driver is refused: {errs[0].message}")
+	end 'refused'
 	return linkProgram(p, modules: units, ready: ready, entry: entry, options: options, mapsSymbols: mapsSymbols)
 end 'buildProgram'
 

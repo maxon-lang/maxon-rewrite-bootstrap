@@ -1,4 +1,4 @@
-// The machine IR's test: functions written by hand in machine IR go through the trivial allocator and the encoder, are
+// The machine IR's test: functions written by hand in machine IR go through register allocation and the encoder, are
 // linked with the entry stub and the test runtime of codegen_test.maxon, and run; and the allocation columns of every x64
 // form are checked against one another.
 
@@ -225,14 +225,30 @@ function mirConditional(symbol String) returns backend.MirFunction
 	return fn
 end 'mirConditional'
 
-// runMir allocates and encodes the functions into one unit, links it with the entry stub and the test runtime, and runs
-// the executable.
+// runMir allocates the functions by spilling and colouring (allocateColoured) and runs them.
 function runMir(mutates p ast.Project, consumes fns backend.MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode)
+	runAllocated(p, fns: fns, entry: entry, name: name, expectedCode: expectedCode, spilled: false)
+end 'runMir'
+
+// runSpilledMir is runMir for functions spilling has spilled already, which colouring takes up as they are.
+function runSpilledMir(mutates p ast.Project, consumes fns backend.MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode)
+	runAllocated(p, fns: fns, entry: entry, name: name, expectedCode: expectedCode, spilled: true)
+end 'runSpilledMir'
+
+function runAllocated(mutates p ast.Project, consumes fns backend.MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode, spilled bool)
 	var all = fns
-	var u = backend.CodeUnit.new()
 	for i in 0 upto all.count() 'each'
-		backend.allocateTrivially(all[i])
-		backend.encodeMachineFunction(u, fn: all[i], instance: false)
+		allocateColoured(all[i], spilled: spilled)
+	end 'each'
+	linkAndRun(p, fns: all, entry: entry, name: name, expectedCode: expectedCode)
+end 'runAllocated'
+
+// linkAndRun encodes allocated functions into one unit, links it with the entry stub and the test runtime, and runs
+// the executable.
+function linkAndRun(mutates p ast.Project, fns backend.MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode)
+	var u = backend.CodeUnit.new()
+	for i in 0 upto fns.count() 'each'
+		backend.encodeMachineFunction(u, fn: fns[i], instance: false)
 	end 'each'
 	u.asm.endLabels()
 	var units = backend.UnitList.create(0)
@@ -241,7 +257,7 @@ function runMir(mutates p ast.Project, consumes fns backend.MirFunctionList, ent
 	ready.push(runtimeUnit(false))
 	let linked = backend.linkProgram(p, modules: units, ready: ready, entry: entry, options: backend.RuntimeOptions.make(false), mapsSymbols: false)
 	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: "")
-end 'runMir'
+end 'linkAndRun'
 
 function oneMir(consumes fn backend.MirFunction) returns backend.MirFunctionList
 	var list = backend.MirFunctionList.create(0)

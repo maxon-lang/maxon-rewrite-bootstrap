@@ -462,7 +462,7 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, memory proj
 		endCheck then endCheckTask(run, p: p)
 		lower then lowerModule(run, p: p, m: m, options: options, errs: errs)
 		program then holdProgram(run, p: p, output: output, options: options, errs: errs)
-		emit then emitModule(run, p: p, m: m)
+		emit then emitModule(run, p: p, m: m, options: options, errs: errs)
 		link then linkUnits(run, p: p, output: output, options: options, ready: ready)
 	end 's'
 	if isModuleStage(run.graph.tasks[task].stage) 'ended'
@@ -675,9 +675,9 @@ function holdProgram(run Run, p ast.Project, output String, options Options, mut
 	refusals(p, lowered: run.lowered, errs: errs)
 end 'holdProgram'
 
-function emitModule(mutates run Run, mutates p ast.Project, m Count)
+function emitModule(mutates run Run, mutates p ast.Project, m Count, options Options, mutates errs diag.ErrorList)
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is emitted again")
-	let unit = backend.emitModule(p, fns: run.lowered[slot])
+	let unit = backend.emitModule(p, fns: run.lowered[slot], verifies: options.verifyIr, errs: errs)
 	run.units[slot] = unit
 end 'emitModule'
 

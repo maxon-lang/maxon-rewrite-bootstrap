@@ -90,7 +90,9 @@ end 'maskCount'
 
 // Operands are the registers one instruction reads and writes: its virtual uses, the first readLen of reads, each with
 // its slot, its virtual definitions, the first writeLen of writes, and the physical registers it reads and writes,
-// whether an operand names them or not. The lists keep their room from one instruction to the next.
+// whether an operand names them or not. The lists keep their room from one instruction to the next. The fixed registers
+// each form reads and writes, and the stack and frame pointers, are looked up once, since every pass of allocation asks
+// them of every instruction.
 type Operands
 	var reads as MRegList
 	var slots as Array with Count
@@ -99,9 +101,19 @@ type Operands
 	var writeLen as Count
 	var physReads as RegMask
 	var physWrites as RegMask
+	var usesOfForm as RegMaskList
+	var writesOfForm as RegMaskList
+	var reserved as RegMask
 
 	static function new() returns Operands
-		return Operands{reads: MRegList.create(0), slots: Array.create(0), readLen: 0, writes: MRegList.create(0), writeLen: 0, physReads: 0, physWrites: 0}
+		var fixedReads = RegMaskList.create(0)
+		var fixedWrites = RegMaskList.create(0)
+		for i in 0 upto x64FormCount 'forms'
+			let form = x64FormOf(i)
+			fixedReads.push(fixedUses(form))
+			fixedWrites.push(formWrites(form))
+		end 'forms'
+		return Operands{reads: MRegList.create(0), slots: Array.create(0), readLen: 0, writes: MRegList.create(0), writeLen: 0, physReads: 0, physWrites: 0, usesOfForm: fixedReads, writesOfForm: fixedWrites, reserved: reservedMask()}
 	end 'new'
 
 	function addRead(mutates self, r MReg, slot Count)
@@ -115,7 +127,7 @@ type Operands
 			end 'grow'
 			readLen = nextCount(readLen)
 		end 'virtual' else if isPhysical(r) 'physical'
-			physReads = physReads or (regBit(physicalNumber(r)) and not reservedMask())
+			physReads = physReads or (regBit(physicalNumber(r)) and not reserved)
 		end 'physical'
 	end 'addRead'
 
@@ -128,7 +140,7 @@ type Operands
 			end 'grow'
 			writeLen = nextCount(writeLen)
 		end 'virtual' else if isPhysical(r) 'physical'
-			physWrites = physWrites or (regBit(physicalNumber(r)) and not reservedMask())
+			physWrites = physWrites or (regBit(physicalNumber(r)) and not reserved)
 		end 'physical'
 	end 'addWrite'
 
@@ -166,12 +178,15 @@ type Operands
 	end 'gatherParallelCopy'
 
 	function gatherTarget(mutates self, fn MirFunction, x MInstr, convs Conventions)
-		let n = operandCount(x)
+		var n = operandCount(x)
 		var first = 0 as Count
 		if defines(x) 'defines'
 			self.addWrite(x.a)
 			first = 1
 		end 'defines'
+		if isZeroIdiom(x) 'zero'
+			n = first
+		end 'zero'
 		for i in first upto n 'uses'
 			self.addRead(operandAt(x, index: i), slot: i)
 		end 'uses'
@@ -183,8 +198,9 @@ type Operands
 			end 'args'
 		end 'edge'
 		// The stack and frame pointers are never a value's, so nothing counts them as held.
-		physReads = physReads or (implicitUses(x, convs: convs, canThrow: fn.canThrow) and not reservedMask())
-		physWrites = physWrites or (implicitDefs(x, convs: convs) and not reservedMask())
+		let form = x.form.rawValue as Count
+		physReads = physReads or ((usesOfForm[form] or returnUses(x, conv: convs.internal, canThrow: fn.canThrow)) and not reserved)
+		physWrites = physWrites or ((writesOfForm[form] or callClobbers(x, convs: convs)) and not reserved)
 	end 'gatherTarget'
 end 'Operands'
 
@@ -399,7 +415,51 @@ function prepareBlocks(mutates fn MirFunction, mutates g MirGraph)
 	for b in 0 upto fn.blocks.count() 'depth'
 		fn.blocks[b].loopDepth = g.loops.depth[b]
 	end 'depth'
+	writeLayout(fn)
+	g.build(fn)
 end 'prepareBlocks'
+
+// writeLayout writes the instructions of fn in the order of its layout, so that an instruction's index orders it as the layout
+// does, which the spiller's walks along a block and its use lists read. A block the layout leaves out is left empty.
+function writeLayout(mutates fn MirFunction)
+	if inLayout(fn) 'written'
+		return
+	end 'written'
+	var out = MInstrList.create(0)
+	var placed = BoolList.create(0)
+	ir.resetFlags(placed, n: fn.blocks.count())
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		placed[b] = true
+		let first = out.count()
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			out.push(fn.instrs[k].clone())
+		end 'instrs'
+		fn.blocks[b].first = first
+		fn.blocks[b].endAt = out.count()
+	end 'blocks'
+	for b in 0 upto fn.blocks.count() 'unreached'
+		if not placed[b] 'empty'
+			fn.blocks[b].first = out.count()
+			fn.blocks[b].endAt = out.count()
+		end 'empty'
+	end 'unreached'
+	fn.instrs = out
+end 'writeLayout'
+
+// inLayout is whether the instructions of fn are in the order of its layout already, each block's following the one
+// before it, and no block is left out.
+function inLayout(fn MirFunction) returns bool
+	var at = 0 as Count
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		if fn.blocks[b].first != at 'apart'
+			return false
+		end 'apart'
+		at = fn.blocks[b].endAt
+	end 'blocks'
+	return at == fn.instrs.count()
+end 'inLayout'
 
 // splitEdges splits each edge out of a block with more than one successor that enters a block with more than one
 // predecessor, or that has arguments: the copies of its arguments may run only when the edge is taken.

@@ -6,8 +6,11 @@
 // 1. a value live across a loop that the loop's hot path neither defines nor reads leaves its registers for the loop:
 //    stored at its definition, reloaded where it is read after the loop or on the loop's cold path;
 // 2. a constant live across a hot point over its pool is made again before its uses instead of being kept;
-// 3. the E5001 test: a point of a loop's hot path still over its class's whole pool is refused;
-// 4. at every point still over the registers free there (a call keeps only the callee-saved ones, a division or a
+// 3. on a hot path, a value live across a call whose convention does not keep it is spilled at the call, or at a point
+//    over the pool before it where its next use is past the call: it is in memory across the call whatever the program
+//    does, so that spill code costs nothing the call does not and is no reason to refuse;
+// 4. the E5001 test: a point of a loop's hot path still over its class's whole pool is refused;
+// 5. at every point still over the registers free there (a call keeps only the callee-saved ones, a division or a
 //    variable shift fixes rax, rdx or rcx, and code outside hot loops may simply hold too many values), values are
 //    spilled by farthest next use, constants first; in a cold block, a value live across a call, or one its loop's hot
 //    path reads, is bracketed instead: stored before the point and restored into its own register after it, so the hot
@@ -28,6 +31,11 @@
 enum Relief
 	// constants: only make constants again, against the class's whole pool, in hot blocks.
 	constants
+	// calls: in a hot block, spill at a call the values that its convention does not keep, against the registers it
+	// leaves, and at a point over the class's whole pool the values whose next use is past such a call. They are in memory
+	// across the call whatever the program does, so this spill code costs nothing the call does not, and is no reason to
+	// refuse a loop.
+	calls
 	// all: spill whatever the tiers allow, against the registers free at the point, in every block.
 	all
 end 'Relief'
@@ -35,9 +43,16 @@ end 'Relief'
 // noDistance is the distance of a value whose next use the layout does not show.
 let noDistance = 2147483647
 
-// runsPerBlock is how many stretches of uses a split can give one block: the ones before the cut, which a loop brings
-// round again, and the ones after it.
-let runsPerBlock = 2
+// The stretches of uses a split can give one block, each served by one reload: the uses before the cut, which a loop
+// brings round again; the uses after it; and the uses of loops the block is the preheader of, whose reload stands at
+// the block's end and lives out of it, so it serves none of the block's own uses.
+let runBeforeCut = 0
+
+let runAfterCut = 1
+
+let runHoisted = 2
+
+let runsPerBlock = 3
 
 // Victim tiers, cheapest first.
 let tierConstant = 0
@@ -142,8 +157,18 @@ export type Spiller
 	var insertRank as CountList
 
 	export static function new() returns Spiller
-		return Spiller{graph: MirGraph.new(), lv: Liveness.new(), scan: BlockScan.new(), convs: Conventions.make(), ops: Operands.new(), result: SpillResult.new(), root: MRegList.create(0), slotOf: IndexList.create(0), stored: BoolList.create(0), constAt: IndexList.create(0), consts: MInstrList.create(0), slots: 0, madeBlock: IndexList.create(0), madeOwner: CountList.create(0), madeInsert: IndexList.create(0), madeOut: BoolList.create(0), insertAt: CountList.create(0), inserts: MInstrList.create(0), cancelled: BoolList.create(0), deleted: BoolList.create(0), dirty: BoolList.create(0), changed: false, current: false, mark: 0, liveMark: CountList.create(0), visit: CountList.create(0), stack: CountList.create(0), reach: CountList.create(0), reachAnchor: CountList.create(0), anchorStamp: CountList.create(0), anchorIndex: CountList.create(0), anchorBlock: CountList.create(0), anchorPos: CountList.create(0), anchorEntry: IndexList.create(0), anchorHoisted: BoolList.create(0), anchorReg: MRegList.create(0), inS: IndexList.create(0), sReg: MRegList.create(0), sOwner: CountList.create(0), sCursor: CountList.create(0), sOut: BoolList.create(0), sCount: CountList.create(0), outMark: CountList.create(0), blockMark: 0, fwdOut: BoolList.create(0), outCount: CountList.create(0), readStamp: CountList.create(0), readMark: 0, pendPos: CountList.create(0), pendReg: MRegList.create(0), pendOwner: CountList.create(0), pendCursor: CountList.create(0), pendOut: BoolList.create(0), loopMax: CountList.create(0), blockMost: CountList.create(0), blockFits: BoolList.create(0), loopEnd: CountList.create(0), splitThisRound: MRegList.create(0), bracketedNow: MRegList.create(0), dyingCount: CountList.create(0), writeCount: CountList.create(0), deadList: MRegList.create(0), pickedTier: 0, insertRank: CountList.create(0)}
+		return Spiller.under(Conventions.make())
 	end 'new'
+
+	// under is a spiller for functions whose calls follow convs.
+	export static function under(consumes convs Conventions) returns Spiller
+		return Spiller{graph: MirGraph.new(), lv: Liveness.new(), scan: BlockScan.new(), convs: convs, ops: Operands.new(), result: SpillResult.new(), root: MRegList.create(0), slotOf: IndexList.create(0), stored: BoolList.create(0), constAt: IndexList.create(0), consts: MInstrList.create(0), slots: 0, madeBlock: IndexList.create(0), madeOwner: CountList.create(0), madeInsert: IndexList.create(0), madeOut: BoolList.create(0), insertAt: CountList.create(0), inserts: MInstrList.create(0), cancelled: BoolList.create(0), deleted: BoolList.create(0), dirty: BoolList.create(0), changed: false, current: false, mark: 0, liveMark: CountList.create(0), visit: CountList.create(0), stack: CountList.create(0), reach: CountList.create(0), reachAnchor: CountList.create(0), anchorStamp: CountList.create(0), anchorIndex: CountList.create(0), anchorBlock: CountList.create(0), anchorPos: CountList.create(0), anchorEntry: IndexList.create(0), anchorHoisted: BoolList.create(0), anchorReg: MRegList.create(0), inS: IndexList.create(0), sReg: MRegList.create(0), sOwner: CountList.create(0), sCursor: CountList.create(0), sOut: BoolList.create(0), sCount: CountList.create(0), outMark: CountList.create(0), blockMark: 0, fwdOut: BoolList.create(0), outCount: CountList.create(0), readStamp: CountList.create(0), readMark: 0, pendPos: CountList.create(0), pendReg: MRegList.create(0), pendOwner: CountList.create(0), pendCursor: CountList.create(0), pendOut: BoolList.create(0), loopMax: CountList.create(0), blockMost: CountList.create(0), blockFits: BoolList.create(0), loopEnd: CountList.create(0), splitThisRound: MRegList.create(0), bracketedNow: MRegList.create(0), dyingCount: CountList.create(0), writeCount: CountList.create(0), deadList: MRegList.create(0), pickedTier: 0, insertRank: CountList.create(0)}
+	end 'under'
+
+	// adopt takes up fn, which a spiller has spilled already, so that colouring can follow without spilling it again.
+	export function adopt(mutates self, fn MirFunction)
+		self.start(fn)
+	end 'adopt'
 
 	// start makes every virtual register of fn its own value, with no slot.
 	function start(mutates self, fn MirFunction)
@@ -400,9 +425,9 @@ export type Spiller
 			let e = reach[i]
 			let at = self.entryAt(e)
 			var x = graph.blockAt[at]
-			var run = 1 as Count
+			var run = runAfterCut as Count
 			if region == ir.noLoop and x == cutBlock and at < cutPos 'top'
-				run = 0
+				run = runBeforeCut
 			end 'top'
 			var pos = at
 			var hoisted = false
@@ -420,7 +445,7 @@ export type Spiller
 				x = pre
 				pos = last
 				hoisted = true
-				run = 1
+				run = runHoisted
 				l = graph.loops.loopOf[x]
 			end 'hoist'
 			let key = addCounts(runSlots(x), b: run)
@@ -476,9 +501,15 @@ export type Spiller
 				dirty[b] = true
 			end 'wait'
 		end 'pieces'
+		// A block further down the sweep that now reads a piece waits for the next round, whose analysis knows the piece.
 		for i in 0 upto reach.count() 'rename'
 			let rec = lv.useList[reach[i]]
-			renameUse(fn, k: lv.recordAt[rec], slot: lv.recordSlot[rec], r: anchorReg[reachAnchor[i]])
+			let at = lv.recordAt[rec]
+			renameUse(fn, k: at, slot: lv.recordSlot[rec], r: anchorReg[reachAnchor[i]])
+			let b = graph.blockAt[at]
+			if scanning != noBlock and b != countOfIndex(scanning) and graph.rpo[b] > graph.rpo[countOfIndex(scanning)] 'wait'
+				dirty[b] = true
+			end 'wait'
 		end 'rename'
 		self.dropIfUnused(fn, r: r, owner: owner)
 		splitThisRound.push(r)
@@ -535,7 +566,8 @@ export type Spiller
 		end 'succs'
 	end 'visitSuccessors'
 
-	// dropIfUnused removes the definition of a register that a split left with no use: a constant's, or a piece's.
+	// dropIfUnused removes the definition of a register that a split left with no use: a constant's, a piece's, or a
+	// reload's, whose value is in its slot already.
 	function dropIfUnused(mutates self, fn MirFunction, r MReg, owner Count)
 		let v = vregIndex(r)
 		var e = lv.useStart[owner]
@@ -558,6 +590,9 @@ export type Spiller
 		if self.isConstant(r) and lv.defAt[v] != noDef and not stored[v] 'constant'
 			deleted[countOfIndex(lv.defAt[v])] = true
 		end 'constant'
+		if lv.defAt[v] != noDef and fn.instrs[countOfIndex(lv.defAt[v])].kind == MKind.reload 'reload'
+			deleted[countOfIndex(lv.defAt[v])] = true
+		end 'reload'
 	end 'dropIfUnused'
 
 	// pend tells the sweep of a reload it will meet further down its block.
@@ -653,7 +688,13 @@ end 'swapCounts'
 // gave out.
 export function spillFunction(mutates fn MirFunction, mutates s Spiller) returns SpillResult
 	prepareBlocks(fn, g: s.graph)
+	let moved = paramsToMemory(fn, g: s.graph, convs: s.convs)
 	s.start(fn)
+	for i in 0 upto moved.values.count() 'stored'
+		let v = vregIndex(moved.values[i])
+		s.slotOf[v] = indexOfCount(moved.slots[i])
+		s.stored[v] = true
+	end 'stored'
 	var maxDepth = 0 as Count
 	for b in 0 upto fn.blocks.count() 'depth'
 		maxDepth = maxOf(maxDepth, b: fn.blocks[b].loopDepth)
@@ -668,6 +709,7 @@ export function spillFunction(mutates fn MirFunction, mutates s Spiller) returns
 		end 'edits'
 	end 'levels'
 	sweepRounds(fn, s: s, relief: Relief.constants)
+	sweepRounds(fn, s: s, relief: Relief.calls)
 	s.analyze(fn)
 	var over = BoolList.create(0)
 	ir.resetFlags(over, n: fn.blocks.count())
@@ -693,6 +735,7 @@ function sweepRounds(mutates fn MirFunction, mutates s Spiller, relief Relief)
 			end 'waits'
 			let needs = match relief 'relief'
 				constants gives s.graph.isHot(b) and s.overPool(b)
+				calls gives s.graph.isHot(b) and not s.blockFits[b]
 				all gives not s.blockFits[b]
 			end 'relief'
 			if needs 'swept'
@@ -830,7 +873,7 @@ function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief
 	let n = try endAt - first otherwise panic("backend: a block that ends before it starts")
 	var over = false
 	for i in 0 upto n 'points'
-		if not fitsUnder(s, i: i, relief: relief) 'over'
+		if not fitsUnder(fn, s: s, i: i, relief: relief) 'over'
 			over = true
 			break 'points'
 		end 'over'
@@ -958,9 +1001,10 @@ function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief
 end 'relieveBlock'
 
 // fitsUnder is whether the i-th instruction of the block the scan holds fits what the relief measures against.
-function fitsUnder(s Spiller, i Count, relief Relief) returns bool
+function fitsUnder(fn MirFunction, s Spiller, i Count, relief Relief) returns bool
 	return match relief 'relief'
 		constants gives s.scan.demandAt(i, c: 0) <= s.scan.pools[0] and s.scan.demandAt(i, c: 1) <= s.scan.pools[1]
+		calls gives s.scan.demandAt(i, c: 0) <= s.scan.pools[0] and s.scan.demandAt(i, c: 1) <= s.scan.pools[1] and (not isCallInstr(fn.instrs[addCounts(s.scan.first, b: i)]) or s.scan.fitsAt(i))
 		all gives s.scan.fitsAt(i)
 	end 'relief'
 end 'fitsUnder'
@@ -1043,10 +1087,18 @@ end 'leave'
 // the ones it reads last, writes the ones it defines. In a cold block a value is bracketed instead of split where it
 // is live across a call or where the hot path of its loop reads it, so its spill code stays in the cold block.
 function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i Count, relief Relief, c Count, across Count, dying Count, writes Count, before bool)
+	let call = not before and isCallInstr(fn.instrs[k])
+	var callAfter = noDistance as Count
+	if relief == Relief.calls and not call 'beforeCall'
+		callAfter = nextClobberingCall(fn, s: s, b: b, from: k if before else nextCount(k), class: classAt(c))
+		if callAfter == noDistance 'none'
+			return
+		end 'none'
+	end 'beforeCall'
 	let class = classAt(c)
 	var free = s.scan.pools[c]
 	var freeAcross = free
-	if relief == Relief.all 'measured'
+	if relief == Relief.all or call 'measured'
 		free = s.scan.freeOfMask(c, mask: s.scan.physBefore[i] or s.scan.physAfter[i])
 		freeAcross = free
 		if not before 'across'
@@ -1055,17 +1107,17 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 	end 'measured'
 	let need = maxOf(dying, b: writes)
 	let cold = relief == Relief.all and s.graph.cold[b] and nextCount(k) < fn.blocks[b].endAt
-	let call = not before and isCallInstr(fn.instrs[k])
 	var t = across
 	while true 'over'
 		let held = try t - s.outCount[c] otherwise panic("backend: more values out of their registers than live")
 		if addCounts(held, b: need) <= free and held <= freeAcross 'fits'
 			return
 		end 'fits'
-		let victim = pickVictim(fn, s: s, b: b, c: c, relief: relief, bracket: cold)
+		let victim = pickVictim(fn, s: s, b: b, k: k, c: c, relief: relief, bracket: cold, before: before, callAfter: callAfter)
 		if victim == noMReg 'none'
 			match relief 'relief'
-				constants then return
+				constants or
+				calls then return
 				all then panic("backend: {addCounts(held, b: need)} values of class {classDescription(class)} need registers at instruction {k} of block {b}, where {free} are free, and none can leave them there")
 			end 'relief'
 		end 'none'
@@ -1091,12 +1143,42 @@ function isCallInstr(x MInstr) returns bool
 	return x.kind == MKind.target and isCall(x.form)
 end 'isCallInstr'
 
+// nextClobberingCall is the first call at or after the instruction from of block b, there or further down the hot blocks
+// of b's loop in the layout, whose convention keeps no register of class; or noDistance where there is none.
+function nextClobberingCall(fn MirFunction, s Spiller, b Count, from Count, class RegClass) returns Count
+	let found = clobberingCallIn(fn, s: s, b: b, from: from, class: class)
+	if found != noDistance or s.graph.loops.loopOf[b] == ir.noLoop 'here'
+		return found
+	end 'here'
+	let loop = countOfIndex(s.graph.loops.loopOf[b])
+	for o in nextCount(s.graph.rpo[b]) upto fn.order.count() 'blocks'
+		let x = fn.order[o] as Count
+		if s.graph.loopHolds(loop, b: x) and not s.graph.cold[x] 'hot'
+			let call = clobberingCallIn(fn, s: s, b: x, from: fn.blocks[x].first, class: class)
+			if call != noDistance 'call'
+				return call
+			end 'call'
+		end 'hot'
+	end 'blocks'
+	return noDistance
+end 'nextClobberingCall'
+
+function clobberingCallIn(fn MirFunction, s Spiller, b Count, from Count, class RegClass) returns Count
+	for k in from upto fn.blocks[b].endAt 'instrs'
+		if isCallInstr(fn.instrs[k]) and (keptBy(fn.instrs[k], convs: s.convs) and allocatable(class)) == 0 'call'
+			return k
+		end 'call'
+	end 'instrs'
+	return noDistance
+end 'clobberingCallIn'
+
 // pickVictim is the value of class c to take out of registers at the point the sweep of block b is at: not one the
 // point reads or one a bracket has out already, constants first, then values already stored or defined outside the
 // block's loop, then the rest; within a tier the one whose next use is farthest, the lowest register on a tie. A
 // reload hoisted to the block's end stays, and so does, in a cold block of a loop, a value the loop's hot path reads
-// while another value can go.
-function pickVictim(fn MirFunction, mutates s Spiller, b Count, c Count, relief Relief, bracket bool) returns MReg
+// while another value can go. Where only constants may go, one read by the next instruction stays: made again, it
+// would stand at the same point.
+function pickVictim(fn MirFunction, mutates s Spiller, b Count, k Count, c Count, relief Relief, bracket bool, before bool, callAfter Count) returns MReg
 	var best = noMReg
 	var bestTier = 0 as Count
 	var bestDistance = 0 as Count
@@ -1131,6 +1213,12 @@ function pickVictim(fn MirFunction, mutates s Spiller, b Count, c Count, relief 
 		if cursor < s.usesEnd(owner) 'next'
 			distance = s.entryAt(cursor)
 		end 'next'
+		if relief == Relief.constants and not before and distance == nextCount(k) 'adjacent'
+			continue 'members'
+		end 'adjacent'
+		if callAfter != noDistance and distance <= callAfter 'beforeCall'
+			continue 'members'
+		end 'beforeCall'
 		if best == noMReg or tier < bestTier or (tier == bestTier and (distance > bestDistance or (distance == bestDistance and r < best))) 'better'
 			best = r
 			bestTier = tier
