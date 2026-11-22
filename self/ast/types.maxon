@@ -440,23 +440,29 @@ end 'LocalEntry'
 
 export typealias LocalEntryList = Array with LocalEntry
 
-export typealias TypeInternMap = table.StringMap with TypeID
+export typealias ShapeMap = table.IntMap with TypeID
+
+export typealias TypeWordList = Array with Count
+
+export typealias BrandKeyMap = table.IntMap with String
 
 export typealias FuncInternMap = table.StringMap with FuncID
 
 export type TypeTable
 	export var entries as TypeEntryList
-	export var rangeCache as TypeInternMap
-	export var constCache as TypeInternMap
-	export var instCache as TypeInternMap
-	// tupleOrigins holds the record that tuples of each number of elements are instances of, by the number: noType for a
-	// number no tuple of the program has.
-	export var tupleOrigins as TypeIDList
+	// words name each type, by its index, in the hash of a structure it is part of (shapes.maxon).
+	var words as TypeWordList
+	// shapes are the structural types, by their word.
+	var shapes as ShapeMap
+	// brandKeys are the keys of the function type origins that are brands, by index, which tell two brands apart.
+	var brandKeys as BrandKeyMap
 
 	export static function new() returns TypeTable
 		var es = TypeEntryList.create(0)
 		es.push(TypeEntry.make(TypeKind.invalid, name: "<invalid>"))
-		return TypeTable{entries: es, rangeCache: TypeInternMap.new(), constCache: TypeInternMap.new(), instCache: TypeInternMap.new(), tupleOrigins: TypeIDList.create(0)}
+		var ws = TypeWordList.create(0)
+		ws.push(noType as Count)
+		return TypeTable{entries: es, words: ws, shapes: ShapeMap.new(), brandKeys: BrandKeyMap.new()}
 	end 'new'
 end 'TypeTable'
 
@@ -471,6 +477,7 @@ export function allocType(mutates tt TypeTable, consumes e TypeEntry) returns Ty
 	var copyE = e
 	copyE.id = id
 	tt.entries.push(copyE)
+	tt.words.push(id as Count)
 	return id
 end 'allocType'
 
@@ -479,12 +486,8 @@ export function cloneTypeArgs(args TypeIDList) returns TypeIDList
 end 'cloneTypeArgs'
 
 export function internIntRange(mutates tt TypeTable, consumes aliasName String, consumes minVal I128, consumes maxVal I128, inferred bool) returns TypeID
-	var infTag = "0"
-	if inferred 'inf'
-		infTag = "1"
-	end 'inf'
-	let key = "{aliasName}|{minVal.toString()}|{maxVal.toString()}|{infTag}"
-	match tt.rangeCache.get(key) 'hit'
+	let word = intRangeWord(aliasName, minVal: minVal, maxVal: maxVal, inferred: inferred)
+	match takeShape(intRangeUnder(tt, word: word, aliasName: aliasName, minVal: minVal, maxVal: maxVal, inferred: inferred)) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -493,29 +496,29 @@ export function internIntRange(mutates tt TypeTable, consumes aliasName String, 
 	e.minVal = minVal
 	e.maxVal = maxVal
 	let id = allocType(tt, e: e)
-	tt.rangeCache.insert(key, value: id)
+	addShape(tt, t: id, word: word)
 	return id
 end 'internIntRange'
 
 export function internConstInt(mutates tt TypeTable, consumes val I128) returns TypeID
-	let key = val.toString()
-	match tt.constCache.get(key) 'hit'
+	let word = constIntWord(val)
+	match takeShape(constIntUnder(tt, word: word, val: val)) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
-	var e = TypeEntry.make(TypeKind.constInt, name: "const({key})")
+	var e = TypeEntry.make(TypeKind.constInt, name: "const({val.toString()})")
 	e.minVal = val.clone()
 	e.maxVal = val
 	let id = allocType(tt, e: e)
-	tt.constCache.insert(key, value: id)
+	addShape(tt, t: id, word: word)
 	return id
 end 'internConstInt'
 
 // internFloatRange is the float type of a range, whose bounds are the bits of the doubles that end it. One that runs from
 // f64.min to f64.max holds every double, the infinities and NaN among them.
 export function internFloatRange(mutates tt TypeTable, consumes aliasName String, lo Count, hi Count) returns TypeID
-	let key = "f|{aliasName}|{lo}|{hi}"
-	match tt.rangeCache.get(key) 'hit'
+	let word = floatRangeWord(aliasName, lo: lo, hi: hi)
+	match takeShape(floatRangeUnder(tt, word: word, aliasName: aliasName, lo: lo, hi: hi)) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -523,14 +526,14 @@ export function internFloatRange(mutates tt TypeTable, consumes aliasName String
 	e.minVal = I128.fromCount(lo)
 	e.maxVal = I128.fromCount(hi)
 	let id = allocType(tt, e: e)
-	tt.rangeCache.insert(key, value: id)
+	addShape(tt, t: id, word: word)
 	return id
 end 'internFloatRange'
 
 // internConstFloat is the type of a float constant, whose value is the bits of its double.
 export function internConstFloat(mutates tt TypeTable, bits Count) returns TypeID
-	let key = "f{bits}"
-	match tt.constCache.get(key) 'hit'
+	let word = constFloatWord(bits)
+	match takeShape(constFloatUnder(tt, word: word, bits: bits)) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -538,7 +541,7 @@ export function internConstFloat(mutates tt TypeTable, bits Count) returns TypeI
 	e.minVal = I128.fromCount(bits)
 	e.maxVal = I128.fromCount(bits)
 	let id = allocType(tt, e: e)
-	tt.constCache.insert(key, value: id)
+	addShape(tt, t: id, word: word)
 	return id
 end 'internConstFloat'
 
@@ -659,8 +662,8 @@ export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeID
 	if args.count() == 0 'none'
 		return baseOrigin
 	end 'none'
-	let key = instanceKey(baseOrigin, args: args)
-	match tt.instCache.get(key) 'hit'
+	let word = instanceWord(tt, origin: baseOrigin, args: args)
+	match takeShape(instanceUnder(tt, word: word, origin: baseOrigin, args: args)) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -677,7 +680,7 @@ export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeID
 	e.hasDecl = hasOrigDecl
 	e.decl = origDecl
 	let id = allocType(tt, e: e)
-	tt.instCache.insert(key, value: id)
+	addShape(tt, t: id, word: word)
 	if statesCount(tt, t: id) 'counted'
 		// A fixed array whose type states its count is one of the runtime-sized type of its element, which a place of that
 		// type takes and a join of the two gives.
@@ -776,22 +779,22 @@ end 'countedSpelling'
 // and so on, so that an element is read and written as a field is, and it has one type parameter for each, so that a tuple
 // has the layout, the copy and drop routines and the ownership rules of a record with those fields.
 export function tupleOrigin(mutates tt TypeTable, arity Count) returns TypeID
-	while tt.tupleOrigins.count() <= arity 'room'
-		tt.tupleOrigins.push(noType)
-	end 'room'
-	if tt.tupleOrigins[arity] != noType 'made'
-		return tt.tupleOrigins[arity]
-	end 'made'
+	let word = tupleOriginWord(arity)
+	match takeShape(tupleOriginUnder(tt, word: word, arity: arity)) 'hit'
+		some(id) then return id
+		none then _ = 0
+	end 'hit'
 	var e = TypeEntry.make(TypeKind.record, name: "Tuple{arity}")
 	e.isTuple = true
 	let origin = allocType(tt, e: e)
+	addShape(tt, t: origin, word: word)
 	for i in 0 upto arity 'each'
 		var tp = TypeEntry.make(TypeKind.typeParam, name: "T{i}")
 		let param = allocType(tt, e: tp)
+		addShape(tt, t: param, word: tupleParamWord(word, index: i))
 		tt.entries[typeIndex(origin)].typeParams.push(param)
 		tt.entries[typeIndex(origin)].fields.push(FieldInfo.make("{i}", ty: param, isVar: true, exported: true, hasDefault: false, defaultExpr: 0 as NodeID, index: i))
 	end 'each'
-	tt.tupleOrigins[arity] = origin
 	return origin
 end 'tupleOrigin'
 
@@ -904,20 +907,9 @@ end 'FuncShape'
 // that two spellings of one shape are one type and a generic one is substituted as any instance is. A brand is an origin
 // of its own.
 export function internFuncType(mutates tt TypeTable, params TypeIDList, shape FuncShape, result TypeID) returns TypeID
-	var key = ByteArray.create(0)
-	key.append("function:".toByteArray())
-	for i in 0 upto shape.convs.count() 'convs'
-		key.append("{shape.convs[i].keyword()},".toByteArray())
-	end 'convs'
-	if shape.mutatesCaptures 'captures'
-		key.append("|mutates captures".toByteArray())
-	end 'captures'
-	if shape.brand.key != "" 'brand'
-		key.append("|brand {shape.brand.key}".toByteArray())
-	end 'brand'
-	let keyText = String.from(key)
+	let word = funcOriginWord(shape)
 	var origin = noType
-	match tt.instCache.get(keyText) 'hit'
+	match takeShape(funcOriginUnder(tt, word: word, shape: shape)) 'hit'
 		some(id) then origin = id
 		none then _ = 0
 	end 'hit'
@@ -931,7 +923,10 @@ export function internFuncType(mutates tt TypeTable, params TypeIDList, shape Fu
 		e.mutatesCaptures = shape.mutatesCaptures
 		e.isBrand = shape.brand.key != ""
 		origin = allocType(tt, e: e)
-		tt.instCache.insert(keyText, value: origin)
+		addShape(tt, t: origin, word: word)
+		if shape.brand.key != "" 'brand'
+			tt.brandKeys.insert(typeIndex(origin), value: shape.brand.key.clone())
+		end 'brand'
 	end 'new'
 	var args = params.clone()
 	args.push(result)

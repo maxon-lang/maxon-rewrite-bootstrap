@@ -596,6 +596,7 @@ function selfTest()
 	testAnalyses()
 	testTimings()
 	testSsa()
+	testShapeClash()
 	print("self: all checks passed\n")
 end 'selfTest'
 

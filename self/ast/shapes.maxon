@@ -1,0 +1,286 @@
+// A structural type is one whose identity is its structure, which any module may make: an integer or float range, an
+// integer or float constant, an instance, the origin of a function type and the record of a tuple with its type
+// parameters. Each is interned under its word: structuralBit, its kind in the bits from shapeKindShift, and a 57-bit hash of
+// its structure, which is the handle it will have once handles name their module. A part of the structure that is a type
+// is hashed by its word: a structural part by its own hash, a nominal one by its handle, so that the hash depends on
+// nothing but the structure once a nominal handle names its module and its place there.
+//
+// The hash runs two lanes of 32 and 25 bits, packed in one Count: each step mixes 32 bits of input into both with an
+// xor-shift and multiply finalizer whose operands keep every product inside a Count.
+
+let shapeLaneMask = 4294967295 as Count
+
+let shapeLaneShift = 32 as Count
+
+let shapeHighLaneMask = 33554431 as Count
+
+let shapeHashMask = 144115188075855871 as Count
+
+let shapeKindShift = 57 as Count
+
+let structuralBit = 4611686018427387904 as Count
+
+let shapeSeed = 625341585 as Count
+
+// ShapeMultiplier is a multiplier of the mix, below 2^29, so that its product with 32 bits fits a Count.
+typealias ShapeMultiplier = int(0 to 536870911)
+
+let shapeMixLow = 73244475 as ShapeMultiplier
+
+let shapeMixHigh = 295559667 as ShapeMultiplier
+
+let shapeFoldShift = 16 as Count
+
+// ShapeForm tells apart the structures that share a kind: an instance of a function type and the origin it is an
+// instance of are both function types, and a tuple's type parameters are type parameters.
+enum ShapeForm
+	range
+	constant
+	instance
+	funcOrigin
+	tupleOrigin
+	tupleParam
+end 'ShapeForm'
+
+function shapeMix(x Count, m ShapeMultiplier) returns Count
+	let a = (((x xor (x shr shapeFoldShift)) and shapeLaneMask) * (m as Count)) and shapeLaneMask
+	let b = ((a xor (a shr shapeFoldShift)) * (m as Count)) and shapeLaneMask
+	return b xor (b shr shapeFoldShift)
+end 'shapeMix'
+
+// shapeStep mixes w, of 32 bits, into the hash h.
+function shapeStep(h Count, w Count) returns Count
+	let low = h and shapeLaneMask
+	let high = h shr shapeLaneShift
+	let nextLow = shapeMix(low xor w, m: shapeMixLow)
+	let nextHigh = shapeMix(high xor w xor low, m: shapeMixHigh) and shapeHighLaneMask
+	return (nextHigh shl shapeLaneShift) or nextLow
+end 'shapeStep'
+
+function shapeWordStep(h Count, w Count) returns Count
+	return shapeStep(shapeStep(h, w: w and shapeLaneMask), w: w shr shapeLaneShift)
+end 'shapeWordStep'
+
+function shapeFlagStep(h Count, b bool) returns Count
+	if b 'set'
+		return shapeStep(h, w: 1 as Count)
+	end 'set'
+	return shapeStep(h, w: 0 as Count)
+end 'shapeFlagStep'
+
+function shapeTextStep(h Count, s String) returns Count
+	var x = h
+	let n = s.byteLength()
+	for i in 0 upto n 'each'
+		x = shapeStep(x, w: s.byteAt(i) as Count)
+	end 'each'
+	return shapeWordStep(x, w: n as Count)
+end 'shapeTextStep'
+
+function shapeI128Step(h Count, v I128) returns Count
+	let x = shapeWordStep(h, w: v.lo)
+	if v.hi < 0 'negative'
+		return shapeWordStep(shapeStep(x, w: 1 as Count), w: (try -(v.hi + 1) as Count otherwise panic("the high word of a negative I128 has no magnitude")))
+	end 'negative'
+	return shapeWordStep(shapeStep(x, w: 0 as Count), w: v.hi as Count)
+end 'shapeI128Step'
+
+function shapeStart(kind TypeKind, form ShapeForm) returns Count
+	return shapeStep(shapeStep(shapeSeed, w: kind.ordinal as Count), w: form.ordinal as Count)
+end 'shapeStart'
+
+// shapeWordOf is the word of a structure of kind whose hash is h.
+function shapeWordOf(kind TypeKind, h Count) returns Count
+	let kindBits = try (kind.ordinal as Count) shl shapeKindShift otherwise panic("a type kind past the bits of a handle")
+	return structuralBit or kindBits or (h and shapeHashMask)
+end 'shapeWordOf'
+
+// typeWord is the word that names t in the hash of a structure t is part of.
+function typeWord(tt TypeTable, t TypeID) returns Count
+	return tt.words[typeIndex(t)]
+end 'typeWord'
+
+// ShapeHit is what a lookup of a structure under a word finds: no type, the type of that structure, or a type of another
+// structure under the same word. That is an internal error and never a merge, since the two would be one type.
+export union ShapeHit
+	absent
+	same(id TypeID)
+	clash(message String)
+end 'ShapeHit'
+
+function shapeClash(tt TypeTable, word Count, existing TypeID, other String) returns ShapeHit
+	return ShapeHit.clash(clashMessage(tt, word: word, existing: existing, other: other))
+end 'shapeClash'
+
+function clashMessage(tt TypeTable, word Count, existing TypeID, other String) returns String
+	return "internal error: the types '{typeName(tt, t: existing)}' and '{other}' have one structural hash, {word}"
+end 'clashMessage'
+
+// takeShape is the type a lookup found, or none where it found nothing; it stops the compile at a clash.
+function takeShape(consumes hit ShapeHit) returns table.Option with TypeID
+	match consumes hit 'hit'
+		absent then return table.Option.none
+		same(id) then return table.Option.some(id)
+		clash(message) then panic("{message}")
+	end 'hit'
+end 'takeShape'
+
+// addShape records the type made for a structure under its word.
+function addShape(mutates tt TypeTable, t TypeID, word Count)
+	if tt.shapes.has(word) 'taken'
+		panic("{clashMessage(tt, word: word, existing: tt.shapes.get(word).unwrap(), other: typeName(tt, t: t))}")
+	end 'taken'
+	tt.shapes.insert(word, value: t)
+	tt.words[typeIndex(t)] = word
+end 'addShape'
+
+function intRangeWord(aliasName String, minVal I128, maxVal I128, inferred bool) returns Count
+	let h = shapeFlagStep(shapeI128Step(shapeI128Step(shapeTextStep(shapeStart(TypeKind.intRange, form: ShapeForm.range), s: aliasName), v: minVal), v: maxVal), b: inferred)
+	return shapeWordOf(TypeKind.intRange, h: h)
+end 'intRangeWord'
+
+function intRangeUnder(tt TypeTable, word Count, aliasName String, minVal I128, maxVal I128, inferred bool) returns ShapeHit
+	var id = noType
+	match tt.shapes.get(word) 'hit'
+		some(found) then id = found
+		none then return ShapeHit.absent
+	end 'hit'
+	let i = typeIndex(id)
+	if tt.entries[i].kind == TypeKind.intRange and tt.entries[i].name == aliasName and tt.entries[i].minVal.eq(minVal) and tt.entries[i].maxVal.eq(maxVal) and tt.entries[i].inferred == inferred 'same'
+		return ShapeHit.same(id)
+	end 'same'
+	return shapeClash(tt, word: word, existing: id, other: "{aliasName} int({minVal.toString()} to {maxVal.toString()})")
+end 'intRangeUnder'
+
+function floatRangeWord(aliasName String, lo Count, hi Count) returns Count
+	let h = shapeWordStep(shapeWordStep(shapeTextStep(shapeStart(TypeKind.floatRange, form: ShapeForm.range), s: aliasName), w: lo), w: hi)
+	return shapeWordOf(TypeKind.floatRange, h: h)
+end 'floatRangeWord'
+
+function floatRangeUnder(tt TypeTable, word Count, aliasName String, lo Count, hi Count) returns ShapeHit
+	var id = noType
+	match tt.shapes.get(word) 'hit'
+		some(found) then id = found
+		none then return ShapeHit.absent
+	end 'hit'
+	let i = typeIndex(id)
+	if tt.entries[i].kind == TypeKind.floatRange and tt.entries[i].name == aliasName and tt.entries[i].minVal.eq(I128.fromCount(lo)) and tt.entries[i].maxVal.eq(I128.fromCount(hi)) 'same'
+		return ShapeHit.same(id)
+	end 'same'
+	return shapeClash(tt, word: word, existing: id, other: "{aliasName} float with the bits {lo} to {hi}")
+end 'floatRangeUnder'
+
+function constIntWord(val I128) returns Count
+	return shapeWordOf(TypeKind.constInt, h: shapeI128Step(shapeStart(TypeKind.constInt, form: ShapeForm.constant), v: val))
+end 'constIntWord'
+
+function constIntUnder(tt TypeTable, word Count, val I128) returns ShapeHit
+	var id = noType
+	match tt.shapes.get(word) 'hit'
+		some(found) then id = found
+		none then return ShapeHit.absent
+	end 'hit'
+	let i = typeIndex(id)
+	if tt.entries[i].kind == TypeKind.constInt and tt.entries[i].minVal.eq(val) 'same'
+		return ShapeHit.same(id)
+	end 'same'
+	return shapeClash(tt, word: word, existing: id, other: "const({val.toString()})")
+end 'constIntUnder'
+
+function constFloatWord(bits Count) returns Count
+	return shapeWordOf(TypeKind.constFloat, h: shapeWordStep(shapeStart(TypeKind.constFloat, form: ShapeForm.constant), w: bits))
+end 'constFloatWord'
+
+function constFloatUnder(tt TypeTable, word Count, bits Count) returns ShapeHit
+	var id = noType
+	match tt.shapes.get(word) 'hit'
+		some(found) then id = found
+		none then return ShapeHit.absent
+	end 'hit'
+	let i = typeIndex(id)
+	if tt.entries[i].kind == TypeKind.constFloat and tt.entries[i].minVal.eq(I128.fromCount(bits)) 'same'
+		return ShapeHit.same(id)
+	end 'same'
+	return shapeClash(tt, word: word, existing: id, other: "the float constant of the bits {bits}")
+end 'constFloatUnder'
+
+// instanceWord is the word of the instance of origin at args, whose kind is the origin's.
+export function instanceWord(tt TypeTable, origin TypeID, args TypeIDList) returns Count
+	let kind = tt.entries[typeIndex(origin)].kind
+	var h = shapeWordStep(shapeStart(kind, form: ShapeForm.instance), w: typeWord(tt, t: origin))
+	h = shapeWordStep(h, w: args.count())
+	for i in 0 upto args.count() 'each'
+		h = shapeWordStep(h, w: typeWord(tt, t: args[i]))
+	end 'each'
+	return shapeWordOf(kind, h: h)
+end 'instanceWord'
+
+// instanceUnder looks up the instance of origin at args under word, which a test gives to make two instances clash.
+export function instanceUnder(tt TypeTable, word Count, origin TypeID, args TypeIDList) returns ShapeHit
+	var id = noType
+	match tt.shapes.get(word) 'hit'
+		some(found) then id = found
+		none then return ShapeHit.absent
+	end 'hit'
+	let i = typeIndex(id)
+	if tt.entries[i].origin == origin and tt.entries[i].typeArgs.equals(args) 'same'
+		return ShapeHit.same(id)
+	end 'same'
+	var names = StringList.create(0)
+	for j in 0 upto args.count() 'names'
+		names.push(typeName(tt, t: args[j]))
+	end 'names'
+	return shapeClash(tt, word: word, existing: id, other: instanceSpelling(typeName(tt, t: origin), args: names))
+end 'instanceUnder'
+
+function funcOriginWord(shape FuncShape) returns Count
+	var h = shapeWordStep(shapeStart(TypeKind.funcTy, form: ShapeForm.funcOrigin), w: shape.convs.count())
+	for i in 0 upto shape.convs.count() 'each'
+		h = shapeStep(h, w: shape.convs[i].ordinal as Count)
+	end 'each'
+	h = shapeTextStep(shapeFlagStep(h, b: shape.mutatesCaptures), s: shape.brand.key)
+	return shapeWordOf(TypeKind.funcTy, h: h)
+end 'funcOriginWord'
+
+function funcOriginUnder(tt TypeTable, word Count, shape FuncShape) returns ShapeHit
+	var id = noType
+	match tt.shapes.get(word) 'hit'
+		some(found) then id = found
+		none then return ShapeHit.absent
+	end 'hit'
+	let i = typeIndex(id)
+	if tt.entries[i].kind == TypeKind.funcTy and tt.entries[i].origin == noType and tt.entries[i].paramConvs.equals(shape.convs) and tt.entries[i].mutatesCaptures == shape.mutatesCaptures and brandKeyOf(tt, t: id) == shape.brand.key 'same'
+		return ShapeHit.same(id)
+	end 'same'
+	return shapeClash(tt, word: word, existing: id, other: "the origin of the function types with {shape.convs.count()} parameters of the brand '{shape.brand.key}'")
+end 'funcOriginUnder'
+
+// brandKeyOf is the key of the brand that the function type origin t is, or "" for one that is no brand.
+function brandKeyOf(tt TypeTable, t TypeID) returns String
+	return match consumes tt.brandKeys.get(typeIndex(t)) 'key'
+		some(key) gives key
+		none gives ""
+	end 'key'
+end 'brandKeyOf'
+
+function tupleOriginWord(arity Count) returns Count
+	return shapeWordOf(TypeKind.record, h: shapeWordStep(shapeStart(TypeKind.record, form: ShapeForm.tupleOrigin), w: arity))
+end 'tupleOriginWord'
+
+function tupleOriginUnder(tt TypeTable, word Count, arity Count) returns ShapeHit
+	var id = noType
+	match tt.shapes.get(word) 'hit'
+		some(found) then id = found
+		none then return ShapeHit.absent
+	end 'hit'
+	let i = typeIndex(id)
+	if tt.entries[i].isTuple and tt.entries[i].origin == noType and tt.entries[i].typeParams.count() == arity 'same'
+		return ShapeHit.same(id)
+	end 'same'
+	return shapeClash(tt, word: word, existing: id, other: "Tuple{arity}")
+end 'tupleOriginUnder'
+
+// tupleParamWord is the word of the type parameter at index of the tuple record whose word is origin.
+function tupleParamWord(origin Count, index Count) returns Count
+	return shapeWordOf(TypeKind.typeParam, h: shapeWordStep(shapeWordStep(shapeStart(TypeKind.typeParam, form: ShapeForm.tupleParam), w: origin), w: index))
+end 'tupleParamWord'
