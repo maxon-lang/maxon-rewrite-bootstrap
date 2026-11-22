@@ -92,6 +92,9 @@ func shapeOf(o op) shape {
 		if o.Eval.Fits != "" {
 			return shapeOutcome
 		}
+		if isCheck(o) {
+			return shapeFlag
+		}
 		return shapeWord
 	}
 	cases := enumOf(operandOf(o, o.Eval.Of).Enum).Cases
@@ -106,6 +109,12 @@ func shapeOf(o op) shape {
 	}
 	fail("%s: the cases of %s compute nothing", o.Name, o.Eval.Of)
 	return shapeWord
+}
+
+// isCheck is whether an operation is a check: it gives no value and always has a failure block, so what it computes is
+// whether it passes.
+func isCheck(o op) bool {
+	return o.Result == noResult && slices.ContainsFunc(o.Operands, func(x operand) bool { return x.Kind == kFail && x.Flag == "" })
 }
 
 // checkEval refuses a table whose operations do not all say what they compute, or say it inconsistently.

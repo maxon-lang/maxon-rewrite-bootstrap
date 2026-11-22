@@ -489,18 +489,16 @@ export type Selector
 		self.branchTo(X64CondCode.aboveEqual, block: slow)
 	end 'inBounds'
 
-	// elementAddress is the address of the element at the index of an array, after a branch to slow when the index is
-	// out of range.
-	function elementAddress(mutates self, box MReg, index MReg, elementBytes Count, slow MBlockID) returns MReg
+	// elementBuffer is the address of the elements of an array, after a branch to slow when the index is out of range; the
+	// element is in it at the index.
+	function elementBuffer(mutates self, box MReg, index MReg, slow MBlockID) returns MReg
 		self.inBounds(box, index: index, lengthOffset: arrayLengthOffset, slow: slow)
-		let data = self.load(box, disp: imm32Of(arrayDataOffset))
-		let offset = self.scaled(index, elementBytes: elementBytes)
-		return self.define(X64Form.addRegReg, b: offset, c: data, aux: 0, imm: 0)
-	end 'elementAddress'
+		return self.load(box, disp: imm32Of(arrayDataOffset))
+	end 'elementBuffer'
 
 	// pushInPlace goes to slow unless the entry inserts at the end of an array whose buffer has room; otherwise it counts
-	// the new element and is the address of it.
-	function pushInPlace(mutates self, box MReg, index MReg, elementBytes Count, slow MBlockID) returns MReg
+	// the new element and is the address of the elements, which the new one goes into at the index.
+	function pushInPlace(mutates self, box MReg, index MReg, slow MBlockID) returns MReg
 		let length = self.load(box, disp: imm32Of(arrayLengthOffset))
 		self.target(X64Form.cmpRegReg, a: index, b: length, c: noMReg, aux: 0, imm: 0)
 		self.branchTo(X64CondCode.notEqual, block: slow)
@@ -509,19 +507,8 @@ export type Selector
 		self.branchTo(X64CondCode.aboveEqual, block: slow)
 		let longer = self.define(X64Form.leaRegBaseDisp, b: index, c: noMReg, aux: 1, imm: 0)
 		self.store(box, disp: imm32Of(arrayLengthOffset), src: longer)
-		let data = self.load(box, disp: imm32Of(arrayDataOffset))
-		let offset = self.scaled(index, elementBytes: elementBytes)
-		return self.define(X64Form.addRegReg, b: offset, c: data, aux: 0, imm: 0)
+		return self.load(box, disp: imm32Of(arrayDataOffset))
 	end 'pushInPlace'
-
-	// scaled is an index as a byte offset.
-	function scaled(mutates self, index MReg, elementBytes Count) returns MReg
-		if elementBytes == byteBytes 'bytes'
-			return index
-		end 'bytes'
-		let size = self.constant(try elementBytes as FullRangeInt otherwise panic("backend: an element past memory"))
-		return self.define(X64Form.imulRegReg, b: index, c: size, aux: 0, imm: 0)
-	end 'scaled'
 
 	// closureBox allocates the box of a closure into box and fills in its header. drop is the routine that drops what it
 	// owns, or empty for none.
@@ -769,7 +756,9 @@ end 'emitAlloc'
 // written in place, and the entry itself is only called for the rest: an index out of range, which it panics on, or a
 // push that has to grow the buffer or an insert below the end, which move elements. What the program sees is the
 // entry's behaviour either way. A read of what a frozen value holds is a load and nothing else, since a borrow leaves
-// the count alone.
+// the count alone. A read of an element whose value nothing reads is the call alone: it is the one a bounds check's trap
+// block makes (self/opt/expand.maxon), there to trap. A length or an element read is a call only in a fallback, the IR of
+// a function before its primitives were expanded.
 function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let symbol = ir.callRuntimeSymbol(ins)
 	let start = ir.callRuntimeArgsStart(ins)
@@ -789,44 +778,44 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		return
 	end 'cown'
 	let reads = symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
-	if not ir.writtenInPlace(symbol) 'call'
+	if not ir.writtenInPlace(symbol) or (reads and ins.dst == ir.noReg) 'call'
 		sel.callWith(fn, symbol: ir.rtSymbol(symbol), start: start, count: ir.callRuntimeArgsCount(ins), dst: ins.dst)
 		return
 	end 'call'
 	if not reads and ins.dst != ir.noReg 'result'
 		panic("backend: {ir.rtSymbol(symbol)} is written in place and gives no result, and this call keeps one")
 	end 'result'
-	let keeps = reads and ins.dst != ir.noReg
+	let keeps = reads
 	let slow = sel.mir.addBlock()
 	let done = sel.mir.addBlock()
 	let box = argAt(fn, start: start, index: 0)
 	let index = argAt(fn, start: start, index: 1)
 	if symbol == ir.Rt.rtArrayElem 'arrayElem'
-		let at = sel.elementAddress(box, index: index, elementBytes: wordBytes, slow: slow)
+		let data = sel.elementBuffer(box, index: index, slow: slow)
+		let at = sel.define(X64Form.leaRegBaseIndex8Disp, b: data, c: index, aux: 0, imm: 0)
 		sel.reach(done, value: at, keeps: keeps)
 	end 'arrayElem' else if symbol == ir.Rt.rtBytesGet 'bytesGet'
-		let at = sel.elementAddress(box, index: index, elementBytes: byteBytes, slow: slow)
-		let byte = sel.define(X64Form.movzxRegByteBaseDisp, b: at, c: noMReg, aux: 0, imm: 0)
+		let data = sel.elementBuffer(box, index: index, slow: slow)
+		let byte = sel.define(X64Form.movzxRegByteBaseIndex1Disp, b: data, c: index, aux: 0, imm: 0)
 		sel.reach(done, value: byte, keeps: keeps)
 	end 'bytesGet' else if symbol == ir.Rt.rtBytesSet 'bytesSet'
-		let at = sel.elementAddress(box, index: index, elementBytes: byteBytes, slow: slow)
-		sel.target(X64Form.storeBaseDispReg8, a: at, b: argAt(fn, start: start, index: 2), c: noMReg, aux: 0, imm: 0)
+		let data = sel.elementBuffer(box, index: index, slow: slow)
+		sel.target(X64Form.storeBaseIndex1DispReg8, a: data, b: index, c: argAt(fn, start: start, index: 2), aux: 0, imm: 0)
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'bytesSet' else if symbol == ir.Rt.rtArrayInsert 'arrayInsert'
-		let at = sel.pushInPlace(box, index: index, elementBytes: wordBytes, slow: slow)
-		sel.store(at, disp: 0, src: argAt(fn, start: start, index: 2))
+		let data = sel.pushInPlace(box, index: index, slow: slow)
+		sel.target(X64Form.storeBaseIndex8DispReg, a: data, b: index, c: argAt(fn, start: start, index: 2), aux: 0, imm: 0)
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'arrayInsert' else if symbol == ir.Rt.rtBytesInsert 'bytesInsert'
-		let at = sel.pushInPlace(box, index: index, elementBytes: byteBytes, slow: slow)
-		sel.target(X64Form.storeBaseDispReg8, a: at, b: argAt(fn, start: start, index: 2), c: noMReg, aux: 0, imm: 0)
+		let data = sel.pushInPlace(box, index: index, slow: slow)
+		sel.target(X64Form.storeBaseIndex1DispReg8, a: data, b: index, c: argAt(fn, start: start, index: 2), aux: 0, imm: 0)
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'bytesInsert' else if symbol == ir.Rt.rtStrByteAt 'stringByteAt'
 		sel.inBounds(box, index: index, lengthOffset: stringLengthOffset, slow: slow)
-		let at = sel.define(X64Form.addRegReg, b: index, c: box, aux: 0, imm: 0)
-		let byte = sel.define(X64Form.movzxRegByteBaseDisp, b: at, c: noMReg, aux: imm32Of(stringBytesOffset), imm: 0)
+		let byte = sel.define(X64Form.movzxRegByteBaseIndex1Disp, b: box, c: index, aux: imm32Of(stringBytesOffset), imm: 0)
 		sel.reach(done, value: byte, keeps: keeps)
 	end 'stringByteAt' else 'unknown'
 		panic("backend: {ir.rtSymbol(symbol)} is not written in place")
@@ -845,6 +834,14 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.mir.writeBlock(done)
 	end 'none'
 end 'emitCallRuntime'
+
+// emitBounds goes to the failure block of a bounds check where the index is not below the length. The branch ends the
+// block: the failure block reads the index and the collection, which an edge in the middle of a block would keep live to
+// the block's end, across every call after the check.
+function emitBounds(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.target(X64Form.cmpRegReg, a: vregOf(ir.boundsIndex(ins)), b: vregOf(ir.boundsLength(ins)), c: noMReg, aux: 0, imm: 0)
+	sel.branchTo(X64CondCode.aboveEqual, block: blockOf(ir.boundsFail(ins)))
+end 'emitBounds'
 
 // cownNew passes the entry the value and the address of the code of the destructor that ends it, or 0 when it is dropped.
 function emitCownNew(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)

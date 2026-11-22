@@ -138,8 +138,8 @@ function entryStreq(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 end 'entryStreq'
 
 function entryStrLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a string byteLength")
-	giveNum(vm, x: x, n: try vm.h.texts[at].byteLength() as ir.Word otherwise panic("interp: a string past a word"))
+	let n = try stringByteCount(vm, o: argRef(vm, f: f, x: x, i: 0))
+	giveNum(vm, x: x, n: n)
 end 'entryStrLen'
 
 function entryStrByteAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
@@ -243,9 +243,102 @@ function entryArrayNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 end 'entryArrayNew'
 
 function entryArrayLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a length")
-	giveNum(vm, x: x, n: try vm.h.elements[vm.h.oData[a]].count() as ir.Word otherwise panic("interp: an array past a word"))
+	let n = try arrayCount(vm, o: argRef(vm, f: f, x: x, i: 0))
+	giveNum(vm, x: x, n: n)
 end 'entryArrayLen'
+
+// The collection operations are the common case of the entries that read a length or an element (self/opt/expand.maxon),
+// each run here as its entry runs in range: the same objects, the same cells, the same checks.
+
+// execLength reads the count of a collection: an array's or a byte array's elements, or a string's bytes.
+function execLength(mutates vm Vm, x ir.Instr) throws Halt
+	let o = vm.ref(ir.lengthSrc(x))
+	let n = match ir.lengthOf(x) 'of'
+		collectionArray gives try arrayCount(vm, o: o)
+		collectionString gives try stringByteCount(vm, o: o)
+	end 'of'
+	vm.setNum(x.dst, n: n)
+end 'execLength'
+
+// arrayCount is the count of the elements of an array or a byte array, whose boxes have one layout.
+function arrayCount(mutates vm Vm, o Count) returns ir.Word throws Halt
+	let live = try live(vm, o: o, what: "a length")
+	let data = vm.h.oData[live]
+	if vm.h.oKind[live] == kindArray 'words'
+		return try vm.h.elements[data].count() as ir.Word otherwise panic("interp: an array past a word")
+	end 'words'
+	if vm.h.oKind[live] == kindBytes 'bytes'
+		return try vm.h.buffers[data].count() as ir.Word otherwise panic("interp: a buffer past a word")
+	end 'bytes'
+	panic("interp: a length of an array reads {objectText(vm, o: live)}")
+end 'arrayCount'
+
+function stringByteCount(mutates vm Vm, o Count) returns ir.Word throws Halt
+	let at = try textIndex(vm, o: o, what: "a string byteLength")
+	return try vm.h.texts[at].byteLength() as ir.Word otherwise panic("interp: a string past a word")
+end 'stringByteCount'
+
+function execBounds(mutates vm Vm, x ir.Instr)
+	if not ir.evalBounds(vm.num(ir.boundsIndex(x)), b: vm.num(ir.boundsLength(x))) 'failed'
+		vm.failTo = ir.boundsFail(x) as ir.Word
+	end 'failed'
+end 'execBounds'
+
+// elementCell is the place of the element at an index of an array of words, which a Bounds or the checker has checked: an
+// index past the end here is a compiler bug.
+function elementCell(mutates vm Vm, arr ir.Reg, index ir.Reg, what String) returns Count throws Halt
+	let a = try collection(vm, o: vm.ref(arr), kind: kindArray, what: what)
+	let i = ir.bitsOfWord(vm.num(index))
+	let data = vm.h.oData[a]
+	if i >= vm.h.elements[data].count() 'outside'
+		panic("interp: {what} at an index that no check let through")
+	end 'outside'
+	return vm.h.elements[data][i]
+end 'elementCell'
+
+// execElemAddr gives the address of an element, as entryArrayElem does in range.
+function execElemAddr(mutates vm Vm, x ir.Instr) throws Halt
+	let c = try elementCell(vm, arr: ir.elemAddrArr(x), index: ir.elemAddrIndex(x), what: "an element address")
+	giveAddress(vm, x: x, c: c)
+end 'execElemAddr'
+
+// execElemLoad reads an element, as a LoadAt reads through the address that ElemAddr gives.
+function execElemLoad(mutates vm Vm, x ir.Instr) throws Halt
+	let what = "a read of an element"
+	let c = try elementCell(vm, arr: ir.elemLoadArr(x), index: ir.elemLoadIndex(x), what: what)
+	if vm.tracking 'tracking'
+		try requireReachableCell(vm, c: c, what: what)
+	end 'tracking'
+	copyToReg(vm, dst: x.dst, c: c)
+end 'execElemLoad'
+
+// execLoadByte reads a byte of a byte array or of a string, as entryBytesGet and entryStrByteAt do in range.
+function execLoadByte(mutates vm Vm, x ir.Instr) throws Halt
+	let o = vm.ref(ir.loadByteSrc(x))
+	let i = ir.bitsOfWord(vm.num(ir.loadByteIndex(x)))
+	let byte = match ir.loadByteOf(x) 'of'
+		collectionArray gives try bufferByte(vm, o: o, i: i)
+		collectionString gives try textByte(vm, o: o, i: i)
+	end 'of'
+	vm.setNum(x.dst, n: byte as ir.Word)
+end 'execLoadByte'
+
+function bufferByte(mutates vm Vm, o Count, i Count) returns Byte throws Halt
+	let b = try collection(vm, o: o, kind: kindBytes, what: "a byte read")
+	let data = vm.h.oData[b]
+	if i >= vm.h.buffers[data].count() 'outside'
+		panic("interp: a byte read at an index that no check let through")
+	end 'outside'
+	return vm.h.buffers[data][i]
+end 'bufferByte'
+
+function textByte(mutates vm Vm, o Count, i Count) returns Byte throws Halt
+	let at = try textIndex(vm, o: o, what: "a string byteAt")
+	if i >= vm.h.texts[at].byteLength() 'outside'
+		panic("interp: a string byte read at an index that no check let through")
+	end 'outside'
+	return vm.h.texts[at].byteAt(i)
+end 'textByte'
 
 function entryArrayElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "an element address")
@@ -320,8 +413,8 @@ function entryBytesNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 end 'entryBytesNew'
 
 function entryBytesLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a length")
-	giveNum(vm, x: x, n: try vm.h.buffers[vm.h.oData[b]].count() as ir.Word otherwise panic("interp: a buffer past a word"))
+	let n = try arrayCount(vm, o: argRef(vm, f: f, x: x, i: 0))
+	giveNum(vm, x: x, n: n)
 end 'entryBytesLen'
 
 function entryBytesGet(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

@@ -291,9 +291,9 @@ end 'IrFunction'
 
 export typealias IrFunctionList = Array with IrFunction
 
-// Fallbacks are the IR that some functions of a module's list had before leaf inlining, which the backend compiles in place
-// of a function whose inlined IR has a hot loop it refuses (E5001): by a function's place in the list, the place of its
-// copy in functions plus 1, or noFallback.
+// Fallbacks are the IR that some functions of a module's list had before the expansion of their primitives and leaf
+// inlining, which the backend compiles in place of a function whose IR has a hot loop it refuses (E5001): by a function's
+// place in the list, the place of its copy in functions plus 1, or noFallback.
 export type Fallbacks
 	var functions as IrFunctionList
 	var places as Array with Count

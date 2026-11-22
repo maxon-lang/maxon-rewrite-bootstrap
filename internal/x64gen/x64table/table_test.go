@@ -14,8 +14,9 @@ import (
 // refEncode encodes a form the way the table says, independently of the assembler and of the Maxon that is generated
 // from the table: vals are the values of the form's parameters, in order.
 func refEncode(f form, vals []int64) []byte {
-	var regField, rmField, opcodeReg, base, disp, imm int64
-	var memory, ripMem, force bool
+	var regField, rmField, indexField, opcodeReg, base, index, disp, imm int64
+	var memory, indexed, ripMem, force bool
+	var scale int
 	var cc int64
 	var trailing []operand
 	next := 0
@@ -37,6 +38,9 @@ func refEncode(f form, vals []int64) []byte {
 		case kindMem:
 			base, disp = take(), take()
 			rmField, memory = base, true
+		case kindMemIndex:
+			base, index, disp = take(), take(), take()
+			rmField, indexField, indexed, scale = base, index, true, o.scale
 		case kindRip:
 			disp = take()
 			ripMem = true
@@ -48,7 +52,7 @@ func refEncode(f form, vals []int64) []byte {
 		}
 	}
 	out := append([]byte{}, f.prefix...)
-	rex := byte(rexBase | (regField>>3)<<2 | rmField>>3)
+	rex := byte(rexBase | (regField>>3)<<2 | (indexField>>3)<<1 | rmField>>3)
 	if f.rexW {
 		rex |= rexWide
 	}
@@ -74,6 +78,8 @@ func refEncode(f form, vals []int64) []byte {
 	case f.modrm == modNone:
 	case memory:
 		out = append(out, refMem(reg, base, disp)...)
+	case indexed:
+		out = append(out, refMemIndex(reg, base, index, scale, disp)...)
 	case ripMem:
 		out = append(out, byte(reg*regFieldScale+ripRelative))
 		out = binary.LittleEndian.AppendUint32(out, uint32(disp))
@@ -115,6 +121,20 @@ func refMem(reg, base, disp int64) []byte {
 		out = binary.LittleEndian.AppendUint32(out, uint32(disp))
 	}
 	return out
+}
+
+// refMemIndex is the ModRM byte, the SIB byte and the displacement of [base + index*scale + disp].
+func refMemIndex(reg, base, index int64, scale int, disp int64) []byte {
+	rm := base & (lowRegisters - 1)
+	sib := byte(scaleBitsOf(scale)*sibScaleField + int(index&(lowRegisters-1))*sibIndexField + int(rm))
+	switch {
+	case disp == 0 && rm != rbpLowBits:
+		return []byte{byte(reg*regFieldScale + sibFollows), sib}
+	case disp >= imm8Min && disp <= imm8Max:
+		return []byte{byte(modDisp8 + reg*regFieldScale + sibFollows), sib, byte(disp)}
+	default:
+		return binary.LittleEndian.AppendUint32([]byte{byte(modDisp32 + reg*regFieldScale + sibFollows), sib}, uint32(disp))
+	}
 }
 
 // immRange is the values that an immediate kind holds.
@@ -263,6 +283,23 @@ var literal = []struct {
 	{"Pause", nil, []byte{0xF3, 0x90}},
 	{"LoadRegGsBaseDisp", []int64{0, 1, 0x1480}, []byte{0x65, 0x48, 0x8B, 0x81, 0x80, 0x14, 0x00, 0x00}},
 	{"LoadRegGsBaseDisp", []int64{9, 0, 0}, []byte{0x65, 0x4C, 0x8B, 0x08}},
+	// The indexed forms, as LLVM's assembler encodes them: an index, a base whose low bits are rbp's or rsp's, extended
+	// registers and the three lengths of displacement.
+	{"LoadRegBaseIndex8Disp", []int64{0, 1, 2, 0}, []byte{0x48, 0x8B, 0x04, 0xD1}},
+	{"LoadRegBaseIndex8Disp", []int64{9, 13, 12, 0}, []byte{0x4F, 0x8B, 0x4C, 0xE5, 0x00}},
+	{"LoadRegBaseIndex8Disp", []int64{0, 5, 1, 16}, []byte{0x48, 0x8B, 0x44, 0xCD, 0x10}},
+	{"LoadRegBaseIndex8Disp", []int64{3, 8, 15, 0x1000}, []byte{0x4B, 0x8B, 0x9C, 0xF8, 0x00, 0x10, 0x00, 0x00}},
+	{"LoadRegBaseIndex8Disp", []int64{2, 4, 0, -8}, []byte{0x48, 0x8B, 0x54, 0xC4, 0xF8}},
+	{"LeaRegBaseIndex8Disp", []int64{11, 4, 8, 8}, []byte{0x4E, 0x8D, 0x5C, 0xC4, 0x08}},
+	{"LeaRegBaseIndex8Disp", []int64{0, 1, 2, 0}, []byte{0x48, 0x8D, 0x04, 0xD1}},
+	{"MovzxRegByteBaseIndex1Disp", []int64{0, 1, 2, 8}, []byte{0x48, 0x0F, 0xB6, 0x44, 0x11, 0x08}},
+	{"MovzxRegByteBaseIndex1Disp", []int64{10, 12, 15, 0}, []byte{0x4F, 0x0F, 0xB6, 0x14, 0x3C}},
+	{"MovzxRegByteBaseIndex1Disp", []int64{1, 13, 0, 0}, []byte{0x49, 0x0F, 0xB6, 0x4C, 0x05, 0x00}},
+	{"StoreBaseIndex8DispReg", []int64{0, 3, 0, 14}, []byte{0x4C, 0x89, 0x34, 0xD8}},
+	{"StoreBaseIndex8DispReg", []int64{5, 9, -129, 1}, []byte{0x4A, 0x89, 0x8C, 0xCD, 0x7F, 0xFF, 0xFF, 0xFF}},
+	{"StoreBaseIndex1DispReg8", []int64{7, 6, 0, 6}, []byte{0x40, 0x88, 0x34, 0x37}},
+	{"StoreBaseIndex1DispReg8", []int64{8, 0, 1, 1}, []byte{0x41, 0x88, 0x4C, 0x00, 0x01}},
+	{"StoreBaseIndex1DispReg8", []int64{3, 12, 200, 15}, []byte{0x46, 0x88, 0xBC, 0x23, 0xC8, 0x00, 0x00, 0x00}},
 }
 
 func immediateSpread(k kind) []int64 {

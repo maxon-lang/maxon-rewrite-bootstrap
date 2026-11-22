@@ -38,6 +38,7 @@ func emitTypes(b *strings.Builder) {
 	fmt.Fprintf(b, "export typealias Imm32U = int(0 to %d)\n\n", imm32UMax)
 	fmt.Fprintf(b, "typealias Low3 = int(0 to %d)\n\n", lowRegisters-1)
 	fmt.Fprintf(b, "typealias Nibble = int(0 to %d)\n\n", conditionCodes-1)
+	fmt.Fprintf(b, "typealias ScaleBits = int(0 to %d)\n\n", scaleBitsOf(wordScale))
 	b.WriteString("export enum X64Register\n")
 	for _, r := range registers {
 		fmt.Fprintf(b, "\t%s\n", r)
@@ -79,7 +80,7 @@ function conditionBits(cond X64CondCode) returns Nibble
 	return (cond.rawValue mod conditionCodes) as Nibble
 end 'conditionBits'
 
-function emitRex(mutates code ByteArray, wide bool, regField X64Register, rmField X64Register, force bool)
+function emitRex(mutates code ByteArray, wide bool, regField X64Register, indexField X64Register, rmField X64Register, force bool)
 	var rex = rexBase as Byte
 	if wide 'wide'
 		rex = rex or rexWide
@@ -87,6 +88,9 @@ function emitRex(mutates code ByteArray, wide bool, regField X64Register, rmFiel
 	if isExtended(regField) 'reg'
 		rex = rex or rexReg
 	end 'reg'
+	if isExtended(indexField) 'index'
+		rex = rex or rexIndex
+	end 'index'
 	if isExtended(rmField) 'rm'
 		rex = rex or rexRm
 	end 'rm'
@@ -128,6 +132,30 @@ function writeMem(mutates code ByteArray, regBits Low3, base X64Register, disp I
 		writeImm32(code, value: disp)
 	end 'long'
 end 'writeMem'
+
+// An indexed operand is a SIB byte of its scale, index and base after the ModRM byte, and its displacement is the
+// shortest writeMem would give the base. An index with the number of rsp means none, and rsp holds the stack, so it is
+// never an index.
+function writeMemIndex(mutates code ByteArray, regBits Low3, base X64Register, index X64Register, scaleBits ScaleBits, disp Imm32)
+	if index == X64Register.rsp 'stack'
+		panic("backend: rsp is the index of a memory operand")
+	end 'stack'
+	let rm = regLow3(base)
+	let regField = regBits * regFieldScale
+	let sib = scaleBits * sibScaleField + regLow3(index) * sibIndexField + rm
+	if disp == 0 and rm != rbpLowBits 'none'
+		code.push(regField + sibFollows)
+		code.push(sib)
+	end 'none' else if disp >= imm8Min and disp <= imm8Max 'short'
+		code.push(modDisp8 + regField + sibFollows)
+		code.push(sib)
+		writeImm8(code, value: disp as Imm8)
+	end 'short' else 'long'
+		code.push(modDisp32 + regField + sibFollows)
+		code.push(sib)
+		writeImm32(code, value: disp)
+	end 'long'
+end 'writeMemIndex'
 
 // Writes the low bytes of an unsigned word, little endian. Every byte is inverted with invert, which is how the
 // two's complement of a negative quadword is written without a word that holds it.
@@ -204,6 +232,8 @@ func operandText(o operand) string {
 		return o.name
 	case kindMem:
 		return "[base + disp]"
+	case kindMemIndex:
+		return fmt.Sprintf("[base + index*%d + disp]", o.scale)
 	case kindRip:
 		return "[rip + disp]"
 	case kindImm8, kindImm32, kindImm32U, kindImm64, kindRel32:
@@ -311,14 +341,17 @@ func emitForm(b *strings.Builder, f form) {
 
 // emitRexCall writes the REX prefix of a form, if any operand or the width can set a bit of it.
 func emitRexCall(b *strings.Builder, f form) {
-	regField, rmField := rax, rax
+	regField, indexField, rmField := rax, rax, rax
 	if o, ok := f.in(fieldReg); ok {
 		regField = o.name
 	}
 	if o, ok := f.in(fieldRM); ok && o.kind != kindRip {
 		rmField = o.name
-		if o.kind == kindMem {
+		switch o.kind {
+		case kindMem:
 			rmField = "base"
+		case kindMemIndex:
+			rmField, indexField = "base", "index"
 		}
 	}
 	if o, ok := f.in(fieldOpcode); ok {
@@ -334,10 +367,10 @@ func emitRexCall(b *strings.Builder, f form) {
 	if len(forced) > 0 {
 		force = strings.Join(forced, " or ")
 	}
-	if !f.rexW && regField == rax && rmField == rax {
+	if !f.rexW && regField == rax && indexField == rax && rmField == rax {
 		return
 	}
-	fmt.Fprintf(b, "\temitRex(code, wide: %t, regField: %s, rmField: %s, force: %s)\n", f.rexW, regField, rmField, force)
+	fmt.Fprintf(b, "\temitRex(code, wide: %t, regField: %s, indexField: %s, rmField: %s, force: %s)\n", f.rexW, regField, indexField, rmField, force)
 }
 
 func emitOpcode(b *strings.Builder, f form) {
@@ -384,6 +417,8 @@ func emitModRm(b *strings.Builder, f form) {
 		fmt.Fprintf(b, "\twriteModRmReg(code, regBits: %s, rm: %s)\n", regBits, rm.name)
 	case kindMem:
 		fmt.Fprintf(b, "\twriteMem(code, regBits: %s, base: base, disp: disp)\n", regBits)
+	case kindMemIndex:
+		fmt.Fprintf(b, "\twriteMemIndex(code, regBits: %s, base: base, index: index, scaleBits: %d, disp: disp)\n", regBits, scaleBitsOf(rm.scale))
 	case kindRip:
 		fmt.Fprintf(b, "\twriteModRmRip(code, regBits: %s)\n", regBits)
 		b.WriteString("\twriteImm32(code, value: disp)\n")

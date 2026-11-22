@@ -777,7 +777,8 @@ end 'endCheckTask'
 
 // lowerModule finds the instances of generic functions that a module needs and, for a compile that lowers, lowers the
 // module's functions and those instances; for a compile that makes code, the optimizer then runs on them while they are
-// fresh, so --emit-ir and --verify-ir see what codegen gets. The interpreter runs the IR as lowered (kept): it tracks
+// fresh, so --emit-ir and --verify-ir see what codegen gets. The interpreter runs the IR as lowered (kept), with its
+// primitives expanded as codegen's are (opt.expandModule): it tracks
 // borrows by the loads of slots, which SSA form has none of, and reports a drop of a register that holds nothing, which a
 // parameter that a moved value reaches may be.
 function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Options, mutates errs diag.ErrorList)
@@ -793,7 +794,10 @@ function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Op
 	if lowersBodies(run.goal) 'lowered'
 		if run.keepsLowered 'keep'
 			run.kept[slot] = run.lowered[slot].clone()
-		end 'keep'
+			opt.expandModule(run.kept[slot])
+		end 'keep' else if not makesCode(run.goal) 'interpreted'
+			opt.expandModule(run.lowered[slot])
+		end 'interpreted'
 		if makesCode(run.goal) and found.count() == 0 'optimize'
 			if options.verifyIr 'verifyLowered'
 				verifyFunctions(p, fns: run.lowered[slot])

@@ -148,6 +148,26 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		execGuard(vm, x: x)
 	end 'visitGuard'
 
+	function visitLength(mutates self, f ir.IrFunction, x ir.Instr)
+		try execLength(vm, x: x) otherwise ignore
+	end 'visitLength'
+
+	function visitBounds(mutates self, f ir.IrFunction, x ir.Instr)
+		execBounds(vm, x: x)
+	end 'visitBounds'
+
+	function visitElemAddr(mutates self, f ir.IrFunction, x ir.Instr)
+		try execElemAddr(vm, x: x) otherwise ignore
+	end 'visitElemAddr'
+
+	function visitElemLoad(mutates self, f ir.IrFunction, x ir.Instr)
+		try execElemLoad(vm, x: x) otherwise ignore
+	end 'visitElemLoad'
+
+	function visitLoadByte(mutates self, f ir.IrFunction, x ir.Instr)
+		try execLoadByte(vm, x: x) otherwise ignore
+	end 'visitLoadByte'
+
 	function visitAlloc(mutates self, f ir.IrFunction, x ir.Instr)
 		execAlloc(vm, x: x)
 	end 'visitAlloc'

@@ -202,6 +202,12 @@ function negateFits(a Word) returns bool
 	return a != minWord
 end 'negateFits'
 
+// indexBelow is whether the index a is below the length b, both read as unsigned, so that a negative index is past every
+// length.
+function indexBelow(a Word, b Word) returns bool
+	return bitsOfWord(a) < bitsOfWord(b)
+end 'indexBelow'
+
 // notWord is a with every bit inverted.
 function notWord(a Word) returns Word
 	return wordOfBits(allBits - bitsOfWord(a))

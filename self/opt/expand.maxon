@@ -1,0 +1,177 @@
+// The expansion of the primitives, maxon's inlineManagedPrimitives: a call of a runtime entry that reads the length of an
+// array, a byte array or a string, or one of their elements, becomes the operations its common case is (README, "The
+// primitives in the IR"), so the optimizer, instruction selection and the register allocator see loads and no call. A
+// read of an element is the length, a bounds check of the index against it, and the read. The check fails to a block of
+// its own after the function's, which makes the call that was there and traps: called there, the entry traps with its own
+// message, as it always did. The address of an element that only a loadat right after it reads is the element read itself.
+// Every other entry, and the call a trap block makes, stays a call.
+//
+// It runs on the IR the interpreter runs, as lowered, and on the IR a native build compiles, after the fold and before leaf
+// inlining, so the two run one form. Its operations hold no call, so a loop the call let compile may need more registers
+// than the target has once it is expanded: a function that may hold a loop keeps the IR it had before as its fallback
+// (ir.Fallbacks), which the backend compiles where it refuses a hot loop of the expanded one (inline.maxon).
+
+// Expander is the state of the expansion, kept from one function to the next so that its arrays keep their capacity: how
+// many times each register is read, the operands of one operation, the instructions being written, and the call each
+// trap block makes.
+export type Expander
+	var reads as Array with Count
+	var operands as ir.RegList
+	var out as ir.InstrList
+	var traps as ir.InstrList
+
+	export static function new() returns Expander
+		return Expander{reads: Array.create(0), operands: ir.RegList.create(0), out: ir.InstrList.create(0), traps: ir.InstrList.create(0)}
+	end 'new'
+
+	// expandFunction expands the calls of f and of the bodies of its closures and behaviours, and says whether there was one.
+	export function expandFunction(mutates self, mutates f ir.IrFunction) returns bool
+		var changed = false
+		for i in 0 upto f.bodies.count() 'bodies'
+			if self.expandFunction(f.bodies[i]) 'body'
+				changed = true
+			end 'body'
+		end 'bodies'
+		if not hasExpandable(f) 'none'
+			return changed
+		end 'none'
+		self.countReads(f)
+		out.clear()
+		traps.clear()
+		let own = f.blocks.count()
+		for b in 0 upto own 'blocks'
+			let first = out.count()
+			var k = f.blocks[b].first
+			let endAt = f.blocks[b].endAt
+			while k < endAt 'instrs'
+				k = self.expandAt(f, k: k, endAt: endAt, own: own)
+			end 'instrs'
+			f.blocks[b].first = first
+			f.blocks[b].endAt = out.count()
+		end 'blocks'
+		for t in 0 upto traps.count() 'traps'
+			let first = out.count()
+			out.push(traps[t].clone())
+			f.blocks.push(ir.Block.make(first, endAt: out.count(), params: f.blockParams.count(), paramCount: 0, term: ir.newTrap()))
+		end 'traps'
+		f.instrs = exchange(out, value: ir.InstrList.create(0))
+		return true
+	end 'expandFunction'
+
+	// expandAt writes the instruction k of a block that ends at endAt, expanded where it is a call the expansion replaces,
+	// and gives the index of the next instruction it has not written. own is how many blocks f has before the trap blocks.
+	function expandAt(mutates self, mutates f ir.IrFunction, k Count, endAt Count, own Count) returns Count
+		let next = plusOne(k)
+		if not expandable(f.instrs[k]) 'kept'
+			out.push(f.instrs[k].clone())
+			return next
+		end 'kept'
+		let call = f.instrs[k].clone()
+		let symbol = ir.callRuntimeSymbol(call)
+		let start = ir.callRuntimeArgsStart(call)
+		let src = f.args[start]
+		let of = collectionOf(symbol)
+		if readsLength(symbol) 'length'
+			out.push(ir.newLength(call.dst, src: src, of: of))
+			return next
+		end 'length'
+		let index = f.args[plusOne(start)]
+		let length = f.newReg(ir.IrKind.kindScalar)
+		out.push(ir.newLength(length, src: src, of: of))
+		let fail = ir.blockOf(try own + traps.count() otherwise panic("opt: a function with more blocks than memory"))
+		traps.push(ir.newCallRuntime(ir.noReg, symbol: symbol, argsStart: call.a, argsCount: call.b, routine: ir.noRoutine))
+		out.push(ir.newBounds(index, length: length, fail: fail))
+		if symbol != ir.Rt.rtArrayElem 'byte'
+			out.push(ir.newLoadByte(call.dst, src: src, index: index, of: of))
+			return next
+		end 'byte'
+		if next < endAt and f.instrs[next].op == ir.Opcode.opLoadAt and ir.loadAtAddr(f.instrs[next]) == call.dst and reads[regIndex(call.dst)] == 1 'read'
+			out.push(ir.newElemLoad(f.instrs[next].dst, arr: src, index: index))
+			return plusOne(next)
+		end 'read'
+		out.push(ir.newElemAddr(call.dst, arr: src, index: index))
+		return next
+	end 'expandAt'
+
+	// countReads counts how many times each register of f is read, by its instructions and its terminators.
+	function countReads(mutates self, f ir.IrFunction)
+		reads.clear()
+		for _ in 0 upto f.regs.count() 'regs'
+			reads.push(0)
+		end 'regs'
+		for b in 0 upto f.blocks.count() 'blocks'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				operands.clear()
+				ir.instrReads(f, x: f.instrs[k], out: operands)
+				self.countOperands()
+			end 'instrs'
+			operands.clear()
+			ir.termReads(f, t: f.blocks[b].term, out: operands)
+			self.countOperands()
+		end 'blocks'
+	end 'countReads'
+
+	function countOperands(mutates self)
+		for i in 0 upto operands.count() 'operands'
+			let r = regIndex(operands[i])
+			reads[r] = plusOne(reads[r])
+		end 'operands'
+	end 'countOperands'
+end 'Expander'
+
+// expandModule expands the functions of a module that the interpreter runs as they were lowered.
+export function expandModule(mutates fns ir.IrFunctionList)
+	var expander = Expander.new()
+	for i in 0 upto fns.count() 'functions'
+		_ = expander.expandFunction(fns[i])
+	end 'functions'
+end 'expandModule'
+
+// hasExpandable is whether f has a call that the expansion replaces, not counting the bodies it holds.
+function hasExpandable(f ir.IrFunction) returns bool
+	for k in 0 upto f.instrs.count() 'instrs'
+		if expandable(f.instrs[k]) 'found'
+			return true
+		end 'found'
+	end 'instrs'
+	return false
+end 'hasExpandable'
+
+// treeHasExpandable is hasExpandable of f or of a body of its closures and behaviours.
+function treeHasExpandable(f ir.IrFunction) returns bool
+	for i in 0 upto f.bodies.count() 'bodies'
+		if treeHasExpandable(f.bodies[i]) 'body'
+			return true
+		end 'body'
+	end 'bodies'
+	return hasExpandable(f)
+end 'treeHasExpandable'
+
+// expandable is whether x is a call that the expansion replaces: of an entry that reads a length, or an element whose value
+// the call gives. A call whose value nothing reads, as a trap block's, stays.
+function expandable(x ir.Instr) returns bool
+	if x.op != ir.Opcode.opCallRuntime or x.dst == ir.noReg 'other'
+		return false
+	end 'other'
+	let symbol = ir.callRuntimeSymbol(x)
+	return readsLength(symbol) or readsElement(symbol)
+end 'expandable'
+
+function readsLength(symbol ir.Rt) returns bool
+	return symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtStrLen
+end 'readsLength'
+
+function readsElement(symbol ir.Rt) returns bool
+	return symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
+end 'readsElement'
+
+// collectionOf is the box an entry that the expansion replaces reads: an array's or a byte array's, or a string's.
+function collectionOf(symbol ir.Rt) returns ir.Collection
+	if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtBytesGet 'array'
+		return ir.Collection.collectionArray
+	end 'array'
+	if symbol == ir.Rt.rtStrLen or symbol == ir.Rt.rtStrByteAt 'string'
+		return ir.Collection.collectionString
+	end 'string'
+	panic("opt: {ir.rtSymbol(symbol)} reads no collection the expansion knows")
+end 'collectionOf'

@@ -58,6 +58,11 @@ export enum Opcode
 	opNeg
 	opNot
 	opGuard
+	opLength
+	opBounds
+	opElemAddr
+	opElemLoad
+	opLoadByte
 	opAlloc
 	opCall
 	opCallRuntime
@@ -525,6 +530,44 @@ export function rawWidthOf(code Byte) returns RawWidth
 	end 'code'
 end 'rawWidthOf'
 
+// Collection is the box a Length or a LoadByte reads: an array's or a byte array's, which share one layout, or a
+// string's.
+export enum Collection
+	collectionArray
+	collectionString
+end 'Collection'
+
+// collectionText is how the printer writes a Collection.
+export function collectionText(v Collection) returns String
+	if v == Collection.collectionArray 'collectionArray'
+		return "array"
+	end 'collectionArray'
+	if v == Collection.collectionString 'collectionString'
+		return "string"
+	end 'collectionString'
+	panic("ir: a Collection with no text")
+end 'collectionText'
+
+// collectionCode is the number an instruction holds a Collection as, the one Go's Collection has.
+export function collectionCode(v Collection) returns Byte
+	if v == Collection.collectionArray 'collectionArray'
+		return 0 as Byte
+	end 'collectionArray'
+	if v == Collection.collectionString 'collectionString'
+		return 1 as Byte
+	end 'collectionString'
+	panic("ir: a Collection with no number")
+end 'collectionCode'
+
+// collectionOf is the Collection an instruction holds as a number.
+export function collectionOf(code Byte) returns Collection
+	return match code 'code'
+		0 gives Collection.collectionArray
+		1 gives Collection.collectionString
+		default panic("ir: a number that is no Collection")
+	end 'code'
+end 'collectionOf'
+
 // flagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, and on a
 // Box that only lends the value it holds.
 export let flagBorrow = 1 as Byte
@@ -658,6 +701,21 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opGuard 'opGuard'
 		return 64
 	end 'opGuard'
+	if op == Opcode.opLength 'opLength'
+		return 1
+	end 'opLength'
+	if op == Opcode.opBounds 'opBounds'
+		return 64
+	end 'opBounds'
+	if op == Opcode.opElemAddr 'opElemAddr'
+		return 1
+	end 'opElemAddr'
+	if op == Opcode.opElemLoad 'opElemLoad'
+		return 1
+	end 'opElemLoad'
+	if op == Opcode.opLoadByte 'opLoadByte'
+		return 1
+	end 'opLoadByte'
 	if op == Opcode.opAlloc 'opAlloc'
 		return 12
 	end 'opAlloc'
@@ -1091,6 +1149,55 @@ export function newGuard(src Reg, kind GuardKind, bound Word, fail BlockID) retu
 	r.c = fail as Index
 	return r
 end 'newGuard'
+
+// Length reads the count of the collection Src: of the elements of an array or a byte array, or of the bytes of a
+// string.
+export function newLength(dst Reg, src Reg, of Collection) returns Instr
+	var r = Instr.make(Opcode.opLength)
+	r.dst = dst
+	r.a = src
+	r.sub = collectionCode(of)
+	return r
+end 'newLength'
+
+// Bounds goes to Fail unless Index is below Length, both read as unsigned: the check of an index of a collection.
+export function newBounds(index Reg, length Reg, fail BlockID) returns Instr
+	var r = Instr.make(Opcode.opBounds)
+	r.a = index
+	r.b = length
+	r.c = fail as Index
+	return r
+end 'newBounds'
+
+// ElemAddr gives the address of the element at Index of Arr, an array of words, where a Bounds has checked the
+// index.
+export function newElemAddr(dst Reg, arr Reg, index Reg) returns Instr
+	var r = Instr.make(Opcode.opElemAddr)
+	r.dst = dst
+	r.a = arr
+	r.b = index
+	return r
+end 'newElemAddr'
+
+// ElemLoad reads the element at Index of Arr, an array of words, where a Bounds has checked the index: a scalar,
+// or a managed element lent as LoadAt lends it.
+export function newElemLoad(dst Reg, arr Reg, index Reg) returns Instr
+	var r = Instr.make(Opcode.opElemLoad)
+	r.dst = dst
+	r.a = arr
+	r.b = index
+	return r
+end 'newElemLoad'
+
+// LoadByte reads the byte at Index of Src, a byte array or a string, where a Bounds has checked the index.
+export function newLoadByte(dst Reg, src Reg, index Reg, of Collection) returns Instr
+	var r = Instr.make(Opcode.opLoadByte)
+	r.dst = dst
+	r.a = src
+	r.b = index
+	r.sub = collectionCode(of)
+	return r
+end 'newLoadByte'
 
 // Alloc gives a new box of Bytes bytes.
 export function newAlloc(dst Reg, bytes Count) returns Instr
@@ -1623,6 +1730,54 @@ export function guardFail(x Instr) returns BlockID
 	return x.c as BlockID
 end 'guardFail'
 
+export function lengthSrc(x Instr) returns Reg
+	return x.a
+end 'lengthSrc'
+
+export function lengthOf(x Instr) returns Collection
+	return collectionOf(x.sub)
+end 'lengthOf'
+
+export function boundsIndex(x Instr) returns Reg
+	return x.a
+end 'boundsIndex'
+
+export function boundsLength(x Instr) returns Reg
+	return x.b
+end 'boundsLength'
+
+export function boundsFail(x Instr) returns BlockID
+	return x.c as BlockID
+end 'boundsFail'
+
+export function elemAddrArr(x Instr) returns Reg
+	return x.a
+end 'elemAddrArr'
+
+export function elemAddrIndex(x Instr) returns Reg
+	return x.b
+end 'elemAddrIndex'
+
+export function elemLoadArr(x Instr) returns Reg
+	return x.a
+end 'elemLoadArr'
+
+export function elemLoadIndex(x Instr) returns Reg
+	return x.b
+end 'elemLoadIndex'
+
+export function loadByteSrc(x Instr) returns Reg
+	return x.a
+end 'loadByteSrc'
+
+export function loadByteIndex(x Instr) returns Reg
+	return x.b
+end 'loadByteIndex'
+
+export function loadByteOf(x Instr) returns Collection
+	return collectionOf(x.sub)
+end 'loadByteOf'
+
 export function allocBytes(x Instr) returns Count
 	return try x.imm as Count otherwise panic("ir: alloc bytes is out of range")
 end 'allocBytes'
@@ -2012,6 +2167,21 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opGuard 'opGuard'
 		return table.Option.none
 	end 'opGuard'
+	if x.op == Opcode.opLength 'opLength'
+		return table.Option.some(x.dst)
+	end 'opLength'
+	if x.op == Opcode.opBounds 'opBounds'
+		return table.Option.none
+	end 'opBounds'
+	if x.op == Opcode.opElemAddr 'opElemAddr'
+		return table.Option.some(x.dst)
+	end 'opElemAddr'
+	if x.op == Opcode.opElemLoad 'opElemLoad'
+		return table.Option.some(x.dst)
+	end 'opElemLoad'
+	if x.op == Opcode.opLoadByte 'opLoadByte'
+		return table.Option.some(x.dst)
+	end 'opLoadByte'
 	if x.op == Opcode.opAlloc 'opAlloc'
 		return table.Option.some(x.dst)
 	end 'opAlloc'
@@ -2182,6 +2352,21 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opGuard 'opGuard'
 		return table.Option.some(guardFail(x))
 	end 'opGuard'
+	if x.op == Opcode.opLength 'opLength'
+		return table.Option.none
+	end 'opLength'
+	if x.op == Opcode.opBounds 'opBounds'
+		return table.Option.some(boundsFail(x))
+	end 'opBounds'
+	if x.op == Opcode.opElemAddr 'opElemAddr'
+		return table.Option.none
+	end 'opElemAddr'
+	if x.op == Opcode.opElemLoad 'opElemLoad'
+		return table.Option.none
+	end 'opElemLoad'
+	if x.op == Opcode.opLoadByte 'opLoadByte'
+		return table.Option.none
+	end 'opLoadByte'
 	if x.op == Opcode.opAlloc 'opAlloc'
 		return table.Option.none
 	end 'opAlloc'
@@ -2274,6 +2459,11 @@ export function instrCanFail(x Instr) returns bool
 		opNeg gives negHasFail(x)
 		opNot gives false
 		opGuard gives true
+		opLength gives false
+		opBounds gives true
+		opElemAddr gives false
+		opElemLoad gives false
+		opLoadByte gives false
 		opAlloc gives false
 		opCall gives false
 		opCallRuntime gives false
@@ -2430,6 +2620,30 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(guardSrc(x))
 		return
 	end 'opGuard'
+	if x.op == Opcode.opLength 'opLength'
+		out.push(lengthSrc(x))
+		return
+	end 'opLength'
+	if x.op == Opcode.opBounds 'opBounds'
+		out.push(boundsIndex(x))
+		out.push(boundsLength(x))
+		return
+	end 'opBounds'
+	if x.op == Opcode.opElemAddr 'opElemAddr'
+		out.push(elemAddrArr(x))
+		out.push(elemAddrIndex(x))
+		return
+	end 'opElemAddr'
+	if x.op == Opcode.opElemLoad 'opElemLoad'
+		out.push(elemLoadArr(x))
+		out.push(elemLoadIndex(x))
+		return
+	end 'opElemLoad'
+	if x.op == Opcode.opLoadByte 'opLoadByte'
+		out.push(loadByteSrc(x))
+		out.push(loadByteIndex(x))
+		return
+	end 'opLoadByte'
 	if x.op == Opcode.opAlloc 'opAlloc'
 		return
 	end 'opAlloc'
@@ -2663,6 +2877,25 @@ export function instrWrites(x Instr, mutates out RegList)
 	if x.op == Opcode.opGuard 'opGuard'
 		return
 	end 'opGuard'
+	if x.op == Opcode.opLength 'opLength'
+		out.push(x.dst)
+		return
+	end 'opLength'
+	if x.op == Opcode.opBounds 'opBounds'
+		return
+	end 'opBounds'
+	if x.op == Opcode.opElemAddr 'opElemAddr'
+		out.push(x.dst)
+		return
+	end 'opElemAddr'
+	if x.op == Opcode.opElemLoad 'opElemLoad'
+		out.push(x.dst)
+		return
+	end 'opElemLoad'
+	if x.op == Opcode.opLoadByte 'opLoadByte'
+		out.push(x.dst)
+		return
+	end 'opLoadByte'
 	if x.op == Opcode.opAlloc 'opAlloc'
 		out.push(x.dst)
 		return
@@ -2880,6 +3113,30 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.a = renamedReg(names, r: x.a)
 		return
 	end 'opGuard'
+	if x.op == Opcode.opLength 'opLength'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opLength'
+	if x.op == Opcode.opBounds 'opBounds'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opBounds'
+	if x.op == Opcode.opElemAddr 'opElemAddr'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opElemAddr'
+	if x.op == Opcode.opElemLoad 'opElemLoad'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opElemLoad'
+	if x.op == Opcode.opLoadByte 'opLoadByte'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opLoadByte'
 	if x.op == Opcode.opAlloc 'opAlloc'
 		return
 	end 'opAlloc'
@@ -3185,6 +3442,35 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.c = relocatedBlock(at.blocks, b: x.c as BlockID) as Index
 		return
 	end 'opGuard'
+	if x.op == Opcode.opLength 'opLength'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opLength'
+	if x.op == Opcode.opBounds 'opBounds'
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		x.c = relocatedBlock(at.blocks, b: x.c as BlockID) as Index
+		return
+	end 'opBounds'
+	if x.op == Opcode.opElemAddr 'opElemAddr'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opElemAddr'
+	if x.op == Opcode.opElemLoad 'opElemLoad'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opElemLoad'
+	if x.op == Opcode.opLoadByte 'opLoadByte'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opLoadByte'
 	if x.op == Opcode.opAlloc 'opAlloc'
 		x.dst = renamedReg(at.names, r: x.dst)
 		return
@@ -3368,6 +3654,11 @@ export interface InstrVisitor
 	function visitNeg(mutates self, f IrFunction, x Instr)
 	function visitNot(mutates self, f IrFunction, x Instr)
 	function visitGuard(mutates self, f IrFunction, x Instr)
+	function visitLength(mutates self, f IrFunction, x Instr)
+	function visitBounds(mutates self, f IrFunction, x Instr)
+	function visitElemAddr(mutates self, f IrFunction, x Instr)
+	function visitElemLoad(mutates self, f IrFunction, x Instr)
+	function visitLoadByte(mutates self, f IrFunction, x Instr)
 	function visitAlloc(mutates self, f IrFunction, x Instr)
 	function visitCall(mutates self, f IrFunction, x Instr)
 	function visitCallRuntime(mutates self, f IrFunction, x Instr)
@@ -3525,6 +3816,26 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitGuard(f, x: x)
 		return
 	end 'opGuard'
+	if x.op == Opcode.opLength 'opLength'
+		visitor.visitLength(f, x: x)
+		return
+	end 'opLength'
+	if x.op == Opcode.opBounds 'opBounds'
+		visitor.visitBounds(f, x: x)
+		return
+	end 'opBounds'
+	if x.op == Opcode.opElemAddr 'opElemAddr'
+		visitor.visitElemAddr(f, x: x)
+		return
+	end 'opElemAddr'
+	if x.op == Opcode.opElemLoad 'opElemLoad'
+		visitor.visitElemLoad(f, x: x)
+		return
+	end 'opElemLoad'
+	if x.op == Opcode.opLoadByte 'opLoadByte'
+		visitor.visitLoadByte(f, x: x)
+		return
+	end 'opLoadByte'
 	if x.op == Opcode.opAlloc 'opAlloc'
 		visitor.visitAlloc(f, x: x)
 		return
@@ -3765,6 +4076,21 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opGuard 'opGuard'
 		return "guard %{guardSrc(x)} {guardKindText(guardKind(x))} {guardBound(x)} else b{guardFail(x)}"
 	end 'opGuard'
+	if x.op == Opcode.opLength 'opLength'
+		return "{resultText(x.dst)}length.{collectionText(lengthOf(x))} %{lengthSrc(x)}"
+	end 'opLength'
+	if x.op == Opcode.opBounds 'opBounds'
+		return "bounds %{boundsIndex(x)}, %{boundsLength(x)} else b{boundsFail(x)}"
+	end 'opBounds'
+	if x.op == Opcode.opElemAddr 'opElemAddr'
+		return "{resultText(x.dst)}elemaddr %{elemAddrArr(x)}, %{elemAddrIndex(x)}"
+	end 'opElemAddr'
+	if x.op == Opcode.opElemLoad 'opElemLoad'
+		return "{resultText(x.dst)}elem %{elemLoadArr(x)}, %{elemLoadIndex(x)}"
+	end 'opElemLoad'
+	if x.op == Opcode.opLoadByte 'opLoadByte'
+		return "{resultText(x.dst)}byte.{collectionText(loadByteOf(x))} %{loadByteSrc(x)}, %{loadByteIndex(x)}"
+	end 'opLoadByte'
 	if x.op == Opcode.opAlloc 'opAlloc'
 		return "{resultText(x.dst)}alloc {allocBytes(x)}"
 	end 'opAlloc'

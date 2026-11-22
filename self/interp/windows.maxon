@@ -1,7 +1,7 @@
 // borrowsStorage is whether an instruction gives a pointer or an address into storage that already exists, which a change
 // would leave dangling, and not a value that is new and only being built.
 function borrowsStorage(x ir.Instr) returns bool
-	if x.op == ir.Opcode.opLoadSlot or x.op == ir.Opcode.opLoadParam or x.op == ir.Opcode.opLoadField or x.op == ir.Opcode.opLoadAt or x.op == ir.Opcode.opSlotAddr or x.op == ir.Opcode.opFieldAddr 'storage'
+	if x.op == ir.Opcode.opLoadSlot or x.op == ir.Opcode.opLoadParam or x.op == ir.Opcode.opLoadField or x.op == ir.Opcode.opLoadAt or x.op == ir.Opcode.opSlotAddr or x.op == ir.Opcode.opFieldAddr or x.op == ir.Opcode.opElemAddr or x.op == ir.Opcode.opElemLoad 'storage'
 		return true
 	end 'storage'
 	if x.op == ir.Opcode.opCallRuntime 'runtime'

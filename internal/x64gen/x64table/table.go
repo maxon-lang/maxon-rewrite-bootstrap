@@ -9,15 +9,24 @@ import "minimaxon/internal/targetgen/target"
 
 // Encoding constants that the generated helpers and the reference encoder of the test both read.
 const (
-	rexBase        = 0x40
-	rexWide        = 0x08
-	rexReg         = 0x04
-	rexRm          = 0x01
-	modRegister    = 0xC0
-	modDisp8       = 0x40
-	modDisp32      = 0x80
-	ripRelative    = 5
-	sibRsp         = 0x24
+	rexBase     = 0x40
+	rexWide     = 0x08
+	rexReg      = 0x04
+	rexRm       = 0x01
+	rexIndex    = 0x02
+	modRegister = 0xC0
+	modDisp8    = 0x40
+	modDisp32   = 0x80
+	ripRelative = 5
+	sibRsp      = 0x24
+	// sibFollows is the r/m field that says a SIB byte follows the ModRM byte; sibScaleField and sibIndexField are what
+	// the SIB byte's scale and index fields are multiplied by.
+	sibFollows    = 4
+	sibScaleField = 64
+	sibIndexField = 8
+	// wordScale and byteScale are the scales of an index of words and of bytes.
+	wordScale      = 8
+	byteScale      = 1
 	rspLowBits     = 4
 	rbpLowBits     = 5
 	regFieldScale  = 8
@@ -62,11 +71,15 @@ var constants = []constant{
 	{"rexWide", rexWide},
 	{"rexReg", rexReg},
 	{"rexRm", rexRm},
+	{"rexIndex", rexIndex},
 	{"modRegister", modRegister},
 	{"modDisp8", modDisp8},
 	{"modDisp32", modDisp32},
 	{"ripRelative", ripRelative},
 	{"sibRsp", sibRsp},
+	{"sibFollows", sibFollows},
+	{"sibScaleField", sibScaleField},
+	{"sibIndexField", sibIndexField},
 	{"rspLowBits", rspLowBits},
 	{"rbpLowBits", rbpLowBits},
 	{"regFieldScale", regFieldScale},
@@ -123,15 +136,16 @@ var conditions = []condition{
 type kind int
 
 const (
-	kindReg    kind = iota // a general register
-	kindMem                // [base + disp], the displacement as short as it can be
-	kindRip                // [rip + disp32], whose displacement a fixup patches
-	kindImm8               // a signed byte
-	kindImm32              // a signed doubleword
-	kindImm32U             // an unsigned doubleword
-	kindImm64              // a quadword
-	kindRel32              // a signed doubleword relative to the end of the instruction
-	kindCond               // a condition code, added to the last opcode byte
+	kindReg      kind = iota // a general register
+	kindMem                  // [base + disp], the displacement as short as it can be
+	kindMemIndex             // [base + index*scale + disp], through a SIB byte, the displacement as short as it can be
+	kindRip                  // [rip + disp32], whose displacement a fixup patches
+	kindImm8                 // a signed byte
+	kindImm32                // a signed doubleword
+	kindImm32U               // an unsigned doubleword
+	kindImm64                // a quadword
+	kindRel32                // a signed doubleword relative to the end of the instruction
+	kindCond                 // a condition code, added to the last opcode byte
 )
 
 // field is where an operand's bits go.
@@ -145,7 +159,7 @@ const (
 )
 
 // operand is one operand of a form. A register's name is its parameter in Maxon; a memory operand has the parameters
-// base and disp, and every other kind a parameter named after it.
+// base and disp, an indexed one base, index and disp, and every other kind a parameter named after it.
 type operand struct {
 	name  string
 	kind  kind
@@ -153,8 +167,11 @@ type operand struct {
 	// byteReg says that the register is used as 8-bit register, where the numbers 4 to 7 are spl to dil only under a REX
 	// prefix, which is then written even if it holds no bit.
 	byteReg bool
-	// access is what the instruction does with a register operand; the base of a memory operand is always read.
+	// access is what the instruction does with a register operand; the base and the index of a memory operand are always
+	// read.
 	access access
+	// scale is what an indexed memory operand multiplies its index by: 1, 2, 4 or 8.
+	scale int
 }
 
 // access is whether an instruction reads a register operand, writes it, or both: a two-address form, whose result the
@@ -240,6 +257,11 @@ func byteReg(name string, f field, a access) operand {
 }
 
 func mem() operand { return operand{name: "base", kind: kindMem, field: fieldRM} }
+
+// memIndex is [base + index*scale + disp]: an element of a buffer, at an index the scale makes a byte offset.
+func memIndex(scale int) operand {
+	return operand{name: "base", kind: kindMemIndex, field: fieldRM, scale: scale}
+}
 
 func rip() operand { return operand{name: "disp", kind: kindRip, field: fieldRM} }
 
@@ -356,6 +378,27 @@ func buildForms() []form {
 		},
 		form{
 			name: "StoreBaseDispReg8", mnemonic: "mov", operands: []operand{mem(), byteReg("src", fieldReg, read)},
+			opcode: []byte{0x88}, modrm: modOperands, effects: writes,
+		},
+		// The indexed forms read and write an element of a buffer: a word at index*8, or a byte at index.
+		form{
+			name: "LoadRegBaseIndex8Disp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), memIndex(wordScale)},
+			rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
+		},
+		form{
+			name: "StoreBaseIndex8DispReg", mnemonic: "mov", operands: []operand{memIndex(wordScale), reg("src", fieldReg, read)},
+			rexW: true, opcode: []byte{0x89}, modrm: modOperands, effects: writes,
+		},
+		form{
+			name: "LeaRegBaseIndex8Disp", mnemonic: "lea", operands: []operand{reg("dest", fieldReg, write), memIndex(wordScale)},
+			rexW: true, opcode: []byte{0x8D}, modrm: modOperands, effects: noEffects,
+		},
+		form{
+			name: "MovzxRegByteBaseIndex1Disp", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg, write), memIndex(byteScale)},
+			rexW: true, opcode: []byte{opcodeHigh, 0xB6}, modrm: modOperands, effects: reads,
+		},
+		form{
+			name: "StoreBaseIndex1DispReg8", mnemonic: "mov", operands: []operand{memIndex(byteScale), byteReg("src", fieldReg, read)},
 			opcode: []byte{0x88}, modrm: modOperands, effects: writes,
 		},
 		form{

@@ -367,11 +367,11 @@ one shape of operands, named as maxon's `X64Backend.maxon` names its encoders (`
 | Column | Holds |
 |---|---|
 | `name`, `mnemonic` | the encoder is `encode<name>`, and the case of the `X64Form` enum is the name with its first letter lowered |
-| `operands` | in assembly order, each a register, a memory operand `[base + disp]`, a `[rip + disp]` operand, an immediate (`imm8`, `imm32`, `imm32U`, `imm64`), a `rel32` or a condition code, and the part of the encoding that holds it: the reg or r/m field of the ModRM byte, or the low three bits of the opcode (`+r`) |
+| `operands` | in assembly order, each a register, a memory operand `[base + disp]` or, through a SIB byte, `[base + index*scale + disp]` (an element of a buffer: a word at `index*8`, a byte at `index`), a `[rip + disp]` operand, an immediate (`imm8`, `imm32`, `imm32U`, `imm64`), a `rel32` or a condition code, and the part of the encoding that holds it: the reg or r/m field of the ModRM byte, or the low three bits of the opcode (`+r`) |
 | `prefix`, `rexW`, `opcode` | the mandatory prefix (`rep`), REX.W, and the opcode with its `0F` escape; a condition code is added to the last opcode byte |
 | `modrm`, `digit` | no ModRM byte, one the operands fill, or one whose reg field is the form's `/digit` |
 | `setsFlags`, `readsFlags`, `readsMemory`, `writesMemory` | what instruction selection asks of a form; written as `X64Form` predicates of the same names |
-| `access` of each register operand | read, written, or both (a two-address form, whose definition reuses the operand's register); the base of a memory operand is read |
+| `access` of each register operand | read, written, or both (a two-address form, whose definition reuses the operand's register); the base and the index of a memory operand are read |
 | `fixedUses`, `fixedDefs`, `clobbers` | the registers a form reads, writes a result to, or leaves holding nothing, that no operand names (`idiv`: rdx:rax in, rax and rdx out; a shift by `cl`: rcx; `rep movsb`: rsi, rdi and rcx; the SSE forms: xmm0 and xmm1) |
 | `call`, `ret` | a call clobbers what its calling convention does not keep, and a return reads the convention's result registers |
 
@@ -831,7 +831,10 @@ what a later pass such as reference counting or an optimization changes.
   instructions to 269,402, folds 816 branches and removes 786 parameters; it decides no check there, since the range
   analysis leaves none whose operands are constants. Division by a constant is not strength-reduced yet: it needs a
   high-multiply operation in the IR and its x64 form, and a rule for it.
-- **Leaf inlining** (`self/opt/inline.maxon`) runs after the fold, on each module: a call of a leaf is replaced by a copy
+- **The expansion of the primitives** (`self/opt/expand.maxon`) runs after the fold, on each module, before leaf
+  inlining and on every function first, so every copy of a leaf is expanded alike: the calls that read a length or an
+  element become the operations of their common case (see "The primitives in the IR").
+- **Leaf inlining** (`self/opt/inline.maxon`) runs after the expansion, on each module: a call of a leaf is replaced by a copy
   of its body. The policy is maxon's leaf rule (`InlineLeaves`): a leaf calls nothing on its hot path (its blocks that do
   not end in a `trap`), but for a runtime entry the backend writes in place (`ir.writtenInPlace`: lengths, element reads
   and writes, a push) and a `drop`, which stays a call in the copy; it has at most `maxLeafOps` (24) instructions and
@@ -848,14 +851,17 @@ what a later pass such as reference counting or an optimization changes.
   phase"). On `self`, 7,226 calls are inlined, and the build of `self` by itself takes about 6% less time.
 - **E5001 and inlining.** A copy must not make a loop fail to compile: with the call, the values live across it were in
   memory across it (the call tier of spilling), across the copy they are not. Maxon checks a pressure budget only for its
-  wrapper and called-once rules and none for leaves. Here a function that got a copy and may hold a loop (an edge to a
-  block not after its own) keeps the IR it had before inlining (`ir.Fallbacks`, which the driver holds by module), and
-  the emit compiles that in its place where it refuses a hot loop of the inlined one (`selectOrFallBack`), so a program
-  that compiles without inlining compiles with it, exactly; `tests/run/a-hot-loop-that-calls-a-leaf-compiles-as-with-the-call.maxon`
-  is a loop that needs the fallback.- Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
+  wrapper and called-once rules and none for leaves. Here a function that got a copy or an expansion of a primitive and
+  may hold a loop (an edge to a block not after its own) keeps the IR it had before both (`ir.Fallbacks`, which the driver
+  holds by module), and the emit compiles that in its place where it refuses a hot loop of the inlined one
+  (`selectOrFallBack`), so a program that compiles without inlining and the expansion compiles with them, exactly;
+  `tests/run/a-hot-loop-that-calls-a-leaf-compiles-as-with-the-call.maxon` is a loop that needs the fallback, and so is a
+  loop of the `main` of `tests/run/array-methods.maxon`, which holds fifteen values once its element reads are expanded.
+- Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
 - Checks are explicit, and only the ones the range analysis could not rule out are there (see "Checked arithmetic"): a range
-  check, a divisor that may be 0 and a shift count that may be negative are each a `guard` with its bound, and a `bin` or a
-  `neg` whose result may not fit the word is checked. Each of them names the block it goes to when the check fails, `else b4`,
+  check, a divisor that may be 0 and a shift count that may be negative are each a `guard` with its bound, an index of an
+  array, a byte array or a string is a `bounds` against its length, and a `bin` or a `neg` whose result may not fit the
+  word is checked. Each of them names the block it goes to when the check fails, `else b4`,
   which is the only way an instruction leaves its block before its end: there the failure drops what it leaves and goes to the
   handler of its `try`, or returns the error with `throw`. A function that throws returns its error beside its value, 0 when it
   returned and the error's case plus 1 when it failed (`rdx` in the executable), and a `call` of one names the register that
@@ -894,6 +900,7 @@ what a later pass such as reference counting or an optimization changes.
 |---|---|
 | values | `const`, `str`, `datum` (a constant of the executable's data, see "Constants in the data section"), `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield`, `fieldaddr`, `loadat`, `storeat`, `global` |
 | arithmetic | `bin` (add, sub, mul, div, mod, and, or, xor, shl, shr; `.u` for unsigned; checked ones have an `else` block), `cmp`, `neg`, `not`, `guard` |
+| collections | `length.array`, `length.string`, `bounds`, `elemaddr`, `elem`, `byte.array`, `byte.string` (see "The primitives in the IR") |
 | floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
 | calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `callvalue` (see "Function values in the IR") |
 | function values | `closure`, `funcvalue` (see "Function values in the IR") |
@@ -954,6 +961,29 @@ runtime each implement the entries. The element is always visible in the call:
   returns the **address** of an element: a borrow, valid until the next call that changes the primitive. A subscript is that
   call and a `loadat` or a `storeat`, and a `mutates` argument `a[i]` is the address itself. A value that changes the primitive
   is computed before the address is taken, which is what the ownership pass's exclusivity rules guarantee at the source.
+- **The expansion of the primitives** (`self/opt/expand.maxon`, maxon's `inlineManagedPrimitives`) writes the common case of
+  the entries that read a length or an element of an array, a byte array or a string as operations of the IR, so that the
+  optimizer, instruction selection and the register allocator see loads and no call: `length.array %a` and `length.string
+  %s` read the count (`rt.array.len`, `rt.bytes.len`, `rt.str.len`), `bounds %i, %n else b7` goes to `b7` unless `%i` is
+  below `%n` (unsigned, so a negative index is past every length), `elemaddr %a, %i` is the address of the element of an
+  array of words (`rt.array.elem`), `elem %a, %i` reads it where only the `loadat` right after the call reads the address (a
+  scalar, or a managed element lent as `loadat` lends it), and `byte.array %a, %i` and `byte.string %s, %i` read a byte
+  (`rt.bytes.get`, `rt.str.byteAt`). A read of an element is a `length`, a `bounds` and the read; the failure block of the
+  `bounds`, one per read after the function's blocks, makes the call that was there and a `trap`: called there, the entry
+  traps with its own message and exit code, natively and under the interpreter, so a miss fails exactly as before.
+  Selection writes a `length` as a load, a `bounds` as a compare and a branch that ends its block (`emitBounds`: an edge
+  in the middle of a block would keep what the trap block reads live to the block's end), and an element as a load of the
+  buffer's address and an indexed access (`[data + index*8]`, `[data + index]`; a string's bytes are in its box, so a
+  byte of one is the access alone). Every
+  other entry stays a call: growth, insertion, removal, the byte write, maps, lists and pools. Lowering writes the
+  operations itself, with no `bounds`, where an index is proved: inside a `FixedArray` by the checker, or by the test of a
+  `try` around `get` and `set`. The interpreter runs the expanded form (the driver expands the IR it keeps for it, as
+  lowered), each operation on its model of the collection: a `bounds` by the IR's own meaning (`ir.evalBounds`), as the fold
+  decides one whose operands are constants, and an element by the cell its entry's address would name, so its checks of a
+  stale or freed box and of a borrow a call is still waiting to use (`elemaddr` and `elem` open a window as `loadat` does)
+  are those of the call. A native build expands each function after the fold, before leaf inlining; with no call left in
+  a loop, a loop that the call let compile may need more registers than x64 has, so the function's IR before the expansion
+  is its fallback (see "E5001 and inlining"), whose calls the backend writes in place as it always did.
 - An array whose element is an integer that fits in a byte (`ByteArray`, `Array with Byte`) packs one byte to an element, so it
   calls the `rt.bytes.*` entries instead of `rt.array.*`: `rt.bytes.get` and `rt.bytes.set` in place of the address of an
   element, and its own `insert`, `remove`, `append` (a copy of the bytes), `appendStr` and `toString`. `ast.packsBytes` decides

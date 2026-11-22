@@ -11,7 +11,8 @@
 // nothing the backend refuses. Calling nothing, it is never recursive. As SSA construction leaves every function, no edge
 // enters its entry, so the copy's entry is entered only by the call it replaces.
 //
-// The leaves are decided on the bodies as the fold left them, and a call is replaced only outside a block that ends in a
+// The leaves are decided on the bodies as the fold left them, and copied as the expansion of the primitives (expand.maxon)
+// leaves them, which runs on every function before the first copy; a call is replaced only outside a block that ends in a
 // trap, so no leaf is changed by the pass: every copy of one is the same body, and the order the functions are visited in
 // changes nothing. A copy of a function that throws joins the caller where the call did: its returns and its throws jump
 // to the block after the call with the value and the error the call would have given (0 for the one that is not there),
@@ -25,9 +26,10 @@
 // constant argument folds into the body.
 //
 // A copy must not make a loop fail to compile: a loop that needs more registers than the target has is E5001, and with the
-// call, the values live across it were in memory across it, which they need not be across the copy. So a function that
-// may hold a loop keeps the IR it had before its copies as its fallback (ir.Fallbacks), which the backend compiles in its
-// place where it refuses a hot loop of the inlined one: such a function compiles exactly as it would have without inlining.
+// call, the values live across it were in memory across it, which they need not be across the copy, nor across the
+// expansion of a primitive. So a function that may hold a loop keeps the IR it had before its expansions and its copies as
+// its fallback (ir.Fallbacks), which the backend compiles in its place where it refuses a hot loop of the inlined one: such
+// a function compiles exactly as it would have without either.
 
 // maxLeafOps is the most instructions and terminators the hot path of a leaf with no cold block has: maxon's measured
 // budget, which admits accessors and small helpers and keeps the code a copy adds small.
@@ -451,17 +453,21 @@ function inlineInto(mutates o Optimizer, mutates f ir.IrFunction, own Leaves, ow
 	return true
 end 'inlineInto'
 
-// inlineModule replaces the calls of leaves in the functions of a module, fns, once the optimizer has run on them, and
-// folds again each function that got a copy; a function that got one and may hold a loop keeps the IR it had before in
-// fallbacks. own are the module's leaves; lowered and leaves are the functions and leaves of the modules this compile
-// lowers, by their index from first, of which the module may read those reads marks: the ones it names, whose lower its
-// own waited for. The module's own entry in lowered is not read.
+// inlineModule expands the primitives of the functions of a module, fns, once the optimizer has run on them
+// (expand.maxon), then replaces their calls of leaves and folds again each function that got a copy; a function that may
+// hold a loop and gets an expansion or a copy keeps the IR it had before both in fallbacks. Every function is expanded
+// before any is copied, so every copy of a leaf is the same body. own are the module's leaves; lowered and leaves are the
+// functions and leaves of the modules this compile lowers, by their index from first, of which the module may read those
+// reads marks: the ones it names, whose lower its own waited for. The module's own entry in lowered is not read.
 export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates fallbacks ir.Fallbacks, own Leaves, lowered Array with ir.IrFunctionList, leaves LeavesList, reads Array with bool, first Count)
+	for i in 0 upto fns.count() 'expand'
+		if mayLoop(fns[i]) and (treeHasExpandable(fns[i]) or treeHasLeafCall(fns[i], own: own, leaves: leaves, reads: reads, first: first)) 'fallback'
+			fallbacks.add(i, f: fns[i].clone())
+		end 'fallback'
+		_ = o.expander.expandFunction(fns[i])
+	end 'expand'
 	for i in 0 upto fns.count() 'functions'
 		var f = exchange(fns[i], value: ir.IrFunction.new(ast.noFunc, name: "", paramCount: 0))
-		if mayLoop(f) and treeHasLeafCall(f, own: own, leaves: leaves, reads: reads, first: first) 'fallback'
-			fallbacks.add(i, f: f.clone())
-		end 'fallback'
 		if inlineInto(o, f: f, own: own, ownFns: fns, lowered: lowered, leaves: leaves, reads: reads, first: first) 'changed'
 			o.fold.foldFunction(f)
 		end 'changed'

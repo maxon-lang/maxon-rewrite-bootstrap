@@ -206,3 +206,8 @@ export function evalGuard(kind GuardKind, a Word, bound Word) returns bool
 		guardNonZero gives a != 0
 	end 'kind'
 end 'evalGuard'
+
+// evalBounds is what the operation Bounds computes, by indexBelow.
+export function evalBounds(a Word, b Word) returns bool
+	return indexBelow(a, b: b)
+end 'evalBounds'

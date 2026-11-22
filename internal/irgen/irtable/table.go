@@ -172,6 +172,9 @@ var enums = []enum{
 	{Name: "RawWidth", Prefix: "Width", Doc: "RawWidth is how many bits a LoadRaw or a StoreRaw moves.", Cases: []enumCase{
 		{"8", "8", noCase}, {"16", "16", noCase}, {"32", "32", noCase}, {"64", "64", noCase},
 	}},
+	{Name: "Collection", Prefix: "Collection", Doc: "Collection is the box a Length or a LoadByte reads: an array's or a byte array's, which share one layout, or a\n// string's.", Cases: []enumCase{
+		{"Array", "array", noCase}, {"String", "string", noCase},
+	}},
 }
 
 // flag is a bit of an instruction's Flags.
@@ -199,6 +202,8 @@ var (
 	checkedOp = operand{Name: "Fail", Kind: kFail, Field: fC, Flag: "Checked", Text: " else "}
 	unsignOp  = operand{Name: "Unsigned", Kind: kFlag, Field: fFlags, Flag: "Unsigned", Text: ".u"}
 	widthOp   = operand{Name: "Width", Kind: kEnum, Field: fSub, Enum: "RawWidth"}
+	// collectionOp is the box a collection operation reads.
+	collectionOp = operand{Name: "Of", Kind: kEnum, Field: fSub, Enum: "Collection"}
 )
 
 var ops = []op{
@@ -290,6 +295,20 @@ var ops = []op{
 		Operands: []operand{reg("Src", fA), {Name: "Kind", Kind: kEnum, Field: fSub, Enum: "GuardKind"},
 			{Name: "Bound", Kind: kWord, Field: fImm}, {Name: "Fail", Kind: kFail, Field: fC}},
 		Text: "guard {Src} {Kind} {Bound} else {Fail}"},
+	// The collection operations are the common case of the runtime entries that read a length or an element (README,
+	// "Primitives"): a Bounds checks the index, and its failure block calls the entry, which traps there.
+	{Name: "Length", Eval: noEval, Doc: "Length reads the count of the collection Src: of the elements of an array or a byte array, or of the bytes of a\n// string.",
+		Result: valueResult, Operands: []operand{reg("Src", fA), collectionOp}, Effects: []effect{effReads}, Text: "length.{Of} {Src}"},
+	{Name: "Bounds", Eval: call("indexBelow"), Doc: "Bounds goes to Fail unless Index is below Length, both read as unsigned: the check of an index of a collection.",
+		Operands: []operand{reg("Index", fA), reg("Length", fB), {Name: "Fail", Kind: kFail, Field: fC}},
+		Text:     "bounds {Index}, {Length} else {Fail}"},
+	{Name: "ElemAddr", Eval: noEval, Doc: "ElemAddr gives the address of the element at Index of Arr, an array of words, where a Bounds has checked the\n// index.",
+		Result: valueResult, Operands: []operand{reg("Arr", fA), reg("Index", fB)}, Effects: []effect{effReads}, Text: "elemaddr {Arr}, {Index}"},
+	{Name: "ElemLoad", Eval: noEval, Doc: "ElemLoad reads the element at Index of Arr, an array of words, where a Bounds has checked the index: a scalar,\n// or a managed element lent as LoadAt lends it.",
+		Result: valueResult, Operands: []operand{reg("Arr", fA), reg("Index", fB)}, Effects: []effect{effReads}, Text: "elem {Arr}, {Index}"},
+	{Name: "LoadByte", Eval: noEval, Doc: "LoadByte reads the byte at Index of Src, a byte array or a string, where a Bounds has checked the index.",
+		Result: valueResult, Operands: []operand{reg("Src", fA), reg("Index", fB), collectionOp}, Effects: []effect{effReads},
+		Text: "byte.{Of} {Src}, {Index}"},
 	{Name: "Alloc", Eval: noEval, Doc: "Alloc gives a new box of Bytes bytes.", Result: valueResult,
 		Operands: []operand{num("Bytes")}, Effects: []effect{effCalls, effAllocates}, Text: "alloc {Bytes}"},
 	{Name: "Call", Eval: noEval, Doc: "Call applies Callee to Args.", Result: optionalResult,

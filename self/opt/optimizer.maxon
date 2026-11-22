@@ -1,14 +1,16 @@
 // The optimizer's passes in the order a native build runs them: on each function SSA construction, then the fold pass; then
-// on the module leaf inlining (inline.maxon), which folds again each function that got a copy.
+// on the module the expansion of the primitives (expand.maxon) and leaf inlining (inline.maxon), which folds again each
+// function that got a copy.
 
 // Optimizer is the state of the passes, kept from one function to the next.
 export type Optimizer
 	export var ssa as Ssa
 	export var fold as Fold
+	export var expander as Expander
 	export var inliner as Inliner
 
 	export static function new() returns Optimizer
-		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), inliner: Inliner.new()}
+		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new()}
 	end 'new'
 end 'Optimizer'
 

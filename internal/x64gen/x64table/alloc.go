@@ -68,6 +68,8 @@ func (f form) uses() []string {
 			out = append(out, o.name)
 		case o.kind == kindMem:
 			out = append(out, "base")
+		case o.kind == kindMemIndex:
+			out = append(out, "base", "index")
 		}
 	}
 	return out
@@ -271,6 +273,8 @@ func machineArgs(f form) []string {
 			}
 		case kindMem:
 			args = append(args, useLetter["base"], "aux")
+		case kindMemIndex:
+			args = append(args, useLetter["base"], useLetter["index"], "aux")
 		case kindRip, kindRel32:
 			args = append(args, "0")
 		case kindCond:

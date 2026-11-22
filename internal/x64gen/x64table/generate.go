@@ -76,6 +76,22 @@ func immediateOf(k kind) immediate {
 	}
 }
 
+// scaleBitsOf is the SIB byte's scale field for a scale: its power of two.
+func scaleBitsOf(scale int) int {
+	switch scale {
+	case 1:
+		return 0
+	case 2:
+		return 1
+	case 4:
+		return 2
+	case 8:
+		return 3
+	}
+	fail("%d is no scale of an index", scale)
+	return 0
+}
+
 func isImmediate(k kind) bool {
 	return k == kindImm8 || k == kindImm32 || k == kindImm32U || k == kindImm64
 }
@@ -87,6 +103,8 @@ func (o operand) params() []param {
 		return []param{{o.name, typeRegister}}
 	case kindMem:
 		return []param{{"base", typeRegister}, {"disp", typeDisp}}
+	case kindMemIndex:
+		return []param{{"base", typeRegister}, {"index", typeRegister}, {"disp", typeDisp}}
 	case kindRip:
 		return []param{{"disp", typeDisp}}
 	case kindCond:
@@ -236,8 +254,13 @@ func checkForm(f form) {
 		if o.kind == kindReg && o.field == fieldNone {
 			fail("%s: register %s is in no field", f.name, o.name)
 		}
-		if o.kind != kindReg && o.field != fieldNone && o.kind != kindMem && o.kind != kindRip {
+		if o.kind != kindReg && o.field != fieldNone && o.kind != kindMem && o.kind != kindMemIndex && o.kind != kindRip {
 			fail("%s: operand %s is not a register and is in a field", f.name, o.name)
+		}
+		if o.kind == kindMemIndex {
+			scaleBitsOf(o.scale)
+		} else if o.scale != 0 {
+			fail("%s: operand %s has a scale and no index", f.name, o.name)
 		}
 		if o.byteReg && o.kind != kindReg {
 			fail("%s: only a register is a byte register", f.name)

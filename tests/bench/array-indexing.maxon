@@ -1,0 +1,36 @@
+// Array indexing: a sum over an array of words by index and a scan of a string's bytes by position, the element reads
+// that a compiler's own passes are made of.
+typealias Word = int(0 to u64.max)
+
+typealias Words = Array with Word
+
+let size = 10000 as Count
+
+let rounds = 20000 as Count
+
+let spread = 1000 as Count
+
+function main() returns ExitCode
+	var a = Words.create(0)
+	var text = ""
+	for i in 0 upto size 'fill'
+		a.push((i mod spread) as Word)
+		text.append("{i mod 10}")
+	end 'fill'
+	var sum = 0 as Word
+	var high = 0 as Word
+	for _ in 0 upto rounds 'rounds'
+		for i in 0 upto a.count() 'sum'
+			sum = try sum + a[i] otherwise panic("sum overflowed")
+		end 'sum'
+		for at in 0 upto text.byteLength() 'scan'
+			if text.byteAt(at) > 52 'high'
+				high = try high + 1 otherwise panic("count overflowed")
+			end 'high'
+		end 'scan'
+	end 'rounds'
+	print("{sum} {high}\n")
+	return 0
+end 'main'
+
+//> 99900000000 100000000

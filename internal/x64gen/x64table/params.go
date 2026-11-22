@@ -91,6 +91,10 @@ func (f form) shapeParams() []ShapeParam {
 		case kindMem:
 			out = append(out, ShapeParam{Name: "base", Role: RoleUse, Letter: useLetter["base"]},
 				ShapeParam{Name: "disp", Role: RoleDisp, Type: typeDisp})
+		case kindMemIndex:
+			out = append(out, ShapeParam{Name: "base", Role: RoleUse, Letter: useLetter["base"]},
+				ShapeParam{Name: "index", Role: RoleUse, Letter: useLetter["index"]},
+				ShapeParam{Name: "disp", Role: RoleDisp, Type: typeDisp})
 		case kindRip:
 			out = append(out, ShapeParam{Name: o.name, Role: RoleRip})
 		case kindRel32:

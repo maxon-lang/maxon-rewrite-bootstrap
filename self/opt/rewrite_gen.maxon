@@ -106,6 +106,21 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opGuard 'opcodeGuard'
 		return false
 	end 'opcodeGuard'
+	if op == ir.Opcode.opLength 'opcodeLength'
+		return false
+	end 'opcodeLength'
+	if op == ir.Opcode.opBounds 'opcodeBounds'
+		return false
+	end 'opcodeBounds'
+	if op == ir.Opcode.opElemAddr 'opcodeElemAddr'
+		return false
+	end 'opcodeElemAddr'
+	if op == ir.Opcode.opElemLoad 'opcodeElemLoad'
+		return false
+	end 'opcodeElemLoad'
+	if op == ir.Opcode.opLoadByte 'opcodeLoadByte'
+		return false
+	end 'opcodeLoadByte'
 	if op == ir.Opcode.opAlloc 'opcodeAlloc'
 		return false
 	end 'opcodeAlloc'

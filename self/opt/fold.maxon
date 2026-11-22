@@ -491,15 +491,18 @@ export type Fold
 			if not self.isKnown(src) 'unknown'
 				return false
 			end 'unknown'
-			if ir.evalGuard(ir.guardKind(f.instrs[k]), a: self.valueOf(src), bound: ir.guardBound(f.instrs[k])) 'holds'
-				self.removeCheck(f, k: k)
-				dead[k] = true
-				checksDecided = plusOne(checksDecided)
-			end 'holds' else 'fails'
-				self.failHere(f, k: k)
-			end 'fails'
+			self.decideCheck(f, k: k, holds: ir.evalGuard(ir.guardKind(f.instrs[k]), a: self.valueOf(src), bound: ir.guardBound(f.instrs[k])))
 			return true
 		end 'guard'
+		if op == ir.Opcode.opBounds 'bounds'
+			let index = ir.boundsIndex(f.instrs[k])
+			let length = ir.boundsLength(f.instrs[k])
+			if not self.isKnown(index) or not self.isKnown(length) 'unknown'
+				return false
+			end 'unknown'
+			self.decideCheck(f, k: k, holds: ir.evalBounds(self.valueOf(index), b: self.valueOf(length)))
+			return true
+		end 'bounds'
 		if op == ir.Opcode.opDrop 'drop'
 			let src = ir.dropSrc(f.instrs[k])
 			if self.isKnown(src) and self.valueOf(src) == 0 'nothing'
@@ -584,6 +587,18 @@ export type Fold
 		self.learn(dst, v: v)
 		return true
 	end 'fold'
+
+	// decideCheck settles the check k, a guard or a bounds check whose operands are constants: one that holds goes, and one
+	// that does not is its failure, taken here.
+	function decideCheck(mutates self, mutates f ir.IrFunction, k Count, holds bool)
+		if holds 'holds'
+			self.removeCheck(f, k: k)
+			dead[k] = true
+			checksDecided = plusOne(checksDecided)
+			return
+		end 'holds'
+		_ = self.failHere(f, k: k)
+	end 'decideCheck'
 
 	// removeCheck drops the failure edge of the instruction k, whose check its operands pass.
 	function removeCheck(mutates self, f ir.IrFunction, k Count)

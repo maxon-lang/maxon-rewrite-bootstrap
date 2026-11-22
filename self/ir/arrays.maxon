@@ -81,6 +81,35 @@ function arrayLoad(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return d
 end 'arrayLoad'
 
+// arrayRead reads the element at index as arrayLoad does, but where the checker or a check before it has proved the index
+// inside the array (not checked): there it is the read alone, with no check.
+function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
+	if checked 'check'
+		return arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	end 'check'
+	if arrayPacked(p, ms: ms, box: box) 'packed'
+		let byte = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newLoadByte(byte, src: arr, index: index, of: Collection.collectionArray))
+		return byte
+	end 'packed'
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
+	emit(l, i: newElemLoad(d, arr: arr, index: index))
+	return d
+end 'arrayRead'
+
+// arrayWrite writes v to the element at index as arrayStore does, but where the index is proved inside the array (not
+// checked) through the address alone. A byte is written by its entry either way.
+function arrayWrite(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg, checked bool)
+	if checked or arrayPacked(p, ms: ms, box: box) 'entry'
+		arrayStore(l, p: p, ms: ms, box: box, arr: arr, index: index, v: v)
+		return
+	end 'entry'
+	let addr = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newElemAddr(addr, arr: arr, index: index))
+	dropAt(l, p: p, ms: ms, addr: addr, t: arrayElem(p, ms: ms, box: box))
+	emit(l, i: newStoreAt(addr, src: v))
+end 'arrayWrite'
+
 // arrayStore writes v to the element at index, dropping the element it replaces.
 function arrayStore(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
 	if arrayPacked(p, ms: ms, box: box) 'packed'
@@ -266,7 +295,7 @@ end 'arraySlice'
 // arrayCopyAt is a copy of the element at index, which fails with indexOutOfBounds past the end.
 function arrayCopyAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
-	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	let element = arrayRead(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
 	return copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 end 'arrayCopyAt'
 

@@ -54,6 +54,17 @@
 (spinPause) => (Pause)
 (threadContext) => (LoadRegRip t [sel.symbolRef(ir.rtSymbol(ir.Rt.rtTlsOffset))]) (LoadRegGsBaseDisp r t [tebTlsSlotsOffset])
 
+// The collection operations: a length is a load of the box, a bounds check a compare and a branch to its failure block,
+// which calls the entry the access is the common case of (emitBounds), and an element an access at the index into the
+// buffer.
+(length.array s) => (LoadRegBaseDisp r s [arrayLengthOffset])
+(length.string s) => (LoadRegBaseDisp r s [stringLengthOffset])
+(bounds) => (emitBounds)
+(elemAddr a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (LeaRegBaseIndex8Disp r d i [0])
+(elemLoad a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (LoadRegBaseIndex8Disp r d i [0])
+(loadByte.array a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (MovzxRegByteBaseIndex1Disp r d i [0])
+(loadByte.string s i) => (MovzxRegByteBaseIndex1Disp r s i [stringBytesOffset])
+
 // Integer arithmetic. A checked operation goes to its failure block when the result does not fit: the carry flag says
 // so for an unsigned word, and the overflow flag for a signed one.
 (bin.add.!checked x (const [c])) && fitsImm32(c) => (AddRegImm x [c])
