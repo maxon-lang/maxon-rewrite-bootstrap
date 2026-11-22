@@ -151,7 +151,7 @@ function builtinRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let box = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newAlloc(box, bytes: boxBytes(values.count(), tagged: false)))
 	for i in 0 upto values.count() 'each'
-		emit(l, i: newStoreField(box, offset: fieldOffset(i, tagged: false), src: values[i]))
+		emit(l, i: newStoreField(box, offset: fieldOffset(i, tagged: false), src: values[i], borrow: false))
 	end 'each'
 	return box
 end 'builtinRecord'

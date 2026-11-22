@@ -363,6 +363,9 @@ export let errClosureBorrow = "E3925"
 // A function that returns a borrowed place returns something that is not a place rooted in one of its 'let' or 'mutates' parameters or 'self'.
 export let errBorrowedReturn = "E3926"
 
+// A value that holds a borrow, a buffer's cursor or a value of a type that holds one, escapes what it borrows: it is returned past it, stored where it may outlive it, captured, boxed, or given to a type parameter that stands only for types that hold none.
+export let errBorrowEscapes = "E3927"
+
 // A raw value is a string with an interpolated value, which a case cannot hold.
 export let errRawValueNotLiteral = "E3940"
 

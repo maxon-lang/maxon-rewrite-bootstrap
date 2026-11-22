@@ -749,7 +749,7 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 	emit(l, i: newAlloc(box, bytes: boxBytes(count, tagged: tagged)))
 	if tagged 'tagStore'
 		let tagReg = konst(l, value: try tag as Word otherwise panic("ir: a case index is out of range"))
-		emit(l, i: newStoreField(box, offset: tagOffset, src: tagReg))
+		emit(l, i: newStoreField(box, offset: tagOffset, src: tagReg, borrow: false))
 	end 'tagStore'
 	let mark = l.pending.count()
 	if count > 0 'owned'
@@ -758,7 +758,7 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 	end 'owned'
 	for i in 0 upto count 'each'
 		let v = exprIn(l, p: p, ms: ms, e: values[i])
-		emit(l, i: newStoreField(box, offset: fieldOffset(i, tagged: tagged), src: v))
+		emit(l, i: newStoreField(box, offset: fieldOffset(i, tagged: tagged), src: v, borrow: false))
 		popPending(l, n: succ(mark))
 	end 'each'
 	popPending(l, n: mark)

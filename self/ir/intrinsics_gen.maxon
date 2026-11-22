@@ -95,6 +95,27 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
 		return lowerFixedArrayRefill(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFixedArrayRefill'
+	if op == ast.Intrinsic.intrCursorCreate 'intrCursorCreate'
+		return lowerCursorCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCursorCreate'
+	if op == ast.Intrinsic.intrCursorCurrent 'intrCursorCurrent'
+		return lowerCursorCurrent(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCursorCurrent'
+	if op == ast.Intrinsic.intrCursorIndex 'intrCursorIndex'
+		return lowerCursorIndex(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCursorIndex'
+	if op == ast.Intrinsic.intrCursorAdvance 'intrCursorAdvance'
+		return lowerCursorAdvance(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCursorAdvance'
+	if op == ast.Intrinsic.intrCursorRetreat 'intrCursorRetreat'
+		return lowerCursorRetreat(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCursorRetreat'
+	if op == ast.Intrinsic.intrCursorSeek 'intrCursorSeek'
+		return lowerCursorSeek(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCursorSeek'
+	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
+		return lowerCursorPeek(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCursorPeek'
 	if op == ast.Intrinsic.intrMapCreate 'intrMapCreate'
 		return lowerMapCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrMapCreate'
@@ -622,6 +643,27 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
 		return false
 	end 'intrFixedArrayRefill'
+	if op == ast.Intrinsic.intrCursorCreate 'intrCursorCreate'
+		return false
+	end 'intrCursorCreate'
+	if op == ast.Intrinsic.intrCursorCurrent 'intrCursorCurrent'
+		return false
+	end 'intrCursorCurrent'
+	if op == ast.Intrinsic.intrCursorIndex 'intrCursorIndex'
+		return false
+	end 'intrCursorIndex'
+	if op == ast.Intrinsic.intrCursorAdvance 'intrCursorAdvance'
+		return false
+	end 'intrCursorAdvance'
+	if op == ast.Intrinsic.intrCursorRetreat 'intrCursorRetreat'
+		return false
+	end 'intrCursorRetreat'
+	if op == ast.Intrinsic.intrCursorSeek 'intrCursorSeek'
+		return false
+	end 'intrCursorSeek'
+	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
+		return false
+	end 'intrCursorPeek'
 	if op == ast.Intrinsic.intrMapCreate 'intrMapCreate'
 		return false
 	end 'intrMapCreate'

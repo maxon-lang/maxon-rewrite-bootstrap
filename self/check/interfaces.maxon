@@ -99,6 +99,10 @@ function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, n
 		checkFail(c.modID, off: at, code: diag.errUnsupportedFeature, msg: "Unsupported: a constant of the interface type '{ifaceName}': a constant is read anew wherever it is named, and an interface value is the box of the value it holds; declare the constant at '{srcName}'", errs: errs)
 		return false
 	end 'outside'
+	if holdsBorrow(p, ms: ms, t: src) 'borrows'
+		checkFail(c.modID, off: at, code: diag.errBorrowEscapes, msg: "a value of '{srcName}' holds a borrow, so it cannot be put in a '{ifaceName}' value, which owns what it holds and may outlive what it borrows; pass it where a '{srcName}' is taken", errs: errs)
+		return false
+	end 'borrows'
 	let dropping = lacksCap(c, p: p, ms: ms, wantCopy: false, t: src)
 	if dropping.missing 'notDroppable'
 		checkFail(c.modID, off: at, code: diag.errNotDroppable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which drops what it holds: {lackWhyText(ms.types, reads: p.types, info: dropping, capName: "Droppable")}; {lackFixText(ms.types, reads: p.types, info: dropping, capName: "Droppable")}", errs: errs)

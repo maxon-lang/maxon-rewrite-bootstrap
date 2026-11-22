@@ -912,11 +912,12 @@ end 'copyObject'
 // owns.
 function copyCell(mutates vm Vm, dst Count, source Count) throws Halt
 	let ref = vm.h.refOf(source)
-	if ref == 0 'scalar'
+	if ref == 0 or vm.h.cellLent[source] 'word'
 		vm.h.cellN[dst] = vm.h.cellN[source]
 		vm.h.cellR[dst] = vm.h.cellR[source]
+		vm.h.cellLent[dst] = vm.h.cellLent[source]
 		return
-	end 'scalar'
+	end 'word'
 	let copy = try copyObject(vm, o: ref)
 	try adopt(vm, c: dst, o: copy, what: "the copy")
 end 'copyCell'

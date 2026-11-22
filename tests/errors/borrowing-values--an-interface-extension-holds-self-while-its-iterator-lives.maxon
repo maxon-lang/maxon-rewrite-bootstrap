@@ -1,0 +1,23 @@
+interface Walker uses Item
+	function current() returns Item
+	function advance(mutates self) throws IterationError
+end 'Walker'
+
+interface Walkable uses Item, Walk where Walk implements Walker with Item
+	function createIterator() returns Walk throws IterationError
+	function clear(mutates self)
+end 'Walkable'
+
+extension Walkable
+	function firstCleared(mutates self) returns Item where Walk implements Droppable
+		let walk = try self.createIterator() otherwise panic("empty")
+		self.clear()
+		return walk.current()
+	end 'firstCleared'
+end 'Walkable'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3186 at 14:3

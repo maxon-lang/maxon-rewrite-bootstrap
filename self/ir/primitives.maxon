@@ -939,6 +939,10 @@ function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.T
 	if kind == ast.TypeKind.builtinMap or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'only'
 		return true
 	end 'only'
+	// A cursor holds a word of the buffer it borrows and its index, and never drops the buffer.
+	if kind == ast.TypeKind.builtinCursor 'cursor'
+		return false
+	end 'cursor'
 	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy 'nominal'
 		for i in 0 upto visiting.count() 'seen'
 			if visiting[i] == t 'again'

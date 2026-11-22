@@ -1,0 +1,64 @@
+typealias Score = int(0 to 1000)
+
+interface Walker uses Item
+	function current() returns Item
+	function advance(mutates self) throws IterationError
+end 'Walker'
+
+interface Walkable uses Item, Walk where Walk implements Walker with Item
+	function walk() returns Walk throws IterationError
+end 'Walkable'
+
+extension Walkable
+	function total() returns Count where Item implements Droppable, Walk implements Droppable
+		var n = 0 as Count
+		var w = try self.walk() otherwise return 0
+		while true 'each'
+			_ = w.current()
+			n = try n + 1 otherwise panic("overflow")
+			try w.advance() otherwise break 'each'
+		end 'each'
+		return n
+	end 'total'
+end 'Walkable'
+
+type Counter implements Walker with Score
+	var at as Score
+	var last as Score
+
+	static function from(at Score, last Score) returns Self
+		return Self{at: at, last: last}
+	end 'from'
+
+	function current() returns Score
+		return at
+	end 'current'
+
+	function advance(mutates self) throws IterationError
+		if at >= last 'done'
+			throw IterationError.exhausted
+		end 'done'
+		at = try at + 1 otherwise panic("overflow")
+	end 'advance'
+end 'Counter'
+
+type Upto implements Walkable with (Count, Counter)
+	var n as Score
+
+	static function of(n Score) returns Self
+		return Self{n: n}
+	end 'of'
+
+	function walk() returns Counter throws IterationError
+		if n == 0 'empty'
+			throw IterationError.exhausted
+		end 'empty'
+		return Counter.from(0, last: try n - 1 otherwise panic("no"))
+	end 'walk'
+end 'Upto'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3133 at 45:6

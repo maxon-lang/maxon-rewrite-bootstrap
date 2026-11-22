@@ -627,7 +627,10 @@ end 'visitForCursor'
 // register of an operation that a built-in iterator's method lowers to in place. One that throws goes to exit when it
 // fails: the error is IterationError, which carries nothing to drop. resultTy is the type of the value the method gives.
 function protocolCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, info ast.CallInfo, recv Reg, dst Reg, resultTy ast.TypeID, exit BlockID) returns Reg
-	let op = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).intrinsic
+	var op = ast.Intrinsic.intrNone
+	if info.kind != ast.CallKind.callBound 'method'
+		op = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).intrinsic
+	end 'method'
 	if op != ast.Intrinsic.intrNone 'intrinsic'
 		return lowerViewMethod(l, p: p, ms: ms, op: op, site: siteOf(l, p: p, node: s), t: resultTy, recv: recv, exit: exit)
 	end 'intrinsic'

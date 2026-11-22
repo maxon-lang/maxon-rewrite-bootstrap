@@ -215,6 +215,10 @@ value or a frozen value shared into behaviours on many workers, a cown's last ow
 others hold it, a generic function's nested `when`, behaviours scheduled from behaviours to a depth, `Process.setExitCode`
 ordered by a cown).
 
+A program under `tests/library/` is staged in the library tier, as maxon's spec runner stages a case marked `tier: stdlib`,
+so it may go through the doors of maxon's raw surface (see "Modules"), the buffer cursor of "Borrowing values" among them;
+it is run as any other program is, natively and under the interpreter.
+
 A program under `tests/runtime/` is a test of the runtime: it is
 compiled as one more file of the runtime's module (`compileRuntimeTest`), so it may call the runtime's functions and the
 `__Raw` intrinsics, and holds `main`; it is run natively only, since the interpreter does not run the runtime's source.
@@ -1139,7 +1143,7 @@ what a later pass such as reference counting or an optimization changes.
 
 | Group | Instructions |
 |---|---|
-| values | `const`, `str`, `datum` (a constant of the executable's data, see "Constants in the data section"), `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield`, `fieldaddr`, `loadat`, `storeat`, `global` |
+| values | `const`, `str`, `datum` (a constant of the executable's data, see "Constants in the data section"), `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield` (`setfield ... borrow` for a field that borrows what it holds, a buffer cursor's, which its box neither drops nor copies), `fieldaddr`, `loadat`, `storeat`, `global` |
 | arithmetic | `bin` (add, sub, mul, div, mod, and, or, xor, shl, shr; `.u` for unsigned; checked ones have an `else` block), `cmp`, `neg`, `not`, `guard` |
 | collections | `length.array`, `length.string`, `bounds`, `elemaddr`, `elem`, `byte.array`, `byte.string` (see "The primitives in the IR") |
 | floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
@@ -2432,6 +2436,33 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   (`E3903`); its argument must be such a variable, which has a value after the call (`E3904`), and not before:
   another argument of the same call that reads it is `E3902`.
 
+### Borrowing values
+
+A cursor of a raw buffer, `__ManagedMemoryCursor with T` (see "Primitives"), points into the buffer it was made from: it
+borrows it. So does every value of a type that holds one: a record with a field of such a type, a union with such a payload,
+a tuple or a collection of such elements. Holding a borrow is a property of the type, structural as `Copyable` and
+`Droppable` are (`check.holdsBorrow`), as Swift's non-escapable types and Hylo's remote parts are, and it is checked in the
+ownership pass (`self/check/ownership_borrows.maxon`), so a correct program pays nothing at run time: a cursor is the buffer
+and an index, and nothing counts references.
+
+- **What a value borrows.** A call that gives one borrows each managed place it is lent (`let` or `mutates`, the receiver
+  among them), as `names.managed.createCursor()` borrows `names`, and carries what each argument that holds a borrow
+  borrows; a record literal carries what its fields borrow. `createIterator()` and `cursor()` return one as a function
+  that `returns borrowed` returns a place, with no word for it in the signature.
+- **Where it may go.** It is bound to a local with `let` or `var`, which holds each place it borrows for the local's scope:
+  changing or moving one there is `E3186`. It is passed to any parameter, which lends it or hands it on to what the call
+  gives. It is returned only where everything it borrows is lent by the caller: a `let` or `mutates` parameter or `self`,
+  or what a parameter of a type that holds a borrow carries (`E3927` otherwise, for a local or a `consumes` parameter it
+  borrows). It is assigned to a variable or a field, or passed to a call beside a `mutates` argument of a type that holds a
+  borrow, only where that place borrows the same already, or is a parameter and it borrows only what the caller lends
+  (`E3927`).
+- **What it may not do** (`E3927`): borrow a temporary, which ends with its statement; be taken over by a closure or a
+  behaviour, be put in an interface value, be bound by `if try` or `match consumes`; or stand for a type parameter. A type
+  parameter stands only for a type that holds no borrow, so that code over it, checked once, may store and return its values,
+  except where that code is checked as code over a value that holds one: `Self` in an extension of an interface, and an
+  associated type that the interface's `where` bounds (`Iterable`'s `Iter`). The check of a type argument waits for the
+  verify stage, when every type's fields are declared.
+
 ### Function values
 
 A function type is written with `function` and always named by a typealias, as in Maxon:
@@ -2591,6 +2622,13 @@ end 'wrap'
   `s.current()` is an `E`. A call infers a type parameter that a bound binds from what the argument's declaration binds
   (`first(IntCur.create(5))` with `where S implements Cursor with E` takes `E` as `Integer`), and an argument whose
   declaration binds the interface otherwise than the bound says is `E3133`.
+- **An interface's `where`** bounds its associated types: `interface Iterable uses Element, Iter where Iter implements
+  Iterator with Element`, after the `uses` and any `extends`, naming only the interface's own associated types (`E3916`
+  otherwise). Code over the interface knows the bound without being told it: in an extension of the interface a value of
+  `Iter` has `Iterator`'s methods, typed by `Element`, and a generic bound `where S implements Iterable with (E, I)` gives
+  `I` the bound `Iterator with E` as well. A conformance that binds an associated type to a type that breaks the bound
+  is refused at the conformance (`E3017` where the type does not implement the bound's interface, `E3133` where it binds
+  it otherwise), so the bound holds wherever the conformance is used.
 - **Instances.** A type names an instance with `with`: `Box with Count`, `Map with (String, Count)`, `lib.Option
   with Count`, and a `FixedArray` its count before the element, `FixedArray with 3 Int`, which only it takes (`E2056`). One argument is written bare, several in parentheses, and an argument that is an instance itself is
   parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E2056`). A `typealias` names an
@@ -2959,7 +2997,9 @@ method is lent the box: its instance at the interface's type reaches the require
 no method of a requirement's name meets the requirement with a method that an extension of an interface it implements
 adds (`extension Forward` adds `back`, which `interface Both extends Forward` requires), in a table too. Its instances are
 named by the extension's module and the interface (see "Link names"). An extension of an interface declares no
-conformance and no static function (`E2015`).
+conformance and no static function (`E2015`). `for item in self` in it walks the conformer through the iteration protocol
+of the interface's bounds (see "Iteration" under "Primitives"): `createIterator()` of `Iterable`, and `current()` and
+`advance()` of the bound that the interface's `where` gives its iterator, checked once and lowered for each instance.
 
 A `where` on an extension is the `where` of each method it declares, before the method's own: the methods are those of the
 instances, or of the conformers, whose type arguments meet it, and the bound holds in their bodies. A call on a value
@@ -2987,6 +3027,7 @@ one anywhere.
 | `Handle with T` | no operations; `==` and `!=` |
 | `__ManagedMemory with T` | maxon's raw buffer, which only the library tiers name (`E3185`): the box of an array, seen through maxon's buffer operations, each the array operation that does the same, so there is one implementation of each on either target. `length()`; `get(i)`, a copy of the element, where `T` is `Copyable`, throwing `__ManagedMemoryError.indexOutOfBounds` past the end. `xs.managed` is the buffer of an array: the array itself seen as one, so it is borrowed, moved and dropped as `xs` is (`let m = xs.managed` moves `xs`) |
 | `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()` |
+| `__ManagedMemoryCursor with T` | maxon's position in a raw buffer, which only the library tiers name (`E3185`), made by a buffer's `createCursor()` at its first element, which fails with `__ManagedMemoryError.indexOutOfBounds` on an empty buffer. It holds a borrow of the buffer (see "Borrowing values"), so the buffer cannot change while it lives and it always names an element: `current()` lends it, `index()` is its index, `advance()`, `retreat()` and `seek(index)` move it (`mutates self`) and fail, leaving it where it was, past either end, and `peek(ahead)` is a copy of the element so many places on, where `T` is `Copyable` |
 | `ArrayError`, `MapError`, `IterationError`, `__ManagedMemoryError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists`; `exhausted` and `atStart`, which the iteration protocol throws; a buffer's, whose first two cases are an array's |
 | `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
 
@@ -3089,11 +3130,13 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   pair and no iterator is made. `enumerated()` is a form of the `for` and not a method: it names the elements of an
   `Array` or a `FixedArray`, the only collections whose elements have an index, and over anything else, or with one name,
   it is `E2015`.
-  A type walks with maxon's iteration protocol, found on its concrete type: a cursor declares `current()`, which gives
+  A type walks with maxon's iteration protocol, found on its concrete type, or for a type parameter on the requirements of
+  its bounds (one bound that requires each method): a cursor declares `current()`, which gives
   the element and cannot fail, and `advance(mutates self) throws IterationError`, which fails past the last one; a
   collection declares `createIterator()`, which returns a cursor and may throw `IterationError` where it is empty. A
   loop over a cursor moves it on in place (a place it is must be mutable, and is held while the body runs); a loop
-  over a collection calls `createIterator()` once and owns the cursor. Each `current()` is a value of its own, owned by
+  over a collection calls `createIterator()` once and owns the cursor, and holds the collection while the body runs where
+  the cursor borrows it (see "Borrowing values"). Each `current()` is a value of its own, owned by
   `x` until the pass ends. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
   throws another error is `E2015`, as is a loop over anything else: a string, a list, a pool. A string's `bytes()`,
   `codepoints()` and `utf16()` views are such collections; a loop over the string itself waits for `Character`.
@@ -3490,6 +3533,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and a default on a discard parameter `_` (which maxon's calls name with a synthesized label) are not supported, a default that
   trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. A `static let` is only a
   `type`'s, and a call in its initializer that names a sibling by its bare name is not resolved to the sibling.
+- Values that hold a borrow (see "Borrowing values") are minimaxon's: maxon's cursor retains its buffer by a reference
+  count, so a cursor, an iterator and a record that holds one go anywhere, where here they borrow what they were made from and
+  stay in its scope. An iterator that escapes, returned past the collection it walks, stored in a field of a value that may
+  outlive it, captured, boxed, or given to a type parameter, is refused (`E3927`), and a collection is held while an iterator
+  of it lives (`E3186`) where maxon re-reads the live length. A cursor's `peek` gives a copy where maxon lends the element.
+- An interface may bound its associated types with `where` (see "Generics"), which maxon's grammar has no place for: maxon
+  checks an extension of an interface again for each conformer, so it never needs `Iterable`'s `Iter` to be known as an
+  `Iterator`, which an extension checked once does. `cmd/convert` writes the `where` that the interfaces of maxon's library
+  need (`interfaceWheres`: `Iterable`'s), and leaves out the members of their extensions that a form of minimaxon's own
+  replaces (`replacedMembers`: `Iterable`'s `withIterator()` and its typealias, for which a for walks `enumerated()`).
 - `returns borrowed T` (see "Ownership") is minimaxon's: maxon has no function that gives a place instead of a value,
   so a lookup through a function there gives a copy. It is Hylo's `subscript` with only a `let` accessor, written as a
   function and restricted so that it needs no coroutine: the place is returned, never yielded, so no code of the callee
@@ -3669,7 +3722,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; only an array, a `Map`'s
   entries and the views of a `String` are walked by `for x in` (a `String` itself, a `List` and a range value are not), and the loop holds the array or the map, so a body that pushes to it or reassigns it is
   refused (`E3186`) where maxon re-reads the live count; the
-  iteration protocol is found on the concrete type, never through an interface; there is no `sort`, `contains`, `cursor` or `hash` yet, `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's; the indexes and counts they take are `ElementIndex`; `create(n)` refuses an enum element, whose
+  iteration protocol is found on the concrete type or through a type parameter's bounds, never through an interface value;
+  there is no `sort`, `contains`, `cursor` or `hash` yet, `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's; the indexes and counts they take are `ElementIndex`; `create(n)` refuses an enum element, whose
   zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
   There is no built-in `Option`, which maxon's stdlib has no more of either: an
   operation that can miss throws.

@@ -457,6 +457,12 @@ end 'free'
 
 // freeCell frees what a place owns, as part of freeing the object the place belongs to.
 function freeCell(mutates vm Vm, c Count) throws Halt
+	if vm.h.cellLent[c] 'lent'
+		vm.h.cellN[c] = 0
+		vm.h.cellR[c] = 0
+		vm.h.cellLent[c] = false
+		return
+	end 'lent'
 	let o = try release(vm, c: c, what: "freeing its owner")
 	if o != 0 and not vm.h.oImmortal[o] 'owned'
 		if vm.h.isShared(o) 'shared'

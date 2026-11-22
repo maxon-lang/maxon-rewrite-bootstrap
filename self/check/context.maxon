@@ -173,6 +173,7 @@ export type Checker
 	export var typing as ast.Typing
 	export var pendingCalls as PendingCallList
 	export var pendingBounds as PendingBoundList
+	export var pendingBorrowFree as PendingBorrowFreeList
 	export var pendingBoxes as PendingBoxList
 	export var pendingValueTypes as PendingValueTypeList
 	export var callers as ast.FuncIDList
@@ -229,7 +230,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
 	end 'make'
 end 'Checker'
 
@@ -758,6 +759,7 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		builtinHandle gives true
 		builtinFrozen gives true
 		builtinCown gives true
+		builtinCursor gives true
 		invalid gives false
 		primBool gives false
 		primString gives false
@@ -1088,6 +1090,7 @@ export function instantiateGeneric(mutates c Checker, p ast.Project, mutates ms 
 			return ast.noType
 		end 'badF'
 	end 'fr'
+	queueBorrowFree(c, p: p, ms: ms, off: off, params: params, args: args)
 	queueBounds(c, p: p, ms: ms, off: off, params: params, args: args)
 	return ast.instantiateType(ms.types, reads: p.types, origin: base, args: args)
 end 'instantiateGeneric'
@@ -1165,6 +1168,7 @@ function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.
 		end 'failed'
 		args.push(at)
 	end 'args'
+	queueBorrowFree(c, p: p, ms: ms, off: off, params: params, args: args)
 	return ast.instantiateType(ms.types, reads: p.types, origin: tid, args: args)
 end 'verifyInterfaceTarget'
 

@@ -1,0 +1,52 @@
+// A record that holds a cursor of a buffer borrows the buffer: it lives in a local of the scope that made it, is passed down
+// to the functions that move it on, and is returned only by the factory that made it from a buffer it was lent.
+typealias Names = Array with String
+
+type Walk
+	typealias Cursor = __ManagedMemoryCursor with String
+	var raw as Cursor
+
+	static function over(names Names) returns Walk throws IterationError
+		let cursor = try names.managed.createCursor() otherwise throw IterationError.exhausted
+		return Walk{raw: cursor}
+	end 'over'
+
+	function name() returns String
+		return raw.current().clone()
+	end 'name'
+
+	function advance(mutates self) throws IterationError
+		try raw.advance() otherwise throw IterationError.exhausted
+	end 'advance'
+
+	function back(mutates self) throws IterationError
+		try raw.retreat() otherwise throw IterationError.atStart
+	end 'back'
+end 'Walk'
+
+function skip(mutates w Walk, steps Count)
+	for _ in 0 upto steps 'steps'
+		try w.advance() otherwise return
+	end 'steps'
+end 'skip'
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push("ada")
+	names.push("bo")
+	names.push("cy")
+	var w = try Walk.over(names) otherwise return 1
+	print("{w.name()} {w.raw.index()}\n")
+	skip(w, steps: 2)
+	print("{w.name()} {w.raw.index()}\n")
+	try w.back() otherwise return 2
+	print("{w.name()} {try w.raw.peek(1) otherwise "none"}\n")
+	try w.advance() otherwise return 3
+	try w.advance() otherwise print("at the end\n")
+	return 0
+end 'main'
+
+//> ada 0
+//> cy 2
+//> bo cy
+//> at the end

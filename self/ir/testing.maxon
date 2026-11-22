@@ -198,7 +198,7 @@ export type FnBuilder
 	end 'alloc'
 
 	export function storeWord(mutates self, obj Reg, offset Count, src Reg)
-		self.emit(newStoreField(obj, offset: offset, src: src))
+		self.emit(newStoreField(obj, offset: offset, src: src, borrow: false))
 	end 'storeWord'
 
 	export function loadWord(mutates self, obj Reg, offset Count) returns Reg

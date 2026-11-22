@@ -474,6 +474,11 @@ end 'f'
 			want: "public enum Ordering\n\tlessThan\nend 'Ordering'\n",
 		},
 		{
+			name: "Iterable gets the where that relates its iterator to its element, and its extension loses withIterator",
+			in:   "public interface Iterable uses Element, Iter\n\tfunction createIterator() returns Iter throws IterationError\nend 'Iterable'\n\npublic extension Iterable\n\tpublic typealias WithIterSelf = WithIterIterator with Iter, Element\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\n\n\tpublic function withIterator() returns WithIterSelf throws IterationError\n\t\tlet iter = try self.createIterator()\n\t\treturn WithIterSelf.create(iter)\n\tend 'withIterator'\nend 'Iterable'\n",
+			want: "public interface Iterable uses Element, Iter where Iter implements Iterator with Element\n\tfunction createIterator() returns Iter throws IterationError\nend 'Iterable'\n\npublic extension Iterable\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\nend 'Iterable'\n",
+		},
+		{
 			name: "a capability word before a type argument is left out",
 			in:   "typealias Keys = Array with immutable Key\n\ntype Table uses Key, Value\n\tvar slots as Map with (immutable Key, Array with isolated Value)\nend 'Table'\n",
 			want: "typealias Keys = Array with Key\n\ntype Table uses Key, Value\n\tvar slots as Map with (Key, Array with Value)\nend 'Table'\n",

@@ -435,6 +435,7 @@ function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bo
 		builtinHandle gives false
 		builtinFrozen gives false
 		builtinCown gives false
+		builtinCursor gives false
 		typeParam gives false
 		interfaceTy gives false
 		funcTy gives false
@@ -838,6 +839,7 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 		builtinHandle gives false
 		builtinFrozen gives false
 		builtinCown gives false
+		builtinCursor gives false
 		typeParam gives false
 		interfaceTy gives false
 	end 'k'
@@ -866,6 +868,7 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		builtinHandle gives name
 		builtinFrozen gives name
 		builtinCown gives name
+		builtinCursor gives name
 		typeParam gives name
 		interfaceTy gives name
 		funcTy gives "function"
@@ -895,6 +898,7 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		builtinHandle gives nameOfType(p, ms: ms, t: t)
 		builtinFrozen gives nameOfType(p, ms: ms, t: t)
 		builtinCown gives nameOfType(p, ms: ms, t: t)
+		builtinCursor gives nameOfType(p, ms: ms, t: t)
 		typeParam gives nameOfType(p, ms: ms, t: t)
 		interfaceTy gives nameOfType(p, ms: ms, t: t)
 	end 'k'

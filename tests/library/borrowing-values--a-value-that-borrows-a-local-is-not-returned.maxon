@@ -1,0 +1,27 @@
+typealias Names = Array with String
+
+type Walk
+	typealias Cursor = __ManagedMemoryCursor with String
+	var raw as Cursor
+
+	static function over(names Names) returns Walk throws IterationError
+		let cursor = try names.managed.createCursor() otherwise throw IterationError.exhausted
+		return Walk{raw: cursor}
+	end 'over'
+
+	function name() returns String
+		return raw.current().clone()
+	end 'name'
+end 'Walk'
+
+function leak() returns Walk throws IterationError
+	var names = Names.create(0)
+	names.push("a")
+	return try Walk.over(names)
+end 'leak'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3927 at 20:18

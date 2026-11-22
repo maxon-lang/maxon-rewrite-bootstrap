@@ -189,7 +189,7 @@ type flag struct {
 }
 
 var flags = []flag{
-	{"Borrow", "Borrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, and on a\n// Box that only lends the value it holds."},
+	{"Borrow", "Borrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, on a\n// Box that only lends the value it holds, and on a StoreField of a field that borrows what it holds."},
 	{"Unsigned", "Unsigned is on a Bin or a Cmp that treats its operands as unsigned."},
 	{"Checked", "Checked is on a Bin or a Neg whose result may not fit the word: when it does not, the instruction goes to its\n// failure block instead of to the next instruction."},
 	{"Throws", "Throws is on a Call of a function that throws: its error register receives 0 when it returned and the\n// error's case plus 1 when it failed."},
@@ -236,9 +236,9 @@ var ops = []op{
 		Operands: []operand{num("Param")}, Text: "param {Param}"},
 	{Name: "LoadField", Eval: noEval, Doc: "LoadField reads the word at Obj + Offset.", Result: valueResult,
 		Operands: []operand{reg("Obj", fA), offsetOp}, Effects: []effect{effReads}, Text: "field {Obj}+{Offset}"},
-	{Name: "StoreField", Eval: noEval, Doc: "StoreField writes Src to the word at Obj + Offset.",
-		Operands: []operand{reg("Obj", fA), offsetOp, reg("Src", fB)}, Effects: []effect{effWrites},
-		Text: "setfield {Obj}+{Offset}, {Src}"},
+	{Name: "StoreField", Eval: noEval, Doc: "StoreField writes Src to the word at Obj + Offset, which owns it unless Borrow is set: a cursor's\n// field that borrows the buffer it walks.",
+		Operands: []operand{reg("Obj", fA), offsetOp, reg("Src", fB), {Name: "Borrow", Kind: kFlag, Field: fFlags, Flag: "Borrow", Text: " borrow"}}, Effects: []effect{effWrites},
+		Text: "setfield {Obj}+{Offset}, {Src}{Borrow}"},
 	{Name: "FieldAddr", Eval: noEval, Doc: "FieldAddr gives Obj + Offset.", Result: valueResult,
 		Operands: []operand{reg("Obj", fA), offsetOp}, Text: "fieldaddr {Obj}+{Offset}"},
 	{Name: "LoadAt", Eval: noEval, Doc: "LoadAt reads the word at an address.", Result: valueResult,

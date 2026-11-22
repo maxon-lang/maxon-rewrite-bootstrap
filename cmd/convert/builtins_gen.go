@@ -16,6 +16,7 @@ var builtinNames = map[string]bool{
 	"Array":                     true,
 	"FixedArray":                true,
 	"__ManagedMemory":           true,
+	"__ManagedMemoryCursor":     true,
 	"Map":                       true,
 	"List":                      true,
 	"Pool":                      true,

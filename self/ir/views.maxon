@@ -63,7 +63,7 @@ function readUnit(mutates l Lowerer, iterator Reg, textField Count, positionFiel
 end 'readUnit'
 
 function setPosition(mutates l Lowerer, iterator Reg, positionField Count, position Reg)
-	emit(l, i: newStoreField(iterator, offset: fieldOffset(positionField, tagged: false), src: position))
+	emit(l, i: newStoreField(iterator, offset: fieldOffset(positionField, tagged: false), src: position, borrow: false))
 end 'setPosition'
 
 // stepOn sets the position of an iterator to the one that a step entry gave, which is the position plus 1, or 0 where there

@@ -642,12 +642,13 @@ export type InterfaceDecl
 	export var visibility as String
 	export var typeParams as TypeParamList
 	export var parents as diag.U32
+	export var whereList as ConstraintList
 	export var aliases as AliasDeclList
 	export var methods as FuncSigList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns InterfaceDecl
-		return InterfaceDecl{id: id, name: "", visibility: "", typeParams: TypeParamList.create(0), parents: 0 as diag.U32, aliases: AliasDeclList.create(0), methods: FuncSigList.create(0), endRef: 0 as NodeID}
+		return InterfaceDecl{id: id, name: "", visibility: "", typeParams: TypeParamList.create(0), parents: 0 as diag.U32, whereList: ConstraintList.create(0), aliases: AliasDeclList.create(0), methods: FuncSigList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'InterfaceDecl'
 

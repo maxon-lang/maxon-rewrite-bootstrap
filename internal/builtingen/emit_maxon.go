@@ -322,12 +322,15 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		ps := m.params(f, "")
 		call := fmt.Sprintf("registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: %s, op: %s, name: %q, isStatic: %v, selfConv: %s, ret: %s, params: %s, listed: %v)",
 			maxonOwner(f.Owner), op, f.Name, f.Static, maxonConv(f.Self), ret, ps, f.Field == "")
-		if len(f.bounds) == 0 && f.Throws == "" && f.Field == "" {
+		if len(f.bounds) == 0 && f.Throws == "" && f.Field == "" && !f.Lends {
 			m.line("_ = %s", call)
 			return
 		}
 		id := m.fresh("f")
 		m.line("let %s = %s", id, call)
+		if f.Lends {
+			m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].result = ResultConv.resultBorrowed", id)
+		}
 		for _, bd := range f.bounds {
 			p := m.ownerParam(f.Owner, paramIndex(ownerParams(f.Owner), bd.param))
 			m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))

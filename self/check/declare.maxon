@@ -107,9 +107,38 @@ function declareBounds(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 				return
 			end 'failed'
 			ms.types.lists[ast.typeList(ms.types, t: constrained)][ast.typeIndex(ms.types, t: constrained)].bounds.push(ast.ParamBound.make(constrained, ifaceTy: iface))
+			declareImpliedBounds(p, ms: ms, owner: constrained, iface: iface)
 		end 'bounds'
 	end 'each'
 end 'declareBounds'
+
+// declareImpliedBounds gives each type parameter that a bound of owner binds to an associated type of the interface the
+// bounds that the interface's 'where' states for that associated type: 'S implements Iterable with (E, I)' gives I the bound
+// 'Iterator with E' of Iterable's 'where Iter implements Iterator with Element', which every conformance meets.
+function declareImpliedBounds(p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, iface ast.TypeID)
+	let orig = ast.originOf(ms.types, reads: p.types, t: iface)
+	if ast.typeKind(ms.types, reads: p.types, t: orig) != ast.TypeKind.interfaceTy 'notInterface'
+		return
+	end 'notInterface'
+	let associated = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: orig).typeParams)
+	let bound = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: iface).typeArgs)
+	if associated.count() != bound.count() 'unbound'
+		return
+	end 'unbound'
+	let params = requirementParams(p, ms: ms, iface: orig)
+	let args = requirementArgs(p, ms: ms, iface: iface, own: owner)
+	for k in 0 upto associated.count() 'each'
+		let held = bound[k]
+		if ast.typeKind(ms.types, reads: p.types, t: held) != ast.TypeKind.typeParam or held == owner 'notParam'
+			continue 'each'
+		end 'notParam'
+		let stated = ast.typeEntry(ms.types, reads: p.types, t: associated[k]).bounds.clone()
+		for b in 0 upto stated.count() 'bounds'
+			let implied = ast.substituteType(ms.types, reads: p.types, t: stated[b].ifaceTy, params: params, args: args)
+			ms.types.lists[ast.typeList(ms.types, t: held)][ast.typeIndex(ms.types, t: held)].bounds.push(ast.ParamBound.make(held, ifaceTy: implied))
+		end 'bounds'
+	end 'each'
+end 'declareImpliedBounds'
 
 // declareFunctionTypeParams gives a function its type parameters, and each parameter the bounds the function's
 // constraints name. The parameters of a type and of a union were made with its shell, and only get their bounds.
@@ -141,6 +170,19 @@ function declareNominalTypeParams(mutates c Checker, p ast.Project, mutates ms a
 	end 'each'
 	declareBounds(c, p: p, ms: ms, constraints: constraints, errs: errs)
 end 'declareNominalTypeParams'
+
+// declareInterfaceTypeParams declares the associated types of an interface and the bounds its 'where' states. One that the
+// 'where' bounds may be bound to a type that holds a borrow (README, "Borrowing values"): an iterator that a collection
+// makes, whose code an extension of the interface reaches only through the bound.
+function declareInterfaceTypeParams(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
+	declareNominalTypeParams(c, p: p, ms: ms, owner: owner, params: ifd.typeParams, constraints: ifd.whereList, errs: errs)
+	let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: owner).typeParams)
+	for i in 0 upto params.count() 'each'
+		if ast.typeEntry(ms.types, reads: p.types, t: params[i]).bounds.count() > 0 'bounded'
+			ms.types.lists[ast.typeList(ms.types, t: params[i])][ast.typeIndex(ms.types, t: params[i])].mayBorrow = true
+		end 'bounded'
+	end 'each'
+end 'declareInterfaceTypeParams'
 
 function optOutAdvice(p ast.Project, iface ast.TypeID) returns String
 	if iface == p.builtins.copyableTy 'copy'
@@ -424,7 +466,7 @@ function declareDeclTypeParams(mutates c Checker, p ast.Project, mutates ms ast.
 		constDecl(_) then _ = 0
 		enumDecl(_) then _ = 0
 		aliasDecl(_) then _ = 0
-		interfaceDecl(ifd) then declareNominalTypeParams(c, p: p, ms: ms, owner: declTypeOf(p, ms: ms, ref: ref), params: ifd.typeParams, constraints: ast.ConstraintList.create(0), errs: errs)
+		interfaceDecl(ifd) then declareInterfaceTypeParams(c, p: p, ms: ms, owner: declTypeOf(p, ms: ms, ref: ref), ifd: ifd, errs: errs)
 		extensionDecl(_) then _ = 0
 	end 'k'
 	return not failedSince(errs, mark: mark)

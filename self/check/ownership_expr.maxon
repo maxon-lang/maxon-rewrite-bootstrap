@@ -48,6 +48,9 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	if ast.isFunctionType(ms.types, reads: p.types, t: t) and dest.kind != OwnDestKind.destClosure and dest.kind != OwnDestKind.destBinding and dest.kind != OwnDestKind.destCast and dest.kind != OwnDestKind.destBranch 'escapes'
 		requireNoBorrows(o, p: p, ms: ms, e: e, what: "moved into {dest.text()}")
 	end 'escapes'
+	if holdsBorrow(p, ms: ms, t: t) 'borrows'
+		requireBorrowsStay(o, p: p, ms: ms, e: e, dest: dest)
+	end 'borrows'
 	if not isManagedOwn(p, ms: ms, t: t) or ast.sharesOnCopy(ms.types, reads: p.types, t: t) 'scalar'
 		return out
 	end 'scalar'
@@ -329,6 +332,10 @@ function projectionConflict(mutates o Ownership, p ast.Project, mutates ms ast.M
 		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is borrowed by {pr.holder}, a function value that reads it when it is called, so it cannot be replaced while that lives; change its fields instead, or replace it after the function value's scope ends")
 		return
 	end 'capture'
+	if k == OwnProjectionKind.projectBorrow 'borrow'
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is borrowed by {pr.holder}, which holds a borrow of it until its scope ends, so '{text}' cannot be changed or moved here; change it after that scope, or end the borrowing value in a block of its own")
+		return
+	end 'borrow'
 	if k == OwnProjectionKind.projectMutableCapture 'mutableCapture'
 		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is borrowed to be changed by {pr.holder}, a mutating closure that lives until its scope ends, so it cannot be changed here; change it after that, or through the closure")
 		return
@@ -623,6 +630,7 @@ function userCall(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 		end 'more'
 	end 'args'
 	release(o, mark: held)
+	requireAbsorbedBorrows(o, p: p, ms: ms, site: site, call: call, receiver: receiver)
 	if callError(p, ms: ms, call: call) != ast.noType 'fails'
 		// The callee has its arguments by now, and ends them itself when it fails.
 		land(o, mark: arguments)

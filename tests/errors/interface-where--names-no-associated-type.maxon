@@ -1,0 +1,13 @@
+interface Walker uses Item
+	function current() returns Item
+end 'Walker'
+
+interface Walkable uses Item where Walk implements Walker with Item
+	function walk() returns Item
+end 'Walkable'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3916 at 5:36

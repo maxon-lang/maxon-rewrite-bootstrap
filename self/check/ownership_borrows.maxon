@@ -1,0 +1,317 @@
+// The borrows of values that hold one in the ownership pass (README, "Borrowing values"; check.holdsBorrow). Such a value
+// borrows places: a call that gives one borrows each managed argument it is lent, as a cursor of a buffer borrows the
+// buffer, and carries what each of its arguments that holds a borrow borrows; a record literal carries what its fields
+// borrow. A local bound to one holds those places for its scope, so they cannot be changed or moved while it lives. It may
+// be returned only where everything it borrows is lent by the caller, and stored only in a place whose scope ends inside
+// what it borrows.
+
+// valueBorrows is what the value of e borrows, which must be a value whose type holds a borrow.
+function valueBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns OwnBorrows
+	var out = OwnBorrows.new()
+	addValueBorrows(o, p: p, ms: ms, e: e, out: out)
+	return out
+end 'valueBorrows'
+
+function addValueBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates out OwnBorrows)
+	let k = ms.tree().kindOf(e)
+	if k == ast.NodeKind.castExpr 'cast'
+		addValueBorrows(o, p: p, ms: ms, e: ast.castExprE(ms.tree(), id: e), out: out)
+		return
+	end 'cast'
+	if k == ast.NodeKind.tryExpr 'try'
+		addValueBorrows(o, p: p, ms: ms, e: ast.tryExprE(ms.tree(), id: e), out: out)
+		return
+	end 'try'
+	if k == ast.NodeKind.condExpr 'cond'
+		addValueBorrows(o, p: p, ms: ms, e: ast.condExprThen(ms.tree(), id: e), out: out)
+		addValueBorrows(o, p: p, ms: ms, e: ast.condExprElse(ms.tree(), id: e), out: out)
+		return
+	end 'cond'
+	if k == ast.NodeKind.nameExpr 'name'
+		let name = ownName(o, node: e)
+		if name.kind == ast.NameKind.nameLocal 'local'
+			addLocalBorrows(o, local: name.local, out: out)
+			return
+		end 'local'
+		if name.kind == ast.NameKind.nameSelfField 'selfField'
+			addLocalBorrows(o, local: selfLocalOf(o, p: p, ms: ms), out: out)
+			return
+		end 'selfField'
+		out.untracked = true
+		return
+	end 'name'
+	if k == ast.NodeKind.selfExpr 'self'
+		addLocalBorrows(o, local: selfLocalOf(o, p: p, ms: ms), out: out)
+		return
+	end 'self'
+	if k == ast.NodeKind.memberExpr 'member'
+		addValueBorrows(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: e), out: out)
+		return
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'element'
+		addValueBorrows(o, p: p, ms: ms, e: ast.indexExprObj(ms.tree(), id: e), out: out)
+		return
+	end 'element'
+	if k == ast.NodeKind.callExpr 'call'
+		addCallBorrows(o, p: p, ms: ms, e: e, out: out)
+		return
+	end 'call'
+	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'literal'
+		match consumes o.c.typing.structLits.get(e as Count) 'lit'
+			some(lit) then addPartBorrows(o, p: p, ms: ms, parts: lit.ordered, out: out)
+			none then panic("ownership: the record literal at node {e} was not typed")
+		end 'lit'
+		return
+	end 'literal'
+	// A value made any other way holds a borrow that is not followed: what it borrows is not known here.
+	out.untracked = holdsBorrow(p, ms: ms, t: ownType(o, node: e))
+end 'addValueBorrows'
+
+// addLocalBorrows adds what the value of a local borrows: what the local was bound to, or, for a parameter, 'self' or a
+// binding of a value it does not own, whatever the caller's or the subject's value borrows.
+function addLocalBorrows(o Ownership, local ast.LocalID, mutates out OwnBorrows)
+	match consumes heldBy(o, local: local) 'holder'
+		some(held) then out.addAll(held)
+		none then out.inherits.push(local)
+	end 'holder'
+end 'addLocalBorrows'
+
+// addPartBorrows adds what the parts of a literal or the payload of a case borrow.
+function addPartBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, parts ast.NodeIDList, mutates out OwnBorrows)
+	for i in 0 upto parts.count() 'parts'
+		if parts[i] != 0 and holdsBorrow(p, ms: ms, t: ownType(o, node: parts[i])) 'holds'
+			addValueBorrows(o, p: p, ms: ms, e: parts[i], out: out)
+		end 'holds'
+	end 'parts'
+end 'addPartBorrows'
+
+// addCallBorrows adds what the value a call gives borrows: what each argument that holds a borrow borrows, and each managed
+// place the call is lent, which the value may point into.
+function addCallBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates out OwnBorrows)
+	let call = ownCall(o, node: e)
+	if call.kind == ast.CallKind.callUnionCtor 'payload'
+		addPartBorrows(o, p: p, ms: ms, parts: call.ordered, out: out)
+		return
+	end 'payload'
+	let receiver = ast.callReceiver(ms.tree(), e: e, kind: call.kind)
+	if call.kind == ast.CallKind.callCopy 'copy'
+		addValueBorrows(o, p: p, ms: ms, e: receiver, out: out)
+		return
+	end 'copy'
+	if call.kind == ast.CallKind.callValue 'value'
+		out.addAll(borrowsOf(o, p: p, ms: ms, e: ast.callExprCallee(ms.tree(), id: e)))
+	end 'value'
+	if receiver != 0 'receiver'
+		addArgumentBorrows(o, p: p, ms: ms, arg: receiver, conv: call.selfConv, out: out)
+	end 'receiver'
+	for i in 0 upto call.ordered.count() 'args'
+		if call.ordered[i] != 0 'given'
+			addArgumentBorrows(o, p: p, ms: ms, arg: call.ordered[i], conv: call.paramSpecs[i].conv, out: out)
+		end 'given'
+	end 'args'
+end 'addCallBorrows'
+
+// addArgumentBorrows adds what a value a call makes may borrow through one argument: what it borrows itself, if it holds a
+// borrow, and the place, if it is a managed value the call is lent that a cursor could point into. A scalar or a value the
+// call owns lends nothing, and a value of a type that holds a borrow is no buffer; a value of a type parameter may be
+// either, so it lends both.
+function addArgumentBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, arg ast.NodeID, conv ast.Convention, mutates out OwnBorrows)
+	let t = ownType(o, node: arg)
+	if holdsBorrow(p, ms: ms, t: t) 'holds'
+		addValueBorrows(o, p: p, ms: ms, e: arg, out: out)
+		if ast.typeKind(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: t)) != ast.TypeKind.typeParam 'concrete'
+			return
+		end 'concrete'
+	end 'holds'
+	if ast.ownsValue(conv) or not isManagedOwn(p, ms: ms, t: t) 'lendsNothing'
+		return
+	end 'lendsNothing'
+	let path = pathOf(o, p: p, ms: ms, e: arg)
+	if not path.isPlace() 'temporary'
+		out.untracked = true
+		return
+	end 'temporary'
+	out.add(o.c.typing.locals[path.root as Count].name, root: path.root, changes: false)
+end 'addArgumentBorrows'
+
+// bindBorrowHolder records that a local declared here holds what its value borrows, and holds each place it borrows for as
+// long as the local's scope lasts.
+function bindBorrowHolder(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, local ast.LocalID, e ast.NodeID)
+	if not holdsBorrow(p, ms: ms, t: o.c.typing.locals[local as Count].ty) 'free'
+		return
+	end 'free'
+	let b = valueBorrows(o, p: p, ms: ms, e: e)
+	let name = o.c.typing.locals[local as Count].name.clone()
+	if b.untracked 'untracked'
+		fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: diag.errBorrowEscapes, msg: "'{name}' holds a borrow of a value that ends with this statement, or of one the compiler cannot follow here; bind what it borrows to a variable first, and make the value from that variable")
+		return
+	end 'untracked'
+	for i in 0 upto b.roots.count() 'roots'
+		let root = o.c.typing.locals[b.roots[i] as Count].clone()
+		o.projections.push(OwnProjection.capture(AccessPath.at(b.roots[i]), kind: OwnProjectionKind.projectBorrow, ty: root.ty, holder: "'{name}'"))
+	end 'roots'
+	o.holders.push(OwnHolder.make(local, borrows: b))
+end 'bindBorrowHolder'
+
+// lentByCaller is whether a local outlives the call: a parameter, or 'self', that the caller lends rather than gives, whose
+// place a value may borrow, or, where only what it borrows is carried, any parameter.
+function lentByCaller(o Ownership, local ast.LocalID, place bool) returns bool
+	let entry = o.c.typing.locals[local as Count].clone()
+	if not entry.isParam and not entry.isSelf 'local'
+		return false
+	end 'local'
+	return not place or not ast.ownsValue(entry.conv)
+end 'lentByCaller'
+
+// requireOutlivesCall refuses a value that holds a borrow where it leaves the call, which what says: it may borrow only
+// what the caller lends.
+function requireOutlivesCall(mutates o Ownership, p ast.Project, ms ast.ModuleState, b OwnBorrows, site diag.U32, what String)
+	if b.untracked 'untracked'
+		fail(o, p: p, site: site, code: diag.errBorrowEscapes, msg: "this value holds a borrow that the compiler cannot follow, so it cannot be {what}; make it from the parameters the caller lends")
+		return
+	end 'untracked'
+	for i in 0 upto b.roots.count() 'roots'
+		if not lentByCaller(o, local: b.roots[i], place: true) 'local'
+			let name = o.c.typing.locals[b.roots[i] as Count].name.clone()
+			fail(o, p: p, site: site, code: diag.errBorrowEscapes, msg: "this value borrows '{name}', which ends when the function returns, so it cannot be {what}: it would outlive what it borrows; make it from a parameter the caller lends, or use it where '{name}' lives")
+			return
+		end 'local'
+	end 'roots'
+	for i in 0 upto b.inherits.count() 'inherits'
+		if not lentByCaller(o, local: b.inherits[i], place: false) 'local'
+			let name = o.c.typing.locals[b.inherits[i] as Count].name.clone()
+			fail(o, p: p, site: site, code: diag.errBorrowEscapes, msg: "this value borrows what '{name}' borrows, which may end before the function returns, so it cannot be {what}; make it from a parameter the caller lends")
+			return
+		end 'local'
+	end 'inherits'
+end 'requireOutlivesCall'
+
+// requireHeldBy refuses storing a value that holds a borrow in a place rooted at the local holder, unless the place
+// borrows it already: the place could outlive what the value borrows. A place rooted at a parameter outlives the call,
+// and so takes only what the caller lends.
+function requireHeldBy(mutates o Ownership, p ast.Project, ms ast.ModuleState, b OwnBorrows, holder ast.LocalID, site diag.U32)
+	let entry = o.c.typing.locals[holder as Count].clone()
+	if entry.isParam or entry.isSelf 'parameter'
+		requireOutlivesCall(o, p: p, ms: ms, b: b, site: site, what: "stored in '{entry.name}', which the caller keeps")
+		return
+	end 'parameter'
+	if b.untracked 'untracked'
+		fail(o, p: p, site: site, code: diag.errBorrowEscapes, msg: "this value holds a borrow that the compiler cannot follow, so it cannot be stored in '{entry.name}'; declare a variable with the value instead")
+		return
+	end 'untracked'
+	let held = heldBy(o, local: holder)
+	if not held.isSome() 'unheld'
+		failNotHeld(o, p: p, site: site, holder: entry.name, borrowed: borrowedName(o, b: b))
+		return
+	end 'unheld'
+	let have = held.unwrap()
+	for i in 0 upto b.roots.count() 'roots'
+		if not have.roots.contains(b.roots[i]) 'more'
+			failNotHeld(o, p: p, site: site, holder: entry.name, borrowed: o.c.typing.locals[b.roots[i] as Count].name.clone())
+			return
+		end 'more'
+	end 'roots'
+	for i in 0 upto b.inherits.count() 'inherits'
+		if not have.inherits.contains(b.inherits[i]) 'more'
+			failNotHeld(o, p: p, site: site, holder: entry.name, borrowed: o.c.typing.locals[b.inherits[i] as Count].name.clone())
+			return
+		end 'more'
+	end 'inherits'
+end 'requireHeldBy'
+
+function failNotHeld(mutates o Ownership, p ast.Project, site diag.U32, holder String, borrowed String)
+	fail(o, p: p, site: site, code: diag.errBorrowEscapes, msg: "this stores a value that borrows '{borrowed}' in '{holder}', which does not borrow it already and could outlive it; declare a new variable with the value, in the scope of '{borrowed}'")
+end 'failNotHeld'
+
+// borrowedName is a place, or the value of a parameter, that b borrows, for a message.
+function borrowedName(o Ownership, b OwnBorrows) returns String
+	if b.roots.count() > 0 'root'
+		return o.c.typing.locals[b.roots[0] as Count].name.clone()
+	end 'root'
+	if b.inherits.count() > 0 'inherit'
+		return o.c.typing.locals[b.inherits[0] as Count].name.clone()
+	end 'inherit'
+	return "nothing"
+end 'borrowedName'
+
+// requireStoredBorrows refuses a value that holds a borrow where it is stored in target, a place rooted at a local.
+function requireStoredBorrows(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, target ast.NodeID, value ast.NodeID, site diag.U32)
+	if not holdsBorrow(p, ms: ms, t: ownType(o, node: value)) 'free'
+		return
+	end 'free'
+	let path = pathOf(o, p: p, ms: ms, e: target)
+	if not path.isPlace() 'temporary'
+		return
+	end 'temporary'
+	let b = valueBorrows(o, p: p, ms: ms, e: value)
+	requireHeldBy(o, p: p, ms: ms, b: b, holder: path.root, site: site)
+end 'requireStoredBorrows'
+
+// requireAbsorbedBorrows refuses a call that could store what its other arguments borrow, or a place they are, in an
+// argument passed 'mutates' whose type holds a borrow, which would then outlive them.
+function requireAbsorbedBorrows(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, call ast.CallInfo, receiver ast.NodeID)
+	if receiver != 0 and ast.isByAddress(call.selfConv) 'receiver'
+		requireAbsorbedBy(o, p: p, ms: ms, site: site, call: call, receiver: receiver, target: receiver)
+	end 'receiver'
+	for i in 0 upto call.ordered.count() 'args'
+		if call.ordered[i] != 0 and ast.isByAddress(call.paramSpecs[i].conv) 'written'
+			requireAbsorbedBy(o, p: p, ms: ms, site: site, call: call, receiver: receiver, target: call.ordered[i])
+		end 'written'
+	end 'args'
+end 'requireAbsorbedBorrows'
+
+function requireAbsorbedBy(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, call ast.CallInfo, receiver ast.NodeID, target ast.NodeID)
+	if not holdsBorrow(p, ms: ms, t: ownType(o, node: target)) 'free'
+		return
+	end 'free'
+	let path = pathOf(o, p: p, ms: ms, e: target)
+	if not path.isPlace() 'temporary'
+		return
+	end 'temporary'
+	var b = OwnBorrows.new()
+	if receiver != 0 and receiver != target 'receiver'
+		addArgumentBorrows(o, p: p, ms: ms, arg: receiver, conv: call.selfConv, out: b)
+	end 'receiver'
+	for i in 0 upto call.ordered.count() 'args'
+		if call.ordered[i] != 0 and call.ordered[i] != target 'other'
+			addArgumentBorrows(o, p: p, ms: ms, arg: call.ordered[i], conv: call.paramSpecs[i].conv, out: b)
+		end 'other'
+	end 'args'
+	if b.roots.count() == 0 and b.inherits.count() == 0 and not b.untracked 'nothing'
+		return
+	end 'nothing'
+	requireHeldBy(o, p: p, ms: ms, b: b, holder: path.root, site: site)
+end 'requireAbsorbedBy'
+
+// requireBorrowsStay refuses a value that holds a borrow where it is consumed into something that may outlive what it
+// borrows. A binding, a cast, a branch, a part of a literal, an argument and a result give it on to what takes them, which
+// the binding, the call or the assignment follows (bindBorrowHolder, addCallBorrows, requireAbsorbedBorrows,
+// requireStoredBorrows); a return gives it to the caller, which may keep only what it lent.
+function requireBorrowsStay(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, dest OwnDest)
+	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
+	match dest.kind 'kind'
+		destReturn then requireReturnable(o, p: p, ms: ms, e: e, site: site)
+		destClosure then failTakenOver(o, p: p, site: site, dest: dest)
+		destBehaviour then failTakenOver(o, p: p, site: site, dest: dest)
+		destMatch then fail(o, p: p, site: site, code: diag.errBorrowEscapes, msg: "this value holds a borrow, which 'match consumes' would give to the bindings of its arms; match on it without 'consumes'")
+		destVariable then _ = 0
+		destField then _ = 0
+		destElement then _ = 0
+		destParameter then _ = 0
+		destResult then _ = 0
+		destLiteral then _ = 0
+		destDestructor then _ = 0
+		destBinding then _ = 0
+		destCast then _ = 0
+		destBranch then _ = 0
+	end 'kind'
+end 'requireBorrowsStay'
+
+function failTakenOver(mutates o Ownership, p ast.Project, site diag.U32, dest OwnDest)
+	fail(o, p: p, site: site, code: diag.errBorrowEscapes, msg: "this value holds a borrow, so {dest.text()} cannot take it over: it could outlive what it borrows; pass it to the call that uses it instead")
+end 'failTakenOver'
+
+function requireReturnable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, site diag.U32)
+	let b = valueBorrows(o, p: p, ms: ms, e: e)
+	requireOutlivesCall(o, p: p, ms: ms, b: b, site: site, what: "returned")
+end 'requireReturnable'

@@ -583,8 +583,8 @@ export function collectionOf(code Byte) returns Collection
 	end 'code'
 end 'collectionOf'
 
-// flagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, and on a
-// Box that only lends the value it holds.
+// flagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, on a
+// Box that only lends the value it holds, and on a StoreField of a field that borrows what it holds.
 export let flagBorrow = 1 as Byte
 
 // flagUnsigned is on a Bin or a Cmp that treats its operands as unsigned.
@@ -934,12 +934,16 @@ export function newLoadField(dst Reg, obj Reg, offset Count) returns Instr
 	return r
 end 'newLoadField'
 
-// StoreField writes Src to the word at Obj + Offset.
-export function newStoreField(obj Reg, offset Count, src Reg) returns Instr
+// StoreField writes Src to the word at Obj + Offset, which owns it unless Borrow is set: a cursor's
+// field that borrows the buffer it walks.
+export function newStoreField(obj Reg, offset Count, src Reg, borrow bool) returns Instr
 	var r = Instr.make(Opcode.opStoreField)
 	r.a = obj
 	r.imm = try offset as Word otherwise panic("ir: storeField offset is out of range")
 	r.b = src
+	if borrow 'borrow'
+		r.flags = r.flags or flagBorrow
+	end 'borrow'
 	return r
 end 'newStoreField'
 
@@ -1590,6 +1594,10 @@ end 'storeFieldOffset'
 export function storeFieldSrc(x Instr) returns Reg
 	return x.b
 end 'storeFieldSrc'
+
+export function storeFieldBorrow(x Instr) returns bool
+	return (x.flags and flagBorrow) != 0
+end 'storeFieldBorrow'
 
 export function fieldAddrObj(x Instr) returns Reg
 	return x.a
@@ -4230,7 +4238,11 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		return "{resultText(x.dst)}field %{loadFieldObj(x)}+{loadFieldOffset(x)}"
 	end 'opLoadField'
 	if x.op == Opcode.opStoreField 'opStoreField'
-		return "setfield %{storeFieldObj(x)}+{storeFieldOffset(x)}, %{storeFieldSrc(x)}"
+		var text = "setfield %{storeFieldObj(x)}+{storeFieldOffset(x)}, %{storeFieldSrc(x)}"
+		if storeFieldBorrow(x) 'borrow'
+			text = "{text} borrow"
+		end 'borrow'
+		return text
 	end 'opStoreField'
 	if x.op == Opcode.opFieldAddr 'opFieldAddr'
 		return "{resultText(x.dst)}fieldaddr %{fieldAddrObj(x)}+{fieldAddrOffset(x)}"

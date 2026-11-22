@@ -357,6 +357,10 @@ function emitDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 		dropCown(u, p: p, ms: ms, ty: ty)
 		return
 	end 'cown'
+	if kind == ast.TypeKind.builtinCursor 'cursor'
+		dropCursor(u)
+		return
+	end 'cursor'
 	panic("routines: no drop routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitDrop'
 
@@ -398,6 +402,10 @@ function emitCopy(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 		copyShared(u, countOffset: cownCountOffset)
 		return
 	end 'cown'
+	if kind == ast.TypeKind.builtinCursor 'cursor'
+		copyCursor(u, p: p, ms: ms)
+		return
+	end 'cursor'
 	panic("routines: no copy routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitCopy'
 
@@ -429,6 +437,28 @@ function dropRecord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleStat
 	u.asm.bind(done)
 	routineEpilogue(u)
 end 'dropRecord'
+
+// dropCursor frees the box of a cursor (ir.cursorFields), which borrows the buffer it walks and owns nothing else.
+function dropCursor(mutates u CodeUnit)
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 0)
+	returnIfEmpty(u, done: done)
+	freeArgument(u)
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropCursor'
+
+// copyCursor is a new cursor at the same element of the same buffer, which the copy borrows as well.
+function copyCursor(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState)
+	routinePrologue(u, locals: 1)
+	allocate(u, bytes: ir.boxBytes(ir.cursorFields, tagged: false))
+	u.asm.store(rbp, disp: routineLocal0, src: rax)
+	for i in 0 upto ir.cursorFields 'words'
+		copyWord(u, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: p.builtins.countTy)
+	end 'words'
+	u.asm.load(rax, base: rbp, disp: routineLocal0)
+	routineReturn(u)
+end 'copyCursor'
 
 // dropUnion drops the payload of the case the box holds, and then the box.
 function dropUnion(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)

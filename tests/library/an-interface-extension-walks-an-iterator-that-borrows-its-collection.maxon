@@ -1,0 +1,78 @@
+// An extension of an interface walks every conformer through the protocol, checked once: its iterator, bound by the
+// interface's 'where', may be one that borrows the collection, which the loop holds while it runs.
+typealias Names = Array with String
+
+interface Walker uses Item
+	function current() returns Item
+	function advance(mutates self) throws IterationError
+end 'Walker'
+
+interface Walkable uses Item, Walk where Walk implements Walker with Item
+	function createIterator() returns Walk throws IterationError
+end 'Walkable'
+
+extension Walkable
+	typealias ItemTest = function(Item) returns bool
+
+	function countWhere(keep ItemTest) returns Count where Item implements Droppable, Walk implements Droppable
+		var n = 0 as Count
+		for item in self 'each'
+			if keep(item) 'kept'
+				n = try n + 1 otherwise panic("overflow")
+			end 'kept'
+		end 'each'
+		return n
+	end 'countWhere'
+end 'Walkable'
+
+type NameWalk implements Walker with String
+	typealias Cursor = __ManagedMemoryCursor with String
+	var raw as Cursor
+
+	static function over(names Names) returns NameWalk throws IterationError
+		let cursor = try names.managed.createCursor() otherwise throw IterationError.exhausted
+		return NameWalk{raw: cursor}
+	end 'over'
+
+	function current() returns String
+		return raw.current().clone()
+	end 'current'
+
+	function advance(mutates self) throws IterationError
+		try raw.advance() otherwise throw IterationError.exhausted
+	end 'advance'
+end 'NameWalk'
+
+type Roster implements Walkable with (String, NameWalk)
+	var names as Names
+
+	static function of(consumes names Names) returns Roster
+		return Roster{names: names}
+	end 'of'
+
+	function createIterator() returns NameWalk throws IterationError
+		return try NameWalk.over(names)
+	end 'createIterator'
+end 'Roster'
+
+function long(name String) returns bool
+	return name.byteLength() > 2
+end 'long'
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push("ada")
+	names.push("bo")
+	names.push("cyd")
+	let roster = Roster.of(names)
+	print("{roster.countWhere(long)}\n")
+	for name in roster 'all'
+		print("{name}\n")
+	end 'all'
+	return 0
+end 'main'
+
+//> 2
+//> ada
+//> bo
+//> cyd

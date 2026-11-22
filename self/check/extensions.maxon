@@ -155,6 +155,7 @@ function declareInterfaceExtension(mutates c Checker, p ast.Project, mutates ms 
 	let selfParam = ast.allocType(ms.types, module: c.modID, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: "Self"))
 	let bound = ast.selfType(ms.types, reads: p.types, declTy: iface)
 	ms.types.lists[ast.typeList(ms.types, t: selfParam)][ast.typeIndex(ms.types, t: selfParam)].bounds.push(ast.ParamBound.make(selfParam, ifaceTy: bound))
+	ms.types.lists[ast.typeList(ms.types, t: selfParam)][ast.typeIndex(ms.types, t: selfParam)].mayBorrow = true
 	for i in 0 upto xd.methods.count() 'methods'
 		addExtensionMethod(c, p: p, ms: ms, xd: xd, method: xd.methods[i].clone(), nt: selfParam, key: iface, declared: declared, errs: errs)
 	end 'methods'

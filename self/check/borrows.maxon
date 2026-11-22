@@ -1,0 +1,132 @@
+// Values that hold a borrow (README, "Borrowing values"). A cursor of a raw buffer points into the buffer it was made from,
+// so it borrows it, and so does every value of a type that holds one: a record with a field of such a type, a union with
+// such a payload, a tuple or a collection of such elements. That is structural, as Copyable and Droppable are. A value
+// that holds a borrow lives in a local of the scope that made it and is lent to the functions it is passed to; it is not
+// returned past what it borrows, stored where it may outlive it, captured, boxed or frozen, and what it borrows is held
+// while it lives. A type parameter stands only for a type that holds no borrow, except where its code is checked as code
+// over one: the 'Self' of an extension of an interface and an associated type that the interface's 'where' bounds.
+
+// holdsBorrow is whether a value of the type t holds a borrow.
+export function holdsBorrow(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+	var visiting = ast.TypeIDList.create(0)
+	return holdsBorrowWithin(p, ms: ms, t: t, visiting: visiting)
+end 'holdsBorrow'
+
+function holdsBorrowWithin(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
+	if t == ast.noType 'none'
+		return false
+	end 'none'
+	return match ast.typeKind(ms.types, reads: p.types, t: t) 'k'
+		builtinCursor gives true
+		typeParam gives ast.typeEntry(ms.types, reads: p.types, t: t).mayBorrow
+		record gives nominalHoldsBorrow(p, ms: ms, t: t, visiting: visiting)
+		unionTy gives nominalHoldsBorrow(p, ms: ms, t: t, visiting: visiting)
+		builtinArray gives argsHoldBorrow(p, ms: ms, t: t, visiting: visiting)
+		builtinMap gives argsHoldBorrow(p, ms: ms, t: t, visiting: visiting)
+		builtinList gives argsHoldBorrow(p, ms: ms, t: t, visiting: visiting)
+		builtinPool gives argsHoldBorrow(p, ms: ms, t: t, visiting: visiting)
+		builtinFrozen gives argsHoldBorrow(p, ms: ms, t: t, visiting: visiting)
+		builtinCown gives argsHoldBorrow(p, ms: ms, t: t, visiting: visiting)
+		builtinHandle gives false
+		invalid gives false
+		primBool gives false
+		primString gives false
+		primVoid gives false
+		primNever gives false
+		intRange gives false
+		constInt gives false
+		floatRange gives false
+		constFloat gives false
+		enumTy gives false
+		interfaceTy gives false
+		funcTy gives false
+	end 'k'
+end 'holdsBorrowWithin'
+
+// argsHoldBorrow is whether a type argument of a built-in instance holds a borrow: an element of a collection, or what a
+// frozen value or a cown holds.
+function argsHoldBorrow(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
+	let args = ast.typeArgsOf(ms.types, reads: p.types, t: t)
+	for i in 0 upto args.count() 'each'
+		if holdsBorrowWithin(p, ms: ms, t: args[i], visiting: visiting) 'holds'
+			return true
+		end 'holds'
+	end 'each'
+	return false
+end 'argsHoldBorrow'
+
+// nominalHoldsBorrow is whether a field of a record, a tuple's element among them, or a payload of a union holds a borrow,
+// at the instance's type arguments. A type that contains itself is looked at once.
+function nominalHoldsBorrow(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
+	for i in 0 upto visiting.count() 'seen'
+		if visiting[i] == t 'again'
+			return false
+		end 'again'
+	end 'seen'
+	visiting.push(t)
+	let orig = ast.originOf(ms.types, reads: p.types, t: t)
+	for fi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).fields.count() 'fields'
+		let field = ast.fieldType(ms.types, reads: p.types, owner: t, index: fi)
+		if holdsBorrowWithin(p, ms: ms, t: field, visiting: visiting) 'field'
+			return true
+		end 'field'
+	end 'fields'
+	for ci in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() 'cases'
+		for pi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload.count() 'payload'
+			let payload = ast.payloadType(ms.types, reads: p.types, owner: t, caseIndex: ci, index: pi)
+			if holdsBorrowWithin(p, ms: ms, t: payload, visiting: visiting) 'held'
+				return true
+			end 'held'
+		end 'payload'
+	end 'cases'
+	return false
+end 'nominalHoldsBorrow'
+
+// PendingBorrowFree is a type argument whose parameter stands only for types that hold no borrow, which the verify stage
+// checks, once the fields of every type it may hold are declared.
+export type PendingBorrowFree
+	export var off as diag.U32
+	export var param as ast.TypeID
+	export var arg as ast.TypeID
+
+	export static function make(off diag.U32, param ast.TypeID, arg ast.TypeID) returns PendingBorrowFree
+		return PendingBorrowFree{off: off, param: param, arg: arg}
+	end 'make'
+end 'PendingBorrowFree'
+
+export typealias PendingBorrowFreeList = Array with PendingBorrowFree
+
+// queueBorrowFree queues the check of the type arguments of an instance or a call against parameters that stand only for
+// types that hold no borrow. A scalar or a String never holds one.
+export function queueBorrowFree(mutates c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, params ast.TypeIDList, args ast.TypeIDList)
+	for i in 0 upto params.count() 'each'
+		if i >= args.count() 'short'
+			return
+		end 'short'
+		if not ast.typeEntry(ms.types, reads: p.types, t: params[i]).mayBorrow and mayHoldBorrow(p, ms: ms, t: args[i]) 'queue'
+			c.pendingBorrowFree.push(PendingBorrowFree.make(off, param: params[i], arg: args[i]))
+		end 'queue'
+	end 'each'
+end 'queueBorrowFree'
+
+// mayHoldBorrow is whether a value of the type t could hold a borrow once every type is declared.
+function mayHoldBorrow(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	if t == ast.noType 'none'
+		return false
+	end 'none'
+	let k = ast.typeKind(ms.types, reads: p.types, t: t)
+	return k == ast.TypeKind.record or k == ast.TypeKind.unionTy or k == ast.TypeKind.typeParam or k == ast.TypeKind.builtinCursor or k.isBuiltin()
+end 'mayHoldBorrow'
+
+// verifyBorrowFree refuses a type argument that holds a borrow for a type parameter that stands only for types that hold
+// none: the code over the parameter, checked once, may store, return or box its values.
+export function verifyBorrowFree(c Checker, p ast.Project, mutates ms ast.ModuleState, pending PendingBorrowFreeList, mutates errs diag.ErrorList)
+	for i in 0 upto pending.count() 'each'
+		if not holdsBorrow(p, ms: ms, t: pending[i].arg) 'free'
+			continue 'each'
+		end 'free'
+		let argName = nameOfType(p, ms: ms, t: pending[i].arg)
+		let paramName = nameOfType(p, ms: ms, t: pending[i].param)
+		checkFail(c.modID, off: pending[i].off, code: diag.errBorrowEscapes, msg: "'{argName}' holds a borrow, so it cannot stand for the type parameter '{paramName}', whose code may store, return or box its values; keep the value in a local and pass it to the functions that use it, or walk the collection with 'for'", errs: errs)
+	end 'each'
+end 'verifyBorrowFree'

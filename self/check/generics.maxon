@@ -116,6 +116,9 @@ function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if not requireCapabilities(c, p: p, ms: ms, site: site, nt: nt, iface: iface, errs: errs) 'capability'
 		return
 	end 'capability'
+	// The interface's 'where' bounds the types a conformance binds to its associated types, which the verify stage checks
+	// here, at the conformance, rather than at each use of it.
+	queueBounds(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: site), params: requirementParams(p, ms: ms, iface: ifaceOrig), args: requirementArgs(p, ms: ms, iface: iface, own: own))
 	let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: iface)
 	for j in 0 upto reqs.count() 'sigs'
 		let mark = errs.count()

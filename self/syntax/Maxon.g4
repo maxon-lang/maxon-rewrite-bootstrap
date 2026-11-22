@@ -294,7 +294,7 @@ extendsClause returns [[]*TypeRef interfaces]
     ;
 
 interfaceDecl
-    : visibility=('export' | 'public')? 'interface' name=Name (typeParams=usesClause parents=extendsClause? | parents=extendsClause typeParams=usesClause?)? Newline
+    : visibility=('export' | 'public')? 'interface' name=Name (typeParams=usesClause parents=extendsClause? | parents=extendsClause typeParams=usesClause?)? where=whereClause? Newline
       (Indent ((aliases+=aliasDecl | methods+=funcSig) Newline)+ Dedent)?
       'end' end=endLabel?
     ;

@@ -127,6 +127,7 @@ ErrTakeApartDestructible	E3922	-	A value of a type with destructors is taken apa
 ErrThrows	E3924	-	A function that takes a 'sets' parameter declares 'throws'.
 ErrClosureBorrow	E3925	-	A function value that holds a borrow escapes it: it is stored, returned, consumed, copied or captured by something that may outlive the borrow.
 ErrBorrowedReturn	E3926	-	A function that returns a borrowed place returns something that is not a place rooted in one of its 'let' or 'mutates' parameters or 'self'.
+ErrBorrowEscapes	E3927	-	A value that holds a borrow, a buffer's cursor or a value of a type that holds one, escapes what it borrows: it is returned past it, stored where it may outlive it, captured, boxed, or given to a type parameter that stands only for types that hold none.
 ErrRawValueNotLiteral	E3940	-	A raw value is a string with an interpolated value, which a case cannot hold.
 ErrAmbiguousConformance	E3941	-	Two declarations that a module sees say one type implements one interface.
 ErrAmbiguousExtension	E3942	-	A call names a method, or a type names a typealias, that two extensions the module sees add to the type.

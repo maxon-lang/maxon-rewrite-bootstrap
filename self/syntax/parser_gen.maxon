@@ -1245,42 +1245,46 @@ function parseInterfaceDecl(mutates p Parser) returns ast.InterfaceDecl throws S
 			throw p.expected("'extends' or 'uses'")
 		end 'b8'
 	end 'b3'
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
-	if p.at(TokenKind.indent) 'b9'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
-		if p.inSet(lookahead27) 'b10'
-			let v7 = try parseAliasDecl(p)
-			p.lists.ptr_AliasDecl.push(v7)
-		end 'b10' else if p.inSet(lookahead0) 'b11'
-			let v8 = try parseFuncSig(p)
-			p.lists.ptr_FuncSig.push(v8)
-		end 'b11' else 'b12'
-			throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
-		end 'b12'
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
-		while p.inSet(lookahead15) 'b13'
-			if p.inSet(lookahead27) 'b14'
-				let v9 = try parseAliasDecl(p)
-				p.lists.ptr_AliasDecl.push(v9)
-			end 'b14' else if p.inSet(lookahead0) 'b15'
-				let v10 = try parseFuncSig(p)
-				p.lists.ptr_FuncSig.push(v10)
-			end 'b15' else 'b16'
-				throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
-			end 'b16'
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
-		end 'b13'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+	if p.at(TokenKind.kw_where) 'b9'
+		let v7 = try parseWhereClause(p)
+		n.whereList = v7
 	end 'b9'
+	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	if p.at(TokenKind.indent) 'b10'
+		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		if p.inSet(lookahead27) 'b11'
+			let v8 = try parseAliasDecl(p)
+			p.lists.ptr_AliasDecl.push(v8)
+		end 'b11' else if p.inSet(lookahead0) 'b12'
+			let v9 = try parseFuncSig(p)
+			p.lists.ptr_FuncSig.push(v9)
+		end 'b12' else 'b13'
+			throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
+		end 'b13'
+		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		while p.inSet(lookahead15) 'b14'
+			if p.inSet(lookahead27) 'b15'
+				let v10 = try parseAliasDecl(p)
+				p.lists.ptr_AliasDecl.push(v10)
+			end 'b15' else if p.inSet(lookahead0) 'b16'
+				let v11 = try parseFuncSig(p)
+				p.lists.ptr_FuncSig.push(v11)
+			end 'b16' else 'b17'
+				throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
+			end 'b17'
+			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		end 'b14'
+		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+	end 'b10'
 	_ = try p.expect(TokenKind.kw_end, what: "'end'")
-	if p.inSet(lookahead4) 'b17'
-		let v11 = try parseEndLabel(p)
-		n.endRef = v11
-	end 'b17'
-	let v12 = p.lists.ptr_AliasDecl.take(mark_n_Aliases)
-	n.aliases = v12
-	let v13 = p.lists.ptr_FuncSig.take(mark_n_Methods)
-	n.methods = v13
+	if p.inSet(lookahead4) 'b18'
+		let v12 = try parseEndLabel(p)
+		n.endRef = v12
+	end 'b18'
+	let v13 = p.lists.ptr_AliasDecl.take(mark_n_Aliases)
+	n.aliases = v13
+	let v14 = p.lists.ptr_FuncSig.take(mark_n_Methods)
+	n.methods = v14
 	return n
 end 'parseInterfaceDecl'
 

@@ -112,6 +112,7 @@ function letStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	let name = ast.letStmtName(ms.tree(), id: st)
 	let out = consume(o, p: p, ms: ms, e: init, dest: OwnDest.make(OwnDestKind.destBinding, name: name), s: s)
 	bindHolder(o, p: p, ms: ms, local: sym, e: init)
+	bindBorrowHolder(o, p: p, ms: ms, local: sym, e: init)
 	oblige(o, p: p, ms: ms, l: sym, site: site)
 	return without(out, l: sym)
 end 'letStmtOwn'
@@ -120,6 +121,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	let target = ast.assignStmtTarget(ms.tree(), id: st)
 	let value = ast.assignStmtValue(ms.tree(), id: st)
 	let site = offsetOfOwn(o, p: p, ms: ms, node: st)
+	requireStoredBorrows(o, p: p, ms: ms, target: target, value: value, site: site)
 	let k = ms.tree().kindOf(target)
 	if k == ast.NodeKind.nameExpr 'name'
 		let name = ownName(o, node: target)
@@ -273,6 +275,9 @@ function ifTryStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	let added = enterTry(o, handles: true)
 	var after = s
 	if name != "" 'binds'
+		if holdsBorrow(p, ms: ms, t: ownType(o, node: call)) 'borrows'
+			fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: call), code: diag.errBorrowEscapes, msg: "'{name}' would hold a borrow, which 'if try' cannot bind; bind it with 'let {name} = try ... otherwise ...'")
+		end 'borrows'
 		after = consume(o, p: p, ms: ms, e: call, dest: OwnDest.make(OwnDestKind.destVariable, name: name.clone()), s: after)
 	end 'binds' else 'bare'
 		after = expr(o, p: p, ms: ms, e: call, s: after)
@@ -557,9 +562,12 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 		let info = iterationOwn(o, node: st)
 		lends = false
 		fresh = ownLocalOf(o, node: st)
-		held = held and not info.hasFactory
+		// A loop over a cursor moves it on in place; one over a collection holds it only where the cursor it makes borrows
+		// it, as an array's loop does.
+		let walksItself = not info.hasFactory
+		held = held and (walksItself or holdsBorrow(p, ms: ms, t: info.cursorTy))
 		let site = offsetOfOwn(o, p: p, ms: ms, node: source)
-		if held and ast.isByAddress(info.advance.selfConv) and not changesProjection(o, p: p, ms: ms, e: source, site: site, what: "moved on as the cursor of a for") 'advances'
+		if walksItself and held and ast.isByAddress(info.advance.selfConv) and not changesProjection(o, p: p, ms: ms, e: source, site: site, what: "moved on as the cursor of a for") 'advances'
 			requireWritable(o, p: p, ms: ms, site: site, path: path)
 		end 'advances'
 	end 'protocol'

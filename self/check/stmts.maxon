@@ -529,64 +529,139 @@ end 'checkEnumerated'
 
 // checkIteration finds how a for walks a value of type t through the iteration protocol, records it for the node, and
 // gives the type of the elements: none, with an error, when t declares no protocol a loop can walk. A type that is a
-// cursor itself is walked from where it stands, and any other through the cursor its createIterator() makes.
+// cursor itself is walked from where it stands, and any other through the cursor its createIterator() makes. A type
+// parameter walks through the requirements of its bounds, so the body of an extension of an interface walks every
+// conformer through the protocol, checked once.
 function checkIteration(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, t ast.TypeID, typed ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	var cursor = t
-	var factory = ast.noFunc
-	if not declaresCursor(p, ms: ms, t: t) 'factory'
-		factory = zeroArgumentMethod(p, ms: ms, t: t, name: createIteratorMethod)
-		if factory == ast.noFunc 'none'
+	var factory = ProtocolCall.none()
+	if not declaresCursor(c, p: p, ms: ms, t: t) 'factory'
+		factory = protocolCall(c, p: p, ms: ms, t: t, name: createIteratorMethod)
+		if not factory.found 'none'
 			failNotIterable(c, p: p, ms: ms, s: s, t: typed, errs: errs)
 			return ast.noType
 		end 'none'
-		let thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: factory).errTy
-		if thrown != ast.noType and thrown != p.builtins.iterationErrorTy 'otherError'
-			failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}`, whose `{createIteratorMethod}()` throws `{nameOfType(p, ms: ms, t: thrown)}` — the loop absorbs what the traversal protocol throws without binding it, which is sound only for the payload-free `IterationError`; a factory throwing anything else must be called with an explicit `try` and its result iterated", errs: errs)
+		if factory.thrown != ast.noType and factory.thrown != p.builtins.iterationErrorTy 'otherError'
+			failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}`, whose `{createIteratorMethod}()` throws `{nameOfType(p, ms: ms, t: factory.thrown)}` — the loop absorbs what the traversal protocol throws without binding it, which is sound only for the payload-free `IterationError`; a factory throwing anything else must be called with an explicit `try` and its result iterated", errs: errs)
 			return ast.noType
 		end 'otherError'
-		let made = methodResult(p, ms: ms, recv: t, method: factory)
-		cursor = ast.contentType(ms.types, reads: p.types, t: made)
-		if not declaresCursor(p, ms: ms, t: cursor) 'notCursor'
+		cursor = ast.contentType(ms.types, reads: p.types, t: factory.result)
+		if not declaresCursor(c, p: p, ms: ms, t: cursor) 'notCursor'
 			failNotIterable(c, p: p, ms: ms, s: s, t: cursor, errs: errs)
 			return ast.noType
 		end 'notCursor'
 	end 'factory'
-	let current = zeroArgumentMethod(p, ms: ms, t: cursor, name: currentMethod)
-	let advance = zeroArgumentMethod(p, ms: ms, t: cursor, name: advanceMethod)
-	var info = ast.IterationInfo.make(cursor, current: methodCall(p, ms: ms, recv: cursor, method: current), advance: methodCall(p, ms: ms, recv: cursor, method: advance))
-	var generic = isGeneric(p, ms: ms, f: current) or isGeneric(p, ms: ms, f: advance)
-	if factory != ast.noFunc 'withFactory'
+	let current = protocolCall(c, p: p, ms: ms, t: cursor, name: currentMethod)
+	let advance = protocolCall(c, p: p, ms: ms, t: cursor, name: advanceMethod)
+	var info = ast.IterationInfo.make(cursor, current: current.info.clone(), advance: advance.info.clone())
+	var generic = current.generic or advance.generic
+	if factory.found 'withFactory'
 		info.hasFactory = true
-		info.factory = methodCall(p, ms: ms, recv: t, method: factory)
-		generic = generic or isGeneric(p, ms: ms, f: factory)
-		if not requireVisible(c, p: p, ms: ms, node: s, target: factory, errs: errs) 'hiddenFactory'
-			return ast.noType
-		end 'hiddenFactory'
+		info.factory = factory.info.clone()
+		generic = generic or factory.generic
 	end 'withFactory'
-	if not requireVisible(c, p: p, ms: ms, node: s, target: current, errs: errs) or not requireVisible(c, p: p, ms: ms, node: s, target: advance, errs: errs) 'hidden'
+	if not requireProtocolVisible(c, p: p, ms: ms, s: s, call: factory, errs: errs) or not requireProtocolVisible(c, p: p, ms: ms, s: s, call: current, errs: errs) or not requireProtocolVisible(c, p: p, ms: ms, s: s, call: advance, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'
-	if (factory != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: factory, use: "a for", errs: errs)) or not requireOwnedResult(c, p: p, ms: ms, node: s, target: current, use: "a for", errs: errs) 'borrowed'
+	if (factory.fn != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: factory.fn, use: "a for", errs: errs)) or (current.fn != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: current.fn, use: "a for", errs: errs)) 'borrowed'
 		return ast.noType
 	end 'borrowed'
 	c.typing.iterations.insert(s as Count, value: info)
 	if generic 'instances'
 		recordUse(c, call: s)
 	end 'instances'
-	return methodResult(p, ms: ms, recv: cursor, method: current)
+	return current.result
 end 'checkIteration'
 
 function failNotIterable(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
 	failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` value — the compiler iterates an `Array`, a `Map`'s entries, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` or a `{createIteratorMethod}()` factory that returns one", errs: errs)
 end 'failNotIterable'
 
+// requireProtocolVisible refuses a for that calls a method of the protocol that the module cannot see. A requirement is
+// called through a bound, which every module that sees the bound may.
+function requireProtocolVisible(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, call ProtocolCall, mutates errs diag.ErrorList) returns bool
+	if call.fn == ast.noFunc 'requirement'
+		return true
+	end 'requirement'
+	return requireVisible(c, p: p, ms: ms, node: s, target: call.fn, errs: errs)
+end 'requireProtocolVisible'
+
 // declaresCursor is whether a type is a cursor: its current() gives a value and cannot fail, and its advance() throws
 // IterationError.
-function declaresCursor(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	let current = zeroArgumentMethod(p, ms: ms, t: t, name: currentMethod)
-	let advance = zeroArgumentMethod(p, ms: ms, t: t, name: advanceMethod)
-	return current != ast.noFunc and advance != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: current).retTy != p.builtins.voidTy and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: current).errTy == ast.noType and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: advance).errTy == p.builtins.iterationErrorTy
+function declaresCursor(c Checker, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+	let current = protocolCall(c, p: p, ms: ms, t: t, name: currentMethod)
+	let advance = protocolCall(c, p: p, ms: ms, t: t, name: advanceMethod)
+	return current.found and advance.found and current.result != p.builtins.voidTy and current.thrown == ast.noType and advance.thrown == p.builtins.iterationErrorTy
 end 'declaresCursor'
+
+// ProtocolCall is how a for calls a method of the iteration protocol, which takes no arguments, on a value of a type: the
+// call, the type it gives and the error it throws. fn is the method, or none for a requirement of a type parameter's
+// bound, whose method is the one of the type the parameter stands for.
+type ProtocolCall
+	var found as bool
+	var info as ast.CallInfo
+	var fn as ast.FuncID
+	var result as ast.TypeID
+	var thrown as ast.TypeID
+	var generic as bool
+
+	static function none() returns ProtocolCall
+		return ProtocolCall{found: false, info: ast.CallInfo.make(ast.CallKind.callMethod, fn: ast.noFunc, receiverTy: ast.noType), fn: ast.noFunc, result: ast.noType, thrown: ast.noType, generic: false}
+	end 'none'
+end 'ProtocolCall'
+
+// protocolCall is the call of the method of that name that takes no arguments on a value of type t: the type's own, or
+// for a type parameter the requirement of its one bound that declares it; not found where there is none.
+function protocolCall(c Checker, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, name String) returns ProtocolCall
+	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.typeParam 'bound'
+		return boundProtocolCall(c, p: p, ms: ms, param: t, name: name)
+	end 'bound'
+	var out = ProtocolCall.none()
+	let method = zeroArgumentMethod(p, ms: ms, t: t, name: name)
+	if method == ast.noFunc 'absent'
+		return out
+	end 'absent'
+	out.found = true
+	out.fn = method
+	out.info = methodCall(p, ms: ms, recv: t, method: method)
+	out.result = methodResult(p, ms: ms, recv: t, method: method)
+	out.thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).errTy
+	out.generic = isGeneric(p, ms: ms, f: method)
+	return out
+end 'protocolCall'
+
+// boundProtocolCall is protocolCall for a type parameter: the requirement that one of its bounds declares, called through
+// the bound as a call written in the source is (boundCall). Two bounds that declare it leave the loop without a protocol.
+function boundProtocolCall(c Checker, p ast.Project, mutates ms ast.ModuleState, param ast.TypeID, name String) returns ProtocolCall
+	var out = ProtocolCall.none()
+	let bounds = boundsOfParam(p, ms: ms, boundedFn: c.boundedFn, paramTy: param)
+	var found = ast.RequirementList.create(0)
+	for i in 0 upto bounds.count() 'each'
+		let named = requirementsNamed(p, ms: ms, iface: bounds[i], name: name)
+		for j in 0 upto named.count() 'named'
+			let sig = named[j].sig
+			if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params.count() != 0 'unfit'
+				continue 'named'
+			end 'unfit'
+			found.push(named[j].clone())
+		end 'named'
+	end 'each'
+	if found.count() != 1 'notOne'
+		return out
+	end 'notOne'
+	let sig = found[0].sig
+	let selfParams = requirementParams(p, ms: ms, iface: found[0].iface)
+	let selfArgs = requirementArgs(p, ms: ms, iface: found[0].iface, own: param)
+	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: param)
+	info.method = sig
+	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).selfConv
+	out.found = true
+	out.info = info
+	out.result = ast.substituteType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, params: selfParams, args: selfArgs)
+	out.thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).errTy
+	out.generic = true
+	return out
+end 'boundProtocolCall'
 
 // zeroArgumentMethod is the method of that name a value of type t has that takes no arguments, or none.
 function zeroArgumentMethod(p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns ast.FuncID
@@ -675,6 +750,7 @@ function scalarTag(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Stri
 		builtinHandle gives ""
 		builtinFrozen gives ""
 		builtinCown gives ""
+		builtinCursor gives ""
 		typeParam gives ""
 		interfaceTy gives ""
 	end 'k'

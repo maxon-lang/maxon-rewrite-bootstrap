@@ -1787,6 +1787,7 @@ first-class-functions.md: error.static-method-of-a-ranged-instance-alias-is-not-
 first-class-functions.md: error.static-method-through-a-directory-is-not-a-function-value
 first-class-functions.md: error.static-method-through-self-in-a-generic-body-is-not-a-function-value
 first-class-functions.md: error.static-method-through-self-is-not-a-function-value
+first-class-functions.md: error.the-raw-cursor-type-named-as-a-static-base-is-not-reachable
 first-class-functions.md: first-class-function.a-function-field-naming-self-is-called-with-the-instance
 first-class-functions.md: first-class-function.a-function-field-read-through-an-instance-fits-a-concrete-function-type
 first-class-functions.md: first-class-function.a-function-field-read-through-an-instance-takes-its-arguments
@@ -3006,6 +3007,7 @@ library-tier-surface.md: error.a-managed-read-is-refused-outside-the-library-tie
 library-tier-surface.md: error.a-scalar-builtins-member-is-refused-too
 library-tier-surface.md: error.a-self-managed-call-in-an-array-extension-is-refused-at-the-field
 library-tier-surface.md: error.a-self-managed-read-in-an-array-extension-is-refused-at-the-field
+library-tier-surface.md: error.the-cursor-type-is-refused-outside-the-library-tiers
 linear-types.md: a-conditional-expression-whose-arms-build-the-value-is-accepted
 linear-types.md: a-finalizer-ends-the-value-and-every-branch-consumes-it
 linear-types.md: a-finalizer-that-throws-after-destruct-is-caught-without-the-value-live
@@ -3093,6 +3095,8 @@ loop-unswitching.md: a-store-loop-carries-its-shape-guards-outside
 loop-unswitching.md: a-value-carried-out-of-two-loops-is-left-alone
 loop-unswitching.md: a-view-detaches-on-its-first-write
 loop-unswitching.md: an-out-of-bounds-fallback-keeps-the-fast-loop-going
+managed-memory-cursor.md: a-cursor-over-an-empty-buffer-is-refused
+managed-memory-cursor.md: the-refused-cursor-strands-nothing
 managed-memory-element-size.md: element-size-in-grow
 managed-memory-element-size.md: element-size-respected-in-create
 managed-memory-methods.md: a-byte-array-generic-argument-still-serves-count

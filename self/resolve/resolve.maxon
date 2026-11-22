@@ -1628,7 +1628,7 @@ function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ms ast.ModuleSt
 	checkEnd(r, label: ifd.name, endNode: ifd.endRef, errs: errs)
 	let tier = ast.visibilityOf(ifd.visibility)
 	let ifs = Surface.make(tier, noun: "interface", name: ifd.name.clone(), at: r.tree.startOf(ifd.id))
-	let outer = enterTypeParams(r, p: p, owner: ifd.name, s: ifs, params: ifd.typeParams, constraints: ast.ConstraintList.create(0), errs: errs)
+	let outer = enterTypeParams(r, p: p, owner: ifd.name, s: ifs, params: ifd.typeParams, constraints: ifd.whereList, errs: errs)
 	resolveNestedAliases(r, p: p, ms: ms, owner: ifd.name, aliases: ifd.aliases, statics: ast.ConstDeclList.create(0), s: ifs, errs: errs)
 	resolveInterfaceList(r, p: p, s: ifs, interfaces: ifd.parents, position: "in its extends clause", errs: errs)
 	r.expandsMembers = true

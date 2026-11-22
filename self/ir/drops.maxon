@@ -81,7 +81,7 @@ function storeField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 		emit(l, i: newFieldAddr(addr, obj: obj, offset: wordOffset(index)))
 		dropAt(l, p: p, ms: ms, addr: addr, t: t)
 	end 'managed'
-	emit(l, i: newStoreField(obj, offset: wordOffset(index), src: v))
+	emit(l, i: newStoreField(obj, offset: wordOffset(index), src: v, borrow: false))
 end 'storeField'
 
 // fetch reads a slot that held a value only on its way from one place to another, such as the result of a conditional. A

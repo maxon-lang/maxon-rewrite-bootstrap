@@ -86,6 +86,7 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		builtinHandle gives false
 		builtinFrozen gives false
 		builtinCown gives false
+		builtinCursor gives false
 		typeParam gives false
 		interfaceTy gives false
 		funcTy gives false
@@ -528,6 +529,7 @@ function callInterfaceExtension(mutates c Checker, p ast.Project, mutates ms ast
 		return ast.noType
 	end 'frozen'
 	let args = ast.interfaceExtensionArgs(p, ms: ms, recv: content, have: have, fid: method)
+	queueBorrowFree(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), params: ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).generics), args: args)
 	queueBounds(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), params: ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).generics), args: args)
 	return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callMethod, target: method, hasGiven: true, given: args, errs: errs)
 end 'callInterfaceExtension'
@@ -672,6 +674,7 @@ function callGeneric(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		if failedSince(errs, mark: mark) 'cannotInfer'
 			return ast.noType
 		end 'cannotInfer'
+		queueBorrowFree(c, p: p, ms: ms, off: off, params: generics, args: args)
 		queueBounds(c, p: p, ms: ms, off: off, params: generics, args: args)
 		specs = applySpecs(p, ms: ms, specs: declared, params: generics, args: args)
 	end 'infer'

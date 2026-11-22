@@ -64,8 +64,9 @@ export function resolveTarget(p ast.Project, mutates ms ast.ModuleState, module 
 		return instantiateWith(p, ms: ms, module: module, site: site, origin: info.fn, written: info.typeArgs, args: args, enclosing: bindWitnesses, errs: errs)
 	end 'direct'
 	if info.kind == ast.CallKind.callBound 'bound'
-		// A frozen receiver lends its contents, so the method is the one of the type it holds.
-		let received = ast.substituteType(ms.types, reads: p.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
+		// A frozen receiver lends its contents, so the method is the one of the type it holds. The receiver's type is the
+		// call's, since a for's calls of the protocol have no receiver written.
+		let received = ast.substituteType(ms.types, reads: p.types, t: info.receiverTy, params: bindParams, args: bindArgs)
 		let recv = ast.contentType(ms.types, reads: p.types, t: received)
 		let origin = ast.typeEntry(ms.types, reads: p.types, t: recv).effectiveOrigin()
 		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.method).name.clone()

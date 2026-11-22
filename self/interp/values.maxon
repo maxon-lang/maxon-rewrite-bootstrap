@@ -229,6 +229,9 @@ type Heap
 	var cellHolder as CountList
 	var cellFrame as CountList
 	var cellIndex as CountList
+	// cellLent is whether a cell lends the object it names rather than owning it: a cursor's word that borrows the buffer
+	// it walks, which the cell's owner neither frees nor copies.
+	var cellLent as BoolList
 	// An object's columns. oData is where its contents are: the first cell of a box, an index into the heap's texts, buffers,
 	// element lists, maps, tables or shared data by its kind.
 	var oKind as CountList
@@ -255,7 +258,7 @@ type Heap
 	var constants as table.StringMap with Count
 
 	static function new() returns Heap
-		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), maps: MapDatas.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), entryKey: CountList.create(0), entryVal: CountList.create(0), literals: table.StringMap.new(), constants: table.StringMap.new()}
+		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), maps: MapDatas.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), entryKey: CountList.create(0), entryVal: CountList.create(0), literals: table.StringMap.new(), constants: table.StringMap.new()}
 		// Handle 0 names nothing, so every column starts with a row that is never used.
 		_ = h.newCell(0)
 		h.oKind.push(0)
@@ -285,6 +288,7 @@ type Heap
 		cellHolder.push(holder)
 		cellFrame.push(0)
 		cellIndex.push(0)
+		cellLent.push(false)
 		return c
 	end 'newCell'
 

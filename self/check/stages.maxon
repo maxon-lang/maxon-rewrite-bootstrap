@@ -269,6 +269,8 @@ export function moduleVerify(mutates state ModuleState, p ast.Project, mutates e
 	verifyCalls(state.checker, p: p, ms: state.unit, calls: calls, errs: errs)
 	let bounds = state.checker.pendingBounds.clone()
 	verifyBounds(state.checker, p: p, ms: state.unit, bounds: bounds, errs: errs)
+	let borrowFree = state.checker.pendingBorrowFree.clone()
+	verifyBorrowFree(state.checker, p: p, ms: state.unit, pending: borrowFree, errs: errs)
 	let boxes = state.checker.pendingBoxes.clone()
 	verifyBoxes(state.checker, p: p, ms: state.unit, boxes: boxes, errs: errs)
 	let functions = state.functions.clone()

@@ -15,6 +15,10 @@ let checkOnlyDir = "check"
 // may call what no program can, and is run natively only, since the interpreter does not run the runtime's source.
 let runtimeTierDir = "runtime"
 
+// The programs of this directory are staged in the library tier, as maxon's spec runner stages a case marked `tier: stdlib`, so
+// that they may go through the doors of maxon's raw surface (README, "Modules"), the buffer cursor among them.
+let libraryTierDir = "library"
+
 let sourceExtension = ".maxon"
 
 let expectErrorPrefix = "// expect-error:"
@@ -83,6 +87,7 @@ type Expectation
 	var frees as ast.StringList
 	var checkOnly as bool
 	var runtimeTier as bool
+	var libraryTier as bool
 	// schedules is how many schedules of its behaviours the interpreter runs the program under, which a program that
 	// schedules so many that every seed would cost seconds lowers.
 	var schedules as Count
@@ -92,7 +97,7 @@ type Expectation
 	var unsupportedTargets as String
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, schedules: scheduleSeeds, mentionsWhen: false, unsupportedTargets: ""}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, schedules: scheduleSeeds, mentionsWhen: false, unsupportedTargets: ""}
 	end 'new'
 end 'Expectation'
 
@@ -503,6 +508,7 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 	project.sortStrings(files)
 	let checkOnlyPrefix = project.joinPath(project.joinPath(root, name: checkOnlyDir), name: "")
 	let runtimeTierPrefix = project.joinPath(project.joinPath(root, name: runtimeTierDir), name: "")
+	let libraryTierPrefix = project.joinPath(project.joinPath(root, name: libraryTierDir), name: "")
 	var jobs = Jobs.create(0)
 	for i in 0 upto files.count() 'tests'
 		let file = files[i].clone()
@@ -514,6 +520,7 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 			expect.runtimeTier = true
 			expect.nativeOnly = true
 		end 'runtimeTier'
+		expect.libraryTier = hasPrefix(file, prefix: libraryTierPrefix)
 		let leftOut = options.behavioursOnly and not mayScheduleBehaviours(expect, file: file)
 		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut)))
 	end 'tests'
@@ -551,8 +558,10 @@ end 'interpretedTestOptions'
 // compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
 // an error the generate stage raises gets it. What it lowered is kept for the interpreter, which runs it as the executable
 // is made from it.
-function compileForTest(shared SharedRuntime, file String, output String, mutates errs diag.ErrorList) returns CompiledProgram
-	let compiled = compileProjectWith(shared, path: file, output: output, options: interpretedTestOptions(), errs: errs)
+function compileForTest(shared SharedRuntime, file String, output String, inLibrary bool, mutates errs diag.ErrorList) returns CompiledProgram
+	var options = interpretedTestOptions()
+	options.stagesInLibrary = inLibrary
+	let compiled = compileProjectWith(shared, path: file, output: output, options: options, errs: errs)
 	diag.sortErrors(errs)
 	return compiled
 end 'compileForTest'
@@ -610,7 +619,7 @@ function stageProgram(shared SharedRuntime, job CorpusJob, index Count, exe Stri
 		compiled = compileRuntimeTest(job.file, output: exe, options: runtimeOptions, errs: errs)
 		diag.sortErrors(errs)
 	end 'runtimeTier' else 'program'
-		compiled = compileForTest(shared, file: job.file, output: exe, errs: errs)
+		compiled = compileForTest(shared, file: job.file, output: exe, inLibrary: job.expect.libraryTier, errs: errs)
 	end 'program'
 	return checkTest(job.expect, file: job.file, compiled: compiled, errs: errs, index: index, exe: exe, options: options)
 end 'stageProgram'

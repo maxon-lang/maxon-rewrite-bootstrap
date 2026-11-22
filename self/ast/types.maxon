@@ -43,6 +43,7 @@ export enum TypeKind
 	builtinHandle
 	builtinFrozen
 	builtinCown
+	builtinCursor
 	typeParam
 	interfaceTy
 	funcTy
@@ -56,6 +57,7 @@ export enum TypeKind
 			builtinHandle gives true
 			builtinFrozen gives true
 			builtinCown gives true
+			builtinCursor gives true
 			invalid gives false
 			primBool gives false
 			primString gives false
@@ -362,10 +364,14 @@ export type TypeEntry
 	export var brandKey as String
 	// supertype is the ranged alias that a ranged alias implements, whose places take its values with no cast.
 	export var supertype as TypeID
+	// mayBorrow is, on a type parameter, whether the type it stands for may hold a borrow (README, "Borrowing values"): the
+	// 'Self' of an extension of an interface, and an associated type that the interface's 'where' bounds. Code over one is
+	// checked as code over a value that holds a borrow.
+	export var mayBorrow as bool
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, brandKey: "", supertype: noType}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, brandKey: "", supertype: noType, mayBorrow: false}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID
@@ -1530,6 +1536,7 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		builtinHandle gives sizeofWord
 		builtinFrozen gives sizeofWord
 		builtinCown gives sizeofWord
+		builtinCursor gives sizeofWord
 		funcTy gives sizeofWord
 	end 'k'
 end 'byteSize'
@@ -1954,6 +1961,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		builtinPool gives true
 		builtinFrozen gives true
 		builtinCown gives true
+		builtinCursor gives true
 		typeParam gives true
 		funcTy gives true
 		invalid gives false

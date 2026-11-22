@@ -1,0 +1,129 @@
+// The cursor of a raw buffer, maxon's `__ManagedMemoryCursor with T`, is a box of two words: the buffer, which it borrows
+// and never owns, and the index of the element it is at. It is made only over a buffer that has an element, and a move
+// that would leave the elements fails and leaves it where it was, so the index always names one: the checker holds the
+// buffer unchanged while the cursor lives (README, "Borrowing values"), so its length is the one the cursor last saw.
+
+let cursorSourceField = 0 as Count
+
+let cursorPositionField = 1 as Count
+
+// cursorFields is the number of words of a cursor's box, which its drop and copy routines know too.
+export let cursorFields = 2 as Count
+
+// cursorBuffer is the array box of the buffer that a cursor of the type t walks.
+function cursorBuffer(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID) returns ArrayBox
+	let cursor = applyType(l, p: p, ms: ms, t: t)
+	var args = ast.TypeIDList.create(0)
+	args.push(ast.typeArgAt(ms.types, reads: p.types, t: cursor, index: 0))
+	let buffer = ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.managedMemoryOrigin, args: args)
+	return arrayOf(l, p: p, ms: ms, site: site, t: buffer)
+end 'cursorBuffer'
+
+// cursorOfCall is the array box of the buffer of the cursor that a call of a cursor's method is on.
+function cursorOfCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns ArrayBox
+	return cursorBuffer(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.receiver))
+end 'cursorOfCall'
+
+function cursorSource(mutates l Lowerer, cursor Reg) returns Reg
+	let d = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newLoadField(d, obj: cursor, offset: fieldOffset(cursorSourceField, tagged: false)))
+	return d
+end 'cursorSource'
+
+function cursorPosition(mutates l Lowerer, cursor Reg) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadField(d, obj: cursor, offset: fieldOffset(cursorPositionField, tagged: false)))
+	return d
+end 'cursorPosition'
+
+function setCursorPosition(mutates l Lowerer, cursor Reg, position Reg)
+	emit(l, i: newStoreField(cursor, offset: fieldOffset(cursorPositionField, tagged: false), src: position, borrow: false))
+end 'setCursorPosition'
+
+// cursorLength is the number of elements of the buffer that a cursor walks.
+function cursorLength(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, cursor Reg) returns Reg
+	let buffer = cursorSource(l, cursor: cursor)
+	return arrayLength(l, p: p, ms: ms, box: box, arr: buffer)
+end 'cursorLength'
+
+// lowerCursorCreate is a cursor at the first element of the buffer recv, which fails with indexOutOfBounds where it has none.
+function lowerCursorCreate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let box = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: box, arr: recv)
+	let present = nonZero(l, v: n)
+	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorBufferIndexOutOfBounds)
+	let cursor = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newAlloc(cursor, bytes: boxBytes(cursorFields, tagged: false)))
+	emit(l, i: newStoreField(cursor, offset: fieldOffset(cursorSourceField, tagged: false), src: recv, borrow: true))
+	let start = konst(l, value: 0 as Word)
+	setCursorPosition(l, cursor: cursor, position: start)
+	return cursor
+end 'lowerCursorCreate'
+
+// lowerCursorCurrent lends the element the cursor is at, which is always one of the buffer's.
+function lowerCursorCurrent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let box = cursorOfCall(l, p: p, ms: ms, c: c)
+	let buffer = cursorSource(l, cursor: recv)
+	let at = cursorPosition(l, cursor: recv)
+	return arrayRead(l, p: p, ms: ms, box: box, arr: buffer, index: at, checked: false)
+end 'lowerCursorCurrent'
+
+function lowerCursorIndex(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return cursorPosition(l, cursor: recv)
+end 'lowerCursorIndex'
+
+// lowerCursorAdvance moves the cursor to the next element, and fails where it is at the last.
+function lowerCursorAdvance(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let box = cursorOfCall(l, p: p, ms: ms, c: c)
+	let n = cursorLength(l, p: p, ms: ms, box: box, cursor: recv)
+	let at = cursorPosition(l, cursor: recv)
+	let one = konst(l, value: 1 as Word)
+	let next = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: at, right: one, unsigned: true, fail: noBlock))
+	let inside = compare(l, op: CmpOp.cmpLt, a: next, b: n, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: inside, errorCase: ast.errorBufferIndexOutOfBounds)
+	setCursorPosition(l, cursor: recv, position: next)
+	return konst(l, value: 0 as Word)
+end 'lowerCursorAdvance'
+
+// lowerCursorRetreat moves the cursor to the element before, and fails where it is at the first.
+function lowerCursorRetreat(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let at = cursorPosition(l, cursor: recv)
+	let past = nonZero(l, v: at)
+	failUnless(l, p: p, ms: ms, cond: past, errorCase: ast.errorBufferIndexOutOfBounds)
+	let one = konst(l, value: 1 as Word)
+	let before = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(before, op: BinOp.binSub, left: at, right: one, unsigned: true, fail: noBlock))
+	setCursorPosition(l, cursor: recv, position: before)
+	return konst(l, value: 0 as Word)
+end 'lowerCursorRetreat'
+
+// lowerCursorSeek moves the cursor to the element at an index, and fails where the buffer has none there.
+function lowerCursorSeek(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let box = cursorOfCall(l, p: p, ms: ms, c: c)
+	let n = cursorLength(l, p: p, ms: ms, box: box, cursor: recv)
+	let inside = compare(l, op: CmpOp.cmpLt, a: args[0], b: n, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: inside, errorCase: ast.errorBufferIndexOutOfBounds)
+	setCursorPosition(l, cursor: recv, position: args[0])
+	return konst(l, value: 0 as Word)
+end 'lowerCursorSeek'
+
+// lowerCursorPeek is a copy of the element a number of places ahead of the cursor, which stays where it is, and fails where
+// the buffer has none there.
+function lowerCursorPeek(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let box = cursorOfCall(l, p: p, ms: ms, c: c)
+	let n = cursorLength(l, p: p, ms: ms, box: box, cursor: recv)
+	let ahead = args[0]
+	let near = compare(l, op: CmpOp.cmpLt, a: ahead, b: n, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: near, errorCase: ast.errorBufferIndexOutOfBounds)
+	let room = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(room, op: BinOp.binSub, left: n, right: ahead, unsigned: true, fail: noBlock))
+	let at = cursorPosition(l, cursor: recv)
+	let fits = compare(l, op: CmpOp.cmpLt, a: at, b: room, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: fits, errorCase: ast.errorBufferIndexOutOfBounds)
+	let target = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(target, op: BinOp.binAdd, left: at, right: ahead, unsigned: true, fail: noBlock))
+	let buffer = cursorSource(l, cursor: recv)
+	let element = arrayRead(l, p: p, ms: ms, box: box, arr: buffer, index: target, checked: false)
+	return copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
+end 'lowerCursorPeek'

@@ -300,6 +300,9 @@ export enum OwnProjectionKind
 	// or change while the closure lives.
 	projectCapture
 	projectMutableCapture
+	// projectBorrow is a place that a value that holds a borrow, bound to a local, borrows: nothing may change or move it
+	// while the local's scope lasts (README, "Borrowing values").
+	projectBorrow
 end 'OwnProjectionKind'
 
 // OwnProjection is a place that stays borrowed while code runs which must not change it: a match subject whose payload
@@ -339,9 +342,13 @@ export type OwnBorrows
 	export var capture as ast.LocalID
 	export var roots as ast.LocalIDList
 	export var mutable as Array with bool
+	// inherits are, for a value whose type holds a borrow, the parameters and bindings whose values it carries what they
+	// borrow, which is not known here; untracked is whether it borrows what cannot be followed, a temporary among it.
+	export var inherits as ast.LocalIDList
+	export var untracked as bool
 
 	export static function new() returns OwnBorrows
-		return OwnBorrows{name: "", mutableName: "", param: ast.noLocal, capture: ast.noLocal, roots: ast.LocalIDList.create(0), mutable: Array.create(0)}
+		return OwnBorrows{name: "", mutableName: "", param: ast.noLocal, capture: ast.noLocal, roots: ast.LocalIDList.create(0), mutable: Array.create(0), inherits: ast.LocalIDList.create(0), untracked: false}
 	end 'new'
 
 	export function any() returns bool
@@ -372,6 +379,10 @@ export type OwnBorrows
 			roots.push(other.roots[i])
 			mutable.push(other.mutable[i])
 		end 'each'
+		for i in 0 upto other.inherits.count() 'inherits'
+			inherits.push(other.inherits[i])
+		end 'inherits'
+		untracked = untracked or other.untracked
 	end 'addAll'
 end 'OwnBorrows'
 

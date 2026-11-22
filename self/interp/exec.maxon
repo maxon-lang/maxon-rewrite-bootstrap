@@ -87,6 +87,15 @@ end 'execLoadField'
 function execStoreField(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let c = try fieldOf(vm, obj: ir.storeFieldObj(x), offset: ir.storeFieldOffset(x), what: "a field write")
 	try changed(vm, c: c, o: 0)
+	if ir.storeFieldBorrow(x) 'lends'
+		let src = ir.storeFieldSrc(x)
+		_ = try live(vm, o: vm.ref(src), what: "a value a field borrows")
+		let at = vm.regAt(src)
+		vm.h.cellN[c] = vm.regN[at]
+		vm.h.cellR[c] = vm.regR[at]
+		vm.h.cellLent[c] = true
+		return
+	end 'lends'
 	try store(vm, f: f, c: c, src: ir.storeFieldSrc(x), what: "the field store")
 end 'execStoreField'
 

@@ -1,0 +1,35 @@
+typealias Names = Array with String
+
+type Walk
+	typealias Cursor = __ManagedMemoryCursor with String
+	var raw as Cursor
+
+	static function over(names Names) returns Walk throws IterationError
+		let cursor = try names.managed.createCursor() otherwise throw IterationError.exhausted
+		return Walk{raw: cursor}
+	end 'over'
+
+	function name() returns String
+		return raw.current().clone()
+	end 'name'
+end 'Walk'
+
+function pass(consumes w Walk) returns Walk
+	return w
+end 'pass'
+
+function first(names Names) returns String
+	let w = try Walk.over(names) otherwise return "none"
+	let v = pass(w)
+	return v.name()
+end 'first'
+
+function main() returns ExitCode
+	var a = Names.create(0)
+	a.push("ada")
+	print("{first(a)}\n")
+	a.push("bo")
+	return 0
+end 'main'
+
+//> ada

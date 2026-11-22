@@ -106,6 +106,13 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer type is nameable", Instead: "use 'Array'"},
 		Methods: rawSurface{What: "a raw '__ManagedMemory' buffer is reachable", Instead: "use the 'Array' methods"},
 	}},
+	// ManagedMemoryCursor is maxon's position in a raw buffer: the buffer it borrows and the index of an element of it.
+	// It holds a borrow, so a value of it and of any type that holds one may not outlive the buffer (README, "Borrowing
+	// values").
+	{Key: "ManagedMemoryCursor", Name: "__ManagedMemoryCursor", Params: []string{"T"}, Kind: "Cursor", Managed: true, Raw: &rawType{
+		Named:   rawSurface{What: "the raw buffer cursor type is nameable", Instead: "walk an 'Array' with 'for'"},
+		Methods: rawSurface{What: "a raw '__ManagedMemoryCursor' is reachable", Instead: "walk an 'Array' with 'for'"},
+	}},
 	{Key: "Map", Name: "Map", Params: []string{"K", "V"}, Managed: true, Subscriptable: true},
 	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "Pool", Name: "Pool", Params: []string{"T"}, Managed: true, Subscriptable: true},
@@ -365,6 +372,9 @@ type function struct {
 	Throws string
 	// Intrinsic is what it lowers to: ast.Intrinsic+Intrinsic, ir's lower+Intrinsic.
 	Intrinsic string
+	// Lends is whether the method gives a place in its receiver rather than a value, as a function that returns borrowed
+	// does.
+	Lends bool
 	// Field is the ast.Builtins field that holds a free function which is not declared by its name, or a method that the
 	// checker chooses for a call of the name in place of the one declared by it: an overload by the arguments' form.
 	Field string
@@ -519,6 +529,15 @@ var tableFunctions = []function{
 	// A buffer's length is the count of its elements, and get gives a copy of the one at an index below it, as an array's do.
 	{Owner: "ManagedMemory", Name: "length", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "ManagedMemory", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "ArrayGet"},
+	// A cursor starts at the first element, so an empty buffer has none; a move that would leave the elements fails and
+	// leaves it where it was, so a cursor always names an element, which current() lends.
+	{Owner: "ManagedMemory", Name: "createCursor", Result: "ManagedMemoryCursor with T", Throws: "ManagedMemoryError", Intrinsic: "CursorCreate"},
+	{Owner: "ManagedMemoryCursor", Name: "current", Result: "T", Lends: true, Intrinsic: "CursorCurrent"},
+	{Owner: "ManagedMemoryCursor", Name: "index", Result: "ElementIndex", Intrinsic: "CursorIndex"},
+	{Owner: "ManagedMemoryCursor", Name: "advance", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "CursorAdvance"},
+	{Owner: "ManagedMemoryCursor", Name: "retreat", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "CursorRetreat"},
+	{Owner: "ManagedMemoryCursor", Name: "seek", Self: "mutates", Params: []string{"index ElementIndex"}, Throws: "ManagedMemoryError", Intrinsic: "CursorSeek"},
+	{Owner: "ManagedMemoryCursor", Name: "peek", Params: []string{"ahead ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "CursorPeek"},
 
 	{Owner: "Map", Name: "create", Static: true, Result: "Self", Intrinsic: "MapCreate"},
 	{Owner: "Map", Name: "count", Result: "Count", Intrinsic: "MapCount"},
