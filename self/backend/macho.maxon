@@ -1,0 +1,658 @@
+// The macOS arm64 Mach-O writer, after maxon's (Targets/Macos/MachOWriter.maxon): a PIE MH_EXECUTE that dyld loads, with
+// the segments __PAGEZERO, __TEXT (the headers and __text), __DATA (__data, then __got on a page of its own) and
+// __LINKEDIT (the chained fixups, an empty exports trie, an empty symbol table and the code signature). macOS has no
+// system calls a program may make itself, so every call of the OS goes through libSystem: each function the link calls
+// has a slot of __got that dyld binds by name through a chained fixup. macOS slides every arm64 executable, so a word of
+// the data that holds an address is a chained rebase, which holds the target's offset from the image's base and which
+// dyld adds the base to. __TEXT starts at the image's base and at the start of the file, and every segment follows the one
+// before it in memory as in the file, so an address is the base plus the offset in the file.
+//
+// The signature is written last, when the image is written to its file, since it hashes the code and the data the link
+// places, and is named after the file, as ld64 names it.
+
+// machoPageBytes is the page of arm64 macOS's memory, which every segment is aligned to.
+let machoPageBytes = 0x4000 as Count
+
+// machoTextVmAddr is where __TEXT is loaded, above a __PAGEZERO that covers the low 4 GB, so that a pointer truncated to
+// 32 bits faults.
+let machoTextVmAddr = 0x100000000 as Count
+
+let machoPageZeroSize = 0x100000000 as Count
+
+let mhMagic64 = 0xFEEDFACF as Count
+
+let cpuTypeArm64 = 0x0100000C as Count
+
+let cpuSubtypeArm64All = 0 as Count
+
+let mhExecute = 2 as Count
+
+let mhDyldLink = 0x4 as Count
+
+let mhTwoLevel = 0x80 as Count
+
+let mhPie = 0x200000 as Count
+
+let lcSegment64 = 0x19 as Count
+
+let lcSymtab = 0x02 as Count
+
+let lcDysymtab = 0x0B as Count
+
+let lcCodeSignature = 0x1D as Count
+
+let lcMain = 0x80000028 as Count
+
+let lcLoadDylib = 0x0C as Count
+
+let lcLoadDylinker = 0x0E as Count
+
+let lcUuid = 0x1B as Count
+
+let lcBuildVersion = 0x32 as Count
+
+let lcDyldChainedFixups = 0x80000034 as Count
+
+let lcDyldExportsTrie = 0x80000033 as Count
+
+let vmProtNone = 0 as Count
+
+let vmProtRead = 0x01 as Count
+
+let vmProtWrite = 0x02 as Count
+
+let vmProtExecute = 0x04 as Count
+
+let sRegular = 0x00000000 as Count
+
+let sAttrPureInstructions = 0x80000000 as Count
+
+let sAttrSomeInstructions = 0x00000400 as Count
+
+// dyldChainedPtr64Offset is DYLD_CHAINED_PTR_64_OFFSET, the pointer format whose rebase holds the target's offset from
+// the image's base, so the word holds no address of its own until dyld adds the base it slid the image to.
+let dyldChainedPtr64Offset = 6 as Count
+
+// dyldChainedImportFormat is DYLD_CHAINED_IMPORT: 32 bits an import, its dylib's ordinal and the offset of its name.
+let dyldChainedImportFormat = 1 as Count
+
+// dyldChainedImportNameShift is where an import's name offset starts, after its dylib's ordinal and its weak bit.
+let dyldChainedImportNameShift = 9 as Count
+
+let dyldChainedFixupsVersion = 0 as Count
+
+let dyldChainedSymbolsUncompressed = 0 as Count
+
+// dyldChainedPtrStartNone is the start of a page of __DATA on which no chain begins.
+let dyldChainedPtrStartNone = 0xFFFF as Count
+
+// A chained fixup is a 64-bit word: bit 63 set is a bind, which holds the import's index, and clear is a rebase, which
+// holds the target's 36-bit offset from the base; bits 51 to 62 are the distance to the next fixup of the same page, in
+// 4-byte words, and 0 ends the page's chain. So every fixup sits at an offset that is a multiple of 4.
+let dyldChainedBind = 0x8000000000000000 as Count
+
+let dyldChainedNextShift = 51 as Count
+
+let dyldChainedNextStride = 4 as Count
+
+let dyldChainedRebaseTargetLimit = 0x1000000000 as Count
+
+// The fixups header ends at the offset of the starts, which it names; each segment's starts are its fixed fields and a
+// 16-bit start of each of its pages.
+let dyldChainedFixupsHeaderSize = 0x20 as Count
+
+let dyldChainedStartsInSegmentSize = 22 as Count
+
+let dyldChainedPageStartBytes = 2 as Count
+
+let dyldChainedImportBytes = 4 as Count
+
+// dyldChainedStartsOffsetBytes is a field of the table of starts: the count of segments, then each one's offset.
+let dyldChainedStartsOffsetBytes = 4 as Count
+
+let dyldChainedMaxValidPointer = 0 as Count
+
+let dyldChainedAlignment = 4 as Count
+
+// machoSegmentCount is the segments, in order, that the chained fixups' table of starts has an entry for.
+let machoSegmentCount = 4 as Count
+
+let machoDataSegmentIndex = 2 as Count
+
+// machoLibSystemOrdinal is the 1-based place of libSystem among the image's LC_LOAD_DYLIB commands, the one dylib it links.
+let machoLibSystemOrdinal = 1 as Count
+
+let machoTextSegment = "__TEXT"
+
+let machoDataSegment = "__DATA"
+
+let machoLinkeditSegment = "__LINKEDIT"
+
+let dyldPath = "/usr/lib/dyld"
+
+let libSystemPath = "/usr/lib/libSystem.B.dylib"
+
+let machHeaderSize = 32 as Count
+
+let segmentCommandBaseSize = 72 as Count
+
+let sectionHeaderSize = 80 as Count
+
+let symtabCommandSize = 24 as Count
+
+let dysymtabCommandSize = 80 as Count
+
+let mainCommandSize = 24 as Count
+
+let uuidCommandSize = 24 as Count
+
+let machoUuidBytes = 16 as Count
+
+let buildVersionCommandSize = 24 as Count
+
+let codeSignatureCommandSize = 16 as Count
+
+let chainedFixupsCommandSize = 16 as Count
+
+let exportsTrieCommandSize = 16 as Count
+
+// dylinkerCommandSize is LC_LOAD_DYLINKER's 12-byte header and "/usr/lib/dyld" with its NUL, aligned up to 8.
+let dylinkerCommandSize = 32 as Count
+
+let dylinkerNameOffset = 12 as Count
+
+// LC_LOAD_DYLIB is a 24-byte header, then the path and its NUL, padded up to a multiple of 8.
+let dylibCommandHeaderSize = 24 as Count
+
+let dylibCommandAlignment = 8 as Count
+
+// machoCommandCount is the load commands: the four segments, LC_SYMTAB, LC_DYSYMTAB, LC_LOAD_DYLINKER, LC_MAIN, LC_UUID,
+// the LC_LOAD_DYLIB of libSystem, LC_BUILD_VERSION, LC_DYLD_CHAINED_FIXUPS, LC_DYLD_EXPORTS_TRIE and LC_CODE_SIGNATURE.
+let machoCommandCount = 14 as Count
+
+// LC_BUILD_VERSION names macOS 13.0.0 (X << 16 | Y << 8) as the lowest version the executable runs on.
+let platformMacos = 1 as Count
+
+let minOsMacos13 = 0x000D0000 as Count
+
+// machoNameFieldBytes is a segment's or a section's name, padded with NULs.
+let machoNameFieldBytes = 16 as Count
+
+// machoEmptyExportsTrieBytes is an exports trie of one terminal node and no export, which dyld wants of an executable.
+let machoEmptyExportsTrieBytes = 8 as Count
+
+let machoLinkeditAlignment = 8 as Count
+
+let machoStringTableAlignment = 4 as Count
+
+let machoSignatureAlignment = 16 as Count
+
+// machoEmptyDataBytes is the data section of a program with no data, which keeps __DATA's first page in the file.
+let machoEmptyDataBytes = 8 as Count
+
+// A load command opens with its kind and its size, 32 bits each.
+let loadCommandHeaderSize = 8 as Count
+
+// The fields of a load command and of a segment's, by their offset in it.
+let lcSizeField = 4 as Count
+
+let lcDataOffsetField = 8 as Count
+
+let lcDataSizeField = 12 as Count
+
+let segNameField = 8 as Count
+
+let segVmsizeField = 32 as Count
+
+let segFileoffField = 40 as Count
+
+let segFilesizeField = 48 as Count
+
+let sectSizeField = 40 as Count
+
+let sectOffsetField = 48 as Count
+
+let mhNcmdsField = 16 as Count
+
+let uuidField = 8 as Count
+
+let machoU32Bytes = 4 as Count
+
+let machoU32Bits = 32 as Count
+
+let machoPathSeparator = 47 as Byte
+
+let machoWindowsPathSeparator = 92 as Byte
+
+let machoExtensionDot = 46 as Byte
+
+// buildMachOImage lays out the file for the code and the data of the layout, with the entry point at its offset in the
+// code, and a slot of __got for each of imports, in order, each a Mach-O symbol of libSystem (`_exit`, with the platform's
+// leading underscore). The binds of __got and the page starts of the chained fixups are written here, since the layout
+// names every fixup; the rebases' words are the data's, which writePointers fills in.
+export function buildMachOImage(layout ImageLayout, imports NameList) returns Image
+	let hasGot = imports.count() > 0
+	let dataSectionCount = 2 if hasGot else 1
+	let dylibCommandSize = alignUp(sum(dylibCommandHeaderSize, b: sum(libSystemPath.byteLength(), b: 1)), alignment: dylibCommandAlignment)
+	let textCommandSize = sum(segmentCommandBaseSize, b: sectionHeaderSize)
+	let dataCommandSize = sum(segmentCommandBaseSize, b: product(sectionHeaderSize, b: dataSectionCount))
+	var commandsSize = sum(segmentCommandBaseSize, b: textCommandSize)
+	commandsSize = sum(commandsSize, b: sum(dataCommandSize, b: segmentCommandBaseSize))
+	commandsSize = sum(commandsSize, b: sum(symtabCommandSize, b: dysymtabCommandSize))
+	commandsSize = sum(commandsSize, b: sum(dylinkerCommandSize, b: sum(mainCommandSize, b: uuidCommandSize)))
+	commandsSize = sum(commandsSize, b: sum(dylibCommandSize, b: buildVersionCommandSize))
+	commandsSize = sum(commandsSize, b: sum(chainedFixupsCommandSize, b: sum(exportsTrieCommandSize, b: codeSignatureCommandSize)))
+	let codeOffset = alignUp(sum(machHeaderSize, b: commandsSize), alignment: codeLineBytes)
+	let textSegmentSize = alignUp(sum(codeOffset, b: layout.codeSize), alignment: machoPageBytes)
+	let dataSegmentOffset = textSegmentSize
+	let dataLength = layout.dataSize if layout.dataSize > 0 else machoEmptyDataBytes
+	let gotOffsetInData = alignUp(dataLength, alignment: machoPageBytes)
+	let gotSize = product(imports.count(), b: importSlotBytes)
+	let dataSegmentSize = alignUp(sum(gotOffsetInData, b: gotSize), alignment: machoPageBytes)
+	let linkeditOffset = sum(dataSegmentOffset, b: dataSegmentSize)
+	var binds = CountList.create(0)
+	for i in 0 upto imports.count() 'binds'
+		binds.push(sum(gotOffsetInData, b: product(i, b: importSlotBytes)))
+	end 'binds'
+	// The data comes first in __DATA and __got on a page after it, so every rebase precedes every bind.
+	var fixups = layout.relocated()
+	fixups.append(binds)
+	let pageStarts = machoPageStarts(fixups, pages: dataSegmentSize / machoPageBytes)
+	let chainedFixups = buildChainedFixups(dataSegmentOffset, pageStarts: pageStarts, imports: imports)
+	let exportsTrieOffset = alignUp(sum(linkeditOffset, b: chainedFixups.count()), alignment: machoLinkeditAlignment)
+	let symtabOffset = alignUp(sum(exportsTrieOffset, b: machoEmptyExportsTrieBytes), alignment: machoLinkeditAlignment)
+	// An empty string table is the one NUL that every string table opens with.
+	let stringTableOffset = alignUp(symtabOffset, alignment: machoStringTableAlignment)
+	let stringTableSize = 1 as Count
+	let signatureOffset = alignUp(sum(stringTableOffset, b: stringTableSize), alignment: machoSignatureAlignment)
+	let linkeditSize = try signatureOffset - linkeditOffset otherwise panic("macho: __LINKEDIT before its contents")
+	let base = machoTextVmAddr
+	var w = ByteArray.create(0)
+	pushU32(w, v: mhMagic64)
+	pushU32(w, v: cpuTypeArm64)
+	pushU32(w, v: cpuSubtypeArm64All)
+	pushU32(w, v: mhExecute)
+	pushU32(w, v: machoCommandCount)
+	pushU32(w, v: commandsSize)
+	// macOS kills an arm64 executable that is not PIE; every reference of the code is relative to it, and the data's
+	// addresses are rebases, so the image may be loaded anywhere.
+	pushU32(w, v: mhDyldLink or mhTwoLevel or mhPie)
+	pushU32(w, v: 0)
+	pushSegmentCommand(w, name: "__PAGEZERO", vmaddr: 0, vmsize: machoPageZeroSize, fileoff: 0, filesize: 0, prot: vmProtNone, sections: 0)
+	pushSegmentCommand(w, name: machoTextSegment, vmaddr: base, vmsize: textSegmentSize, fileoff: 0, filesize: textSegmentSize, prot: vmProtRead or vmProtExecute, sections: 1)
+	pushSectionHeader64(w, name: "__text", segment: machoTextSegment, addr: sum(base, b: codeOffset), size: layout.codeSize, offset: codeOffset, alignment: codeLineBytes, flags: sAttrPureInstructions or sAttrSomeInstructions or sRegular)
+	let dataAddr = sum(base, b: dataSegmentOffset)
+	pushSegmentCommand(w, name: machoDataSegment, vmaddr: dataAddr, vmsize: dataSegmentSize, fileoff: dataSegmentOffset, filesize: dataSegmentSize, prot: vmProtRead or vmProtWrite, sections: dataSectionCount)
+	pushSectionHeader64(w, name: "__data", segment: machoDataSegment, addr: dataAddr, size: dataLength, offset: dataSegmentOffset, alignment: wordBytes, flags: sRegular)
+	if hasGot 'gotHeader'
+		pushSectionHeader64(w, name: "__got", segment: machoDataSegment, addr: sum(dataAddr, b: gotOffsetInData), size: gotSize, offset: sum(dataSegmentOffset, b: gotOffsetInData), alignment: importSlotBytes, flags: sRegular)
+	end 'gotHeader'
+	pushSegmentCommand(w, name: machoLinkeditSegment, vmaddr: sum(base, b: linkeditOffset), vmsize: alignUp(linkeditSize, alignment: machoPageBytes), fileoff: linkeditOffset, filesize: linkeditSize, prot: vmProtRead, sections: 0)
+	pushU32(w, v: lcSymtab)
+	pushU32(w, v: symtabCommandSize)
+	pushU32(w, v: symtabOffset)
+	pushU32(w, v: 0)
+	pushU32(w, v: stringTableOffset)
+	pushU32(w, v: stringTableSize)
+	// The executable has no symbol, so every range of symbols LC_DYSYMTAB names is empty, and an executable bound by
+	// chained fixups has none of its tables of contents, modules, external references, indirect symbols or relocations.
+	pushU32(w, v: lcDysymtab)
+	pushU32(w, v: dysymtabCommandSize)
+	pushZeros(w, n: try dysymtabCommandSize - loadCommandHeaderSize otherwise panic("macho: LC_DYSYMTAB smaller than its header"))
+	pushU32(w, v: lcLoadDylinker)
+	pushU32(w, v: dylinkerCommandSize)
+	pushU32(w, v: dylinkerNameOffset)
+	pushCommandString(w, text: dyldPath, commandSize: dylinkerCommandSize, nameOffset: dylinkerNameOffset)
+	pushU32(w, v: lcMain)
+	pushU32(w, v: mainCommandSize)
+	pushU64(w, v: sum(codeOffset, b: layout.entryOffset))
+	// A stack size of 0 is the system's default for the main thread.
+	pushU64(w, v: 0)
+	// The UUID is the digest of the code, which the link has not placed yet; signedMachO writes it.
+	pushU32(w, v: lcUuid)
+	pushU32(w, v: uuidCommandSize)
+	pushZeros(w, n: machoUuidBytes)
+	pushU32(w, v: lcLoadDylib)
+	pushU32(w, v: dylibCommandSize)
+	pushU32(w, v: dylibCommandHeaderSize)
+	// The timestamp, the current version and the compatibility version, which dyld does not check for libSystem.
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushCommandString(w, text: libSystemPath, commandSize: dylibCommandSize, nameOffset: dylibCommandHeaderSize)
+	pushU32(w, v: lcBuildVersion)
+	pushU32(w, v: buildVersionCommandSize)
+	pushU32(w, v: platformMacos)
+	pushU32(w, v: minOsMacos13)
+	// No SDK and no tool are named.
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushLinkeditDataCommand(w, kind: lcDyldChainedFixups, size: chainedFixupsCommandSize, offset: linkeditOffset, length: chainedFixups.count())
+	pushLinkeditDataCommand(w, kind: lcDyldExportsTrie, size: exportsTrieCommandSize, offset: exportsTrieOffset, length: machoEmptyExportsTrieBytes)
+	// The signature's size depends on the file's name, which signedMachO knows.
+	pushLinkeditDataCommand(w, kind: lcCodeSignature, size: codeSignatureCommandSize, offset: signatureOffset, length: 0)
+	if w.count() != sum(machHeaderSize, b: commandsSize) 'commands'
+		panic("macho: the load commands came out {w.count()} bytes against the {sum(machHeaderSize, b: commandsSize)} laid out")
+	end 'commands'
+	var file = ByteArray.create(signatureOffset)
+	copyInto(file, at: 0, src: w)
+	var got = ByteArray.create(0)
+	for i in 0 upto imports.count() 'got'
+		pushU64(got, v: dyldChainedBind or shifted(chainNext(binds, index: i), by: dyldChainedNextShift) or i)
+	end 'got'
+	copyInto(file, at: sum(dataSegmentOffset, b: gotOffsetInData), src: got)
+	copyInto(file, at: linkeditOffset, src: chainedFixups)
+	return Image.make(file, format: ast.ImageFormat.machO, base: base, textRva: codeOffset, dataRva: dataSegmentOffset, iatRva: sum(dataSegmentOffset, b: gotOffsetInData), importSlots: imports.count(), codeOffset: codeOffset, dataOffset: dataSegmentOffset)
+end 'buildMachOImage'
+
+// chainNext is the next field of the fixup at index of the fixups, which are offsets of __DATA in increasing order: the
+// distance to the following one, when it is on the same page, else 0, which ends the page's chain.
+function chainNext(fixups CountList, index Count) returns Count
+	let at = fixups[index]
+	if at mod dyldChainedNextStride != 0 'aligned'
+		panic("macho: a chained fixup at {at}, which is not a multiple of {dyldChainedNextStride}")
+	end 'aligned'
+	let following = sum(index, b: 1)
+	if following >= fixups.count() 'last'
+		return 0
+	end 'last'
+	let next = fixups[following]
+	if next <= at 'order'
+		panic("macho: the chained fixups at {at} and {next} are out of order")
+	end 'order'
+	if next / machoPageBytes != at / machoPageBytes 'otherPage'
+		return 0
+	end 'otherPage'
+	let distance = try next - at otherwise panic("macho: the chained fixups out of order")
+	return distance / dyldChainedNextStride
+end 'chainNext'
+
+// machoPageStarts is the offset in its page of the first fixup of each of the pages of __DATA, or none.
+function machoPageStarts(fixups CountList, pages Count) returns CountList
+	var starts = CountList.create(0)
+	var i = 0 as Count
+	for page in 0 upto pages 'pages'
+		let pageBase = product(page, b: machoPageBytes)
+		while i < fixups.count() and fixups[i] < pageBase 'before'
+			i = sum(i, b: 1)
+		end 'before'
+		if i < fixups.count() and fixups[i] < sum(pageBase, b: machoPageBytes) 'inPage'
+			starts.push(try fixups[i] - pageBase otherwise panic("macho: a fixup before its page"))
+		end 'inPage' else 'none'
+			starts.push(dyldChainedPtrStartNone)
+		end 'none'
+	end 'pages'
+	if i < fixups.count() and fixups[i] >= product(pages, b: machoPageBytes) 'past'
+		panic("macho: a chained fixup past __DATA")
+	end 'past'
+	return starts
+end 'machoPageStarts'
+
+// buildChainedFixups is the payload of LC_DYLD_CHAINED_FIXUPS: the header, the table of each segment's starts, of which
+// only __DATA has any, the starts of __DATA's pages, and the imports, each its dylib's ordinal and the offset of its name in
+// the pool of names that follows them, which opens with a NUL.
+function buildChainedFixups(dataSegmentOffset Count, pageStarts CountList, imports NameList) returns ByteArray
+	let startsSize = product(sum(machoSegmentCount, b: 1), b: dyldChainedStartsOffsetBytes)
+	let segmentStartsSize = sum(dyldChainedStartsInSegmentSize, b: product(pageStarts.count(), b: dyldChainedPageStartBytes))
+	let importsOffset = alignUp(sum(dyldChainedFixupsHeaderSize, b: sum(startsSize, b: segmentStartsSize)), alignment: dyldChainedAlignment)
+	let symbolsOffset = sum(importsOffset, b: product(imports.count(), b: dyldChainedImportBytes))
+	var cf = ByteArray.create(0)
+	pushU32(cf, v: dyldChainedFixupsVersion)
+	pushU32(cf, v: dyldChainedFixupsHeaderSize)
+	pushU32(cf, v: importsOffset)
+	pushU32(cf, v: symbolsOffset)
+	pushU32(cf, v: imports.count())
+	pushU32(cf, v: dyldChainedImportFormat)
+	pushU32(cf, v: dyldChainedSymbolsUncompressed)
+	pushZeros(cf, n: try dyldChainedFixupsHeaderSize - cf.count() otherwise panic("macho: a fixups header past its size"))
+	pushU32(cf, v: machoSegmentCount)
+	for segment in 0 upto machoSegmentCount 'segments'
+		pushU32(cf, v: startsSize if segment == machoDataSegmentIndex else 0)
+	end 'segments'
+	pushU32(cf, v: segmentStartsSize)
+	pushU16(cf, v: machoPageBytes)
+	pushU16(cf, v: dyldChainedPtr64Offset)
+	pushU64(cf, v: dataSegmentOffset)
+	pushU32(cf, v: dyldChainedMaxValidPointer)
+	pushU16(cf, v: pageStarts.count())
+	for i in 0 upto pageStarts.count() 'starts'
+		pushU16(cf, v: pageStarts[i])
+	end 'starts'
+	pushZeros(cf, n: try importsOffset - cf.count() otherwise panic("macho: the starts past the imports"))
+	var nameOffset = 1 as Count
+	for i in 0 upto imports.count() 'imports'
+		pushU32(cf, v: machoLibSystemOrdinal or shifted(nameOffset, by: dyldChainedImportNameShift))
+		nameOffset = sum(nameOffset, b: sum(imports[i].byteLength(), b: 1))
+	end 'imports'
+	cf.push(0)
+	for i in 0 upto imports.count() 'names'
+		cf.append(imports[i].toByteArray())
+		cf.push(0)
+	end 'names'
+	pushZeros(cf, n: try alignUp(cf.count(), alignment: machoLinkeditAlignment) - cf.count() otherwise panic("macho: an alignment below the size"))
+	return cf
+end 'buildChainedFixups'
+
+// writeChainedRebases makes each word of the data that holds an address of the data a rebase of the page's chain: the
+// address's offset from the image's base, and the distance to the next rebase of the page. The data starts __DATA, so an
+// offset in the data is one in the segment.
+function writeChainedRebases(image Image, mutates data ByteArray, pointers DataPointerList)
+	let positions = positionsOf(pointers)
+	for i in 0 upto pointers.count() 'pointers'
+		let target = try image.dataRva + pointers[i].target otherwise panic("link: an address past the image")
+		if target >= dyldChainedRebaseTargetLimit 'reach'
+			panic("macho: a rebase target {target} past the 36 bits of DYLD_CHAINED_PTR_64_OFFSET")
+		end 'reach'
+		patch64(data, at: pointers[i].pos, value: shifted(chainNext(positions, index: i), by: dyldChainedNextShift) or target)
+	end 'pointers'
+end 'writeChainedRebases'
+
+function pushSegmentCommand(mutates w ByteArray, name String, vmaddr Count, vmsize Count, fileoff Count, filesize Count, prot Count, sections Count)
+	pushU32(w, v: lcSegment64)
+	pushU32(w, v: sum(segmentCommandBaseSize, b: product(sectionHeaderSize, b: sections)))
+	pushMachOName(w, name: name)
+	pushU64(w, v: vmaddr)
+	pushU64(w, v: vmsize)
+	pushU64(w, v: fileoff)
+	pushU64(w, v: filesize)
+	// The most and the initial protection are one: no segment is made writable or executable later.
+	pushU32(w, v: prot)
+	pushU32(w, v: prot)
+	pushU32(w, v: sections)
+	pushU32(w, v: 0)
+end 'pushSegmentCommand'
+
+// pushSectionHeader64 writes a section_64 of a section aligned to alignment, a power of two, with no relocation, which a
+// linked image has none of.
+function pushSectionHeader64(mutates w ByteArray, name String, segment String, addr Count, size Count, offset Count, alignment Count, flags Count)
+	pushMachOName(w, name: name)
+	pushMachOName(w, name: segment)
+	pushU64(w, v: addr)
+	pushU64(w, v: size)
+	pushU32(w, v: offset)
+	pushU32(w, v: log2Of(alignment))
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushU32(w, v: flags)
+	// reserved1, reserved2 and reserved3.
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+end 'pushSectionHeader64'
+
+function pushLinkeditDataCommand(mutates w ByteArray, kind Count, size Count, offset Count, length Count)
+	pushU32(w, v: kind)
+	pushU32(w, v: size)
+	pushU32(w, v: offset)
+	pushU32(w, v: length)
+end 'pushLinkeditDataCommand'
+
+function pushMachOName(mutates w ByteArray, name String)
+	if name.byteLength() > machoNameFieldBytes 'long'
+		panic("macho: the name {name} is longer than {machoNameFieldBytes} bytes")
+	end 'long'
+	w.append(name.toByteArray())
+	pushZeros(w, n: try machoNameFieldBytes - name.byteLength() otherwise panic("macho: a name past its field"))
+end 'pushMachOName'
+
+// pushCommandString writes a load command's string and its NUL, which start nameOffset bytes into it, and pads the
+// command out to commandSize.
+function pushCommandString(mutates w ByteArray, text String, commandSize Count, nameOffset Count)
+	w.append(text.toByteArray())
+	w.push(0)
+	pushZeros(w, n: try commandSize - nameOffset - text.byteLength() - 1 otherwise panic("macho: a string past its load command"))
+end 'pushCommandString'
+
+function log2Of(alignment Count) returns Count
+	var n = 0 as Count
+	var power = 1 as Count
+	while power < alignment 'bits'
+		n = sum(n, b: 1)
+		power = product(power, b: 2)
+	end 'bits'
+	if power != alignment 'power'
+		panic("macho: an alignment of {alignment}, not a power of two")
+	end 'power'
+	return n
+end 'log2Of'
+
+// MachOCommand is a load command of a Mach-O file: its kind and where it starts and how long it is in the file.
+type MachOCommand
+	var kind as Count
+	var start as Count
+	var size as Count
+
+	static function make(kind Count, start Count, size Count) returns MachOCommand
+		return MachOCommand{kind: kind, start: start, size: size}
+	end 'make'
+end 'MachOCommand'
+
+typealias MachOCommands = Array with MachOCommand
+
+// machoCommandsOf reads the load commands of a file that buildMachOImage laid out.
+function machoCommandsOf(file ByteArray) returns MachOCommands
+	if readU32(file, at: 0) != mhMagic64 'magic'
+		panic("macho: not a 64-bit Mach-O file")
+	end 'magic'
+	var out = MachOCommands.create(0)
+	var at = machHeaderSize
+	for _ in 0 upto readU32(file, at: mhNcmdsField) 'commands'
+		let size = readU32(file, at: sum(at, b: lcSizeField))
+		if size == 0 or sum(at, b: size) > file.count() 'size'
+			panic("macho: a load command of {size} bytes at {at} past the file")
+		end 'size'
+		out.push(MachOCommand.make(readU32(file, at: at), start: at, size: size))
+		at = sum(at, b: size)
+	end 'commands'
+	return out
+end 'machoCommandsOf'
+
+function machoCommandOfKind(commands MachOCommands, kind Count) returns MachOCommand
+	for i in 0 upto commands.count() 'commands'
+		if commands[i].kind == kind 'found'
+			return commands[i].clone()
+		end 'found'
+	end 'commands'
+	panic("macho: no load command {kind}")
+end 'machoCommandOfKind'
+
+function machoSegmentNamed(file ByteArray, commands MachOCommands, name String) returns MachOCommand
+	for i in 0 upto commands.count() 'commands'
+		if commands[i].kind == lcSegment64 and machoNameAt(file, at: sum(commands[i].start, b: segNameField)) == name 'found'
+			return commands[i].clone()
+		end 'found'
+	end 'commands'
+	panic("macho: no segment {name}")
+end 'machoSegmentNamed'
+
+// machoNameAt is the name of a segment or a section in the field at an offset of the file, up to its first NUL.
+function machoNameAt(file ByteArray, at Count) returns String
+	var name = ByteArray.create(0)
+	for i in 0 upto machoNameFieldBytes 'bytes'
+		let c = file[sum(at, b: i)]
+		if c == 0 'end'
+			break 'bytes'
+		end 'end'
+		name.push(c)
+	end 'bytes'
+	return String.from(name)
+end 'machoNameAt'
+
+// signedMachO is the file of the image with its UUID and its signature, named identifier: the UUID is the first bytes of
+// the digest of the code, so that builds of one program agree and different programs differ, and the signature is
+// appended at the offset LC_CODE_SIGNATURE names, with __LINKEDIT grown to hold it up to a whole page.
+function signedMachO(image Image, identifier String) returns ByteArray
+	var file = image.file.clone()
+	let commands = machoCommandsOf(file)
+	let text = machoSegmentNamed(file, commands: commands, name: machoTextSegment)
+	let linkedit = machoSegmentNamed(file, commands: commands, name: machoLinkeditSegment)
+	let signature = machoCommandOfKind(commands, kind: lcCodeSignature)
+	let uuid = machoCommandOfKind(commands, kind: lcUuid)
+	let textSection = sum(text.start, b: segmentCommandBaseSize)
+	let codeOffset = readU32(file, at: sum(textSection, b: sectOffsetField))
+	let codeEnd = sum(codeOffset, b: readU64(file, at: sum(textSection, b: sectSizeField)))
+	let digest = sha256Range(file, start: codeOffset, stop: codeEnd)
+	for i in 0 upto machoUuidBytes 'uuid'
+		file[sum(uuid.start, b: sum(uuidField, b: i))] = digest[i]
+	end 'uuid'
+	let signatureOffset = readU32(file, at: sum(signature.start, b: lcDataOffsetField))
+	if signatureOffset != file.count() 'last'
+		panic("macho: the signature at {signatureOffset} is not the end of the {file.count()}-byte file")
+	end 'last'
+	let size = codeSignatureSize(identifier, codeLimit: signatureOffset)
+	let linkeditOffset = readU64(file, at: sum(linkedit.start, b: segFileoffField))
+	let linkeditSize = alignUp(try sum(signatureOffset, b: size) - linkeditOffset otherwise panic("macho: the signature before __LINKEDIT"), alignment: machoPageBytes)
+	patchU32(file, at: sum(signature.start, b: lcDataSizeField), value: size)
+	patch64(file, at: sum(linkedit.start, b: segVmsizeField), value: linkeditSize)
+	patch64(file, at: sum(linkedit.start, b: segFilesizeField), value: linkeditSize)
+	let execSegLimit = readU64(file, at: sum(text.start, b: segFilesizeField))
+	let sig = buildCodeSignature(file, identifier: identifier, codeLimit: signatureOffset, execSegLimit: execSegLimit)
+	file.append(sig)
+	pushZeros(file, n: try sum(linkeditOffset, b: linkeditSize) - file.count() otherwise panic("macho: a signature past __LINKEDIT"))
+	return file
+end 'signedMachO'
+
+// machoIdentifierOf is the name a file at path is signed under: its last component without its extension, as ld64 names
+// it.
+function machoIdentifierOf(path FilePath) returns String
+	let text = path.toString()
+	var first = 0 as Count
+	var stop = text.byteLength()
+	for i in 0 upto text.byteLength() 'separators'
+		let c = text.byteAt(i)
+		if c == machoPathSeparator or c == machoWindowsPathSeparator 'separator'
+			first = sum(i, b: 1)
+			stop = text.byteLength()
+		end 'separator' else if c == machoExtensionDot and i > first 'dot'
+			stop = i
+		end 'dot'
+	end 'separators'
+	var name = ByteArray.create(0)
+	for i in first upto stop 'name'
+		name.push(text.byteAt(i))
+	end 'name'
+	return String.from(name)
+end 'machoIdentifierOf'
+
+// shifted is a field of a word at its place in it, which the format makes sure fits.
+function shifted(v Count, by Count) returns Count
+	return try v shl by otherwise panic("macho: a field past its word")
+end 'shifted'
+
+function readU32(bytes ByteArray, at Count) returns Count
+	var v = 0 as Count
+	for i in 0 upto machoU32Bytes 'bytes'
+		v = v or shifted(bytes[sum(at, b: i)] as Count, by: product(i, b: bitsPerByte))
+	end 'bytes'
+	return v
+end 'readU32'
+
+function readU64(bytes ByteArray, at Count) returns Count
+	return readU32(bytes, at: at) or shifted(readU32(bytes, at: sum(at, b: machoU32Bytes)), by: machoU32Bits)
+end 'readU64'
+
+function patchU32(mutates bytes ByteArray, at Count, value Count)
+	for i in 0 upto machoU32Bytes 'bytes'
+		bytes[sum(at, b: i)] = byteOf((value shr product(i, b: bitsPerByte)) and byteMask)
+	end 'bytes'
+end 'patchU32'

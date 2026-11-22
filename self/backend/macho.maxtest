@@ -1,0 +1,380 @@
+// The digests are those Go's crypto/sha256 gives, the first three FIPS 180-4's examples, and the rest the bytes i mod 251,
+// around the lengths where the padding takes a second block.
+test 'sha 256'
+	expectEncoded(sha256(ByteArray.create(0)), expected: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", label: "sha256 of nothing")
+	expectEncoded(sha256("abc".toByteArray()), expected: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", label: "sha256 of abc")
+	expectEncoded(sha256("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq".toByteArray()), expected: "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1", label: "sha256 of 56 bytes")
+	expectEncoded(sha256(countingBytes(55)), expected: "463eb28e72f82e0a96c0a4cc53690c571281131f672aa229e0d45ae59b598b59", label: "sha256 of 55 bytes")
+	expectEncoded(sha256(countingBytes(64)), expected: "fdeab9acf3710362bd2658cdc9a29e8f9c757fcf9811603a8c447cd1d9151108", label: "sha256 of 64 bytes")
+	expectEncoded(sha256(countingBytes(1000)), expected: "4e4c294b331f7a2099a379bec34b9f9fc03dc46ab465d998f4d683da53487e6d", label: "sha256 of 1000 bytes")
+	var framed = ByteArray.create(3)
+	framed.append(countingBytes(1000))
+	framed.append(ByteArray.create(5))
+	expectEncoded(sha256Range(framed, start: 3, stop: 1003), expected: "4e4c294b331f7a2099a379bec34b9f9fc03dc46ab465d998f4d683da53487e6d", label: "sha256 of a range")
+end 'sha 256'
+
+function countingBytes(n Count) returns ByteArray
+	var out = ByteArray.create(0)
+	for i in 0 upto n 'bytes'
+		out.push(try (i mod 251) as Byte otherwise panic("not a byte"))
+	end 'bytes'
+	return out
+end 'countingBytes'
+
+// The arm64 instructions the test programs are made of, by their encodings in the Arm architecture reference manual.
+let arm64MovzW0Zero = 0x52800000 as Count
+
+let arm64MovzX = 0xD2800000 as Count
+
+let arm64Adrp = 0x90000000 as Count
+
+let arm64LdrX = 0xF9400000 as Count
+
+let arm64LdrbW0X8 = 0x39400100 as Count
+
+let arm64BlrX16 = 0xD63F0200 as Count
+
+let arm64Brk = 0xD4200000 as Count
+
+let arm64X0 = 0 as Count
+
+let arm64X1 = 1 as Count
+
+let arm64X2 = 2 as Count
+
+let arm64X8 = 8 as Count
+
+let arm64X16 = 16 as Count
+
+let arm64AdrpPage = 4096 as Count
+
+// machoRebasedExitCode is the exit code of the program that reads it through a rebased pointer.
+let machoRebasedExitCode = 42 as Count
+
+let machoMessage = "hello from a Mach-O written by self\n"
+
+function emitWord(mutates code ByteArray, v Count)
+	pushU32(code, v: v)
+end 'emitWord'
+
+// emitAdrp is adrp of the 4 KB page of target, an address of the image, from the instruction about to be written at pc.
+function emitAdrp(mutates code ByteArray, rd Count, textRva Count, target Count)
+	let pc = sum(textRva, b: code.count())
+	let pages = try (target - target mod arm64AdrpPage - (pc - pc mod arm64AdrpPage)) / arm64AdrpPage otherwise panic("a target before the code")
+	emitWord(code, v: arm64Adrp or shifted(pages and 3, by: 29) or shifted((pages shr 2) and 0x7FFFF, by: 5) or rd)
+end 'emitAdrp'
+
+// emitLdrPageOff is ldr of the word at the offset of target in its 4 KB page, from the base of that page in rn.
+function emitLdrPageOff(mutates code ByteArray, rt Count, rn Count, target Count)
+	emitWord(code, v: arm64LdrX or shifted((target mod arm64AdrpPage) / wordBytes, by: 10) or shifted(rn, by: 5) or rt)
+end 'emitLdrPageOff'
+
+function emitMovz(mutates code ByteArray, rd Count, imm Count)
+	emitWord(code, v: arm64MovzX or shifted(imm, by: 5) or rd)
+end 'emitMovz'
+
+// emitGotCall calls the function of the import slot through x16, as maxon's arm64 calls of libSystem do.
+function emitGotCall(mutates code ByteArray, image Image, index Count)
+	let slot = importSlotRva(image, index: index)
+	emitAdrp(code, rd: arm64X16, textRva: image.textRva, target: slot)
+	emitLdrPageOff(code, rt: arm64X16, rn: arm64X16, target: slot)
+	emitWord(code, v: arm64BlrX16)
+end 'emitGotCall'
+
+// machoExitProgram is _exit(0): mov w0, #0; adrp x16, _exit@GOTPAGE; ldr x16, [x16, _exit@GOTPAGEOFF]; blr x16.
+function machoExitProgram(image Image) returns ByteArray
+	var code = ByteArray.create(0)
+	emitWord(code, v: arm64MovzW0Zero)
+	emitGotCall(code, image: image, index: 0)
+	emitWord(code, v: arm64Brk)
+	return code
+end 'machoExitProgram'
+
+// machoRebasedProgram writes the message that the data's first word points to, then exits with the byte that its second
+// word points to: write(1, *data[0], len); _exit(**data[8]).
+function machoRebasedProgram(image Image) returns ByteArray
+	var code = ByteArray.create(0)
+	emitAdrp(code, rd: arm64X8, textRva: image.textRva, target: image.dataRva)
+	emitLdrPageOff(code, rt: arm64X1, rn: arm64X8, target: image.dataRva)
+	emitMovz(code, rd: arm64X0, imm: 1)
+	emitMovz(code, rd: arm64X2, imm: machoMessage.byteLength())
+	emitGotCall(code, image: image, index: 1)
+	let second = sum(image.dataRva, b: wordBytes)
+	emitAdrp(code, rd: arm64X8, textRva: image.textRva, target: second)
+	emitLdrPageOff(code, rt: arm64X8, rn: arm64X8, target: second)
+	emitWord(code, v: arm64LdrbW0X8)
+	emitGotCall(code, image: image, index: 0)
+	emitWord(code, v: arm64Brk)
+	return code
+end 'machoRebasedProgram'
+
+// The data of the rebased program: a pointer to the message and one to the exit code on the first page, and two more on
+// the second, so that each of the pages has a chain of two rebases.
+let machoExitCodeAt = 24 as Count
+
+let machoMessageAt = 32 as Count
+
+let machoSecondPageAt = 16384 as Count
+
+function machoRebasedData() returns ByteArray
+	var data = ByteArray.create(sum(machoSecondPageAt, b: 32))
+	data[machoExitCodeAt] = try machoRebasedExitCode as Byte otherwise panic("not a byte")
+	copyInto(data, at: machoMessageAt, src: machoMessage.toByteArray())
+	return data
+end 'machoRebasedData'
+
+function machoRebasedPointers() returns DataPointerList
+	var pointers = DataPointerList.create(0)
+	pointers.push(DataPointer.make(0, target: machoMessageAt))
+	pointers.push(DataPointer.make(wordBytes, target: machoExitCodeAt))
+	pointers.push(DataPointer.make(machoSecondPageAt, target: 0))
+	pointers.push(DataPointer.make(sum(machoSecondPageAt, b: 16), target: machoExitCodeAt))
+	return pointers
+end 'machoRebasedPointers'
+
+function libSystemImports(count Count) returns NameList
+	var names = NameList.create(0)
+	names.push("_exit")
+	if count > 1 'write'
+		names.push("_write")
+	end 'write'
+	return names
+end 'libSystemImports'
+
+// machoExitImage is the signed file of the program that exits with 0.
+function machoExitImage() returns ByteArray
+	let imports = libSystemImports(1)
+	// The segments' places depend on the sizes only by whole pages, and the programs are far smaller than one, so a layout
+	// made for one byte of code is the layout the programs are made for.
+	let probe = buildMachOImage(ImageLayout.make(1, dataSize: 0, entryOffset: 0, pointers: DataPointerList.create(0)), imports: imports)
+	let code = machoExitProgram(probe)
+	var image = buildMachOImage(ImageLayout.make(code.count(), dataSize: 0, entryOffset: 0, pointers: DataPointerList.create(0)), imports: imports)
+	placeCode(image, at: 0, bytes: code)
+	let file = signedMachO(image, identifier: "minimaxon_macho_exit")
+	checkMachO(file, image: image, code: code, imports: imports, pointers: DataPointerList.create(0), identifier: "minimaxon_macho_exit")
+	return file
+end 'machoExitImage'
+
+// machoRebasedImage is the signed file of the program that writes the message and exits with 42.
+function machoRebasedImage() returns ByteArray
+	let imports = libSystemImports(2)
+	var data = machoRebasedData()
+	let pointers = machoRebasedPointers()
+	let probe = buildMachOImage(ImageLayout.make(1, dataSize: data.count(), entryOffset: 0, pointers: pointers.clone()), imports: imports)
+	let code = machoRebasedProgram(probe)
+	var image = buildMachOImage(ImageLayout.make(code.count(), dataSize: data.count(), entryOffset: 0, pointers: pointers.clone()), imports: imports)
+	writePointers(ast.TargetSystem.macos, image: image, data: data, pointers: pointers)
+	placeCode(image, at: 0, bytes: code)
+	placeData(image, at: 0, bytes: data)
+	let file = signedMachO(image, identifier: "minimaxon_macho_rebased")
+	checkMachO(file, image: image, code: code, imports: imports, pointers: pointers, identifier: "minimaxon_macho_rebased")
+	return file
+end 'machoRebasedImage'
+
+test 'mach o exit'
+	let file = machoExitImage()
+	table.assertEqStr(machoIdentifierOf(try FilePath.from("C:\\out\\minimaxon_macho_exit") otherwise panic("not a path")), expected: "minimaxon_macho_exit", label: "identifier")
+	table.assertEqStr(machoIdentifierOf(try FilePath.from("bin/hello.v2.out") otherwise panic("not a path")), expected: "hello.v2", label: "identifier")
+	expectValue(file.count() mod machoPageBytes, expected: 0, label: "file size in pages")
+end 'mach o exit'
+
+test 'mach o rebased'
+	let file = machoRebasedImage()
+	expectValue(file.count() mod machoPageBytes, expected: 0, label: "file size in pages")
+end 'mach o rebased'
+
+function expectValue(got Count, expected Count, label String)
+	if got != expected 'mismatch'
+		panic("{label}: expected {expected}, got {got}")
+	end 'mismatch'
+end 'expectValue'
+
+function readU32BE(bytes ByteArray, at Count) returns Count
+	var v = 0 as Count
+	for i in 0 upto machoU32Bytes 'bytes'
+		v = sum(product(v, b: 256), b: bytes[sum(at, b: i)] as Count)
+	end 'bytes'
+	return v
+end 'readU32BE'
+
+function readU64BE(bytes ByteArray, at Count) returns Count
+	return sum(shifted(readU32BE(bytes, at: at), by: machoU32Bits), b: readU32BE(bytes, at: sum(at, b: machoU32Bytes)))
+end 'readU64BE'
+
+// checkMachO reads the signed file back as dyld and the kernel would: its load commands in order, its segments one after
+// the other in memory as in the file, its code where __text and LC_MAIN say, the chains of fixups that cover every rebase
+// and every bind once from the page starts, and the signature's hashes of the file.
+function checkMachO(file ByteArray, image Image, code ByteArray, imports NameList, pointers DataPointerList, identifier String)
+	expectValue(readU32(file, at: 0), expected: mhMagic64, label: "magic")
+	expectValue(readU32(file, at: 4), expected: cpuTypeArm64, label: "cpu type")
+	expectValue(readU32(file, at: 12), expected: mhExecute, label: "file type")
+	expectValue(readU32(file, at: 24), expected: mhDyldLink or mhTwoLevel or mhPie, label: "flags")
+	let commands = machoCommandsOf(file)
+	var kinds = CountList.create(0)
+	kinds.push(lcSegment64)
+	kinds.push(lcSegment64)
+	kinds.push(lcSegment64)
+	kinds.push(lcSegment64)
+	kinds.push(lcSymtab)
+	kinds.push(lcDysymtab)
+	kinds.push(lcLoadDylinker)
+	kinds.push(lcMain)
+	kinds.push(lcUuid)
+	kinds.push(lcLoadDylib)
+	kinds.push(lcBuildVersion)
+	kinds.push(lcDyldChainedFixups)
+	kinds.push(lcDyldExportsTrie)
+	kinds.push(lcCodeSignature)
+	expectValue(commands.count(), expected: kinds.count(), label: "load commands")
+	var commandsEnd = machHeaderSize
+	for i in 0 upto kinds.count() 'kinds'
+		expectValue(commands[i].kind, expected: kinds[i], label: "load command {i}")
+		commandsEnd = sum(commandsEnd, b: commands[i].size)
+	end 'kinds'
+	expectValue(sum(machHeaderSize, b: readU32(file, at: 20)), expected: commandsEnd, label: "size of the load commands")
+	let text = machoSegmentNamed(file, commands: commands, name: machoTextSegment)
+	let data = machoSegmentNamed(file, commands: commands, name: machoDataSegment)
+	let linkedit = machoSegmentNamed(file, commands: commands, name: machoLinkeditSegment)
+	let base = readU64(file, at: sum(text.start, b: 24))
+	expectValue(readU64(file, at: sum(text.start, b: segFileoffField)), expected: 0, label: "__TEXT's offset")
+	var segments = MachOCommands.create(0)
+	segments.push(text.clone())
+	segments.push(data.clone())
+	segments.push(linkedit.clone())
+	for i in 0 upto segments.count() 'segments'
+		let s = segments[i].clone()
+		let fileoff = readU64(file, at: sum(s.start, b: segFileoffField))
+		expectValue(readU64(file, at: sum(s.start, b: 24)), expected: sum(base, b: fileoff), label: "segment {i}'s address")
+		expectValue(fileoff mod machoPageBytes, expected: 0, label: "segment {i}'s offset in pages")
+		if i > 0 'follows'
+			let before = segments[try i - 1 otherwise panic("no segment before")].clone()
+			expectValue(fileoff, expected: sum(readU64(file, at: sum(before.start, b: segFileoffField)), b: readU64(file, at: sum(before.start, b: segFilesizeField))), label: "segment {i} follows the one before")
+		end 'follows'
+	end 'segments'
+	let linkeditEnd = sum(readU64(file, at: sum(linkedit.start, b: segFileoffField)), b: readU64(file, at: sum(linkedit.start, b: segFilesizeField)))
+	expectValue(linkeditEnd, expected: file.count(), label: "__LINKEDIT ends the file")
+	let textSection = sum(text.start, b: segmentCommandBaseSize)
+	table.assertEqStr(machoNameAt(file, at: textSection), expected: "__text", label: "__text")
+	let codeOffset = readU32(file, at: sum(textSection, b: sectOffsetField))
+	expectValue(codeOffset, expected: image.codeOffset, label: "__text's offset")
+	expectValue(readU64(file, at: sum(textSection, b: sectSizeField)), expected: code.count(), label: "__text's size")
+	for i in 0 upto code.count() 'code'
+		expectValue(file[sum(codeOffset, b: i)] as Count, expected: code[i] as Count, label: "code byte {i}")
+	end 'code'
+	let entry = machoCommandOfKind(commands, kind: lcMain)
+	expectValue(readU64(file, at: sum(entry.start, b: lcDataOffsetField)), expected: codeOffset, label: "entry")
+	let uuid = machoCommandOfKind(commands, kind: lcUuid)
+	let digest = sha256(code)
+	for i in 0 upto machoUuidBytes 'uuid'
+		expectValue(file[sum(uuid.start, b: sum(uuidField, b: i))] as Count, expected: digest[i] as Count, label: "uuid byte {i}")
+	end 'uuid'
+	let dataOffset = readU64(file, at: sum(data.start, b: segFileoffField))
+	expectValue(dataOffset, expected: image.dataRva, label: "__DATA's offset")
+	checkChainedFixups(file, commands: commands, dataOffset: dataOffset, dataSize: readU64(file, at: sum(data.start, b: segFilesizeField)), image: image, imports: imports, pointers: pointers)
+	checkSignature(file, commands: commands, identifier: identifier, execSegLimit: readU64(file, at: sum(text.start, b: segFilesizeField)))
+end 'checkMachO'
+
+function checkChainedFixups(file ByteArray, commands MachOCommands, dataOffset Count, dataSize Count, image Image, imports NameList, pointers DataPointerList)
+	let fixupsCommand = machoCommandOfKind(commands, kind: lcDyldChainedFixups)
+	let cf = readU32(file, at: sum(fixupsCommand.start, b: lcDataOffsetField))
+	let startsAt = sum(cf, b: readU32(file, at: sum(cf, b: 4)))
+	let importsAt = sum(cf, b: readU32(file, at: sum(cf, b: 8)))
+	let symbolsAt = sum(cf, b: readU32(file, at: sum(cf, b: 12)))
+	expectValue(readU32(file, at: sum(cf, b: 16)), expected: imports.count(), label: "imports")
+	expectValue(readU32(file, at: sum(cf, b: 20)), expected: dyldChainedImportFormat, label: "import format")
+	for i in 0 upto imports.count() 'imports'
+		let entry = readU32(file, at: sum(importsAt, b: product(i, b: dyldChainedImportBytes)))
+		expectValue(entry and 0xFF, expected: machoLibSystemOrdinal, label: "import {i}'s dylib")
+		var name = ByteArray.create(0)
+		var at = sum(symbolsAt, b: entry shr dyldChainedImportNameShift)
+		while file[at] != 0 'name'
+			name.push(file[at])
+			at = sum(at, b: 1)
+		end 'name'
+		table.assertEqStr(String.from(name), expected: imports[i], label: "import {i}'s name")
+	end 'imports'
+	expectValue(readU32(file, at: startsAt), expected: machoSegmentCount, label: "segments with starts")
+	for segment in 0 upto machoSegmentCount 'segments'
+		if segment != machoDataSegmentIndex 'none'
+			expectValue(readU32(file, at: sum(startsAt, b: product(sum(segment, b: 1), b: 4))), expected: 0, label: "segment {segment}'s starts")
+		end 'none'
+	end 'segments'
+	let seg = sum(startsAt, b: readU32(file, at: sum(startsAt, b: product(sum(machoDataSegmentIndex, b: 1), b: 4))))
+	expectValue(readU32(file, at: sum(seg, b: 4)) and 0xFFFF, expected: machoPageBytes, label: "page size")
+	expectValue(file[sum(seg, b: 6)] as Count, expected: dyldChainedPtr64Offset, label: "pointer format")
+	expectValue(readU64(file, at: sum(seg, b: 8)), expected: dataOffset, label: "segment offset")
+	let pages = (readU32(file, at: sum(seg, b: 20)) and 0xFFFF)
+	expectValue(pages, expected: dataSize / machoPageBytes, label: "pages")
+	var binds = CountList.create(0)
+	var rebases = DataPointerList.create(0)
+	for page in 0 upto pages 'pages'
+		let start = readU32(file, at: sum(seg, b: sum(22, b: product(page, b: 2)))) and 0xFFFF
+		if start == dyldChainedPtrStartNone 'none'
+			continue 'pages'
+		end 'none'
+		var at = sum(sum(dataOffset, b: product(page, b: machoPageBytes)), b: start)
+		var next = 1 as Count
+		while next != 0 'chain'
+			let word = readU64(file, at: at)
+			next = (word shr dyldChainedNextShift) and 0xFFF
+			if word >= dyldChainedBind 'bind'
+				let ordinal = word and 0xFFFFFF
+				let inSegment = try at - dataOffset otherwise panic("a bind before __DATA")
+				expectValue(sum(image.dataRva, b: inSegment), expected: sum(image.iatRva, b: product(ordinal, b: importSlotBytes)), label: "the slot of bind {ordinal}")
+				binds.push(ordinal)
+			end 'bind' else 'rebase'
+				let target = word and (try dyldChainedRebaseTargetLimit - 1 otherwise panic("no rebase target"))
+				rebases.push(DataPointer.make(try at - dataOffset otherwise panic("a rebase before __DATA"), target: try target - image.dataRva otherwise panic("a rebase before the data")))
+			end 'rebase'
+			at = sum(at, b: product(next, b: dyldChainedNextStride))
+		end 'chain'
+	end 'pages'
+	expectValue(binds.count(), expected: imports.count(), label: "binds")
+	for i in 0 upto binds.count() 'binds'
+		expectValue(binds[i], expected: i, label: "bind {i}")
+	end 'binds'
+	expectValue(rebases.count(), expected: pointers.count(), label: "rebases")
+	for i in 0 upto rebases.count() 'rebases'
+		expectValue(rebases[i].pos, expected: pointers[i].pos, label: "rebase {i}'s place")
+		expectValue(rebases[i].target, expected: pointers[i].target, label: "rebase {i}'s target")
+	end 'rebases'
+end 'checkChainedFixups'
+
+function checkSignature(file ByteArray, commands MachOCommands, identifier String, execSegLimit Count)
+	let command = machoCommandOfKind(commands, kind: lcCodeSignature)
+	let at = readU32(file, at: sum(command.start, b: lcDataOffsetField))
+	let size = readU32(file, at: sum(command.start, b: lcDataSizeField))
+	expectValue(size, expected: codeSignatureSize(identifier, codeLimit: at), label: "signature size")
+	expectValue(readU32BE(file, at: at), expected: csMagicEmbeddedSignature, label: "superblob magic")
+	expectValue(readU32BE(file, at: sum(at, b: 4)), expected: size, label: "superblob length")
+	expectValue(readU32BE(file, at: sum(at, b: 8)), expected: 1, label: "blobs")
+	expectValue(readU32BE(file, at: sum(at, b: 12)), expected: csSlotCodeDirectory, label: "code directory slot")
+	let cd = sum(at, b: readU32BE(file, at: sum(at, b: 16)))
+	expectValue(readU32BE(file, at: cd), expected: csMagicCodeDirectory, label: "code directory magic")
+	expectValue(readU32BE(file, at: sum(cd, b: 8)), expected: csCodeDirectoryVersion, label: "code directory version")
+	expectValue(readU32BE(file, at: sum(cd, b: 12)), expected: csAdhoc or csLinkerSigned, label: "code directory flags")
+	let hashes = sum(cd, b: readU32BE(file, at: sum(cd, b: 16)))
+	let identAt = sum(cd, b: readU32BE(file, at: sum(cd, b: 20)))
+	var ident = ByteArray.create(0)
+	var i = identAt
+	while file[i] != 0 'ident'
+		ident.push(file[i])
+		i = sum(i, b: 1)
+	end 'ident'
+	table.assertEqStr(String.from(ident), expected: identifier, label: "identifier")
+	let slots = readU32BE(file, at: sum(cd, b: 28))
+	expectValue(readU32BE(file, at: sum(cd, b: 32)), expected: at, label: "code limit")
+	expectValue(file[sum(cd, b: 36)] as Count, expected: csSha256Len, label: "hash size")
+	expectValue(file[sum(cd, b: 37)] as Count, expected: csHashTypeSha256, label: "hash type")
+	expectValue(file[sum(cd, b: 39)] as Count, expected: csPageSizeLog2, label: "page size")
+	expectValue(readU64BE(file, at: sum(cd, b: 72)), expected: execSegLimit, label: "exec segment limit")
+	expectValue(slots, expected: alignUp(at, alignment: csPageBytes) / csPageBytes, label: "code slots")
+	for slot in 0 upto slots 'pages'
+		let pageStart = product(slot, b: csPageBytes)
+		let pageEnd = sum(pageStart, b: csPageBytes)
+		let digest = sha256Range(file, start: pageStart, stop: pageEnd if pageEnd < at else at)
+		for b in 0 upto csSha256Len 'bytes'
+			expectValue(file[sum(hashes, b: sum(product(slot, b: csSha256Len), b: b))] as Count, expected: digest[b] as Count, label: "page {slot}'s hash")
+		end 'bytes'
+	end 'pages'
+end 'checkSignature'

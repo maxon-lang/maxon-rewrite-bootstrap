@@ -1,12 +1,13 @@
-// The executable's file in memory, whatever its format: the writer of the target's format (pe.maxon, elf.maxon) lays it
+// The executable's file in memory, whatever its format: the writer of the target's format (pe.maxon, elf.maxon, macho.maxon) lays it
 // out with its headers and leaves the code and the data zeroed at the places they have in the file, and the link writes
 // them there and patches the addresses they refer to by where the image puts each part.
 
-// Image is an executable's file and where its parts are: the address the image is loaded at, and the code, the data and
-// the import slots by their offset from it (their RVA), how many import slots there are, and the code and the data by
-// their offset in the file.
+// Image is an executable's file, its format, and where its parts are: the address the image is loaded at, and the code,
+// the data and the import slots by their offset from it (their RVA), how many import slots there are, and the code and
+// the data by their offset in the file.
 export type Image
 	export var file as ByteArray
+	export var format as ast.ImageFormat
 	export var base as Count
 	export var textRva as Count
 	export var dataRva as Count
@@ -15,8 +16,8 @@ export type Image
 	export var codeOffset as Count
 	export var dataOffset as Count
 
-	static function make(consumes file ByteArray, base Count, textRva Count, dataRva Count, iatRva Count, importSlots Count, codeOffset Count, dataOffset Count) returns Image
-		return Image{file: file, base: base, textRva: textRva, dataRva: dataRva, iatRva: iatRva, importSlots: importSlots, codeOffset: codeOffset, dataOffset: dataOffset}
+	static function make(consumes file ByteArray, format ast.ImageFormat, base Count, textRva Count, dataRva Count, iatRva Count, importSlots Count, codeOffset Count, dataOffset Count) returns Image
+		return Image{file: file, format: format, base: base, textRva: textRva, dataRva: dataRva, iatRva: iatRva, importSlots: importSlots, codeOffset: codeOffset, dataOffset: dataOffset}
 	end 'make'
 end 'Image'
 
@@ -35,31 +36,37 @@ export type ImageLayout
 
 	// relocated are the offsets of the words of the data that hold addresses.
 	function relocated() returns CountList
-		var out = CountList.create(0)
-		for i in 0 upto pointers.count() 'pointers'
-			out.push(pointers[i].pos)
-		end 'pointers'
-		return out
+		return positionsOf(pointers)
 	end 'relocated'
 end 'ImageLayout'
 
+function positionsOf(pointers DataPointerList) returns CountList
+	var out = CountList.create(0)
+	for i in 0 upto pointers.count() 'pointers'
+		out.push(pointers[i].pos)
+	end 'pointers'
+	return out
+end 'positionsOf'
+
 // buildImage lays out the executable of the system's format, as the target table names it: a PE with the table of the
-// runtime's imports for Windows, and a static ELF, which imports nothing, for Linux.
+// runtime's imports for Windows, and a static ELF, which imports nothing, for Linux. The Mach-O writer binds the
+// libSystem functions it is given, and the runtime has no table of macOS's yet.
 export function buildImage(system ast.TargetSystem, layout ImageLayout) returns Image
 	return match ast.imageFormatOf(system) 'format'
 		pe gives buildPeImage(layout.codeSize, dataSize: layout.dataSize, dll: rtDll, imports: rtImports(), entryOffset: layout.entryOffset, relocated: layout.relocated())
 		elf gives buildElfImage(layout)
-		machO gives panic("backend: no writer of Mach-O executables yet")
+		machO gives panic("backend: no table of the runtime's macOS imports for the Mach-O writer yet")
 	end 'format'
 end 'buildImage'
 
 // writePointers fills in the words of the data that hold addresses of the data, as the system's format has them: the
-// address in the image at its base for PE, whose base relocations move it, and for a static ELF, which is never moved.
+// address in the image at its base for PE, whose base relocations move it, and for a static ELF, which is never moved,
+// and for Mach-O a chained rebase, which dyld turns into the address.
 export function writePointers(system ast.TargetSystem, image Image, mutates data ByteArray, pointers DataPointerList)
 	match ast.imageFormatOf(system) 'format'
 		pe or
 		elf then writeAbsolutePointers(image, data: data, pointers: pointers)
-		machO then panic("backend: no writer of Mach-O executables yet")
+		machO then writeChainedRebases(image, data: data, pointers: pointers)
 	end 'format'
 end 'writePointers'
 
@@ -78,7 +85,11 @@ export function placeData(mutates image Image, at Count, bytes ByteArray)
 	copyInto(image.file, at: sum(image.dataOffset, b: at), src: bytes)
 end 'placeData'
 
-// writeImage replaces the file at path with the image.
+// writeImage replaces the file at path with the image, which for Mach-O is signed under the file's name first.
 export function writeImage(image Image, path FilePath) throws FileWriteError
-	try File.writeBinary(path, content: image.file, mode: FilePermission.executable)
+	match image.format 'format'
+		pe or
+		elf then try File.writeBinary(path, content: image.file, mode: FilePermission.executable)
+		machO then try File.writeBinary(path, content: signedMachO(image, identifier: machoIdentifierOf(path)), mode: FilePermission.executable)
+	end 'format'
 end 'writeImage'

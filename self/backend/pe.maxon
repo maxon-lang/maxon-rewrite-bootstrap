@@ -352,7 +352,7 @@ export function buildPeImage(codeSize Count, dataSize Count, dll String, imports
 	if relocSize > 0 'relocBytes'
 		copyInto(file, at: fileOffsets[3], src: relocations)
 	end 'relocBytes'
-	return Image.make(file, base: peImageBase, textRva: peTextRva, dataRva: dataRva, iatRva: sum(idataRva, b: table.iatOffset), importSlots: imports.count(), codeOffset: fileOffsets[0], dataOffset: fileOffsets[1])
+	return Image.make(file, format: ast.ImageFormat.pe, base: peImageBase, textRva: peTextRva, dataRva: dataRva, iatRva: sum(idataRva, b: table.iatOffset), importSlots: imports.count(), codeOffset: fileOffsets[0], dataOffset: fileOffsets[1])
 end 'buildPeImage'
 
 // importSlotRva is the address of the slot the loader fills with the index-th imported function, which code calls

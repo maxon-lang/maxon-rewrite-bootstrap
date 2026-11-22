@@ -1,0 +1,178 @@
+// SHA-256 (FIPS 180-4), after maxon's stdlib/Sha2.maxon: its software core, names and masking, over a range of a byte array
+// so that a caller hashing the pages of a file copies none of them. The library's file does not serve here as converted:
+// it reaches the processor's SHA instructions through the library's raw surface and reads words through the library's
+// crypto helpers, none of which the compiler's own source may name.
+
+typealias Sha2Word = bits(64)
+
+typealias Sha2Words = Array with Sha2Word
+
+let sha2BlockWords = 16 as Count
+
+let sha256RoundCount = 64 as Count
+
+let sha256WordBytes = 4 as Count
+
+let sha256StateWords = 8 as Count
+
+let sha256WordBits = 32
+
+// SHA-256 masks to 32 bits after every operation that can carry; a missing mask is a wrong digest, not an error.
+let sha256WordMask = 0xFFFFFFFF as Sha2Word
+
+let sha256BlockBytes = 64 as Count
+
+let sha256DigestBytes = 32 as Count
+
+let sha256LengthFieldBytes = 8 as Count
+
+let sha256BitsPerByte = 8 as Count
+
+let sha256ByteMask = 0xFF as Sha2Word
+
+let paddingMarkerByte = 0x80 as Byte
+
+function sha256KTable() returns Sha2Words
+	return Sha2Words from [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2]
+end 'sha256KTable'
+
+function sha256InitialState() returns Sha2Words
+	return Sha2Words from [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]
+end 'sha256InitialState'
+
+// sha256Doubled holds the 32-bit word twice, so that a shift right of it is a rotation of the word.
+function sha256Doubled(v Sha2Word) returns Sha2Word
+	return v or (v shl sha256WordBits)
+end 'sha256Doubled'
+
+function sha256BigSigma0(v Sha2Word) returns Sha2Word
+	let doubled = sha256Doubled(v)
+	return ((doubled shr 2) xor (doubled shr 13) xor (doubled shr 22)) and sha256WordMask
+end 'sha256BigSigma0'
+
+function sha256BigSigma1(v Sha2Word) returns Sha2Word
+	let doubled = sha256Doubled(v)
+	return ((doubled shr 6) xor (doubled shr 11) xor (doubled shr 25)) and sha256WordMask
+end 'sha256BigSigma1'
+
+function sha256SmSigma0(v Sha2Word) returns Sha2Word
+	let doubled = sha256Doubled(v)
+	return (((doubled shr 7) xor (doubled shr 18)) and sha256WordMask) xor (v shr 3)
+end 'sha256SmSigma0'
+
+function sha256SmSigma1(v Sha2Word) returns Sha2Word
+	let doubled = sha256Doubled(v)
+	return (((doubled shr 17) xor (doubled shr 19)) and sha256WordMask) xor (v shr 10)
+end 'sha256SmSigma1'
+
+function sha2Ch(a Sha2Word, b Sha2Word, c Sha2Word, mask Sha2Word) returns Sha2Word
+	return (a and b) xor ((a xor mask) and c)
+end 'sha2Ch'
+
+function sha2Maj(a Sha2Word, b Sha2Word, c Sha2Word) returns Sha2Word
+	return (a and b) xor (a and c) xor (b and c)
+end 'sha2Maj'
+
+// sha256ReadWord is the big-endian 32-bit word at an offset of the bytes.
+function sha256ReadWord(bytes ByteArray, at Count) returns Sha2Word
+	var w = 0 as Sha2Word
+	for i in 0 upto sha256WordBytes 'bytes'
+		w = (w shl sha256BitsPerByte) or (bytes[try at + i otherwise panic("sha256: a word past the bytes")] as Sha2Word)
+	end 'bytes'
+	return w
+end 'sha256ReadWord'
+
+// sha256Compress folds the 64-byte block at blockOff of the bytes into the state, with the schedule as its scratch.
+function sha256Compress(mutates state Sha2Words, mutates schedule Sha2Words, k Sha2Words, padded ByteArray, blockOff Count)
+	for wi in 0 upto sha2BlockWords 'readWords'
+		schedule[wi] = sha256ReadWord(padded, at: try blockOff + wi * sha256WordBytes otherwise panic("sha256: a block past the bytes"))
+	end 'readWords'
+	for wi in sha2BlockWords upto sha256RoundCount 'extend'
+		let wm2 = schedule[try wi - 2 otherwise panic("sha256: extend w[wi-2] unreachable")]
+		let wm7 = schedule[try wi - 7 otherwise panic("sha256: extend w[wi-7] unreachable")]
+		let wm15 = schedule[try wi - 15 otherwise panic("sha256: extend w[wi-15] unreachable")]
+		let wm16 = schedule[try wi - 16 otherwise panic("sha256: extend w[wi-16] unreachable")]
+		schedule[wi] = (wm16 + sha256SmSigma0(wm15) + wm7 + sha256SmSigma1(wm2)) and sha256WordMask
+	end 'extend'
+	var a = state[0]
+	var b = state[1]
+	var c = state[2]
+	var d = state[3]
+	var ve = state[4]
+	var f = state[5]
+	var g = state[6]
+	var hv = state[7]
+	for round in 0 upto sha256RoundCount 'rounds'
+		let wri = schedule[round] + k[round]
+		let t1 = (hv + sha256BigSigma1(ve) + sha2Ch(ve, b: f, c: g, mask: sha256WordMask) + wri) and sha256WordMask
+		let t2 = (sha256BigSigma0(a) + sha2Maj(a, b: b, c: c)) and sha256WordMask
+		hv = g
+		g = f
+		f = ve
+		ve = (d + t1) and sha256WordMask
+		d = c
+		c = b
+		b = a
+		a = (t1 + t2) and sha256WordMask
+	end 'rounds'
+	state[0] = (state[0] + a) and sha256WordMask
+	state[1] = (state[1] + b) and sha256WordMask
+	state[2] = (state[2] + c) and sha256WordMask
+	state[3] = (state[3] + d) and sha256WordMask
+	state[4] = (state[4] + ve) and sha256WordMask
+	state[5] = (state[5] + f) and sha256WordMask
+	state[6] = (state[6] + g) and sha256WordMask
+	state[7] = (state[7] + hv) and sha256WordMask
+end 'sha256Compress'
+
+// sha256 is the 32-byte SHA-256 digest of the bytes.
+export function sha256(data ByteArray) returns ByteArray
+	return sha256Range(data, start: 0, stop: data.count())
+end 'sha256'
+
+// sha256Range is the digest of the bytes of data from start up to stop: the whole blocks are compressed where they are,
+// and only the last, short one is copied out to be padded with the marker, zeros and the length in bits.
+function sha256Range(data ByteArray, start Count, stop Count) returns ByteArray
+	let length = try stop - start otherwise panic("sha256: a range that ends before it begins")
+	let k = sha256KTable()
+	var state = sha256InitialState()
+	var schedule = Sha2Words.create(sha256RoundCount)
+	let whole = try length - length mod sha256BlockBytes otherwise panic("sha256: a block count past the range")
+	var offset = start
+	let wholeEnd = sum(start, b: whole)
+	while offset < wholeEnd 'blocks'
+		sha256Compress(state, schedule: schedule, k: k, padded: data, blockOff: offset)
+		offset = sum(offset, b: sha256BlockBytes)
+	end 'blocks'
+	var pending = ByteArray.create(0)
+	while offset < stop 'tail'
+		pending.push(data[offset])
+		offset = sum(offset, b: 1)
+	end 'tail'
+	pending.push(paddingMarkerByte)
+	let lengthAt = try sha256BlockBytes - sha256LengthFieldBytes otherwise panic("sha256: a length field past the block")
+	while pending.count() mod sha256BlockBytes != lengthAt 'pad'
+		pending.push(0)
+	end 'pad'
+	let bits = product(length, b: sha256BitsPerByte) as Sha2Word
+	for i in 0 upto sha256LengthFieldBytes 'lengthBytes'
+		let shift = product(try sha256LengthFieldBytes - 1 - i otherwise panic("sha256: a length byte past the field"), b: sha256BitsPerByte)
+		pending.push(try ((bits shr shift) and sha256ByteMask) as Byte otherwise panic("sha256: a byte that is not one"))
+	end 'lengthBytes'
+	var padOffset = 0 as Count
+	while padOffset < pending.count() 'padded'
+		sha256Compress(state, schedule: schedule, k: k, padded: pending, blockOff: padOffset)
+		padOffset = sum(padOffset, b: sha256BlockBytes)
+	end 'padded'
+	var digest = ByteArray.create(0)
+	for slot in 0 upto sha256StateWords 'eachWord'
+		for i in 0 upto sha256WordBytes 'wordBytes'
+			let shift = product(try sha256WordBytes - 1 - i otherwise panic("sha256: a digest byte past the word"), b: sha256BitsPerByte)
+			digest.push(try ((state[slot] shr shift) and sha256ByteMask) as Byte otherwise panic("sha256: a byte that is not one"))
+		end 'wordBytes'
+	end 'eachWord'
+	if digest.count() != sha256DigestBytes 'size'
+		panic("sha256: a digest of {digest.count()} bytes")
+	end 'size'
+	return digest
+end 'sha256Range'

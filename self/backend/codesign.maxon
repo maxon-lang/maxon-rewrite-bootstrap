@@ -1,0 +1,132 @@
+// The ad-hoc code signature of a Mach-O executable, after maxon's (Targets/Macos/MachOWriter.maxon): an embedded-signature
+// SuperBlob that holds one CodeDirectory, which hashes the file with SHA-256 in 4 KB pages up to the signature itself.
+// macOS kills an arm64 executable that has no signature, and an ad-hoc one names no signer, so it needs no key. The
+// signature carries no entitlement, which makes it linker-signed, as ld64's is. Every field of it is big-endian.
+//
+// The signature covers the file that holds it, so its place and size are known before a byte of it is written: it is the
+// last thing in the file, and what it hashes is exactly the bytes before it.
+
+let csMagicEmbeddedSignature = 0xFADE0CC0 as Count
+
+let csMagicCodeDirectory = 0xFADE0C02 as Count
+
+let csSlotCodeDirectory = 0 as Count
+
+// csSuperBlobFixedSize is the SuperBlob's magic, length and count of blobs; an index entry of a slot and an offset follows
+// for each blob.
+let csSuperBlobFixedSize = 12 as Count
+
+let csBlobIndexSize = 8 as Count
+
+let csCodeDirectoryBlobCount = 1 as Count
+
+let csAdhoc = 0x2 as Count
+
+let csLinkerSigned = 0x20000 as Count
+
+let csHashTypeSha256 = 2 as Count
+
+let csSha256Len = 32 as Count
+
+// The signature hashes the file in 2^12 = 4096-byte pages, not the 16 KB segment page: this is the page size the loader
+// assumes for an ad-hoc CodeDirectory.
+let csPageSizeLog2 = 12 as Count
+
+let csPageBytes = 4096 as Count
+
+// csExecSegMainBinary marks the signed executable segment as the process's main binary. AMFI refuses an executable
+// segment of no bytes, so its limit is the real file size of __TEXT.
+let csExecSegMainBinary = 0x1 as Count
+
+// csCodeDirectoryVersion 0x20400 is the first version that carries the executable segment's fields.
+let csCodeDirectoryVersion = 0x20400 as Count
+
+let codeDirectoryHeaderSize = 88 as Count
+
+// codeDirectoryUnusedBytes are spare2, scatterOffset, teamOffset and spare3, 32 bits each, which an ad-hoc CodeDirectory
+// with no scatter and no team leaves 0. codeLimit64 follows them, 0 too for a limit that fits in 32 bits.
+let codeDirectoryUnusedBytes = 16 as Count
+
+// csNoPlatform is the CodeDirectory's platform byte of a program that is not part of the system.
+let csNoPlatform = 0 as Count
+
+// codeSignatureSize is the size of the signature of a file whose first codeLimit bytes it hashes, under the identifier:
+// the SuperBlob's header and its one index entry, then the CodeDirectory's header, the identifier and its NUL, and a hash
+// of each page.
+export function codeSignatureSize(identifier String, codeLimit Count) returns Count
+	return sum(superBlobHeaderSize(), b: codeDirectorySize(identifier, codeLimit: codeLimit))
+end 'codeSignatureSize'
+
+function superBlobHeaderSize() returns Count
+	return sum(csSuperBlobFixedSize, b: product(csCodeDirectoryBlobCount, b: csBlobIndexSize))
+end 'superBlobHeaderSize'
+
+function codeSlotsOf(codeLimit Count) returns Count
+	return alignUp(codeLimit, alignment: csPageBytes) / csPageBytes
+end 'codeSlotsOf'
+
+function hashesOffsetOf(identifier String) returns Count
+	return sum(codeDirectoryHeaderSize, b: sum(identifier.byteLength(), b: 1))
+end 'hashesOffsetOf'
+
+function codeDirectorySize(identifier String, codeLimit Count) returns Count
+	return sum(hashesOffsetOf(identifier), b: product(codeSlotsOf(codeLimit), b: csSha256Len))
+end 'codeDirectorySize'
+
+// buildCodeSignature is the signature of the first codeLimit bytes of the file, whose __TEXT segment, at the start of the
+// file, is execSegLimit bytes long. The last page is hashed at its real, short length.
+export function buildCodeSignature(file ByteArray, identifier String, codeLimit Count, execSegLimit Count) returns ByteArray
+	let size = codeSignatureSize(identifier, codeLimit: codeLimit)
+	let headerSize = superBlobHeaderSize()
+	let codeSlots = codeSlotsOf(codeLimit)
+	var sig = ByteArray.create(0)
+	pushU32BE(sig, v: csMagicEmbeddedSignature)
+	pushU32BE(sig, v: size)
+	pushU32BE(sig, v: csCodeDirectoryBlobCount)
+	pushU32BE(sig, v: csSlotCodeDirectory)
+	pushU32BE(sig, v: headerSize)
+	pushU32BE(sig, v: csMagicCodeDirectory)
+	pushU32BE(sig, v: codeDirectorySize(identifier, codeLimit: codeLimit))
+	pushU32BE(sig, v: csCodeDirectoryVersion)
+	pushU32BE(sig, v: csAdhoc or csLinkerSigned)
+	pushU32BE(sig, v: hashesOffsetOf(identifier))
+	pushU32BE(sig, v: codeDirectoryHeaderSize)
+	// No special slot: the signature carries no entitlement, Info.plist or requirement for one to vouch for.
+	pushU32BE(sig, v: 0)
+	pushU32BE(sig, v: codeSlots)
+	pushU32BE(sig, v: codeLimit)
+	pushU8(sig, v: csSha256Len)
+	pushU8(sig, v: csHashTypeSha256)
+	pushU8(sig, v: csNoPlatform)
+	pushU8(sig, v: csPageSizeLog2)
+	pushZeros(sig, n: codeDirectoryUnusedBytes)
+	pushU64BE(sig, v: 0)
+	// The executable segment is __TEXT, from the start of the file.
+	pushU64BE(sig, v: 0)
+	pushU64BE(sig, v: execSegLimit)
+	pushU64BE(sig, v: csExecSegMainBinary)
+	sig.append(identifier.toByteArray())
+	sig.push(0)
+	for slot in 0 upto codeSlots 'hashPages'
+		let pageStart = product(slot, b: csPageBytes)
+		let pageEnd = sum(pageStart, b: csPageBytes)
+		let stop = pageEnd if pageEnd < codeLimit else codeLimit
+		sig.append(sha256Range(file, start: pageStart, stop: stop))
+	end 'hashPages'
+	if sig.count() != size 'sizeDrifted'
+		panic("codesign: the signature came out {sig.count()} bytes against the {size} its layout reserved")
+	end 'sizeDrifted'
+	return sig
+end 'buildCodeSignature'
+
+function pushU32BE(mutates w ByteArray, v Count)
+	pushU8(w, v: v shr 24)
+	pushU8(w, v: v shr 16)
+	pushU8(w, v: v shr bitsPerByte)
+	pushU8(w, v: v)
+end 'pushU32BE'
+
+function pushU64BE(mutates w ByteArray, v Count)
+	pushU32BE(w, v: v shr 32)
+	pushU32BE(w, v: v)
+end 'pushU64BE'

@@ -82,7 +82,7 @@ export function buildElfImage(layout ImageLayout) returns Image
 	pushProgramHeader(w, flags: elfSegmentRead or elfSegmentWrite, fileOffset: dataOffset, size: dataLength)
 	var file = ByteArray.create(sum(dataOffset, b: dataLength))
 	copyInto(file, at: 0, src: w)
-	return Image.make(file, base: elfLoadAddress, textRva: codeOffset, dataRva: dataOffset, iatRva: 0, importSlots: 0, codeOffset: codeOffset, dataOffset: dataOffset)
+	return Image.make(file, format: ast.ImageFormat.elf, base: elfLoadAddress, textRva: codeOffset, dataRva: dataOffset, iatRva: 0, importSlots: 0, codeOffset: codeOffset, dataOffset: dataOffset)
 end 'buildElfImage'
 
 // pushProgramHeader writes the header of a PT_LOAD segment that maps size bytes of the file from fileOffset at the address
