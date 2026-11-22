@@ -3592,13 +3592,13 @@ extension Source
 	typealias ItemArray = Array with Item
 	typealias ItemList = List with Item
 
-	function collected() returns Count
+	function collected() returns Count where Item implements Droppable
 		var xs = ItemArray{}
 		var ys = ItemList.create()
-		return xs.count() + ys.count()
+		return try xs.count() + ys.count() otherwise panic("out of range")
 	end 'collected'
 
-	function again() returns Count
+	function again() returns Count where Item implements Droppable
 		var xs = ItemArray{}
 		return xs.count()
 	end 'again'
@@ -3616,7 +3616,7 @@ end 'Impl'
 
 function main() returns ExitCode
 	let impl = Impl.create()
-	if impl.collected() + impl.again() != 0 'wrong'
+	if (try impl.collected() + impl.again() otherwise panic("out of range")) != 0 'wrong'
 		return 1
 	end 'wrong'
 	return 0
@@ -3651,7 +3651,7 @@ end 'Source'
 extension Source
 	typealias ItemArray = Array with Item
 
-	function collected() returns Count
+	function collected() returns Count where Item implements Droppable
 		var xs = ItemArray{}
 		return xs.count()
 	end 'collected'
@@ -3680,7 +3680,7 @@ end 'Other'
 function main() returns ExitCode
 	let impl = Impl.create()
 	let other = Other.create()
-	if impl.collected() + other.collected() != 0 'wrong'
+	if (try impl.collected() + other.collected() otherwise panic("out of range")) != 0 'wrong'
 		return 1
 	end 'wrong'
 	return 0
@@ -3775,7 +3775,7 @@ end 'Pair'
 extension Pair
 	typealias FirstArray = Array with First
 
-	function firsts() returns Count
+	function firsts() returns Count where First implements Droppable
 		let xs = FirstArray{}
 		return xs.count()
 	end 'firsts'
@@ -3800,7 +3800,7 @@ function main() returns ExitCode
 	if both.firsts() != 0 'wrong'
 		return 1
 	end 'wrong'
-	return both.second().label().byteLength() - 5
+	return try both.second().label().byteLength() - 5 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3831,7 +3831,7 @@ end 'Source'
 extension Source
 	typealias ItemArray = Array with Item
 
-	function collected() returns Count
+	function collected() returns Count where Item implements Droppable
 		let xs = ItemArray{}
 		return xs.count()
 	end 'collected'
@@ -3849,7 +3849,7 @@ end 'Impl'
 
 function main() returns ExitCode
 	let impl = Impl.create()
-	return impl.collected()
+	return try impl.collected() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4498,12 +4498,12 @@ typealias Small = int(0 to 100)
 type Inner uses U
 	let x as U
 
-	function value() returns U
-		return x
+	function value() returns U where U implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x U) returns Self
-		return Self{x: x}
+	static function create(x U) returns Self where U implements Copyable
+		return Self{x: x.clone()}
 	end 'create'
 end 'Inner'
 
@@ -4512,11 +4512,11 @@ type Box uses T
 	let inner as TInner
 	let tag as Integer
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return inner.value()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
+	static function create(x T, tag Integer) returns Self where T implements Copyable
 		return Self{inner: TInner.create(x), tag: tag}
 	end 'create'
 end 'Box'
@@ -4526,11 +4526,11 @@ type Bag uses Element
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element throws ArrayError
+	function first() returns Element throws ArrayError where Element implements Copyable
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4544,12 +4544,12 @@ end 'Bag'
 
 typealias SmallBag = Bag with Small
 
-function fill(b SmallBag)
+function fill(mutates b SmallBag)
 	b.add(41, tag: 7)
 end 'fill'
 
 function main() returns ExitCode
-	let b = SmallBag.create()
+	var b = SmallBag.create()
 	fill(b)
 	let got = try b.first() otherwise 'e'
 		return 9
@@ -4640,12 +4640,12 @@ type Box uses T
 	let x as T
 	let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -4654,11 +4654,11 @@ type Bag uses Element
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element throws ArrayError
+	function first() returns Element throws ArrayError where Element implements Copyable
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4672,17 +4672,17 @@ end 'Bag'
 
 typealias IntBag = Bag with Integer
 
-function fill(b IntBag)
+function fill(mutates b IntBag)
 	b.add(42, tag: 7)
 end 'fill'
 
 function main() returns ExitCode
-	let b = IntBag.create()
+	var b = IntBag.create()
 	fill(b)
 	let got = try b.first() otherwise 'e'
 		return 9
 	end 'e'
-	return got as ExitCode
+	return try got as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -7584,6 +7584,7 @@ error E2015: stdlib/Interfaces.maxon:204:47: Unsupported: a function type's para
 ```
 
 <!-- test: error.a-generic-conformer-binding-an-interface-is-reported-once-however-many-instances -->
+<!-- positions: moved -->
 A generic conformer binds `Item` to an interface and is instantiated over two element types: the one binding is reported once.
 ```maxon
 interface Named
@@ -7607,7 +7608,7 @@ end 'Source'
 extension Source
 	typealias ItemArray = Array with Item
 
-	function collected() returns Count
+	function collected() returns Count where Item implements Droppable
 		var xs = ItemArray{}
 		return xs.count()
 	end 'collected'
@@ -7616,8 +7617,8 @@ end 'Source'
 type Box uses T implements Source with Named
 	let value as T
 
-	static function create(value T) returns Self
-		return Self{value: value}
+	static function create(value T) returns Self where T implements Copyable
+		return Self{value: value.clone()}
 	end 'create'
 
 	function first() returns Named
@@ -7628,7 +7629,7 @@ end 'Box'
 function main() returns ExitCode
 	let a = Box.create(1 as Count)
 	let b = Box.create("two")
-	return a.collected() + b.collected()
+	return try a.collected() + b.collected() otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -7636,6 +7637,7 @@ error E2015: <fragment>:29:40: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.an-interface-extension-publishes-no-member-onto-an-enum-conformer-binding-an-interface -->
+<!-- positions: moved -->
 An interface extension publishes no member onto an enum conformer, so the alias it stores is never instantiated for one and the call is refused as any call to a missing method is.
 ```maxon
 interface Named
@@ -7659,7 +7661,7 @@ end 'Source'
 extension Source
 	typealias ItemArray = Array with Item
 
-	function collected() returns Count
+	function collected() returns Count where Item implements Droppable
 		var xs = ItemArray{}
 		return xs.count()
 	end 'collected'
@@ -7676,7 +7678,7 @@ end 'Mode'
 
 function main() returns ExitCode
 	let mode = Mode.plain
-	return mode.collected()
+	return try mode.collected() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

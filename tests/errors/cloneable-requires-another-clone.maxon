@@ -1,0 +1,10 @@
+// Only the built-in form, `clone() returns Self`, is the clone() that every Copyable type has.
+interface Duplicating
+	function clone(times Count) returns Self
+end 'Duplicating'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3006 at 3:11

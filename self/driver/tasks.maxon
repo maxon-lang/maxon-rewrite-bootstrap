@@ -649,11 +649,13 @@ end 'orderedOf'
 
 // reachedModules is, by module of p, whether the compile compiles it past its resolve: every module of the program, or, in a
 // compile of tests, the modules that hold tests (a file of tests), and the modules those name, directly or through others,
-// which is how a module of the standard library is reached: a program pays for none that it does not name.
+// which is how a module of the standard library is reached: a program pays for none that it does not name. A compile of the
+// library's own source is a compile of every module of it.
 function reachedModules(c Compile, p ast.Project) returns Placed
 	var reached = Placed.create(0)
+	let ofLibrary = p.modules[ast.modIndex(p.rootModule)].isLibrary
 	for m in 0 upto p.modules.count() 'modules'
-		reached.push(not p.modules[m].isLibrary and (not c.options.runsTests or holdsTests(p.modules[m])))
+		reached.push((ofLibrary or not p.modules[m].isLibrary) and (not c.options.runsTests or holdsTests(p.modules[m])))
 	end 'modules'
 	var pending = TaskIDs.create(0)
 	for m in 0 upto p.modules.count() 'tested'

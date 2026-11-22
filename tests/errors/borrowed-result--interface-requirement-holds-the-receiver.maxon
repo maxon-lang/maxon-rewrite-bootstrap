@@ -1,0 +1,26 @@
+typealias Score = int(0 to 1000)
+
+interface Labelled
+	function label() returns borrowed String
+	function relabel(mutates self, consumes to String)
+end 'Labelled'
+
+function size(s String, extra Score) returns Score
+	return extra
+end 'size'
+
+function change(mutates x T) uses T returns Score where T implements Labelled
+	x.relabel("other")
+	return 1
+end 'change'
+
+// The place that label() lends lies in x, which the call holds while the later argument changes it.
+function measure(mutates x T) uses T returns Score where T implements Labelled
+	return size(x.label(), extra: change(x))
+end 'measure'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3186 at 19:39

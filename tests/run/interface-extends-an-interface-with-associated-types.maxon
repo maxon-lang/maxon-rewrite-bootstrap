@@ -1,0 +1,116 @@
+typealias Pos = int(0 to 100)
+
+typealias Names = Array with String
+
+interface Cursor uses Element
+	function current() returns Element
+	function advance(mutates self) throws IterationError
+end 'Cursor'
+
+// BiCursor inherits Cursor's Element, which a conformance to it binds.
+interface BiCursor extends Cursor
+	function retreat(mutates self) throws IterationError
+end 'BiCursor'
+
+// Pair declares Cursor's Element itself, and adds one of its own.
+interface Pair extends Cursor uses Other, Element
+	function other() returns Other
+end 'Pair'
+
+type Walker implements BiCursor with Pos
+	var pos as Pos
+
+	static function create(p Pos) returns Self
+		return Self{pos: p}
+	end 'create'
+
+	function current() returns Pos
+		return pos
+	end 'current'
+
+	function advance(mutates self) throws IterationError
+		if pos >= 10 'end'
+			throw IterationError.exhausted
+		end 'end'
+		pos = pos + 1
+	end 'advance'
+
+	function retreat(mutates self) throws IterationError
+		if pos == 0 'start'
+			throw IterationError.atStart
+		end 'start'
+		pos = pos - 1
+	end 'retreat'
+end 'Walker'
+
+// A clause that binds Cursor binds what BiCursor inherits from it, as maxon reads the clause.
+type Steps implements Cursor with Pos, BiCursor
+	var pos as Pos
+
+	function current() returns Pos
+		return pos
+	end 'current'
+
+	function advance(mutates self) throws IterationError
+		pos = try pos + 1 otherwise throw IterationError.exhausted
+	end 'advance'
+
+	function retreat(mutates self) throws IterationError
+		pos = try pos - 1 otherwise throw IterationError.atStart
+	end 'retreat'
+
+	static function create(p Pos) returns Self
+		return Self{pos: p}
+	end 'create'
+end 'Steps'
+
+type Labels implements Pair with (Pos, String)
+	var names as Names
+	var at as Pos
+
+	static function create() returns Self
+		return Self{names: ["x", "y"], at: 0}
+	end 'create'
+
+	function current() returns String
+		return try names.get(at as Count) otherwise "?"
+	end 'current'
+
+	function advance(mutates self) throws IterationError
+		if (at as Count) + 1 >= names.count() 'end'
+			throw IterationError.exhausted
+		end 'end'
+		at = try at + 1 otherwise 0
+	end 'advance'
+
+	function other() returns Pos
+		return at
+	end 'other'
+end 'Labels'
+
+// A bound of BiCursor reaches Cursor's methods, typed by the Element it binds.
+function backTwice(mutates w T) uses T, E returns E where T implements BiCursor with E
+	try w.retreat() otherwise return w.current()
+	try w.retreat() otherwise return w.current()
+	return w.current()
+end 'backTwice'
+
+// A conformance to BiCursor with Pos meets a bound of Cursor with Pos.
+function next(mutates c T) uses T, E returns E where T implements Cursor with E
+	try c.advance() otherwise return c.current()
+	return c.current()
+end 'next'
+
+function main() returns ExitCode
+	var w = Walker.create(8)
+	let back = backTwice(w)
+	let ahead = next(w)
+	var l = Labels.create()
+	let name = next(l)
+	var s = Steps.create(1)
+	let first = backTwice(s)
+	print("{back} {ahead} {name} {l.other()} {first}\n")
+	return 0
+end 'main'
+
+//> 6 7 y 1 0

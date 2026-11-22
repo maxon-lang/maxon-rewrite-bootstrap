@@ -214,12 +214,9 @@ function witnessCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	end 'inheritedTwice'
 	let sig = named[0].sig
 	let selfParams = requirementParams(p, ms: ms, iface: named[0].iface)
-	let selfArgs = requirementArgs(p, ms: ms, iface: named[0].iface, own: iface)
+	let selfArgs = requirementBindings(iface, req: named[0])
 	let specs = applySpecs(p, ms: ms, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params.clone(), params: selfParams, args: selfArgs)
-	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: receiver)
-	info.method = sig
-	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).selfConv
-	info.paramSpecs = specs.clone()
+	var info = requirementCall(p, ms: ms, sig: sig, receiver: receiver, specs: specs)
 	let mark = errs.count()
 	info.ordered = bindArgs(c, p: p, ms: ms, call: call, callee: "{ifaceName}.{name}", specs: specs, receivers: 0, argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'badArgs'

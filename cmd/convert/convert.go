@@ -75,6 +75,7 @@ func Convert(file, src string, kind inputKind) Result {
 	if kind == sourceFile {
 		dropBuiltinDeclarations(lines)
 		addInterfaceWheres(lines)
+		lendRequirements(lines)
 		dropReplacedMembers(lines)
 	}
 	joinEndOtherwise(lines)

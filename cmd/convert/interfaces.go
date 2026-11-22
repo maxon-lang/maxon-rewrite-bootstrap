@@ -19,6 +19,41 @@ var replacedMembers = map[string][]string{
 	"Iterable": {"withIterator", "WithIterSelf"},
 }
 
+// lentRequirements are the requirements of maxon's library interfaces that hand out an element of what the receiver walks,
+// which minimaxon's declare `returns borrowed`, so that an iterator lends an element that is not Copyable rather than giving a
+// copy of it (README, "Where it differs from Maxon"): a copy is an explicit `clone()`.
+var lentRequirements = map[string][]string{
+	"Iterator": {"current"},
+}
+
+// lendRequirements writes `borrowed` after the `returns` of each requirement of lentRequirements.
+func lendRequirements(lines []sourceLine) {
+	lent := []string(nil)
+	for i := range lines {
+		l := &lines[i]
+		if l.removed || len(l.code) == 0 {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if l.indent == "" {
+			lent = nil
+			if declIdx+1 < len(l.code) && l.code[declIdx].text == "interface" {
+				lent = lentRequirements[l.code[declIdx+1].text]
+			}
+			continue
+		}
+		if len(lent) == 0 || declIdx+1 >= len(l.code) || l.code[declIdx].text != "function" || !slices.Contains(lent, l.code[declIdx+1].text) {
+			continue
+		}
+		for k, t := range l.code {
+			if t.text == "returns" && (k+1 >= len(l.code) || l.code[k+1].text != "borrowed") {
+				l.code = slices.Insert(l.code, k+1, token{kind: tokIdent, text: "borrowed"})
+				break
+			}
+		}
+	}
+}
+
 // addInterfaceWheres gives each declaration of an interface of interfaceWheres that states no 'where' the one it needs.
 func addInterfaceWheres(lines []sourceLine) {
 	for i := range lines {

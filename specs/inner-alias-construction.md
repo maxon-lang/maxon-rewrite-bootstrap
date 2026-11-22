@@ -38,7 +38,7 @@ type Plain
 	typealias Nums = Array with ExitCode
 
 	static function make() returns Count
-		let n = Nums{}
+		var n = Nums{}
 		n.resize(4)
 		return n.count()
 	end 'make'
@@ -115,7 +115,7 @@ type Bag
 	export var names as Names
 
 	static function create() returns Self
-		let n = Names{}
+		var n = Names{}
 		n.push("a string long enough to force a heap allocation")
 		return Self{names: n}
 	end 'create'
@@ -235,7 +235,7 @@ type Holder
 	end 'create'
 
 	function count() returns Count
-		let n = Nums{}
+		var n = Nums{}
 		n.resize(self.seed)
 		return n.count()
 	end 'count'
@@ -963,7 +963,7 @@ export extension Tagged
 	typealias TagArray = Array with ExitCode
 
 	function tags() returns Count
-		let result = TagArray{}
+		var result = TagArray{}
 		result.push(self.tag())
 		return result.count()
 	end 'tags'

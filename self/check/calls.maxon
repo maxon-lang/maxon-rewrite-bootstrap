@@ -443,7 +443,7 @@ function boundRequirement(p ast.Project, ms ast.ModuleState, boundedFn ast.FuncI
 			return named[0].clone()
 		end 'hit'
 	end 'each'
-	return ast.Requirement.make(ast.noType, sig: ast.noFunc)
+	return ast.Requirement.make(ast.noType, sig: ast.noFunc, bindings: ast.TypeIDList.create(0))
 end 'boundRequirement'
 
 // callOnType types a call written on a type's name: a case of a union that carries a payload, or a static function.
@@ -791,6 +791,7 @@ function boundCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	var bound = ast.noType
 	var iface = ast.noType
 	var sig = ast.noFunc
+	var req = ast.Requirement.make(ast.noType, sig: ast.noFunc, bindings: ast.TypeIDList.create(0))
 	for i in 0 upto bounds.count() 'candidates'
 		let named = requirementsNamed(p, ms: ms, iface: bounds[i], name: name)
 		if named.count() > 1 'inheritedTwice'
@@ -808,6 +809,7 @@ function boundCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		bound = bounds[i]
 		iface = found.iface
 		sig = found.sig
+		req = found
 	end 'candidates'
 	if sig == ast.noFunc 'notRequired'
 		let mark = errs.count()
@@ -830,13 +832,10 @@ function boundCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		return ast.noType
 	end 'frozen'
 	let selfParams = requirementParams(p, ms: ms, iface: iface)
-	let selfArgs = requirementArgs(p, ms: ms, iface: iface, own: param)
+	let selfArgs = requirementBindings(param, req: req)
 	let specs = applySpecs(p, ms: ms, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params.clone(), params: selfParams, args: selfArgs)
 	let calleeName = "{nameOfType(p, ms: ms, t: param)}.{name}"
-	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: receiver)
-	info.method = sig
-	info.selfConv = selfConv
-	info.paramSpecs = specs.clone()
+	var info = requirementCall(p, ms: ms, sig: sig, receiver: receiver, specs: specs)
 	let mark = errs.count()
 	info.ordered = bindArgs(c, p: p, ms: ms, call: call, callee: calleeName, specs: specs, receivers: 0, argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'badArgs'
@@ -846,6 +845,18 @@ function boundCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	recordUse(c, call: call)
 	return ast.substituteType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, params: selfParams, args: selfArgs)
 end 'boundCall'
+
+// requirementCall is a call through the requirement sig of an interface, on a receiver of a type parameter or of the
+// interface: it runs the method of whatever type stands there, and its result is a value or a borrowed place as the
+// requirement declares, which every method that meets it gives alike.
+function requirementCall(p ast.Project, ms ast.ModuleState, sig ast.FuncID, receiver ast.TypeID, specs ast.ParamSpecList) returns ast.CallInfo
+	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: receiver)
+	info.method = sig
+	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).selfConv
+	info.paramSpecs = specs.clone()
+	info.result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).result
+	return info
+end 'requirementCall'
 
 function oneType(t ast.TypeID) returns ast.TypeIDList
 	var list = ast.TypeIDList.create(0)

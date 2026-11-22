@@ -336,6 +336,10 @@ end 'siteOf'
 function visitStructLitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let lit = structLitInfoAt(p, module: l.module, node: e)
 	let ty = exprType(p, module: l.module, node: e)
+	if ast.typeKind(ms.types, reads: p.types, t: lit.ty) == ast.TypeKind.builtinArray 'emptyArray'
+		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: ty)
+		return arrayNew(l, p: p, ms: ms, box: box)
+	end 'emptyArray'
 	let origin = ast.typeEntry(ms.types, reads: p.types, t: lit.ty).effectiveOrigin()
 	var values = ExprRefList.create(0)
 	for i in 0 upto lit.ordered.count() 'each'

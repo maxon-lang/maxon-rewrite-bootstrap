@@ -1,0 +1,28 @@
+typealias Score = int(0 to 1000)
+
+// maxon's Cloneable: every Copyable type has clone(), so the requirement asks the conformer to be Copyable.
+interface Cloneable
+	function clone() returns Self
+end 'Cloneable'
+
+type Point implements Cloneable
+	export var x as Score
+	export var name as String
+
+	static function make(x Score, consumes name String) returns Point
+		return Point{x: x, name: name}
+	end 'make'
+end 'Point'
+
+function twin(a T) uses T returns T where T implements Cloneable
+	return a.clone()
+end 'twin'
+
+function main() returns ExitCode
+	let p = Point.make(4, name: "p")
+	let q = twin(p)
+	print("{q.x} {q.name}\n")
+	return 0
+end 'main'
+
+//> 4 p

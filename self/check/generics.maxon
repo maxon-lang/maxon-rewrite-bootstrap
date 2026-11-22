@@ -122,7 +122,7 @@ function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: iface)
 	for j in 0 upto reqs.count() 'sigs'
 		let mark = errs.count()
-		requireImplements(c, p: p, ms: ms, site: site, nt: orig, own: own, iface: reqs[j].iface, sig: reqs[j].sig, inherited: reqs[j].iface != iface, missing: missing, wrong: wrong, errs: errs)
+		requireImplements(c, p: p, ms: ms, site: site, nt: orig, own: own, req: reqs[j], inherited: reqs[j].iface != iface, missing: missing, wrong: wrong, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return
 		end 'failed'
@@ -149,9 +149,11 @@ end 'requireCapabilities'
 
 // requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing,
 // with the interface it comes from when it is inherited, and the method beside the requirement when its signature differs.
-function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, own ast.TypeID, iface ast.TypeID, sig ast.FuncID, inherited bool, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
+function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, own ast.TypeID, req ast.Requirement, inherited bool, mutates missing ast.StringList, mutates wrong ast.StringList, mutates errs diag.ErrorList)
+	let iface = req.iface
+	let sig = req.sig
 	let selfParams = requirementParams(p, ms: ms, iface: iface)
-	let bound = requirementArgs(p, ms: ms, iface: iface, own: own)
+	let bound = requirementBindings(own, req: req)
 	let wantSpecs = applySpecs(p, ms: ms, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params.clone(), params: selfParams, args: bound)
 	let wantReturn = ast.substituteType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, params: selfParams, args: bound)
 	let sigName = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).name.clone()
@@ -169,10 +171,11 @@ function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState,
 	let sigConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).selfConv
 	let sigError = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).errTy
 	let sigStatic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic
-	if m != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).isStatic == sigStatic and (sigStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).selfConv == sigConv) and witnessMatches(c, p: p, ms: ms, m: m, own: own, wantSpecs: wantSpecs, wantReturn: wantReturn, wantError: sigError) 'matches'
+	let sigResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).result
+	if m != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).isStatic == sigStatic and (sigStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).selfConv == sigConv) and witnessMatches(c, p: p, ms: ms, m: m, own: own, wantSpecs: wantSpecs, wantReturn: wantReturn, wantError: sigError, wantResult: sigResult) 'matches'
 		return
 	end 'matches'
-	let wanted = signatureText(p, ms: ms, name: sigName, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic, specs: wantSpecs, ret: wantReturn, err: sigError)
+	let wanted = signatureText(p, ms: ms, name: sigName, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic, specs: wantSpecs, ret: wantReturn, err: sigError, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).result)
 	if m == ast.noFunc and inherited 'absentInherited'
 		missing.push("{wanted} (from {ifaceName})")
 		return
@@ -181,12 +184,12 @@ function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState,
 		missing.push(wanted)
 		return
 	end 'absent'
-	wrong.push("{signatureText(p, ms: ms, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).name, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).isStatic, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).params, ret: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).retTy, err: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).errTy)} (expected {wanted})")
+	wrong.push("{signatureText(p, ms: ms, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).name, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).isStatic, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).params, ret: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).retTy, err: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).errTy, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).result)} (expected {wanted})")
 end 'requireImplements'
 
 // witnessMatches is whether the method m, which meets a requirement for the type own, takes and gives what the requirement
 // does there. A method that an extension of an interface adds does at its instance for own.
-function witnessMatches(c Checker, p ast.Project, mutates ms ast.ModuleState, m ast.FuncID, own ast.TypeID, wantSpecs ast.ParamSpecList, wantReturn ast.TypeID, wantError ast.TypeID) returns bool
+function witnessMatches(c Checker, p ast.Project, mutates ms ast.ModuleState, m ast.FuncID, own ast.TypeID, wantSpecs ast.ParamSpecList, wantReturn ast.TypeID, wantError ast.TypeID, wantResult ast.ResultConv) returns bool
 	var specs = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).params.clone()
 	var ret = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).retTy
 	var err = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).errTy
@@ -197,9 +200,19 @@ function witnessMatches(c Checker, p ast.Project, mutates ms ast.ModuleState, m 
 		ret = ast.substituteType(ms.types, reads: p.types, t: ret, params: generics, args: args)
 		err = ast.substituteType(ms.types, reads: p.types, t: err, params: generics, args: args)
 	end 'ofInterface'
-	// A requirement gives a value, so a method that lends a place is no witness of it.
-	return sameSpecs(specs, b: wantSpecs) and ret == wantReturn and err == wantError and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).result == ast.ResultConv.resultOwned
+	return sameSpecs(specs, b: wantSpecs) and ret == wantReturn and err == wantError and meetsResult(p, ms: ms, have: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).result, want: wantResult, t: ret)
 end 'witnessMatches'
+
+// meetsResult is whether a method whose result is have meets a requirement whose result is want, of the type t. A call
+// through the requirement takes the result as want says, the same word whatever method runs: a method that lends a place
+// meets only a requirement that lends one, and one that gives a value only one that gives a value, except where the value
+// is a scalar that is not a float, which a borrow of it is too.
+function meetsResult(p ast.Project, ms ast.ModuleState, have ast.ResultConv, want ast.ResultConv, t ast.TypeID) returns bool
+	if have == want 'same'
+		return true
+	end 'same'
+	return want == ast.ResultConv.resultBorrowed and not ast.isManagedType(ms.types, reads: p.types, t: t) and not ast.isFloatType(ms.types, reads: p.types, t: t)
+end 'meetsResult'
 
 // requirementsNamed are the requirements of that name that an interface has: one, or none, or two where an interface
 // declares again a requirement of one it extends.
@@ -217,7 +230,7 @@ end 'requirementsNamed'
 // requirementText is a requirement as maxon names it beside another: its interface and its signature.
 function requirementText(p ast.Project, ms ast.ModuleState, req ast.Requirement) returns String
 	let f = req.sig
-	return "{ast.typeEntry(ms.types, reads: p.types, t: req.iface).name}.{signatureText(p, ms: ms, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).name, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).isStatic, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).params, ret: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).retTy, err: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).errTy)}"
+	return "{ast.typeEntry(ms.types, reads: p.types, t: req.iface).name}.{signatureText(p, ms: ms, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).name, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).isStatic, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).params, ret: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).retTy, err: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).errTy, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).result)}"
 end 'requirementText'
 
 // requirementParams are the types a requirement of iface is written over: 'Self', then the interface's associated types.
@@ -236,8 +249,16 @@ function requirementArgs(p ast.Project, ms ast.ModuleState, iface ast.TypeID, ow
 	return args
 end 'requirementArgs'
 
+// requirementBindings are what requirementParams of the interface that declares req stand for where the type own
+// implements the interface it was found in: own, then the types that req's interface is bound to there.
+function requirementBindings(own ast.TypeID, req ast.Requirement) returns ast.TypeIDList
+	var args = oneType(own)
+	args.append(req.bindings)
+	return args
+end 'requirementBindings'
+
 // conformanceTo is the instance of the interface origin that the declaration of t says it implements, at t's type
-// arguments, or none.
+// arguments, or none: one it names, or one that an interface it names extends, bound as that one binds it.
 function conformanceTo(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, iface ast.TypeID) returns ast.TypeID
 	let orig = ast.originOf(ms.types, reads: p.types, t: t)
 	let conforms = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: orig).conforms)
@@ -248,6 +269,13 @@ function conformanceTo(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, 
 			return ast.substituteType(ms.types, reads: p.types, t: conforms[i], params: params, args: args)
 		end 'hit'
 	end 'each'
+	for i in 0 upto conforms.count() 'inherited'
+		let named = ast.substituteType(ms.types, reads: p.types, t: conforms[i], params: params, args: args)
+		match consumes ast.ancestorBindings(ms.types, reads: p.types, have: named, want: iface) 'ancestor'
+			some(bindings) then return ast.instantiateType(ms.types, reads: p.types, origin: iface, args: bindings)
+			none then _ = 0
+		end 'ancestor'
+	end 'inherited'
 	return ast.noType
 end 'conformanceTo'
 
@@ -264,7 +292,7 @@ function sameSpecs(a ast.ParamSpecList, b ast.ParamSpecList) returns bool
 end 'sameSpecs'
 
 // signatureText is a method as maxon lists it in an incomplete implementation.
-function signatureText(p ast.Project, ms ast.ModuleState, name String, isStatic bool, specs ast.ParamSpecList, ret ast.TypeID, err ast.TypeID) returns String
+function signatureText(p ast.Project, ms ast.ModuleState, name String, isStatic bool, specs ast.ParamSpecList, ret ast.TypeID, err ast.TypeID, result ast.ResultConv) returns String
 	var parts = ast.StringList.create(0)
 	for i in 0 upto specs.count() 'each'
 		if specs[i].conv == ast.Convention.convMutates 'written'
@@ -273,7 +301,11 @@ function signatureText(p ast.Project, ms ast.ModuleState, name String, isStatic 
 			parts.push("{specs[i].name} {nameOfType(p, ms: ms, t: specs[i].ty)}")
 		end 'read'
 	end 'each'
-	var text = "{name}({ast.joinNames(parts, sep: ", ")}) returns {nameOfType(p, ms: ms, t: ret)}"
+	var lent = ""
+	if result == ast.ResultConv.resultBorrowed 'lent'
+		lent = "borrowed "
+	end 'lent'
+	var text = "{name}({ast.joinNames(parts, sep: ", ")}) returns {lent}{nameOfType(p, ms: ms, t: ret)}"
 	if isStatic 'static'
 		text = "static {text}"
 	end 'static'

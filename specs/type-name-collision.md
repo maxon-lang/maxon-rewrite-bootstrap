@@ -587,27 +587,27 @@ export interface Seq uses Item
 end 'Seq'
 
 // --- file: a/box.maxon
-export type Box implements Seq with Digit
-	typealias Items = Array with Digit
-	export var n as Digit
+export type Box implements export.Seq with export.Digit
+	typealias Items = Array with export.Digit
+	export var n as export.Digit
 
-	export function first() returns Digit
+	export function first() returns export.Digit
 		return self.n
 	end 'first'
 end 'Box'
 
 // --- file: b/box.maxon
-export type Box implements Seq with Digit
-	typealias Items = Array with Digit
-	export var n as Digit
+export type Box implements export.Seq with export.Digit
+	typealias Items = Array with export.Digit
+	export var n as export.Digit
 
-	export function first() returns Digit
+	export function first() returns export.Digit
 		return self.n
 	end 'first'
 end 'Box'
 
 // --- file: a/ext.maxon
-export extension Seq
+export extension export.Seq
 	export typealias Items = Array with Item
 
 	export function all() returns Items
@@ -618,7 +618,7 @@ export extension Seq
 end 'Seq'
 
 // --- file: b/ext.maxon
-export extension Seq
+export extension export.Seq
 	export typealias Items = Array with Item
 
 	export function twice() returns Items

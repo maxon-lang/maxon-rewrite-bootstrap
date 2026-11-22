@@ -639,17 +639,17 @@ extension FixedArray
 	end 'dup'
 
 	function capacity() returns Int
-		return countof(Self)
+		return try countof(Self) as Int otherwise panic("out of range")
 	end 'capacity'
 
-	function chained() returns Int
+	function chained() returns Int where T implements Droppable
 		return self.dup().capacity()
 	end 'chained'
 end 'FixedArray'
 
 function main() returns ExitCode
 	let v = Vec3.create()
-	return v.chained()
+	return try v.chained() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -676,14 +676,14 @@ typealias Vec3 = FixedArray with 3 Int
 
 extension FixedArray
 	function capacity() returns Int
-		return countof(Self)
+		return try countof(Self) as Int otherwise panic("out of range")
 	end 'capacity'
 
 	function dup() returns Self
 		return Self{}
 	end 'dup'
 
-	function twice() returns Int
+	function twice() returns Int where T implements Droppable
 		let other = self.dup()
 		return other.capacity()
 	end 'twice'
@@ -691,7 +691,7 @@ end 'FixedArray'
 
 function main() returns ExitCode
 	let v = Vec3.create()
-	return v.twice()
+	return try v.twice() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1104,7 +1104,7 @@ end 'FixedArray'
 
 function main() returns ExitCode
 	let blank = Buf.blank()
-	return blank.count() as ExitCode
+	return try blank.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

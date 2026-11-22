@@ -794,7 +794,8 @@ export function hasBoundCap(p ast.Project, ms ast.ModuleState, boundedFn ast.Fun
 	let ifaces = boundsOfParam(p, ms: ms, boundedFn: boundedFn, paramTy: paramTy)
 	for i in 0 upto ifaces.count() 'each'
 		let iface = ifaces[i]
-		if iface == p.builtins.copyableTy or ((not wantCopy) and iface == p.builtins.droppableTy) 'yes'
+		let copies = ast.reachesInterface(ms.types, reads: p.types, have: iface, want: p.builtins.copyableTy)
+		if copies or ((not wantCopy) and ast.reachesInterface(ms.types, reads: p.types, have: iface, want: p.builtins.droppableTy)) 'yes'
 			return true
 		end 'yes'
 	end 'each'
@@ -1002,19 +1003,13 @@ export function lackBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, i
 	return paramBoundFix(p, ms: ms, fn: fn, param: last.owner, bound: capName)
 end 'lackBoundFix'
 
-// copyableName is the capability that an interface value lacks.
-let copyableName = "Copyable"
-
-// paramBoundFix writes the bound on the type parameter param in the header of fn, the function whose body needs it. A
-// method of an extension of an interface gets no Copyable bound: its parameters are the interface's associated types, which
-// a conformer may bind to an interface value, which cannot be copied, and the bound would refuse that conformer instead.
+// paramBoundFix writes the bound on the type parameter param in the header of fn, the function whose body needs it. In a
+// method of an extension of an interface the bound is the method's own, so a conformer that binds an associated type to a
+// type without it lacks that method alone.
 export function paramBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, param ast.TypeID, bound String) returns diag.Fix
 	if fn == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).isClosure 'noHeader'
 		return diag.Fix.none()
 	end 'noHeader'
-	if bound == copyableName and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).extendedIface != ast.noType 'associated'
-		return diag.Fix.none()
-	end 'associated'
 	return boundFix(ms.tree(), decl: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).nodeID, param: ast.typeName(ms.types, reads: p.types, t: param), bound: bound)
 end 'paramBoundFix'
 

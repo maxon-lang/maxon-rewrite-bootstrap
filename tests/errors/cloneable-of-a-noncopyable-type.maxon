@@ -1,0 +1,13 @@
+interface Cloneable
+	function clone() returns Self
+end 'Cloneable'
+
+type Handle is noncopyable implements Cloneable
+	export var id as Count
+end 'Handle'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3918 at 5:6

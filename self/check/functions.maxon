@@ -135,9 +135,7 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		return
 	end 'badThrows'
 	let result = ast.parseResultConv(f.resultMode)
-	if result == ast.ResultConv.resultBorrowed and err != ast.noType 'borrowedThrows'
-		// A failure leaves a borrowed result with no place to lend, and the caller's try would need a fallback place.
-		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "'{f.name}' returns a borrowed place and throws, which is not supported yet; let the caller test first and remove 'throws', or return a value: 'returns T'", errs: errs)
+	if refusesBorrowedThrows(c, off: off, name: f.name, result: result, err: err, errs: errs) 'borrowedThrows'
 		return
 	end 'borrowedThrows'
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].result = result

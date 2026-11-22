@@ -304,6 +304,7 @@ associated-types.md: associated-types.existential-field-at-an-opaque-claim-is-fi
 associated-types.md: associated-types.existential-field-at-an-opaque-claim-is-filled-through-a-checked-parameter
 associated-types.md: associated-types.existential-parameter-bound-to-the-enclosing-generics-own-parameter
 associated-types.md: associated-types.existential-parameter-with-a-concrete-claim-still-runs
+associated-types.md: associated-types.extends.the-ancestor-conformance-alone-still-answers
 associated-types.md: associated-types.two-conformers-disagree-but-every-dispatch-site-names-its-binding
 associated-types.md: basic-associated-type
 associated-types.md: byte-element-type
@@ -315,6 +316,9 @@ associated-types.md: conformance-arguments-in-parentheses-at-arity-two
 associated-types.md: conformance-requirement-typed-by-a-generic-instance
 associated-types.md: conformers-binding-an-associated-type-differently-are-each-dispatched-through-a-receiver-claiming-theirs
 associated-types.md: error.an-exported-conformance-with-a-file-private-alias-is-refused
+associated-types.md: error.extends.a-clause-binding-one-inherited-name-two-ways-is-refused
+associated-types.md: error.extends.no-sibling-conformance-leaves-the-inherited-name-unbound
+associated-types.md: error.extends.wrong-signature-under-an-inherited-binding-names-the-substituted-type
 associated-types.md: error.surplus-parenthesized-conformance-argument
 associated-types.md: error.w61.wrong-signature-under-an-expanded-alias-names-the-expanded-type
 associated-types.md: forward-interface-comma-still-opens-a-sibling-conformance
@@ -2409,6 +2413,7 @@ generic-functions.md: an-exported-non-generic-and-another-directorys-exported-ge
 generic-functions.md: error.a-template-refusing-in-every-instance-names-the-same-instance-in-any-declaration-order
 generic-functions.md: error.two-files-of-one-directory-declare-a-generic-beside-another-directorys-generic-of-one-name
 generic-functions.md: error.two-files-of-one-directory-each-declare-a-private-generic-of-one-name
+generic-instance-clone.md: a-trivial-instantiation-of-the-same-nested-shape-still-clones
 generic-instance-clone.md: clone-array-of-generic-instances
 generic-instance-clone.md: clone-is-independent-of-a-mutated-source
 generic-instance-clone.md: clone-of-an-instance-over-the-enclosing-type-parameter
@@ -2465,6 +2470,8 @@ generic-opaque-owned-return.md: opaque-array-element-moved-out-and-returned
 generic-opaque-value-store.md: a-bare-generic-static-called-inside-its-own-type-is-typed-by-the-enclosing-instance
 generic-opaque-value-store.md: a-composed-container-cloned-in-a-closure-in-a-static-copies-through-the-call-sites-descriptor
 generic-opaque-value-store.md: a-concrete-function-that-reassigns-and-a-generic-one-that-does-not
+generic-opaque-value-store.md: a-conformer-binding-a-concrete-type-the-extension-stores-compiles
+generic-opaque-value-store.md: a-conformer-binding-an-interface-the-extension-does-not-store-compiles
 generic-opaque-value-store.md: a-container-of-tuples-over-the-parameter-cloned-inside-a-closure-clones-its-records
 generic-opaque-value-store.md: a-container-of-tuples-over-the-parameter-clones-its-records
 generic-opaque-value-store.md: a-generic-type-reaching-itself-with-a-parameter-fixed-runs
@@ -2484,6 +2491,8 @@ generic-opaque-value-store.md: a-static-storing-a-copied-parameter-into-self-thr
 generic-opaque-value-store.md: a-static-storing-a-copied-parameter-into-self-through-an-inferred-instance-retains-it
 generic-opaque-value-store.md: a-static-storing-its-parameter-into-self-through-an-inferred-instance-retains-it
 generic-opaque-value-store.md: a-static-takes-its-instance-from-its-alias-and-not-from-an-argument-of-the-same-base
+generic-opaque-value-store.md: a-trivial-instantiation-forwards-and-takes-nothing
+generic-opaque-value-store.md: a-trivial-instantiation-of-the-two-level-shape-still-runs
 generic-opaque-value-store.md: a-void-static-through-an-instance-alias-has-no-result-to-type
 generic-opaque-value-store.md: an-extension-member-passing-an-associated-type-bound-to-an-interface-through-runs
 generic-opaque-value-store.md: an-extension-member-returning-an-associated-type-bound-to-an-interface-runs
@@ -2906,8 +2915,12 @@ inline-records.md: inline-records.sixty-five-bits-stays-a-heap-record
 inner-alias-construction.md: a-static-factory-result-is-checked-as-its-own-type
 inner-alias-construction.md: error.an-inner-alias-shadows-a-file-scope-alias-at-the-from-door
 inner-alias-construction.md: error.an-inner-ranged-alias-takes-no-from
+inner-alias-construction.md: extension-body-inner-alias-builds-the-container
 inner-alias-construction.md: generic-body-user-generic-inner-alias-create
 inner-alias-construction.md: inner-alias-shadowing-another-type-wins-at-the-static-door
+inner-alias-construction.md: managed-element-inner-array-alias
+inner-alias-construction.md: nongeneric-inner-array-alias
+inner-alias-construction.md: self-literal-beside-an-inner-alias
 inner-alias-construction.md: user-generic-inner-alias-create-is-the-cure
 interface-conformance.md: a-type-implements-an-interface-named-through-its-directory
 interface-conformance.md: an-impl-spelling-the-requirements-alias-qualified-meets-it

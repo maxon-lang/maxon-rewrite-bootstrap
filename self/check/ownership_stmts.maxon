@@ -566,7 +566,10 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	if o.c.typing.iterations.has(st as Count) 'protocol'
 		let info = iterationOwn(o, node: st)
 		lends = false
-		fresh = ownLocalOf(o, node: st)
+		// An element that current() lends is a borrow of the cursor, which the loop holds; one it gives is the variable's.
+		if info.current.result != ast.ResultConv.resultBorrowed 'owned'
+			fresh = ownLocalOf(o, node: st)
+		end 'owned'
 		// A loop over a cursor moves it on in place; one over a collection holds it only where the cursor it makes borrows
 		// it, as an array's loop does.
 		let walksItself = not info.hasFactory

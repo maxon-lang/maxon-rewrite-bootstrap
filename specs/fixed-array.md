@@ -4942,7 +4942,7 @@ typealias Buf = FixedArray with Int
 
 function main() returns ExitCode
 	let buf = Buf{}
-	return buf.count() as ExitCode
+	return try buf.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -4960,12 +4960,12 @@ type Holder
 
 	static function make() returns Int
 		let cells = Cells{}
-		return cells.count() as Int
+		return try cells.count() as Int otherwise panic("out of range")
 	end 'make'
 end 'Holder'
 
 function main() returns ExitCode
-	return Holder.make() as ExitCode
+	return try Holder.make() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

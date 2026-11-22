@@ -198,6 +198,10 @@ function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 	end 'callExpr'
 	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'structLitExpr'
 		let lit = structLitInfoAt(p, module: module, node: e)
+		if ast.typeKind(ms.types, reads: p.types, t: lit.ty) == ast.TypeKind.builtinArray 'emptyArray'
+			// An empty array is a new box each use takes.
+			return false
+		end 'emptyArray'
 		let origin = ast.typeEntry(ms.types, reads: p.types, t: lit.ty).effectiveOrigin()
 		var values = ExprRefList.create(0)
 		for i in 0 upto lit.ordered.count() 'each'

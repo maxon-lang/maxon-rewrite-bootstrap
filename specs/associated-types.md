@@ -1522,6 +1522,7 @@ binding, so `interface Sub extends Base` — where `Base uses Element` — rejec
 as a wrong SIGNATURE.
 
 <!-- test: error.surplus-parenthesized-argument-against-an-inherited-uses-name -->
+<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1552,7 +1553,7 @@ end 'Impl'
 
 function main() returns ExitCode
 	let i = Impl.create(42)
-	return i.get()
+	return try i.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1566,6 +1567,7 @@ The case above with two characters removed. It is what proves the parenthesized 
 rejection of a program already rejected, rather than a rejection of one otherwise accepted.
 
 <!-- test: error.inherited-uses-name-unparenthesized-is-still-a-signature-error -->
+<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1596,7 +1598,7 @@ end 'Impl'
 
 function main() returns ExitCode
 	let i = Impl.create(42)
-	return i.get()
+	return try i.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -4201,13 +4203,13 @@ type Walker implements Cursor with Pos
 		return pos
 	end 'current'
 
-	function retreat()
-		pos = pos - 1
+	function retreat(mutates self)
+		pos = try pos - 1 otherwise panic("out of range")
 	end 'retreat'
 end 'Walker'
 
 function main() returns ExitCode
-	let w = Walker.create(8)
+	var w = Walker.create(8)
 	w.retreat()
 	print("{w.current()}\n")
 	return 0

@@ -1,0 +1,81 @@
+typealias Names = Array with String
+
+interface Walker uses Element
+	function current() returns borrowed Element
+	function advance(mutates self) throws IterationError
+end 'Walker'
+
+interface Walkable uses Element, Walk where Walk implements Walker with Element
+	function createIterator() returns Walk throws IterationError
+end 'Walkable'
+
+// The element a cursor lends is a borrow of the cursor for the pass, which a loop over the interface walks once for
+// every conformer.
+extension Walkable
+	typealias Elements = Array with Element
+
+	function size() returns Count
+		var n = 0 as Count
+		for _ in self 'each'
+			n = try n + 1 otherwise n
+		end 'each'
+		return n
+	end 'size'
+
+	function copies() returns Elements where Element implements Copyable
+		var out = Elements{}
+		for item in self 'each'
+			out.push(item.clone())
+		end 'each'
+		return out
+	end 'copies'
+end 'Walkable'
+
+type NameWalker implements Walker with String
+	var names as Names
+	var at as Count
+
+	static function over(names Names) returns Self throws IterationError
+		if names.count() == 0 'empty'
+			throw IterationError.exhausted
+		end 'empty'
+		return Self{names: names.clone(), at: 0}
+	end 'over'
+
+	function current() returns borrowed String
+		return names[at]
+	end 'current'
+
+	function advance(mutates self) throws IterationError
+		let next = try at + 1 otherwise throw IterationError.exhausted
+		if next >= names.count() 'end'
+			throw IterationError.exhausted
+		end 'end'
+		at = next
+	end 'advance'
+end 'NameWalker'
+
+type Bag implements Walkable with (String, NameWalker)
+	var names as Names
+
+	static function make(consumes names Names) returns Self
+		return Self{names: names}
+	end 'make'
+
+	function createIterator() returns NameWalker throws IterationError
+		return try NameWalker.over(names)
+	end 'createIterator'
+end 'Bag'
+
+function main() returns ExitCode
+	let bag = Bag.make(["ab", "cd", "ef"])
+	var line = ""
+	for name in bag 'each'
+		line = "{line}{name}"
+	end 'each'
+	let copied = bag.copies()
+	print("{line} {bag.size()} {copied.count()}\n")
+	return 0
+end 'main'
+
+//> abcdef 3 3

@@ -1407,20 +1407,40 @@ function floatSpelling(tt TypeSlot, reads TypeTable, t TypeID) returns String
 end 'floatSpelling'
 
 // extendsInterface is whether an implementation of the interface have is one of want: have is want, or extends it,
-// directly or through the interfaces it extends. The interfaces an interface extends are held in its conforms, and take
-// no type arguments.
+// directly or through the interfaces it extends, at the associated types that have binds. The interfaces an interface
+// extends are held in its conforms as declarations, whose associated types are bound by name by the extending one's.
 export function extendsInterface(tt TypeSlot, reads TypeTable, have TypeID, want TypeID) returns bool
 	if have == want 'same'
 		return true
 	end 'same'
-	let orig = typeEntry(tt, reads: reads, t: have).effectiveOrigin()
-	for i in 0 upto typeEntry(tt, reads: reads, t: orig).conforms.count() 'parents'
-		if extendsInterface(tt, reads: reads, have: typeEntry(tt, reads: reads, t: orig).conforms[i], want: want) 'hit'
-			return true
-		end 'hit'
-	end 'parents'
-	return false
+	let wantOrig = typeEntry(tt, reads: reads, t: want).effectiveOrigin()
+	return match consumes ancestorBindings(tt, reads: reads, have: have, want: wantOrig) 'ancestor'
+		some(bindings) gives want == wantOrig or bindings.equals(typeEntry(tt, reads: reads, t: want).typeArgs)
+		none gives false
+	end 'ancestor'
 end 'extendsInterface'
+
+// ancestorBindings are what the associated types of the interface declaration want stand for where it is an interface that
+// the interface have extends, directly or through others, at the associated types that have binds; none where have does not
+// extend it.
+export function ancestorBindings(tt TypeSlot, reads TypeTable, have TypeID, want TypeID) returns table.Option with TypeIDList
+	return ancestorBindingsOf(tt, reads: reads, orig: typeEntry(tt, reads: reads, t: have).effectiveOrigin(), bindings: typeArgsOf(tt, reads: reads, t: have), want: want)
+end 'ancestorBindings'
+
+function ancestorBindingsOf(tt TypeSlot, reads TypeTable, orig TypeID, bindings TypeIDList, want TypeID) returns table.Option with TypeIDList
+	for i in 0 upto typeEntry(tt, reads: reads, t: orig).conforms.count() 'parents'
+		let parent = typeEntry(tt, reads: reads, t: orig).conforms[i]
+		let parentBindings = inheritedBindings(tt, reads: reads, child: orig, bindings: bindings, parent: parent)
+		if parent == want 'hit'
+			return table.Option.some(parentBindings)
+		end 'hit'
+		match consumes ancestorBindingsOf(tt, reads: reads, orig: parent, bindings: parentBindings, want: want) 'deeper'
+			some(found) then return table.Option.some(found)
+			none then _ = 0
+		end 'deeper'
+	end 'parents'
+	return table.Option.none
+end 'ancestorBindingsOf'
 
 // isSubtypeOf is whether the ranged alias sub implements sup, directly or through the aliases it implements.
 export function isSubtypeOf(tt TypeSlot, reads TypeTable, sub TypeID, sup TypeID) returns bool

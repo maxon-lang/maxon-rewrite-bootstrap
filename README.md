@@ -315,7 +315,8 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   the library short of `public`. Only the library modules a program names, directly or through others, are compiled past
   their resolve (`reachedModules`), so a program pays for no other; each is a module of the build cache like any other,
   with its own key, and is compiled for the compile's target. A project that is the runtime's source or `stdlib/` itself is
-  compiled without a second library.
+  compiled without a second library, and a compile of `stdlib/` compiles every module of it, which is how the gate checks
+  the library.
 - **The raw surface is the library tiers'.** Maxon's library is written on a raw surface that reads and writes memory past the
   ownership model's bookkeeping: the static functions of `__Builtins`, the type `__ManagedMemory` and its methods, and an
   array's `.managed` (see "Primitives"). Only a module of the runtime or of the library, or a program the spec runner stages
@@ -2425,9 +2426,16 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   binding, the variable of a for, a value made in the function (a call, a literal, a string with parts, a conditional),
   a `consumes` or `sets` parameter, and a place that would be boxed to be an interface it returns are `E3926`. A miss
   inside, such as an index out of range, traps as it does anywhere. It may be a method, generic, exported and called
-  from another module, and added by an extension. For now it may not throw, be a requirement of an interface or meet
-  one, be a function value, be the `current()` or `createIterator()` of a for, or be the `init` of `Type from "text"`
-  (each `E9000`); a function type and a closure have no syntax for it.
+  from another module, and added by an extension. It may be the `current()` of a for, which lends each element to the
+  variable (see "Primitives"). For now it may not throw, be a function value, be the `createIterator()` of a for, or be
+  the `init` of `Type from "text"` (each `E9000`); a function type and a closure have no syntax for it.
+- **A requirement can lend a place.** `function label() returns borrowed String` in an interface is met by a method that
+  lends one, and by one that gives a value only where the value is a scalar that is not a float, the one kind whose
+  borrow and value are the same word (`E3016`, naming `returns borrowed`, for any other: a call through the requirement
+  would own nothing it could drop). A call through it, on a value of a type parameter or of the interface, is a
+  projection as a direct call is (`check.requirementCall` gives every such call the requirement's result), so it borrows
+  the receiver and the lent arguments for as long as the caller uses the place. A requirement that lends and throws is
+  `E9000`, as a function is.
 - **Its call is a projection**, under the rules of a subscript (see "Primitives"), through one notion of a place in
   the checker (`projectionOf` and `lentPaths`, `self/check/paths.maxon`) and in lowering (`ast.isStorage`): read, the
   result is a `let` borrow, a base of a field, a subscript, a method with a `let` receiver, and an argument to a `let`
@@ -2627,7 +2635,18 @@ end 'wrap'
   interfaces it extends besides its own: a type that implements `Derived` provides them all (a missing one is listed
   `(from Base)` in `E3016`), and meets a bound of `Base`, as does a type parameter bounded by `Derived`, whose calls
   reach `Base`'s methods. An interface that requires again a method of one it extends makes a call of it through a
-  bound `E3114`. A chain that comes back to the interface is `E3091`.
+  bound `E3114`. A chain that comes back to the interface is `E3091`. A `Base` with associated types gives `Derived` each
+  one whose name `Derived` does not declare, after its own, so `interface BiCursor extends Cursor` has `Cursor`'s
+  `Element` and `implements BiCursor with Pos` binds it; one that `Derived` declares binds `Base`'s of its name, as maxon
+  binds them (`ast.inheritedBindings`). The parents are declared before anything in the module names the interface
+  (`check.declareParentInterfaces`), so its associated types are known wherever it is instantiated. A clause that names
+  `Derived` with no `with` beside one that binds `Base`, `implements Cursor with Pos, BiCursor`, binds `Derived`'s inherited
+  types from it, as maxon searches the clause. A bound or a conformance of `Derived with X` meets one of `Base` at the
+  types it binds there, and a call infers through it.
+- **`clone()` as a requirement.** `function clone() returns Self`, maxon's `Cloneable`, is met by the built-in `clone()`:
+  the interface extends `Copyable` instead of requiring a method, so a type that implements it must be Copyable
+  (`E3918`), and a parameter bounded by it, or by any interface that extends `Copyable`, may be cloned. Any other `clone`
+  requirement is `E3006`, as a declared `clone` is.
 - **Associated types.** An interface declares associated types with `uses` after its name (`interface Cursor uses
   Element`), which its signatures name. A type binds them where it implements it, one type bare and several in
   parentheses, as any type arguments: `type IntCur implements Cursor with Integer`, `type Both implements Duo with
@@ -3070,7 +3089,9 @@ assignment, a typealias'd `let`), else the first element's, with a later integer
 no alias, so a literal of them keeps the range it spans, `[1, 2, 3]` being `Array with int(1 to 3)`, which a `let` reads at any alias that holds it
 (`return try [10, 20, 30].get(0) otherwise 0` is an `ExitCode`); a literal inside another takes the whole word instead. A `var` cannot
 start from a collection of bare numbers, which could not take another later (`E2004`, as for `var x = 5`): `var xs = [5 as Count, 6]`. A
-module-level `let` of a literal is a constant that each use builds again.
+module-level `let` of a literal is a constant that each use builds again. `Items{}` over an alias of an array is maxon's
+literal of an `Array` with every field at its default: a new empty array of the alias's element, as `Items.create(0)` is,
+written anywhere (a field it names is `E3011`).
 
 **`Type from value`.** `Alias from [a, b]` is the array literal written as the alias's array: its element type is the alias's
 (`Ages from [1, 2]` over `typealias Ages = Array with Age`), so each element must fit it, a `var` may hold it, and the
@@ -3153,7 +3174,8 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   loop over a cursor moves it on in place (a place it is must be mutable, and is held while the body runs); a loop
   over a collection calls `createIterator()` once and owns the cursor, and holds the collection while the body runs where
   the cursor borrows it (see "Borrowing values"). Each `current()` is a value of its own, owned by
-  `x` until the pass ends. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
+  `x` until the pass ends, or, where `current()` returns borrowed (a requirement or a method), lent to `x` as an array's
+  element is: a borrow of the cursor, which the loop holds, so moving it is `E3900` and `.clone()` the fix. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
   throws another error is `E2015`, as is a loop over anything else: a string, a list, a pool. A string's `bytes()`,
   `codepoints()` and `utf16()` views are such collections; a loop over the string itself waits for `Character`.
   The order in which a map is walked is not specified, and the implementation walks it as is most efficient (two
@@ -3614,6 +3636,18 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `Iterator`, which an extension checked once does. `cmd/convert` writes the `where` that the interfaces of maxon's library
   need (`interfaceWheres`: `Iterable`'s), and leaves out the members of their extensions that a form of minimaxon's own
   replaces (`replacedMembers`: `Iterable`'s `withIterator()` and its typealias, for which a for walks `enumerated()`).
+- An iterator lends its element: `cmd/convert` writes `returns borrowed` on the requirements of maxon's library interfaces
+  that hand one out (`lentRequirements`: `Iterator.current()`), so a loop over an iterator, and the code of an extension of
+  `Iterable` that walks one, borrow each element where maxon shares it by a reference count. Moving it on is `E3900`, and
+  `minimaxon fix` writes the copy, `.clone()`, with the `where ... implements Copyable` the method then needs. A method that
+  gives a value meets a requirement that lends only where the value is a scalar that is not a float (`E3016` otherwise).
+- maxon's `Cloneable`, `clone() returns Self`, is met by the `clone()` every Copyable type has (see "Generics"): the
+  interface extends `Copyable`, so a type that implements it and cannot be copied is `E3918` where maxon would refuse its
+  generated `clone()`, and no type declares a `clone()` of its own.
+- `interface Sub extends Base`, where `Base` has associated types, gives `Sub` those it does not declare itself (see
+  "Generics"), so `implements Sub with X` binds `Base`'s `Element` too, where maxon counts only `Sub`'s own and compares an
+  inherited requirement as written unless the clause binds `Base` beside it (which minimaxon also reads). maxon's
+  `E2066` for `implements Sub with (X)` is therefore not raised.
 - `returns borrowed T` (see "Ownership") is minimaxon's: maxon has no function that gives a place instead of a value,
   so a lookup through a function there gives a copy. It is Hylo's `subscript` with only a `let` accessor, written as a
   function and restricted so that it needs no coroutine: the place is returned, never yielded, so no code of the callee

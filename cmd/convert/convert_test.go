@@ -479,6 +479,11 @@ end 'f'
 			want: "public interface Iterable uses Element, Iter where Iter implements Iterator with Element\n\tfunction createIterator() returns Iter throws IterationError\nend 'Iterable'\n\npublic extension Iterable\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\nend 'Iterable'\n",
 		},
 		{
+			name: "Iterator's current() lends its element",
+			in:   "public interface Iterator uses Element\n\tfunction current() returns Element\n\tfunction advance(mutable self) throws IterationError\nend 'Iterator'\n",
+			want: "public interface Iterator uses Element\n\tfunction current() returns borrowed Element\n\tfunction advance(mutates self) throws IterationError\nend 'Iterator'\n",
+		},
+		{
 			name: "a capability word before a type argument is left out",
 			in:   "typealias Keys = Array with immutable Key\n\ntype Table uses Key, Value\n\tvar slots as Map with (immutable Key, Array with isolated Value)\nend 'Table'\n",
 			want: "typealias Keys = Array with Key\n\ntype Table uses Key, Value\n\tvar slots as Map with (Key, Array with Value)\nend 'Table'\n",

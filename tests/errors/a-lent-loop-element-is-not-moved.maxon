@@ -1,0 +1,31 @@
+typealias Names = Array with String
+
+interface Walker uses Element
+	function current() returns borrowed Element
+	function advance(mutates self) throws IterationError
+end 'Walker'
+
+interface Walkable uses Element, Walk where Walk implements Walker with Element
+	function createIterator() returns Walk throws IterationError
+end 'Walkable'
+
+// The element a cursor lends is a borrow of the cursor for the pass, which a loop over the interface walks once for
+
+// The element is the cursor's, lent for the pass.
+extension Walkable
+	typealias Elements = Array with Element
+
+	function moved() returns Elements
+		var out = Elements{}
+		for item in self 'each'
+			out.push(item)
+		end 'each'
+		return out
+	end 'moved'
+end 'Walkable'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3900 at 21:13

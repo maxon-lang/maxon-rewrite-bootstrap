@@ -1,0 +1,63 @@
+typealias Score = int(0 to 1000)
+
+typealias Names = Array with String
+
+// A requirement that lends: every implementation lends a place of its receiver, and a call through a bound or through a
+// value of the interface reads it in place.
+interface Labelled
+	function label() returns borrowed String
+	function score() returns borrowed Score
+end 'Labelled'
+
+type Shelf implements Labelled
+	export var name as String
+	export var names as Names
+
+	static function make(consumes name String) returns Shelf
+		return Shelf{name: name, names: ["a", "b"]}
+	end 'make'
+
+	function label() returns borrowed String
+		return name
+	end 'label'
+
+	// A scalar is copied whether it is lent or given, so a value meets the requirement.
+	function score() returns Score
+		return 7
+	end 'score'
+end 'Shelf'
+
+type Tag implements Labelled
+	export var text as String
+	export var weight as Score
+
+	static function make(consumes text String, weight Score) returns Tag
+		return Tag{text: text, weight: weight}
+	end 'make'
+
+	function label() returns borrowed String
+		return text
+	end 'label'
+
+	function score() returns borrowed Score
+		return weight
+	end 'score'
+end 'Tag'
+
+function describe(x T) uses T returns String where T implements Labelled
+	return "{x.label()}:{x.score()}"
+end 'describe'
+
+function lengthOf(x Labelled) returns Score
+	return try x.label().count() as Score otherwise 0
+end 'lengthOf'
+
+function main() returns ExitCode
+	let shelf = Shelf.make("books")
+	let tag = Tag.make("red", weight: 3)
+	let copy = shelf.label().clone()
+	print("{describe(shelf)} {describe(tag)} {lengthOf(tag)} {copy}\n")
+	return 0
+end 'main'
+
+//> books:7 red:3 3 books

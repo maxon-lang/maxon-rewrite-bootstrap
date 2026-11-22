@@ -11,6 +11,9 @@ function checkStructLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 			none then _ = 0
 		end 'bound'
 	end 'named'
+	if typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.builtinArray) 'array'
+		return checkEmptyArrayLit(c, p: p, ms: ms, e: e, t: target, errs: errs)
+	end 'array'
 	if not typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.record) 'notRecord'
 		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "'{typeName}' is not a type with fields", errs: errs)
 		return ast.noType
@@ -26,6 +29,18 @@ function checkStructLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	end 'restricted'
 	return checkLiteralFields(c, p: p, ms: ms, e: e, rt: target, errs: errs)
 end 'checkStructLit'
+
+// checkEmptyArrayLit types `Items{}` over an array alias, maxon's literal of an Array with every field at its default: a new
+// empty array, as `Items.create(0)` is. An array has no field that a literal could give.
+function checkEmptyArrayLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if ms.tree().listLen(ast.structLitExprFieldsRef(ms.tree(), id: e)) > 0 'fields'
+		let name = nameOfType(p, ms: ms, t: t)
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errUnknownType, msg: "'{name}' is an array, which has no fields: write '{name}\{\}' for an empty one, or its elements in '[...]'", errs: errs)
+		return ast.noType
+	end 'fields'
+	c.typing.structLits.insert(e as Count, value: ast.StructLitInfo.make(t, ordered: ast.NodeIDList.create(0)))
+	return t
+end 'checkEmptyArrayLit'
 
 // checkLiteralFields types the field values of a record literal, and leaves the fields it does not give to their defaults.
 function checkLiteralFields(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, rt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID

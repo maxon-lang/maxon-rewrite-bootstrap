@@ -1,0 +1,27 @@
+typealias Names = Array with String
+
+type Shelf uses T
+	typealias Items = Array with T
+	var items as Items
+
+	static function make() returns Self
+		return Self{items: Items{}}
+	end 'make'
+
+	function count() returns Count
+		return items.count()
+	end 'count'
+end 'Shelf'
+
+typealias Words = Shelf with String
+
+function main() returns ExitCode
+	var names = Names{}
+	names.push("a")
+	names.push("b")
+	let shelf = Words.make()
+	print("{names.count()} {shelf.count()}\n")
+	return 0
+end 'main'
+
+//> 2 0

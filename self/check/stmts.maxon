@@ -455,7 +455,9 @@ function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	if elem == ast.noType 'notIterable'
 		return
 	end 'notIterable'
-	checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: false, errs: errs)
+	// A cursor whose current() lends its element lends it to the variable, as an array's loop does.
+	let lent = iterationOf(c, s: s).current.result == ast.ResultConv.resultBorrowed
+	checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: lent and ast.isManagedType(ms.types, reads: p.types, t: elem), errs: errs)
 end 'checkForEach'
 
 // enumeratedMethod is the call that a for walks an array through with the index of each element, `for (i, x) in
@@ -563,7 +565,7 @@ function checkIteration(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if not requireProtocolVisible(c, p: p, ms: ms, s: s, call: factory, errs: errs) or not requireProtocolVisible(c, p: p, ms: ms, s: s, call: current, errs: errs) or not requireProtocolVisible(c, p: p, ms: ms, s: s, call: advance, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'
-	if (factory.fn != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: factory.fn, use: "a for", errs: errs)) or (current.fn != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: current.fn, use: "a for", errs: errs)) 'borrowed'
+	if factory.fn != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: factory.fn, use: "a for", errs: errs) 'borrowed'
 		return ast.noType
 	end 'borrowed'
 	// A loop of the iteration protocol calls the protocol's functions, which may wait.
@@ -574,6 +576,14 @@ function checkIteration(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	end 'instances'
 	return current.result
 end 'checkIteration'
+
+// iterationOf is how the for s walks the iteration protocol, which checkIteration recorded.
+function iterationOf(c Checker, s ast.NodeID) returns ast.IterationInfo
+	return match consumes c.typing.iterations.get(s as Count) 'hit'
+		some(info) gives info
+		none panic("check: the for at node {s} walks no iteration protocol")
+	end 'hit'
+end 'iterationOf'
 
 function failNotIterable(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
 	failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` value — the compiler iterates an `Array`, a `Map`'s entries, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` or a `{createIteratorMethod}()` factory that returns one", errs: errs)
@@ -653,10 +663,8 @@ function boundProtocolCall(c Checker, p ast.Project, mutates ms ast.ModuleState,
 	end 'notOne'
 	let sig = found[0].sig
 	let selfParams = requirementParams(p, ms: ms, iface: found[0].iface)
-	let selfArgs = requirementArgs(p, ms: ms, iface: found[0].iface, own: param)
-	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: param)
-	info.method = sig
-	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).selfConv
+	let selfArgs = requirementBindings(param, req: found[0])
+	var info = requirementCall(p, ms: ms, sig: sig, receiver: param, specs: ast.ParamSpecList.create(0))
 	out.found = true
 	out.info = info
 	out.result = ast.substituteType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, params: selfParams, args: selfArgs)
@@ -689,6 +697,7 @@ function methodCall(p ast.Project, ms ast.ModuleState, recv ast.TypeID, method a
 		info.typeArgs = ast.typeEntry(ms.types, reads: p.types, t: recv).typeArgs.clone()
 	end 'generic'
 	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).selfConv
+	info.result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).result
 	return info
 end 'methodCall'
 

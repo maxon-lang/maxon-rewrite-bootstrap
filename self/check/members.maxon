@@ -216,32 +216,85 @@ function declareUnionMembers(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	end 'each'
 end 'declareUnionMembers'
 
-// declareParentInterfaces records the interfaces that an interface extends in its conforms. A parent binds no associated
-// types, which its requirements would have to take from the child's, and one that extends the interface again is a cycle.
-function declareParentInterfaces(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ifd ast.InterfaceDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+// declareParentInterfaces records the interfaces that each interface of the module extends in its conforms, before
+// anything is declared over them: an interface inherits the associated types of the interfaces it extends that it does not
+// declare itself, which an instance of it binds, so they are its type parameters before a type names it. A parent that the
+// module declares is declared first, and one that extends the interface again is a cycle.
+export function declareParentInterfaces(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates errs diag.ErrorList)
+	let count = p.modules[c.modIdx].decls.count()
+	var state = ByteArray.create(count)
+	for i in 0 upto count 'each'
+		declareParentsOf(c, p: p, ms: ms, ord: i, state: state, errs: errs)
+	end 'each'
+end 'declareParentInterfaces'
+
+// parentsUnseen is a declaration whose parents declareParentsOf has not come to.
+let parentsUnseen = 0 as Byte
+
+// parentsDeclaring is one whose parents it is declaring, which a cycle comes back to.
+let parentsDeclaring = 1 as Byte
+
+// parentsDeclared is one whose parents it has declared.
+let parentsDeclared = 2 as Byte
+
+function declareParentsOf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ord Count, mutates state ByteArray, mutates errs diag.ErrorList)
+	if state[ord] != parentsUnseen 'seen'
+		return
+	end 'seen'
+	state[ord] = parentsDeclaring
+	let ref = ast.DeclRef.make(c.modID, ordinal: try ord as ast.DeclOrdinal otherwise panic("too many declarations"))
+	match p.modules[c.modIdx].decls[ord].clone() 'k'
+		interfaceDecl(ifd) then declareParentsOfInterface(c, p: p, ms: ms, ifd: ifd, tid: declTypeOf(p, ms: ms, ref: ref), state: state, errs: errs)
+		funcDecl(_) then _ = 0
+		typeDecl(_) then _ = 0
+		enumDecl(_) then _ = 0
+		unionDecl(_) then _ = 0
+		constDecl(_) then _ = 0
+		aliasDecl(_) then _ = 0
+		extensionDecl(_) then _ = 0
+	end 'k'
+	state[ord] = parentsDeclared
+end 'declareParentsOf'
+
+function declareParentsOfInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ifd ast.InterfaceDecl, tid ast.TypeID, mutates state ByteArray, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: ifd.id)
 	let parents = conformedInterfaces(c, p: p, ms: ms, interfaces: ifd.parents, capabilities: true, errs: errs)
 	for i in 0 upto parents.count() 'each'
-		let parent = parents[i]
+		let parent = ast.originOf(ms.types, reads: p.types, t: parents[i])
+		var comesBack = false
+		if ast.typeEntry(ms.types, reads: p.types, t: parent).hasDecl and ast.typeEntry(ms.types, reads: p.types, t: parent).decl.module == c.modID 'own'
+			let at = ast.typeEntry(ms.types, reads: p.types, t: parent).decl.ordinal as Count
+			comesBack = state[at] == parentsDeclaring
+			declareParentsOf(c, p: p, ms: ms, ord: at, state: state, errs: errs)
+		end 'own'
 		let parentName = ast.typeEntry(ms.types, reads: p.types, t: parent).name.clone()
-		if ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: parent)).typeParams.count() > 0 'generic'
-			checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "the interface '{ifd.name}' extends '{parentName}', which has associated types; an interface extends only interfaces without them, so list '{parentName}' in the 'implements' of each type instead", errs: errs)
-			return
-		end 'generic'
-		if ast.extendsInterface(ms.types, reads: p.types, have: parent, want: tid) 'cycle'
+		if comesBack or ast.extendsInterface(ms.types, reads: p.types, have: parent, want: tid) 'cycle'
 			checkFail(c.modID, off: off, code: diag.errResolutionCycle, msg: "interface '{ifd.name}' forms a type cycle: the interface it extends, '{parentName}', extends '{ifd.name}'", errs: errs)
 			return
 		end 'cycle'
+		inheritAssociatedTypes(p, ms: ms, child: tid, parent: parent)
 		ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].conforms.push(parent)
 	end 'each'
-end 'declareParentInterfaces'
+end 'declareParentsOfInterface'
+
+// inheritAssociatedTypes gives the interface child each associated type of parent whose name child does not declare: the
+// same parameter, which a requirement of parent is written over and an instance of child binds. One that child declares
+// binds parent's of its name, as maxon binds them.
+function inheritAssociatedTypes(p ast.Project, mutates ms ast.ModuleState, child ast.TypeID, parent ast.TypeID)
+	let inherited = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: parent).typeParams)
+	for i in 0 upto inherited.count() 'each'
+		let name = ast.typeEntry(ms.types, reads: p.types, t: inherited[i]).name.clone()
+		if not paramNamed(p, ms: ms, owner: child, name: name).isSome() 'new'
+			ms.types.lists[ast.typeList(ms.types, t: child)][ast.typeIndex(ms.types, t: child)].typeParams.push(inherited[i])
+		end 'new'
+	end 'each'
+end 'inheritAssociatedTypes'
 
 // declareInterfaceMembers declares the methods an interface requires, each a signature in which 'Self' is the type that
 // implements the interface.
 function declareInterfaceMembers(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ifd ast.InterfaceDecl, tid ast.TypeID, mutates errs diag.ErrorList)
 	let selfParam = ast.allocType(ms.types, module: c.modID, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: "Self"))
 	ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].selfParam = selfParam
-	declareParentInterfaces(c, p: p, ms: ms, ifd: ifd, tid: tid, errs: errs)
 	for i in 0 upto ifd.methods.count() 'each'
 		declareSignature(c, p: p, ms: ms, it: tid, m: ifd.methods[i].clone(), errs: errs)
 	end 'each'

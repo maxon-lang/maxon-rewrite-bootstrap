@@ -149,17 +149,23 @@ end 'changesProjection'
 // borrowedMoveFix is the change that lets a borrowed value be stored: a copy when its type can be copied, the bound that
 // lets it be copied when only a type parameter's lack of one stops it, which keeps maxon's copy and the caller's value, and
 // otherwise, for a parameter given whole, taking it with consumes, which is the move of the whole value the message asks for.
+// In a method of an extension of an interface consumes comes first: a bound there withholds the method from every conformer
+// that binds the associated type to an interface value, which cannot be copied.
 function borrowedMoveFix(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, path AccessPath) returns diag.Fix
 	let lacking = lacksCap(o.c, p: p, ms: ms, wantCopy: true, t: t)
 	if not lacking.missing 'copy'
 		return cloneFix(ms.tree(), e: e)
 	end 'copy'
+	let root = o.c.typing.locals[path.root as Count].clone()
+	let whole = root.isParam and not root.isSelf and root.conv == ast.Convention.convLet and path.steps.count() == 0
+	if whole and o.fn != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).extendedIface != ast.noType 'ofInterface'
+		return conventionFix(ms.tree(), param: root.definedAt, keyword: fixKindConsumes)
+	end 'ofInterface'
 	let bound = lackBoundFix(p, ms: ms, fn: o.fn, info: lacking, capName: "Copyable")
 	if bound.isSome() 'bound'
 		return bound
 	end 'bound'
-	let root = o.c.typing.locals[path.root as Count].clone()
-	if root.isParam and not root.isSelf and root.conv == ast.Convention.convLet and path.steps.count() == 0 'whole'
+	if whole 'whole'
 		return conventionFix(ms.tree(), param: root.definedAt, keyword: fixKindConsumes)
 	end 'whole'
 	return diag.Fix.none()

@@ -611,8 +611,12 @@ function visitForCursor(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let reading = load(l, slot: cursor)
 	let slotValue = newReg(l, kind: kindOf(l, p: p, ms: ms, t: sym.ty))
 	let elem = protocolCall(l, p: p, ms: ms, s: s, info: info.current, recv: reading, dst: slotValue, resultTy: sym.ty, exit: exit)
-	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: false))
-	ownLocal(l, p: p, ms: ms, slot: slotOf(sym), t: sym.ty)
+	// An element that current() lends stays the cursor's, which outlives the pass.
+	let lent = info.current.result == ast.ResultConv.resultBorrowed
+	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: lent))
+	if not lent 'owned'
+		ownLocal(l, p: p, ms: ms, slot: slotOf(sym), t: sym.ty)
+	end 'owned'
 	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
 	popScope(l, p: p)
 	goTo(l, target: cont)

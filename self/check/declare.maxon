@@ -196,9 +196,47 @@ end 'optOutAdvice'
 function declareConforms(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, interfaces diag.U32, nt ast.TypeID, mutates errs diag.ErrorList)
 	let named = conformedInterfaces(c, p: p, ms: ms, interfaces: interfaces, capabilities: false, errs: errs)
 	for i in 0 upto named.count() 'each'
-		ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].conforms.push(named[i])
+		let bound = boundBySiblings(p, ms: ms, iface: named[i], named: named)
+		ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].conforms.push(bound)
 	end 'each'
 end 'declareConforms'
+
+// boundBySiblings is the interface iface, named without its associated types in a clause that names others, at the types
+// that another interface of the clause binds them to: an associated type that iface inherits from an interface it extends,
+// which `implements Cursor with Pos, BiCursor` binds through Cursor, as maxon searches the clause for it. iface is left as
+// it is named where it binds its associated types or where the clause does not bind each one.
+function boundBySiblings(p ast.Project, mutates ms ast.ModuleState, iface ast.TypeID, named ast.TypeIDList) returns ast.TypeID
+	let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: iface).typeParams)
+	if params.count() == 0 or ast.typeEntry(ms.types, reads: p.types, t: iface).typeArgs.count() > 0 'bound'
+		return iface
+	end 'bound'
+	var args = ast.TypeIDList.create(0)
+	for i in 0 upto params.count() 'params'
+		let binding = siblingBinding(p, ms: ms, iface: iface, param: params[i], named: named)
+		if binding == ast.noType 'unbound'
+			return iface
+		end 'unbound'
+		args.push(binding)
+	end 'params'
+	return ast.instantiateType(ms.types, reads: p.types, origin: iface, args: args)
+end 'boundBySiblings'
+
+// siblingBinding is what an interface of named other than iface binds the associated type param to, or none.
+function siblingBinding(p ast.Project, ms ast.ModuleState, iface ast.TypeID, param ast.TypeID, named ast.TypeIDList) returns ast.TypeID
+	for j in 0 upto named.count() 'siblings'
+		let sibling = ast.originOf(ms.types, reads: p.types, t: named[j])
+		let args = ast.typeEntry(ms.types, reads: p.types, t: named[j]).typeArgs.clone()
+		let params = ast.typeEntry(ms.types, reads: p.types, t: sibling).typeParams.clone()
+		if sibling != iface and args.count() == params.count() 'binds'
+			for k in 0 upto params.count() 'each'
+				if params[k] == param 'hit'
+					return args[k]
+				end 'hit'
+			end 'each'
+		end 'binds'
+	end 'siblings'
+	return ast.noType
+end 'siblingBinding'
 
 // conformedInterfaces are the interfaces a declaration or an extension names after 'implements', or an interface after
 // 'extends', up to the first that is not one. Only an interface names a capability, which every type that implements it
@@ -300,7 +338,14 @@ end 'errorOf'
 function declareSignature(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, it ast.TypeID, m ast.FuncSig, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: m.id)
 	if m.name == cloneMethod 'clone'
-		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
+		if not requiresBuiltinClone(c, p: p, ms: ms, it: it, m: m) 'other'
+			checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
+			return
+		end 'other'
+		// The built-in clone() of a Copyable type is the method, so the interface asks its conformers to be Copyable.
+		if not ast.reachesInterface(ms.types, reads: p.types, have: it, want: p.builtins.copyableTy) 'copyable'
+			ms.types.lists[ast.typeList(ms.types, t: it)][ast.typeIndex(ms.types, t: it)].conforms.push(p.builtins.copyableTy)
+		end 'copyable'
 		return
 	end 'clone'
 	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: it).sigs.count() 'each'
@@ -328,17 +373,37 @@ function declareSignature(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	if failedSince(errs, mark: mark) 'badReturn'
 		return
 	end 'badReturn'
-	if ast.parseResultConv(m.resultMode) != ast.ResultConv.resultOwned 'borrowed'
-		// A call through a witness table would need every implementation to lend the same kind of place.
-		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: m.id), code: diag.errUnsupported, msg: "the requirement '{m.name}' returns a borrowed place, which an interface does not support yet; declare it 'returns T' to give a value", errs: errs)
-		return
-	end 'borrowed'
 	fn.errTy = errorOf(c, p: p, ms: ms, site: m.id, throwsRef: m.throwsRef, specs: fn.params, errs: errs)
 	if failedSince(errs, mark: mark) 'badThrows'
 		return
 	end 'badThrows'
+	fn.result = ast.parseResultConv(m.resultMode)
+	if refusesBorrowedThrows(c, off: off, name: m.name, result: fn.result, err: fn.errTy, errs: errs) 'borrowedThrows'
+		return
+	end 'borrowedThrows'
 	ms.types.lists[ast.typeList(ms.types, t: it)][ast.typeIndex(ms.types, t: it)].sigs.push(ast.allocFunc(ms.funcs, module: c.modID, f: fn))
 end 'declareSignature'
+
+// refusesBorrowedThrows refuses a function or a requirement that returns a borrowed place and throws: a failure leaves a
+// borrowed result with no place to lend, and the caller's try would need a fallback place.
+function refusesBorrowedThrows(c Checker, off diag.U32, name String, result ast.ResultConv, err ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if result != ast.ResultConv.resultBorrowed or err == ast.noType 'fine'
+		return false
+	end 'fine'
+	checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "'{name}' returns a borrowed place and throws, which is not supported yet; let the caller test first and remove 'throws', or return a value: 'returns T'", errs: errs)
+	return true
+end 'refusesBorrowedThrows'
+
+// requiresBuiltinClone is whether the requirement m of the interface it is `function clone() returns Self`, which the
+// built-in clone() of every Copyable type meets, as maxon's Cloneable is met by the clone() its compiler generates.
+function requiresBuiltinClone(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, it ast.TypeID, m ast.FuncSig) returns bool
+	if m.isStatic or m.receiver != "" or m.params.count() != 0 or m.throwsRef != 0 or m.returnsRef == 0 or ast.parseResultConv(m.resultMode) != ast.ResultConv.resultOwned 'shape'
+		return false
+	end 'shape'
+	var unresolved = diag.ErrorList.create(0)
+	let selfTy = ast.typeEntry(ms.types, reads: p.types, t: it).selfParam
+	return resolveTypeRef(c, p: p, ms: ms, tr: m.returnsRef, selfTy: selfTy, errs: unresolved) == selfTy and unresolved.count() == 0
+end 'requiresBuiltinClone'
 
 // typeNamed is the type that a name written as an expression names, or none if it names no type. A generic type names
 // its declaration, which only a call or a case that infers the arguments accepts; requireInstance refuses it anywhere
@@ -518,6 +583,7 @@ end 'declareUnionDecl'
 // a generic type that either names queues the check of its type arguments against the bounds, whichever of the two is
 // written first, and a module that names the type finds them declared.
 export function declareTypeParamBounds(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates errs diag.ErrorList) returns ByteArray
+	declareParentInterfaces(c, p: p, ms: ms, errs: errs)
 	let count = p.modules[c.modIdx].decls.count()
 	var paramsOk = ByteArray.create(count)
 	for i in 0 upto count 'params'

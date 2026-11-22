@@ -488,13 +488,15 @@ export function witnessSuffix(p Project, tt TypeSlot, reads TypeTable, ft FuncSl
 end 'witnessSuffix'
 
 // A Requirement is a method that an interface requires, with the interface that declares it, which is the interface
-// itself or one it extends: its signature is read over that interface's 'Self' and associated types.
+// itself or one it extends: its signature is read over that interface's 'Self' and associated types, which bindings are
+// what they stand for where the interface asked about is bound (none where it is not).
 export type Requirement
 	export var iface as TypeID
 	export var sig as FuncID
+	export var bindings as TypeIDList
 
-	export static function make(iface TypeID, sig FuncID) returns Requirement
-		return Requirement{iface: iface, sig: sig}
+	export static function make(iface TypeID, sig FuncID, consumes bindings TypeIDList) returns Requirement
+		return Requirement{iface: iface, sig: sig, bindings: bindings}
 	end 'make'
 end 'Requirement'
 
@@ -505,22 +507,50 @@ export typealias RequirementList = Array with Requirement
 // table of an interface value, so a call through one and the table agree on where each method is.
 export function requirementsOf(tt TypeSlot, reads TypeTable, iface TypeID) returns RequirementList
 	var out = RequirementList.create(0)
-	collectRequirements(tt, reads: reads, iface: iface, out: out)
+	collectRequirements(tt, reads: reads, iface: iface, bindings: typeArgsOf(tt, reads: reads, t: iface), out: out)
 	return out
 end 'requirementsOf'
 
-function collectRequirements(tt TypeSlot, reads TypeTable, iface TypeID, mutates out RequirementList)
+function collectRequirements(tt TypeSlot, reads TypeTable, iface TypeID, bindings TypeIDList, mutates out RequirementList)
 	let orig = originOf(tt, reads: reads, t: iface)
 	for i in 0 upto typeEntry(tt, reads: reads, t: orig).sigs.count() 'own'
 		let sig = typeEntry(tt, reads: reads, t: orig).sigs[i]
 		if not requirementIndex(out, sig: sig).isSome() 'new'
-			out.push(Requirement.make(iface, sig: sig))
+			out.push(Requirement.make(iface, sig: sig, bindings: cloneTypeArgs(bindings)))
 		end 'new'
 	end 'own'
 	for i in 0 upto typeEntry(tt, reads: reads, t: orig).conforms.count() 'parents'
-		collectRequirements(tt, reads: reads, iface: typeEntry(tt, reads: reads, t: orig).conforms[i], out: out)
+		let parent = typeEntry(tt, reads: reads, t: orig).conforms[i]
+		collectRequirements(tt, reads: reads, iface: parent, bindings: inheritedBindings(tt, reads: reads, child: orig, bindings: bindings, parent: parent), out: out)
 	end 'parents'
 end 'collectRequirements'
+
+// inheritedBindings are what the associated types of parent, an interface that the interface child extends, stand for
+// where child's stand for bindings: each is the one of child's of the same name, which child inherits where it does not
+// declare it (README, "Generics"). Unbound, child binds none of them either.
+export function inheritedBindings(tt TypeSlot, reads TypeTable, child TypeID, bindings TypeIDList, parent TypeID) returns TypeIDList
+	var out = TypeIDList.create(0)
+	if bindings.count() == 0 'unbound'
+		return out
+	end 'unbound'
+	let childParams = typeEntry(tt, reads: reads, t: child).typeParams.clone()
+	let parentParams = typeEntry(tt, reads: reads, t: parent).typeParams.clone()
+	for i in 0 upto parentParams.count() 'each'
+		let name = typeEntry(tt, reads: reads, t: parentParams[i]).name.clone()
+		var found = false
+		for j in 0 upto childParams.count() 'child'
+			if typeEntry(tt, reads: reads, t: childParams[j]).name == name 'same'
+				out.push(bindings[j])
+				found = true
+				break 'child'
+			end 'same'
+		end 'child'
+		if not found 'missing'
+			panic("the interface '{typeEntry(tt, reads: reads, t: child).name}' extends '{typeEntry(tt, reads: reads, t: parent).name}' without its associated type '{name}'")
+		end 'missing'
+	end 'each'
+	return out
+end 'inheritedBindings'
 
 // requirementIndex is the place of the requirement sig among reqs, or none.
 export function requirementIndex(reqs RequirementList, sig FuncID) returns table.Option with Count
