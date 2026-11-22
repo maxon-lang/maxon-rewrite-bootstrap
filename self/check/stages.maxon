@@ -226,9 +226,9 @@ function isModule(found table.Option with Count, modIdx Count) returns bool
 end 'isModule'
 
 // mayHoldEntry is whether the module is where the program's entry function is looked for: every module of the program, and
-// the runtime's own project only when the compile makes an executable.
+// the runtime's and the standard library's only when the compile makes an executable, which a check of either does not.
 function mayHoldEntry(plan EntryPlan, p ast.Project, modIdx Count) returns bool
-	return not p.modules[modIdx].isRuntime or plan.makesProgram
+	return not p.modules[modIdx].isRuntime and not p.modules[modIdx].isLibrary or plan.makesProgram
 end 'mayHoldEntry'
 
 function holdsAnEntryModule(plan EntryPlan, p ast.Project, order ModuleOrder) returns bool

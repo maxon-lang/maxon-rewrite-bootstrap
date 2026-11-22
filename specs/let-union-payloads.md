@@ -623,10 +623,10 @@ end 'split'
 
 function main() returns ExitCode
 	let (a, b) = match split() 'm'
-		parts(x, y) gives (x, y)
+		parts(x, y) gives (x.clone(), y.clone())
 		none panic("none")
 	end 'm'
-	return (a.count() + b.count()) as ExitCode
+	return try (a.count() + b.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 
 // --- file: b/b.maxon

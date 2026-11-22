@@ -136,6 +136,10 @@ let ignoreMarkerName = ".maxonignore"
 // runtimeDirName is the directory of the runtime's source (README, "The runtime").
 let runtimeDirName = "runtime"
 
+// libraryDirName is the directory of the standard library's source (README, "Modules"), whose modules every program is
+// compiled with.
+let libraryDirName = "stdlib"
+
 let slashByte = 47 as Byte
 
 let backslashByte = 92 as Byte
@@ -190,6 +194,50 @@ export function isRuntimeDirectory(path String) returns bool
 		none gives false
 	end 'found'
 end 'isRuntimeDirectory'
+
+// libraryDirectory is the standard library's source, found as the runtime's is.
+export function libraryDirectory() returns table.Option with String
+	return nearestDirectory(libraryDirName)
+end 'libraryDirectory'
+
+// isLibraryDirectory is whether a project's directory is the standard library's source, which is then the library alone, as
+// every program has it, rather than a program with a second copy of it.
+function isLibraryDirectory(path String) returns bool
+	return match consumes libraryDirectory() 'found'
+		some(dir) gives sameText(absolutePath(path), b: absolutePath(dir))
+		none gives false
+	end 'found'
+end 'isLibraryDirectory'
+
+// addLibrary adds the modules of the standard library's source to p, after the program's, which name its root's public
+// declarations bare (resolve.bareLookup). The library's root has the path of the stdlib qualifier and each module under it a
+// path below that one, so no program module, which may not be called so (E3182), shares a path with it. A program that is the
+// runtime's source or the library's own gets none, and so does a compiler with no library beside it.
+function addLibrary(mutates p ast.Project, rootPath String, mutates errs diag.ErrorList)
+	if isRuntimeDirectory(rootPath) or isLibraryDirectory(rootPath) 'itself'
+		return
+	end 'itself'
+	match consumes libraryDirectory() 'found'
+		some(dir) then _ = addLibraryAt(p, dir: dir, errs: errs)
+		none then return
+	end 'found'
+end 'addLibrary'
+
+// addLibraryAt adds the modules of the library's source at dir to p and gives its root, or none when dir holds no module.
+function addLibraryAt(mutates p ast.Project, dir String, mutates errs diag.ErrorList) returns table.Option with diag.ModuleID
+	var nodes = DiscDirList.create(0)
+	let scanned = scanDirectory(nodes, dir: dir.clone(), modPath: ast.stdlibQualifier, isRoot: true, memory: SourceFiles.create(0), errs: errs)
+	if not scanned.isSome() 'none'
+		return table.Option.none
+	end 'none'
+	let first = p.modules.count()
+	let root = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
+	for m in first upto p.modules.count() 'modules'
+		p.modules[m].isLibrary = true
+	end 'modules'
+	p.library = table.Option.some(root)
+	return table.Option.some(root)
+end 'addLibraryAt'
 
 function isSeparator(c Byte) returns bool
 	return c == slashByte or c == backslashByte
@@ -829,7 +877,7 @@ export function discoverProjectInto(mutates p ast.Project, rootPath String, muta
 		return table.Option.some(SourceFiles.create(0))
 	end 'dir'
 	match consumes readTextFile(rootPath) 'rf'
-		some(text) then return table.Option.some(discoverSingleFile(p, path: rootPath, text: text))
+		some(text) then return table.Option.some(discoverSingleFile(p, path: rootPath, text: text, errs: errs))
 		none then _ = failMissingInput(rootPath, errs: errs)
 	end 'rf'
 	return table.Option.none
@@ -852,6 +900,13 @@ end 'discoverFilesInto'
 // discoverDirectory adds the modules of the directory at rootPath, the files of which are the ones in memory when there are
 // any.
 function discoverDirectory(mutates p ast.Project, rootPath String, memory SourceFiles, mutates errs diag.ErrorList)
+	if memory.count() == 0 and isLibraryDirectory(rootPath) 'library'
+		match addLibraryAt(p, dir: rootPath, errs: errs) 'root'
+			some(root) then p.rootModule = root
+			none then _ = 0
+		end 'root'
+		return
+	end 'library'
 	var nodes = DiscDirList.create(0)
 	_ = scanDirectory(nodes, dir: rootPath.clone(), modPath: "", isRoot: true, memory: memory, errs: errs)
 	if memory.count() == 0 'onDisk'
@@ -861,6 +916,7 @@ function discoverDirectory(mutates p ast.Project, rootPath String, memory Source
 		let rootMid = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
 		p.rootModule = rootMid
 		p.modules[ast.modIndex(rootMid)].isRuntime = isRuntimeDirectory(rootPath)
+		addLibrary(p, rootPath: rootPath, errs: errs)
 	end 'collect'
 end 'discoverDirectory'
 
@@ -868,23 +924,25 @@ end 'discoverDirectory'
 // project. It is how a test of the corpus compiles a program it holds in memory.
 export function loadSourceInto(mutates p ast.Project, path String, text String, mutates errs diag.ErrorList)
 	let first = p.modules.count()
-	let memory = discoverSourceInto(p, path: path, text: text)
+	let memory = discoverSourceInto(p, path: path, text: text, errs: errs)
 	parseModules(p, first: first, memory: memory, errs: errs)
 end 'loadSourceInto'
 
 // discoverSourceInto is loadSourceInto short of parsing, and gives the file that parseModule reads the module from.
-export function discoverSourceInto(mutates p ast.Project, path String, text String) returns SourceFiles
+export function discoverSourceInto(mutates p ast.Project, path String, text String, mutates errs diag.ErrorList) returns SourceFiles
 	p.root = path.clone()
-	return discoverSingleFile(p, path: path, text: text)
+	return discoverSingleFile(p, path: path, text: text, errs: errs)
 end 'discoverSourceInto'
 
-// discoverSingleFile adds a module that is the one file at path, whose text is given, makes it the root, and gives the file.
-function discoverSingleFile(mutates p ast.Project, path String, text String) returns SourceFiles
+// discoverSingleFile adds a module that is the one file at path, whose text is given, makes it the root, adds the library,
+// and gives the file.
+function discoverSingleFile(mutates p ast.Project, path String, text String, mutates errs diag.ErrorList) returns SourceFiles
 	var m = ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0))
 	m.dir = parentDir(path)
 	m.filePaths.push(path.clone())
 	let rootMid = ast.addModule(p, m: m)
 	p.rootModule = rootMid
+	addLibrary(p, rootPath: path, errs: errs)
 	var memory = SourceFiles.create(0)
 	memory.push(SourceFile.make(path.clone(), text: text.clone()))
 	return memory

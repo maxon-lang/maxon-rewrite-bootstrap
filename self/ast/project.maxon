@@ -697,6 +697,8 @@ export type Project
 	export var root as String
 	export var target as Target
 	export var rootModule as diag.ModuleID
+	// library is the root module of the standard library's source when the project holds it (see "Modules" in the README).
+	export var library as table.Option with diag.ModuleID
 	export var modules as ModuleList
 	export var stdlib as Module
 	export var byPath as frozen with PathModMap
@@ -719,7 +721,7 @@ export type Project
 		returnTypeSlot(tt, held: shared)
 		returnFuncSlot(ft, held: sharedFuncs)
 		let bp = PathModMap.new()
-		var p = Project{root: root, target: Target.windowsX64(), rootModule: 0 as diag.ModuleID, modules: ModuleList.create(0), stdlib: std, byPath: freeze(bp), types: tt, funcs: ft, builtins: freeze(bs), resolutions: Array.create(0), typings: Array.create(0)}
+		var p = Project{root: root, target: Target.windowsX64(), rootModule: 0 as diag.ModuleID, library: table.Option.none, modules: ModuleList.create(0), stdlib: std, byPath: freeze(bp), types: tt, funcs: ft, builtins: freeze(bs), resolutions: Array.create(0), typings: Array.create(0)}
 		for i in 0 upto p.stdlib.decls.count() 'stdReg'
 			let ord = try i as DeclOrdinal otherwise 0 as DeclOrdinal
 			let name = p.stdlib.decls[i].name()
@@ -735,8 +737,8 @@ export type Project
 		return p
 	end 'new'
 
-	static function view(consumes root String, consumes target Target, rootModule diag.ModuleID, consumes modules ModuleList, consumes stdlib Module, consumes byPath frozen with PathModMap, consumes types TypeTable, consumes funcs FuncTable, consumes builtins frozen with Builtins, consumes resolutions Array with frozen with Resolution, consumes typings Array with frozen with Typing) returns Project
-		return Project{root: root, target: target, rootModule: rootModule, modules: modules, stdlib: stdlib, byPath: byPath, types: types, funcs: funcs, builtins: builtins, resolutions: resolutions, typings: typings}
+	static function view(consumes root String, consumes target Target, rootModule diag.ModuleID, consumes library table.Option with diag.ModuleID, consumes modules ModuleList, consumes stdlib Module, consumes byPath frozen with PathModMap, consumes types TypeTable, consumes funcs FuncTable, consumes builtins frozen with Builtins, consumes resolutions Array with frozen with Resolution, consumes typings Array with frozen with Typing) returns Project
+		return Project{root: root, target: target, rootModule: rootModule, library: library, modules: modules, stdlib: stdlib, byPath: byPath, types: types, funcs: funcs, builtins: builtins, resolutions: resolutions, typings: typings}
 	end 'view'
 end 'Project'
 
@@ -757,7 +759,7 @@ export function baseOf(p Project, first Count) returns Project
 		typings.push(share(p.typings[a]))
 	end 'earlier'
 	let firstSlot = moduleSlot(try first as diag.ModuleID otherwise panic("a module past the handles"))
-	return Project.view(p.root.clone(), target: p.target.clone(), rootModule: p.rootModule, modules: modules, stdlib: stdlib, byPath: share(p.byPath), types: baseTypes(p.types, firstSlot: firstSlot), funcs: baseFuncs(p.funcs, firstSlot: firstSlot), builtins: share(p.builtins), resolutions: resolutions, typings: typings)
+	return Project.view(p.root.clone(), target: p.target.clone(), rootModule: p.rootModule, library: p.library.clone(), modules: modules, stdlib: stdlib, byPath: share(p.byPath), types: baseTypes(p.types, firstSlot: firstSlot), funcs: baseFuncs(p.funcs, firstSlot: firstSlot), builtins: share(p.builtins), resolutions: resolutions, typings: typings)
 end 'baseOf'
 
 export function addModule(mutates p Project, consumes m Module) returns diag.ModuleID
@@ -1070,8 +1072,38 @@ end 'describeModule'
 // isVisibleFrom is whether something that the module owner declares with the visibility v can be named from the module
 // from.
 export function isVisibleFrom(p Project, v Visibility, owner diag.ModuleID, from diag.ModuleID) returns bool
+	if owner != diag.stdlibID and p.modules[modIndex(owner)].isLibrary 'library'
+		let inside = from != diag.stdlibID and p.modules[modIndex(from)].isLibrary
+		return match v 'v'
+			everyone gives true
+			exported gives inside and isWithin(modulePath(p, modID: from), under: libraryTreeOf(modulePath(p, modID: owner)))
+			unexported gives owner == from
+		end 'v'
+	end 'library'
 	return isVisible(v, owner: owner, ownerPath: modulePath(p, modID: owner), from: from, fromPath: modulePath(p, modID: from))
 end 'isVisibleFrom'
+
+// libraryTreeOf is the tree that an export of the library module at path reaches: the tree rooted at its parent, which for
+// the library's root and its top-level modules is the whole library and never the program.
+function libraryTreeOf(path String) returns String
+	let parent = parentPath(path)
+	if parent == "" 'top'
+		return stdlibQualifier
+	end 'top'
+	return parent
+end 'libraryTreeOf'
+
+// qualifierRoot is the module that a qualified name written in module starts from: the library's root for a module of the
+// standard library, the project's root for every other.
+export function qualifierRoot(p Project, module diag.ModuleID) returns diag.ModuleID
+	if module != diag.stdlibID and p.modules[modIndex(module)].isLibrary 'library'
+		return match p.library 'root'
+			some(root) gives root
+			none gives panic("a module of the standard library in a project that holds no library")
+		end 'root'
+	end 'library'
+	return p.rootModule
+end 'qualifierRoot'
 
 // notVisible is the message for naming, from the module from, something named name that owner declares with the
 // visibility v, which isVisibleFrom refused.
@@ -1080,7 +1112,11 @@ export function notVisible(p Project, name String, v Visibility, owner diag.Modu
 	if v == Visibility.unexported 'priv'
 		return "'{name}' is not exported from {describeModule(p, modID: owner)}: mark it 'export' to use it from {fromWord}"
 	end 'priv'
-	return "'{name}' is exported only to module {parentPath(modulePath(p, modID: owner))} and the modules under it: mark it 'public' to use it from {fromWord}"
+	var tree = parentPath(modulePath(p, modID: owner))
+	if owner != diag.stdlibID and p.modules[modIndex(owner)].isLibrary 'library'
+		tree = libraryTreeOf(modulePath(p, modID: owner))
+	end 'library'
+	return "'{name}' is exported only to module {tree} and the modules under it: mark it 'public' to use it from {fromWord}"
 end 'notVisible'
 
 // functionNamed is the function that a module declares by name at its top level, or noFunc when the name is not one.

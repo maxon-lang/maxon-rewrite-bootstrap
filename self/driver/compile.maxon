@@ -176,7 +176,7 @@ end 'compileFilesWith'
 function compileSourceWith(shared SharedRuntime, path String, text String, output String, options Options, mutates errs diag.ErrorList)
 	var p = shared.projectForProgram()
 	let first = p.modules.count()
-	let memory = project.discoverSourceInto(p, path: path, text: text)
+	let memory = project.discoverSourceInto(p, path: path, text: text, errs: errs)
 	_ = compileDiscovered(p, memory: memory, first: first, ready: shared.ready, output: output, options: options, errs: errs)
 end 'compileSourceWith'
 

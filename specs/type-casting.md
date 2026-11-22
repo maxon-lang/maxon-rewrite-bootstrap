@@ -999,7 +999,7 @@ function seed() returns ExitCode
 end 'seed'
 
 function main() returns ExitCode
-	let space = seed() as Codepoint
+	let space = try seed() as Codepoint otherwise panic("out of range")
 	if Unicode.isWhitespace(space as stdlib.Codepoint) 'space'
 		return 5
 	end 'space'

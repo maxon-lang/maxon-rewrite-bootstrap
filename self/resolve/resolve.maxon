@@ -106,15 +106,21 @@ function takeLookup(mutates r Resolver, p ast.Project, consumes lr LookupResult,
 	if not lr.found 'none'
 		return table.Option.none
 	end 'none'
-	if lr.decl.module != r.modID and lr.decl.module != diag.stdlibID 'dep'
-		r.res.addDep(lr.decl.module, offset: off)
-	end 'dep'
+	noteDependency(r, ref: lr.decl, off: off)
 	return table.Option.some(lr.decl)
 end 'takeLookup'
 
+// noteDependency records that the module depends on the module that declares ref, which it names at off, unless that is
+// itself or the built-ins.
+function noteDependency(mutates r Resolver, ref ast.DeclRef, off diag.U32)
+	if ref.module != r.modID and ref.module != diag.stdlibID 'dep'
+		r.res.addDep(ref.module, offset: off)
+	end 'dep'
+end 'noteDependency'
+
 // bareLookup looks up a name written without a module: a typealias of the type being resolved, else the module's own
-// declaration, else a built-in. Another module's declarations are always qualified, so resolving a module reads only the
-// modules it names.
+// declaration, else a built-in, else a declaration of the standard library's root that the module sees. Another module's
+// declarations are always qualified, so resolving a module reads only the modules it names.
 function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
 	match consumes r.members.get(name) 'member'
 		some(ref) then return LookupResult.hit(ref)
@@ -129,8 +135,37 @@ function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
 		some(ord) then return LookupResult.hit(ast.DeclRef.make(diag.stdlibID, ordinal: ord))
 		none then _ = 0
 	end 'std'
-	return LookupResult.miss()
+	return libraryLookup(r, p: p, name: name)
 end 'bareLookup'
+
+// libraryLookup is the declaration of the standard library's root named name, when the project holds the library and the
+// module sees it.
+function libraryLookup(r Resolver, p ast.Project, name String) returns LookupResult
+	return match p.library 'library'
+		some(root) gives libraryRootLookup(r, p: p, root: root, name: name)
+		none gives LookupResult.miss()
+	end 'library'
+end 'libraryLookup'
+
+// libraryRootLookup is libraryLookup in the library whose root is the module root, which the library's root itself has
+// looked in already as its own.
+function libraryRootLookup(r Resolver, p ast.Project, root diag.ModuleID, name String) returns LookupResult
+	if root == r.modID 'own'
+		return LookupResult.miss()
+	end 'own'
+	match p.modules[ast.modIndex(root)].names.get(name) 'declared'
+		some(ord) then return visibleHit(r, p: p, ref: ast.DeclRef.make(root, ordinal: ord))
+		none then return LookupResult.miss()
+	end 'declared'
+end 'libraryRootLookup'
+
+// visibleHit is the lookup that found ref, when the module sees it, and a miss otherwise.
+function visibleHit(r Resolver, p ast.Project, consumes ref ast.DeclRef) returns LookupResult
+	if not isDeclVisible(r, p: p, ref: ref) 'hidden'
+		return LookupResult.miss()
+	end 'hidden'
+	return LookupResult.hit(ref)
+end 'visibleHit'
 
 // bareLookupAt is bareLookup that records a name it does not find, written at off, as unbound.
 function bareLookupAt(mutates r Resolver, p ast.Project, name String, off diag.U32) returns LookupResult
@@ -148,22 +183,21 @@ function recordUnbound(mutates r Resolver, name String, off diag.U32)
 	end 'named'
 end 'recordUnbound'
 
-function isModuleRoot(p ast.Project, name String) returns bool
+function isModuleRoot(p ast.Project, module diag.ModuleID, name String) returns bool
 	if name == ast.rootQualifier or name == ast.stdlibQualifier 'special'
 		return true
 	end 'special'
-	let rIdx = ast.modIndex(p.rootModule)
+	let rIdx = ast.modIndex(ast.qualifierRoot(p, module: module))
 	return p.modules[rIdx].findChild(name).isSome()
 end 'isModuleRoot'
 
 function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff diag.U32, rest ast.StringList, offs ast.U32List, mutates errs diag.ErrorList) returns Count
-	var curMod = p.rootModule
-	if head == ast.rootQualifier 'exp'
-		curMod = p.rootModule
-	end 'exp' else if head == ast.stdlibQualifier 'std'
+	let root = ast.qualifierRoot(p, module: r.modID)
+	var curMod = root
+	if head == ast.stdlibQualifier 'std'
 		curMod = diag.stdlibID
-	end 'std' else 'child'
-		match p.modules[ast.modIndex(p.rootModule)].findChild(head) 'ch'
+	end 'std' else if head != ast.rootQualifier 'child'
+		match p.modules[ast.modIndex(root)].findChild(head) 'ch'
 			some(cid) then curMod = cid
 			none then return 0 as Count
 		end 'ch'
@@ -219,20 +253,17 @@ function finishQualified(mutates r Resolver, p ast.Project, consumes ref ast.Dec
 		pushErr(errs, modID: r.modID, off: off, code: diag.errNotExported, msg: hiddenMessage(r, p: p, ref: ref))
 		return 0 as Count
 	end 'hid'
-	if ref.module != r.modID and ref.module != diag.stdlibID 'dep'
-		r.res.addDep(ref.module, offset: off)
-	end 'dep'
+	noteDependency(r, ref: ref, off: off)
 	return used
 end 'finishQualified'
 
-function qualifiedDeclRef(p ast.Project, head String, rest ast.StringList) returns table.Option with ast.DeclRef
-	var curMod = p.rootModule
-	if head == ast.rootQualifier 'exp'
-		curMod = p.rootModule
-	end 'exp' else if head == ast.stdlibQualifier 'std'
+function qualifiedDeclRef(p ast.Project, module diag.ModuleID, head String, rest ast.StringList) returns table.Option with ast.DeclRef
+	let root = ast.qualifierRoot(p, module: module)
+	var curMod = root
+	if head == ast.stdlibQualifier 'std'
 		curMod = diag.stdlibID
-	end 'std' else 'child'
-		match p.modules[ast.modIndex(p.rootModule)].findChild(head) 'ch'
+	end 'std' else if head != ast.rootQualifier 'child'
+		match p.modules[ast.modIndex(root)].findChild(head) 'ch'
 			some(cid) then curMod = cid
 			none then return table.Option.none
 		end 'ch'
@@ -358,7 +389,7 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 		return
 	end 'unqual'
 	let firstQual = r.tree.nameAt(r.tree.listAt(qualRef, index: 0 as Count))
-	if not isModuleRoot(p, name: firstQual) 'noMod'
+	if not isModuleRoot(p, module: r.modID, name: firstQual) 'noMod'
 		resolveOwnTypeMember(r, p: p, tr: tr, owner: firstQual, member: tName, qualCount: qualCount, off: off, errs: errs)
 		return
 	end 'noMod'
@@ -374,7 +405,7 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 	if used == 0 'failed'
 		return
 	end 'failed'
-	match consumes qualifiedDeclRef(p, head: firstQual, rest: path) 'hit'
+	match consumes qualifiedDeclRef(p, module: r.modID, head: firstQual, rest: path) 'hit'
 		some(decl) then checkAndBindTypeDecl(r, p: p, tr: tr, decl: decl, used: used, pathLen: path.count(), qualRef: qualRef, tName: tName, off: off, errs: errs)
 		none then _ = 0
 	end 'hit'
@@ -388,6 +419,7 @@ function resolveOwnTypeMember(mutates r Resolver, p ast.Project, tr ast.NodeID, 
 		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "no module '{owner}'")
 		return
 	end 'noOwner'
+	noteDependency(r, ref: lr.decl, off: off)
 	r.res.memberRefs.push(ast.MemberRef.make(tr, owner: lr.decl.clone(), member: member.clone()))
 end 'resolveOwnTypeMember'
 
@@ -830,7 +862,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 			end 'done'
 		end 'typeHead'
 		let hasMem = isTy and resolvesDeclMember(p, ms: ms, ref: bare.decl, memberName: segs[0].name)
-		if isConst or hasMem or (not isModuleRoot(p, name: headName)) 'keepBare'
+		if isConst or hasMem or (not isModuleRoot(p, module: r.modID, name: headName)) 'keepBare'
 			let headOff = r.tree.startOf(cur)
 			match consumes takeLookup(r, p: p, lr: bare, off: headOff, errs: errs) 'tk'
 				some(ref) then r.res.bindDecl(cur, d: ref)
@@ -839,7 +871,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 			return
 		end 'keepBare'
 	end 'hasBare'
-	if not isModuleRoot(p, name: headName) 'notRoot'
+	if not isModuleRoot(p, module: r.modID, name: headName) 'notRoot'
 		recordUnbound(r, name: headName, off: r.tree.startOf(cur))
 		return
 	end 'notRoot'
@@ -854,7 +886,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 	if used == 0 'fail'
 		return
 	end 'fail'
-	match consumes qualifiedDeclRef(p, head: headName, rest: names) 'hit'
+	match consumes qualifiedDeclRef(p, module: r.modID, head: headName, rest: names) 'hit'
 		some(target) then rewriteMemberToName(r, targetNode: segs[try used - 1 otherwise 0 as Count].node, headNode: cur, targetDecl: target)
 		none then _ = 0
 	end 'hit'

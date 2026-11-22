@@ -283,16 +283,30 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   the root included, that holds a `.maxproj` file is `E2074` when the directory above it, or one higher, holds another
   `.maxproj` file, whichever of the two projects is built; it is reported at the nested file with maxon's message. A directory
   that holds a `.maxonignore` file is left out of the walk, with everything below it, unless it is the root of the compile. A
-  project held in memory (the spec runner) has no `.maxproj`: its files are the project. The compiler finds `runtime/` from its
-  own executable, so none of this changes where it is looked for.
+  project held in memory (the spec runner) has no `.maxproj`: its files are the project. The compiler finds `runtime/` and
+  `stdlib/` from its own executable, so none of this changes where they are looked for.
 
 - **Another module's names are always qualified**, by the module's path read from the root: `geometry.area()`,
   `7 as geometry.Length`, `net.http.parse()`, `geometry.Shape.circle(2)`. The root module's own declarations are
   `export.X` (`export` is a name only as the start of a qualified name), and `stdlib.X` is a built-in.
-- **A bare name** is a local, a field, a type parameter, the module's own declaration or a built-in, and nothing else, so
-  adding a declaration to one module never changes how another resolves, and resolving a module reads only the
-  declarations of the modules it names. A bare name that only another module declares is unknown (`E3004` for a call,
-  `E3011` for a type, `E2004` for a value), and the message names the qualified spellings.
+- **A bare name** is a local, a field, a type parameter, the module's own declaration, a built-in or, last, a public
+  declaration of the standard library's root (below), and nothing else, so adding a declaration to one module never changes
+  how another resolves, and resolving a module reads only the declarations of the modules it names. A bare name that only
+  another module declares is unknown (`E3004` for a call, `E3011` for a type, `E2004` for a value), and the message names
+  the qualified spellings.
+- **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
+  directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`:
+  `stdlib/files.txt` lists the files converted so far, and `.\stdlib.ps1` regenerates them; none is edited here. Every
+  program is compiled with it (`project.addLibrary`): its directories are modules after the program's, flagged `isLibrary`,
+  the root's path being `stdlib` and each one under it `stdlib.<path>`, so no program module shares one, and
+  `Project.library` names the root. A program names the root's public declarations bare (`Unicode.isWhitespace(32)`), after
+  its own names and the built-ins; a library module names the library's other modules qualified from the library's root
+  (`helpers.hashtable.X`, `export.X` for the root's), and its `export` reaches the tree rooted at its parent within the
+  library, which for the root and a top-level module is the whole library and never a program. A program sees nothing of
+  the library short of `public`. Only the library modules a program names, directly or through others, are compiled past
+  their resolve (`reachedModules`), so a program pays for no other; each is a module of the build cache like any other,
+  with its own key, and is compiled for the compile's target. A project that is the runtime's source or `stdlib/` itself is
+  compiled without a second library.
 - **Visibility has three levels**, for a declaration, a field or a method:
   - no modifier: the declaring module only;
   - `export`: the tree rooted at the declaring module's parent, as Go's `internal/`. An `export` in `app/net/http` is
@@ -329,7 +343,7 @@ layering cannot erode:
 | `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides; `Digest`, `Hasher`, `ByteWriter` and `ByteReader` (`digest.maxon`), which the build cache names its entries by and stores them with, and `CacheWriter` and `CacheReader` (`cache.maxon`), which the generated functions store a module's checked state with | — |
 | `ast` | the program model: `Tree`, a module's nodes as flat `Record`s, the generated node kinds, accessors and declaration structs, `Module` and `Project`, the project's `TypeTable` and `FuncTable` of per-module slots and the accessors every read of an entry goes through (`typeEntry`, `funcEntry`), the `ModuleState` a module's task writes, which holds its module's slots (`state.maxon`), the built-in types and functions (generated), `Resolution` and `Typing`, the per-module tables the phases fill in (see "The AST"), link names, locating an error, `I128` | `diag`, `table` |
 | `syntax` | the grammar (`Maxon.g4`), the generated tokens and parser, the lexer loop, the layout rules, the formatter (the parser in a mode that writes the layout instead of checking it) and the edits that rename a keyword | `ast`, `diag`, `table` |
-| `project` | loading a project: discovery, finding the runtime's source (see "The runtime"), reading and parsing each module, the declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `syntax`, `table` |
+| `project` | loading a project: discovery, finding the runtime's source (see "The runtime") and the standard library's (see "Modules"), reading and parsing each module, the declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `syntax`, `table` |
 | `resolve` | name resolution, into the module's `Resolution`: which declaration each name and type reference names, which type parameter each constraint binds, which modules the module depends on, visibility | `ast`, `diag`, `table` |
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, what its arithmetic computes (`evaluate_gen.maxon`, generated from the IR table: `evalBin`, `evalCmp`, `evalGuard` and the rest, one per operation that computes a word from its operands, which the interpreter and the fold pass both call; `evaluate.maxon` has the algorithms the table names: the 64-bit wraps, the wide product, the shifts, the overflow tests and the float conversions), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
@@ -560,7 +574,7 @@ runs the stages that can report an error.
 | Step | Module | Work |
 |---|---|---|
 | runtime | `driver`, `project` | for a `build`, `run` or test, the runtime (`runtime/`, see "The runtime") is loaded as module 0, run through the steps below on one thread and emitted once (`prepareRuntime`); a test run keeps it frozen and adds each program to a copy of the project (`SharedRuntime`) |
-| discover | `project` | `discoverProjectInto` scans the directory tree (names in sorted order; `E3182` for a directory that is no module name) and makes a `Module` for each directory; a single file is one root module. Its errors count as the parse's |
+| discover | `project` | `discoverProjectInto` scans the directory tree (names in sorted order; `E3182` for a directory that is no module name) and makes a `Module` for each directory; a single file is one root module. Then the standard library's modules follow (see "Modules"). Its errors count as the parse's |
 | parse | `syntax`, `project` | `parseModule` reads a module's files into one buffer, lexes it and parses it into the module's `Tree` and `decls`; a lexical error ends the module's lexing, a syntax error abandons the rest of its file. Then `buildModuleTable` gives the module's declarations their names (a duplicate is `E3006`) and a shell type (a `TypeID` with no members yet) for each type declaration |
 | resolve | `resolve` | `resolveModule` binds every name, struct literal and type reference to its declaration, and each `where` constraint to the type parameter it names (`E3916`), into the module's `Resolution`; it records the modules the module depends on, checks visibility (`E3008`) and that no signature names a less visible type (`E3167`), and rewrites a qualified name in place (see "The AST"). It reads only the module's own declarations, the standard library and the declarations of the modules the module names |
 | module graph | `project` | `newGraph` turns each module's recorded dependencies into edges; `checkAcyclic` sorts the graph (Kahn's algorithm, linear in the edges) and reports `E2012` where the first module of a cycle names the second; `topoOrder` is the order every later stage visits the modules in, and the driver adds the tasks of the stages below |
@@ -1966,7 +1980,8 @@ edit to `runtime/` rebuilds everything.
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
 - Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the float functions (see "Floats"), the aliases `ExitCode`, `Count`,
   `ElementIndex` (an index that a `Count` goes where one is taken, and the other way only by `as`), `FullRangeInt`, `FullRangeFloat`, `Byte`, `ByteArray` (`Array with Byte`), `StringArray` (`Array with String`), the limits of the sized integers as constants (`u64.max`, `i32.min`, ...), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, and maxon's `isEmpty`, `equals`, `append`, `count`, `contains`, `startsWith`, `endsWith`, `findFirst`, `findLast`, `startIndex`, `endIndex`, `slice`, `sliceLength`, `replace`, `replaceFirst`, `trim`, `trimStart`, `trimEnd`, `toLower` and `toUpper` with the type `StringIndex` (`charIndex()`, `bytePos()`) and the error `StringError`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `FixedArray`, `Map`, `List`, `Pool`, `Handle` (see "Primitives") with `sizeof(T)` and `countof(T)`,
-  `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib, and no `Option`: a
+  `frozen` and `cown` (see "Immutable values, cowns and behaviours"). Every built-in is public, so a public signature names
+  one. The rest of the stdlib is the library source of `stdlib/` (see "Modules"), and there is no `Option`: a
   program that wants one declares a generic union (`union Option uses T`).
 
 ### Integers
@@ -3615,7 +3630,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - Modules are Go's, not Maxon's. Another module's names are always qualified by its path (`net.http.parse()`, and
   `export.X` for the root's), where Maxon also finds a bare name in the root or as the one exported declaration
   anywhere (`E3095`, `E3063` for two, which minimaxon does not have). `export` reaches the tree rooted at the declaring
-  module's parent, as Go's `internal/`, and `public` everyone. Import cycles are refused.
+  module's parent, as Go's `internal/`, and `public` everyone. Import cycles are refused. The standard library follows
+  the same rules within `stdlib/` (see "Modules"): a library file names another library module's declaration by its path
+  from the library's root, where maxon's stdlib names any declaration of the library bare; a program names the library
+  root's public declarations bare, as in maxon, and nothing else of the library. The built-ins are public, so a public
+  declaration of the library may name `Count` or `ByteArray` (E3167 holds only for a type less visible than public).
 - It checks only the rules that the generated code depends on. The style rules are left out: an unused
   name (`E3012`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
   an unneeded cast (`E3010`, so a cast to the type a value has is accepted), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern

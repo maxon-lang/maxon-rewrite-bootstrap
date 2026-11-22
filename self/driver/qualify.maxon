@@ -60,6 +60,9 @@ function projectQualifications(dir String, mutates errs diag.ErrorList) returns 
 	var ignored = diag.ErrorList.create(0)
 	resolve.resolveFrom(p, first: 0, errs: ignored)
 	for m in 0 upto p.modules.count() 'modules'
+		if p.modules[m].isLibrary 'library'
+			continue 'modules'
+		end 'library'
 		for i in 0 upto p.resolutions[m].unbound.count() 'names'
 			let name = p.resolutions[m].unbound[i].name.clone()
 			let offset = p.resolutions[m].unbound[i].offset

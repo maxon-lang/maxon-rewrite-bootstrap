@@ -1484,6 +1484,8 @@ error-handling.md: error.cross-file-union-constructed-later-file
 error-handling.md: error.default-throws-arm-a-different-error-than-declared
 error-handling.md: error.default-throws-arm-with-no-enclosing-throws
 error-handling.md: error.discard-managed-result
+error-handling.md: error.enum-int-backed-error
+error-handling.md: error.enum-simple-error
 error-handling.md: error.mismatched-otherwise-end-label
 error-handling.md: error.otherwise-block
 error-handling.md: error.otherwise-block-fallthrough-in-assignment
@@ -1528,6 +1530,7 @@ error-handling.md: error.union-caught-cross-file-declared-in-the-forward-file
 error-handling.md: error.void-try-in-assignment
 error-handling.md: throw-borrowed-union-co-owns
 error-handling.md: throw-borrowed-union-leaves-a-sibling-path-borrowing
+error-handling.md: throw-matching-the-declared-clause-is-untouched
 error-handling.md: throws-a-stdlib-error-has-a-user-declared-spelling
 error-handling.md: throws-a-stdlib-error-the-compiler-synthesizes
 error-handling.md: throws-concrete-union-is-untouched
@@ -1555,6 +1558,7 @@ export-keyword.md: export-type-basic
 export-keyword.md: export-typealias-as-return-type
 export-keyword.md: export-typealias-basic
 export-keyword.md: export-typealias-in-type-field
+export-keyword.md: exported-alias-found-past-a-later-private-one
 export-keyword.md: exported-array-let-cross-file
 export-keyword.md: exported-enum-cross-file
 export-keyword.md: exported-function-cross-file
@@ -2929,6 +2933,7 @@ let-reassignment-only.md: error.reassigning-a-let-bound-to-a-record
 let-reassignment-only.md: error.reassigning-a-let-field-through-a-variable
 let-reassignment-only.md: error.reassigning-a-let-local
 let-union-payloads.md: a-let-payload-binding-goes-to-a-parameter-kept-in-a-let-payload
+let-union-payloads.md: a-let-payload-of-a-contested-alias-stored-into-a-tuple
 let-union-payloads.md: a-let-payload-of-an-aliased-array-stored-into-a-tuple
 let-union-payloads.md: a-let-payload-passed-to-a-constructor-that-stores-it
 let-union-payloads.md: a-let-payload-projected-into-a-tuple-is-read-by-the-caller
@@ -4927,6 +4932,8 @@ signature-type-visibility.md: a-file-private-function-may-name-a-public-type
 signature-type-visibility.md: a-file-private-let-of-a-file-private-type-is-legal
 signature-type-visibility.md: a-file-private-type-may-implement-a-file-private-interface
 signature-type-visibility.md: a-file-private-union-case-payload-may-name-a-file-private-enum
+signature-type-visibility.md: a-function-naming-an-alias-beside-an-invisible-interface-of-its-name-is-judged-by-the-alias
+signature-type-visibility.md: a-public-function-naming-a-family-alias-beside-an-export-interface-is-judged-by-the-alias
 signature-type-visibility.md: a-type-parameter-named-like-a-file-private-type-is-not-judged
 signature-type-visibility.md: a-type-parameter-names-no-declaration
 signature-type-visibility.md: a-type-reached-only-through-a-chain-of-aliases-is-credited
@@ -5140,6 +5147,7 @@ stdlib-loading.md: stdlib-loading.both-print-modules-from-stdlib
 stdlib-loading.md: stdlib-loading.error.print-arity-comes-from-the-stdlib-declaration
 stdlib-loading.md: stdlib-loading.nanos-from-stdlib
 stdlib-loading.md: stdlib-loading.no-clock-is-byte-neutral
+stdlib-loading.md: stdlib-loading.unicode-is-whitespace-from-stdlib
 stdlib-user-shadows.md: stdlib-user-shadows.a-field-of-a-value-of-the-moved-declaration
 stdlib-user-shadows.md: stdlib-user-shadows.a-generic-function-binds-the-librarys-byte-in-a-file-declaring-its-own
 stdlib-user-shadows.md: stdlib-user-shadows.a-library-file-is-unaffected-by-an-authors-same-named-export
@@ -5802,6 +5810,7 @@ two-address-regression.md: reuse-copy-outlives
 two-address-regression.md: reuse-dest-cannot-coalesce
 two-address-regression.md: same-value-twice
 two-address-regression.md: sub-loop
+type-casting.md: a-cast-between-same-named-aliases-of-two-files-is-not-unneeded
 type-casting.md: a-contested-alias-cast-to-another-alias-is-a-real-cast
 type-casting.md: a-literal-let-cast-that-a-var-starts-from-is-not-unneeded
 type-casting.md: a-literal-let-cast-whose-derived-value-outgrows-its-destination-is-not-unneeded
@@ -5924,6 +5933,7 @@ typealias-collision.md: exported-cross-form-typealias-qualified
 typealias-collision.md: exported-typealias-collision-qualified
 typealias-collision.md: exported-typealias-no-collision-bare-works
 typealias-collision.md: generic-tuple-and-nominal-names-are-named-by-their-directory
+typealias-collision.md: two-unmarked-typealiases-in-two-directories-do-not-collide
 typealias-file-scope.md: a-caller-writes-its-own-generic-alias-beside-an-exported-one
 typealias-file-scope.md: a-cast-between-two-same-range-declarations-converts
 typealias-file-scope.md: a-contested-element-index-does-not-govern-the-array-door
@@ -5935,6 +5945,7 @@ typealias-file-scope.md: a-library-files-private-alias-does-not-claim-the-name
 typealias-file-scope.md: a-return-converts-between-two-same-range-declarations
 typealias-file-scope.md: a-sized-fixed-array-keeps-its-element-count-when-its-element-is-contested
 typealias-file-scope.md: agreeing-generic-alias-is-not-contested
+typealias-file-scope.md: an-exported-signature-through-a-contested-tuple-alias-resolves-the-readers-alias
 typealias-file-scope.md: contested-generic-alias-argument-that-owns-heap-agrees-with-the-inline-spelling
 typealias-file-scope.md: contested-generic-alias-argument-that-owns-heap-is-not-co-owned-trivial
 typealias-file-scope.md: contested-generic-alias-as-a-type-argument-is-not-a-panic
@@ -6176,6 +6187,8 @@ var-should-be-let.md: error.let-record-assigned-to-a-var-moves-it
 var-should-be-let.md: error.let-record-bound-to-a-var-moves-it
 var-should-be-let.md: let-no-error
 var-should-be-let.md: let-record-alias-of-a-parameter-bound-through-a-call
+var-should-be-let.md: returned-alias-in-an-unreached-function
+var-should-be-let.md: returned-alias-in-an-unreached-function-read-only-is-accepted
 var-should-be-let.md: returned-alias-of-a-let-receiver-field
 var-should-be-let.md: returned-alias-of-a-let-string-field
 var-should-be-let.md: returned-alias-through-a-closure

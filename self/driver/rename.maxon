@@ -1086,6 +1086,9 @@ function checkProgram(mutates r Renamer, path String, virtualText String, segmen
 	end 'unloaded'
 	_ = frontEnd(p, makesProgram: false, errs: errs)
 	for m in 0 upto p.modules.count() 'modules'
+		if p.modules[m].isLibrary 'library'
+			continue 'modules'
+		end 'library'
 		var rules = RenameRules.create(0)
 		for i in 0 upto r.rules.count() 'rules'
 			rules.push(r.rules[i].clone())

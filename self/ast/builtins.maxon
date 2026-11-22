@@ -1,5 +1,9 @@
 export let dropWithLabel = "dropWith"
 
+// builtinVisibility is every built-in's: a built-in is named from everywhere, so a public signature of the standard library
+// names one as maxon's names its own public declarations.
+let builtinVisibility = "public"
+
 export typealias FuncIDMap = table.StringMap with FuncID
 
 export typealias TypeIDMap = table.StringMap with TypeID
@@ -10,7 +14,7 @@ function registerStdAlias(mutates tt TypeSlot, reads TypeTable, mutates std Pars
 	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].hasDecl = true
 	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	var ad = AliasDecl.make(0 as NodeID)
-	ad.visibility = "export"
+	ad.visibility = builtinVisibility
 	ad.name = name.clone()
 	ad.inclusive = true
 	_ = std.declare(Decl.aliasDecl(ad))
@@ -24,7 +28,7 @@ function registerStdFloatAlias(mutates tt TypeSlot, reads TypeTable, mutates std
 	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].hasDecl = true
 	tt.lists[typeList(tt, t: tid)][typeIndex(tt, t: tid)].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	var ad = AliasDecl.make(0 as NodeID)
-	ad.visibility = "export"
+	ad.visibility = builtinVisibility
 	ad.name = name.clone()
 	ad.inclusive = true
 	ad.number = "float"
@@ -35,7 +39,7 @@ end 'registerStdFloatAlias'
 
 function registerStdInstanceAlias(mutates std ParsedModule, mutates typeMap TypeIDMap, consumes name String, ty TypeID)
 	var ad = AliasDecl.make(0 as NodeID)
-	ad.visibility = "export"
+	ad.visibility = builtinVisibility
 	ad.name = name.clone()
 	_ = std.declare(Decl.aliasDecl(ad))
 	typeMap.insert(name, value: ty)
@@ -63,7 +67,7 @@ function registerPrimType(mutates tt TypeSlot, reads TypeTable, mutates std Pars
 		_ = addStdTypeParam(tt, reads: reads, std: std, owner: tid, name: pn)
 	end 'eachP'
 	var td = TypeDecl.make(0 as NodeID)
-	td.visibility = "export"
+	td.visibility = builtinVisibility
 	td.name = name.clone()
 	td.typeParams = tps
 	_ = std.declare(Decl.typeDecl(td))
@@ -74,7 +78,7 @@ end 'registerPrimType'
 // registerMethodOn declares a method of a built-in type. One that is not listed is no method of the name: the checker
 // chooses it in place of the listed one for the form of a call's arguments.
 function registerMethodOn(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, owner TypeID, op Intrinsic, consumes name String, isStatic bool, selfConv Convention, ret TypeID, consumes params ParamSpecList, listed bool) returns FuncID
-	var fn = FuncEntry.make(name.clone(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
+	var fn = FuncEntry.make(name.clone(), visibility: builtinVisibility, module: diag.stdlibID, nodeID: 0 as NodeID)
 	fn.isStatic = isStatic
 	fn.ownerTy = selfType(tt, reads: reads, declTy: owner)
 	fn.hasReceiver = not isStatic
@@ -94,7 +98,7 @@ function registerMethodOn(mutates tt TypeSlot, reads TypeTable, mutates ft FuncS
 end 'registerMethodOn'
 
 function registerStdFunc(mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates funcMap FuncIDMap, op Intrinsic, consumes name String, generics TypeIDList, ret TypeID, consumes params ParamSpecList, declareInStd bool) returns FuncID
-	var fn = FuncEntry.make(name.clone(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
+	var fn = FuncEntry.make(name.clone(), visibility: builtinVisibility, module: diag.stdlibID, nodeID: 0 as NodeID)
 	fn.generics = cloneTypeArgs(generics)
 	fn.retTy = ret
 	fn.intrinsic = op
@@ -110,7 +114,7 @@ function registerStdFunc(mutates ft FuncSlot, funcReads FuncTable, mutates std P
 		fn.hasDecl = true
 		fn.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 		var fd = FuncDecl.make(0 as NodeID)
-		fd.visibility = "export"
+		fd.visibility = builtinVisibility
 		fd.name = name.clone()
 		_ = std.declare(Decl.funcDecl(fd))
 	end 'addStd'
@@ -134,7 +138,7 @@ function registerRecordType(mutates tt TypeSlot, reads TypeTable, mutates std Pa
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	let tid = allocType(tt, module: diag.stdlibID, e: e)
 	var td = TypeDecl.make(0 as NodeID)
-	td.visibility = "export"
+	td.visibility = builtinVisibility
 	td.name = name.clone()
 	_ = std.declare(Decl.typeDecl(td))
 	typeMap.insert(name, value: tid)
@@ -156,7 +160,7 @@ function registerUnionType(mutates tt TypeSlot, reads TypeTable, mutates std Par
 		_ = addStdTypeParam(tt, reads: reads, std: std, owner: tid, name: paramNames[i].clone())
 	end 'eachP'
 	var ud = UnionDecl.make(0 as NodeID)
-	ud.visibility = "export"
+	ud.visibility = builtinVisibility
 	ud.name = name.clone()
 	_ = std.declare(Decl.unionDecl(ud))
 	typeMap.insert(name, value: tid)
@@ -177,7 +181,7 @@ function registerEnumType(mutates tt TypeSlot, reads TypeTable, mutates std Pars
 	end 'eachCase'
 	let tid = allocType(tt, module: diag.stdlibID, e: e)
 	var ed = EnumDecl.make(0 as NodeID)
-	ed.visibility = "export"
+	ed.visibility = builtinVisibility
 	ed.name = name.clone()
 	_ = std.declare(Decl.enumDecl(ed))
 	typeMap.insert(name, value: tid)
@@ -191,7 +195,7 @@ function registerInterfaceType(mutates tt TypeSlot, reads TypeTable, mutates std
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	let tid = allocType(tt, module: diag.stdlibID, e: e)
 	var ifd = InterfaceDecl.make(0 as NodeID)
-	ifd.visibility = "export"
+	ifd.visibility = builtinVisibility
 	ifd.name = name.clone()
 	_ = std.declare(Decl.interfaceDecl(ifd))
 	typeMap.insert(name, value: tid)

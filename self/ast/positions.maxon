@@ -99,13 +99,35 @@ export function locateSite(mods ModuleList, site diag.Site) returns ErrorLocatio
 	return locateModuleOffset(mods[idx], offset: site.offset)
 end 'locateSite'
 
-// qualifierOf is how a name is qualified by the module that declares it.
+// qualifierOf is how a name is qualified by the module that declares it, from the root its qualified names start from: the
+// project's, or the library's for a module of the standard library, whose path starts with the library's.
 export function qualifierOf(m Module) returns String
-	if m.path == "" 'root'
+	if isQualifierRoot(m) 'root'
 		return rootQualifier
 	end 'root'
+	if m.isLibrary 'library'
+		let skip = try stdlibQualifier.byteLength() + 1 otherwise panic("positions: a library path past memory")
+		return m.path.sliceBytes(skip, endPos: m.path.byteLength())
+	end 'library'
 	return m.path.clone()
 end 'qualifierOf'
+
+// isQualifierRoot is whether m is the root that its qualified names start from, which `export` names.
+function isQualifierRoot(m Module) returns bool
+	if m.isLibrary 'library'
+		return m.path == stdlibQualifier
+	end 'library'
+	return m.path == ""
+end 'isQualifierRoot'
+
+// sameTier is whether the module at index i is named from the module m by a qualified name: a module of the standard library
+// names only the library's, and a program's module only the program's.
+function sameTier(mods ModuleList, i Count, m diag.ModuleID) returns bool
+	if m == diag.stdlibID or modIndex(m) >= mods.count() 'unplaced'
+		return not mods[i].isLibrary
+	end 'unplaced'
+	return mods[i].isLibrary == mods[modIndex(m)].isLibrary
+end 'sameTier'
 
 // NameOwner says which module a bare name of another module's declaration means: none when no other module declares it, an
 // empty qualifier when more than one could be meant.
@@ -141,10 +163,10 @@ export function owningModule(mods ModuleList, m diag.ModuleID, name String) retu
 	var qualifier = ""
 	var rootDeclares = false
 	for i in 0 upto mods.count() 'modules'
-		if mods[i].id == m 'self'
+		if mods[i].id == m or not sameTier(mods, i: i, m: m) 'self'
 			continue 'modules'
 		end 'self'
-		if mods[i].path == "" 'root'
+		if isQualifierRoot(mods[i]) 'root'
 			rootDeclares = mods[i].names.has(name)
 			continue 'modules'
 		end 'root'
@@ -188,7 +210,7 @@ function qualifyHint(mods ModuleList, e diag.CompileError) returns String
 	end 'none'
 	var spellings = StringList.create(0)
 	for i in 0 upto mods.count() 'each'
-		if mods[i].names.has(e.unqualified) and mods[i].id != e.site.module 'declared'
+		if mods[i].names.has(e.unqualified) and mods[i].id != e.site.module and sameTier(mods, i: i, m: e.site.module) 'declared'
 			spellings.push("'{qualifierOf(mods[i])}.{e.unqualified}'")
 		end 'declared'
 	end 'each'

@@ -621,16 +621,14 @@ function orderedOf(c Compile, view ast.Project, graph project.Graph, known Known
 	return Ordered.make(order, deps: moduleDeps(view), plan: plan, starts: starts)
 end 'orderedOf'
 
-// reachedModules is, by module of p, whether the compile compiles it past its resolve: every module, or, in a compile of
-// tests, the modules that hold tests (a file of tests) and those they name, directly or through others.
+// reachedModules is, by module of p, whether the compile compiles it past its resolve: every module of the program, or, in a
+// compile of tests, the modules that hold tests (a file of tests), and the modules those name, directly or through others,
+// which is how a module of the standard library is reached: a program pays for none that it does not name.
 function reachedModules(c Compile, p ast.Project) returns Placed
 	var reached = Placed.create(0)
 	for m in 0 upto p.modules.count() 'modules'
-		reached.push(not c.options.runsTests or holdsTests(p.modules[m]))
+		reached.push(not p.modules[m].isLibrary and (not c.options.runsTests or holdsTests(p.modules[m])))
 	end 'modules'
-	if not c.options.runsTests 'whole'
-		return reached
-	end 'whole'
 	var pending = TaskIDs.create(0)
 	for m in 0 upto p.modules.count() 'tested'
 		if reached[m] 'holds'

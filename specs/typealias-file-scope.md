@@ -2048,13 +2048,13 @@ signature. The root declares no `Pair` and sees only `malpha/`'s, so `sum` takes
 `makeA` returns, and `zgamma/`'s `(String, String)` stays its own (9 + 2).
 ```maxon
 // --- file: a-main.maxon
-function sum(p Pair) returns ExitCode
-	return (p.0 + p.1) as ExitCode
+function sum(p malpha.Pair) returns ExitCode
+	return try (p.0 + p.1) as ExitCode otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
-	useGamma()
-	return sum(makeA())
+	zgamma.useGamma()
+	return sum(malpha.makeA())
 end 'main'
 
 // --- file: malpha/m-alpha.maxon

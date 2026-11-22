@@ -724,7 +724,7 @@ function sizeOf(s lib.X) returns ExitCode
 end 'sizeOf'
 
 function main() returns ExitCode
-	return f(7) + sizeOf(Meter.create())
+	return try export.f(7) + sizeOf(Meter.create()) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -768,9 +768,9 @@ end 'f'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let n = f(7) + libCode()
+	let n = export.f(7) + lib.libCode()
 	print("{n}\n")
-	return n
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
