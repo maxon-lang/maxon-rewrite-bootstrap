@@ -172,6 +172,12 @@ func TestParseSkipsRefusesBadRows(t *testing.T) {
 		"run maxon":    {declared + "run\tE3223\tr\n", "neither a constant"},
 		"expect ok":    {declared + "expect\tErrA,E3223\tr\n", ""},
 		"run ok":       {"run\tErrB\tr\n", ""},
+		"test ok":      {"test\ta.md\tone-test\tr\n", ""},
+		"test file":    {"test\ta.txt\tone-test\tr\n", "not the name of a spec file"},
+		"test path":    {"test\tspecs/a.md\tone-test\tr\n", "not the name of a spec file"},
+		"test name":    {"test\ta.md\t\tr\n", "test's name is empty"},
+		"test twice":   {"test\ta.md\tone-test\tr\ntest\ta.md\tone-test\ts\n", "named twice"},
+		"test reason":  {"test\ta.md\tone-test\t\n", "reason is empty"},
 	} {
 		_, err := parseSkips(tc.src, codes)
 		switch {
@@ -185,7 +191,7 @@ func TestParseSkipsRefusesBadRows(t *testing.T) {
 
 func TestSkipTablePairsEveryExpectedWithEveryReported(t *testing.T) {
 	codes := []row{{"ErrA", "E2001", noMaxonName, "m"}, {"ErrB", "E2002", noMaxonName, "m"}}
-	skips, err := parseSkips("code\tE3223\tm\nskip\tErrA,E3223\tErrA,ErrB\twhy\nexpect\tE3223\tso\nrun\tErrB\tthus\n", codes)
+	skips, err := parseSkips("code\tE3223\tm\nskip\tErrA,E3223\tErrA,ErrB\twhy\nexpect\tE3223\tso\nrun\tErrB\tthus\ntest\ta.md\tone-test\tsince\n", codes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,6 +203,7 @@ func TestSkipTablePairsEveryExpectedWithEveryReported(t *testing.T) {
 		`CodeSkip.make("E3223", reported: diag.errB.clone(), line: "<!-- skip: why -->\n")`,
 		`CodeSkip.expecting("E3223", line: "<!-- skip: so -->\n")`,
 		`CodeSkip.refusing(diag.errB.clone(), line: "<!-- skip: thus -->\n")`,
+		`CodeSkip.naming("a.md", test: "one-test", line: "<!-- skip: since -->\n")`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("generated table lacks %s:\n%s", want, got)

@@ -99,7 +99,7 @@ func shapeOf(o op) shape {
 	}
 	cases := enumOf(operandOf(o, o.Eval.Of).Enum).Cases
 	switch cases[0].Eval.Form {
-	case irtable.CaseWrap, irtable.CaseDivide, irtable.CaseBitwise, irtable.CaseShift:
+	case irtable.CaseWrap, irtable.CaseDivide, irtable.CaseBitwise, irtable.CaseShift, irtable.CaseHigh:
 		return shapeOutcome
 	case irtable.CaseOrder, irtable.CaseRange:
 		return shapeFlag
@@ -166,7 +166,7 @@ func checkCases(o op, want shape) {
 		}
 		var got shape
 		switch ev.Form {
-		case irtable.CaseWrap, irtable.CaseDivide, irtable.CaseBitwise, irtable.CaseShift:
+		case irtable.CaseWrap, irtable.CaseDivide, irtable.CaseBitwise, irtable.CaseShift, irtable.CaseHigh:
 			got = shapeOutcome
 			if !hasParam(params, "unsigned") || !hasParam(params, "checked") {
 				fail("%s needs the flags Unsigned and Checked of its operation", name)
@@ -186,7 +186,7 @@ func checkCases(o op, want shape) {
 		if ev.Form == irtable.CaseWrap && (ev.Wrap == "" || ev.FitsUnsigned == "" || ev.FitsSigned == "") {
 			fail("%s has no function for its wrap or for whether it fits", name)
 		}
-		if ev.Form == irtable.CaseDouble && ev.Func == "" {
+		if (ev.Form == irtable.CaseDouble || ev.Form == irtable.CaseHigh) && ev.Func == "" {
 			fail("%s has no function", name)
 		}
 		if ev.Form == irtable.CaseOrder || ev.Form == irtable.CaseRange {
@@ -357,6 +357,8 @@ func emitOutcomeCase(w *writer, c enumCase) {
 		w.p("\t\tvalue = wordOfBits(bitsOfWord(a) %s bitsOfWord(b))\n\t\treturn %s\n", bitKeyword[ev.Bits], outcomeValue)
 	case irtable.CaseShift:
 		emitShift(w, ev.Left)
+	case irtable.CaseHigh:
+		w.p("\t\tvalue = %s(a, b: b, unsigned: unsigned)\n\t\treturn %s\n", ev.Func, outcomeValue)
 	case irtable.CaseOrder, irtable.CaseDouble, irtable.CaseRange, irtable.CaseNone:
 		fail("%s is not a case that gives an outcome", c.Name)
 	}

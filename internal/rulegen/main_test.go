@@ -49,6 +49,8 @@ var refused = []struct{ rules, err string }{
 	{"(bin.add x y) => (bin.shl x _)", "a result has no _"},
 	{"(bin.add x y) => (storeSlot [0] x)", "bin and storeSlot do not both give a register"},
 	{"(bin.add x y) => (call [0] [_])", "a result cannot build call, whose operand Args is a list"},
+	{"(bin.add x y) => (bin.sub h:(bin.mul x y) x)", "h: binds a register in a result that nothing after it reads"},
+	{"(bin.add x y) => (bin.sub h (bin.add h:(bin.mul x y) y))", "h is no variable of the pattern, nor a register the result binds before it"},
 	{"(jump [b]) => x", "a generic rule rewrites an instruction, and jump is a terminator"},
 	{"(bin.add X y) => y", "X is no variable"},
 	{"(bin.add x y) => x\n(bin.add x (const [0])) => x", "can never fire: the rule at line 1, (bin.add x y) => x, matches everything it matches"},

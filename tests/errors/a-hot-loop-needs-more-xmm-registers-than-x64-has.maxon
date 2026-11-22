@@ -1,0 +1,47 @@
+// A loop that keeps sixteen floats from one round to the next, and makes a product beside them, needs one more xmm
+// register than x64 has: it is refused for the xmm registers alone, as its counter and bound are in general-purpose ones.
+typealias Real = float(f64.min to f64.max)
+
+function spin(n Count) returns Real
+	var a0 = 0.0 as Real
+	var a1 = 1.0 as Real
+	var a2 = 2.0 as Real
+	var a3 = 3.0 as Real
+	var a4 = 4.0 as Real
+	var a5 = 5.0 as Real
+	var a6 = 6.0 as Real
+	var a7 = 7.0 as Real
+	var a8 = 8.0 as Real
+	var a9 = 9.0 as Real
+	var a10 = 10.0 as Real
+	var a11 = 11.0 as Real
+	var a12 = 12.0 as Real
+	var a13 = 13.0 as Real
+	var a14 = 14.0 as Real
+	var a15 = 15.0 as Real
+	for _ in 0 upto n 'rounds'
+		a0 = a0 * 0.5 + a1
+		a1 = a1 * 0.5 + a2
+		a2 = a2 * 0.5 + a3
+		a3 = a3 * 0.5 + a4
+		a4 = a4 * 0.5 + a5
+		a5 = a5 * 0.5 + a6
+		a6 = a6 * 0.5 + a7
+		a7 = a7 * 0.5 + a8
+		a8 = a8 * 0.5 + a9
+		a9 = a9 * 0.5 + a10
+		a10 = a10 * 0.5 + a11
+		a11 = a11 * 0.5 + a12
+		a12 = a12 * 0.5 + a13
+		a13 = a13 * 0.5 + a14
+		a14 = a14 * 0.5 + a15
+		a15 = a15 * 0.5 + a0
+	end 'rounds'
+	return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15
+end 'spin'
+
+function main() returns ExitCode
+	return 0 if spin(3) > 0.0 else 1
+end 'main'
+
+// expect-error: E5001 at 5:1

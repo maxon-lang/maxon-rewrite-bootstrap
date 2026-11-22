@@ -265,6 +265,9 @@ func checkForm(f form) {
 		if o.byteReg && o.kind != kindReg {
 			fail("%s: only a register is a byte register", f.name)
 		}
+		if o.vector && (o.kind != kindReg || o.byteReg || o.field == fieldOpcode) {
+			fail("%s: an xmm register is a register in the reg or r/m field, and never a byte register", f.name)
+		}
 	}
 	if inReg > 1 || inRM > 1 || inOpcode > 1 || conds > 1 || immediates > 1 {
 		fail("%s has two operands in one place", f.name)

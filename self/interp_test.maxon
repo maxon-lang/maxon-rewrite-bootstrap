@@ -74,7 +74,7 @@ type Fn
 
 	function runtime(mutates self, symbol ir.Rt, kind ir.IrKind, args ir.RegList) returns ir.Reg
 		let d = self.reg(kind)
-		let i = b.callRuntime(d, symbol: symbol, args: args, routine: ast.noFunc)
+		let i = b.callRuntime(d, symbol: symbol, args: args, routine: ast.noFunc, proven: false)
 		self.emit(i)
 		return d
 	end 'runtime'
@@ -105,7 +105,7 @@ type Fn
 		let handle = self.reg(ir.IrKind.kindScalar)
 		self.emit(ir.newLoadGlobal(handle, symbol: ir.Rt.rtStdout))
 		let word = self.text(s)
-		let i = b.callRuntime(ir.noReg, symbol: ir.Rt.rtWrite, args: regs2(handle, b: word), routine: ast.noFunc)
+		let i = b.callRuntime(ir.noReg, symbol: ir.Rt.rtWrite, args: regs2(handle, b: word), routine: ast.noFunc, proven: false)
 		self.emit(i)
 	end 'write'
 

@@ -27,28 +27,36 @@ enum CodeSkipKind
 	expectedOnly
 	// refusedRun is the first code left that minimaxon refuses a program with that maxon runs.
 	refusedRun
+	// namedTest is one test, by its spec file and its name, whose program runs to another answer by a language change.
+	namedTest
 end 'CodeSkipKind'
 
 // CodeSkip is a row of the skip table: the codes of a test that minimaxon refuses or reports for a known reason, as its kind
-// matches them (a code that the kind does not match by is empty), and the skip line the test gets. codeSkipTable
-// (skips_gen.maxon, from skips.tsv) lists them.
+// matches them, or the spec file and the name of a test it names (what the kind does not match by is empty), and the skip
+// line the test gets. codeSkipTable (skips_gen.maxon, from skips.tsv) lists them.
 type CodeSkip
 	var kind as CodeSkipKind
 	var expected as String
 	var reported as String
+	var file as String
+	var test as String
 	var line as String
 
 	static function make(consumes expected String, consumes reported String, consumes line String) returns CodeSkip
-		return CodeSkip{kind: CodeSkipKind.pair, expected: expected, reported: reported, line: line}
+		return CodeSkip{kind: CodeSkipKind.pair, expected: expected, reported: reported, file: "", test: "", line: line}
 	end 'make'
 
 	static function expecting(consumes expected String, consumes line String) returns CodeSkip
-		return CodeSkip{kind: CodeSkipKind.expectedOnly, expected: expected, reported: "", line: line}
+		return CodeSkip{kind: CodeSkipKind.expectedOnly, expected: expected, reported: "", file: "", test: "", line: line}
 	end 'expecting'
 
 	static function refusing(consumes reported String, consumes line String) returns CodeSkip
-		return CodeSkip{kind: CodeSkipKind.refusedRun, expected: "", reported: reported, line: line}
+		return CodeSkip{kind: CodeSkipKind.refusedRun, expected: "", reported: reported, file: "", test: "", line: line}
 	end 'refusing'
+
+	static function naming(consumes file String, consumes test String, consumes line String) returns CodeSkip
+		return CodeSkip{kind: CodeSkipKind.namedTest, expected: "", reported: "", file: file, test: test, line: line}
+	end 'naming'
 end 'CodeSkip'
 
 typealias CodeSkips = Array with CodeSkip
@@ -85,6 +93,16 @@ function refusedRunSkipLine(skips CodeSkips, left String) returns table.Option w
 	end 'rows'
 	return table.Option.none
 end 'refusedRunSkipLine'
+
+// namedSkipLine is the skip line of the test of the spec file named file that the table names, or nothing.
+function namedSkipLine(skips CodeSkips, file String, test String) returns table.Option with String
+	for i in 0 upto skips.count() 'rows'
+		if skips[i].kind == CodeSkipKind.namedTest and skips[i].file == file and skips[i].test == test 'found'
+			return table.Option.some(skips[i].line.clone())
+		end 'found'
+	end 'rows'
+	return table.Option.none
+end 'namedSkipLine'
 
 typealias Flags = Array with bool
 
@@ -612,12 +630,16 @@ function codeMismatchOf(shared SharedRuntime, mutates scratch Scratch, test Spec
 	return table.Option.some(CodeMismatch.make(expected.unwrap(), reported: errs[0].code.clone()))
 end 'codeMismatchOf'
 
-// expectedRuleSkip is the skip line of a test that the runner would run and whose first expected code the skip table skips
-// whatever minimaxon reports, or nothing.
-function expectedRuleSkip(skips CodeSkips, test SpecTest, text String) returns table.Option with String
+// expectedRuleSkip is the skip line of a test that the runner would run and that the skip table names, or whose first
+// expected code it skips whatever minimaxon reports; nothing for any other test. file is the name of the test's spec file.
+function expectedRuleSkip(skips CodeSkips, file String, test SpecTest, text String) returns table.Option with String
 	if not test.hasSource or skipReason(test, text: text).isSome() 'unrun'
 		return table.Option.none
 	end 'unrun'
+	let named = namedSkipLine(skips, file: file, test: test.name)
+	if named.isSome() 'named'
+		return named
+	end 'named'
 	let expected = expectedFirstCode(test, text: text)
 	if not expected.isSome() 'noError'
 		return table.Option.none
@@ -632,7 +654,7 @@ function fixSpecFile(shared SharedRuntime, mutates scratch Scratch, skips CodeSk
 	let tests = parseSpec(text)
 	var edits = syntax.Edits.create(0)
 	for i in 0 upto tests.count() 'tests'
-		let expectSkip = expectedRuleSkip(skips, test: tests[i], text: text)
+		let expectSkip = expectedRuleSkip(skips, file: display, test: tests[i], text: text)
 		if expectSkip.isSome() 'ruleSkipped'
 			tally.codeSkips = increment(tally.codeSkips)
 			edits.push(syntax.Edit.make(tests[i].markerEnd, until: tests[i].markerEnd, replacement: expectSkip.unwrap()))

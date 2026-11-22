@@ -3,7 +3,7 @@
 
 function expectRewrittenToReg(mutates f ir.IrFunction, defs ir.Defs, at Count, want ir.Reg, label String)
 	var out = opt.Rewrite.new()
-	if not opt.rewriteInstr(f, at: at, defs: defs, out: out) 'none'
+	if not opt.rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'none'
 		panic("{label}: no rule rewrites it")
 	end 'none'
 	if out.kind != opt.RewriteKind.rewriteToReg or out.reg != want 'differs'
@@ -13,7 +13,7 @@ end 'expectRewrittenToReg'
 
 function expectKept(mutates f ir.IrFunction, defs ir.Defs, at Count, label String)
 	var out = opt.Rewrite.new()
-	if opt.rewriteInstr(f, at: at, defs: defs, out: out) 'some'
+	if opt.rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'some'
 		panic("{label}: a rule rewrites it")
 	end 'some'
 end 'expectKept'
@@ -21,7 +21,7 @@ end 'expectKept'
 // expectRewrittenToInstr runs the rules on the instruction at and gives what they rewrite it to.
 function expectRewrittenToInstr(mutates f ir.IrFunction, defs ir.Defs, at Count, label String) returns opt.Rewrite
 	var out = opt.Rewrite.new()
-	if not opt.rewriteInstr(f, at: at, defs: defs, out: out) 'none'
+	if not opt.rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'none'
 		panic("{label}: no rule rewrites it")
 	end 'none'
 	if out.kind != opt.RewriteKind.rewriteToInstr 'differs'

@@ -457,7 +457,7 @@ function boxMain(decl ast.FuncID, pair ast.TypeID) returns ir.IrFunction
 	let args = regs2(out, b: copiedText)
 	let count = try args.count() as ir.Reg otherwise panic("too many arguments")
 	let start = b.pushArgs(args)
-	b.emit(ir.newCallRuntime(ir.noReg, symbol: ir.Rt.rtWrite, argsStart: start, argsCount: count, routine: ir.noRoutine))
+	b.emit(ir.newCallRuntime(ir.noReg, symbol: ir.Rt.rtWrite, argsStart: start, argsCount: count, routine: ir.noRoutine, proven: false))
 	b.emit(ir.newDrop(copied, ty: pairIndex))
 	let held = b.reg()
 	b.emit(ir.newMoveSlot(held, slot: kept))

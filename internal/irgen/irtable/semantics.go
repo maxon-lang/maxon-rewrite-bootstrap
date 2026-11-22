@@ -59,6 +59,7 @@ const (
 	caseOrder                   // whether the order of a and b is one of those the case holds for
 	caseDouble                  // a function of the doubles
 	caseRange                   // whether a is in a range of the bound
+	caseHigh                    // the high 64 bits of the 128-bit product, which always fit
 )
 
 // order is how two numbers compare; a double can also be unordered, when one is a NaN.
@@ -84,7 +85,7 @@ const (
 // that gives a op b modulo 2^64, and FitsUnsigned and FitsSigned, the functions of a, b and that result that say whether
 // the exact result fits when the operands are read as unsigned or as signed. A caseOrder holds for the orders Holds. A
 // caseRange holds when a compares to its bound, or to 0 when Zero is set, by one of the orders Holds, as unsigned
-// numbers when Unsigned is set.
+// numbers when Unsigned is set. A caseHigh is given by Func, of a, b and whether they are read as unsigned.
 type caseEval struct {
 	Form                     caseForm
 	Wrap                     string
@@ -114,6 +115,8 @@ func shift(left bool) caseEval { return caseEval{Form: caseShift, Left: left} }
 func holdsFor(orders ...order) caseEval { return caseEval{Form: caseOrder, Holds: orders} }
 
 func double(fn string) caseEval { return caseEval{Form: caseDouble, Func: fn} }
+
+func highProduct(fn string) caseEval { return caseEval{Form: caseHigh, Func: fn} }
 
 func inRange(zero, unsigned bool, orders ...order) caseEval {
 	return caseEval{Form: caseRange, Zero: zero, Unsigned: unsigned, Holds: orders}

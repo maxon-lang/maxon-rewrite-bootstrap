@@ -1,0 +1,109 @@
+// A loop whose values fill the general-purpose pool, with a division and a remainder by a constant, compiles: the
+// multiply that a division by a constant becomes holds more values at once than the division, so the fallback is the
+// loop with the division, which fits. Each answer is the one the same rounds give with the values in an array and the
+// divisor read from it, which is no constant.
+typealias Word = int(i64.min to i64.max)
+
+typealias Words = Array with Word
+
+function quotients(n Word) returns Word
+	var a0 = 1 as Word
+	var a1 = 2 as Word
+	var a2 = 3 as Word
+	var a3 = 4 as Word
+	var a4 = 5 as Word
+	var a5 = 6 as Word
+	var a6 = 7 as Word
+	var a7 = 8 as Word
+	var a8 = 9 as Word
+	var a9 = 10 as Word
+	var t = 0 as Word
+	for i in 0 upto n 'each'
+		a0 = try a0 + i otherwise panic("out of range")
+		a1 = a1 xor a0
+		a2 = try a2 + a1 otherwise panic("out of range")
+		a3 = a3 xor a2
+		a4 = try a4 + a3 otherwise panic("out of range")
+		a5 = a5 xor a4
+		a6 = try a6 + a5 otherwise panic("out of range")
+		a7 = a7 xor a6
+		a8 = try a8 + a7 otherwise panic("out of range")
+		a9 = a9 xor a8
+		let e = try t / 7 otherwise 0
+		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 otherwise panic("out of range")
+	end 'each'
+	return t
+end 'quotients'
+
+function remainders(n Word) returns Word
+	var a0 = 1 as Word
+	var a1 = 2 as Word
+	var a2 = 3 as Word
+	var a3 = 4 as Word
+	var a4 = 5 as Word
+	var a5 = 6 as Word
+	var a6 = 7 as Word
+	var a7 = 8 as Word
+	var a8 = 9 as Word
+	var a9 = 10 as Word
+	var t = 0 as Word
+	for i in 0 upto n 'each'
+		a0 = try a0 + i otherwise panic("out of range")
+		a1 = a1 xor a0
+		a2 = try a2 + a1 otherwise panic("out of range")
+		a3 = a3 xor a2
+		a4 = try a4 + a3 otherwise panic("out of range")
+		a5 = a5 xor a4
+		a6 = try a6 + a5 otherwise panic("out of range")
+		a7 = a7 xor a6
+		a8 = try a8 + a7 otherwise panic("out of range")
+		a9 = a9 xor a8
+		let e = try i mod 7 otherwise 0
+		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 otherwise panic("out of range")
+	end 'each'
+	return t
+end 'remainders'
+
+// inArray makes the rounds of quotients (remainders when remainder) with the values in an array, divided by the divisor
+// it holds after them.
+function inArray(n Word, remainder bool) returns Word
+	var a = Words.create(0)
+	for k in 0 upto 10 'start'
+		a.push(try k + 1 otherwise panic("out of range"))
+	end 'start'
+	a.push(7)
+	var t = 0 as Word
+	for i in 0 upto n 'each'
+		for k in 0 upto 10 'chain'
+			var other = i
+			if k > 0 'previous'
+				other = a[k - 1]
+			end 'previous'
+			if k mod 2 == 0 'sum'
+				a[k] = try a[k] + other otherwise panic("out of range")
+			end 'sum' else 'mix'
+				a[k] = a[k] xor other
+			end 'mix'
+		end 'chain'
+		var e = 0 as Word
+		e = try t / a[10] otherwise 0
+		if remainder 'remainder'
+			e = try i mod a[10] otherwise 0
+		end 'remainder'
+		t = try t + e otherwise panic("out of range")
+		for k in 0 upto 10 'add'
+			t = try t + a[k] otherwise panic("out of range")
+		end 'add'
+	end 'each'
+	return t
+end 'inArray'
+
+function main() returns ExitCode
+	if quotients(12) != inArray(12, remainder: false) 'quotient'
+		return 1
+	end 'quotient'
+	if remainders(12) != inArray(12, remainder: true) 'remainder'
+		return 2
+	end 'remainder'
+	return 0
+end 'main'

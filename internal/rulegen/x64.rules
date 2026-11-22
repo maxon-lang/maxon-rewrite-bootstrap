@@ -15,7 +15,8 @@
 // A conditional branch with edge arguments ends its block, followed by the jump that does; one in the middle of a block
 // goes to a failure block, which takes no arguments, as the IR's own do.
 
-// Constants and the addresses of what the link places.
+// Constants and the addresses of what the link places. A constant in an xmm register is read from a word of the data.
+(const [c]) && sel.inXmm(ins.dst) => (MovsdRegRip r [sel.floatRef(c)])
 (const [c]) => (MovRegImm r [c])
 (str) => (LeaRegRip r [sel.textRef(fn, ins: ins)])
 (datum) => (LeaRegRip r [sel.datumRef(fn, ins: ins)])
@@ -23,20 +24,27 @@
 (globalAddr [g]) => (LeaRegRip r [sel.symbolRef(ir.rtSymbol(g))])
 (codeAddress) => (LeaRegRip r [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))])
 
-// The frame: slots are words at the frame pointer; emitLoadParam reads parameters, by the convention.
+// The frame: slots are words at the frame pointer; emitLoadParam reads parameters, by the convention. A word that an xmm
+// register holds is read and written by movsd, here and in memory.
+(loadSlot [n]) && sel.inXmm(ins.dst) => (MovsdRegBaseDisp r rbp [slotDisp(n)])
 (loadSlot [n]) => (LoadRegBaseDisp r rbp [slotDisp(n)])
+(storeSlot [n] v) && sel.inXmm(v) => (MovsdBaseDispReg rbp [slotDisp(n)] v)
 (storeSlot [n] v) => (StoreBaseDispReg rbp [slotDisp(n)] v)
 (slotAddr [n]) => (LeaRegBaseDisp r rbp [slotDisp(n)])
 (moveSlot [n]) => (LoadRegBaseDisp r rbp [slotDisp(n)]) (StoreBaseDispImm32 rbp [slotDisp(n)] [0])
 (loadParam) => (emitLoadParam)
 
 // Memory.
+(loadField obj [off]) && sel.inXmm(ins.dst) => (MovsdRegBaseDisp r obj [off])
 (loadField obj [off]) => (LoadRegBaseDisp r obj [off])
+(storeField obj [off] v) && sel.inXmm(v) => (MovsdBaseDispReg obj [off] v)
 (storeField obj [off] v) => (StoreBaseDispReg obj [off] v)
 (fieldAddr obj [off]) => (LeaRegBaseDisp r obj [off])
 // An address that only the access right after it reads, a base plus a constant or plus a register, is the access's own
 // address operand.
+(loadAt a:(bin.add.!checked x (const [c]))) && fitsImm32(c) and sel.fuses(fn, r: a) and sel.inXmm(ins.dst) => (MovsdRegBaseDisp r x [c])
 (loadAt a:(bin.add.!checked x (const [c]))) && fitsImm32(c) and sel.fuses(fn, r: a) => (LoadRegBaseDisp r x [c])
+(storeAt a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) and sel.inXmm(v) => (MovsdBaseDispReg x [c] v)
 (storeAt a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) => (StoreBaseDispReg x [c] v)
 (loadRaw.8 a:(bin.add.!checked x (const [c]))) && fitsImm32(c) and sel.fuses(fn, r: a) => (MovzxRegByteBaseDisp r x [c])
 (loadRaw.8 a:(bin.add.!checked x y)) && sel.fuses(fn, r: a) => (MovzxRegByteBaseIndex1Disp r x y [0])
@@ -46,7 +54,9 @@
 (storeRaw.8 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (StoreBaseIndex1DispReg8 x y [0] v)
 (storeRaw.64 a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) => (StoreBaseDispReg x [c] v)
 (storeRaw.64 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (StoreBaseIndex1DispReg x y [0] v)
+(loadAt a) && sel.inXmm(ins.dst) => (MovsdRegBaseDisp r a [0])
 (loadAt a) => (LoadRegBaseDisp r a [0])
+(storeAt a v) && sel.inXmm(v) => (MovsdBaseDispReg a [0] v)
 (storeAt a v) => (StoreBaseDispReg a [0] v)
 (moveAt a) => (LoadRegBaseDisp r a [0]) (StoreBaseDispImm32 a [0] [0])
 (loadRaw.8 a) => (MovzxRegByteBaseDisp r a [0])
@@ -73,10 +83,12 @@
 (length.string s) => (LoadRegBaseDisp r s [stringLengthOffset])
 (bounds) => (emitBounds)
 (elemAddr a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (LeaRegBaseIndex8Disp r d i [0])
+(elemLoad a i) && sel.inXmm(ins.dst) => (LoadRegBaseDisp d a [arrayDataOffset]) (MovsdRegBaseIndex8Disp r d i [0])
 (elemLoad a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (LoadRegBaseIndex8Disp r d i [0])
 (loadByte.array a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (MovzxRegByteBaseIndex1Disp r d i [0])
 (loadByte.string s i) => (MovzxRegByteBaseIndex1Disp r s i [stringBytesOffset])
 (buffer s) => (LoadRegBaseDisp r s [arrayDataOffset])
+(wordAt d i) && sel.inXmm(ins.dst) => (MovsdRegBaseIndex8Disp r d i [0])
 (wordAt d i) => (LoadRegBaseIndex8Disp r d i [0])
 (byteAt d i) => (MovzxRegByteBaseIndex1Disp r d i [0])
 
@@ -110,6 +122,10 @@
 (bin.mod.unsigned x y) => (Copy rax x) (XorRegReg rdx rdx) (DivReg y) (Copy r rdx)
 (bin.div) => (emitSignedDivide)
 (bin.mod) => (emitSignedDivide)
+// The high word of a product, which a division by a constant is made of: the one-operand mul and imul multiply rax by
+// their operand into rdx:rax.
+(bin.mulhi.unsigned x y) => (Copy rax x) (MulReg y) (Copy r rdx)
+(bin.mulhi x y) => (Copy rax x) (ImulReg y) (Copy r rdx)
 (bin.and x (const [c])) && fitsImm32(c) => (AndRegImm x [c])
 (bin.and x y) => (AndRegReg x y)
 (bin.or x (const [c])) && fitsImm8(c) => (OrRegImm8 x [c])
@@ -141,29 +157,29 @@
 (guard x [bound] [f]) && fitsImm32(bound) => (CmpRegImm x [bound]) (JccRel32 [guardFailure(ins)] [f])
 (guard x [bound] [f]) => (MovRegImm t [bound]) (CmpRegReg x t) (JccRel32 [guardFailure(ins)] [f])
 
-// Floats are words in general registers between operations: an operation moves its operands into xmm0 and xmm1 and
-// its result back.
-(fBin.add x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (AddsdXmm0Xmm1) (MovqRegXmm0 r)
-(fBin.sub x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (SubsdXmm0Xmm1) (MovqRegXmm0 r)
-(fBin.mul x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (MulsdXmm0Xmm1) (MovqRegXmm0 r)
-(fBin.div x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (DivsdXmm0Xmm1) (MovqRegXmm0 r)
-// ucomisd sets the carry, zero and parity flags all for an unordered pair: a test of below swaps the operands, so that a
-// NaN fails it as it fails every test but ne, and eq and ne also test the parity flag, which says the pair is ordered.
-(fCmp.eq x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.equal] e) (SetccReg [X64CondCode.noParity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (AndRegReg r q)
-(fCmp.ne x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.notEqual] e) (SetccReg [X64CondCode.parity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (OrRegReg r q)
-(fCmp.lt x y) => (MovqXmm0Reg y) (MovqXmm1Reg x) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.above] b) (MovzxRegReg8 r b)
-(fCmp.le x y) => (MovqXmm0Reg y) (MovqXmm1Reg x) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.aboveEqual] b) (MovzxRegReg8 r b)
-(fCmp.gt x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.above] b) (MovzxRegReg8 r b)
-(fCmp.ge x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.aboveEqual] b) (MovzxRegReg8 r b)
-(fUnary.sqrt x) => (MovqXmm0Reg x) (SqrtsdXmm0Xmm0) (MovqRegXmm0 r)
-(fUnary.round x) => (MovqXmm0Reg x) (RoundsdXmm0Xmm0Imm8 [roundNearest]) (MovqRegXmm0 r)
-(fUnary.floor x) => (MovqXmm0Reg x) (RoundsdXmm0Xmm0Imm8 [roundDown]) (MovqRegXmm0 r)
-(fUnary.ceil x) => (MovqXmm0Reg x) (RoundsdXmm0Xmm0Imm8 [roundUp]) (MovqRegXmm0 r)
+// Floats are in xmm registers wherever the class analysis of isel.maxon puts them (Selector.inXmm), and the forms name
+// xmm registers of their own; a value that meets a form of the other class is moved by movq where it meets it
+// (classes.maxon). ucomisd sets the carry, zero and parity flags all for an unordered pair: a test of below swaps the
+// operands, so that a NaN fails it as it fails every test but ne, and eq and ne also test the parity flag, which says
+// the pair is ordered.
+(fBin.add x y) => (AddsdRegReg x y)
+(fBin.sub x y) => (SubsdRegReg x y)
+(fBin.mul x y) => (MulsdRegReg x y)
+(fBin.div x y) => (DivsdRegReg x y)
+(fCmp.eq x y) => (UcomisdRegReg x y) (SetccReg [X64CondCode.equal] e) (SetccReg [X64CondCode.noParity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (AndRegReg r q)
+(fCmp.ne x y) => (UcomisdRegReg x y) (SetccReg [X64CondCode.notEqual] e) (SetccReg [X64CondCode.parity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (OrRegReg r q)
+(fCmp.lt x y) => (UcomisdRegReg y x) (SetccReg [X64CondCode.above] b) (MovzxRegReg8 r b)
+(fCmp.le x y) => (UcomisdRegReg y x) (SetccReg [X64CondCode.aboveEqual] b) (MovzxRegReg8 r b)
+(fCmp.gt x y) => (UcomisdRegReg x y) (SetccReg [X64CondCode.above] b) (MovzxRegReg8 r b)
+(fCmp.ge x y) => (UcomisdRegReg x y) (SetccReg [X64CondCode.aboveEqual] b) (MovzxRegReg8 r b)
+(fUnary.sqrt x) => (SqrtsdRegReg r x)
+(fUnary.round x) => (RoundsdRegRegImm8 r x [roundNearest])
+(fUnary.floor x) => (RoundsdRegRegImm8 r x [roundDown])
+(fUnary.ceil x) => (RoundsdRegRegImm8 r x [roundUp])
 // cvtsi2sd reads a signed word, so an unsigned one past i64.max takes emitUnsignedToFloat's branch.
-(intToFloat.!unsigned x) => (Cvtsi2sdXmm0Reg x) (MovqRegXmm0 r)
+(intToFloat.!unsigned x) => (Cvtsi2sdRegReg r x)
 (intToFloat) => (emitUnsignedToFloat)
-(floatToInt x) => (MovqXmm0Reg x) (Cvttsd2siRaxXmm0) (Copy r rax)
-
+(floatToInt x) => (Cvttsd2siRegReg r x)
 // Calls, by the target's convention, and what allocates or calls a routine.
 (callImport) => (emitCallImport)
 (callCode) => (emitCallCode)
@@ -195,6 +211,12 @@
 (branch c:(cmp (const [k]) x) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c)
 	=> (CmpRegImm x [k]) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
 (branch c:(cmp x y) [yes] [no]) && sel.fuses(fn, r: c) => (CmpRegReg x y) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+// A branch on an ordering of floats goes to its no edge where the ordering fails, an unordered pair among them; eq and
+// ne, which test two flags, make their value and test it.
+(branch c:(fCmp.lt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [X64CondCode.belowEqual] [no]) (JmpRel32 [yes])
+(branch c:(fCmp.le x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [X64CondCode.below] [no]) (JmpRel32 [yes])
+(branch c:(fCmp.gt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [X64CondCode.belowEqual] [no]) (JmpRel32 [yes])
+(branch c:(fCmp.ge x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [X64CondCode.below] [no]) (JmpRel32 [yes])
 (branch c [yes] [no]) => (TestRegReg c c) (JccRel32 [X64CondCode.equal] [no]) (JmpRel32 [yes])
 (switch) => (emitSwitch)
 (ret) => (emitRet)

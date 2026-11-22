@@ -23,5 +23,6 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.make(diag.errExpressionError.clone(), reported: diag.errTypeMismatch.clone(), line: "<!-- skip: differing error code: operand types -->\n"))
 	skips.push(CodeSkip.expecting(diag.errModuleLetCallsFunction.clone(), line: "<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->\n"))
 	skips.push(CodeSkip.refusing(diag.errClosureBorrow.clone(), line: "<!-- skip: language difference: a closure that borrows what it captures does not escape -->\n"))
+	skips.push(CodeSkip.naming("fold-constants.md", test: "a-float-division-by-a-constant-zero-is-not-folded", line: "<!-- skip: language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero -->\n"))
 	return skips
 end 'codeSkipTable'

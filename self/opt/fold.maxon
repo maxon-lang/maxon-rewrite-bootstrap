@@ -1,8 +1,9 @@
 // The fold pass, which every native build runs on each function once it is in SSA form: one worklist over the function
 // that folds constants, propagates copies, folds branches and switches on constants, decides guards and checks whose
-// operands are constants, applies the rules of generic.rules (rewrite_gen.maxon), and drops the drops of a known 0; then
-// it removes the blocks nothing reaches, the parameters that are trivial (every edge passes one value, or the parameter
-// itself) and those nothing reads, and every instruction whose value nothing reads.
+// operands are constants, applies the rules of generic.rules and, past a function's fallback, of pressure.rules
+// (rewrite_gen.maxon), and drops the drops of a known 0; then it removes the blocks nothing reaches, the parameters that
+// are trivial (every edge passes one value, or the parameter itself) and those nothing reads, and every instruction whose
+// value nothing reads.
 //
 // The invariant every fold keeps: a program that is folded fails exactly where and as it failed before. Arithmetic is
 // checked, and which check fires first, and so which error a `try` sees, is part of the program's meaning.
@@ -105,20 +106,24 @@ export type Fold
 	var successors as ir.SuccessorVisitor
 	var rewrite as Rewrite
 	var blocks as Count
+	// raising is whether the function being folded is past its fallback, where the rules of pressure.rules apply too.
+	var raising as bool
 
 	export static function new() returns Fold
-		return Fold{instrsBefore: 0, instrsAfter: 0, branchesFolded: 0, paramsRemoved: 0, checksDecided: 0, defs: ir.Defs.new(), repl: ir.RegList.create(0), known: Array.create(0), value: ir.WordList.create(0), useHead: Array.create(0), useTail: Array.create(0), useItem: Array.create(0), useNext: Array.create(0), regLive: Array.create(0), paramOf: Array.create(0), dead: Array.create(0), instrBlock: Array.create(0), queuedInstr: Array.create(0), liveInstr: Array.create(0), chainFirst: Array.create(0), chainLast: Array.create(0), chainNext: Array.create(0), blockDead: Array.create(0), livePreds: Array.create(0), queuedTerm: Array.create(0), predStart: Array.create(0), pred: Array.create(0), newID: ir.BlockIDList.create(0), reached: Array.create(0), paramBlock: Array.create(0), paramGone: Array.create(0), queuedParam: Array.create(0), queue: Array.create(0), head: 0, tail: 0, dying: Array.create(0), dyingTop: 0, walk: Array.create(0), walkTop: 0, into: Array.create(0), marks: ir.RegList.create(0), marksTop: 0, order: Array.create(0), orderCount: 0, useCount: 0, regCount: 0, pairFrom: Array.create(0), pairTo: Array.create(0), regs: ir.RegList.create(0), successors: ir.SuccessorVisitor.new(), rewrite: Rewrite.new(), blocks: 0}
+		return Fold{instrsBefore: 0, instrsAfter: 0, branchesFolded: 0, paramsRemoved: 0, checksDecided: 0, defs: ir.Defs.new(), repl: ir.RegList.create(0), known: Array.create(0), value: ir.WordList.create(0), useHead: Array.create(0), useTail: Array.create(0), useItem: Array.create(0), useNext: Array.create(0), regLive: Array.create(0), paramOf: Array.create(0), dead: Array.create(0), instrBlock: Array.create(0), queuedInstr: Array.create(0), liveInstr: Array.create(0), chainFirst: Array.create(0), chainLast: Array.create(0), chainNext: Array.create(0), blockDead: Array.create(0), livePreds: Array.create(0), queuedTerm: Array.create(0), predStart: Array.create(0), pred: Array.create(0), newID: ir.BlockIDList.create(0), reached: Array.create(0), paramBlock: Array.create(0), paramGone: Array.create(0), queuedParam: Array.create(0), queue: Array.create(0), head: 0, tail: 0, dying: Array.create(0), dyingTop: 0, walk: Array.create(0), walkTop: 0, into: Array.create(0), marks: ir.RegList.create(0), marksTop: 0, order: Array.create(0), orderCount: 0, useCount: 0, regCount: 0, pairFrom: Array.create(0), pairTo: Array.create(0), regs: ir.RegList.create(0), successors: ir.SuccessorVisitor.new(), rewrite: Rewrite.new(), blocks: 0, raising: false}
 	end 'new'
 
-	// foldFunction folds the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures. A
-	// function with a refusal is never compiled, so it is left as it is.
-	export function foldFunction(mutates self, mutates f ir.IrFunction)
+	// foldFunction folds the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures;
+	// with raises, which only IR past its fallback may take (optimizer.maxon), it applies the rules that may raise register
+	// pressure too. A function with a refusal is never compiled, so it is left as it is.
+	export function foldFunction(mutates self, mutates f ir.IrFunction, raises bool)
 		if f.refusals.count() > 0 'refused'
 			return
 		end 'refused'
 		for i in 0 upto f.bodies.count() 'bodies'
-			self.foldFunction(f.bodies[i])
+			self.foldFunction(f.bodies[i], raises: raises)
 		end 'bodies'
+		self.raising = raises
 		if f.blocks.count() == 0 'empty'
 			return
 		end 'empty'
@@ -646,7 +651,7 @@ export type Fold
 
 	// applyRules rewrites the instruction k by the first rule of generic.rules that matches it.
 	function applyRules(mutates self, mutates f ir.IrFunction, k Count)
-		if not rewriteInstr(f, at: k, defs: defs, out: rewrite) 'none'
+		if not rewriteInstr(f, at: k, defs: defs, out: rewrite, raises: raising) 'none'
 			return
 		end 'none'
 		self.growRegs(f)

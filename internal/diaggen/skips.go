@@ -17,17 +17,21 @@ const (
 	expectKind       = "expect"
 	runKind          = "run"
 	codeListColumns  = 3
+	testKind         = "test"
+	testColumns      = 4
+	specSuffix       = ".md"
 
 	// reasonForbidden are the characters that Go and Maxon do not escape alike in a string.
 	reasonForbidden = "\"\\{}"
 )
 
 // skipRow is a row of the skip table: its kind, the codes maxon expects and the codes minimaxon reports for a test that is
-// skipped for the reason, each as the Maxon expression of the code. An expect row has no reported codes and a run row no
-// expected ones.
+// skipped for the reason, each as the Maxon expression of the code, or the spec file and the name of the one test a test row
+// skips. An expect row has no reported codes, a run row no expected ones, and a test row neither.
 type skipRow struct {
 	kind               string
 	expected, reported []string
+	file, test         string
 	reason             string
 }
 
@@ -41,6 +45,7 @@ func parseSkips(src string, codes []row) ([]skipRow, error) {
 		numbers[r.code] = true
 	}
 	maxonOnly := map[string]bool{}
+	named := map[string]bool{}
 	var rows []skipRow
 	for i, line := range strings.Split(src, "\n") {
 		line = strings.TrimSuffix(line, "\r")
@@ -84,8 +89,20 @@ func parseSkips(src string, codes []row) ([]skipRow, error) {
 			if s.reported, err = skipCodes(cols[1], known, nil, at); err != nil {
 				return nil, err
 			}
+		case cols[0] == testKind && len(cols) == testColumns:
+			s = skipRow{kind: testKind, file: cols[1], test: cols[2], reason: cols[3]}
+			key := s.file + "\t" + s.test
+			switch {
+			case !strings.HasSuffix(s.file, specSuffix) || strings.ContainsAny(s.file, "/\\"+reasonForbidden):
+				return nil, fmt.Errorf("%s: %q is not the name of a spec file: write the file's name, which ends in %s", at, s.file, specSuffix)
+			case s.test == "" || strings.ContainsAny(s.test, reasonForbidden):
+				return nil, fmt.Errorf("%s: the test's name is empty or holds a quote, a backslash or a brace", at)
+			case named[key]:
+				return nil, fmt.Errorf("%s: %s: %s is named twice", at, s.file, s.test)
+			}
+			named[key] = true
 		default:
-			return nil, fmt.Errorf("%s: want a %s row of %d tab-separated columns, a %s row of %d, or an %s or %s row of %d", at, maxonOnlyKind, maxonOnlyColumns, skipKind, skipColumns, expectKind, runKind, codeListColumns)
+			return nil, fmt.Errorf("%s: want a %s row of %d tab-separated columns, a %s or %s row of %d, or an %s or %s row of %d", at, maxonOnlyKind, maxonOnlyColumns, skipKind, testKind, skipColumns, expectKind, runKind, codeListColumns)
 		}
 		if s.reason == "" || strings.ContainsAny(s.reason, reasonForbidden) {
 			return nil, fmt.Errorf("%s: the reason is empty or holds a quote, a backslash or a brace, which Go and Maxon do not escape alike", at)
@@ -137,6 +154,8 @@ func emitMaxonSkips(rows []skipRow) string {
 			for _, p := range r.reported {
 				fmt.Fprintf(&b, "\tskips.push(CodeSkip.refusing(%s, line: %s))\n", skipExpr(p), line)
 			}
+		case testKind:
+			fmt.Fprintf(&b, "\tskips.push(CodeSkip.naming(%q, test: %q, line: %s))\n", r.file, r.test, line)
 		default:
 			panic(fmt.Sprintf("diaggen: a skip row of kind %q", r.kind))
 		}

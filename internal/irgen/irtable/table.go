@@ -144,6 +144,7 @@ var enums = []enum{
 		{"Div", "div", quotient()}, {"Mod", "mod", remainder()},
 		{"And", "and", bitwise(bitAnd)}, {"Or", "or", bitwise(bitOr)}, {"Xor", "xor", bitwise(bitXor)},
 		{"Shl", "shl", shift(true)}, {"Shr", "shr", shift(false)},
+		{"MulHi", "mulhi", highProduct("mulHigh")},
 	}},
 	{Name: "CmpOp", Prefix: "Cmp", Doc: "CmpOp is the comparison of a Cmp.", Cases: []enumCase{
 		{"Eq", "eq", holdsFor(ordEqual)}, {"Ne", "ne", holdsFor(ordLess, ordGreater, ordUnordered)},
@@ -187,6 +188,7 @@ var flags = []flag{
 	{"Unsigned", "Unsigned is on a Bin or a Cmp that treats its operands as unsigned."},
 	{"Checked", "Checked is on a Bin or a Neg whose result may not fit the word: when it does not, the instruction goes to its\n// failure block instead of to the next instruction."},
 	{"Throws", "Throws is on a Call of a function that throws: its error register receives 0 when it returned and the\n// error's case plus 1 when it failed."},
+	{"Proven", "Proven is on a CallRuntime of an entry that reads or addresses an element at an index that the checker or a\n// check before it has proved inside the collection: its expansion is the access alone, with no bounds check."},
 }
 
 func reg(name string, f field) operand { return operand{Name: name, Kind: kReg, Field: f} }
@@ -266,7 +268,7 @@ var ops = []op{
 		Text: "callcode({Args})"},
 	{Name: "CodeAddress", Eval: noEval, Doc: "CodeAddress gives the address of the code of the function Callee, which a CallCode calls: the run of a\n// behaviour's record that a test of the runtime builds by hand.",
 		Result: valueResult, Operands: []operand{{Name: "Callee", Kind: kCallee, Field: fC}}, Text: "codeaddr {Callee}"},
-	{Name: "Bin", Eval: byCase("Op", overWords), Doc: "Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a\n// signed '/' is i64.min / -1.",
+	{Name: "Bin", Eval: byCase("Op", overWords), Doc: "Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a\n// signed '/' is i64.min / -1. MulHi is the high word of the 128-bit product, which a division by a constant is\n// made of, and always fits.",
 		Result:   valueResult,
 		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "BinOp"}, reg("Left", fA), reg("Right", fB), unsignOp, checkedOp},
 		Text:     "{Op}{Unsigned} {Left}, {Right}{Fail}"},
@@ -326,8 +328,9 @@ var ops = []op{
 	{Name: "CallRuntime", Eval: noEval, Doc: "CallRuntime applies the runtime entry Symbol to Args; Routine is what the entry stores to call\n// later (the destructor of a cown).",
 		Result: optionalResult,
 		Operands: []operand{symbolOp, argsOp,
-			{Name: "Routine", Kind: kRoutine, Field: fC, Text: " routine "}},
-		Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees}, Text: "runtime {Symbol}({Args}){Routine}"},
+			{Name: "Routine", Kind: kRoutine, Field: fC, Text: " routine "},
+			{Name: "Proven", Kind: kFlag, Field: fFlags, Flag: "Proven", Text: " proven"}},
+		Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees}, Text: "runtime {Symbol}({Args}){Routine}{Proven}"},
 	{Name: "When", Eval: noEval, Doc: "When schedules the behaviour Body on the cowns Cowns, capturing Captures.",
 		Operands: []operand{{Name: "Body", Kind: kBody, Field: fImm}, {Name: "Cowns", Kind: kRegs, Field: fA, Count: fB},
 			{Name: "Captures", Kind: kMoreRegs, Field: fC}},

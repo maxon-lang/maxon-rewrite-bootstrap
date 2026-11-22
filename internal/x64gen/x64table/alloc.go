@@ -75,6 +75,25 @@ func (f form) uses() []string {
 	return out
 }
 
+// vectorMask has bit i set where register operand i in machine order is an xmm register.
+func (f form) vectorMask() int {
+	var vector []bool
+	if d, ok := f.defOperand(); ok {
+		vector = append(vector, d.vector)
+	}
+	for _, name := range f.uses() {
+		at := slices.IndexFunc(f.operands, func(o operand) bool { return o.kind == kindReg && o.name == name })
+		vector = append(vector, at >= 0 && f.operands[at].vector)
+	}
+	m := 0
+	for i, v := range vector {
+		if v {
+			m |= 1 << i
+		}
+	}
+	return m
+}
+
 func (f form) machineOperands() int {
 	n := len(f.uses())
 	if _, ok := f.defOperand(); ok {
@@ -206,6 +225,8 @@ func emitAlloc(b *strings.Builder) {
 			return fmt.Sprintf("0x%X", maskOf(m.of(f)))
 		})
 	}
+	emitGrouped(b, "vectorOperands", "Count", "the register operands of a form, in machine order, that are xmm registers, a bit each from bit 0 for a",
+		func(f form) string { return fmt.Sprint(f.vectorMask()) })
 	for _, c := range choices {
 		emitChooser(b, c)
 	}

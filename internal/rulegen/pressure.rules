@@ -1,0 +1,50 @@
+// The rewrite rules that may raise register pressure, which the fold pass applies only to the IR after a function's
+// fallback is taken (ir.Fallbacks, self/opt/inline.maxon): a rewrite that holds more values at once than the instruction
+// it replaces could make a hot loop need more registers than the target has (E5001), and the fallback, compiled where the
+// optimized function is refused, is the function without it. generic.rules says how a rule is written and the invariant
+// every rule keeps; these come after its rules for the same operation. rulegen makes them part of
+// self/opt/rewrite_gen.maxon.
+
+// Division by any other constant, as maxon's strengthReduceDivision: the high word of x times a multiplier that
+// division.maxon derives, shifted. It holds x beside the high word or the sign it takes from x, where the division held x
+// and the divisor, and a remainder holds x across the whole quotient. The divisor's magnitude is at least 2, so the
+// division could never fail, and the rewrite drops its check; x / 1, x / -1 and the unsigned powers of two are in
+// generic.rules.
+//
+// A signed quotient truncates toward zero. A shift by k floors, so a power of two 2^k shifts x raised by 2^k - 1 where it
+// is negative, the low k bits of its sign; the multiplier's quotient is floored too, and taking x's sign (-1 or 0) from it
+// makes it truncate. A negative divisor gives the negated quotient. A signed multiply reads a multiplier of 2^63 or more as
+// itself less 2^64, which takes x from the high word, and adding x back restores it.
+(bin.div.!unsigned x (const [c])) && signedPowerOfTwo(c) and c > 0
+	=> (bin.shr (bin.add x (bin.shr.unsigned (bin.shr x (const [signPlace()])) (const [roundingShift(c)]))) (const [magnitudeLog2(c)]))
+(bin.div.!unsigned x (const [c])) && signedPowerOfTwo(c)
+	=> (neg (bin.shr (bin.add x (bin.shr.unsigned (bin.shr x (const [signPlace()])) (const [roundingShift(c)]))) (const [magnitudeLog2(c)])))
+(bin.div.!unsigned x (const [c])) && signedReduces(c) and c > 0 and not signedMultiplierWraps(c)
+	=> (bin.sub (bin.shr (bin.mulhi (const [signedMultiplier(c)]) x) (const [signedMultiplierShift(c)])) (bin.shr x (const [signPlace()])))
+(bin.div.!unsigned x (const [c])) && signedReduces(c) and c > 0
+	=> (bin.sub (bin.shr (bin.add (bin.mulhi (const [signedMultiplier(c)]) x) x) (const [signedMultiplierShift(c)])) (bin.shr x (const [signPlace()])))
+(bin.div.!unsigned x (const [c])) && signedReduces(c) and not signedMultiplierWraps(c)
+	=> (bin.sub (bin.shr x (const [signPlace()])) (bin.shr (bin.mulhi (const [signedMultiplier(c)]) x) (const [signedMultiplierShift(c)])))
+(bin.div.!unsigned x (const [c])) && signedReduces(c)
+	=> (bin.sub (bin.shr x (const [signPlace()])) (bin.shr (bin.add (bin.mulhi (const [signedMultiplier(c)]) x) x) (const [signedMultiplierShift(c)])))
+// A signed remainder takes the sign of x, not the divisor's: it is x less x / |c| times |c|, which for a power of two is x
+// raised as for the quotient with its low bits cleared.
+(bin.mod.!unsigned x (const [c])) && signedPowerOfTwo(c)
+	=> (bin.sub x (bin.and (bin.add x (bin.shr.unsigned (bin.shr x (const [signPlace()])) (const [roundingShift(c)]))) (const [magnitudeMask(c)])))
+(bin.mod.!unsigned x (const [c])) && signedReduces(c) and not signedMultiplierWraps(c)
+	=> (bin.sub x (bin.mul (bin.sub (bin.shr (bin.mulhi (const [signedMultiplier(c)]) x) (const [signedMultiplierShift(c)])) (bin.shr x (const [signPlace()]))) (const [magnitudeWord(c)])))
+(bin.mod.!unsigned x (const [c])) && signedReduces(c)
+	=> (bin.sub x (bin.mul (bin.sub (bin.shr (bin.add (bin.mulhi (const [signedMultiplier(c)]) x) x) (const [signedMultiplierShift(c)])) (bin.shr x (const [signPlace()]))) (const [magnitudeWord(c)])))
+// An unsigned divisor of 2^63 or more, which the word holds as a negative number, goes into x once or not at all.
+(bin.div.unsigned x (const [c])) && c < 0 => (cmp.ge.unsigned x (const [c]))
+(bin.mod.unsigned x (const [c])) && c < 0 => (bin.sub x (bin.and (neg (cmp.ge.unsigned x (const [c]))) (const [c])))
+// Any other unsigned divisor: the high word shifted by floor(log2 c). A multiplier that needs a 65th bit is held without
+// it, and (x + h) / 2, made as (x - h) / 2 + h so that no sum passes the word, adds it back.
+(bin.div.unsigned x (const [c])) && unsignedReduces(c) and not unsignedMultiplierCarries(c)
+	=> (bin.shr.unsigned (bin.mulhi.unsigned (const [unsignedMultiplier(c)]) x) (const [unsignedMultiplierShift(c)]))
+(bin.div.unsigned x (const [c])) && unsignedReduces(c)
+	=> (bin.shr.unsigned (bin.add (bin.shr.unsigned (bin.sub x h:(bin.mulhi.unsigned (const [unsignedMultiplier(c)]) x)) (const [1])) h) (const [unsignedMultiplierShift(c)]))
+(bin.mod.unsigned x (const [c])) && unsignedReduces(c) and not unsignedMultiplierCarries(c)
+	=> (bin.sub x (bin.mul (bin.shr.unsigned (bin.mulhi.unsigned (const [unsignedMultiplier(c)]) x) (const [unsignedMultiplierShift(c)])) (const [c])))
+(bin.mod.unsigned x (const [c])) && unsignedReduces(c)
+	=> (bin.sub x (bin.mul (bin.shr.unsigned (bin.add (bin.shr.unsigned (bin.sub x h:(bin.mulhi.unsigned (const [unsignedMultiplier(c)]) x)) (const [1])) h) (const [unsignedMultiplierShift(c)])) (const [c])))

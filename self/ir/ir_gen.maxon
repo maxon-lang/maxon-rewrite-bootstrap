@@ -108,6 +108,7 @@ export enum BinOp
 	binXor
 	binShl
 	binShr
+	binMulHi
 end 'BinOp'
 
 // binOpText is how the printer writes a BinOp.
@@ -142,6 +143,9 @@ export function binOpText(v BinOp) returns String
 	if v == BinOp.binShr 'binShr'
 		return "shr"
 	end 'binShr'
+	if v == BinOp.binMulHi 'binMulHi'
+		return "mulhi"
+	end 'binMulHi'
 	panic("ir: a BinOp with no text")
 end 'binOpText'
 
@@ -177,6 +181,9 @@ export function binOpCode(v BinOp) returns Byte
 	if v == BinOp.binShr 'binShr'
 		return 9 as Byte
 	end 'binShr'
+	if v == BinOp.binMulHi 'binMulHi'
+		return 10 as Byte
+	end 'binMulHi'
 	panic("ir: a BinOp with no number")
 end 'binOpCode'
 
@@ -193,6 +200,7 @@ export function binOpOf(code Byte) returns BinOp
 		7 gives BinOp.binXor
 		8 gives BinOp.binShl
 		9 gives BinOp.binShr
+		10 gives BinOp.binMulHi
 		default panic("ir: a number that is no BinOp")
 	end 'code'
 end 'binOpOf'
@@ -585,6 +593,10 @@ export let flagChecked = 4 as Byte
 // flagThrows is on a Call of a function that throws: its error register receives 0 when it returned and the
 // error's case plus 1 when it failed.
 export let flagThrows = 8 as Byte
+
+// flagProven is on a CallRuntime of an entry that reads or addresses an element at an index that the checker or a
+// check before it has proved inside the collection: its expansion is the access alone, with no bounds check.
+export let flagProven = 16 as Byte
 
 export let effectReads = 1 as Count
 
@@ -1053,7 +1065,8 @@ export function newCodeAddress(dst Reg, callee Index) returns Instr
 end 'newCodeAddress'
 
 // Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a
-// signed '/' is i64.min / -1.
+// signed '/' is i64.min / -1. MulHi is the high word of the 128-bit product, which a division by a constant is
+// made of, and always fits.
 export function newBin(dst Reg, op BinOp, left Reg, right Reg, unsigned bool, fail BlockID) returns Instr
 	var r = Instr.make(Opcode.opBin)
 	r.dst = dst
@@ -1263,13 +1276,16 @@ end 'newCall'
 
 // CallRuntime applies the runtime entry Symbol to Args; Routine is what the entry stores to call
 // later (the destructor of a cown).
-export function newCallRuntime(dst Reg, symbol Rt, argsStart Reg, argsCount Reg, routine Index) returns Instr
+export function newCallRuntime(dst Reg, symbol Rt, argsStart Reg, argsCount Reg, routine Index, proven bool) returns Instr
 	var r = Instr.make(Opcode.opCallRuntime)
 	r.dst = dst
 	r.imm = try rtCode(symbol) as Word otherwise panic("ir: callRuntime symbol is out of range")
 	r.a = argsStart
 	r.b = argsCount
 	r.c = routine
+	if proven 'proven'
+		r.flags = r.flags or flagProven
+	end 'proven'
 	return r
 end 'newCallRuntime'
 
@@ -1891,6 +1907,10 @@ export function callRuntimeRoutine(f IrFunction, x Instr) returns table.Option w
 	end 'absent'
 	return table.Option.some(f.calleeAt(x.c))
 end 'callRuntimeRoutine'
+
+export function callRuntimeProven(x Instr) returns bool
+	return (x.flags and flagProven) != 0
+end 'callRuntimeProven'
 
 export function whenBody(f IrFunction, x Instr) returns Count
 	return try x.imm as Count otherwise panic("ir: when body is out of range")
@@ -4268,6 +4288,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		if callRuntimeHasRoutine(x) 'routine'
 			text = "{text} routine {funcSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: callRuntimeRoutine(f, x: x).unwrap())}"
 		end 'routine'
+		if callRuntimeProven(x) 'proven'
+			text = "{text} proven"
+		end 'proven'
 		return text
 	end 'opCallRuntime'
 	if x.op == Opcode.opWhen 'opWhen'

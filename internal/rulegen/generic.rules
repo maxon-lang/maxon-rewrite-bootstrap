@@ -1,5 +1,7 @@
-// The target-independent rewrite rules of the IR, which the fold pass of self/opt applies to each instruction.
-// README "The rewrite rules" describes how a rule is written; rulegen makes self/opt/rewrite_gen.maxon of them.
+// The target-independent rewrite rules of the IR, which the fold pass of self/opt applies to each instruction. None makes
+// an instruction hold more values at once than the one it replaces, so they apply before a function's fallback is taken;
+// the rules that may are in pressure.rules. README "The rewrite rules" describes how a rule is written; rulegen makes
+// self/opt/rewrite_gen.maxon of them.
 //
 // The invariant every rule keeps: a program that is rewritten fails exactly where and as it failed before.
 //

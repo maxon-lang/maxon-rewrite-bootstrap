@@ -3,7 +3,8 @@
 // primitives in the IR"), so the optimizer, instruction selection and the register allocator see loads and no call. A
 // read of an element is the length, a bounds check of the index against it, and the read. The check fails to a block of
 // its own after the function's, which makes the call that was there and traps: called there, the entry traps with its own
-// message, as it always did. The address of an element that only a loadat right after it reads is the element read itself.
+// message, as it always did. A proven call, whose index the checker or a check before it proved in range, is the read
+// alone. The address of an element that only a loadat right after it reads is the element read itself.
 // Every other entry, and the call a trap block makes, stays a call.
 //
 // It runs on the IR the interpreter runs, as lowered, and on the IR a native build compiles, after the fold and before leaf
@@ -76,11 +77,13 @@ export type Expander
 			return next
 		end 'length'
 		let index = f.args[plusOne(start)]
-		let length = f.newReg(ir.IrKind.kindScalar)
-		out.push(ir.newLength(length, src: src, of: of))
-		let fail = ir.blockOf(try own + traps.count() otherwise panic("opt: a function with more blocks than memory"))
-		traps.push(ir.newCallRuntime(ir.noReg, symbol: symbol, argsStart: call.a, argsCount: call.b, routine: ir.noRoutine))
-		out.push(ir.newBounds(index, length: length, fail: fail))
+		if not ir.callRuntimeProven(call) 'check'
+			let length = f.newReg(ir.IrKind.kindScalar)
+			out.push(ir.newLength(length, src: src, of: of))
+			let fail = ir.blockOf(try own + traps.count() otherwise panic("opt: a function with more blocks than memory"))
+			traps.push(ir.newCallRuntime(ir.noReg, symbol: symbol, argsStart: call.a, argsCount: call.b, routine: ir.noRoutine, proven: false))
+			out.push(ir.newBounds(index, length: length, fail: fail))
+		end 'check'
 		if symbol != ir.Rt.rtArrayElem 'byte'
 			out.push(ir.newLoadByte(call.dst, src: src, index: index, of: of))
 			return next

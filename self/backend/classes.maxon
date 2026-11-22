@@ -1,0 +1,375 @@
+// The register classes of a function's values. Floats are computed in xmm registers and everything else in general ones,
+// and the IR keeps no types, so selection decides the class of each IR register by what reads and writes it: a float
+// operation wants its operands and its result in xmm registers, a constant, a load and a store take either (movsd moves a
+// word as mov does), and every other operation, the calls and the returns among them, wants general ones. The registers
+// that edges join, a block's parameters and the arguments passed to them, are one class, the one more of their reads and
+// writes want; a tie is general. Where a value meets an operand of the other class after all (a float's bits that an
+// integer operation reads, a float passed to a call), legalizeClasses moves it there by movq, so the choice decides how
+// many moves the code has and never what it computes.
+
+// ClassChoice is the state of the class analysis, kept from one function to the next: a union-find forest over the
+// function's registers, and by root the weight of its set, the reads and writes that want an xmm register less those
+// that want a general one.
+export type ClassChoice
+	var parent as CountList
+	var weight as Array with FullRangeInt
+	var reads as ir.RegList
+	var edges as ir.SuccessorVisitor
+
+	export static function new() returns ClassChoice
+		return ClassChoice{parent: CountList.create(0), weight: Array.create(0), reads: ir.RegList.create(0), edges: ir.SuccessorVisitor.new()}
+	end 'new'
+
+	// choose gives fn a virtual register for each register of f, of the class f's operations want of it.
+	function choose(mutates self, f ir.IrFunction, mutates fn MirFunction)
+		parent.clear()
+		weight.clear()
+		for r in 0 upto f.regs.count() 'regs'
+			parent.push(r)
+			weight.push(0)
+		end 'regs'
+		for b in 0 upto f.blocks.count() 'blocks'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				self.weigh(f, x: f.instrs[k])
+			end 'instrs'
+			self.weighTerm(f, b: b)
+		end 'blocks'
+		for r in 0 upto f.regs.count() 'classes'
+			let root = self.find(r)
+			_ = fn.newVReg(RegClass.xmm if weight[root] > 0 else RegClass.gpr)
+		end 'classes'
+	end 'choose'
+
+	function find(mutates self, r Count) returns Count
+		var at = r
+		while parent[at] != at 'up'
+			parent[at] = parent[parent[at]]
+			at = parent[at]
+		end 'up'
+		return at
+	end 'find'
+
+	function join(mutates self, a ir.Reg, b ir.Reg)
+		let x = self.find(regIndex(a))
+		let y = self.find(regIndex(b))
+		if x == y 'same'
+			return
+		end 'same'
+		parent[y] = x
+		weight[x] = try weight[x] + weight[y] otherwise panic("backend: a class weight past a word")
+		weight[y] = 0
+	end 'join'
+
+	function favour(mutates self, r ir.Reg, by FullRangeInt)
+		let root = self.find(regIndex(r))
+		weight[root] = try weight[root] + by otherwise panic("backend: a class weight past a word")
+	end 'favour'
+
+	function wantsXmm(mutates self, r ir.Reg)
+		self.favour(r, by: 1)
+	end 'wantsXmm'
+
+	function wantsGpr(mutates self, r ir.Reg)
+		self.favour(r, by: -1)
+	end 'wantsGpr'
+
+	function wantsGprBoth(mutates self, a ir.Reg, b ir.Reg)
+		self.wantsGpr(a)
+		self.wantsGpr(b)
+	end 'wantsGprBoth'
+
+	// weighFloat has the operands of a float operation, and its result where it is a float (noReg for a comparison's,
+	// which is a flag), want xmm registers.
+	function weighFloat(mutates self, result ir.Reg, left ir.Reg, right ir.Reg)
+		self.wantsXmmIf(result)
+		self.wantsXmmIf(left)
+		self.wantsXmmIf(right)
+	end 'weighFloat'
+
+	function wantsXmmIf(mutates self, r ir.Reg)
+		if r != ir.noReg 'there'
+			self.wantsXmm(r)
+		end 'there'
+	end 'wantsXmmIf'
+
+	// weighConversion has the float of a conversion want an xmm register, and the integer a general one.
+	function weighConversion(mutates self, float ir.Reg, general ir.Reg)
+		self.wantsXmm(float)
+		self.wantsGpr(general)
+	end 'weighConversion'
+
+	// wantsGprAll has every register x reads and writes want a general register.
+	function wantsGprAll(mutates self, f ir.IrFunction, x ir.Instr)
+		reads.clear()
+		ir.instrReads(f, x: x, out: reads)
+		ir.instrWrites(x, out: reads)
+		for i in 0 upto reads.count() 'regs'
+			let r = reads[i]
+			self.wantsGpr(r)
+		end 'regs'
+	end 'wantsGprAll'
+
+	function weigh(mutates self, f ir.IrFunction, x ir.Instr)
+		match x.op 'op'
+			opNone then panic("backend: an instruction with no operation")
+			opFBin then self.weighFloat(x.dst, left: ir.fBinLeft(x), right: ir.fBinRight(x))
+			opFUnary then self.weighFloat(x.dst, left: ir.fUnarySrc(x), right: ir.noReg)
+			opFCmp then self.weighFloat(ir.noReg, left: ir.fCmpLeft(x), right: ir.fCmpRight(x))
+			opIntToFloat then self.weighConversion(x.dst, general: ir.intToFloatSrc(x))
+			opFloatToInt then self.weighConversion(ir.floatToIntSrc(x), general: x.dst)
+			opConst or
+			opLoadSlot or
+			opStoreSlot then return
+			opLoadField then self.wantsGpr(ir.loadFieldObj(x))
+			opStoreField then self.wantsGpr(ir.storeFieldObj(x))
+			opLoadAt then self.wantsGpr(ir.loadAtAddr(x))
+			opStoreAt then self.wantsGpr(ir.storeAtAddr(x))
+			opElemLoad then self.wantsGprBoth(ir.elemLoadArr(x), b: ir.elemLoadIndex(x))
+			opWordAt then self.wantsGprBoth(ir.wordAtData(x), b: ir.wordAtIndex(x))
+			opStr or
+			opDatum or
+			opSlotAddr or
+			opLoadParam or
+			opFieldAddr or
+			opLoadGlobal or
+			opLoadRaw or
+			opStoreRaw or
+			opGlobalAddr or
+			opCallImport or
+			opAtomicAdd or
+			opAtomicExchange or
+			opCompareExchange or
+			opSpinPause or
+			opThreadContext or
+			opCallCode or
+			opCodeAddress or
+			opBin or
+			opCmp or
+			opNeg or
+			opNot or
+			opGuard or
+			opLength or
+			opBounds or
+			opElemAddr or
+			opLoadByte or
+			opBuffer or
+			opByteAt or
+			opAlloc or
+			opCall or
+			opCallRuntime or
+			opWhen or
+			opClosure or
+			opFuncValue or
+			opCallValue or
+			opBox or
+			opFrameBox or
+			opCallWitness or
+			opIsType or
+			opDrop or
+			opDropSlot or
+			opDropAt or
+			opMoveSlot or
+			opMoveAt or
+			opCopy then self.wantsGprAll(f, x: x)
+		end 'op'
+	end 'weigh'
+
+	// weighTerm joins each edge of block b's terminator with its target's parameters, and has what else the terminator
+	// reads (a condition, a switch's value, a returned value) want a general register.
+	function weighTerm(mutates self, f ir.IrFunction, b Count)
+		reads.clear()
+		ir.termReads(f, t: f.blocks[b].term, out: reads)
+		for i in 0 upto reads.count() 'reads'
+			let r = reads[i]
+			self.wantsGpr(r)
+		end 'reads'
+		edges.clear()
+		ir.visitTerm(edges, f: f, t: f.blocks[b].term)
+		for e in 0 upto edges.out.count() 'edges'
+			let target = ir.blockIndex(edges.out[e])
+			for i in 0 upto edges.argsCount[e] 'args'
+				let arg = f.args[try edges.argsStart[e] + i otherwise panic("backend: an edge's arguments past the pool")]
+				self.wantsXmm(arg)
+				self.join(f.blockParam(target, i: i), b: arg)
+			end 'args'
+		end 'edges'
+	end 'weighTerm'
+end 'ClassChoice'
+
+// classOfReg is the class of a register operand.
+function classOfReg(fn MirFunction, r MReg) returns RegClass
+	if isVirtual(r) 'virtual'
+		return fn.classes[vregIndex(r)]
+	end 'virtual'
+	return classOfNumber(physicalNumber(r))
+end 'classOfReg'
+
+// operandClass is the class of register operand i, in machine order, of a form.
+function operandClass(form X64Form, index Count) returns RegClass
+	let bit = try (1 as Count) shl index otherwise panic("backend: an operand past a machine instruction")
+	return RegClass.xmm if (vectorOperands(form) and bit) != 0 else RegClass.gpr
+end 'operandClass'
+
+// conversion is the movq that puts in dst the bits of src, a register of the other class.
+function conversion(fn MirFunction, dst MReg, src MReg) returns MInstr
+	return match classOfReg(fn, r: dst) 'class'
+		xmm gives newTarget(X64Form.movqXmmReg, a: dst, b: src, c: noMReg, aux: 0, imm: 0)
+		gpr gives newTarget(X64Form.movqRegXmm, a: dst, b: src, c: noMReg, aux: 0, imm: 0)
+	end 'class'
+end 'conversion'
+
+// legalizeClasses gives every operand of fn a register of the class its form names, moving a value of the other class
+// into a new register before an instruction that reads it, and out of one after an instruction that writes it; a copy
+// between the classes becomes the move, through a new register where one side is fixed; and an edge's argument of the
+// other class than its parameter is moved before the branch, which movq leaves the flags of.
+function legalizeClasses(mutates fn MirFunction)
+	if not mixesClasses(fn) 'apart'
+		return
+	end 'apart'
+	let old = exchange(fn.instrs, value: MInstrList.create(0))
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		let first = fn.blocks[b].first
+		let endAt = fn.blocks[b].endAt
+		fn.blocks[b].first = fn.instrs.count()
+		for k in first upto endAt 'instrs'
+			legalizeInstr(fn, x: old[k].clone())
+		end 'instrs'
+		fn.blocks[b].endAt = fn.instrs.count()
+	end 'blocks'
+end 'legalizeClasses'
+
+// mixesClasses is whether some operand of fn has a register of another class than it names.
+function mixesClasses(fn MirFunction) returns bool
+	for k in 0 upto fn.instrs.count() 'instrs'
+		if not instrLegal(fn, x: fn.instrs[k]) 'mixed'
+			return true
+		end 'mixed'
+	end 'instrs'
+	return false
+end 'mixesClasses'
+
+function instrLegal(fn MirFunction, x MInstr) returns bool
+	match x.kind 'kind'
+		copy then return classOfReg(fn, r: x.a) == classOfReg(fn, r: x.b)
+		target then return targetLegal(fn, x: x)
+		spill or
+		reload or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown then return true
+	end 'kind'
+end 'instrLegal'
+
+function targetLegal(fn MirFunction, x MInstr) returns bool
+	for i in 0 upto machineOperandCount(x.form) 'operands'
+		if classOfReg(fn, r: operandAt(x, index: i)) != operandClass(x.form, index: i) 'mixed'
+			return false
+		end 'mixed'
+	end 'operands'
+	if x.ref == MRef.edge 'edge'
+		return edgeLegal(fn, edge: refIndex(x))
+	end 'edge'
+	return true
+end 'targetLegal'
+
+function edgeLegal(fn MirFunction, edge Count) returns bool
+	let target = fn.edges[edge].target as Count
+	for i in 0 upto fn.edges[edge].argCount 'args'
+		let arg = fn.edgeArgs[addCounts(fn.edges[edge].args, b: i)]
+		let param = fn.blockParams[addCounts(fn.blocks[target].params, b: i)]
+		if classOfReg(fn, r: arg) != classOfReg(fn, r: param) 'mixed'
+			return false
+		end 'mixed'
+	end 'args'
+	return true
+end 'edgeLegal'
+
+function legalizeInstr(mutates fn MirFunction, consumes x MInstr)
+	match x.kind 'kind'
+		copy then legalizeCopy(fn, x: x)
+		target then legalizeTarget(fn, x: x)
+		spill or
+		reload or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown then fn.emit(x)
+	end 'kind'
+end 'legalizeInstr'
+
+function legalizeCopy(mutates fn MirFunction, consumes x MInstr)
+	let into = classOfReg(fn, r: x.a)
+	let from = classOfReg(fn, r: x.b)
+	if into == from 'same'
+		fn.emit(x)
+		return
+	end 'same'
+	if isVirtual(x.a) and isVirtual(x.b) 'virtual'
+		fn.emit(conversion(fn, dst: x.a, src: x.b))
+		return
+	end 'virtual'
+	if isPhysical(x.a) 'intoFixed'
+		let t = fn.newVReg(into)
+		fn.emit(conversion(fn, dst: t, src: x.b))
+		fn.emit(newCopy(x.a, src: t))
+		return
+	end 'intoFixed'
+	let t = fn.newVReg(from)
+	fn.emit(newCopy(t, src: x.b))
+	fn.emit(conversion(fn, dst: x.a, src: t))
+end 'legalizeCopy'
+
+function legalizeTarget(mutates fn MirFunction, consumes x MInstr)
+	var y = x
+	let n = machineOperandCount(y.form)
+	var start = 0 as Count
+	var defined = noMReg
+	var temp = noMReg
+	if definesOperand(y.form) 'defines'
+		start = 1
+		let want = operandClass(y.form, index: 0)
+		if classOfReg(fn, r: y.a) != want 'mixed'
+			if not isVirtual(y.a) 'fixed'
+				panic("backend: a form defines a fixed register of the other class")
+			end 'fixed'
+			defined = y.a
+			temp = fn.newVReg(want)
+			y.a = temp
+		end 'mixed'
+	end 'defines'
+	for i in start upto n 'uses'
+		let r = operandAt(y, index: i)
+		let want = operandClass(y.form, index: i)
+		if classOfReg(fn, r: r) != want 'mixed'
+			if not isVirtual(r) 'fixed'
+				panic("backend: a form reads a fixed register of the other class")
+			end 'fixed'
+			let t = fn.newVReg(want)
+			fn.emit(conversion(fn, dst: t, src: r))
+			setOperand(y, index: i, r: t)
+		end 'mixed'
+	end 'uses'
+	if y.ref == MRef.edge 'edge'
+		legalizeEdge(fn, edge: refIndex(y))
+	end 'edge'
+	fn.emit(y)
+	if temp != noMReg 'defined'
+		fn.emit(conversion(fn, dst: defined, src: temp))
+	end 'defined'
+end 'legalizeTarget'
+
+function legalizeEdge(mutates fn MirFunction, edge Count)
+	let target = fn.edges[edge].target as Count
+	for i in 0 upto fn.edges[edge].argCount 'args'
+		let at = addCounts(fn.edges[edge].args, b: i)
+		let arg = fn.edgeArgs[at]
+		let want = classOfReg(fn, r: fn.blockParams[addCounts(fn.blocks[target].params, b: i)])
+		if classOfReg(fn, r: arg) != want 'mixed'
+			let t = fn.newVReg(want)
+			fn.emit(conversion(fn, dst: t, src: arg))
+			fn.edgeArgs[at] = t
+		end 'mixed'
+	end 'args'
+end 'legalizeEdge'

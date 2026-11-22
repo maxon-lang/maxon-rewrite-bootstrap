@@ -92,28 +92,55 @@ function encodeMachineInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout,
 	match x.kind 'kind'
 		target then encodeTargetInstr(u, fn: fn, lay: lay, x: x)
 		copy then encodeCopy(u, x: x)
-		spill then encodeStoreBaseDispReg(u.asm.code, base: X64Register.rbp, disp: spillSlotOffset(spillSlotOf(x)), src: generalRegister(x.a))
+		spill then encodeSpill(u, x: x)
 		reload or
-		restore then encodeLoadRegBaseDisp(u.asm.code, dest: generalRegister(x.a), base: X64Register.rbp, disp: spillSlotOffset(spillSlotOf(x)))
+		restore then encodeReload(u, x: x)
 		parallelCopy then panic("backend: a parallel copy that allocation left")
 		frameSetup then encodeFrameSetup(u, fn: fn, framed: lay.framed)
 		frameTeardown then encodeFrameTeardown(u, fn: fn, framed: lay.framed)
 	end 'kind'
 end 'encodeMachineInstr'
 
+// encodeCopy moves a register to another of its class: an xmm register whole, so the copy depends on nothing its target
+// held.
 function encodeCopy(mutates u CodeUnit, x MInstr)
-	if x.a != x.b 'move'
-		encodeMovRegReg(u.asm.code, dest: generalRegister(x.a), src: generalRegister(x.b))
-	end 'move'
+	if x.a == x.b 'same'
+		return
+	end 'same'
+	match classOfNumber(physicalNumber(x.a)) 'class'
+		gpr then encodeMovRegReg(u.asm.code, dest: generalRegister(x.a), src: generalRegister(x.b))
+		xmm then encodeMovapsRegReg(u.asm.code, dest: vectorRegister(x.a), src: vectorRegister(x.b))
+	end 'class'
 end 'encodeCopy'
 
-// operandRegister is register operand i of a form, or rax for one the form does not have, which its encoder does not
-// read.
+// encodeSpill stores a register in its spill slot, a word, the low 64 bits of an xmm register.
+function encodeSpill(mutates u CodeUnit, x MInstr)
+	let disp = spillSlotOffset(spillSlotOf(x))
+	match classOfNumber(physicalNumber(x.a)) 'class'
+		gpr then encodeStoreBaseDispReg(u.asm.code, base: X64Register.rbp, disp: disp, src: generalRegister(x.a))
+		xmm then encodeMovsdBaseDispReg(u.asm.code, base: X64Register.rbp, disp: disp, src: vectorRegister(x.a))
+	end 'class'
+end 'encodeSpill'
+
+function encodeReload(mutates u CodeUnit, x MInstr)
+	let disp = spillSlotOffset(spillSlotOf(x))
+	match classOfNumber(physicalNumber(x.a)) 'class'
+		gpr then encodeLoadRegBaseDisp(u.asm.code, dest: generalRegister(x.a), base: X64Register.rbp, disp: disp)
+		xmm then encodeMovsdRegBaseDisp(u.asm.code, dest: vectorRegister(x.a), base: X64Register.rbp, disp: disp)
+	end 'class'
+end 'encodeReload'
+
+// operandRegister is register operand i of a form as its encoder takes it, of the class the form names it, or rax for
+// one the form does not have, which its encoder does not read.
 function operandRegister(x MInstr, index Count, count Count) returns X64Register
 	if index >= count 'absent'
 		return X64Register.rax
 	end 'absent'
-	return generalRegister(operandAt(x, index: index))
+	let r = operandAt(x, index: index)
+	return match operandClass(x.form, index: index) 'class'
+		gpr gives generalRegister(r)
+		xmm gives vectorRegister(r)
+	end 'class'
 end 'operandRegister'
 
 function encodeTargetInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout, x MInstr)
@@ -134,18 +161,32 @@ function encodeTargetInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout, 
 	end 'ref'
 end 'encodeTargetInstr'
 
+// vectorSaveBytes is the room the prologue saves an xmm register in: the convention keeps all 128 bits of one, which a
+// scalar operation or a movq may change above the double it holds.
+let vectorSaveBytes = 16
+
+// vectorSaveDisp is where, below the frame pointer, the prologue saves the nth of the xmm registers it saves: below the
+// slots.
+function vectorSaveDisp(fn MirFunction, nth Count) returns Imm32
+	let below = try fn.frameBytes() + (nth + 1) * vectorSaveBytes otherwise panic("backend: a frame past memory")
+	return try (0 - (below as FullRangeInt)) as Imm32 otherwise panic("backend: a frame past 2 GiB")
+end 'vectorSaveDisp'
+
+// savedVectorBytes is the room the xmm registers the prologue saves take below the slots.
+function savedVectorBytes(fn MirFunction) returns Count
+	return try maskCount(fn.savedRegs and classMask(RegClass.xmm)) * vectorSaveBytes otherwise panic("backend: a frame past memory")
+end 'savedVectorBytes'
+
 // encodeFrameSetup is the prologue. A function with a frame saves rbp, points it at the frame, and makes room for its
-// slots below it, touching each page of a frame past one; then it pushes the callee-saved registers it was given, below
-// the slots, so that rsp is 16-byte aligned at a call. A leaf with no frame only pushes those registers.
+// slots below it and the xmm registers it saves below them, touching each page of a frame past one; then it pushes the
+// general callee-saved registers it was given, so that rsp is 16-byte aligned at a call, and saves the xmm ones. A leaf
+// with no frame only pushes the general ones, and gave its values no xmm register the convention keeps.
 function encodeFrameSetup(mutates u CodeUnit, fn MirFunction, framed bool)
-	if (fn.savedRegs and classMask(RegClass.xmm)) != 0 'vector'
-		panic("backend: a callee-saved xmm register given a value, which the frame saves only as a general register")
-	end 'vector'
 	if framed 'frame'
 		encodePushReg(u.asm.code, reg: X64Register.rbp)
 		encodeMovRegReg(u.asm.code, dest: X64Register.rbp, src: X64Register.rsp)
-		let saved = try maskCount(fn.savedRegs) * wordBytes otherwise panic("backend: a frame past memory")
-		let slots = try alignUp(fn.frameBytes() + saved, alignment: x64StackAlignment) - saved otherwise panic("backend: a frame below zero")
+		let saved = try maskCount(fn.savedRegs and classMask(RegClass.gpr)) * wordBytes otherwise panic("backend: a frame past memory")
+		let slots = try alignUp(fn.frameBytes() + savedVectorBytes(fn) + saved, alignment: x64StackAlignment) - saved otherwise panic("backend: a frame below zero")
 		var frame = slots as Count
 		let probes = addCounts(slots, b: saved) > machinePageSize
 		while frame > machinePageSize 'pages'
@@ -165,10 +206,25 @@ function encodeFrameSetup(mutates u CodeUnit, fn MirFunction, framed bool)
 			encodePushReg(u.asm.code, reg: x64RegisterOf(regNumOfCount(r)))
 		end 'save'
 	end 'saved'
+	var nth = 0 as Count
+	for r in x64FirstVector upto x64RegisterFileSize 'vectors'
+		if maskHas(fn.savedRegs, number: regNumOfCount(r)) 'save'
+			encodeMovupsBaseDispReg(u.asm.code, base: X64Register.rbp, disp: vectorSaveDisp(fn, nth: nth), src: vectorRegister(physOfCount(r)))
+			nth = nextCount(nth)
+		end 'save'
+	end 'vectors'
 end 'encodeFrameSetup'
 
-// encodeFrameTeardown pops the callee-saved registers the prologue pushed, in the other order, then drops the frame.
+// encodeFrameTeardown restores the xmm registers the prologue saved and pops the general ones it pushed, in the other
+// order, then drops the frame.
 function encodeFrameTeardown(mutates u CodeUnit, fn MirFunction, framed bool)
+	var nth = 0 as Count
+	for v in x64FirstVector upto x64RegisterFileSize 'vectors'
+		if maskHas(fn.savedRegs, number: regNumOfCount(v)) 'restore'
+			encodeMovupsRegBaseDisp(u.asm.code, dest: vectorRegister(physOfCount(v)), base: X64Register.rbp, disp: vectorSaveDisp(fn, nth: nth))
+			nth = nextCount(nth)
+		end 'restore'
+	end 'vectors'
 	var r = x64FirstVector as Count
 	while r > 0 'saved'
 		r = prevCount(r)

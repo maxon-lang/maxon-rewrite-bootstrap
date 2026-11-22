@@ -101,9 +101,11 @@ export type Selector
 	var layout as BlockLayout
 	// allocator allocates the registers of every function of the module.
 	var allocator as Allocator
+	// classes decides the register class of each register of the function being selected.
+	var classes as ClassChoice
 
 	static function new(verifies bool) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), params: MRegList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies)}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), params: MRegList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies), classes: ClassChoice.new()}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -227,6 +229,21 @@ export type Selector
 		return mir.newVReg(RegClass.gpr)
 	end 'newTemp'
 
+	// newTempOf is a new register of a class.
+	function newTempOf(mutates self, class RegClass) returns MReg
+		return mir.newVReg(class)
+	end 'newTempOf'
+
+	// inXmm is whether the class analysis gave the IR register r an xmm register.
+	function inXmm(r ir.Reg) returns bool
+		return mir.classes[regIndex(r)] == RegClass.xmm
+	end 'inXmm'
+
+	// floatRef is the word of the unit's data that holds the bits of a constant, which a form reads into an xmm register.
+	function floatRef(mutates self, bits ir.Word) returns Referent
+		return Referent.make(MRef.data, aux: imm32Of(u.data.wordOffset(ir.bitsOfWord(bits))))
+	end 'floatRef'
+
 	// resultOf is the register an instruction's result is defined in: its register's, or a new one for a result that the
 	// IR does not keep.
 	function resultOf(mutates self, r ir.Reg) returns MReg
@@ -301,6 +318,13 @@ export type Selector
 		self.target(form, a: d, b: b, c: c, aux: aux, imm: imm)
 		return d
 	end 'define'
+
+	// defineXmm is a new xmm register that a form defines from the uses b and c.
+	function defineXmm(mutates self, form X64Form, b MReg, c MReg) returns MReg
+		let d = self.newTempOf(RegClass.xmm)
+		self.target(form, a: d, b: b, c: c, aux: 0, imm: 0)
+		return d
+	end 'defineXmm'
 
 	function referring(mutates self, form X64Form, a MReg, refers Referent)
 		mir.emit(newReferring(form, a: a, ref: refers.ref, aux: refers.aux))
@@ -693,19 +717,15 @@ function emitUnsignedToFloat(mutates sel Selector, fn ir.IrFunction, ins ir.Inst
 	let done = sel.mir.addBlock()
 	sel.target(X64Form.testRegReg, a: x, b: x, c: noMReg, aux: 0, imm: 0)
 	sel.branchTo(X64CondCode.sign, block: large)
-	sel.target(X64Form.cvtsi2sdXmm0Reg, a: x, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	let converted = sel.define(X64Form.movqRegXmm0, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	let converted = sel.defineXmm(X64Form.cvtsi2sdRegReg, b: x, c: noMReg)
 	sel.jumpWith(done, value: converted)
 	sel.mir.writeBlock(large)
 	let low = sel.define(chooseAndRegImm(1), b: x, c: noMReg, aux: 0, imm: 1)
 	sel.constantInto(physReg(rcx), value: 1)
 	let half = sel.define(X64Form.shrRegCl, b: x, c: noMReg, aux: 0, imm: 0)
 	let rounded = sel.define(X64Form.orRegReg, b: half, c: low, aux: 0, imm: 0)
-	sel.target(X64Form.cvtsi2sdXmm0Reg, a: rounded, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	let halved = sel.define(X64Form.movqRegXmm0, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	sel.target(X64Form.movqXmm1Reg, a: halved, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	sel.target(X64Form.addsdXmm0Xmm1, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	let doubled = sel.define(X64Form.movqRegXmm0, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	let halved = sel.defineXmm(X64Form.cvtsi2sdRegReg, b: rounded, c: noMReg)
+	let doubled = sel.defineXmm(X64Form.addsdRegReg, b: halved, c: halved)
 	sel.jumpWith(done, value: doubled)
 	sel.join(done, r: ins.dst)
 end 'emitUnsignedToFloat'
@@ -1096,7 +1116,8 @@ function emitLoadParam(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		return
 	end 'register'
 	let at = paramPosition(k, count: fn.paramCount, closure: sel.closureBody)
-	sel.target(X64Form.loadRegBaseDisp, a: result, b: physReg(rbp), c: noMReg, aux: paramDisp(at), imm: 0)
+	let load = X64Form.movsdRegBaseDisp if sel.inXmm(ins.dst) else X64Form.loadRegBaseDisp
+	sel.target(load, a: result, b: physReg(rbp), c: noMReg, aux: paramDisp(at), imm: 0)
 end 'emitLoadParam'
 
 // selectFunction writes the code of one function into the unit: its machine IR, by the rules and the helpers, then
@@ -1108,9 +1129,7 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	sel.fnSymbol = symbol.clone()
 	sel.closureBody = closure
 	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow)
-	for _ in 0 upto f.regs.count() 'regs'
-		_ = sel.mir.newVReg(RegClass.gpr)
-	end 'regs'
+	sel.classes.choose(f, fn: sel.mir)
 	sel.mir.fixedSlots = try f.slots.count() + f.frameBoxes * ifaceBoxWords otherwise panic("backend: a frame past memory")
 	for _ in 0 upto f.blocks.count() 'blocks'
 		_ = sel.mir.addBlock()
@@ -1140,6 +1159,7 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	end 'blocks'
 	sel.mir.endBlock()
 	var mir = exchange(sel.mir, value: MirFunction.new("", canThrow: false))
+	legalizeClasses(mir)
 	sel.dead.remove(mir)
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)
 	let refusals = sel.allocator.allocate(mir)

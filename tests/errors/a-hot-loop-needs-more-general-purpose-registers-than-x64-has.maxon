@@ -1,0 +1,43 @@
+// A loop that keeps fourteen integers from one round to the next, with its counter and its bound, needs more
+// general-purpose registers than x64 has.
+typealias Word = int(i64.min to i64.max)
+
+function spin(n Word) returns Word
+	var a0 = 0 as Word
+	var a1 = 1 as Word
+	var a2 = 2 as Word
+	var a3 = 3 as Word
+	var a4 = 4 as Word
+	var a5 = 5 as Word
+	var a6 = 6 as Word
+	var a7 = 7 as Word
+	var a8 = 8 as Word
+	var a9 = 9 as Word
+	var a10 = 10 as Word
+	var a11 = 11 as Word
+	var a12 = 12 as Word
+	var a13 = 13 as Word
+	for i in 0 upto n 'rounds'
+		a0 = a0 xor a1
+		a1 = a1 xor a2
+		a2 = a2 xor a3
+		a3 = a3 xor a4
+		a4 = a4 xor a5
+		a5 = a5 xor a6
+		a6 = a6 xor a7
+		a7 = a7 xor a8
+		a8 = a8 xor a9
+		a9 = a9 xor a10
+		a10 = a10 xor a11
+		a11 = a11 xor a12
+		a12 = a12 xor a13
+		a13 = a13 xor i
+	end 'rounds'
+	return a0 xor a1 xor a2 xor a3 xor a4 xor a5 xor a6 xor a7 xor a8 xor a9 xor a10 xor a11 xor a12 xor a13
+end 'spin'
+
+function main() returns ExitCode
+	return 0 if spin(3) != 0 else 1
+end 'main'
+
+// expect-error: E5001 at 5:1

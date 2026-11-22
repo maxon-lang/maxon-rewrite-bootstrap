@@ -41,6 +41,8 @@ end 'imm32Of'
 
 typealias StringOffsets = table.StringMap with Count
 
+typealias WordOffsets = table.IntMap with Count
+
 // LabelID is a label of the function or routine being written, an index into its Asm.
 export typealias LabelID = int(0 to 2147483647)
 
@@ -292,55 +294,6 @@ export type Asm
 		encodeMovzxRegReg8(code, dest: reg, src: reg)
 	end 'setccByte'
 
-	// The float operations work on xmm0 and xmm1, which a float reaches from a general register and leaves to one.
-	export function toXmm0(mutates self, src X64Register)
-		encodeMovqXmm0Reg(code, src: src)
-	end 'toXmm0'
-
-	export function toXmm1(mutates self, src X64Register)
-		encodeMovqXmm1Reg(code, src: src)
-	end 'toXmm1'
-
-	export function fromXmm0(mutates self, dest X64Register)
-		encodeMovqRegXmm0(code, dest: dest)
-	end 'fromXmm0'
-
-	export function addsd(mutates self)
-		encodeAddsdXmm0Xmm1(code)
-	end 'addsd'
-
-	export function subsd(mutates self)
-		encodeSubsdXmm0Xmm1(code)
-	end 'subsd'
-
-	export function mulsd(mutates self)
-		encodeMulsdXmm0Xmm1(code)
-	end 'mulsd'
-
-	export function divsd(mutates self)
-		encodeDivsdXmm0Xmm1(code)
-	end 'divsd'
-
-	export function sqrtsd(mutates self)
-		encodeSqrtsdXmm0Xmm0(code)
-	end 'sqrtsd'
-
-	export function ucomisd(mutates self)
-		encodeUcomisdXmm0Xmm1(code)
-	end 'ucomisd'
-
-	export function roundsd(mutates self, mode Imm8)
-		encodeRoundsdXmm0Xmm0Imm8(code, imm: mode)
-	end 'roundsd'
-
-	export function cvtsi2sd(mutates self, src X64Register)
-		encodeCvtsi2sdXmm0Reg(code, src: src)
-	end 'cvtsi2sd'
-
-	export function cvttsd2siRax(mutates self)
-		encodeCvttsd2siRaxXmm0(code)
-	end 'cvttsd2siRax'
-
 	export function ret(mutates self)
 		encodeRet(code)
 	end 'ret'
@@ -527,6 +480,8 @@ export typealias DataPointerList = Array with DataPointer
 export type DataSection
 	export var bytes as ByteArray
 	var strings as StringOffsets
+	// words are the offsets of the words that constants read into xmm registers are, by their bits.
+	var words as WordOffsets
 	// pieces are the offsets where each string, each constant and each reserved value begins, which the link keeps or
 	// drops whole.
 	export var pieces as CountList
@@ -534,7 +489,7 @@ export type DataSection
 	export var pointers as DataPointerList
 
 	export static function new() returns DataSection
-		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), pieces: CountList.create(0), pointers: DataPointerList.create(0)}
+		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), pointers: DataPointerList.create(0)}
 	end 'new'
 
 	export function align8(mutates self)
@@ -552,6 +507,22 @@ export type DataSection
 		end 'zeros'
 		return at
 	end 'reserve'
+
+	// wordOffset is where a word of the bits given is, put there once however often it is asked for.
+	export function wordOffset(mutates self, bits Count) returns Count
+		match words.get(bits) 'known'
+			some(at) then return at
+			none then _ = 0
+		end 'known'
+		let at = self.reserve(wordBytes)
+		var rest = bits
+		for i in 0 upto wordBytes 'bytes'
+			bytes[addCounts(at, b: i)] = (rest mod byteValues) as Byte
+			rest = rest / byteValues
+		end 'bytes'
+		words.insert(bits, value: at)
+		return at
+	end 'wordOffset'
 
 	// textOffset is where a string is, as the length and then the bytes, put there once however often it is asked for.
 	export function textOffset(mutates self, text String) returns Count

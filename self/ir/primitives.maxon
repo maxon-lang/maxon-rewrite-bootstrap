@@ -15,7 +15,24 @@ function entryVoid(mutates l Lowerer, p ast.Project, site diag.Site, symbol Rt, 
 	emitEntry(l, p: p, site: site, dst: noReg, symbol: symbol, args: args, routine: ast.noFunc)
 end 'entryVoid'
 
+// elementEntry calls an entry that reads or addresses one element, proven where the index is proved inside the collection
+// (not checked).
+function elementEntry(mutates l Lowerer, p ast.Project, site diag.Site, symbol Rt, args RegList, checked bool) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	noteEntry(l, site: site, symbol: symbol)
+	let instr = l.b.callRuntime(d, symbol: symbol, args: args, routine: ast.noFunc, proven: not checked)
+	emit(l, i: instr)
+	return d
+end 'elementEntry'
+
 function emitEntry(mutates l Lowerer, p ast.Project, site diag.Site, dst Reg, symbol Rt, args RegList, routine ast.FuncID)
+	noteEntry(l, site: site, symbol: symbol)
+	emitCallRuntime(l, dst: dst, symbol: symbol, args: args, routine: routine)
+end 'emitEntry'
+
+// noteEntry records which part of the runtime a call of the entry symbol needs, or refuses one the backend has no code
+// for.
+function noteEntry(mutates l Lowerer, site diag.Site, symbol Rt)
 	let unit = rtUnit(symbol)
 	if unit == RtUnit.rtUnitOs 'os'
 		l.b.f.usesOs = true
@@ -28,8 +45,7 @@ function emitEntry(mutates l Lowerer, p ast.Project, site diag.Site, dst Reg, sy
 	end 'interpreter' else if unit == RtUnit.rtUnitRuntime or unit == RtUnit.rtUnitLinker 'internal'
 		panic("lower: {rtSymbol(symbol)} is no entry of a primitive")
 	end 'internal'
-	emitCallRuntime(l, dst: dst, symbol: symbol, args: args, routine: routine)
-end 'emitEntry'
+end 'noteEntry'
 
 // refuse notes a place that cannot be compiled yet, once for each site.
 function refuse(mutates l Lowerer, site diag.Site, consumes code String, consumes message String)

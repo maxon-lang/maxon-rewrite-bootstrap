@@ -6,7 +6,8 @@
 // sequenceCopies writes the parallel copy dsts[i] := srcs[i] as moves: a copy whose target no other copy still reads
 // goes first; when only cycles are left, one target is saved in a register that holds nothing the copy or the values
 // live through it need (a caller-saved one first, which the frame need not keep), or, with none, exchanged with its
-// source by three xors, which need no register; the flags they write are dead before the jump that ends the block.
+// source by three xors of the registers' class, which need no register; the flags they write are dead before the jump
+// that ends the block.
 function sequenceCopies(mutates out MInstrList, mutates dsts CountList, mutates srcs CountList, through RegMask, callerSaved RegMask, mutates result ColourResult)
 	var used = through
 	var i = 0 as Count
@@ -43,9 +44,13 @@ function sequenceCopies(mutates out MInstrList, mutates dsts CountList, mutates 
 		end 'spare' else 'exchange'
 			let a = physOfCount(d)
 			let other = physOfCount(s)
-			out.push(newTarget(X64Form.xorRegReg, a: a, b: a, c: other, aux: 0, imm: 0))
-			out.push(newTarget(X64Form.xorRegReg, a: other, b: other, c: a, aux: 0, imm: 0))
-			out.push(newTarget(X64Form.xorRegReg, a: a, b: a, c: other, aux: 0, imm: 0))
+			let exchange = match classOfNumber(regNumOfCount(d)) 'class'
+				gpr gives X64Form.xorRegReg
+				xmm gives X64Form.xorpsRegReg
+			end 'class'
+			out.push(newTarget(exchange, a: a, b: a, c: other, aux: 0, imm: 0))
+			out.push(newTarget(exchange, a: other, b: other, c: a, aux: 0, imm: 0))
+			out.push(newTarget(exchange, a: a, b: a, c: other, aux: 0, imm: 0))
 			result.edgeSwaps = nextCount(result.edgeSwaps)
 			removePair(dsts, srcs: srcs, i: 0)
 			swapSources(srcs, a: d, b: s)

@@ -513,6 +513,7 @@ end 'main'
 ```
 
 <!-- test: a-float-division-by-a-constant-zero-is-not-folded -->
+<!-- skip: language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero -->
 ⭐ **THE FLOAT TRAP CASE, AND IT DISCRIMINATES ON BOTH ZEROS.** After `pickF` inlines, both operands
 of each divide are constants, so a folder that answered for `1.0 / 0.0` would replace a catchable
 throw with `inf` and the `otherwise` arm would stop firing. `-0.0` is the second half and is not a

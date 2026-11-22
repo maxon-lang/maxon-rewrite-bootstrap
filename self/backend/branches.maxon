@@ -138,7 +138,7 @@ end 'transfers'
 // calls, which needs rsp aligned, or it names rbp or rsp itself. Otherwise it is a leaf that keeps only the callee-saved
 // registers it was given.
 function needsFrame(fn MirFunction) returns bool
-	if fn.slotsGiven() > 0 'slots'
+	if fn.slotsGiven() > 0 or (fn.savedRegs and classMask(RegClass.xmm)) != 0 'slots'
 		return true
 	end 'slots'
 	let fp = physReg(rbp)

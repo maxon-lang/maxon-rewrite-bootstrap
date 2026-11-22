@@ -1,0 +1,111 @@
+// Floats in xmm registers: more floats live at once than there are xmm registers, floats live across calls, two that
+// swap at a loop's back edge, the bits of a float that integer operations read (negation, abs), comparisons with a NaN
+// that branch, a float passed to and returned from a function, and an unsigned word past i64.max converted.
+typealias Real = float(f64.min to f64.max)
+
+typealias Reals = Array with Real
+
+function scaled(x Real, by Real) returns Real
+	var r = x
+	for _ in 0 upto 3 'times'
+		r = r * by
+	end 'times'
+	return r
+end 'scaled'
+
+// spread holds eighteen floats at once, more than the xmm registers, outside any loop, where they are spilled.
+function spread(n Count) returns Real
+	let base = n as Real
+	let a = base * 1.5
+	let b = a * 1.25 + base
+	let c = b * 1.125 + a
+	let d = c * 0.5 + b
+	let e = d * 0.75 + c
+	let f = e * 0.25 + d
+	let g = f * 1.5 + e
+	let h = g * 0.125 + f
+	let i = h * 2.0 + g
+	let j = i * 0.5 + h
+	let k = j * 1.75 + i
+	let l = k * 0.375 + j
+	let m = l * 1.0625 + k
+	let o = m * 0.5 + l
+	let p = o * 1.5 + m
+	let q = p * 0.25 + o
+	let s = q * 1.125 + p
+	let t = s * 0.5 + q
+	return (((a - t) + (b - s)) * ((c - q) + (d - p))) + (((e - o) + (f - m)) * ((g - l) + (h - k))) + (i - j)
+end 'spread'
+
+// accumulate keeps ten floats in a loop, which its counter and bound leave room for in either class of register.
+function accumulate(n Count) returns Real
+	var a = 1.0 as Real
+	var b = 2.0 as Real
+	var c = 3.0 as Real
+	var d = 4.0 as Real
+	var e = 5.0 as Real
+	var f = 6.0 as Real
+	var g = 7.0 as Real
+	var h = 8.0 as Real
+	var i = 9.0 as Real
+	var j = 10.0 as Real
+	for _ in 0 upto n 'rounds'
+		a = a * 0.5 + b
+		b = b * 0.5 + c
+		c = c * 0.5 + d
+		d = d * 0.5 + e
+		e = e * 0.5 + f
+		f = f * 0.5 + g
+		g = g * 0.5 + h
+		h = h * 0.5 + i
+		i = i * 0.5 + j
+		j = j * 0.5 + a
+	end 'rounds'
+	return a + b + c + d + e + f + g + h + i + j
+end 'accumulate'
+
+function main() returns ExitCode
+	print("{spread(3)} {spread(11)} {accumulate(50)}\n")
+	var kept = Reals.create(0)
+	var x = 0.1 as Real
+	var y = 0.7 as Real
+	for n in 0 upto 6 'calls'
+		let before = x * 3.0
+		let after = scaled(y, by: 1.5)
+		kept.push(before + after)
+		print("{n}: {before} {after}\n")
+		let swap = x
+		x = y
+		y = swap + 0.125
+	end 'calls'
+	var sum = 0.0 as Real
+	for i in 0 upto kept.count() 'sum'
+		sum = sum + kept[i]
+	end 'sum'
+	let nan = sqrt(-1.0)
+	var taken = 0 as Count
+	if nan < 1.0 'lt'
+		taken = taken + 1
+	end 'lt'
+	if nan >= 1.0 'ge'
+		taken = taken + 10
+	end 'ge'
+	if nan != nan 'ne'
+		taken = taken + 100
+	end 'ne'
+	if sum > 1.0 'gt'
+		taken = taken + 1000
+	end 'gt'
+	let big = 18446744073709551615 as Count
+	print("{sum} {-sum} {abs(-sum)} {taken} {big as Real} {min(sum, -sum)} {max(nan, 1.0)} {trunc(sum * 1000.0)}\n")
+	return 0
+end 'main'
+
+//> 6804080.548500481 91476792.83706635 151361300052.53186
+//> 0: 0.30000000000000004 2.3625
+//> 1: 2.0999999999999996 0.7593750000000001
+//> 2: 0.675 2.784375
+//> 3: 2.4749999999999996 1.18125
+//> 4: 1.0499999999999998 3.20625
+//> 5: 2.8499999999999996 1.603125
+//> 21.346874999999997 -21.346874999999997 21.346874999999997 1100 18446744073709552000.0 -21.346874999999997 1.0 21346

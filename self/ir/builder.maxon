@@ -249,14 +249,14 @@ export type Builder
 	end 'throwingCall'
 
 	// callRuntime calls a runtime entry. routine is the function the entry stores to call later, noFunc for every entry
-	// but the one that makes a cown.
-	export function callRuntime(mutates self, dst Reg, symbol Rt, args RegList, routine ast.FuncID) returns Instr
+	// but the one that makes a cown; proven is the flag of an element's entry whose index is proved in range.
+	export function callRuntime(mutates self, dst Reg, symbol Rt, args RegList, routine ast.FuncID, proven bool) returns Instr
 		let start = self.arguments(args)
 		var stored = noRoutine
 		if routine != ast.noFunc 'stored'
 			stored = self.callee(routine)
 		end 'stored'
-		return newCallRuntime(dst, symbol: symbol, argsStart: start, argsCount: regOf(args.count()), routine: stored)
+		return newCallRuntime(dst, symbol: symbol, argsStart: start, argsCount: regOf(args.count()), routine: stored, proven: proven)
 	end 'callRuntime'
 
 	// body adds the body of a `when` or of a closure to the function, which the instruction that schedules or makes it

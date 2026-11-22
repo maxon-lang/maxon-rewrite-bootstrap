@@ -55,9 +55,6 @@ const (
 	gsSegmentPrefix = 0x65
 	// repPrefix is also the mandatory prefix of pause, which is a rep nop.
 	repPrefix = 0xF3
-	// The ModRM bytes of the forms that name xmm registers only: xmm0 with xmm1, and xmm0 with itself, register to register.
-	modrmXmm0Xmm1 = 0xC1
-	modrmXmm0Xmm0 = 0xC0
 )
 
 // constant is a name and the value that the generated Maxon gives it.
@@ -167,6 +164,9 @@ type operand struct {
 	// byteReg says that the register is used as 8-bit register, where the numbers 4 to 7 are spl to dil only under a REX
 	// prefix, which is then written even if it holds no bit.
 	byteReg bool
+	// vector says that the register is an xmm register, which the encoder is given as the general register of the same
+	// encoding number and the allocator gives a value of the xmm class.
+	vector bool
 	// access is what the instruction does with a register operand; the base and the index of a memory operand are always
 	// read.
 	access access
@@ -256,6 +256,10 @@ func byteReg(name string, f field, a access) operand {
 	return operand{name: name, kind: kindReg, field: f, byteReg: true, access: a}
 }
 
+func xmm(name string, f field, a access) operand {
+	return operand{name: name, kind: kindReg, field: f, vector: true, access: a}
+}
+
 func mem() operand { return operand{name: "base", kind: kindMem, field: fieldRM} }
 
 // memIndex is [base + index*scale + disp]: an element of a buffer, at an index the scale makes a byte offset.
@@ -280,6 +284,8 @@ func cond() operand { return operand{name: "cond", kind: kindCond, field: fieldN
 var (
 	// divides reads the dividend from rdx:rax and writes the quotient to rax and the remainder to rdx.
 	divides = alloc{fixedUses: []string{"rax", "rdx"}, fixedDefs: []string{"rax", "rdx"}}
+	// widens multiplies rax by its operand into the 128 bits of rdx:rax.
+	widens = alloc{fixedUses: []string{"rax"}, fixedDefs: []string{"rax", "rdx"}}
 	// stringScan walks rsi and rdi for rcx bytes, and leaves the three past where it stopped.
 	stringScan = alloc{fixedUses: []string{"rsi", "rdi", "rcx"}, clobbers: []string{"rsi", "rdi", "rcx"}}
 	flags      = effects{setsFlags: true}
@@ -500,7 +506,8 @@ func buildForms() []form {
 	fs = append(fs,
 		groupF7("NotReg", "not", 2, readWrite, noEffects, alloc{}),
 		groupF7("NegReg", "neg", 3, readWrite, flags, alloc{}),
-		groupF7("MulReg", "mul", 4, read, flags, alloc{fixedUses: []string{"rax"}, fixedDefs: []string{"rax", "rdx"}}),
+		groupF7("MulReg", "mul", 4, read, flags, widens),
+		groupF7("ImulReg", "imul", 5, read, flags, widens),
 		groupF7("DivReg", "div", 6, read, flags, divides),
 		groupF7("IdivReg", "idiv", 7, read, flags, divides),
 		form{
@@ -577,51 +584,48 @@ func buildForms() []form {
 	return append(fs, sseForms()...)
 }
 
-// sseForms are the SSE2 forms a float operation is made of. A float is a word in a general register, so an operation
-// moves its operands into xmm0 and xmm1 and its result back: the xmm register is fixed, the reg field of a form that
-// also names a general register (a /digit), or a ModRM byte of its own after the opcode for one that names only xmm
-// registers.
+// sseForms are the SSE2 forms of the floats, which are in xmm registers: a form that names only xmm registers has them
+// in its ModRM byte as a general form has general ones, and a conversion or a movq names one of each class. A scalar
+// double is the low 64 bits of its register; movaps copies the whole register, so a copy depends on nothing the
+// register held, and movups saves and restores all 128 bits of a register the convention keeps.
 func sseForms() []form {
-	toXmm := func(name string, xmm int) form {
-		return form{
-			name: name, mnemonic: "movq", operands: []operand{reg("src", fieldRM, read)}, prefix: []byte{operandSizePrefix},
-			rexW: true, opcode: []byte{opcodeHigh, 0x6E}, modrm: modDigit, digit: xmm, effects: noEffects,
-			fixedDefs: []string{vectorRegisters[xmm]},
-		}
+	sse := func(name, mnemonic string, prefix []byte, op byte, operands []operand, e effects) form {
+		return form{name: name, mnemonic: mnemonic, operands: operands, prefix: prefix, opcode: []byte{opcodeHigh, op}, modrm: modOperands, effects: e}
 	}
-	xmmOnly := func(name, mnemonic string, prefix byte, op byte, rm byte, e effects, al alloc) form {
-		return form{name: name, mnemonic: mnemonic, prefix: []byte{prefix}, opcode: []byte{opcodeHigh, op, rm}, effects: e, alloc: al}
+	twoAddress := func(name, mnemonic string, op byte) form {
+		return sse(name, mnemonic, []byte{scalarDoublePrefix}, op, []operand{xmm("dest", fieldReg, readWrite), xmm("src", fieldRM, read)}, noEffects)
 	}
-	binary := alloc{fixedUses: []string{"xmm0", "xmm1"}, fixedDefs: []string{"xmm0"}}
-	unary := alloc{fixedUses: []string{"xmm0"}, fixedDefs: []string{"xmm0"}}
+	oneAddress := func(name, mnemonic string, prefix []byte, op byte) form {
+		return sse(name, mnemonic, prefix, op, []operand{xmm("dest", fieldReg, write), xmm("src", fieldRM, read)}, noEffects)
+	}
+	wide := func(f form) form {
+		f.rexW = true
+		return f
+	}
 	return []form{
-		toXmm("MovqXmm0Reg", 0),
-		toXmm("MovqXmm1Reg", 1),
+		oneAddress("MovapsRegReg", "movaps", nil, 0x28),
+		commutative(sse("XorpsRegReg", "xorps", nil, 0x57, []operand{xmm("dest", fieldReg, readWrite), xmm("src", fieldRM, read)}, noEffects)),
+		commutative(twoAddress("AddsdRegReg", "addsd", 0x58)),
+		twoAddress("SubsdRegReg", "subsd", 0x5C),
+		commutative(twoAddress("MulsdRegReg", "mulsd", 0x59)),
+		twoAddress("DivsdRegReg", "divsd", 0x5E),
+		oneAddress("SqrtsdRegReg", "sqrtsd", []byte{scalarDoublePrefix}, 0x51),
+		sse("UcomisdRegReg", "ucomisd", []byte{operandSizePrefix}, 0x2E, []operand{xmm("left", fieldReg, read), xmm("right", fieldRM, read)}, flags),
 		{
-			name: "MovqRegXmm0", mnemonic: "movq", operands: []operand{reg("dest", fieldRM, write)}, prefix: []byte{operandSizePrefix},
-			rexW: true, opcode: []byte{opcodeHigh, 0x7E}, modrm: modDigit, digit: 0, effects: noEffects,
-			fixedUses: []string{"xmm0"},
+			name: "RoundsdRegRegImm8", mnemonic: "roundsd", operands: []operand{xmm("dest", fieldReg, write), xmm("src", fieldRM, read), imm8()},
+			prefix: []byte{operandSizePrefix}, opcode: []byte{opcodeHigh, 0x3A, 0x0B}, modrm: modOperands, effects: noEffects,
 		},
-		xmmOnly("AddsdXmm0Xmm1", "addsd", scalarDoublePrefix, 0x58, modrmXmm0Xmm1, noEffects, binary),
-		xmmOnly("SubsdXmm0Xmm1", "subsd", scalarDoublePrefix, 0x5C, modrmXmm0Xmm1, noEffects, binary),
-		xmmOnly("MulsdXmm0Xmm1", "mulsd", scalarDoublePrefix, 0x59, modrmXmm0Xmm1, noEffects, binary),
-		xmmOnly("DivsdXmm0Xmm1", "divsd", scalarDoublePrefix, 0x5E, modrmXmm0Xmm1, noEffects, binary),
-		xmmOnly("SqrtsdXmm0Xmm0", "sqrtsd", scalarDoublePrefix, 0x51, modrmXmm0Xmm0, noEffects, unary),
-		xmmOnly("UcomisdXmm0Xmm1", "ucomisd", operandSizePrefix, 0x2E, modrmXmm0Xmm1, flags, alloc{fixedUses: []string{"xmm0", "xmm1"}}),
-		{
-			name: "RoundsdXmm0Xmm0Imm8", mnemonic: "roundsd", operands: []operand{imm8()}, prefix: []byte{operandSizePrefix},
-			opcode: []byte{opcodeHigh, 0x3A, 0x0B, modrmXmm0Xmm0}, effects: noEffects, alloc: unary,
-		},
-		{
-			name: "Cvtsi2sdXmm0Reg", mnemonic: "cvtsi2sd", operands: []operand{reg("src", fieldRM, read)}, prefix: []byte{scalarDoublePrefix},
-			rexW: true, opcode: []byte{opcodeHigh, 0x2A}, modrm: modDigit, digit: 0, effects: noEffects,
-			fixedDefs: []string{"xmm0"},
-		},
-		{
-			name: "Cvttsd2siRaxXmm0", mnemonic: "cvttsd2si", prefix: []byte{scalarDoublePrefix}, rexW: true,
-			opcode: []byte{opcodeHigh, 0x2C, modrmXmm0Xmm0}, effects: noEffects,
-			fixedUses: []string{"xmm0"}, fixedDefs: []string{"rax"},
-		},
+		wide(sse("Cvtsi2sdRegReg", "cvtsi2sd", []byte{scalarDoublePrefix}, 0x2A, []operand{xmm("dest", fieldReg, write), reg("src", fieldRM, read)}, noEffects)),
+		wide(sse("Cvttsd2siRegReg", "cvttsd2si", []byte{scalarDoublePrefix}, 0x2C, []operand{reg("dest", fieldReg, write), xmm("src", fieldRM, read)}, noEffects)),
+		wide(sse("MovqXmmReg", "movq", []byte{operandSizePrefix}, 0x6E, []operand{xmm("dest", fieldReg, write), reg("src", fieldRM, read)}, noEffects)),
+		wide(sse("MovqRegXmm", "movq", []byte{operandSizePrefix}, 0x7E, []operand{reg("dest", fieldRM, write), xmm("src", fieldReg, read)}, noEffects)),
+		sse("MovsdRegBaseDisp", "movsd", []byte{scalarDoublePrefix}, 0x10, []operand{xmm("dest", fieldReg, write), mem()}, reads),
+		sse("MovsdBaseDispReg", "movsd", []byte{scalarDoublePrefix}, 0x11, []operand{mem(), xmm("src", fieldReg, read)}, writes),
+		sse("MovsdRegBaseIndex8Disp", "movsd", []byte{scalarDoublePrefix}, 0x10, []operand{xmm("dest", fieldReg, write), memIndex(wordScale)}, reads),
+		sse("MovsdBaseIndex8DispReg", "movsd", []byte{scalarDoublePrefix}, 0x11, []operand{memIndex(wordScale), xmm("src", fieldReg, read)}, writes),
+		sse("MovsdRegRip", "movsd", []byte{scalarDoublePrefix}, 0x10, []operand{xmm("dest", fieldReg, write), rip()}, reads),
+		sse("MovupsRegBaseDisp", "movups", nil, 0x10, []operand{xmm("dest", fieldReg, write), mem()}, reads),
+		sse("MovupsBaseDispReg", "movups", nil, 0x11, []operand{mem(), xmm("src", fieldReg, read)}, writes),
 	}
 }
 

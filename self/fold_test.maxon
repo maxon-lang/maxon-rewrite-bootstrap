@@ -8,7 +8,7 @@ function foldRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.
 	expectClean("{label} as built", out: runMain(p, main: f), exit: exit as ir.Word)
 	var g = f.clone()
 	var fold = opt.Fold.new()
-	fold.foldFunction(g)
+	fold.foldFunction(g, raises: true)
 	expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g), want: want)
 	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g)
 	if problems.count() > 0 'refused'

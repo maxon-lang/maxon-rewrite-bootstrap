@@ -72,7 +72,9 @@ instead, and so does a test that expects a compile error which minimaxon reports
 (the pairs of `self/driver/skips.tsv`, generated into `codeSkipTable`: ownership refused by another rule, the syntax error, operand
 types), a test that expects a code whose rule minimaxon changed, whatever it reports (the table's `expect` rows: `E3220`, since a
 constant may call a literal factory), and a test that runs a program which minimaxon refuses, after the fixes, by a rule it
-changed (its `run` rows: `E3925`, a closure that borrows does not escape). A test that expects a compile error and is first refused under another code by a fixable language difference
+changed (its `run` rows: `E3925`, a closure that borrows does not escape), and a test that the table names by its file and
+name (its `test` rows), whose program minimaxon runs to another answer by a language change (a float division by 0 is
+IEEE's). A test that expects a compile error and is first refused under another code by a fixable language difference
 (arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
 fixes move text; if that is never reached it is left as it was. A test whose program changes the collection that its `for`
@@ -300,11 +302,11 @@ run.
 |---|---|---|
 | `internal/grammargen` | `self/syntax/Maxon.g4` | `self/syntax/parser_gen.maxon`, `self/syntax/tokens_gen.maxon`, `self/ast/nodes_gen.maxon`, and the keywords `cmd/convert` reserves (`cmd/convert/reserved_gen.go`) |
 | `internal/builtingen` | `internal/builtingen/table.go` | `self/ast/builtins_gen.maxon`, `self/ast/builtins_record_gen.maxon` (the `Builtins` record, its `empty()` and `isCapability`: a field for each type row, function handle and primitive of the table, and the few fields `extraFields` lists), `self/ir/runtime_gen.maxon`, `self/ir/intrinsics_gen.maxon`, `self/check/builtins_gen.maxon`, `self/interp/builtins_gen.maxon` |
-| `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv`, `self/driver/skips.tsv` (the code pairs `fix specs` skips; it names codes of the first) | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon`, `self/driver/skips_gen.maxon` |
+| `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv`, `self/driver/skips.tsv` (the code pairs and the tests `fix specs` skips; it names codes of the first) | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon`, `self/driver/skips_gen.maxon` |
 | `internal/irgen` | `internal/irgen/irtable/table.go` and `semantics.go` | `self/ir/ir_gen.maxon`, `self/ir/evaluate_gen.maxon` |
 | `internal/x64gen` | `internal/x64gen/x64table/table.go` | `self/backend/x64_gen.maxon` |
 | `internal/targetgen` | `internal/targetgen/target/target.go`: each target's register file (names, encodings, classes), reserved registers and calling conventions (the internal one and the host's: argument registers in order, result, error flag, callee-saved and caller-saved), checked to split the register file; `x64table` takes its registers from it | `self/backend/regs_x64_gen.maxon` (`x64Reserved`, `x64InternalArg`, `x64InternalResult`, `x64InternalError`, `x64InternalCalleeSaved`, the `x64Host...` ones for Win64, `x64StackAlignment`) |
-| `internal/rulegen` | `internal/rulegen/generic.rules` and `internal/rulegen/x64.rules`, checked against the IR table and the x64 rules against the instruction table | `self/opt/rewrite_gen.maxon`, `self/backend/lower_x64_gen.maxon` |
+| `internal/rulegen` | `internal/rulegen/generic.rules`, `internal/rulegen/pressure.rules` and `internal/rulegen/x64.rules`, checked against the IR table and the x64 rules against the instruction table | `self/opt/rewrite_gen.maxon`, `self/backend/lower_x64_gen.maxon` |
 | `internal/abigen` | `internal/abigen/table.go`, `internal/abigen/imports.go` (the kernel32 functions of the import table, in slot order; a test checks that every name the runtime and the entry stub call is listed) | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon`, `self/backend/imports_gen.maxon` (`rtDll`, a slot constant `imp<Name>` for each import, `rtImports`) |
 | `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
 
@@ -384,7 +386,8 @@ one shape of operands, named as maxon's `X64Backend.maxon` names its encoders (`
 | `modrm`, `digit` | no ModRM byte, one the operands fill, or one whose reg field is the form's `/digit` |
 | `setsFlags`, `readsFlags`, `readsMemory`, `writesMemory` | what instruction selection asks of a form; written as `X64Form` predicates of the same names |
 | `access` of each register operand | read, written, or both (a two-address form, whose definition reuses the operand's register); the base and the index of a memory operand are read |
-| `fixedUses`, `fixedDefs`, `clobbers` | the registers a form reads, writes a result to, or leaves holding nothing, that no operand names (`idiv`: rdx:rax in, rax and rdx out; a shift by `cl`: rcx; `rep movsb`: rsi, rdi and rcx; the SSE forms: xmm0 and xmm1) |
+| `fixedUses`, `fixedDefs`, `clobbers` | the registers a form reads, writes a result to, or leaves holding nothing, that no operand names (`idiv`: rdx:rax in, rax and rdx out; `mul` and `imul` of one operand: rax in, rdx:rax out; a shift by `cl`: rcx; `rep movsb`: rsi, rdi and rcx) |
+| `vector` of a register operand | the register is an xmm one: the SSE2 forms name xmm registers in their ModRM fields as the general forms name general ones, the encoder takes one as the general register of its encoding number, and `vectorOperands` says which of a form's machine operands are xmm registers |
 | `call`, `ret` | a call clobbers what its calling convention does not keep, and a return reads the convention's result registers |
 
 A register that is used as an 8-bit register is marked, and its encoder writes a REX prefix whenever the register is `rsp` or
@@ -445,11 +448,13 @@ a line that starts with `&&` or `=>` goes on with the rule before it, and `//` s
   A terminator's pattern names its targets and never its edge arguments (`jump`'s `Args`, `branch`'s `TrueArgs` and
   `FalseArgs`, `switch`'s `FallbackArgs`): they are no operands of a rule, and follow the edge that the rule keeps.
 - A variable named twice matches only the same register or value. A condition is a Maxon expression of the variables that
-  calls the helpers in `self/opt/rules.maxon`.
+  calls the helpers in `self/opt/rules.maxon` and `self/opt/division.maxon`.
 - `bin` with add, mul, and, or or xor and `cmp` with eq or ne are commutative: each rule over them is also tried with the
   two register operands swapped.
 - A generic rule rewrites to a register of its pattern, which then replaces the instruction's register, or to one
-  instruction, whose nested operations become new instructions before it, each defining a new register. The instructions
+  instruction, whose nested operations become new instructions before it, each defining a new register. A nested
+  operation that `name:` binds may be read again by the operands built after it (operands before their operation, left
+  to right), as `(bin.sub x h:(bin.mulhi ...))` and then `h` do. The instructions
   the pattern matched below the root stay for dead code removal, so a check they make still runs; `generic.rules` states the
   invariant its rules keep (a rewritten program fails exactly where and as it did).
 - An instruction selection rule rewrites to a sequence of x64 forms and choices of the instruction table, each with its
@@ -880,7 +885,12 @@ what a later pass such as reference counting or an optimization changes.
   so selection reserves and zeroes only those. On `self`, 17,784 of 17,923 slots are promoted.
 - The fold pass (`opt.Fold`, `self/opt/fold.maxon`) runs next, on every function of a native build: one worklist that
   folds constants (by the IR's own meaning, `ir.evalBin` and the rest in `self/ir/evaluate_gen.maxon`, which the interpreter
-  runs too), propagates copies, applies the rules of `generic.rules`, turns a `branch` or a `switch` on a constant, and a
+  runs too), propagates copies, applies the rules of `generic.rules` (and, run again past a function's fallback, those of
+  `pressure.rules`, which may make an instruction hold more values at once than the one it replaces: maxon's
+  `strengthReduceDivision`, where a division or a remainder by a constant other than 0, 1 and -1 is a shift for a power of
+  two, with the bias that makes a signed one truncate, and otherwise the high word of a product with a multiplier that
+  `self/opt/division.maxon` derives, shifted: `bin.mulhi`, `mul` or `imul` of one operand on x64; an unsigned divisor of
+  2^63 or more is a comparison), turns a `branch` or a `switch` on a constant, and a
   `branch` whose two edges are the same, into a `jump`, decides the guards and checked operations whose operands are
   constants, removes the `drop` of a register that holds 0, and makes a block parameter that every edge passes one value
   (or itself) that value, and one that every edge passes the same constant a `const`; then it removes the blocks nothing
@@ -892,11 +902,11 @@ what a later pass such as reference counting or an optimization changes.
   function plus its rewrites: a register is learnt constant or a copy at most once, only its readers are visited again,
   through use lists that a copy splices into its value's, and an edge is dropped at most once. On `self` it takes 287,030
   instructions to 269,402, folds 816 branches and removes 786 parameters; it decides no check there, since the range
-  analysis leaves none whose operands are constants. Division by a constant is not strength-reduced yet: it needs a
-  high-multiply operation in the IR and its x64 form, and a rule for it.
+  analysis leaves none whose operands are constants.
 - **The expansion of the primitives** (`self/opt/expand.maxon`) runs after the fold, on each module, before leaf
   inlining and on every function first, so every copy of a leaf is expanded alike: the calls that read a length or an
-  element become the operations of their common case (see "The primitives in the IR").
+  element become the operations of their common case (see "The primitives in the IR"). Right after it, each function that
+  holds a division or a remainder (`opt.mayRaise`) is folded again with the rules of `pressure.rules`.
 - **Leaf inlining** (`self/opt/inline.maxon`) runs after the expansion, on each module: a call of a leaf is replaced by a copy
   of its body. The policy is maxon's leaf rule (`InlineLeaves`): a leaf calls nothing on its hot path (its blocks that do
   not end in a `trap`), but for a runtime entry the backend writes in place (`ir.writtenInPlace`: lengths, element reads
@@ -952,11 +962,15 @@ what a later pass such as reference counting or an optimization changes.
   were in memory across it (the call tier of spilling), across the copy they are not, and a value moved out of a loop or
   merged with one before it lives across the loop. Maxon checks a pressure budget only for its wrapper and called-once
   rules and none for leaves. Here a function that may hold a loop (an edge to a block not after its own) keeps the IR it
-  had before the expansion, the copies and the passes after them (`ir.Fallbacks`, which the driver holds by module), and
+  had before the expansion, the rules of `pressure.rules`, the copies and the passes after them (`ir.Fallbacks`, which the
+  driver holds by module; `self/opt/optimizer.maxon` says which passes run before the copy, which never make an
+  instruction hold more values at once than the code it replaces, and which after), and
   the emit compiles that in its place where it refuses a hot loop of the optimized one (`selectOrFallBack`), so a program
   that compiles without them compiles with them, exactly; `--timings` prints how many fallbacks were taken.
   `tests/run/a-hot-loop-that-calls-a-leaf-compiles-as-with-the-call.maxon` is a loop that needs the fallback, and so is a
-  loop of the `main` of `tests/run/array-methods.maxon`, which holds fifteen values once its element reads are expanded.
+  loop of the `main` of `tests/run/array-methods.maxon`, which holds fifteen values once its element reads are expanded,
+  and the loops of `tests/run/a-loop-at-the-pools-edge-divides-by-a-constant.maxon`, which fit with the division and not
+  with its multiply.
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
 - Checks are explicit, and only the ones the range analysis could not rule out are there (see "Checked arithmetic"): a range
   check, a divisor that may be 0 and a shift count that may be negative are each a `guard` with its bound, an index of an
@@ -1075,9 +1089,10 @@ runtime each implement the entries. The element is always visible in the call:
   in the middle of a block would keep what the trap block reads live to the block's end), and an element as a load of the
   buffer's address and an indexed access (`[data + index*8]`, `[data + index]`; a string's bytes are in its box, so a
   byte of one is the access alone). Every
-  other entry stays a call: growth, insertion, removal, the byte write, maps, lists and pools. Lowering writes the
-  operations itself, with no `bounds`, where an index is proved: inside a `FixedArray` by the checker, or by the test of a
-  `try` around `get` and `set`. The interpreter runs the expanded form (the driver expands the IR it keeps for it, as
+  other entry stays a call: growth, insertion, removal, the byte write, maps, lists and pools. Where an index is proved
+  (inside a `FixedArray` by the checker, or by the test of a `try` around `get` and `set`), lowering writes the entry's call
+  `proven` (`runtime rt.array.elem(%a, %i) proven`), which the expansion makes the access alone, with no `length` or
+  `bounds`: lowering writes calls only, so the fallback holds every call the expansion takes out. The interpreter runs the expanded form (the driver expands the IR it keeps for it, as
   lowered), each operation on its model of the collection: a `bounds` by the IR's own meaning (`ir.evalBounds`), as the fold
   decides one whose operands are constants, and an element by the cell its entry's address would name, so its checks of a
   stale or freed box and of a borrow a call is still waiting to use (`elemaddr` and `elem` open a window as `loadat` does)
@@ -1405,7 +1420,7 @@ arguments are those. A conditional branch whose edge has arguments ends its bloc
 middle of a block goes to a failure block, with no arguments, as the IR's own do. The frame below the frame pointer holds
 first the `fixedSlots` that selection gives the IR's slots and frame boxes, and then the spill slots allocation adds. Each
 block has a loop depth and a likelihood (`cold` for a failing check) for the passes that will read them. A virtual register's class
-(`RegClass`: `gpr`, and `xmm` once floats leave the general registers) is in `classes`, from `firstVirtual` (64) on;
+(`RegClass`: `gpr` or `xmm`) is in `classes`, from `firstVirtual` (64) on;
 an operand below that is a physical register by its number in the register file, which is how selection fixes a value to a
 register: it copies the value into, say, rcx before a shift by `cl`, and the allocator sees the fixed register at the copy.
 
@@ -1433,6 +1448,20 @@ operation's instruction comes right before it in its block, so nothing between w
 lives longer) leaves the operation's own code, selected at its place first, with no reader, and this pass takes it out: a
 constant made an immediate, a comparison made into a branch's flags, a length compared in its box, an address made the
 operand of its load or store.
+
+**Register classes** (`classes.maxon`): the IR keeps no types, so selection gives each IR register its class by what reads
+and writes it (`ClassChoice`): a float operation wants its operands and its result in xmm registers, a constant, a load
+and a store take either, and every other operation, the calls and the returns among them, a general one; a block's
+parameters and the arguments passed to them are one class, the one more of their reads and writes want, a tie general.
+The rules then pick the xmm forms of a constant (`movsd` from a word of the unit's data, `DataSection.wordOffset`), a load
+and a store (`movsd`) for a value in an xmm register. Before the dead code removal, `legalizeClasses` moves each value that
+an operand of the other class reads or writes after all (a float's bits that an integer operation reads, a float passed
+to a call, which takes it in a general register) by `movq`, so the analysis decides how many moves there are, never what
+the code computes. Liveness, pressure, spilling, E5001 and the colouring and its repair are per class, each against its
+own registers; a float is spilled to a word slot by `movsd`, an xmm copy is `movaps`, SSA destruction exchanges two xmm
+registers with `xorps`, and the callee-saved `xmm6` to `xmm15` that a function's values get are saved whole by `movups`
+below its slots in the prologue and restored before each return. A float argument, result or parameter is a word in the
+internal convention's general registers; maxon's float convention (`xmm0` to `xmm5`, the result in `xmm0`) is not built.
 
 `emitModule` allocates each function it selects with an `Allocator` the module's functions share (`regalloc.maxon`):
 spilling, then colouring, below. The frame holds, from the frame pointer down, the slots given before allocation
@@ -1859,8 +1888,7 @@ The compiler has no floats of its own, so `self/ast/floats.maxon` computes on th
 arithmetic: a value is a ratio of big integers times a power of two, rounded once, ties to even. It reads literals, folds
 constants, runs the interpreter's float operations and writes the text; `runtime/floats.maxon` writes the text natively by
 the same algorithm, maxon's: the exact decimal of the double rounded to 1, 2, ... significant digits, the first that lies
-between the midpoints to its neighbours. Natively a float is a word like any other; an operation moves its operands into
-`xmm0` and `xmm1`, computes with SSE2 (and SSE4.1's `roundsd`) and moves the result back.
+between the midpoints to its neighbours. Natively a float is in an xmm register, computed with SSE2 (and SSE4.1's`n`roundsd`) on any of `xmm0` to `xmm15`; it is a word like any other in memory, in a call's arguments and result, and to`nthe integer operations that read its bits (negation, `abs`), which `movq` moves it to (see "The machine IR").
 
 ### Errors of the program
 

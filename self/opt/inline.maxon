@@ -457,11 +457,12 @@ function inlineInto(mutates o Optimizer, mutates f ir.IrFunction, own Leaves, ow
 	return true
 end 'inlineInto'
 
-// inlineModule expands the primitives of the functions of a module, fns, once the optimizer has run on them
-// (expand.maxon), then replaces their calls of leaves, folds again each function that got a copy, and runs the passes
-// after inlining (optimizer.maxon); a function that may hold a loop keeps the IR it had before all of them in fallbacks,
-// since each can make a loop need more registers. Every function is expanded before any is copied, so every copy of a
-// leaf is the same body. own are the module's leaves; lowered and leaves are the
+// inlineModule runs the passes after the fallback copy (optimizer.maxon) on the functions of a module, fns, once the
+// optimizer has run on them: it expands their primitives (expand.maxon) and folds with the rules that may raise register
+// pressure, then replaces their calls of leaves, folds again each function that got a copy, and runs the passes after
+// inlining; a function that may hold a loop keeps the IR it had before all of them in fallbacks, since each can make a
+// loop need more registers. Every function is expanded and folded before any is copied, so every copy of a leaf is the
+// same body. own are the module's leaves; lowered and leaves are the
 // functions and leaves of the modules this compile lowers, by their index from first, of which the module may read those
 // reads marks: the ones it names, whose lower its own waited for. The module's own entry in lowered is not read.
 export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates fallbacks ir.Fallbacks, own Leaves, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
@@ -470,11 +471,14 @@ export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList,
 			fallbacks.add(i, f: fns[i].clone())
 		end 'fallback'
 		_ = o.expander.expandFunction(fns[i])
+		if holdsRaising(fns[i]) 'raising'
+			o.fold.foldFunction(fns[i], raises: true)
+		end 'raising'
 	end 'expand'
 	for i in 0 upto fns.count() 'functions'
 		var f = exchange(fns[i], value: ir.IrFunction.new(ast.noFunc, name: "", paramCount: 0))
 		if inlineInto(o, f: f, own: own, ownFns: fns, lowered: lowered, leaves: leaves, reads: reads, first: first) 'changed'
-			o.fold.foldFunction(f)
+			o.fold.foldFunction(f, raises: true)
 		end 'changed'
 		fns[i] = f
 	end 'functions'
@@ -482,6 +486,22 @@ export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList,
 		refine(o, f: fns[i])
 	end 'refine'
 end 'inlineModule'
+
+// holdsRaising is whether f, or a body of its closures and behaviours, holds an instruction that a rule which may raise
+// register pressure could rewrite (pressure.rules), which only a fold past the fallback applies.
+function holdsRaising(f ir.IrFunction) returns bool
+	for i in 0 upto f.bodies.count() 'bodies'
+		if holdsRaising(f.bodies[i]) 'body'
+			return true
+		end 'body'
+	end 'bodies'
+	for k in 0 upto f.instrs.count() 'instrs'
+		if mayRaise(f.instrs[k]) 'found'
+			return true
+		end 'found'
+	end 'instrs'
+	return false
+end 'holdsRaising'
 
 // mayLoop is whether f, or a body of its closures and behaviours, may hold a loop: whether an edge goes to a block that
 // is not after its own. Every cycle of blocks has such an edge.

@@ -1,4 +1,5 @@
-// The helpers that the conditions and results of generic.rules call.
+// The helpers that the conditions and results of generic.rules call; those of a division by a constant are in
+// division.maxon.
 
 // isPowerOfTwo is whether c is 1, 2, 4 and so on.
 export function isPowerOfTwo(c ir.Word) returns bool

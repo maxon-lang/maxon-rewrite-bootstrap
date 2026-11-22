@@ -24,11 +24,12 @@ const (
 )
 
 // ShapeParam is one parameter of an encoder: its name, its role, the field of the machine instruction that holds a
-// register (a, b or c), and the Maxon type of a displacement or an immediate.
+// register (a, b or c), whether that register is an xmm one, and the Maxon type of a displacement or an immediate.
 type ShapeParam struct {
 	Name   string
 	Role   Role
 	Letter string
+	Vector bool
 	Type   string
 }
 
@@ -80,11 +81,11 @@ func (f form) shapeParams() []ShapeParam {
 		case kindReg:
 			switch o.access {
 			case read:
-				out = append(out, ShapeParam{Name: o.name, Role: RoleUse, Letter: useLetter[o.name]})
+				out = append(out, ShapeParam{Name: o.name, Role: RoleUse, Letter: useLetter[o.name], Vector: o.vector})
 			case write:
-				out = append(out, ShapeParam{Name: o.name, Role: RoleDef, Letter: "a"})
+				out = append(out, ShapeParam{Name: o.name, Role: RoleDef, Letter: "a", Vector: o.vector})
 			case readWrite:
-				out = append(out, ShapeParam{Name: o.name, Role: RoleReuse, Letter: "b"})
+				out = append(out, ShapeParam{Name: o.name, Role: RoleReuse, Letter: "b", Vector: o.vector})
 			default:
 				panic(fmt.Sprintf("%s: register %s with no access", f.name, o.name))
 			}

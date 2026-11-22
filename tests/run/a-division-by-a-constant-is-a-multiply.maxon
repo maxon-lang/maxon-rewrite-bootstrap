@@ -1,0 +1,144 @@
+// A division by a constant is a multiply by a reciprocal and shifts: every quotient and remainder by a constant, signed
+// and unsigned, over the extremes of each range, is the one a division by the same divisor read from an array gives.
+typealias Ints = Array with FullRangeInt
+
+typealias Counts = Array with Count
+
+let minInt = -9223372036854775808
+
+let maxInt = 9223372036854775807
+
+let maxCount = 18446744073709551615 as Count
+
+function signedByConstants(x FullRangeInt) returns Ints
+	var out = Ints.create(0)
+	out.push(x / 1)
+	out.push(x / 2)
+	out.push(x / 3)
+	out.push(x / 7)
+	out.push(x / 10)
+	out.push(x / 16)
+	out.push(x / 1024)
+	out.push(x / 4611686018427387904)
+	out.push(x / 641)
+	out.push(x / 1000000007)
+	out.push(x / 9223372036854775807)
+	out.push(try x / -1 otherwise 0)
+	out.push(x / -2)
+	out.push(x / -3)
+	out.push(x / -7)
+	out.push(x / -16)
+	out.push(x / -9223372036854775807)
+	out.push(x / minInt)
+	out.push(x mod 1)
+	out.push(x mod 2)
+	out.push(x mod 3)
+	out.push(x mod 7)
+	out.push(x mod 10)
+	out.push(x mod 16)
+	out.push(x mod 1024)
+	out.push(x mod 4611686018427387904)
+	out.push(x mod 641)
+	out.push(x mod 1000000007)
+	out.push(x mod 9223372036854775807)
+	out.push(x mod -1)
+	out.push(x mod -2)
+	out.push(x mod -3)
+	out.push(x mod -7)
+	out.push(x mod -16)
+	out.push(x mod -9223372036854775807)
+	out.push(x mod minInt)
+	return out
+end 'signedByConstants'
+
+function signedByDivisors(x FullRangeInt, divisors Ints) returns Ints
+	var out = Ints.create(0)
+	for i in 0 upto divisors.count() 'quotients'
+		out.push(try x / divisors[i] otherwise 0)
+	end 'quotients'
+	for i in 0 upto divisors.count() 'remainders'
+		out.push(try x mod divisors[i] otherwise 0)
+	end 'remainders'
+	return out
+end 'signedByDivisors'
+
+function unsignedByConstants(x Count) returns Counts
+	var out = Counts.create(0)
+	out.push(x / 1)
+	out.push(x / 2)
+	out.push(x / 3)
+	out.push(x / 7)
+	out.push(x / 10)
+	out.push(x / 16)
+	out.push(x / 641)
+	out.push(x / 1000000007)
+	out.push(x / 9223372036854775807)
+	out.push(x / 9223372036854775808)
+	out.push(x / 9223372036854775809)
+	out.push(x / 18446744073709551615)
+	out.push(x mod 1)
+	out.push(x mod 2)
+	out.push(x mod 3)
+	out.push(x mod 7)
+	out.push(x mod 10)
+	out.push(x mod 16)
+	out.push(x mod 641)
+	out.push(x mod 1000000007)
+	out.push(x mod 9223372036854775807)
+	out.push(x mod 9223372036854775808)
+	out.push(x mod 9223372036854775809)
+	out.push(x mod 18446744073709551615)
+	return out
+end 'unsignedByConstants'
+
+function unsignedByDivisors(x Count, divisors Counts) returns Counts
+	var out = Counts.create(0)
+	for i in 0 upto divisors.count() 'quotients'
+		out.push(try x / divisors[i] otherwise 0)
+	end 'quotients'
+	for i in 0 upto divisors.count() 'remainders'
+		out.push(try x mod divisors[i] otherwise 0)
+	end 'remainders'
+	return out
+end 'unsignedByDivisors'
+
+function main() returns ExitCode
+	var signedDivisors = Ints.create(0)
+	for d in [1, 2, 3, 7, 10, 16, 1024, 4611686018427387904, 641, 1000000007, 9223372036854775807, -1, -2, -3, -7, -16, -9223372036854775807, minInt] 'signedDivisors'
+		signedDivisors.push(d)
+	end 'signedDivisors'
+	var unsignedDivisors = Counts.create(0)
+	for d in [1 as Count, 2, 3, 7, 10, 16, 641, 1000000007, 9223372036854775807, 9223372036854775808 as Count, 9223372036854775809 as Count, maxCount] 'unsignedDivisors'
+		unsignedDivisors.push(d)
+	end 'unsignedDivisors'
+	var checked = 0 as Count
+	var wrong = 0 as Count
+	for x in [0, 1, -1, 2, -2, 3, -3, 7, -7, 10, -10, 99, -99, 1000000006, -1000000008, 12345678901, -12345678901, maxInt, maxInt - 1, minInt, minInt + 1] 'signed'
+		let byConstants = signedByConstants(x)
+		let byDivisors = signedByDivisors(x, divisors: signedDivisors)
+		for i in 0 upto byConstants.count() 'each'
+			checked = try checked + 1 otherwise panic("too many checked")
+			if byConstants[i] != byDivisors[i] 'differs'
+				print("{x} at {i}: {byConstants[i]} and {byDivisors[i]}\n")
+				wrong = try wrong + 1 otherwise panic("too many wrong")
+			end 'differs'
+		end 'each'
+	end 'signed'
+	for x in [0 as Count, 1, 2, 7, 10, 1000000006, 1000000007, 12345678901234567890 as Count, 9223372036854775807, 9223372036854775808 as Count, 9223372036854775809 as Count, maxCount - 1, maxCount] 'unsigned'
+		let byConstants = unsignedByConstants(x)
+		let byDivisors = unsignedByDivisors(x, divisors: unsignedDivisors)
+		for i in 0 upto byConstants.count() 'each'
+			checked = try checked + 1 otherwise panic("too many checked")
+			if byConstants[i] != byDivisors[i] 'differs'
+				print("{x} at {i}: {byConstants[i]} and {byDivisors[i]}\n")
+				wrong = try wrong + 1 otherwise panic("too many wrong")
+			end 'differs'
+		end 'each'
+	end 'unsigned'
+	print("{checked} checked, {wrong} wrong\n")
+	print("{-7 / 2} {-7 mod 2} {7 / -2} {7 mod -2} {minInt / 2} {(maxCount / 10) mod 10}\n")
+	return 0
+end 'main'
+
+//> 1068 checked, 0 wrong
+//> -3 -1 -3 1 -4611686018427387904 1

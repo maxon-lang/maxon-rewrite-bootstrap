@@ -380,7 +380,7 @@ function emitThrowingCall(mutates l Lowerer, dst Reg, target ast.FuncID, args Re
 end 'emitThrowingCall'
 
 export function emitCallRuntime(mutates l Lowerer, dst Reg, symbol Rt, args RegList, routine ast.FuncID)
-	let instr = l.b.callRuntime(dst, symbol: symbol, args: args, routine: routine)
+	let instr = l.b.callRuntime(dst, symbol: symbol, args: args, routine: routine, proven: false)
 	emit(l, i: instr)
 end 'emitCallRuntime'
 

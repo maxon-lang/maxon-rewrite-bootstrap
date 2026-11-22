@@ -297,7 +297,16 @@ func checkGenericResult(r *rule, vars map[string]*binding) {
 			r.fail("%s gives no register for %s to replace", r.match.name, res.name)
 		}
 	case termOp:
-		checkResult(r, res, vars, true)
+		if res.bind != "" {
+			r.fail("%s: binds the register of the rule's own instruction, which replaces the one it rewrites", res.bind)
+		}
+		made := map[string]int{}
+		checkResult(r, res, vars, made, true)
+		for _, name := range slices.Sorted(maps.Keys(made)) {
+			if made[name] == 0 {
+				r.fail("%s: binds a register in a result that nothing after it reads", name)
+			}
+		}
 		if (r.match.op.Result == irtable.NoResult) != (res.op.Result == irtable.NoResult) {
 			r.fail("%s and %s do not both give a register", r.match.name, res.name)
 		}
@@ -308,11 +317,10 @@ func checkGenericResult(r *rule, vars map[string]*binding) {
 	}
 }
 
-// checkResult refuses an IR operation of a result that the generated code cannot build.
-func checkResult(r *rule, t *term, vars map[string]*binding, root bool) {
-	if t.bind != "" {
-		r.fail("%s: binds a register in a result, where nothing can read it", t.bind)
-	}
+// checkResult refuses an IR operation of a result that the generated code cannot build. A nested operation that name:
+// binds defines a register that the operands after it, in the order the instructions are built (operands before the
+// operation, left to right), may read again; made counts the reads of each.
+func checkResult(r *rule, t *term, vars map[string]*binding, made map[string]int, root bool) {
 	resolveOp(r, t)
 	o := t.op
 	if o.Term {
@@ -349,15 +357,28 @@ func checkResult(r *rule, t *term, vars map[string]*binding, root bool) {
 		case termWild:
 			r.fail("a result has no _: it gives %s's %s", t.name, lowerFirst(x.Name))
 		case termVar:
+			if n, ok := made[a.name]; ok {
+				made[a.name] = n + 1
+				continue
+			}
 			b, ok := vars[a.name]
 			if !ok {
-				r.fail("%s is no variable of the pattern", a.name)
+				r.fail("%s is no variable of the pattern, nor a register the result binds before it", a.name)
 			}
 			if !b.reg {
 				r.fail("%s is no register", a.name)
 			}
 		case termOp:
-			checkResult(r, a, vars, false)
+			checkResult(r, a, vars, made, false)
+			if a.bind != "" {
+				if _, ok := vars[a.bind]; ok {
+					r.fail("%s: binds a register in a result that the pattern names already", a.bind)
+				}
+				if _, ok := made[a.bind]; ok {
+					r.fail("%s: binds two registers in a result", a.bind)
+				}
+				made[a.bind] = 0
+			}
 		case termAux:
 			if a.text == "_" {
 				r.fail("a result has no _: it gives %s's %s", t.name, lowerFirst(x.Name))

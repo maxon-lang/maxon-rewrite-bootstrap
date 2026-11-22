@@ -1983,7 +1983,6 @@ fold-constants.md: a-computed-nan-keeps-its-instruction
 fold-constants.md: a-constant-condition-costs-nothing
 fold-constants.md: a-division-by-a-constant-zero-is-not-folded
 fold-constants.md: a-float-constant-expression-is-evaluated
-fold-constants.md: a-float-division-by-a-constant-zero-is-not-folded
 fold-constants.md: a-folded-value-inside-its-range-passes-the-check
 fold-constants.md: a-promotion-of-a-constant-folds
 fold-constants.md: a-truncation-of-a-constant-folds-inside-the-i64-range

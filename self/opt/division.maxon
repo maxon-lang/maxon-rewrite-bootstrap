@@ -1,0 +1,195 @@
+// The multipliers that generic.rules divides by a constant with, as maxon's strengthReduceDivision derives them: a
+// division by d is the high word of x times a multiplier near 2^(64 + s) / d, shifted right by s. The signed multiplier
+// is Granlund and Montgomery's (Hacker's Delight, figure 10-1, at 64 bits), taken for the magnitude of the divisor, whose
+// quotient the rules negate for a negative one; the unsigned one is libdivide's, rounded up, with s = floor(log2 d).
+//
+// Each multiplier is found from floor(2^p / m) and 2^p mod m for a p raised one bit at a time from 63, so no division
+// is made past the first. The quotient is the one number allowed to wrap: a multiplier of 2^63 or more is the bits the
+// multiply reads, and the rules make up for what wrapped.
+
+let twoTo63 = 9223372036854775808 as Count
+
+let maxSignedMagnitude = 9223372036854775807 as Count
+
+// signBitPlace is the place of a word's sign bit: an arithmetic shift by it fills the word with the sign.
+let signBitPlace = 63 as ir.Word
+
+let wordWidth = 64 as ir.Word
+
+// smallestReduced is the least magnitude that a multiplier divides by: 1 and 2 are an identity and a power of two.
+let smallestReduced = 3 as Count
+
+// maxRefinements bounds the search for the signed multiplier, which ends by p = 2 * 64 - 1.
+let maxRefinements = 64 as Count
+
+// Ratio is floor(2^p / m) modulo 2^64 and 2^p mod m.
+type Ratio
+	var quotient as Count
+	var remainder as Count
+
+	static function seeded(m Count) returns Ratio
+		return Ratio{quotient: try twoTo63 / m otherwise panic("opt: a multiplier for a division by 0"), remainder: try twoTo63 mod m otherwise panic("opt: a multiplier for a division by 0")}
+	end 'seeded'
+
+	// raise doubles 2^p, which takes the remainder past m at most once since it is below m.
+	function raise(mutates self, m Count)
+		let doubled = ir.wrapAdd(self.quotient, b: self.quotient)
+		let room = try m - self.remainder otherwise panic("opt: a remainder past its modulus")
+		if self.remainder >= room 'carry'
+			self.quotient = ir.wrapAdd(doubled, b: 1)
+			self.remainder = try self.remainder - room otherwise panic("opt: a remainder past its modulus")
+			return
+		end 'carry'
+		self.quotient = doubled
+		self.remainder = try self.remainder + self.remainder otherwise panic("opt: a remainder past its modulus")
+	end 'raise'
+end 'Ratio'
+
+// Magic is a multiplier, as the bits of a word, the shift after the high word, and whether an unsigned multiplier needs a
+// 65th bit, which the rules add back.
+type Magic
+	var multiplier as Count
+	var shift as ir.Word
+	var carries as bool
+
+	static function make(multiplier Count, shift ir.Word, carries bool) returns Magic
+		return Self{multiplier: multiplier, shift: shift, carries: carries}
+	end 'make'
+end 'Magic'
+
+// magnitudeOf is |c| as unsigned bits: i64.min's is 2^63.
+function magnitudeOf(c ir.Word) returns Count
+	if c >= 0 'positive'
+		return c as Count
+	end 'positive'
+	return ir.wrapSub(0, b: ir.bitsOfWord(c))
+end 'magnitudeOf'
+
+function isPowerOfTwoBits(m Count) returns bool
+	if m == 0 'zero'
+		return false
+	end 'zero'
+	return (m and (try m - 1 otherwise panic("opt: a power of two below 1"))) == 0
+end 'isPowerOfTwoBits'
+
+// floorLog2 is the place of the highest bit of m, which is not 0.
+function floorLog2(m Count) returns ir.Word
+	var n = 0 as ir.Word
+	var v = m
+	while v > 1 'halve'
+		v = v shr 1
+		n = try n + 1 otherwise panic("opt: a bit past the word")
+	end 'halve'
+	return n
+end 'floorLog2'
+
+// signedMagic is the multiplier of a signed division by a magnitude d from 3 to 2^63 - 1 that is no power of two: the
+// least p from 64 on at which 2^p / d is close enough to give every quotient, which anc, the largest number below 2^63
+// that is -1 modulo d, is the hardest dividend of.
+function signedMagic(d Count) returns Magic
+	var dr = Ratio.seeded(d)
+	let anc = try maxSignedMagnitude - dr.remainder otherwise panic("opt: a remainder past 2^63")
+	var ar = Ratio.seeded(anc)
+	var p = signBitPlace
+	var step = 0 as Count
+	while step < maxRefinements 'refine'
+		step = try step + 1 otherwise panic("opt: a step past the word")
+		p = try p + 1 otherwise panic("opt: a power of two past the word")
+		ar.raise(anc)
+		dr.raise(d)
+		let delta = try d - dr.remainder otherwise panic("opt: a remainder past its modulus")
+		if ar.quotient > delta or (ar.quotient == delta and ar.remainder != 0) 'converged'
+			return Magic.make(ir.wrapAdd(dr.quotient, b: 1), shift: try p - wordWidth otherwise panic("opt: a shift below 0"), carries: false)
+		end 'converged'
+	end 'refine'
+	panic("opt: the multiplier of a division by {d} does not converge")
+end 'signedMagic'
+
+// unsignedMagic is the multiplier of an unsigned division by a d from 3 to 2^63 - 1 that is no power of two:
+// floor(2^(64 + s) / d) + 1, or, when that is not close enough, floor(2^(65 + s) / d) + 1, which needs a 65th bit.
+function unsignedMagic(d Count) returns Magic
+	let s = floorLog2(d)
+	var r = Ratio.seeded(d)
+	for i in 0 to s 'scale'
+		r.raise(d)
+	end 'scale'
+	let bound = try (1 as Count) shl (s as Count) otherwise panic("opt: a power of two past the word")
+	if (try d - r.remainder otherwise panic("opt: a remainder past its modulus")) < bound 'fits'
+		return Magic.make(ir.wrapAdd(r.quotient, b: 1), shift: s, carries: false)
+	end 'fits'
+	r.raise(d)
+	return Magic.make(ir.wrapAdd(r.quotient, b: 1), shift: s, carries: true)
+end 'unsignedMagic'
+
+// signedPowerOfTwo is whether |c| is a power of two from 2 on, which i64.min is.
+function signedPowerOfTwo(c ir.Word) returns bool
+	let m = magnitudeOf(c)
+	return m > 1 and isPowerOfTwoBits(m)
+end 'signedPowerOfTwo'
+
+// magnitudeLog2 is k for |c| = 2^k.
+function magnitudeLog2(c ir.Word) returns ir.Word
+	return floorLog2(magnitudeOf(c))
+end 'magnitudeLog2'
+
+// roundingShift is the logical shift that leaves the low k bits of a sign fill, for |c| = 2^k: 2^k - 1 for a negative
+// dividend, which raises it so that the shift rounds toward zero, and 0 for any other.
+function roundingShift(c ir.Word) returns ir.Word
+	return try wordWidth - magnitudeLog2(c) otherwise panic("opt: a shift past the word")
+end 'roundingShift'
+
+// magnitudeMask is the bits of a word from the place of |c| = 2^k up: a number with its low k bits cleared.
+function magnitudeMask(c ir.Word) returns ir.Word
+	return ir.wordOfBits(ir.wrapSub(0, b: magnitudeOf(c)))
+end 'magnitudeMask'
+
+// magnitudeWord is |c| for a c that a signed multiplier divides by.
+function magnitudeWord(c ir.Word) returns ir.Word
+	return ir.wordOfBits(magnitudeOf(c))
+end 'magnitudeWord'
+
+// signedReduces is whether a signed division by c is a multiply: |c| is at least 3 and no power of two.
+function signedReduces(c ir.Word) returns bool
+	let m = magnitudeOf(c)
+	return m >= smallestReduced and not isPowerOfTwoBits(m)
+end 'signedReduces'
+
+function signedMultiplier(c ir.Word) returns ir.Word
+	return ir.wordOfBits(signedMagic(magnitudeOf(c)).multiplier)
+end 'signedMultiplier'
+
+function signedMultiplierShift(c ir.Word) returns ir.Word
+	return signedMagic(magnitudeOf(c)).shift
+end 'signedMultiplierShift'
+
+// signedMultiplierWraps is whether the signed multiply reads the multiplier as itself less 2^64.
+function signedMultiplierWraps(c ir.Word) returns bool
+	return signedMagic(magnitudeOf(c)).multiplier >= twoTo63
+end 'signedMultiplierWraps'
+
+// unsignedReduces is whether an unsigned division by c is a multiply: c is from 3 to 2^63 - 1 and no power of two. A c
+// of 2^63 or more, which a signed word holds as a negative number, goes into a dividend once or not at all.
+function unsignedReduces(c ir.Word) returns bool
+	if c < 0 'pastSigned'
+		return false
+	end 'pastSigned'
+	let m = c as Count
+	return m >= smallestReduced and not isPowerOfTwoBits(m)
+end 'unsignedReduces'
+
+function unsignedMultiplier(c ir.Word) returns ir.Word
+	return ir.wordOfBits(unsignedMagic(try c as Count otherwise panic("opt: an unsigned divisor past the signed words")).multiplier)
+end 'unsignedMultiplier'
+
+function unsignedMultiplierShift(c ir.Word) returns ir.Word
+	return unsignedMagic(try c as Count otherwise panic("opt: an unsigned divisor past the signed words")).shift
+end 'unsignedMultiplierShift'
+
+function unsignedMultiplierCarries(c ir.Word) returns bool
+	return unsignedMagic(try c as Count otherwise panic("opt: an unsigned divisor past the signed words")).carries
+end 'unsignedMultiplierCarries'
+
+// signPlace is the shift that fills a word with its sign.
+function signPlace() returns ir.Word
+	return signBitPlace
+end 'signPlace'

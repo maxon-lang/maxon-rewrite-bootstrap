@@ -156,12 +156,16 @@ func (e *machineEmitter) reg(name string) string {
 	return "vregOf(" + local(name) + ")"
 }
 
-// define is a new machine register for a variable that form k defines, which becomes what the variable names.
-func (e *machineEmitter) define(k int, name string) string {
+// define is a new machine register for a variable that form k defines, which becomes what the variable names: the
+// result's register, or a new one of the class of the form's operand.
+func (e *machineEmitter) define(k int, name string, vector bool) string {
 	t := e.temp("t")
-	if e.hasFinal && e.final == (defEvent{k, name}) {
+	switch {
+	case e.hasFinal && e.final == (defEvent{k, name}):
 		e.line("let %s = sel.resultOf(ins.dst)", t)
-	} else {
+	case vector:
+		e.line("let %s = sel.newTempOf(RegClass.xmm)", t)
+	default:
 		e.line("let %s = sel.newTemp()", t)
 	}
 	e.cur[name] = t
@@ -184,6 +188,7 @@ func (e *machineEmitter) emitForm(k int, res *term) {
 	aux, imm, cond, ref := "0", "0", "", ""
 	form := "X64Form." + sh.Form
 	var defs []string
+	var vector []bool
 	for i, a := range res.args {
 		p := sh.Params[i]
 		switch p.Role {
@@ -195,12 +200,14 @@ func (e *machineEmitter) emitForm(k int, res *term) {
 				letters["a"] = letters["b"]
 			} else {
 				defs = append(defs, a.name)
+				vector = append(vector, p.Vector)
 			}
 		case x64table.RoleDef:
 			if isRegisterName(a.name) {
 				letters["a"] = e.reg(a.name)
 			} else {
 				defs = append(defs, a.name)
+				vector = append(vector, p.Vector)
 			}
 		case x64table.RoleDisp:
 			aux = e.value(a.text, p.Type)
@@ -230,8 +237,8 @@ func (e *machineEmitter) emitForm(k int, res *term) {
 	}
 	// The registers a form reads are named before the ones it defines, so a two-address form reads the register its
 	// variable named before it.
-	for _, name := range defs {
-		letters["a"] = e.define(k, name)
+	for i, name := range defs {
+		letters["a"] = e.define(k, name, vector[i])
 	}
 	if sh.Form == copyForm {
 		e.line("sel.emit(newCopy(%s, src: %s))", letters["a"], letters["b"])

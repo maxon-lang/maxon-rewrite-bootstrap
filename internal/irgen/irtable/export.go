@@ -92,6 +92,7 @@ const (
 	CaseOrder   = caseOrder
 	CaseDouble  = caseDouble
 	CaseRange   = caseRange
+	CaseHigh    = caseHigh
 
 	OrdLess      = ordLess
 	OrdEqual     = ordEqual

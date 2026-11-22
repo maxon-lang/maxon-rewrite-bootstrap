@@ -1,7 +1,8 @@
-# The error codes for which `fix specs` skips a test: the source of truth for self/driver/skips_gen.maxon.
+# The error codes and the tests for which `fix specs` skips a test: the source of truth for self/driver/skips_gen.maxon.
 # Run `go generate ./internal/...` after an edit. When a test of maxon's expects one code and minimaxon reports another for
-# a known reason, or minimaxon refuses for a known reason a program that maxon runs, the test would test nothing of its own,
-# and gets a skip line that names the reason. Rows, separated by tabs:
+# a known reason, minimaxon refuses for a known reason a program that maxon runs, or a program runs to another answer by a
+# language change, the test would test nothing of its own, and gets a skip line that names the reason. Rows, separated by
+# tabs:
 #   code    a code of maxon that minimaxon has no diagnostic for: `code`, the number, what maxon reports it for. Only a skip
 #           or expect row's expected codes may be such a code
 #   skip    `skip`, the codes maxon expects, the codes minimaxon reports, and the reason, which the skip line gives as
@@ -12,6 +13,9 @@
 #           whatever minimaxon reports, and also when it compiles the program, because the rule behind the code differs
 #   run     `run`, the codes minimaxon reports and the reason: a test that runs a program is skipped when, after the fixes,
 #           the first diagnostic left is one of them, because minimaxon refuses by that rule what maxon runs
+#   test    `test`, the name of a spec file, the name of one of its tests, and the reason: a test that minimaxon compiles
+#           and runs to another answer than maxon's, because a language change (README, "Where it differs from Maxon") gives
+#           the program another meaning
 code	E3223	a linear value that is not consumed: minimaxon's linear values are noncopyable values with a destructor, so it refuses the move itself
 code	E3224	a linear value that is refused: minimaxon's linear values are noncopyable values with a destructor, so it refuses the move itself
 code	E3207	an immutable value that is written: minimaxon meets it as a move out of a borrow or a write to a let
@@ -22,3 +26,4 @@ skip	ErrUnexpectedToken	ErrExpectedToken	differing error code: syntax error
 skip	ErrExpressionError	ErrTypeMismatch	differing error code: operand types
 expect	ErrModuleLetCallsFunction	language difference: a constant may call a literal factory, and E3220 names what it may call
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
+test	fold-constants.md	a-float-division-by-a-constant-zero-is-not-folded	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero

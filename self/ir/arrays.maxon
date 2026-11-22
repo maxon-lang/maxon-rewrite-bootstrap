@@ -72,69 +72,54 @@ end 'arrayRemove'
 // arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not
 // changed.
 function arrayLoad(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
-	end 'packed'
-	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
-	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index)
-	emit(l, i: newLoadAt(d, addr: addr))
-	return d
+	return arrayRead(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
 end 'arrayLoad'
 
-// arrayRead reads the element at index as arrayLoad does, but where the checker or a check before it has proved the index
-// inside the array (not checked): there it is the read alone, with no check.
+// arrayRead reads the element at index as arrayLoad does; where the checker or a check before it has proved the index
+// inside the array (not checked), the entry's call is proven, which the expansion of the primitives makes the read alone.
+// It stays a call until then: a function's fallback is its IR from before the expansion (ir.Fallbacks), and a loop that
+// compiled with the call must compile with the fallback.
 function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
-	if checked 'check'
-		return arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
-	end 'check'
 	if arrayPacked(p, ms: ms, box: box) 'packed'
-		let byte = newReg(l, kind: IrKind.kindScalar)
-		emit(l, i: newLoadByte(byte, src: arr, index: index, of: Collection.collectionArray))
-		return byte
+		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: checked)
 	end 'packed'
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
-	emit(l, i: newElemLoad(d, arr: arr, index: index))
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+	emit(l, i: newLoadAt(d, addr: addr))
 	return d
 end 'arrayRead'
 
-// arrayWrite writes v to the element at index as arrayStore does, but where the index is proved inside the array (not
-// checked) through the address alone. A byte is written by its entry either way.
+// arrayWrite writes v to the element at index as arrayStore does, through a proven address where the index is proved
+// inside the array (not checked). A byte is written by its entry either way.
 function arrayWrite(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg, checked bool)
-	if checked or arrayPacked(p, ms: ms, box: box) 'entry'
-		arrayStore(l, p: p, ms: ms, box: box, arr: arr, index: index, v: v)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
 		return
-	end 'entry'
-	let addr = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newElemAddr(addr, arr: arr, index: index))
+	end 'packed'
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	dropAt(l, p: p, ms: ms, addr: addr, t: arrayElem(p, ms: ms, box: box))
 	emit(l, i: newStoreAt(addr, src: v))
 end 'arrayWrite'
 
 // arrayStore writes v to the element at index, dropping the element it replaces.
 function arrayStore(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
-		return
-	end 'packed'
-	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index)
-	dropAt(l, p: p, ms: ms, addr: addr, t: arrayElem(p, ms: ms, box: box))
-	emit(l, i: newStoreAt(addr, src: v))
+	arrayWrite(l, p: p, ms: ms, box: box, arr: arr, index: index, v: v, checked: true)
 end 'arrayStore'
 
-// arrayAddress is where the element at index of an array of words is. A byte has no address a word can be read through:
-// its place is a slot instead.
-function arrayAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+// arrayAddress is where the element at index of an array of words is, a proven call where the index is proved inside the
+// array (not checked). A byte has no address a word can be read through: its place is a slot instead.
+function arrayAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		panic("lower: an element of {ast.typeName(ms.types, reads: p.types, t: box.ty)} has no word address")
 	end 'packed'
-	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+	return elementEntry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, args: argsOf2(arr, b: index), checked: checked)
 end 'arrayAddress'
 
 // arrayPlace is the address a call that takes the element at index by address is given: the element's own for an array of
 // words, and for an array of bytes a slot that holds the element until writeBack stores it back.
 function arrayPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	if not arrayPacked(p, ms: ms, box: box) 'words'
-		return arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		return arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
 	end 'words'
 	let slot = l.b.f.newSlot(IrKind.kindScalar)
 	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
@@ -238,7 +223,7 @@ function arrayShrinkTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		let offset = countedLoopIndex(l, loop: loop)
 		let index = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newBin(index, op: BinOp.binSub, left: last, right: offset, unsigned: true, fail: noBlock))
-		let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
 		dropAt(l, p: p, ms: ms, addr: addr, t: elem)
 		countedLoopEnd(l, loop: loop)
 	end 'owning'

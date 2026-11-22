@@ -98,6 +98,24 @@ export function wrapMul(a Count, b Count) returns Count
 	return mulWide(a, b: b).lo
 end 'wrapMul'
 
+// mulHigh is the high 64 bits of the 128-bit product of a and b, read as unsigned numbers or as signed ones. Read as
+// signed, a negative a stands for its bits less 2^64, which takes b * 2^64 from the product, and so b from its high
+// word; a negative b takes a.
+function mulHigh(a Word, b Word, unsigned bool) returns Word
+	let bitsA = bitsOfWord(a)
+	let bitsB = bitsOfWord(b)
+	var hi = mulWide(bitsA, b: bitsB).hi
+	if not unsigned 'signed'
+		if a < 0 'negativeA'
+			hi = wrapSub(hi, b: bitsB)
+		end 'negativeA'
+		if b < 0 'negativeB'
+			hi = wrapSub(hi, b: bitsA)
+		end 'negativeB'
+	end 'signed'
+	return wordOfBits(hi)
+end 'mulHigh'
+
 // powerOfTwo is 2^n for an n from 0 to 63.
 function powerOfTwo(n Word) returns Count
 	let shift = try n as Count otherwise panic("ir: a power of two below 1")

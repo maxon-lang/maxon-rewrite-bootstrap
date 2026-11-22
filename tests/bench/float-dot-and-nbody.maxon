@@ -1,0 +1,100 @@
+// Floats: a dot product of two arrays, and steps of a small n-body simulation whose bodies are arrays of coordinates,
+// velocities and masses: float arithmetic, a square root, and floats read from and written to arrays in loops.
+typealias Real = float(f64.min to f64.max)
+
+typealias Reals = Array with Real
+
+let size = 1000 as Count
+
+let dotRounds = 20000 as Count
+
+let bodies = 5 as Count
+
+let steps = 400000 as Count
+
+let dt = 0.01
+
+function dot(a Reals, b Reals) returns Real
+	var sum = 0.0 as Real
+	for i in 0 upto a.count() 'each'
+		sum = sum + a[i] * b[i]
+	end 'each'
+	return sum
+end 'dot'
+
+// advance moves every body by its velocity after the pull of every other one, by the inverse square of their distance.
+function advance(mutates x Reals, mutates y Reals, mutates z Reals, mutates vx Reals, mutates vy Reals, mutates vz Reals, mass Reals)
+	for i in 0 upto bodies 'pulled'
+		for j in i + 1 upto bodies 'pulling'
+			let dx = x[i] - x[j]
+			let dy = y[i] - y[j]
+			let dz = z[i] - z[j]
+			let d2 = dx * dx + dy * dy + dz * dz + 0.01
+			let mag = dt / (d2 * sqrt(d2))
+			let mi = mass[i] * mag
+			let mj = mass[j] * mag
+			vx[i] = vx[i] - dx * mj
+			vy[i] = vy[i] - dy * mj
+			vz[i] = vz[i] - dz * mj
+			vx[j] = vx[j] + dx * mi
+			vy[j] = vy[j] + dy * mi
+			vz[j] = vz[j] + dz * mi
+		end 'pulling'
+	end 'pulled'
+	for i in 0 upto bodies 'moved'
+		x[i] = x[i] + dt * vx[i]
+		y[i] = y[i] + dt * vy[i]
+		z[i] = z[i] + dt * vz[i]
+	end 'moved'
+end 'advance'
+
+function energy(x Reals, y Reals, z Reals, vx Reals, vy Reals, vz Reals, mass Reals) returns Real
+	var e = 0.0 as Real
+	for i in 0 upto bodies 'kinetic'
+		e = e + 0.5 * mass[i] * (vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i])
+		for j in i + 1 upto bodies 'potential'
+			let dx = x[i] - x[j]
+			let dy = y[i] - y[j]
+			let dz = z[i] - z[j]
+			e = e - mass[i] * mass[j] / sqrt(dx * dx + dy * dy + dz * dz + 0.01)
+		end 'potential'
+	end 'kinetic'
+	return e
+end 'energy'
+
+function main() returns ExitCode
+	var a = Reals.create(0)
+	var b = Reals.create(0)
+	for i in 0 upto size 'fill'
+		a.push((i mod 7) as Real * 0.5)
+		b.push((i mod 11) as Real * 0.25 - 1.0)
+	end 'fill'
+	var total = 0.0 as Real
+	for _ in 0 upto dotRounds 'rounds'
+		total = total + dot(a, b: b)
+	end 'rounds'
+	var x = Reals.create(0)
+	var y = Reals.create(0)
+	var z = Reals.create(0)
+	var vx = Reals.create(0)
+	var vy = Reals.create(0)
+	var vz = Reals.create(0)
+	var mass = Reals.create(0)
+	for i in 0 upto bodies 'place'
+		let k = i as Real
+		x.push(k)
+		y.push(k * 0.5 - 1.0)
+		z.push(1.0 - k * 0.25)
+		vx.push(0.0)
+		vy.push(k * 0.1)
+		vz.push(-0.05 * k)
+		mass.push(1.0 + k)
+	end 'place'
+	for _ in 0 upto steps 'steps'
+		advance(x, y: y, z: z, vx: vx, vy: vy, vz: vz, mass: mass)
+	end 'steps'
+	print("{total} {energy(x, y: y, z: z, vx: vx, vy: vy, vz: vz, mass: mass)}\n")
+	return 0
+end 'main'
+
+//> 7417500.0 4.17563179860496
