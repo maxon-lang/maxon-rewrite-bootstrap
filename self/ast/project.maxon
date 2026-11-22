@@ -60,6 +60,23 @@ export typealias NodeFuncMap = table.IntMap with FuncID
 
 export typealias OrdinalConstMap = table.IntMap with ConstValue
 
+export typealias TypeRawMap = table.IntMap with TypeID
+
+export typealias FuncLocalsMap = table.IntMap with Count
+
+// FuncLocals are the locals that the bodies stage bound to a function's receiver and parameters: noLocal for a receiver it
+// has none of and for a parameter named `_`.
+export type FuncLocals
+	export var receiver as LocalID
+	export var params as LocalIDList
+
+	export static function new() returns Self
+		return Self{receiver: noLocal, params: LocalIDList.create(0)}
+	end 'new'
+end 'FuncLocals'
+
+export typealias FuncLocalsList = Array with FuncLocals
+
 // ModuleTables are what the stages of one module decide about its declarations. Only that module's stages write them, and a
 // stage of another module reads them once it has waited for the stage that wrote them.
 export type ModuleTables
@@ -74,9 +91,16 @@ export type ModuleTables
 	var nodeFuncs as NodeFuncMap
 	// declConsts is the value of each constant, by its ordinal.
 	var declConsts as OrdinalConstMap
+	// rawTypes is the type of the raw values of each enum and union the module declares whose cases write values that are no
+	// literals, by the type's index, once the constants stage has typed them all.
+	var rawTypes as TypeRawMap
+	// localsAt is where in funcLocals the locals of each function the module has checked the body of are, by the function's
+	// index.
+	var localsAt as FuncLocalsMap
+	var funcLocals as FuncLocalsList
 
 	export static function new() returns Self
-		return Self{declTypes: TypeIDList.create(0), paramTypes: NodeTypeMap.new(), declFuncs: FuncIDList.create(0), nodeFuncs: NodeFuncMap.new(), declConsts: OrdinalConstMap.new()}
+		return Self{declTypes: TypeIDList.create(0), paramTypes: NodeTypeMap.new(), declFuncs: FuncIDList.create(0), nodeFuncs: NodeFuncMap.new(), declConsts: OrdinalConstMap.new(), rawTypes: TypeRawMap.new(), localsAt: FuncLocalsMap.new(), funcLocals: FuncLocalsList.create(0)}
 	end 'new'
 
 	export function declType(ord DeclOrdinal) returns table.Option with TypeID
@@ -146,6 +170,52 @@ export type ModuleTables
 	export function setDeclConst(mutates self, ord DeclOrdinal, consumes value ConstValue)
 		declConsts.insert(ord as Count, value: value)
 	end 'setDeclConst'
+
+	export function rawType(t TypeID) returns TypeID
+		match rawTypes.get(typeIndex(t)) 'raw'
+			some(raw) then return raw
+			none then return noType
+		end 'raw'
+	end 'rawType'
+
+	export function setRawType(mutates self, t TypeID, raw TypeID)
+		rawTypes.insert(typeIndex(t), value: raw)
+	end 'setRawType'
+
+	export function receiverLocal(f FuncID) returns LocalID
+		match localsAt.get(funcIndex(f)) 'at'
+			some(at) then return funcLocals[at].receiver
+			none then return noLocal
+		end 'at'
+	end 'receiverLocal'
+
+	export function paramLocal(f FuncID, index Count) returns LocalID
+		match localsAt.get(funcIndex(f)) 'at'
+			some(at) then return funcLocals[at].params[index]
+			none then panic("a parameter is read of a function whose body has bound none")
+		end 'at'
+	end 'paramLocal'
+
+	export function setReceiverLocal(mutates self, f FuncID, l LocalID)
+		let at = localsFor(f)
+		funcLocals[at].receiver = l
+	end 'setReceiverLocal'
+
+	export function pushParamLocal(mutates self, f FuncID, l LocalID)
+		let at = localsFor(f)
+		funcLocals[at].params.push(l)
+	end 'pushParamLocal'
+
+	function localsFor(mutates self, f FuncID) returns Count
+		match localsAt.get(funcIndex(f)) 'at'
+			some(at) then return at
+			none then _ = 0
+		end 'at'
+		let at = funcLocals.count()
+		localsAt.insert(funcIndex(f), value: at)
+		funcLocals.push(FuncLocals.new())
+		return at
+	end 'localsFor'
 end 'ModuleTables'
 
 // declType is the type that the module which declares ref gave it.
@@ -201,6 +271,57 @@ end 'declConst'
 export function setDeclConst(mutates p Project, ref DeclRef, consumes value ConstValue)
 	p.modules[modIndex(ref.module)].tables.setDeclConst(ref.ordinal, value: value)
 end 'setDeclConst'
+
+// rawTypeOf is the type of the raw values of the enum or union t, an origin, once the constants stage of the module that
+// declares it has typed them, and noType before then or where its cases write literals.
+export function rawTypeOf(p Project, t TypeID) returns TypeID
+	let i = typeIndex(t)
+	if not p.types.entries[i].hasDecl 'undeclared'
+		return noType
+	end 'undeclared'
+	let module = p.types.entries[i].decl.module
+	if module == diag.stdlibID 'std'
+		return p.stdlib.tables.rawType(t)
+	end 'std'
+	return p.modules[modIndex(module)].tables.rawType(t)
+end 'rawTypeOf'
+
+// setRawType records the type of the raw values of t, which the module that declares it has typed.
+export function setRawType(mutates p Project, t TypeID, raw TypeID)
+	let i = typeIndex(t)
+	if not p.types.entries[i].hasDecl 'undeclared'
+		panic("raw values are typed for '{p.types.entries[i].name}', which no module declares")
+	end 'undeclared'
+	p.modules[modIndex(p.types.entries[i].decl.module)].tables.setRawType(t, raw: raw)
+end 'setRawType'
+
+// receiverLocal is the local the body of f binds its receiver to, or noLocal.
+export function receiverLocal(p Project, f FuncID) returns LocalID
+	let module = p.funcs.entries[funcIndex(f)].module
+	if module == diag.stdlibID 'std'
+		return p.stdlib.tables.receiverLocal(f)
+	end 'std'
+	return p.modules[modIndex(module)].tables.receiverLocal(f)
+end 'receiverLocal'
+
+// paramLocal is the local the body of f binds its parameter at index to, or noLocal for one named `_`.
+export function paramLocal(p Project, f FuncID, index Count) returns LocalID
+	let module = p.funcs.entries[funcIndex(f)].module
+	if module == diag.stdlibID 'std'
+		return p.stdlib.tables.paramLocal(f, index: index)
+	end 'std'
+	return p.modules[modIndex(module)].tables.paramLocal(f, index: index)
+end 'paramLocal'
+
+export function setReceiverLocal(mutates p Project, f FuncID, l LocalID)
+	let module = p.funcs.entries[funcIndex(f)].module
+	p.modules[modIndex(module)].tables.setReceiverLocal(f, l: l)
+end 'setReceiverLocal'
+
+export function pushParamLocal(mutates p Project, f FuncID, l LocalID)
+	let module = p.funcs.entries[funcIndex(f)].module
+	p.modules[modIndex(module)].tables.pushParamLocal(f, l: l)
+end 'pushParamLocal'
 
 export typealias PathModMap = table.StringMap with diag.ModuleID
 

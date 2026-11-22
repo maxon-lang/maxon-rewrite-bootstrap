@@ -248,7 +248,7 @@ function addBehaviourParam(mutates c Checker, mutates p ast.Project, fn ast.Func
 	let entry = c.typing.locals[local as Count].clone()
 	p.funcs.entries[ast.funcIndex(fn)].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
 	p.funcs.entries[ast.funcIndex(fn)].paramTypes.push(entry.ty)
-	p.funcs.entries[ast.funcIndex(fn)].paramLocals.push(local)
+	ast.pushParamLocal(p, f: fn, l: local)
 end 'addBehaviourParam'
 
 // checkBehaviour types a behaviour: it names cowns, and its body runs once it has exclusive access to all of them, with

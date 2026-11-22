@@ -86,8 +86,8 @@ end 'lowerBody'
 // the types are the instance's.
 function adoptParams(mutates l Lowerer, mutates p ast.Project)
 	let hasReceiver = p.funcs.entries[ast.funcIndex(l.fn)].hasReceiver
-	if hasReceiver and p.funcs.entries[ast.funcIndex(l.origin)].selfLocal != ast.noLocal 'self'
-		let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[ast.funcIndex(l.origin)].selfLocal)
+	if hasReceiver and ast.receiverLocal(p, f: l.origin) != ast.noLocal 'self'
+		let selfLocal = localEntry(p, module: l.fnModule, id: ast.receiverLocal(p, f: l.origin))
 		if ast.ownsValue(selfLocal.conv) and kindOf(l, p: p, t: selfLocal.ty) == IrKind.kindManaged 'owned'
 			let slot = adopt(l, p: p, index: selfLocal.paramIndex, t: selfLocal.ty)
 			l.selfOwner = indexOf(slot)
@@ -98,7 +98,7 @@ function adoptParams(mutates l Lowerer, mutates p ast.Project)
 		let ty = p.funcs.entries[ast.funcIndex(l.fn)].paramTypes[i]
 		if p.funcs.entries[ast.funcIndex(l.fn)].params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, t: ty) == IrKind.kindManaged 'consumed'
 			let slot = adopt(l, p: p, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
-			let local = p.funcs.entries[ast.funcIndex(l.origin)].paramLocals[i]
+			let local = ast.paramLocal(p, f: l.origin, index: i)
 			if local != ast.noLocal 'named'
 				l.ownerSlots.push(OwnerSlot.make(local, slot: slot))
 			end 'named'
@@ -163,7 +163,7 @@ function selfReg(mutates l Lowerer, mutates p ast.Project) returns Reg
 	if l.selfOwner != noSlot 'owned'
 		return load(l, slot: slotIndex(l.selfOwner))
 	end 'owned'
-	let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[ast.funcIndex(l.origin)].selfLocal)
+	let selfLocal = localEntry(p, module: l.fnModule, id: ast.receiverLocal(p, f: l.origin))
 	return paramReg(l, index: selfLocal.paramIndex, kind: kindOf(l, p: p, t: selfLocal.ty))
 end 'selfReg'
 

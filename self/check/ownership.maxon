@@ -573,14 +573,14 @@ function run(mutates o Ownership, mutates p ast.Project, fid ast.FuncID, body di
 	resetOwn(o, fid: fid)
 	let fnSite = funcSite(o, p: p)
 	var s = OwnState.clean()
-	let receiver = p.funcs.entries[ast.funcIndex(fid)].selfLocal
+	let receiver = ast.receiverLocal(p, f: fid)
 	if p.funcs.entries[ast.funcIndex(fid)].isDestructor 'destructor'
 		o.obliged.push(OwnObliged.make(receiver, site: fnSite, destroys: true))
 	end 'destructor' else if p.funcs.entries[ast.funcIndex(fid)].hasReceiver and p.funcs.entries[ast.funcIndex(fid)].selfConv == ast.Convention.convConsumes 'consumesSelf'
 		oblige(o, p: p, l: receiver, site: fnSite)
 	end 'consumesSelf'
 	for i in 0 upto p.funcs.entries[ast.funcIndex(fid)].params.count() 'params'
-		let sym = p.funcs.entries[ast.funcIndex(fid)].paramLocals[i]
+		let sym = ast.paramLocal(p, f: fid, index: i)
 		let site = offsetOfOwn(o, p: p, node: paramSites[i])
 		let conv = p.funcs.entries[ast.funcIndex(fid)].params[i].conv
 		if conv == ast.Convention.convSets 'sets'
@@ -611,7 +611,7 @@ end 'offsetOfOwn'
 
 // selfLocalOf is the receiver of the function being checked.
 function selfLocalOf(o Ownership, p ast.Project) returns ast.LocalID
-	return p.funcs.entries[ast.funcIndex(o.fn)].selfLocal
+	return ast.receiverLocal(p, f: o.fn)
 end 'selfLocalOf'
 
 // isManagedOwn is whether a value of type t is managed: it is owned, moved and dropped.

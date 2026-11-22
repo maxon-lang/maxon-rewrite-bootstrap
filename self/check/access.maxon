@@ -449,7 +449,7 @@ end 'builtinMemberType'
 function rawValueType(p ast.Project, t ast.TypeID) returns ast.TypeID
 	let orig = ast.originOf(p.types, t: t)
 	if p.types.entries[ast.typeIndex(orig)].rawKind == ast.RawKind.value 'value'
-		return p.types.entries[ast.typeIndex(orig)].rawType
+		return ast.rawTypeOf(p, t: orig)
 	end 'value'
 	if p.types.entries[ast.typeIndex(orig)].rawKind == ast.RawKind.string 'string'
 		return p.builtins.stringTy

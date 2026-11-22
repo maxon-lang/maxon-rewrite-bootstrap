@@ -424,7 +424,7 @@ function rangePlaceOf(r Ranges, p ast.Project, e ast.NodeID) returns table.Optio
 end 'rangePlaceOf'
 
 function selfPlace(r Ranges, p ast.Project) returns Place
-	return Place.local(slotOf(r, local: p.funcs.entries[ast.funcIndex(r.fn)].selfLocal))
+	return Place.local(slotOf(r, local: ast.receiverLocal(p, f: r.fn)))
 end 'selfPlace'
 
 function memberInfoOf(r Ranges, e ast.NodeID) returns ast.MemberInfo

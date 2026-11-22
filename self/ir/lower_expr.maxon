@@ -812,7 +812,7 @@ end 'lowerCaseRead'
 // which only a field that holds no value of its own survives.
 function rawFieldOf(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, index Reg, field Count, ft ast.TypeID) returns Reg
 	let record = rawValueOf(l, p: p, t: t, index: index)
-	let recordTy = p.types.entries[ast.typeIndex(p.types.entries[ast.typeIndex(t)].effectiveOrigin())].rawType
+	let recordTy = ast.rawTypeOf(p, t: p.types.entries[ast.typeIndex(t)].effectiveOrigin())
 	let d = newReg(l, kind: kindOf(l, p: p, t: ft))
 	emit(l, i: newLoadField(d, obj: record, offset: wordOffset(field)))
 	dropValue(l, p: p, v: record, t: recordTy)
@@ -871,7 +871,7 @@ end 'rawValueOf'
 function builtRawValue(mutates l Lowerer, mutates p ast.Project, origin ast.TypeID, index Reg) returns Reg
 	let count = p.types.entries[ast.typeIndex(origin)].cases.count()
 	let module = p.types.entries[ast.typeIndex(origin)].decl.module
-	let sel = selectStart(l, kind: kindOfType(p, t: p.types.entries[ast.typeIndex(origin)].rawType), index: index, count: count)
+	let sel = selectStart(l, kind: kindOfType(p, t: ast.rawTypeOf(p, t: origin)), index: index, count: count)
 	for i in 0 upto count 'each'
 		selectArm(l, s: sel, i: i)
 		pushScope(l, block: false)

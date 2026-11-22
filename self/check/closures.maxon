@@ -188,13 +188,13 @@ function enterClosure(mutates c Checker, mutates p ast.Project, e ast.NodeID, ty
 		p.funcs.entries[ast.funcIndex(fid)].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
 		p.funcs.entries[ast.funcIndex(fid)].paramTypes.push(types[i])
 		if name == "_" 'anonymous'
-			p.funcs.entries[ast.funcIndex(fid)].paramLocals.push(ast.noLocal)
+			ast.pushParamLocal(p, f: fid, l: ast.noLocal)
 			continue 'params'
 		end 'anonymous'
 		var local = ast.LocalEntry.make(name, ty: types[i], isVar: false, isParam: true, conv: convs[i], definedAt: param)
 		local.paramIndex = try i + 1 otherwise panic("too many parameters in a closure")
 		let id = bindLocal(c, p: p, entry: local, off: offsetOf(c, p: p, node: param), errs: errs)
-		p.funcs.entries[ast.funcIndex(fid)].paramLocals.push(id)
+		ast.pushParamLocal(p, f: fid, l: id)
 		if id == ast.noLocal 'unbound'
 			failedParam = true
 		end 'unbound'

@@ -487,21 +487,20 @@ function resolvesDeclMember(p ast.Project, ref ast.DeclRef, memberName String) r
 	end 'k'
 end 'resolvesDeclMember'
 
+// typeHasStatic, enumHasCase and unionHasCase decide from what the module that declares the type writes, since its declare
+// stage, which fills the type's entry, may not have run yet: a static function or a case of that name. Only the standard
+// library's entries are complete before every resolve, and they hold built-in members that its declarations do not write.
 function typeHasStatic(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, memberName String) returns bool
 	for i in 0 upto td.methods.count() 'each'
 		if td.methods[i].isStatic and td.methods[i].name == memberName 'hit'
 			return true
 		end 'hit'
 	end 'each'
-	match ast.declType(p, ref: ref) 'dt'
-		some(tid) then return typeEntryHasMethod(p, tid: tid, memberName: memberName)
+	match stdlibEntry(p, ref: ref) 'dt'
+		some(tid) then return p.types.entries[ast.typeIndex(tid)].findMethod(memberName).isSome()
 		none then return false
 	end 'dt'
 end 'typeHasStatic'
-
-function typeEntryHasMethod(p ast.Project, tid ast.TypeID, memberName String) returns bool
-	return p.types.entries[ast.typeIndex(tid)].findMethod(memberName).isSome()
-end 'typeEntryHasMethod'
 
 function enumHasCase(p ast.Project, ref ast.DeclRef, ed ast.EnumDecl, memberName String) returns bool
 	for i in 0 upto ed.cases.count() 'each'
@@ -509,10 +508,7 @@ function enumHasCase(p ast.Project, ref ast.DeclRef, ed ast.EnumDecl, memberName
 			return true
 		end 'hit'
 	end 'each'
-	match ast.declType(p, ref: ref) 'dt'
-		some(tid) then return p.types.entries[ast.typeIndex(tid)].findCase(memberName).isSome()
-		none then return false
-	end 'dt'
+	return stdlibHasCase(p, ref: ref, memberName: memberName)
 end 'enumHasCase'
 
 function unionHasCase(p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, memberName String) returns bool
@@ -521,11 +517,23 @@ function unionHasCase(p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, memberNa
 			return true
 		end 'hit'
 	end 'each'
-	match ast.declType(p, ref: ref) 'dt'
+	return stdlibHasCase(p, ref: ref, memberName: memberName)
+end 'unionHasCase'
+
+function stdlibHasCase(p ast.Project, ref ast.DeclRef, memberName String) returns bool
+	match stdlibEntry(p, ref: ref) 'dt'
 		some(tid) then return p.types.entries[ast.typeIndex(tid)].findCase(memberName).isSome()
 		none then return false
 	end 'dt'
-end 'unionHasCase'
+end 'stdlibHasCase'
+
+// stdlibEntry is the type of ref where the standard library declares it, whose entry is complete before any resolve.
+function stdlibEntry(p ast.Project, ref ast.DeclRef) returns table.Option with ast.TypeID
+	if ref.module != diag.stdlibID 'user'
+		return table.Option.none
+	end 'user'
+	return ast.declType(p, ref: ref)
+end 'stdlibEntry'
 
 function resolveBlock(mutates r Resolver, p ast.Project, listRef diag.U32, mutates errs diag.ErrorList)
 	pushScope(r)

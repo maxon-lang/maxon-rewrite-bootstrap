@@ -1,4 +1,5 @@
-// Package entryreads holds the test that keeps a handle from being used as an index outside module ast.
+// Package entryreads holds the tests that keep a handle from being used as an index outside module ast, and an entry
+// from being written by a stage after its module's declare stage.
 package entryreads
 
 import (
@@ -56,7 +57,48 @@ func badSites(src string) []string {
 	return bad
 }
 
-func TestNoHandleIsAnIndexOutsideAst(t *testing.T) {
+// write matches what follows an entry when the site changes it: an assignment to a field or an element of one, or a call
+// that changes a list it holds.
+var write = regexp.MustCompile(`^(?:\.\w+|\[[^\]\n]*\])*(?:\s+=\s|\s+\+=|\.(?:push|insert|append|remove|pop|clear)\()`)
+
+// writeSites lists the sites in src that write a field of a type or function entry.
+func writeSites(src string) []string {
+	var sites []string
+	for from := 0; from < len(src); {
+		m := site.FindStringSubmatchIndex(src[from:])
+		if m == nil {
+			break
+		}
+		open := from + m[1] - 1
+		end := closing(src, open)
+		if end < 0 {
+			break
+		}
+		if loc := write.FindStringIndex(src[end+1:]); loc != nil {
+			sites = append(sites, src[from+m[2]:end+1+loc[1]])
+		}
+		from = open + 1
+	}
+	return sites
+}
+
+// entryWriters are the files outside module ast that may write an entry: those of the stages of a module up to and
+// including declare (parse, aliases, declare), which fill the entries of what the module declares, and those of the
+// bodies stage that make the closures and behaviours, which fill the entries they make. A later stage keeps what it
+// decides about an entry in its module's ast.ModuleTables, so that the entry is frozen once the declare stage ends.
+var entryWriters = map[string]bool{
+	"project/project.maxon":  true,
+	"check/aliases.maxon":    true,
+	"check/declare.maxon":    true,
+	"check/members.maxon":    true,
+	"check/functions.maxon":  true,
+	"check/extensions.maxon": true,
+	"check/closures.maxon":   true,
+	"check/behaviours.maxon": true,
+}
+
+// walkSelf calls visit with the path below self/ and the text of every source file of self/ outside module ast.
+func walkSelf(t *testing.T, visit func(rel, src string)) {
 	root := filepath.Join("..", "..", "self")
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -72,13 +114,47 @@ func TestNoHandleIsAnIndexOutsideAst(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		for _, b := range badSites(string(data)) {
-			t.Errorf("%s: %s indexes a type or function table without ast.typeIndex or ast.funcIndex: a handle is not an index outside module ast; run phase3/rewrite-entry-reads.py or write the accessor", path, b)
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
 		}
+		visit(filepath.ToSlash(rel), string(data))
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNoHandleIsAnIndexOutsideAst(t *testing.T) {
+	walkSelf(t, func(rel, src string) {
+		for _, b := range badSites(src) {
+			t.Errorf("%s: %s indexes a type or function table without ast.typeIndex or ast.funcIndex: a handle is not an index outside module ast; run phase3/rewrite-entry-reads.py or write the accessor", rel, b)
+		}
+	})
+}
+
+func TestEntriesAreWrittenOnlyUpToDeclare(t *testing.T) {
+	walkSelf(t, func(rel, src string) {
+		if entryWriters[rel] || strings.HasSuffix(rel, "_test.maxon") {
+			return
+		}
+		for _, w := range writeSites(src) {
+			t.Errorf("%s: %s writes an entry after its module's declare stage; keep the result in the module's ast.ModuleTables, behind an accessor", rel, w)
+		}
+	})
+}
+
+func TestWriteSitesFindsWrites(t *testing.T) {
+	for _, w := range []string{"p.types.entries[ast.typeIndex(t)].rawType = r", "p.funcs.entries[ast.funcIndex(f)].params.push(x)", "tt.entries[ast.typeIndex(t)].cases[i].rawValue = v"} {
+		if got := writeSites(w); len(got) != 1 {
+			t.Errorf("%q: got %v, want one write", w, got)
+		}
+	}
+	for _, r := range []string{"p.types.entries[ast.typeIndex(t)].rawKind == k", "p.types.entries[ast.typeIndex(t)].findMethod(m).isSome()", "let x = p.funcs.entries[ast.funcIndex(f)].params[i].conv"} {
+		if got := writeSites(r); len(got) != 0 {
+			t.Errorf("%q: got %v, want none", r, got)
+		}
 	}
 }
 

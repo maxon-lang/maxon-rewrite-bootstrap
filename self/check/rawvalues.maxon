@@ -57,7 +57,7 @@ function checkTypeRawValues(mutates c Checker, mutates p ast.Project, tid ast.Ty
 		end 'mismatch'
 	end 'each'
 	if not failedSince(errs, mark: mark) 'typed'
-		p.types.entries[ast.typeIndex(tid)].rawType = settled
+		ast.setRawType(p, t: tid, raw: settled)
 	end 'typed'
 end 'checkTypeRawValues'
 
@@ -86,7 +86,7 @@ function rawValuesUntyped(p ast.Project, t ast.TypeID) returns bool
 		return false
 	end 'notNominal'
 	let orig = ast.originOf(p.types, t: t)
-	return p.types.entries[ast.typeIndex(orig)].rawKind == ast.RawKind.value and p.types.entries[ast.typeIndex(orig)].rawType == ast.noType
+	return p.types.entries[ast.typeIndex(orig)].rawKind == ast.RawKind.value and ast.rawTypeOf(p, t: orig) == ast.noType
 end 'rawValuesUntyped'
 
 function failRawUntyped(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
@@ -102,16 +102,16 @@ function rawBackingField(p ast.Project, t ast.TypeID, member String) returns tab
 		return table.Option.none
 	end 'own'
 	let orig = ast.originOf(p.types, t: t)
-	if p.types.entries[ast.typeIndex(orig)].rawKind != ast.RawKind.value or not typeHasKind(p, t: p.types.entries[ast.typeIndex(orig)].rawType, kind: ast.TypeKind.record) 'noRecord'
+	if p.types.entries[ast.typeIndex(orig)].rawKind != ast.RawKind.value or not typeHasKind(p, t: ast.rawTypeOf(p, t: orig), kind: ast.TypeKind.record) 'noRecord'
 		return table.Option.none
 	end 'noRecord'
-	return p.types.entries[ast.typeIndex(ast.originOf(p.types, t: p.types.entries[ast.typeIndex(orig)].rawType))].findField(member)
+	return p.types.entries[ast.typeIndex(ast.originOf(p.types, t: ast.rawTypeOf(p, t: orig)))].findField(member)
 end 'rawBackingField'
 
 // rawFieldType is the type of the field at index of the raw value of the enum or union t, which a value reads straight off
 // the case: a scalar, since the record it is a field of is made for the read and gone after it.
 function rawFieldType(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, index Count, mutates errs diag.ErrorList) returns ast.TypeID
-	let record = p.types.entries[ast.typeIndex(ast.originOf(p.types, t: t))].rawType
+	let record = ast.rawTypeOf(p, t: ast.originOf(p.types, t: t))
 	let orig = ast.originOf(p.types, t: record)
 	let field = p.types.entries[ast.typeIndex(orig)].fields[index].clone()
 	let owner = p.types.entries[ast.typeIndex(orig)].decl.module
