@@ -211,7 +211,7 @@ export function allocatable(arch ast.TargetArch, class RegClass) returns RegMask
 	end 'arch'
 end 'allocatable'
 
-// reservedOf is the registers of an architecture that hold the stack and the frame, which no value is given.
+// reservedOf is the registers of an architecture that no value is given: those that hold the stack and the frame, and those the code or the system keeps for itself.
 export function reservedOf(arch ast.TargetArch) returns RegMask
 	return match arch 'arch'
 		x64 gives 0x30

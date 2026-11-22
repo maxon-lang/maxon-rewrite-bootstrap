@@ -57,7 +57,7 @@ func generateAll() ([]output, error) {
 		return nil, err
 	}
 	outs := []output{{modelPath, model}, {machinePath, machine}}
-	for _, t := range target.Targets {
+	for _, t := range append(slices.Clone(target.Targets), target.Pending...) {
 		code, err := generate(t)
 		if err != nil {
 			return nil, err
@@ -141,7 +141,7 @@ func generate(t target.Target) (string, error) {
 	var b strings.Builder
 	b.WriteString(header)
 	b.WriteString("\n")
-	if err := emitMask(&b, t, t.Name+"Reserved", "the registers that hold the stack and the frame, which no value is given", t.Reserved); err != nil {
+	if err := emitMask(&b, t, t.Name+"Reserved", "the registers no value is given: the stack's, the frame's, and those the code or the system keeps", t.Reserved); err != nil {
 		return "", err
 	}
 	fmt.Fprintf(&b, "// %sFirstVector is the number of the first vector register in the register file, after the general registers.\nexport let %sFirstVector = %d\n\n", t.Name, t.Name, len(t.Names(target.General)))
@@ -248,6 +248,7 @@ func emitConvention(b *strings.Builder, t target.Target, named target.NamedConve
 		fmt.Fprintf(b, "// %sError is the register of the error flag of a function that throws: 0 when it returned, and the\n// error's case plus 1 when it failed.\nexport let %sError = %s\n\n", p, p, e)
 	}
 	fmt.Fprintf(b, "// %sShadowBytes is the stack a caller keeps below the stack arguments for the callee to write.\nexport let %sShadowBytes = %d\n\n", p, p, c.ShadowBytes)
+	fmt.Fprintf(b, "// %sVariadicOnStack is whether a variadic function takes every variadic argument on the stack, whatever\n// registers are free.\nexport let %sVariadicOnStack = %t\n\n", p, p, c.VariadicOnStack)
 	if err := emitMask(b, t, p+"CalleeSaved", "the registers a call keeps", c.CalleeSaved); err != nil {
 		return err
 	}

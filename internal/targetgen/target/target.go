@@ -48,6 +48,9 @@ type Convention struct {
 	ShadowBytes int
 	// Number is the register of a system call's number, or "" for a convention of calls.
 	Number string
+	// VariadicOnStack says that a variadic function takes every variadic argument on the stack, whatever registers are
+	// free, as Apple's arm64 convention passes them.
+	VariadicOnStack bool
 }
 
 // ImageFormat is the format of a system's executables, which picks the backend's writer of the file.
@@ -115,7 +118,8 @@ type Target struct {
 	Name string
 	// Registers is the register file in its numbering: the general registers by encoding, then the vector ones.
 	Registers []Register
-	// Reserved are the registers that hold the stack and the frame, which no value is given.
+	// Reserved are the registers no value is given: those that hold the stack and the frame, and those the code or the
+	// system keeps for itself.
 	Reserved []string
 	// StackAlignment is the alignment of the stack pointer at a call of a host convention.
 	StackAlignment int
@@ -353,5 +357,98 @@ var X64 = Target{
 	},
 }
 
-// Targets are every target's table, in the order their declarations are written.
+// Arm64 is AArch64 on Linux and on macOS, with maxon's register roles (Arm64Backend.maxon) and internal convention
+// (StdToArm64Conversion.maxon). x15 is the register a stopped green thread resumes through, x16 and x17 the scratch
+// registers of the encoder's immediates, imports and jump tables, x18 Darwin's platform register, which a program
+// never writes on either system so that one code generator serves both, x29 the frame pointer and x30 the link
+// register. sp is the 31 of an operand that names the stack, which is the zero register where an operand names no
+// stack. The host conventions are AAPCS64: Apple's passes every variadic argument on the stack, and Linux's kernel a
+// program calls itself.
+var Arm64 = Target{
+	Name: "arm64",
+	Registers: append(
+		regs(General, "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15",
+			"x16", "x17", "x18", "x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", "sp"),
+		regs(Vector, "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15",
+			"d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31")...),
+	Reserved:       []string{"x15", "x16", "x17", "x18", "x29", "x30", "sp"},
+	StackAlignment: 16,
+	Internal: Convention{
+		Doc:         "the convention between the compiler's own functions, maxon's",
+		Prefix:      "Internal",
+		Args:        arm64Args,
+		FloatArgs:   arm64FloatArgs,
+		Result:      "x0",
+		FloatResult: "d0",
+		Error:       "x9",
+		CalleeSaved: arm64CalleeSaved,
+		CallerSaved: arm64CallerSaved,
+	},
+	Systems: []System{
+		{
+			OS: Linux,
+			// A thread's context is the value of tpidr_el0, which the entry stub sets.
+			ThreadContext: "threadRegister",
+			Host: Convention{
+				Doc:         "AAPCS64, the convention of a shared library's functions",
+				Prefix:      "Host",
+				Args:        arm64Args,
+				FloatArgs:   arm64FloatArgs,
+				Result:      "x0",
+				FloatResult: "d0",
+				CalleeSaved: arm64CalleeSaved,
+				CallerSaved: arm64CallerSaved,
+			},
+			// The kernel keeps every register but x0, the result. The table has the call lose its argument registers and
+			// the number too, as a call of every other convention loses its own, so that the allocator treats a system
+			// call as it does any call.
+			Syscall: &Convention{
+				Doc:    "a system call: the number in x8 and up to six words, the result in x0, or -errno",
+				Prefix: "Syscall",
+				Args:   []string{"x0", "x1", "x2", "x3", "x4", "x5"},
+				Result: "x0",
+				Number: "x8",
+				CalleeSaved: []string{"x6", "x7", "x9", "x10", "x11", "x12", "x13", "x14", "x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28",
+					"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15",
+					"d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31"},
+				CallerSaved: []string{"x0", "x1", "x2", "x3", "x4", "x5", "x8"},
+			},
+		},
+		{
+			OS: MacOS,
+			// A thread's context is in a slot of the thread's TSD array, which tpidrro_el0 points at, at the key that the
+			// entry stub keeps, as Windows' is in a TLS slot of the TEB.
+			ThreadContext: "tlsSlot",
+			Host: Convention{
+				Doc:             "Apple's AAPCS64, the convention of libSystem's functions, which passes every variadic argument on the stack",
+				Prefix:          "Host",
+				Args:            arm64Args,
+				FloatArgs:       arm64FloatArgs,
+				Result:          "x0",
+				FloatResult:     "d0",
+				CalleeSaved:     arm64CalleeSaved,
+				CallerSaved:     arm64CallerSaved,
+				VariadicOnStack: true,
+			},
+		},
+	},
+}
+
+// The registers of AAPCS64, which maxon's internal convention takes too: eight of each class for arguments, and the
+// callee keeps x19 to x28 and the low halves of v8 to v15, which are d8 to d15.
+var (
+	arm64Args        = []string{"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"}
+	arm64FloatArgs   = []string{"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7"}
+	arm64CalleeSaved = []string{"x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28",
+		"d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15"}
+	arm64CallerSaved = []string{"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14",
+		"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7",
+		"d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31"}
+)
+
+// Targets are every target's table that the backend compiles for, in the order their declarations are written.
 var Targets = []Target{X64}
+
+// Pending are the tables of the targets the backend does not compile for yet, whose instruction selection is not
+// written: their declarations are written beside the others', and no architecture of the target model names them.
+var Pending = []Target{Arm64}

@@ -1,0 +1,90 @@
+// The words are those of the Arm Architecture Reference Manual's encodings and of the Go toolchain's arm64 assembler,
+// which internal/arm64gen keeps and checks the table against.
+test 'arm64 encoder'
+	let x0 = Arm64Register.x0
+	let x1 = Arm64Register.x1
+	let x2 = Arm64Register.x2
+	let x16 = Arm64Register.x16
+	let x29 = Arm64Register.x29
+	let x30 = Arm64Register.x30
+	let sp = Arm64Register.sp
+	var c = ByteArray.create(0)
+	encodeArm64AddRegReg(c, dest: x0, left: x1, right: x2)
+	expectEncoded(c, expected: "2000028b", label: "addRegReg")
+	c = ByteArray.create(0)
+	encodeArm64Ldr64Off(c, dest: x0, base: sp, disp: 8)
+	expectEncoded(c, expected: "e00740f9", label: "ldr64Off")
+	c = ByteArray.create(0)
+	encodeArm64Ldr64Unscaled(c, dest: x1, base: sp, disp: -256)
+	expectEncoded(c, expected: "e10350f8", label: "ldr64Unscaled")
+	c = ByteArray.create(0)
+	encodeArm64Stp64Pre(c, first: x29, second: x30, base: sp, disp: -16)
+	expectEncoded(c, expected: "fd7bbfa9", label: "stp64Pre")
+	c = ByteArray.create(0)
+	encodeArm64Ldp64Post(c, first: x29, second: x30, base: sp, disp: 16)
+	expectEncoded(c, expected: "fd7bc1a8", label: "ldp64Post")
+	c = ByteArray.create(0)
+	encodeArm64MovzRegImm(c, dest: x16, imm: 0x1234, shift: 1)
+	expectEncoded(c, expected: "9046a2d2", label: "movzRegImm")
+	c = ByteArray.create(0)
+	encodeArm64Ldaddal(c, dest: x1, src: x30, base: x0)
+	expectEncoded(c, expected: "0100fef8", label: "ldaddal")
+	c = ByteArray.create(0)
+	encodeArm64CsetReg(c, dest: x0, cond: MCond.equal)
+	expectEncoded(c, expected: "e0179f9a", label: "csetReg")
+	c = ByteArray.create(0)
+	encodeArm64Adrp(c, dest: x30, pages: -1)
+	expectEncoded(c, expected: "fefffff0", label: "adrp")
+	c = ByteArray.create(0)
+	encodeArm64BCond(c, cond: MCond.equal, rel: 8)
+	expectEncoded(c, expected: "40000054", label: "bCond")
+	c = ByteArray.create(0)
+	encodeArm64FmovDX(c, dest: x1, src: x2)
+	expectEncoded(c, expected: "4100679e", label: "fmovDX")
+	c = ByteArray.create(0)
+	encodeArm64Ret(c)
+	expectEncoded(c, expected: "c0035fd6", label: "ret")
+end 'arm64 encoder'
+
+// The logical immediates of each element size, which the encoder finds by maxon's algorithm.
+test 'arm64 logical immediates'
+	let x1 = Arm64Register.x1
+	let x30 = Arm64Register.x30
+	var c = ByteArray.create(0)
+	encodeArm64AndRegMask(c, dest: x1, src: x30, imm: 0xFF00)
+	expectEncoded(c, expected: "c11f7892", label: "and 0xff00")
+	c = ByteArray.create(0)
+	encodeArm64AndRegMask(c, dest: x1, src: x30, imm: 0x5555555555555555)
+	expectEncoded(c, expected: "c1f30092", label: "and 0x5555555555555555")
+	c = ByteArray.create(0)
+	encodeArm64AndRegMask(c, dest: x1, src: x30, imm: -4294967296)
+	expectEncoded(c, expected: "c17f6092", label: "and 0xffffffff00000000")
+	c = ByteArray.create(0)
+	encodeArm64AndRegMask(c, dest: x1, src: x30, imm: -2)
+	expectEncoded(c, expected: "c1fb7f92", label: "and -2")
+	c = ByteArray.create(0)
+	encodeArm64AndRegMask(c, dest: x1, src: x30, imm: 0x0F0F0F0F0F0F0F0F)
+	expectEncoded(c, expected: "c1cf0092", label: "and 0x0f0f0f0f0f0f0f0f")
+	if arm64IsLogicalImmediate(10) or arm64IsLogicalImmediate(0) or arm64IsLogicalImmediate(-1) or not arm64IsLogicalImmediate(1) 'logical'
+		panic("arm64IsLogicalImmediate: 10, 0 and -1 are no logical immediates, and 1 is one")
+	end 'logical'
+end 'arm64 logical immediates'
+
+// A word is set in the fewest moves of a halfword, from 0s or from ones.
+test 'arm64 move immediate'
+	let x0 = Arm64Register.x0
+	let x1 = Arm64Register.x1
+	let x2 = Arm64Register.x2
+	var c = ByteArray.create(0)
+	encodeArm64MovImm(c, dest: x0, value: 0)
+	expectEncoded(c, expected: "000080d2", label: "mov 0")
+	c = ByteArray.create(0)
+	encodeArm64MovImm(c, dest: x0, value: -1)
+	expectEncoded(c, expected: "00008092", label: "mov -1")
+	c = ByteArray.create(0)
+	encodeArm64MovImm(c, dest: x1, value: 0x12345678)
+	expectEncoded(c, expected: "01cf8ad28146a2f2", label: "mov 0x12345678")
+	c = ByteArray.create(0)
+	encodeArm64MovImm(c, dest: x2, value: -65536)
+	expectEncoded(c, expected: "e2ff9f92", label: "mov -0x10000")
+end 'arm64 move immediate'

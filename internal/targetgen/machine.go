@@ -214,7 +214,7 @@ func generateMachine(targets []target.Target, machines []isa.ISA) (string, error
 	}
 	archFunction(&b, "classMask", "every register of a class of an architecture's register file", ", class RegClass", "RegMask", machines, func(m isa.ISA) string { return classMasks(m, false) })
 	archFunction(&b, "allocatable", "the registers of a class of an architecture that a value may be given: those that are not reserved", ", class RegClass", "RegMask", machines, func(m isa.ISA) string { return classMasks(m, true) })
-	archFunction(&b, "reservedOf", "the registers of an architecture that hold the stack and the frame, which no value is given", "", "RegMask", machines, func(m isa.ISA) string {
+	archFunction(&b, "reservedOf", "the registers of an architecture that no value is given: those that hold the stack and the frame, and those the code or the system keeps for itself", "", "RegMask", machines, func(m isa.ISA) string {
 		mask, err := byTarget(m.Name()).Mask(byTarget(m.Name()).Reserved)
 		if err != nil {
 			failed = err
