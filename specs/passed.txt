@@ -1584,6 +1584,11 @@ field-visibility-is-directory-scoped.md: an-extension-in-the-types-own-file-reac
 field-visibility-is-directory-scoped.md: another-type-in-the-same-file-reads-an-unmarked-field
 field-visibility-is-directory-scoped.md: another-type-in-the-same-file-writes-an-unmarked-field
 field-visibility-is-directory-scoped.md: own-type-reaches-its-own-private-field
+file-info.md: file-info.basic-size
+file-info.md: file-info.empty-file
+file-info.md: file-info.not-found
+file-info.md: file-info.read-only
+file-info.md: file-info.timestamps
 file-io.md: read-nonexistent-file
 file-io.md: read-text-file
 file-io.md: read-text-of-a-missing-file-throws-not-found
