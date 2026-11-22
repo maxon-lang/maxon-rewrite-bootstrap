@@ -106,7 +106,7 @@ function addExtensionMethod(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	end 'dup'
 	let fid = newFuncEntry(c, p: p, ms: ms, f: m, ownerTy: nt, ref: ast.DeclRef.make(c.modID, ordinal: 0 as ast.DeclOrdinal))
 	if ast.typeKind(ms.types, reads: p.types, t: key) == ast.TypeKind.interfaceTy 'ofInterface'
-		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].extendedIface = key
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].extendedIface = key
 	end 'ofInterface'
 	ms.tables.extMethods.push(ast.ExtMethod.make(key, name: m.name.clone(), func: fid))
 	addFunction(c, p: p, ms: ms, f: m, fid: fid, nt: nt, declared: declared, errs: errs)
@@ -114,7 +114,7 @@ function addExtensionMethod(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	for i in 0 upto xd.whereList.count() 'conditions'
 		conditional = try conditional + ms.tree.listLen(xd.whereList[i].bounds) otherwise panic("too many bounds")
 	end 'conditions'
-	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].conditionalBounds = conditional
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].conditionalBounds = conditional
 end 'addExtensionMethod'
 
 // declareExtension declares the methods and the conformances an extension adds, under the key of the type it extends.

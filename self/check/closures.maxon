@@ -190,8 +190,8 @@ function enterClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	for i in 0 upto types.count() 'params'
 		let param = ms.tree.listAt(paramsRef, index: i) as ast.NodeID
 		let name = ast.closureParamName(ms.tree, id: param)
-		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
-		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].paramTypes.push(types[i])
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].paramTypes.push(types[i])
 		if name == "_" 'anonymous'
 			ast.pushParamLocal(ms, f: fid, l: ast.noLocal)
 			continue 'params'
@@ -233,7 +233,7 @@ function inferResult(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if isConstInt(p, ms: ms, t: t) 'bare'
 		result = p.builtins.anon64Ty
 	end 'bare'
-	ms.funcs.entries[ast.funcIndex(ms.funcs, f: c.fn)].retTy = result
+	ms.funcs.lists[ast.funcList(ms.funcs, f: c.fn)][ast.funcIndex(ms.funcs, f: c.fn)].retTy = result
 	return result
 end 'inferResult'
 

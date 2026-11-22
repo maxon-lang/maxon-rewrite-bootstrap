@@ -55,7 +55,7 @@ enum TaskState
 end 'TaskState'
 
 // Task is a stage of one module, or of the project, with its inputs: the tasks whose results it reads, a range of the
-// graph's inputs. The errors it found are a range of the compile's error list.
+// graph's inputs. The errors it found are a list of its own (Run.errors), part of its product.
 type Task
 	var stage as Stage
 	// module is the module of a stage of one module, and nothing for a stage of the project.
@@ -63,11 +63,9 @@ type Task
 	var firstInput as Count
 	var inputCount as Count
 	var state as TaskState
-	var firstError as Count
-	var errorCount as Count
 
 	static function make(stage Stage, module Count, firstInput Count, inputCount Count) returns Task
-		return Task{stage: stage, module: module, firstInput: firstInput, inputCount: inputCount, state: TaskState.waiting, firstError: 0, errorCount: 0}
+		return Task{stage: stage, module: module, firstInput: firstInput, inputCount: inputCount, state: TaskState.waiting}
 	end 'make'
 end 'Task'
 
@@ -248,9 +246,22 @@ type Run
 	var earlierErrors as Count
 	// timings holds the time of each stage and module when --timings asks for it.
 	var timings as Timings
+	// inputs are what of each slot of the tables the running task waited on (taskInputs), which the task's lend takes in.
+	var inputs as ast.Inputs
+	// current is the running task.
+	var current as Count
+	// errors are the errors each task found, by task, which the compile's list takes in task order when it ends.
+	var errors as ErrorLists
+	// verifiesReads is whether each task of a module runs in a view of the products of the tasks it waited on (--verify-reads):
+	// resolvedTrees are then the trees the resolve made, by module, which a task that did not wait on a module's bodies reads
+	// in place of the one its bodies made, and viewed the modules whose tree the running task's view holds so.
+	var verifiesReads as bool
+	var resolvedTrees as Array with ast.Tree
+	var keptTrees as Reached
+	var viewed as TaskIDs
 
 	static function make(goal Goal, first Count, makesProgram bool, modules Count) returns Run
-		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), leaves: opt.LeavesList.create(0), fallbacks: ir.FallbacksList.create(0), keepsLowered: false, reversesModules: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off()}
+		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), kept: backend.FunctionLists.create(0), leaves: opt.LeavesList.create(0), fallbacks: ir.FallbacksList.create(0), keepsLowered: false, reversesModules: false, units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off(), inputs: ast.Inputs.new(), current: 0, errors: ErrorLists.create(0), verifiesReads: false, resolvedTrees: Array.create(0), keptTrees: Reached.create(0), viewed: TaskIDs.create(0)}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors.
@@ -288,6 +299,11 @@ function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles
 	var run = Run.make(goal, first: first, makesProgram: makesProgram, modules: p.modules.count())
 	run.keepsLowered = options.keepsLowered
 	run.reversesModules = options.reversesModules
+	run.verifiesReads = options.verifiesReads
+	for m in 0 upto p.modules.count() 'trees'
+		run.resolvedTrees.push(ast.Tree.new(p.modules[m].id, text: ""))
+		run.keptTrees.push(false)
+	end 'trees'
 	run.earlierErrors = errs.count()
 	if options.timings 'timed'
 		run.timings = Timings.start(Stage.allCaseNames, modules: p.modules.count())
@@ -329,6 +345,8 @@ function reportTimings(run Run, p ast.Project, first Count)
 	printError(run.timings.report("compile timings, goal {run.goal}", names: names, first: first))
 end 'reportTimings'
 
+typealias ErrorLists = Array with diag.ErrorList
+
 // execute runs the tasks in order, the ones that a task adds as well. A task is skipped when an input was, or failed in an
 // earlier phase: a module whose dependency failed stops. A task of a later phase than the earliest that failed is skipped
 // too, since its errors would not be reported.
@@ -338,15 +356,17 @@ function execute(mutates run Run, mutates p ast.Project, memory project.SourceFi
 		if mustSkip(run.graph, task: t, failed: run.failed, failedPhase: run.failedPhase) 'skip'
 			run.graph.tasks[t].state = TaskState.skipped
 		end 'skip' else 'run'
-			let mark = errs.count()
+			var taskErrors = diag.ErrorList.create(0)
 			if run.timings.enabled 'timed'
-				runTimedTask(run, p: p, task: t, memory: memory, output: output, options: options, ready: ready, errs: errs)
+				runTimedTask(run, p: p, task: t, memory: memory, output: output, options: options, ready: ready, errs: taskErrors)
 			end 'timed' else 'untimed'
-				runTask(run, p: p, task: t, memory: memory, output: output, options: options, ready: ready, errs: errs)
+				runTask(run, p: p, task: t, memory: memory, output: output, options: options, ready: ready, errs: taskErrors)
 			end 'untimed'
-			let found = try errs.count() - mark otherwise panic("driver: a task took errors out of the list")
-			run.graph.tasks[t].firstError = mark
-			run.graph.tasks[t].errorCount = found
+			let found = taskErrors.count()
+			while run.errors.count() <= t 'room'
+				run.errors.push(diag.ErrorList.create(0))
+			end 'room'
+			run.errors[t] = taskErrors
 			run.graph.tasks[t].state = TaskState.done
 			if found > 0 'failed'
 				run.graph.tasks[t].state = TaskState.failed
@@ -359,7 +379,7 @@ function execute(mutates run Run, mutates p ast.Project, memory project.SourceFi
 		end 'run'
 		t = try t + 1 otherwise panic("driver: more tasks than memory")
 	end 'tasks'
-	ast.endTasks(p.types)
+	ast.verifyReads(p.types, ft: p.funcs, verifies: false, visible: ast.Inputs.new())
 end 'execute'
 
 function mustSkip(graph TaskGraph, task Count, failed bool, failedPhase Count) returns bool
@@ -407,29 +427,71 @@ function isModuleStage(stage Stage) returns bool
 	end 's'
 end 'isModuleStage'
 
-// frozenStage is the stage of the modules a module's stage waited on whose shapes it reads: its own, for a stage that waits
-// for the same stage of the modules it names (or reads none of theirs), and the lower for the emit, which waits for every
-// module's lower; what a module's later stages make is not read, so the order the tasks run in cannot change it.
-function frozenStage(stage Stage) returns Stage
+// phaseOfStage is the phase of a stage of one module: the segment of its module's slots that its task writes, which is its
+// product.
+function phaseOfStage(stage Stage) returns ast.Phase
 	match stage 's'
-		parse then return Stage.parse
+		parse then return ast.Phase.parse
 		parsed then panic("driver: parsed is a stage of the project")
-		resolve then return Stage.resolve
+		resolve then return ast.Phase.resolve
 		order then panic("driver: order is a stage of the project")
-		aliases then return Stage.aliases
-		declare then return Stage.declare
+		aliases then return ast.Phase.aliases
+		declare then return ast.Phase.declare
 		entry then panic("driver: entry is a stage of the project")
-		constantOrder then return Stage.constantOrder
-		constants then return Stage.constants
-		bodies then return Stage.bodies
-		verify then return Stage.verify
+		constantOrder then return ast.Phase.constantOrder
+		constants then return ast.Phase.constants
+		bodies then return ast.Phase.bodies
+		verify then return ast.Phase.verify
 		endCheck then panic("driver: endCheck is a stage of the project")
-		lower then return Stage.lower
+		lower then return ast.Phase.lower
 		program then panic("driver: program is a stage of the project")
-		emit then return Stage.lower
+		emit then return ast.Phase.emit
 		link then panic("driver: link is a stage of the project")
 	end 's'
-end 'frozenStage'
+end 'phaseOfStage'
+
+typealias Reached = Array with bool
+
+// taskInputs are what of each slot of the tables a task reads: of each module the compile compiles, the segments of the
+// stages of it that the task waited on, directly or through the tasks it waited on, and every segment of the others,
+// whose stages ended before the compile's tasks were added. To an executor of behaviours they are the frozen segments
+// that the task's behaviour captures.
+function taskInputs(run Run, p ast.Project, task Count) returns ast.Inputs
+	var inputs = ast.Inputs.new()
+	for m in run.first upto p.modules.count() 'compiled'
+		inputs.waited(ast.moduleSlot(p.modules[m].id), count: 0)
+	end 'compiled'
+	var reached = Reached.filled(run.graph.tasks.count(), value: false)
+	var pending = TaskIDs.create(0)
+	pending.push(task)
+	while pending.count() > 0 'reach'
+		let at = try pending.pop() otherwise panic("driver: a task was taken off an empty list")
+		let start = run.graph.tasks[at].firstInput
+		let stop = try start + run.graph.tasks[at].inputCount otherwise panic("driver: a task's inputs end past memory")
+		for i in start upto stop 'inputs'
+			let input = run.graph.inputs[i]
+			if not reached[input] 'new'
+				reached[input] = true
+				pending.push(input)
+				if isModuleStage(run.graph.tasks[input].stage) 'ofModule'
+					let slot = ast.moduleSlot(p.modules[run.graph.tasks[input].module].id)
+					let count = try phaseOfStage(run.graph.tasks[input].stage).ordinal + 1 otherwise panic("driver: a phase past memory")
+					if count > inputs.of(slot, present: count) 'later'
+						inputs.waited(slot, count: count)
+					end 'later'
+				end 'ofModule'
+			end 'new'
+		end 'inputs'
+	end 'reach'
+	return inputs
+end 'taskInputs'
+
+// lendTask lends the running task, of a stage of module m, its module's state, with what lent says of the module.
+function lendTask(run Run, mutates p ast.Project, m Count, lent ast.Lent) returns ast.ModuleState
+	let stage = run.graph.tasks[run.current].stage
+	let module = p.modules[m].id
+	return ast.lendModule(p, module: module, lent: lent, phase: phaseOfStage(stage), inputs: run.inputs)
+end 'lendTask'
 
 // runTimedTask is runTask with its wall time added to the compile's timings.
 function runTimedTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
@@ -448,15 +510,66 @@ end 'runTimedTask'
 // runTask runs one task: every stage's work starts and ends here.
 function runTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
 	let m = run.graph.tasks[task].module
-	if isModuleStage(run.graph.tasks[task].stage) 'ofModule'
-		ast.beginModuleTask(p.types, module: p.modules[m].id, phase: frozenStage(run.graph.tasks[task].stage).ordinal)
-	end 'ofModule' else 'ofProject'
-		ast.beginProjectTask(p.types)
-	end 'ofProject'
+	run.current = task
+	let ofModule = isModuleStage(run.graph.tasks[task].stage)
+	if ofModule 'inputs'
+		run.inputs = taskInputs(run, p: p, task: task)
+		run.inputs.reader = "the {run.graph.tasks[task].stage} of module {m} ({p.modules[m].path})"
+	end 'inputs' else 'whole'
+		run.inputs = ast.Inputs.new()
+	end 'whole'
+	let verifies = run.verifiesReads and ofModule
+	ast.verifyReads(p.types, ft: p.funcs, verifies: verifies, visible: run.inputs)
+	if verifies 'view'
+		ast.enterView(p.types, ft: p.funcs, own: p.modules[m].id, visible: run.inputs)
+		viewTrees(run, p: p, own: m)
+	end 'view'
+	runStage(run, p: p, task: task, memory: memory, output: output, options: options, ready: ready, errs: errs)
+	if verifies 'leave'
+		ast.leaveView(p.types, ft: p.funcs)
+		swapViewedTrees(run, p: p)
+		run.viewed = TaskIDs.create(0)
+	end 'leave'
+end 'runTask'
+
+// viewTrees makes the view of the running task, of a stage of module own, hold the tree the resolve made of each module
+// whose bodies it did not wait on and that ran (a task of the bodies keeps it, keepResolvedTree).
+function viewTrees(mutates run Run, mutates p ast.Project, own Count)
+	let bodies = try ast.Phase.bodies.ordinal + 1 otherwise panic("driver: a phase past memory")
+	for a in run.first upto p.modules.count() 'modules'
+		let waited = run.inputs.of(ast.moduleSlot(p.modules[a].id), present: bodies)
+		if a != own and waited < bodies and run.keptTrees[a] 'resolved'
+			run.viewed.push(a)
+		end 'resolved'
+	end 'modules'
+	swapViewedTrees(run, p: p)
+end 'viewTrees'
+
+// swapViewedTrees swaps the tree of each module of the view with the one the resolve made.
+function swapViewedTrees(mutates run Run, mutates p ast.Project)
+	for i in 0 upto run.viewed.count() 'viewed'
+		let a = run.viewed[i]
+		let bodies = exchange(p.modules[a].tree, value: ast.Tree.new(p.modules[a].id, text: ""))
+		p.modules[a].tree = exchange(run.resolvedTrees[a], value: bodies)
+	end 'viewed'
+end 'swapViewedTrees'
+
+// keepResolvedTree keeps the tree the resolve made of module m, whose bodies begin, for the views of tasks that do not wait on
+// them.
+function keepResolvedTree(mutates run Run, p ast.Project, m Count)
+	if run.verifiesReads 'verifies'
+		run.resolvedTrees[m] = p.modules[m].tree.clone()
+		run.keptTrees[m] = true
+	end 'verifies'
+end 'keepResolvedTree'
+
+// runStage runs the work of a task's stage.
+function runStage(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
+	let m = run.graph.tasks[task].module
 	match run.graph.tasks[task].stage 's'
-		parse then parseTask(p, m: m, memory: memory, errs: errs)
+		parse then parseTask(run, p: p, m: m, memory: memory, errs: errs)
 		parsed then return
-		resolve then resolveTask(p, m: m, errs: errs)
+		resolve then resolveTask(run, p: p, m: m, errs: errs)
 		order then orderModules(run, p: p, errs: errs)
 		aliases then checkTask(run, p: p, m: m, stage: Stage.aliases, errs: errs)
 		declare then checkTask(run, p: p, m: m, stage: Stage.declare, errs: errs)
@@ -471,23 +584,18 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, memory proj
 		emit then emitModule(run, p: p, m: m, options: options, errs: errs)
 		link then linkUnits(run, p: p, output: output, options: options, ready: ready)
 	end 's'
-	if isModuleStage(run.graph.tasks[task].stage) 'ended'
-		ast.endModuleTask(p.types, module: p.modules[m].id, phase: run.graph.tasks[task].stage.ordinal)
-	end 'ended'
-end 'runTask'
+end 'runStage'
 
 // parseTask parses module m into the module the task is lent, which it gives the project when it ends.
-function parseTask(mutates p ast.Project, m Count, memory project.SourceFiles, mutates errs diag.ErrorList)
-	let module = p.modules[m].id
-	var ms = ast.lendModule(p, module: module, lent: ast.Lent.source)
+function parseTask(run Run, mutates p ast.Project, m Count, memory project.SourceFiles, mutates errs diag.ErrorList)
+	var ms = lendTask(run, p: p, m: m, lent: ast.Lent.source)
 	project.parseModule(ms, p: p, memory: memory, errs: errs)
 	ast.giveBack(p, ms: ms)
 end 'parseTask'
 
 // resolveTask resolves module m, whose tree and resolution it is lent.
-function resolveTask(mutates p ast.Project, m Count, mutates errs diag.ErrorList)
-	let module = p.modules[m].id
-	var ms = ast.lendModule(p, module: module, lent: ast.Lent.tree)
+function resolveTask(run Run, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
+	var ms = lendTask(run, p: p, m: m, lent: ast.Lent.tree)
 	resolve.resolveModule(ms, p: p, errs: errs)
 	ast.giveBack(p, ms: ms)
 end 'resolveTask'
@@ -496,7 +604,10 @@ end 'resolveTask'
 // what the stage writes, and the project is what it reads of the modules it waited on.
 function checkTask(mutates run Run, mutates p ast.Project, m Count, stage Stage, mutates errs diag.ErrorList)
 	let module = p.modules[m].id
-	run.checks.modules[m].unit = ast.lendModule(p, module: module, lent: ast.Lent.tree)
+	if stage == Stage.bodies 'bodies'
+		keepResolvedTree(run, p: p, m: m)
+	end 'bodies'
+	run.checks.modules[m].unit = lendTask(run, p: p, m: m, lent: ast.Lent.tree)
 	match stage 's'
 		parse then panic("driver: the parse is no stage of the check")
 		parsed then panic("driver: parsed is no stage of the check")
@@ -516,6 +627,9 @@ function checkTask(mutates run Run, mutates p ast.Project, m Count, stage Stage,
 		link then panic("driver: the link is a stage of the project")
 	end 's'
 	ast.giveBack(p, ms: exchange(run.checks.modules[m].unit, value: ast.ModuleState.idle(module)))
+	if stage == Stage.verify 'typed'
+		check.giveTyping(run.checks.modules[m], p: p)
+	end 'typed'
 end 'checkTask'
 
 // orderModules sorts the modules by what they name, each after the modules it names, and adds the tasks of the check and of
@@ -659,8 +773,7 @@ end 'endCheckTask'
 function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Options, mutates errs diag.ErrorList)
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is lowered again")
 	var found = diag.ErrorList.create(0)
-	let module = p.modules[m].id
-	var ms = ast.lendModule(p, module: module, lent: ast.Lent.tables)
+	var ms = lendTask(run, p: p, m: m, lent: ast.Lent.tables)
 	if lowersBodies(run.goal) 'lower'
 		run.lowered[slot] = ir.lowerModule(p, ms: ms, functions: run.checked.functions[m], callers: run.checked.callers[m], errs: found)
 	end 'lower' else 'instances'
@@ -725,8 +838,7 @@ end 'holdProgram'
 
 function emitModule(mutates run Run, mutates p ast.Project, m Count, options Options, mutates errs diag.ErrorList)
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is emitted again")
-	let module = p.modules[m].id
-	var ms = ast.lendModule(p, module: module, lent: ast.Lent.tables)
+	var ms = lendTask(run, p: p, m: m, lent: ast.Lent.tables)
 	let unit = backend.emitModule(p, ms: ms, fns: run.lowered[slot], fallbacks: run.fallbacks[slot], verifies: options.verifyIr, clock: run.timings.emit, errs: errs)
 	ast.giveBack(p, ms: ms)
 	run.units[slot] = unit
@@ -750,8 +862,9 @@ function linkUnits(mutates run Run, mutates p ast.Project, output String, option
 	try backend.compileProgram(p, modules: units, ready: ready, entry: run.checked.entry, options: backend.RuntimeOptions.make(options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {output}")
 end 'linkUnits'
 
-// keepEarliestErrors keeps the errors that the list held at the start and those of the earliest phase that has any; of a
-// phase that reports the first module only, those of the first module in module order that has any.
+// keepEarliestErrors keeps the errors that the list held at the start and, in task order, those of the tasks of the earliest
+// phase that has any; of a phase that reports the first module only, those of the first module in module order that has
+// any. A loop that the register allocator refuses in a generic is refused once, however many modules' instances meet it.
 function keepEarliestErrors(run Run, mutates errs diag.ErrorList)
 	if not run.failed 'clean'
 		return
@@ -777,14 +890,27 @@ function keepEarliestErrors(run Run, mutates errs diag.ErrorList)
 		if reportsFirstModule(run.graph.tasks[t].stage) and t != reported 'notFirst'
 			continue 'tasks'
 		end 'notFirst'
-		let start = run.graph.tasks[t].firstError
-		let stop = try start + run.graph.tasks[t].errorCount otherwise panic("driver: a task's errors end past memory")
-		for i in start upto stop 'errors'
-			kept.push(errs[i].clone())
+		for i in 0 upto run.errors[t].count() 'errors'
+			if not refusedAlready(kept, e: run.errors[t][i]) 'new'
+				kept.push(run.errors[t][i].clone())
+			end 'new'
 		end 'errors'
 	end 'tasks'
 	errs = kept
 end 'keepEarliestErrors'
+
+// refusedAlready is whether kept holds the register allocator's refusal e already, with its place and message.
+function refusedAlready(kept diag.ErrorList, e diag.CompileError) returns bool
+	if e.code != diag.errRegisterPressure 'other'
+		return false
+	end 'other'
+	for i in 0 upto kept.count() 'kept'
+		if kept[i].code == e.code and kept[i].site.module == e.site.module and kept[i].site.offset == e.site.offset and kept[i].message == e.message 'same'
+			return true
+		end 'same'
+	end 'kept'
+	return false
+end 'refusedAlready'
 
 // isReported is whether a task failed in the earliest phase that any did.
 function isReported(run Run, task Count) returns bool

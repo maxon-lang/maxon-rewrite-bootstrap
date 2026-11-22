@@ -552,7 +552,7 @@ function allocShellTypeParams(mutates ms ast.ModuleState, p ast.Project, modID d
 		end 'dup'
 		seen.insert(tpName.clone(), value: true)
 		let tpEntry = ast.TypeEntry.make(ast.TypeKind.typeParam, name: tpName)
-		let tpTid = ast.allocType(ms.types, module: modID, e: tpEntry)
+		let tpTid = ast.allocShell(ms.types, module: modID, e: tpEntry, completer: ast.Phase.declare)
 		ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].typeParams.push(tpTid)
 	end 'each'
 end 'allocShellTypeParams'
@@ -577,7 +577,7 @@ function allocRecordShell(mutates ms ast.ModuleState, p ast.Project, ref ast.Dec
 	e.hasDecl = true
 	e.decl = ref.clone()
 	e.isNoncopyable = td.isNoncopyable
-	let tid = ast.allocType(ms.types, module: ref.module, e: e)
+	let tid = ast.allocShell(ms.types, module: ref.module, e: e, completer: ast.Phase.declare)
 	allocShellTypeParams(ms, p: p, modID: ref.module, tid: tid, tps: td.typeParams, errs: errs)
 	ast.setDeclType(ms, ref: ref, t: tid)
 end 'allocRecordShell'
@@ -586,7 +586,7 @@ function allocEnumShell(mutates ms ast.ModuleState, p ast.Project, ref ast.DeclR
 	var e = ast.TypeEntry.make(ast.TypeKind.enumTy, name: ed.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let tid = ast.allocType(ms.types, module: ref.module, e: e)
+	let tid = ast.allocShell(ms.types, module: ref.module, e: e, completer: ast.Phase.declare)
 	ast.setDeclType(ms, ref: ref, t: tid)
 end 'allocEnumShell'
 
@@ -595,7 +595,7 @@ function allocUnionShell(mutates ms ast.ModuleState, p ast.Project, ref ast.Decl
 	e.hasDecl = true
 	e.decl = ref.clone()
 	e.isNoncopyable = ud.isNoncopyable
-	let tid = ast.allocType(ms.types, module: ref.module, e: e)
+	let tid = ast.allocShell(ms.types, module: ref.module, e: e, completer: ast.Phase.declare)
 	allocShellTypeParams(ms, p: p, modID: ref.module, tid: tid, tps: ud.typeParams, errs: errs)
 	ast.setDeclType(ms, ref: ref, t: tid)
 end 'allocUnionShell'
@@ -604,7 +604,7 @@ function allocIfaceShell(mutates ms ast.ModuleState, p ast.Project, ref ast.Decl
 	var e = ast.TypeEntry.make(ast.TypeKind.interfaceTy, name: ifd.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let tid = ast.allocType(ms.types, module: ref.module, e: e)
+	let tid = ast.allocShell(ms.types, module: ref.module, e: e, completer: ast.Phase.declare)
 	allocShellTypeParams(ms, p: p, modID: ref.module, tid: tid, tps: ifd.typeParams, errs: errs)
 	ast.setDeclType(ms, ref: ref, t: tid)
 end 'allocIfaceShell'
@@ -885,7 +885,7 @@ end 'discoverSingleFile'
 export function parseModules(mutates p ast.Project, first Count, memory SourceFiles, mutates errs diag.ErrorList)
 	for i in first upto p.modules.count() 'each'
 		let module = p.modules[i].id
-		var ms = ast.lendModule(p, module: module, lent: ast.Lent.source)
+		var ms = ast.lendModule(p, module: module, lent: ast.Lent.source, phase: ast.Phase.parse, inputs: ast.Inputs.new())
 		parseModule(ms, p: p, memory: memory, errs: errs)
 		ast.giveBack(p, ms: ms)
 	end 'each'

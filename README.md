@@ -93,7 +93,10 @@ SSA, `--verify-ir`'s checks and encoding, each by its share of the stage; the cl
 development, and `minimaxon test` always uses it. `--reverse-modules` (development only) runs the modules of each stage
 in another order that still puts each after the modules it names: the modules that name nothing of each other in the
 reverse of their usual order. The executable must be byte for byte the one a plain build makes, since nothing a module
-makes depends on when it runs. `--update-positions` makes `test` rewrite the `at L:C` of an
+makes depends on when it runs. `--verify-reads` (development only) runs each task of a module in a view of the tables
+and trees that holds only the products of the stages it waited on, as an executor of behaviours would give it, and stops
+the compile at a read of a type or function entry that none of them holds; the output must be the same as without it
+(`check.ps1` checks `self` with it). `--update-positions` makes `test` rewrite the `at L:C` of an
 `expect-error` whose code was reported at another place, and count the test as passed.
 
 ### Tests
@@ -516,7 +519,7 @@ it reaches; the lower of a module reads the optimized IR and the leaves of the m
 input failed in an earlier stage, or was skipped, does not (a module whose dependency failed stops).
 
 **What a stage is given.** A stage of a module takes its module's state `mutates`, the project `p` read-only, and the error
-list: the parse (`project.parseModule`), the resolve (`resolve.resolveModule`) and the lower (`ir.lowerModule`,
+list of its task: the parse (`project.parseModule`), the resolve (`resolve.resolveModule`) and the lower (`ir.lowerModule`,
 `ir.findInstances`) an `ast.ModuleState`, a stage of the check (`check.moduleAliases` to `check.moduleVerify`) a
 `check.ModuleState`, which holds one (`unit`) with the checker's state of the module. An `ast.ModuleState` holds what the task
 writes of the model, which the driver lends out of the project for the task and takes back when it ends (`ast.lendModule`,
@@ -528,27 +531,51 @@ other slot, which the task reads through `p`. Every read of an entry goes throug
 task holds and the project's table, and finds the entry in one or the other: `ast.typeEntry(ms.types, reads: p.types, t: t)`
 and `ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f)`, functions that return a borrowed place (see "Ownership"), and
 `ast.typeKind`; a write indexes the task's own slot, `ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types,
-t: t)]` or `ms.funcs.entries[ast.funcIndex(ms.funcs, f: f)]`, whose accessors stop the compile with an internal error for an
-entry of another slot. Every function of `ast` and of the stages that reads entries takes the pair (`tt`, `reads`; `ft`,
-`funcReads`), and one that makes entries takes the slot `mutates`. The task also holds the module's `ModuleTables` (the type,
-function and constant of each declaration, the locals its bodies bind, and what its extensions add to types) and its
-`Resolution`; and what else of the module its stage writes (`ast.Lent`): the whole module it makes for the parse (`source`),
-the tree for the resolve and the check (`tree`: the resolve rewrites qualified names in it and the bodies stage desugars
-into it), nothing more for the lower and the emit (`tables`), which read every module's tree in the project as the check
-left it. A stage reads its own module's lent parts in its state and every other module's in the project, through the
-accessors of the module tables (`ast.declType`, `ast.declFunc`, `ast.paramType`, `ast.nodeFunc`, `ast.declConst`,
-`ast.rawTypeOf`, `ast.receiverLocal`, `ast.paramLocal`), of the extensions (`ast.extensionMethod` and the rest) and of the
-modules a module names (`ast.namedCount`, `ast.namedModule`), each taking the state; the tables a project holds while a task
-holds them refuse a read (`ModuleTables.requireHeld`), and a setter refuses a module other than the state's (`requireOwn`).
-Every function that writes takes the state `mutates` (`ms`) and the project read-only; one that only reads takes the state
-read-only. What runs outside the tasks and reads the tables (the IR printer and verifier after the lower, the interpreter,
-`ast.typeLinkName`) passes `ast.TypeSlot.none()` and `ast.FuncSlot.none()`, the slots of no module, with the project's
-tables, which then hold every slot; work outside the tasks that makes an entry lends the slot it makes it in
-(`ast.lendProject`, `ast.makeType`, `ast.makeFunc`). What a stage reads of another module's shapes is what that module's
-stage it waited on had made when it ended (`TypeSlot.ends`), so the order the tasks run in cannot change it. The emit
-(`backend.emitModule`) takes its module's state as the lower does, and the link the state of the project; only the work
+t: t)]` or `ms.funcs.lists[ast.funcList(ms.funcs, f: f)][ast.funcIndex(ms.funcs, f: f)]`, whose accessors stop the compile
+with an internal error for an entry of another slot or of a segment that is complete (below). Every function of `ast` and of
+the stages that reads entries takes the pair (`tt`, `reads`; `ft`, `funcReads`), and one that makes entries takes the slot
+`mutates`. The task also holds the module's `ModuleTables` (the type, function and constant of each declaration, the locals
+its bodies bind, and what its extensions add to types) and its `Resolution`; and what else of the module its stage writes
+(`ast.Lent`): the whole module it makes for the parse (`source`), the tree for the resolve and the check (`tree`: the resolve
+rewrites qualified names in it, and the bodies stage desugars into a copy of it, `ast.lendTree`, so that the tree the resolve
+made is never written again), nothing more for the lower and the emit (`tables`), which read every module's tree in the
+project as the check left it. A stage reads its own module's lent parts in its state and every other module's in the
+project, through the accessors of the module tables (`ast.declType`, `ast.declFunc`, `ast.paramType`, `ast.nodeFunc`,
+`ast.declConst`, `ast.rawTypeOf`, `ast.receiverLocal`, `ast.paramLocal`), of the extensions (`ast.extensionMethod` and the
+rest) and of the modules a module names (`ast.namedCount`, `ast.namedModule`), each taking the state; the tables a project
+holds while a task holds them refuse a read (`ModuleTables.requireHeld`), and a setter refuses a module other than the
+state's (`requireOwn`). Every function that writes takes the state `mutates` (`ms`) and the project read-only; one that only
+reads takes the state read-only. What runs outside the tasks and reads the tables (the IR printer and verifier after the
+lower, the interpreter, `ast.typeLinkName`) passes `ast.TypeSlot.none()` and `ast.FuncSlot.none()`, the slots of no module,
+with the project's tables, which then hold every slot; work outside the tasks that makes an entry lends the slot it makes it
+in (`ast.lendProject`, `ast.makeType`, `ast.makeFunc`), in a segment after every one the slot has (`ast.laterSegment`). The
+emit (`backend.emitModule`) takes its module's state as the lower does, and the link the state of the project; only the work
 of the project as a whole (the order, the end of the check, the link) still takes the project `mutates`, to lend from it.
 
+**What a stage makes.** Each stage's product is a set of values that are complete when its task ends and that no later
+task writes, so that an executor of behaviours can freeze them then and give each task a share of the ones it waited on.
+A slot's entries are kept by segment (`ast.Phase`: one for each stage of a module, at the phase's ordinal; in slot 0 the
+built-ins' and, from `Phase.project` on, one for each task of the project that made entries): a list of the nominal types,
+one of the shapes and one of the functions whose entries the stage completes, which a handle names in its bits 48-55
+(`ast.TypeSlot.lists`, `ast.FuncSlot.lists`). A stage makes its entries in its own segment, except the parse, which makes the
+shell of a declared type, and of its type parameters, in the segment of the stage that fills it in (`ast.allocShell`: the
+declare, or the aliases for a ranged, bits or float alias), so that no write reaches an entry of a segment whose stage has
+ended (`requireOpen`, an internal error). What the parse leaves of those later segments is its product too: at the end of
+each task the slot keeps a copy of each later segment's list as the task left it (`ast.Shell`, `returnTypeSlot`), which a
+task that waited on the parse and not on the declare reads in its place, as the aliases of a module read the shells of the
+generics of the modules it names. The tree the resolve made is its product and the one the bodies made theirs; the typing
+is the verify's, which its task gives the project when it ends (`check.giveTyping`); the errors are the task's own list
+(`Run.errors`), which the compile's list takes in task order when the compile ends, so the diagnostics do not depend on the
+order the tasks ran in, and a refusal of the register allocator that two modules' instances of one generic meet is kept
+once (`refusedAlready`). What a task reads is its inputs (`ast.Inputs`, `taskInputs` in the driver): by slot, how many
+segments, those of the stages of each module that it waited on, directly or through the tasks it waited on, and every
+segment of a module that an earlier compile compiled; its slot's index of shapes takes in the shapes of those segments when
+the task is lent its slot (`importShapes`), so a read is one probe, and what a stage it did not wait on made is never seen.
+`--verify-reads` gives each task of a module exactly that view (`ast.enterView`, and for the tree the one the resolve made of
+a module whose bodies it did not wait on) and stops at a read of an entry that none of its inputs holds. The project's
+`byPath` is written only by the discovery, before the tasks; `p.modules[m]` and `p.resolutions[m]` only by m's tasks; the
+project tasks `order`, `endCheck`, `program` and `link` run after every task they read (barriers), and the link's drop and
+copy routines make their shapes in a segment of slot 0 of their own.
 
 The executor (`execute`) runs the tasks on one thread, one at a time, in the order they were added: stage by stage, and within
 a stage in the module order (the dependency order from the check on, module order for parse, resolve and emit), so every task's
@@ -593,7 +620,7 @@ what it finds out is a table it owns, indexed by `NodeID`. Nothing adds a node a
 | `ast.NodeID` | a node of one module: its index in `Tree.records`, counted from 1 in the order the parser makes them; 0 is no node |
 | `diag.Site` | where a node is: its module and the byte offset of its first token |
 | `ast.DeclRef` | a top-level declaration: its module and its `DeclOrdinal`, its index in `Module.decls` |
-| `ast.TypeID`, `ast.FuncID` | a type or a function. A nominal type's handle and every function's is a word whose bits 32-47 name its slot of the `TypeTable` or `FuncTable` and whose bits 0-31 are its index there: slot 0 holds the built-ins, the stdlib and what the stages of the project make, and slot 1 + m the types and functions module m declares, the closures and behaviours its bodies make and the instances of generic functions its stages ask for, which only m's stages make, so their handles depend on m's source alone. A structural type's handle (an instance, a range, a constant, a function type's origin, a tuple's record and its type parameters) has bit 62 set, its `TypeKind` in bits 57-61 and a 57-bit hash of its structure below (`ast/shapes.maxon`), so it is one word in every module. Each slot holds the shapes its stages made or took from another slot, and a lookup goes through the task's own slot, slot 0 and the slots of the modules it names, directly or through others, which it waited on (`TypeSlot.reads`): at the start of each task the slot's index takes in the places of the shapes those slots held when the stage the task waited on ended (`TypeSlot.ends`, `frozenStage` in the driver), so a read is one probe and what a later stage of another module makes is never seen, and a kind is read from the handle (`ast.typeKind`); a task holds only its own slot `mutates`, so it cannot write another. Two structures under one hash are an internal error that names both. 0 is none (`noType`, `noFunc`) |
+| `ast.TypeID`, `ast.FuncID` | a type or a function. A nominal type's handle and every function's is a word whose bits 32-47 name its slot of the `TypeTable` or `FuncTable`, bits 48-55 the list of the slot it is in (by segment, see "The modules phase") and bits 0-31 its index there: slot 0 holds the built-ins, the stdlib and what the stages of the project make, and slot 1 + m the types and functions module m declares, the closures and behaviours its bodies make and the instances of generic functions its stages ask for, which only m's stages make, so their handles depend on m's source alone. A structural type's handle (an instance, a range, a constant, a function type's origin, a tuple's record and its type parameters) has bit 62 set, its `TypeKind` in bits 57-61 and a 57-bit hash of its structure below (`ast/shapes.maxon`), so it is one word in every module. Each slot holds the shapes its stages made or took from another slot, and a lookup goes through the task's own slot, slot 0 and the slots of the modules it names, directly or through others, which it waited on (`TypeSlot.reads`): when a task is lent its slot, the slot's index takes in the places of the shapes of the segments of those slots that the task waited on (`ast.Inputs`, `importShapes`), so a read is one probe and what a later stage of another module makes is never seen, and a kind is read from the handle (`ast.typeKind`); a task holds only its own slot `mutates`, so it cannot write another. Two structures under one hash are an internal error that names both. 0 is none (`noType`, `noFunc`) |
 | `ast.LocalID` | a local variable: its index in the module's `Typing.locals`; 0 is none |
 
 A node's index depends only on its module's text, so a module that did not change keeps its indexes and tables. What is
@@ -1284,8 +1311,10 @@ colouring then finishes and which run.
   fixpoint (SSA: the definition dominates the uses). An edge's arguments are uses at its branch and a block's
   parameters definitions where it starts. It gives each value's uses in layout order and each block's live-in values.
 - **Pressure** (`BlockScan`): at each instruction, the values live across it plus the larger of those it reads last and
-  those it defines (a definition may take a dying operand's register, a two-address one included; a dead definition
-  still needs one), per class, against the class's registers no fixed value holds around it; the values live across it
+  those it defines (a definition may take a dying operand's register; a dead definition still needs one), or both where
+  a two-address definition, a copy of its reused operand before the instruction, may take no dying operand's register:
+  the reused operand lives on, and the form does not commute or its other use lives on too (`sharesDying`). That is per
+  class, against the class's registers no fixed value holds around it; the values live across it
   must also fit outside the registers it writes (a call keeps only its convention's callee-saved registers, read from
   the convention table).
 - **Tiers**, each one placement and no search: (1) a loop over its class's whole pool sends out the values it holds idle
@@ -1318,8 +1347,9 @@ colouring then finishes and which run.
   (values joined by edges) must leave the loop: found by taking out, one at a time, the variable that relieves the most
   excess, where a variable out of registers still needs one at each instruction that reads or writes it. That can be
   more than the registers over: sixteen accumulators, a counter and a bound are 19 registers at the worst point, five
-  over x64's 14, yet six must go, since an accumulator in memory frees nothing at its own update. A fixed register or a
-  call never refuses; it is spilled around.
+  over x64's 14, yet six must go, since an accumulator in memory frees nothing at its own update. A fixed register, a
+  call or a two-address definition's register of its own never refuses (the test counts values, the larger of those
+  read last and defined); it is spilled around.
 
 #### Colouring, constraints and SSA destruction
 
@@ -1343,7 +1373,7 @@ register and takes the function out of SSA form; `Allocator.allocate` runs both 
   fixed register, and only then a callee-saved one, which a value live across a call is confined to anyway.
 - **Two-address forms** (`colourReuse`): the definition takes the reused operand's register when that operand dies there; for
   a commutative form, the other use's when that one dies (the uses are swapped); otherwise another register, never one the
-  instruction reads, and a copy of the operand before it.
+  instruction reads, and a copy of the operand before it, which pressure has counted beside the dying operands.
 - **The repair** (`repair`): when every register a value may be in is held (the count fits, but the values about it are
   confined to different sets: Hall's condition), first a breadth-first search from those registers to a free one, through
   values that die in this block, each of which may move to the next register for the rest of its life in the block and

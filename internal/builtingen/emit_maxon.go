@@ -263,7 +263,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		m.line("let %s = %s", id, call)
 		for _, bd := range f.bounds {
 			p := m.ownerParam(f.Owner, paramIndex(ownerParams(f.Owner), bd.param))
-			m.line("ft.entries[funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
+			m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
 		}
 		m.errorType(f, id)
 		if f.Field != "" {
@@ -295,14 +295,14 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	m.line("let %s = %s", id, call)
 	m.errorType(f, id)
 	if f.gbound != "" {
-		m.line("ft.entries[funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
+		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
 	}
 	if f.Owner == stringOwner {
-		m.line("ft.entries[funcIndex(ft, f: %[1]s)].ownerTy = b.stringTy", id)
-		m.line("ft.entries[funcIndex(ft, f: %[1]s)].isStatic = %v", id, f.Static)
-		m.line("ft.entries[funcIndex(ft, f: %[1]s)].hasReceiver = %v", id, !f.Static)
+		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].ownerTy = b.stringTy", id)
+		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].isStatic = %v", id, f.Static)
+		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].hasReceiver = %v", id, !f.Static)
 		if f.Self != "" {
-			m.line("ft.entries[funcIndex(ft, f: %[1]s)].selfConv = %s", id, maxonConv(f.Self))
+			m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].selfConv = %s", id, maxonConv(f.Self))
 		}
 		m.line("b.stringMethods.insert(%q, value: %s)", f.Name, id)
 	}
@@ -314,7 +314,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 // errorType sets the error that the function id throws, when it throws one.
 func (m *maxonBody) errorType(f fn, id string) {
 	if f.Throws != "" {
-		m.line("ft.entries[funcIndex(ft, f: %[1]s)].errTy = b.%s", id, maxonField(f.Throws, false))
+		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].errTy = b.%s", id, maxonField(f.Throws, false))
 	}
 }
 

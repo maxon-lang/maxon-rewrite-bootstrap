@@ -11,13 +11,13 @@ import (
 	"testing"
 )
 
-// site matches the start of an index into the lists of a type slot, or into the entries or the slots of a function table.
-var site = regexp.MustCompile(`(?:^|[^\w.])((?:\w+\.)*(?:types|tt)\.lists|(?:\w+\.)*(?:funcs|ft)\.(?:entries|slots))\[`)
+// site matches the start of an index into the lists of a type or a function slot, or into the slots of a function table.
+var site = regexp.MustCompile(`(?:^|[^\w.])((?:\w+\.)*(?:types|tt|funcs|ft)\.lists|(?:\w+\.)*(?:funcs|ft)\.slots)\[`)
 
 // listAccessor and indexAccessor match the indexes of an entry, written through the one place that relates a handle to a
 // list of the slot a task holds and a position there.
 var (
-	listAccessor  = regexp.MustCompile(`^ast\.(typeList)\(`)
+	listAccessor  = regexp.MustCompile(`^ast\.(typeList|funcList)\(`)
 	indexAccessor = regexp.MustCompile(`^ast\.(typeIndex|funcIndex)\(`)
 )
 
@@ -48,17 +48,16 @@ func accessorArg(re *regexp.Regexp, index string) (fn, arg string, ok bool) {
 	return index[loc[2]:loc[3]], index[loc[1] : len(index)-1], true
 }
 
+// pairs are the accessor of the index that goes with each accessor of the list.
+var pairs = map[string]string{"typeList": "typeIndex", "funcList": "funcIndex"}
+
 // entryEnd is the index of the bracket that closes the index of an entry whose first bracket is at src[open], and whether
 // it goes through the accessors of one handle: X.lists[ast.typeList(X, t: h)][ast.typeIndex(X, t: h)] for a type and
-// X.entries[ast.funcIndex(X, f: h)] for a function.
+// X.lists[ast.funcList(X, f: h)][ast.funcIndex(X, f: h)] for a function.
 func entryEnd(src string, open int) (int, bool) {
 	end := closing(src, open)
 	if end < 0 {
 		return -1, false
-	}
-	if strings.HasSuffix(src[:open], ".entries") {
-		fn, _, ok := accessorArg(indexAccessor, src[open+1:end])
-		return end, ok && fn == "funcIndex"
 	}
 	if end+1 >= len(src) || src[end+1] != '[' {
 		return end, false
@@ -67,12 +66,12 @@ func entryEnd(src string, open int) (int, bool) {
 	if second < 0 {
 		return -1, false
 	}
-	_, listArg, ok := accessorArg(listAccessor, src[open+1:end])
+	listFn, listArg, ok := accessorArg(listAccessor, src[open+1:end])
 	if !ok {
 		return second, false
 	}
 	indexFn, indexArg, ok := accessorArg(indexAccessor, src[end+2:second])
-	return second, ok && indexFn == "typeIndex" && listArg == indexArg
+	return second, ok && indexFn == pairs[listFn] && listArg == indexArg
 }
 
 // badSites lists the indexes into a type slot or a function table in src that do not go through ast.typeList and
@@ -171,7 +170,7 @@ func walkSelf(t *testing.T, visit func(rel, src string)) {
 func TestNoHandleIsAnIndexOutsideAst(t *testing.T) {
 	walkSelf(t, func(rel, src string) {
 		for _, b := range badSites(src) {
-			t.Errorf("%s: %s indexes a type or function table without the accessors of one handle: a handle is not an index outside module ast; read through ast.typeEntry or ast.funcEntry, and write through X.lists[ast.typeList(X, t: h)][ast.typeIndex(X, t: h)] or X.entries[ast.funcIndex(X, f: h)] of the slot the task holds", rel, b)
+			t.Errorf("%s: %s indexes a type or function table without the accessors of one handle: a handle is not an index outside module ast; read through ast.typeEntry or ast.funcEntry, and write through X.lists[ast.typeList(X, t: h)][ast.typeIndex(X, t: h)] or X.lists[ast.funcList(X, f: h)][ast.funcIndex(X, f: h)] of the slot the task holds", rel, b)
 		}
 	})
 }
@@ -188,12 +187,12 @@ func TestEntriesAreWrittenOnlyUpToDeclare(t *testing.T) {
 }
 
 func TestWriteSitesFindsWrites(t *testing.T) {
-	for _, w := range []string{"p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].rawType = r", "ms.funcs.entries[ast.funcIndex(ms.funcs, f: f)].params.push(x)", "tt.lists[ast.typeList(tt, t: t)][ast.typeIndex(tt, t: t)].cases[i].rawValue = v"} {
+	for _, w := range []string{"p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].rawType = r", "ms.funcs.lists[ast.funcList(ms.funcs, f: f)][ast.funcIndex(ms.funcs, f: f)].params.push(x)", "tt.lists[ast.typeList(tt, t: t)][ast.typeIndex(tt, t: t)].cases[i].rawValue = v"} {
 		if got := writeSites(w); len(got) != 1 {
 			t.Errorf("%q: got %v, want one write", w, got)
 		}
 	}
-	for _, r := range []string{"p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].rawKind == k", "p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].findMethod(m).isSome()", "let x = ms.funcs.entries[ast.funcIndex(ms.funcs, f: f)].params[i].conv"} {
+	for _, r := range []string{"p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].rawKind == k", "p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].findMethod(m).isSome()", "let x = ms.funcs.lists[ast.funcList(ms.funcs, f: f)][ast.funcIndex(ms.funcs, f: f)].params[i].conv"} {
 		if got := writeSites(r); len(got) != 0 {
 			t.Errorf("%q: got %v, want none", r, got)
 		}
@@ -201,11 +200,11 @@ func TestWriteSitesFindsWrites(t *testing.T) {
 }
 
 func TestBadSitesFindsWhatIsNotAnAccessor(t *testing.T) {
-	good := "p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: t))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: t))].name = n + ft.entries[ast.funcIndex(ft, f: f)].x.push(y)"
+	good := "p.types.lists[ast.typeList(p.types, t: ast.originOf(p.types, t: t))][ast.typeIndex(p.types, t: ast.originOf(p.types, t: t))].name = n + ft.lists[ast.funcList(ft, f: f)][ast.funcIndex(ft, f: f)].x.push(y)"
 	if got := badSites(good); len(got) != 0 {
 		t.Errorf("accessor sites reported: %v", got)
 	}
-	for _, bad := range []string{"p.types.lists[0][t as Count]", "x.funcs.slots[s][i].y", "tt.lists[ast.typeList(tt, t: a)][ast.typeIndex(tt, t: a) + 1]", "ft.slots[s].entries[i]", "ft.entries[ast.funcIndex(ft, f: f) + 1].x = y", "let n = ft.entries[ast.funcIndex(ft, f: f)].name", "tt.lists[ast.typeList(tt, t: t)][ast.funcIndex(tt, f: t)]", "tt.lists[ast.typeList(tt, t: t)]"} {
+	for _, bad := range []string{"p.types.lists[0][t as Count]", "x.funcs.slots[s][i].y", "tt.lists[ast.typeList(tt, t: a)][ast.typeIndex(tt, t: a) + 1]", "ft.slots[s].lists[i]", "ft.lists[ast.funcList(ft, f: f)][ast.funcIndex(ft, f: f) + 1].x = y", "let n = ft.lists[ast.funcList(ft, f: f)][ast.funcIndex(ft, f: f)].name", "ft.lists[ast.typeList(ft, t: f)][ast.funcIndex(ft, f: f)].x = y", "tt.lists[ast.typeList(tt, t: t)][ast.funcIndex(tt, f: t)]", "tt.lists[ast.typeList(tt, t: t)]"} {
 		if got := badSites(bad); len(got) != 1 {
 			t.Errorf("%q: got %v, want one site", bad, got)
 		}

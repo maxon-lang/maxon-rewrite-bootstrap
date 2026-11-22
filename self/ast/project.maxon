@@ -382,12 +382,10 @@ end 'rawTypeOf'
 // setRawType records the type of the raw values of t, which the module that declares it has typed: one of the slot its
 // task holds.
 export function setRawType(mutates ms ModuleState, t TypeID, raw TypeID)
-	let s = typeList(ms.types, t: t)
-	let i = typeIndex(ms.types, t: t)
-	if not ms.types.lists[s][i].hasDecl 'undeclared'
-		panic("raw values are typed for '{ms.types.lists[s][i].name}', which no module declares")
+	if not heldTypeEntry(ms.types, t: t).hasDecl 'undeclared'
+		panic("raw values are typed for '{heldTypeEntry(ms.types, t: t).name}', which no module declares")
 	end 'undeclared'
-	requireOwn(ms, module: ms.types.lists[s][i].decl.module)
+	requireOwn(ms, module: heldTypeEntry(ms.types, t: t).decl.module)
 	ms.tables.setRawType(t, raw: raw)
 end 'setRawType'
 
@@ -418,12 +416,12 @@ export function paramLocal(p Project, ms ModuleState, f FuncID, index Count) ret
 end 'paramLocal'
 
 export function setReceiverLocal(mutates ms ModuleState, f FuncID, l LocalID)
-	requireOwn(ms, module: ms.funcs.entries[funcIndex(ms.funcs, f: f)].module)
+	requireOwn(ms, module: heldFuncEntry(ms.funcs, f: f).module)
 	ms.tables.setReceiverLocal(f, l: l)
 end 'setReceiverLocal'
 
 export function pushParamLocal(mutates ms ModuleState, f FuncID, l LocalID)
-	requireOwn(ms, module: ms.funcs.entries[funcIndex(ms.funcs, f: f)].module)
+	requireOwn(ms, module: heldFuncEntry(ms.funcs, f: f).module)
 	ms.tables.pushParamLocal(f, l: l)
 end 'pushParamLocal'
 
@@ -446,8 +444,8 @@ export type Project
 		var tt = TypeTable.new()
 		var ft = FuncTable.new()
 		var std = Module.new(diag.stdlibID, path: "", text: "", files: FileSpanList.create(0))
-		var shared = lendTypeSlot(tt, module: diag.stdlibID)
-		var sharedFuncs = lendFuncSlot(ft, module: diag.stdlibID)
+		var shared = lendTypeSlot(tt, module: diag.stdlibID, segment: Phase.builtins.ordinal, inputs: Inputs.new())
+		var sharedFuncs = lendFuncSlot(ft, module: diag.stdlibID, segment: Phase.builtins.ordinal)
 		let bs = initBuiltins(shared, reads: tt, ft: sharedFuncs, funcReads: ft, std: std)
 		returnTypeSlot(tt, held: shared)
 		returnFuncSlot(ft, held: sharedFuncs)

@@ -52,7 +52,7 @@ $steps = @(
 	# the signatures the compiler calls.
 	@('runtime', { & $compiler check runtime }),
 	# The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
-	@('self', { & $compiler check self }),
+	@('self', { & $compiler check self --verify-reads }),
 	@('layout', { & $compiler fmt --check self runtime tests }),
 	# Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: give it none.
 	@('corpus', { $null | & $compiler test @TestArgs }),

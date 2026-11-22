@@ -24,10 +24,12 @@ export type ModuleState
 	export var entryRole as EntryRole
 	// entry is the program's entry function, which the declare of the module whose role is entry finds.
 	export var entry as ast.FuncID
+	// typed is whether the module's verify ended and gave its typing to the project (giveTyping).
+	var typed as bool
 
 	export static function make(consumes checker Checker, entryRole EntryRole) returns ModuleState
 		let module = checker.modID
-		return ModuleState{unit: ast.ModuleState.idle(module), checker: checker, paramsOk: ByteArray.create(0), functions: ast.FuncIDList.create(0), constants: OrdinalList.create(0), entryRole: entryRole, entry: ast.noFunc}
+		return ModuleState{unit: ast.ModuleState.idle(module), checker: checker, paramsOk: ByteArray.create(0), functions: ast.FuncIDList.create(0), constants: OrdinalList.create(0), entryRole: entryRole, entry: ast.noFunc, typed: false}
 	end 'make'
 end 'ModuleState'
 
@@ -96,7 +98,17 @@ function withoutTests(p ast.Project, consumes functions ast.FuncIDList) returns 
 	return kept
 end 'withoutTests'
 
-// endChecks gives each module's typing back to the project, and what the generate stage needs of the check.
+// giveTyping gives the project the typing of the module whose verify has ended, which is the product of that stage: what
+// the stages after the check read of the module's bodies.
+export function giveTyping(mutates state ModuleState, mutates p ast.Project)
+	let modID = state.checker.modID
+	let finished = exchange(state.checker.typing, value: ast.Typing.new(modID))
+	p.typings[ast.modIndex(modID)] = finished
+	state.typed = true
+end 'giveTyping'
+
+// endChecks gives the project the typing of each module whose verify did not end, and gives what the generate stage needs
+// of the check.
 export function endChecks(mutates p ast.Project, consumes ch Checks) returns Checked
 	var rest = ch
 	var functions = FuncIDLists.create(0)
@@ -109,8 +121,10 @@ export function endChecks(mutates p ast.Project, consumes ch Checks) returns Che
 		let modID = rest.modules[i].checker.modID
 		functions.push(withoutTests(p, functions: exchange(rest.modules[i].functions, value: ast.FuncIDList.create(0))))
 		callers.push(withoutTests(p, functions: exchange(rest.modules[i].checker.callers, value: ast.FuncIDList.create(0))))
-		let finished = exchange(rest.modules[i].checker, value: Checker.make(modID, typing: ast.Typing.new(modID)))
-		checkerEndMod(p, c: finished)
+		if not rest.modules[i].typed 'untyped'
+			let finished = exchange(rest.modules[i].checker, value: Checker.make(modID, typing: ast.Typing.new(modID)))
+			checkerEndMod(p, c: finished)
+		end 'untyped'
 	end 'each'
 	return Checked.make(entry, order: exchange(rest.order, value: ModuleOrder.create(0)), functions: functions, callers: callers)
 end 'endChecks'

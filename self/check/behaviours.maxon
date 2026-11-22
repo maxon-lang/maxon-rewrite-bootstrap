@@ -246,8 +246,8 @@ end 'restoreOuter'
 
 function addBehaviourParam(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, local ast.LocalID)
 	let entry = c.typing.locals[local as Count].clone()
-	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fn)].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
-	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fn)].paramTypes.push(entry.ty)
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fn)][ast.funcIndex(ms.funcs, f: fn)].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fn)][ast.funcIndex(ms.funcs, f: fn)].paramTypes.push(entry.ty)
 	ast.pushParamLocal(ms, f: fn, l: local)
 end 'addBehaviourParam'
 

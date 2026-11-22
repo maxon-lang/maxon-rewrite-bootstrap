@@ -42,17 +42,22 @@ let maxLeafColdOps = 12 as Count
 // noPlace is a function's place in Leaves.places when it is no leaf.
 let noPlace = 0 as Count
 
-// Leaves are the leaves of one module's lowered functions: by the index of a function's entry in the slot of the function
-// table that holds the module's entries, its place in the module's list plus 1, or noPlace.
+typealias PlaceList = Array with Count
+
+typealias PlaceLists = Array with PlaceList
+
+// Leaves are the leaves of one module's lowered functions: by the list of the slot of the function table that holds the
+// module's entries and the index of a function's entry in that list (two functions of different lists share an index), its
+// place in the module's list plus 1, or noPlace.
 export type Leaves
 	var slot as Count
-	var places as Array with Count
+	var places as PlaceLists
 
 	export static function empty() returns Leaves
-		return Leaves{slot: 0, places: Array.create(0)}
+		return Leaves{slot: 0, places: PlaceLists.create(0)}
 	end 'empty'
 
-	static function of(slot Count, consumes places Array with Count) returns Leaves
+	static function of(slot Count, consumes places PlaceLists) returns Leaves
 		return Leaves{slot: slot, places: places}
 	end 'of'
 
@@ -61,8 +66,9 @@ export type Leaves
 		if ast.funcSlotOf(f) != slot 'otherSlot'
 			return false
 		end 'otherSlot'
+		let l = ast.funcListOf(f)
 		let i = ast.funcPlaceOf(f)
-		return i < places.count() and places[i] != noPlace
+		return l < places.count() and i < places[l].count() and places[l][i] != noPlace
 	end 'holds'
 
 	// placeOf is the place of the leaf f in its module's list.
@@ -70,7 +76,7 @@ export type Leaves
 		if not self.holds(f) 'none'
 			panic("opt: the place of a function that is no leaf")
 		end 'none'
-		return try places[ast.funcPlaceOf(f)] - 1 otherwise panic("opt: a leaf with no place")
+		return try places[ast.funcListOf(f)][ast.funcPlaceOf(f)] - 1 otherwise panic("opt: a leaf with no place")
 	end 'placeOf'
 end 'Leaves'
 
@@ -79,15 +85,19 @@ export typealias LeavesList = Array with Leaves
 // findLeaves finds the leaves among fns, the functions of the module whose entries the slot slot of the function table
 // holds, once the optimizer has run on them.
 export function findLeaves(fns ir.IrFunctionList, slot Count) returns Leaves
-	var places as Array with Count
-	places = Array.create(0)
+	var places as PlaceLists
+	places = PlaceLists.create(0)
 	for i in 0 upto fns.count() 'functions'
 		if ast.funcSlotOf(fns[i].decl) == slot and isLeaf(fns[i]) 'leaf'
+			let list = ast.funcListOf(fns[i].decl)
 			let at = ast.funcPlaceOf(fns[i].decl)
-			while places.count() <= at 'grow'
-				places.push(noPlace)
+			while places.count() <= list 'growLists'
+				places.push(PlaceList.create(0))
+			end 'growLists'
+			while places[list].count() <= at 'grow'
+				places[list].push(noPlace)
 			end 'grow'
-			places[at] = try i + 1 otherwise panic("opt: a module with more functions than memory")
+			places[list][at] = try i + 1 otherwise panic("opt: a module with more functions than memory")
 		end 'leaf'
 	end 'functions'
 	return Leaves.of(slot, places: places)
