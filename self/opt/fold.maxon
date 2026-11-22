@@ -491,7 +491,7 @@ export type Fold
 			if not self.isKnown(src) 'unknown'
 				return false
 			end 'unknown'
-			if ir.guardHolds(ir.guardKind(f.instrs[k]), bound: ir.guardBound(f.instrs[k]), v: self.valueOf(src)) 'holds'
+			if ir.evalGuard(ir.guardKind(f.instrs[k]), a: self.valueOf(src), bound: ir.guardBound(f.instrs[k])) 'holds'
 				self.removeCheck(f, k: k)
 				dead[k] = true
 				checksDecided = plusOne(checksDecided)

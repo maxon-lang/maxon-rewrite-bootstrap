@@ -13,6 +13,14 @@ type (
 	Enum     = enum
 	EnumCase = enumCase
 	Flag     = flag
+
+	Eval     = eval
+	EvalForm = evalForm
+	Domain   = domain
+	CaseEval = caseEval
+	CaseForm = caseForm
+	Order    = order
+	BitOp    = bitOp
 )
 
 const (
@@ -65,6 +73,32 @@ const (
 	EffFrees     = effFrees
 	EffExits     = effExits
 	EffFails     = effFails
+
+	EvalUnset  = evalUnset
+	EvalNone   = evalNone
+	EvalByCase = evalByCase
+	EvalCall   = evalCall
+
+	OverWords   = overWords
+	OverDoubles = overDoubles
+
+	CaseNone    = caseNone
+	CaseWrap    = caseWrap
+	CaseDivide  = caseDivide
+	CaseBitwise = caseBitwise
+	CaseShift   = caseShift
+	CaseOrder   = caseOrder
+	CaseDouble  = caseDouble
+	CaseRange   = caseRange
+
+	OrdLess      = ordLess
+	OrdEqual     = ordEqual
+	OrdGreater   = ordGreater
+	OrdUnordered = ordUnordered
+
+	BitAnd = bitAnd
+	BitOr  = bitOr
+	BitXor = bitXor
 )
 
 var (

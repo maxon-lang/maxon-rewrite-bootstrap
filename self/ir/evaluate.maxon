@@ -1,8 +1,9 @@
 // What the arithmetic of the IR computes, on the 64 bits of a word: the one meaning of each operation that both the
-// interpreter, which runs it, and the optimizer, which folds it on constants, use. A register holds a word as a signed
-// number, and an unsigned one is the same bits read as one that may be past i64.max; the wrap of 64-bit arithmetic is made
-// by hand on the bits as a Count, since a number here is only ever in range. The floats are ast's, which compute exactly
-// what the hardware does.
+// interpreter, which runs it, and the optimizer, which folds it on constants, use. What each operation computes is in the
+// IR table, which evaluate_gen.maxon is written from; this file has the algorithms the table names. A register holds a
+// word as a signed number, and an unsigned one is the same bits read as one that may be past i64.max; the wrap of 64-bit
+// arithmetic is made by hand on the bits as a Count, since a number here is only ever in range. The floats are ast's,
+// which compute exactly what the hardware does.
 
 let signBit = 9223372036854775808 as Count
 
@@ -160,186 +161,77 @@ function shiftWord(left bool, unsigned bool, x Word, count Word) returns Word
 	return wordOfBits(allBits - (try (allBits - bitsOfWord(x)) / divisor otherwise panic("ir: a power of two that is 0")))
 end 'shiftWord'
 
-// evalBin is a op b, signed or unsigned, and sets value to the result when it gives one. A checked operation fails where
-// the result does not fit, and an unchecked one gives the result's low 64 bits. A division or a remainder by 0, a negative
-// shift count and an unchecked i64.min / -1 have no meaning: a guard or the range analysis rules each out.
-export function evalBin(op BinOp, a Word, b Word, unsigned bool, checked bool, sets value Word) returns Outcome
-	value = 0
-	var fits = true
-	if op == BinOp.binAdd 'add'
-		value = wordOfBits(wrapAdd(bitsOfWord(a), b: bitsOfWord(b)))
-		if unsigned 'unsigned'
-			fits = bitsOfWord(a) <= allBits - bitsOfWord(b)
-		end 'unsigned' else 'signed'
-			fits = not addOverflows(a, b: b)
-		end 'signed'
-	end 'add' else if op == BinOp.binSub 'sub'
-		value = wordOfBits(wrapSub(bitsOfWord(a), b: bitsOfWord(b)))
-		if unsigned 'unsigned'
-			fits = bitsOfWord(a) >= bitsOfWord(b)
-		end 'unsigned' else 'signed'
-			fits = not subOverflows(a, b: b)
-		end 'signed'
-	end 'sub' else if op == BinOp.binMul 'mul'
-		let wide = mulWide(bitsOfWord(a), b: bitsOfWord(b))
-		value = wordOfBits(wide.lo)
-		if unsigned 'unsigned'
-			fits = wide.hi == 0
-		end 'unsigned' else 'signed'
-			fits = not mulOverflows(a, b: b, product: value)
-		end 'signed'
-	end 'mul' else if op == BinOp.binDiv or op == BinOp.binMod 'divide'
-		if b == 0 'zero'
-			return Outcome.outcomeUndefined
-		end 'zero'
-		let division = op == BinOp.binDiv
-		if unsigned 'unsigned'
-			if division 'quotient'
-				value = wordOfBits(try bitsOfWord(a) / bitsOfWord(b) otherwise panic("ir: a division by 0 past its test"))
-			end 'quotient' else 'remainder'
-				value = wordOfBits(try bitsOfWord(a) mod bitsOfWord(b) otherwise panic("ir: a division by 0 past its test"))
-			end 'remainder'
-		end 'unsigned' else if b == -1 'minusOne'
-			if not division 'remainder'
-				value = 0
-			end 'remainder' else if a == minWord 'overflow'
-				if not checked 'unchecked'
-					return Outcome.outcomeUndefined
-				end 'unchecked'
-				fits = false
-			end 'overflow' else 'negate'
-				value = 0 - a
-			end 'negate'
-		end 'minusOne' else 'signed'
-			if division 'quotient'
-				value = try a / b otherwise panic("ir: a signed division that overflows past its tests")
-			end 'quotient' else 'remainder'
-				value = try a mod b otherwise panic("ir: a signed remainder that fails past its tests")
-			end 'remainder'
-		end 'signed'
-	end 'divide' else if op == BinOp.binAnd 'and'
-		value = wordOfBits(bitsOfWord(a) and bitsOfWord(b))
-	end 'and' else if op == BinOp.binOr 'or'
-		value = wordOfBits(bitsOfWord(a) or bitsOfWord(b))
-	end 'or' else if op == BinOp.binXor 'xor'
-		value = wordOfBits(bitsOfWord(a) xor bitsOfWord(b))
-	end 'xor' else if op == BinOp.binShr 'shr'
-		if b < 0 'negative'
-			return Outcome.outcomeUndefined
-		end 'negative'
-		value = shiftWord(false, unsigned: unsigned, x: a, count: b)
-	end 'shr' else if op == BinOp.binShl 'shl'
-		if b < 0 'negative'
-			return Outcome.outcomeUndefined
-		end 'negative'
-		value = shiftWord(true, unsigned: unsigned, x: a, count: b)
-		if checked 'checked'
-			if b >= wordBits 'wide'
-				fits = a == 0
-			end 'wide' else 'narrow'
-				fits = shiftWord(false, unsigned: unsigned, x: value, count: b) == a
-			end 'narrow'
-		end 'checked'
-	end 'shl' else 'unknown'
-		panic("ir: no meaning for the operation {binOpText(op)}")
-	end 'unknown'
-	if checked and not fits 'failed'
-		return Outcome.outcomeFails
-	end 'failed'
-	return Outcome.outcomeValue
-end 'evalBin'
+// addFitsUnsigned is whether the sum of a and b, read as unsigned numbers, is no more than the 64 bits hold.
+function addFitsUnsigned(a Word, b Word, result Word) returns bool
+	return bitsOfWord(a) <= allBits - bitsOfWord(b)
+end 'addFitsUnsigned'
 
-// evalCmp is whether a op b holds, signed or unsigned.
-export function evalCmp(op CmpOp, a Word, b Word, unsigned bool) returns bool
-	let equal = a == b
-	var less = a < b
-	if unsigned 'unsigned'
-		less = bitsOfWord(a) < bitsOfWord(b)
-	end 'unsigned'
-	return match op 'op'
-		cmpEq gives equal
-		cmpNe gives not equal
-		cmpLt gives less
-		cmpLe gives less or equal
-		cmpGt gives not less and not equal
-		cmpGe gives not less
-	end 'op'
-end 'evalCmp'
+// addFitsSigned is whether the sum of a and b is no more than a signed word holds.
+function addFitsSigned(a Word, b Word, result Word) returns bool
+	return not addOverflows(a, b: b)
+end 'addFitsSigned'
 
-// evalNeg is -a, which a checked negation fails for i64.min, and sets value to it.
-export function evalNeg(a Word, checked bool, sets value Word) returns Outcome
-	value = wordOfBits(wrapSub(0, b: bitsOfWord(a)))
-	if checked and a == minWord 'failed'
-		return Outcome.outcomeFails
-	end 'failed'
-	return Outcome.outcomeValue
-end 'evalNeg'
+// subFitsUnsigned is whether the difference of a and b, read as unsigned numbers, is not below 0.
+function subFitsUnsigned(a Word, b Word, result Word) returns bool
+	return bitsOfWord(a) >= bitsOfWord(b)
+end 'subFitsUnsigned'
 
-// evalNot is a with every bit inverted.
-export function evalNot(a Word) returns Word
+// subFitsSigned is whether the difference of a and b is no more than a signed word holds.
+function subFitsSigned(a Word, b Word, result Word) returns bool
+	return not subOverflows(a, b: b)
+end 'subFitsSigned'
+
+// mulFitsUnsigned is whether the product of a and b, read as unsigned numbers, is no more than the 64 bits hold.
+function mulFitsUnsigned(a Word, b Word, result Word) returns bool
+	return mulWide(bitsOfWord(a), b: bitsOfWord(b)).hi == 0
+end 'mulFitsUnsigned'
+
+// mulFitsSigned is whether the product of a and b, which result holds the low 64 bits of, is no more than a signed word
+// holds.
+function mulFitsSigned(a Word, b Word, result Word) returns bool
+	return not mulOverflows(a, b: b, product: result)
+end 'mulFitsSigned'
+
+// negateWord is -a, which wraps for i64.min.
+function negateWord(a Word) returns Word
+	return wordOfBits(wrapSub(0, b: bitsOfWord(a)))
+end 'negateWord'
+
+// negateFits is whether -a is no more than a signed word holds.
+function negateFits(a Word) returns bool
+	return a != minWord
+end 'negateFits'
+
+// notWord is a with every bit inverted.
+function notWord(a Word) returns Word
 	return wordOfBits(allBits - bitsOfWord(a))
-end 'evalNot'
+end 'notWord'
 
-// guardHolds is whether v is in the range kind of bound, which a guard lets pass.
-export function guardHolds(kind GuardKind, bound Word, v Word) returns bool
-	return match kind 'kind'
-		guardNonNegative gives v >= 0
-		guardSignedAtLeast gives v >= bound
-		guardSignedAtMost gives v <= bound
-		guardUnsignedAtLeast gives bitsOfWord(v) >= bitsOfWord(bound)
-		guardUnsignedAtMost gives bitsOfWord(v) <= bitsOfWord(bound)
-		guardNonZero gives v != 0
-	end 'kind'
-end 'guardHolds'
+// roundNearest is the double x rounded to an integer, ties to even.
+function roundNearest(x Count) returns Count
+	return ast.floatRound(x, mode: ast.FloatRounding.nearest)
+end 'roundNearest'
 
-// evalFBin is a op b on the doubles whose bits two words hold, as the bits of a word.
-export function evalFBin(op FBinOp, a Word, b Word) returns Word
-	let x = bitsOfWord(a)
-	let y = bitsOfWord(b)
-	let r = match op 'op'
-		fBinAdd gives ast.floatAdd(x, b: y)
-		fBinSub gives ast.floatSub(x, b: y)
-		fBinMul gives ast.floatMul(x, b: y)
-		fBinDiv gives ast.floatDiv(x, b: y)
-	end 'op'
-	return wordOfBits(r)
-end 'evalFBin'
+// roundDown is the double x rounded to an integer toward negative infinity.
+function roundDown(x Count) returns Count
+	return ast.floatRound(x, mode: ast.FloatRounding.down)
+end 'roundDown'
 
-// evalFCmp is whether a op b holds of two doubles; every comparison with a NaN but ne does not.
-export function evalFCmp(op CmpOp, a Word, b Word) returns bool
-	let order = ast.floatCompare(bitsOfWord(a), b: bitsOfWord(b))
-	return match op 'op'
-		cmpEq gives order == ast.FloatOrder.equal
-		cmpNe gives order != ast.FloatOrder.equal
-		cmpLt gives order == ast.FloatOrder.less
-		cmpLe gives order == ast.FloatOrder.less or order == ast.FloatOrder.equal
-		cmpGt gives order == ast.FloatOrder.greater
-		cmpGe gives order == ast.FloatOrder.greater or order == ast.FloatOrder.equal
-	end 'op'
-end 'evalFCmp'
+// roundUp is the double x rounded to an integer toward positive infinity.
+function roundUp(x Count) returns Count
+	return ast.floatRound(x, mode: ast.FloatRounding.up)
+end 'roundUp'
 
-// evalFUnary is op of a double.
-export function evalFUnary(op FUnaryOp, a Word) returns Word
-	let x = bitsOfWord(a)
-	let r = match op 'op'
-		fUnarySqrt gives ast.floatSqrt(x)
-		fUnaryRound gives ast.floatRound(x, mode: ast.FloatRounding.nearest)
-		fUnaryFloor gives ast.floatRound(x, mode: ast.FloatRounding.down)
-		fUnaryCeil gives ast.floatRound(x, mode: ast.FloatRounding.up)
-	end 'op'
-	return wordOfBits(r)
-end 'evalFUnary'
-
-// evalIntToFloat is the double nearest the integer n, read as unsigned when unsigned is set.
-export function evalIntToFloat(n Word, unsigned bool) returns Word
+// intToFloat is the double nearest the integer n, read as unsigned when unsigned is set.
+function intToFloat(n Word, unsigned bool) returns Word
 	var v = ast.I128.fromInt(n as FullRangeInt)
 	if unsigned 'unsigned'
 		v = ast.I128.fromCount(bitsOfWord(n))
 	end 'unsigned'
 	return wordOfBits(ast.floatFromInt(v))
-end 'evalIntToFloat'
+end 'intToFloat'
 
-// evalFloatToInt is the double a truncated toward zero, or i64.min for a NaN or a double past the word.
-export function evalFloatToInt(a Word) returns Word
+// floatToInt is the double a truncated toward zero, or i64.min for a NaN or a double past the word.
+function floatToInt(a Word) returns Word
 	return ast.floatTrunc(bitsOfWord(a)) as Word
-end 'evalFloatToInt'
+end 'floatToInt'

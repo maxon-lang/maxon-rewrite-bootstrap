@@ -205,7 +205,7 @@ function execNot(mutates vm Vm, x ir.Instr)
 end 'execNot'
 
 function execGuard(mutates vm Vm, x ir.Instr)
-	if not ir.guardHolds(ir.guardKind(x), bound: ir.guardBound(x), v: vm.num(x.a)) 'failed'
+	if not ir.evalGuard(ir.guardKind(x), a: vm.num(x.a), bound: ir.guardBound(x)) 'failed'
 		vm.failTo = x.c as ir.Word
 	end 'failed'
 end 'execGuard'
