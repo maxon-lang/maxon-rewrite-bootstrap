@@ -485,6 +485,7 @@ error E3167: api/<fragment>:7:11: exported function 'api.Keeper.keep' names unex
 ```
 
 <!-- test: error.an-interface-inner-alias-over-a-file-private-type-is-refused -->
+<!-- positions: moved -->
 An alias declared inside an interface body is as visible as its right-hand side, not as its interface.
 `ElementArray` sits inside the `export` interface `Keeper`, but it carries the unmarked `Foo`, and a
 conformer's caller hands `keep` an array of them.
@@ -511,7 +512,7 @@ type Vault implements Keeper
 	end 'sample'
 
 	function keep(xs ElementArray) returns ExitCode
-		return xs.count() as ExitCode
+		return try xs.count() as ExitCode otherwise panic("out of range")
 	end 'keep'
 end 'Vault'
 
@@ -521,7 +522,7 @@ end 'hold'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return hold()
+	return api.hold()
 end 'main'
 ```
 ```maxoncstderr
@@ -1043,6 +1044,7 @@ end 'main'
 ```
 
 <!-- test: error.a-reached-unmarked-demand-does-not-excuse-an-export -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ⚠ **A REACHED DEMAND EXCUSES ONLY THE TIER IT ASKS FOR.** `hold` is unmarked and `pkg/sub/user.maxon`
 reaches it, so the demand on `Item` is reached — but what an unmarked function needs is an unmarked type.
 `Item` is `export`, nothing outside `pkg/` names it, and E3092 is the verdict the audit gives without the
@@ -1336,6 +1338,7 @@ error E3167: aaa/<fragment>:6:17: exported function 'aaa.twice' names unexported
 ## A top-level binding is judged by its type
 
 <!-- test: error.an-exported-let-of-a-file-private-enum-type-is-refused -->
+<!-- positions: moved -->
 A binding is part of the surface its tier opens, and a reader of `BIG` holds a `Status` it has no spelling for.
 The refusal sits at the binding NAME, in the words a function gets, and the noun is the binding's own — a
 `let` is a "constant" and a `var` a "variable".
@@ -1350,7 +1353,7 @@ export let BIG = Status.big
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return 7 if BIG == BIG else 0
+	return 7 if api.BIG == api.BIG else 0
 end 'main'
 ```
 ```maxoncstderr
@@ -1428,6 +1431,7 @@ error E3167: api/<fragment>:9:20: exported constant 'api.Holder.DEFAULT' names u
 ```
 
 <!-- test: error.an-exported-let-cast-to-a-file-private-alias-is-refused -->
+<!-- positions: moved -->
 A constant keeps the alias its initializer was cast to, and the alias is a declaration like any other.
 ```maxon
 // --- file: api/lib.maxon
@@ -1437,7 +1441,7 @@ export let CAP = 50 as Small
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return CAP as ExitCode
+	return api.CAP as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -2511,6 +2515,7 @@ error E3167: api/<fragment>:6:11: exported function 'api.Sized.size' names unexp
 ```
 
 <!-- test: error.an-exported-enum-backed-by-a-file-private-record-is-refused -->
+<!-- positions: moved -->
 A struct-backed enum hands out its record through `rawValue`, so the record is part of the enum's surface and
 is held to the enum's tier. The refusal sits at the enum NAME.
 ```maxon
@@ -2530,7 +2535,7 @@ end 'latency'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return latency(Instruction.load)
+	return api.latency(api.Instruction.load)
 end 'main'
 ```
 ```maxoncstderr

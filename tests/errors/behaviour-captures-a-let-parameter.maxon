@@ -9,9 +9,9 @@ type Acct
 end 'Acct'
 
 function show(a Acct, c cown with Acct)
-	when c as x 'show'
+	when c as x 'showBlock'
 		print("{a.tag}")
-	end 'show'
+	end 'showBlock'
 end 'show'
 
 function main() returns ExitCode

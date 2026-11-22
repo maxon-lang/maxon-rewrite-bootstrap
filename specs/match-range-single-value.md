@@ -21,6 +21,7 @@ A range never spans enum or union CASES: that is **E3146**, and an arm names its
 ## Tests
 
 <!-- test: error.int-to-same -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
 	let x = 5
@@ -35,6 +36,7 @@ error E2027: specs/match-range-single-value/error.int-to-same.maxon:5:3: range p
 ```
 
 <!-- test: error.int-upto-by-one -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
 	let x = 5

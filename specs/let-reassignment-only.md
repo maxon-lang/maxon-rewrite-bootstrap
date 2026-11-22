@@ -848,6 +848,7 @@ end 'main'
 ```
 
 <!-- test: error.a-var-never-reassigned-that-a-let-could-not-bind-before -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 `node` names state `h` still writes. Nothing is written through `node` itself, so it is a `let`.
 
 ```maxon

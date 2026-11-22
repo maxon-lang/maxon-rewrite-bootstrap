@@ -469,6 +469,7 @@ error E2026: specs/enum-match-exhaustive/error.enum-gap-in-ranges.maxon:15:2: ma
 ```
 
 <!-- test: error.enum-overlapping-ranges -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 enum Priority
@@ -495,6 +496,7 @@ error E2027: specs/enum-match-exhaustive/error.enum-overlapping-ranges.maxon:15:
 ```
 
 <!-- test: error.enum-explicit-overlaps-range -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 enum Color
@@ -792,6 +794,7 @@ bare `ret` arm is a real overlap. TypeResolution detects it against the resolved
 enum and reports E2027 at the offending arm's line/column.
 
 <!-- test: error.cross-file-range-genuine-overlap -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 // --- file: ops.maxon

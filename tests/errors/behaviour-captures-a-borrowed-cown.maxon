@@ -9,11 +9,11 @@ type Acct
 end 'Acct'
 
 function show(c cown with Acct, d cown with Acct)
-	when c as x 'show'
+	when c as x 'showBlock'
 		when d as y 'again'
 			y.balance = 1
 		end 'again'
-	end 'show'
+	end 'showBlock'
 end 'show'
 
 function main() returns ExitCode

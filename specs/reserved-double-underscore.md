@@ -163,16 +163,16 @@ error E2051: specs/reserved-double-underscore/enum-case.maxon:4:2: identifier '_
 ```
 
 <!-- test: closure-parameter -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function apply(f Integer, n Integer) returns Integer
-	return f + n
+	return try f + n otherwise panic("out of range")
 end 'apply'
 
 function main() returns ExitCode
-	let f = function(__n Integer) gives __n + 1
+	let f = function(__n Integer) gives try __n + 1 otherwise panic("out of range")
 	_ = f(0)
 	return 0
 end 'main'

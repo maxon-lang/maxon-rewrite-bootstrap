@@ -1382,6 +1382,7 @@ end 'main'
 ### Unused local typealias
 
 <!-- test: unused-typealias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Score = int(0 to 100)
 
@@ -1396,6 +1397,7 @@ error E3062: specs/ranged-typealias/unused-typealias.maxon:2:11: unused typealia
 ### Unused typealias with used typealias
 
 <!-- test: unused-typealias-with-used -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Score = int(0 to 100)

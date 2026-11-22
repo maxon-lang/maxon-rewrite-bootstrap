@@ -544,6 +544,7 @@ error E3087: specs/if-try/error.if-try-redundant-contains-get-field-receiver.max
 ```
 
 <!-- test: error.if-try-non-throwing -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 Using `if try` with a non-throwing function is a compile-time error.
 
 ```maxon

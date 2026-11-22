@@ -24,9 +24,9 @@ type Pair
 end 'Pair'
 
 function touch(c cown with Txn)
-	when c as t 'touch'
+	when c as t 'touchBlock'
 		print("touch {t.id}\n")
-	end 'touch'
+	end 'touchBlock'
 end 'touch'
 
 function dropPair()

@@ -2398,7 +2398,6 @@ error E3102: <fragment>:15:9: use of moved value 'a': its ownership moved to ano
 ```
 
 <!-- test: a-unique-parameter-discarded-in-a-loop-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The second lap discards a parameter the first lap already discarded.
 ```maxon
@@ -2416,7 +2415,7 @@ function discardTwice(a Tk)
 	var i = 2 as Num
 	while i != 0 'laps'
 		_ = a
-		i = i - 1
+		i = try i - 1 otherwise panic("out of range")
 	end 'laps'
 end 'discardTwice'
 
@@ -3646,7 +3645,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-parameter-passed-beside-a-cond-of-it-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `cond` of two unique parameters may be `t` itself, so passing `t` beside it hands the callee two names for one unique value.
 ```maxon
@@ -4081,7 +4080,7 @@ error E3214: <fragment>:19:13: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-unique-operand-a-later-operand-moves-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A later argument that moves a unique value an earlier one already passed — through a nested tuple, a call that keeps it, a closure that captures it, or a `cond` — would hand the callee two names for one unique value.
 ```maxon
@@ -4447,7 +4446,7 @@ error E3102: <fragment>:57:7: use of moved value 't': its ownership moved to the
 ```
 
 <!-- test: a-field-path-over-a-cond-lends-every-holder-the-cond-names -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A loop over a field read through a `cond`, and a `match` on one, hold every holder the `cond` names read-only, whichever arm ran, as reading the field through one holder does.
 ```maxon

@@ -389,8 +389,8 @@ error E3005: <fragment>:10:10: argument type mismatch for 'f': expected 'fn(Coun
 <!-- positions: moved -->
 A generic body is checked against the bound of `T` only, and an unbounded `T` may be a record, which is never replaced through a parameter, so the marker does not lift the refusal inside a generic function. The generic function returns the new value instead.
 ```maxon
-function reset(mutates item T, fresh T) uses T
-	item = fresh
+function reset(mutates item T, fresh T) uses T where T implements Droppable and Copyable
+	item = fresh.clone()
 end 'reset'
 
 function main() returns ExitCode

@@ -35,6 +35,7 @@ it is bound to a `var`. `clone()` gives the writer its own record. The data a mo
 ## Tests
 
 <!-- test: var-never-reassigned -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -87,6 +88,7 @@ end 'main'
 ```
 
 <!-- test: multiple-vars-each-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -265,6 +267,7 @@ end 'main'
 ```
 
 <!-- test: unused-takes-precedence -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -277,6 +280,7 @@ error E3012: specs/var-should-be-let/unused-takes-precedence.maxon:4:6: unused v
 ```
 
 <!-- test: an-unused-let-silences-a-read-var-never-reassigned -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A function that reports an unused variable reports no `var` that should be `let`: `x` is read and never
 reassigned, and only `unused` is reported.
 ```maxon
@@ -292,6 +296,7 @@ error E3012: specs/var-should-be-let/an-unused-let-silences-a-read-var-never-rea
 ```
 
 <!-- test: two-unused-vars-are-each-unused-not-should-be-let -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -834,7 +839,7 @@ end 'main'
 ```
 
 <!-- test: let-record-of-a-let-global-through-a-call -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `static let` never moves, and its record is image data, so a write through a value derived from it is refused.
 

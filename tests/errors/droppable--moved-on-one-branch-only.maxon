@@ -24,9 +24,9 @@ end 'Step'
 // expect-error: E3919 at 28:3
 function f(flag bool)
 	let t = Txn.begin()
-	if flag 'f'
+	if flag 'fBlock'
 		t.commit()
-	end 'f'
+	end 'fBlock'
 end 'f'
 
 function main() returns ExitCode

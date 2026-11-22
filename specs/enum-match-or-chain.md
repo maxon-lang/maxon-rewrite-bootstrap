@@ -254,6 +254,7 @@ end 'main'
 ```
 
 <!-- test: error.or-chain.overlap -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)

@@ -458,8 +458,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -474,16 +474,16 @@ type Columns uses X, Y
 		return Self{xs: XArray.create(0), ys: YArray.create(0)}
 	end 'create'
 
-	function add(x X, y Y)
-		self.xs.push(x)
-		self.ys.push(y)
+	function add(mutates self, x X, y Y) where X implements Copyable, Y implements Copyable
+		self.xs.push(x.clone())
+		self.ys.push(y.clone())
 	end 'add'
 
-	function snapshot() returns Self
+	function snapshot() returns Self where X implements Copyable, Y implements Copyable
 		return Self{xs: self.xs.clone(), ys: self.ys.clone()}
 	end 'snapshot'
 
-	function yAt(i Index) returns Y
+	function yAt(i Index) returns Y where Y implements Copyable
 		return try self.ys.get(i) otherwise panic("yAt")
 	end 'yAt'
 end 'Columns'
@@ -497,17 +497,17 @@ type Holder uses T
 		return Self{mixed: Mixed.create()}
 	end 'create'
 
-	function put(t T)
+	function put(mutates self, t T) where T implements Droppable and Copyable
 		var column = TArray.create(0)
-		column.push(t)
+		column.push(t.clone())
 		self.mixed.add("k", y: column)
 	end 'put'
 
-	function original() returns T
+	function original() returns T where T implements Copyable
 		return try self.mixed.yAt(0).get(0) otherwise panic("original")
 	end 'original'
 
-	function copied() returns T
+	function copied() returns T where T implements Copyable
 		return try self.mixed.snapshot().yAt(0).get(0) otherwise panic("copied")
 	end 'copied'
 end 'Holder'
@@ -690,7 +690,6 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-type-reaching-itself-through-a-growing-argument-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A generic type whose methods reach an instance of itself with a strictly growing type argument has no finite set of instances, and is refused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2986,7 +2985,7 @@ The refusal is the same container-element rule as `Box with Named`, and it holds
 NOTHING for an interface argument the parser already refused.
 
 <!-- test: error.an-interface-array-element-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ```maxon
 interface Named
 	function label() returns String
@@ -3215,6 +3214,7 @@ error E2015: <fragment>:16:40: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.an-interface-array-literal-typed-as-the-refused-alias-is-reported-once -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 <!-- positions: moved -->
 A literal typed as the refused alias adds no error of its own.
 ```maxon

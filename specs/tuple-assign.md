@@ -111,6 +111,7 @@ end 'main'
 ```
 
 <!-- test: tuple-assign-discard-all -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 

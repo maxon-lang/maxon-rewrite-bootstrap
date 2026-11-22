@@ -37,6 +37,7 @@ The message spells the list back as the user wrote it (`two(_, _)`, one `_` per 
 ## Tests
 
 <!-- test: error.all-discard-two-payloads -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -58,6 +59,7 @@ error E3081: specs/match-payload-discard-bindings/error.all-discard-two-payloads
 ```
 
 <!-- test: error.all-discard-in-a-gives-arm -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 

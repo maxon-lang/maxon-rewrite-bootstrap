@@ -20,6 +20,7 @@ ErrUnsupportedFeature	E2015	parserUnsupportedFeature	The source uses a construct
 ErrMatchFallthroughWithReturn	E2025	matchFallthroughWithReturn	A match arm that returns also says 'and fallthrough'.
 ErrMatchNotExhaustive	E2026	matchNotExhaustive	A match covers neither every case of its subject nor a default.
 ErrMatchTypeMismatch	E2028	matchTypeMismatch	A match arm or a ternary branch has a type that the others do not, or a pattern does not match its subject.
+ErrMatchDefaultNotLast	E2029	matchDefaultNotLast	A match has an arm after its 'default' arm.
 ErrNonConstantInitializer	E2045	parserNonConstantInitializer	A constant's initializer is not known at compile time.
 ErrMatchDefaultEnumMustThrow	E2046	matchDefaultEnumMustThrow	The default arm of a match over an enum or union does not panic.
 ErrMatchBlockStatement	E2049	matchBlockStatement	A match arm's action is a block statement.
@@ -37,6 +38,8 @@ ErrFixedArrayCount	E2069	fixedArraySizeMalformed	The count of a fixed array is n
 ErrUnknownStaticMember	E2073	unknownStaticMember	A qualified name names a member its base does not declare.
 ErrNestedProjectFile	E2074	nestedProjectFile	A project file lies below another project's directory, and projects do not nest.
 ErrMethodAsFunctionValue	E2078	methodAsFunctionValue	A method or a requirement is named where a function value is needed.
+ErrCastOperandIsACast	E2079	castOperandIsACast	A cast's operand is itself a cast, written with or without parentheses.
+ErrBlockLabelReused	E2081	blockLabelReused	A block is labelled with the label of a block that encloses it, or with the name of the function, method or type that holds it.
 ErrNoMainFunction	E3001	noMainFunction	The program declares no 'main' function.
 ErrMainWrongReturnType	E3002	mainWrongReturnType	'main' returns a type other than ExitCode.
 ErrUnknownFunction	E3004	callUnknownFunction	A call names a function or method that does not exist.
@@ -64,6 +67,7 @@ ErrErrorTypeMismatch	E3059	errorTypeMismatch	An error goes where nothing takes a
 ErrDuplicateTypeAlias	E3061	semanticDuplicateTypeAlias	A typealias is declared twice for one type, in its body or in the extensions of one module, or in its body and an extension.
 ErrEnumNotComparable	E3066	semanticEnumNotComparable	A union is compared with '==' or '!='.
 ErrRefIdentityOnPrimitive	E3068	refIdentityOnPrimitive	An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a union, a function or a type parameter.
+ErrUnreachableCode	E3071	semanticUnreachableCode	A statement follows a 'return', 'throw', 'break', 'continue' or 'panic' in its block, so it never runs.
 ErrMatchQualifiedCaseName	E3075	matchQualifiedCaseName	A match arm names a case of an enum or union with its type's name, which the subject already gives.
 ErrConstructorRestriction	E3076	semanticConstructorRestriction	A struct literal is written outside the methods of its type.
 ErrEmptyBlock	E3082	semanticEmptyBlock	A block other than a function body holds no statement.

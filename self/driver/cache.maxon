@@ -535,9 +535,9 @@ function planModules(c Compile, p ast.Project, order check.ModuleOrder, known Kn
 		end 'deps'
 	end 'closure'
 	for slot in 0 upto c.modules 'loaded'
-		if settled[slot] and not checked[slot] 'loaded'
+		if settled[slot] and not checked[slot] 'ready'
 			plans[slot].reach = Reach.loaded
-		end 'loaded' else if settled[slot] and not c.cache.verifies 'restored'
+		end 'ready' else if settled[slot] and not c.cache.verifies 'restored'
 			plans[slot].checked = readChecked(c.cache, key: plans[slot].checkedKey)
 			if plans[slot].checked.isSome() 'found'
 				plans[slot].reach = Reach.restored

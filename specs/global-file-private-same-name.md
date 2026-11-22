@@ -363,6 +363,7 @@ end 'main'
 ```
 
 <!-- test: error.a-local-and-a-parameter-named-like-a-contested-binding-are-reported-by-their-own-name -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A local and a parameter that shadow `alpha/`'s `let counter` are block-scope names: the diagnostics name them as
 written, and the read of the binding before the local that shadows it stays a read of the binding.

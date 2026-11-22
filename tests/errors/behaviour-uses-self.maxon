@@ -3,9 +3,9 @@ type Meter
 	export var reading as Count
 
 	function watch(c cown with Count)
-		when c as x 'watch'
+		when c as x 'watchBlock'
 			x = self.reading
-		end 'watch'
+		end 'watchBlock'
 	end 'watch'
 end 'Meter'
 

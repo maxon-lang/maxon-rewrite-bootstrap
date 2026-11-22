@@ -89,9 +89,9 @@ function testRun(record Count)
 	_ = __Raw.atomicAdd(tally, offset: tallyBehavioursOffset, value: 1)
 	_ = __Raw.atomicAdd(tally, offset: tallyDepthSumOffset, value: depth)
 	if depth > 0 'children'
-		for i in 0 upto testFanOut 'children'
+		for i in 0 upto testFanOut 'childrenBlock'
 			testSchedule(tally, depth: depth - 1)
-		end 'children'
+		end 'childrenBlock'
 	end 'children'
 	if __Raw.atomicAdd(tally, offset: tallyRemainingOffset, value: stepDown) == 1 and __Raw.loadWord(tally, offset: tallyWaveOffset) == reportedWave 'last'
 		testReport(tally)

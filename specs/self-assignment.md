@@ -37,6 +37,7 @@ error E3067: specs/self-assignment/docs-example-2.maxon:3:2: expected a function
 ## Tests
 
 <!-- test: self-assignment.basic -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -77,6 +78,7 @@ end 'main'
 ```
 
 <!-- test: self-assignment.field-self-assign -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -101,6 +103,7 @@ error E3067: specs/self-assignment/self-assignment.field-self-assign.maxon:16:2:
 ```
 
 <!-- test: self-assignment.discard-literal -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode

@@ -179,10 +179,10 @@ export type Flow
 			end 'fails'
 			successors.clear()
 			visitTerm(successors, f: f, t: f.blocks[b].term)
-			for e in 0 upto successors.out.count() 'edges'
+			for e in 0 upto successors.out.count() 'successor'
 				let target = segBase[blockIndex(successors.out[e])]
 				self.edge(s, dest: target)
-			end 'edges'
+			end 'successor'
 		end 'segs'
 		let segs = self.segCount()
 		buildCsr(edgeFrom, targets: edgeTo, nodes: segs, starts: succStart, list: succ)

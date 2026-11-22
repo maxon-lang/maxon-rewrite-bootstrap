@@ -786,6 +786,7 @@ error E3005: <fragment>:12:9: argument type mismatch for 'v': expected 'Vec4', g
 ```
 
 <!-- test: error.same-size-aliases-are-two-brands -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 Two names for one size are one INSTANCE under two brands, and the brand is the type: a `Triple` does
 not reach a `Vec3` parameter unasked (`nominal-generic-alias.md`).
@@ -1096,7 +1097,7 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-let-fixed-array-literal-is-refused-off-the-declaration -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -4687,7 +4688,7 @@ end 'main'
 ```
 
 <!-- test: error.try-on-a-proven-index-of-a-constant-length-create -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 The array is a `FixedArray with 4 Int`, so slot 0 is proven and the `try` is E3055, exactly as on a `Vec4`.
 ```maxon

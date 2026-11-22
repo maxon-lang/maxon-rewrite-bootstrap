@@ -712,6 +712,10 @@ function checkCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	let operand = ast.castExprE(ms.tree(), id: e)
 	let owner = c.owner
 	let mark = errs.count()
+	if ms.tree().kindOf(operand) == ast.NodeKind.castExpr 'chained'
+		checkFail(c.modID, off: ms.tree().castKeywordStart(targetRef), code: diag.errCastOperandIsACast, msg: diag.castOperandIsACast(ast.typeRefName(ms.tree(), id: targetRef)), errs: errs)
+		return ast.noType
+	end 'chained'
 	let bare = bareNumberName(p, ms: ms, tr: targetRef)
 	if bare != "" 'bare'
 		var message = diag.bareIntCast()

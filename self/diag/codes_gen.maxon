@@ -42,6 +42,9 @@ export let errMatchNotExhaustive = "E2026"
 // A match arm or a ternary branch has a type that the others do not, or a pattern does not match its subject.
 export let errMatchTypeMismatch = "E2028"
 
+// A match has an arm after its 'default' arm.
+export let errMatchDefaultNotLast = "E2029"
+
 // A constant's initializer is not known at compile time.
 export let errNonConstantInitializer = "E2045"
 
@@ -92,6 +95,12 @@ export let errNestedProjectFile = "E2074"
 
 // A method or a requirement is named where a function value is needed.
 export let errMethodAsFunctionValue = "E2078"
+
+// A cast's operand is itself a cast, written with or without parentheses.
+export let errCastOperandIsACast = "E2079"
+
+// A block is labelled with the label of a block that encloses it, or with the name of the function, method or type that holds it.
+export let errBlockLabelReused = "E2081"
 
 // The program declares no 'main' function.
 export let errNoMainFunction = "E3001"
@@ -173,6 +182,9 @@ export let errEnumNotComparable = "E3066"
 
 // An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a union, a function or a type parameter.
 export let errRefIdentityOnPrimitive = "E3068"
+
+// A statement follows a 'return', 'throw', 'break', 'continue' or 'panic' in its block, so it never runs.
+export let errUnreachableCode = "E3071"
 
 // A match arm names a case of an enum or union with its type's name, which the subject already gives.
 export let errMatchQualifiedCaseName = "E3075"

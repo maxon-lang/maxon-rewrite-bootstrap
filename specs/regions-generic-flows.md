@@ -112,8 +112,8 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(item T)
-		self.items.push(item)
+	function push(mutates self, item T) where T implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function size() returns Tally
@@ -583,8 +583,8 @@ end 'Job'
 type Holder uses T
 	var held as T
 
-	static function wrap(item T) returns Self
-		return Self{held: item}
+	static function wrap(item T) returns Self where T implements Copyable
+		return Self{held: item.clone()}
 	end 'wrap'
 
 	function number() returns Tally
@@ -929,8 +929,8 @@ end 'Job'
 type Holder uses T
 	var held as T
 
-	static function wrap(item T) returns Self
-		return Self{held: item}
+	static function wrap(item T) returns Self where T implements Copyable
+		return Self{held: item.clone()}
 	end 'wrap'
 
 	function number() returns Tally
@@ -1935,8 +1935,8 @@ type Pairs uses T
 		return Self{items: Items.create()}
 	end 'create'
 
-	function add(first T, second T)
-		self.items.append((first, second))
+	function add(mutates self, first T, second T) where T implements Copyable
+		self.items.append((first.clone(), second.clone()))
 	end 'add'
 
 	function size() returns Tally
@@ -1949,7 +1949,7 @@ typealias BoxPairs = Pairs with Box
 function main() returns ExitCode
 	let a = freeze(Box.create(1))
 	let d = Box.create(4)
-	let plain = BoxPairs.create()
+	var plain = BoxPairs.create()
 	plain.add(a, second: d)
 	print("{plain.size()}\n")
 	return 0

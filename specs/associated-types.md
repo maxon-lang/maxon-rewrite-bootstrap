@@ -1064,7 +1064,7 @@ says whether they name the same TYPE, and a conformance compares the brands (`no
 `take(xs IntArray)`, and the diagnostic prints the two spellings rather than the instance mint.
 
 <!-- test: error.two-alias-spellings-of-one-generic-instance-do-not-conform -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 
@@ -2668,6 +2668,7 @@ end 'smallOk'
 ```
 
 <!-- test: error.unneeded.a-constraint-bound-float-result-cast-to-its-own-alias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A value the constraint's binding already types as `Percent` gains nothing from a cast to `Percent`.
 ```maxon

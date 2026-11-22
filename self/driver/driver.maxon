@@ -207,9 +207,9 @@ export function run(args Array with String) returns ExitCode
 		end 'named'
 		return buildPath(path, output: output, options: withCache(options))
 	end 'build'
-	if command == "run" 'run'
+	if command == "run" 'runCommand'
 		return runProgram(path, options: options)
-	end 'run'
+	end 'runCommand'
 	if command == "fmt" 'fmt'
 		return formatCommand(rest)
 	end 'fmt'

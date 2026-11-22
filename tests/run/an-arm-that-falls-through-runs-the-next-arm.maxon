@@ -8,11 +8,11 @@ end 'Level'
 
 function cascade(x Amount) returns Amount
 	var result = 0 as Amount
-	match x 'cascade'
+	match x 'cascadeBlock'
 		1 then result = result + 10 and fallthrough
 		2 then result = result + 20
 		default then result = 100
-	end 'cascade'
+	end 'cascadeBlock'
 	return result
 end 'cascade'
 

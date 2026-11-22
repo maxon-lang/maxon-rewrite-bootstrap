@@ -749,6 +749,7 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-field-discarded-in-arithmetic -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A discard whose right side calls nothing is refused whatever its operand is — a grouping parenthesis
 is not a call.
 ```maxon

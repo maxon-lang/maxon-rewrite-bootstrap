@@ -84,46 +84,46 @@ function on(cells Cells, n Count, start Count, stride Count, k Count)
 	let g = share(cells[slot(start, stride: stride, j: 6)])
 	let h = share(cells[slot(start, stride: stride, j: 7)])
 	if n == 1 'one'
-		when a as p 'one'
+		when a as p 'oneBlock'
 			enter(p, k: k)
-		end 'one'
+		end 'oneBlock'
 	end 'one' else if n == 2 'two'
-		when a, b as p, q 'two'
+		when a, b as p, q 'twoBlock'
 			enter(p, k: k)
 			enter(q, k: k)
-		end 'two'
+		end 'twoBlock'
 	end 'two' else if n == 3 'three'
-		when a, b, c as p, q, r 'three'
+		when a, b, c as p, q, r 'threeBlock'
 			enter(p, k: k)
 			enter(q, k: k)
 			enter(r, k: k)
-		end 'three'
+		end 'threeBlock'
 	end 'three' else if n == 4 'four'
-		when a, b, c, d as p, q, r, s 'four'
+		when a, b, c, d as p, q, r, s 'fourBlock'
 			enter(p, k: k)
 			enter(q, k: k)
 			enter(r, k: k)
 			enter(s, k: k)
-		end 'four'
+		end 'fourBlock'
 	end 'four' else if n == 5 'five'
-		when a, b, c, d, e as p, q, r, s, t 'five'
+		when a, b, c, d, e as p, q, r, s, t 'fiveBlock'
 			enter(p, k: k)
 			enter(q, k: k)
 			enter(r, k: k)
 			enter(s, k: k)
 			enter(t, k: k)
-		end 'five'
+		end 'fiveBlock'
 	end 'five' else if n == 6 'six'
-		when a, b, c, d, e, f as p, q, r, s, t, u 'six'
+		when a, b, c, d, e, f as p, q, r, s, t, u 'sixBlock'
 			enter(p, k: k)
 			enter(q, k: k)
 			enter(r, k: k)
 			enter(s, k: k)
 			enter(t, k: k)
 			enter(u, k: k)
-		end 'six'
+		end 'sixBlock'
 	end 'six' else if n == 7 'seven'
-		when a, b, c, d, e, f, g as p, q, r, s, t, u, v 'seven'
+		when a, b, c, d, e, f, g as p, q, r, s, t, u, v 'sevenBlock'
 			enter(p, k: k)
 			enter(q, k: k)
 			enter(r, k: k)
@@ -131,9 +131,9 @@ function on(cells Cells, n Count, start Count, stride Count, k Count)
 			enter(t, k: k)
 			enter(u, k: k)
 			enter(v, k: k)
-		end 'seven'
+		end 'sevenBlock'
 	end 'seven' else 'eight'
-		when a, b, c, d, e, f, g, h as p, q, r, s, t, u, v, w 'eight'
+		when a, b, c, d, e, f, g, h as p, q, r, s, t, u, v, w 'eightBlock'
 			enter(p, k: k)
 			enter(q, k: k)
 			enter(r, k: k)
@@ -142,7 +142,7 @@ function on(cells Cells, n Count, start Count, stride Count, k Count)
 			enter(u, k: k)
 			enter(v, k: k)
 			enter(w, k: k)
-		end 'eight'
+		end 'eightBlock'
 	end 'eight'
 end 'on'
 
@@ -183,7 +183,7 @@ function finished(sum cown with Sum, cells Cells, counters Cells)
 		messages.push(share(counters[i]))
 	end 'counters'
 	let total = share(sum)
-	when sum as s 'finished'
+	when sum as s 'finishedBlock'
 		s.left = try s.left - 1 otherwise 0
 		if s.left == 0 'last'
 			for i in 0 upto all.count() 'cells'
@@ -206,7 +206,7 @@ function finished(sum cown with Sum, cells Cells, counters Cells)
 				print("entries {t.entries} messages {t.messages} sum {t.sum} misordered {t.misordered}\n")
 			end 'report'
 		end 'last'
-	end 'finished'
+	end 'finishedBlock'
 end 'finished'
 
 function main() returns ExitCode

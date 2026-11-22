@@ -13,6 +13,9 @@ uninferrableFieldDefault	ErrExpressionError	Expected default value: a bool or st
 varStartsFromBareNumber	ErrExpressionError	A var cannot start from a bare number: write 'var name = expr as Type'.
 unexpectedEof	ErrUnexpectedEnd	Unexpected end of input
 mismatchedEndLabel	ErrMismatchedEndLabel	Mismatched end label: expected '{expected}', got '{got}'
+castOperandIsACast	ErrCastOperandIsACast	a cast cannot take another cast as its operand — cast directly to '{target}'
+reusedBlockLabel	ErrBlockLabelReused	Block label '{label}' is already the label of an enclosing block or declaration (line {line}, column {column}); an `end '{label}'` could close either, so rename the inner block's label
+unreachableCode	ErrUnreachableCode	unreachable code after '{terminator}'
 expectedToken	ErrExpectedToken	Expected {expected} but got '{got}'
 floatLiteralOverflow	ErrIntegerLiteralRange	Float literal '{literal}' is outside the range of float
 unsignedLiteralWithoutAlias	ErrIntegerLiteralRange	Integer literal '{literal}' is above i64.max, so it needs an alias whose range admits it: write '{literal} as <alias>'
@@ -22,6 +25,9 @@ letReassigned	ErrAssignToImmutable	'{name}' is a let and cannot be reassigned
 matchNotExhaustive	ErrMatchNotExhaustive	{subject} is not exhaustive: add a 'default' arm
 enumMatchNotExhaustive	ErrMatchNotExhaustive	match on {kindWord} '{typeName}' is not exhaustive, missing: {missing}
 matchBlockStatement	ErrMatchBlockStatement	block-opening statement '{keyword}' is not allowed in a match arm; use a function call instead
+matchTryBlockForm	ErrMatchBlockStatement	block-form 'try ... end' is not allowed in a match arm; use a single-statement try form (e.g. 'try call()' or 'try call() otherwise panic(...)') instead
+matchOtherwiseBlockForm	ErrMatchBlockStatement	block-form 'try ... otherwise 'label' ... end' is not allowed in a match arm; use 'otherwise panic(...)', 'otherwise ignore', or 'otherwise return/throw/...' instead
+matchDefaultNotLast	ErrMatchDefaultNotLast	'default' case must be the last case in match
 firstArgNamed	ErrCallFirstArgNamed	the first argument cannot be named because its parameter has no default
 argMissingLabel	ErrCallArgMissingLabel	the second and later arguments must be named ('name: value')
 shiftCountNegative	ErrShiftCountNegative	Shift count {count} is negative: a shift distance must be 0 or greater (a count of 64 or more is legal — it shifts every bit out)

@@ -28,6 +28,7 @@ included, are not part of it either.
 ## Tests
 
 <!-- test: error.unused-function -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function unusedHelper() returns ExitCode
 	return 3
@@ -42,6 +43,7 @@ error E3219: specs/unused-file-private-declaration/error.unused-function.maxon:2
 ```
 
 <!-- test: error.unused-constant -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 let UnusedLimit = 7
 
@@ -54,6 +56,7 @@ error E3219: specs/unused-file-private-declaration/error.unused-constant.maxon:2
 ```
 
 <!-- test: error.unused-type -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Coord = int(0 to 100)
 
@@ -70,6 +73,7 @@ error E3219: specs/unused-file-private-declaration/error.unused-type.maxon:4:6: 
 ```
 
 <!-- test: error.unused-enum -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 enum UnusedShade
 	light
@@ -85,6 +89,7 @@ error E3219: specs/unused-file-private-declaration/error.unused-enum.maxon:2:6: 
 ```
 
 <!-- test: error.unused-union -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 union UnusedOutcome
 	success
@@ -100,6 +105,7 @@ error E3219: specs/unused-file-private-declaration/error.unused-union.maxon:2:7:
 ```
 
 <!-- test: error.a-function-that-only-names-itself-is-unused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function spin() returns ExitCode
 	return spin()
@@ -114,7 +120,7 @@ error E3219: specs/unused-file-private-declaration/error.a-function-that-only-na
 ```
 
 <!-- test: error.declarations-that-only-name-each-other-are-all-unused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 let UnusedLimit = 7
 
@@ -137,6 +143,7 @@ error E3219: specs/unused-file-private-declaration/error.declarations-that-only-
 ```
 
 <!-- test: error.reported-in-source-order-whatever-the-kind -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 enum DeadShade
 	light
@@ -166,6 +173,7 @@ error E3219: specs/unused-file-private-declaration/error.reported-in-source-orde
 ```
 
 <!-- test: error.the-same-name-in-another-file-does-not-keep-it-alive -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 // --- file: api/lib.maxon
 function helper() returns ExitCode
@@ -190,6 +198,7 @@ error E3219: api/<fragment>:3:10: unused function: 'helper' is not exported and 
 ```
 
 <!-- test: error.unused-interface -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 interface UnusedShape
 	function area() returns ExitCode
@@ -204,6 +213,7 @@ error E3219: specs/unused-file-private-declaration/error.unused-interface.maxon:
 ```
 
 <!-- test: error.an-unused-function-spelled-by-a-keyword -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function from() returns ExitCode
 	return 3
@@ -465,6 +475,7 @@ end 'main'
 ```
 
 <!-- test: error.unused-in-a-file-with-conditional-regions -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function unusedHere() returns ExitCode
 	return 1

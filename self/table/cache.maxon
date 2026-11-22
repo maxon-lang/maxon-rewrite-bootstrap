@@ -127,6 +127,23 @@ export type CacheReader
 		return self.wordOf(8)
 	end 'word64'
 
+	// int8 to int64 read a word as the integer that has its bits, which a stored signed value is.
+	export function int8(mutates self) returns FullRangeInt
+		return self.word8() as FullRangeInt
+	end 'int8'
+
+	export function int16(mutates self) returns FullRangeInt
+		return self.word16() as FullRangeInt
+	end 'int16'
+
+	export function int32(mutates self) returns FullRangeInt
+		return self.word32() as FullRangeInt
+	end 'int32'
+
+	export function int64(mutates self) returns FullRangeInt
+		return self.word64() as FullRangeInt
+	end 'int64'
+
 	function wordOf(mutates self, width Count) returns Word64
 		if broken or self.left() < width 'short'
 			broken = true

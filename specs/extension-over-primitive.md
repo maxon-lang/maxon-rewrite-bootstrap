@@ -277,7 +277,7 @@ error E2015: <fragment>:6:10: Unsupported: a field access through `self` in a me
 ```
 
 <!-- test: error.an-interface-extension-publishes-nothing-onto-a-primitive -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: an extension of an interface reaches every conformer, an integer type too -->
 ⭐⭐ **THE BOUNDARY OF PRIMITIVE EXTENSIONS, PINNED SO IT CANNOT DRIFT INTO A WRONG ANSWER.** A
 primitive may be an extension TARGET, and this case's `extension int implements Doubler` is accepted and
 conformance-checked. It may NOT be an interface CONFORMER: `ProgramSignatures.conformersOf` builds its

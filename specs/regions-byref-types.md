@@ -339,8 +339,8 @@ The direct call's twin of the coroutine above.
 ```maxon
 typealias Wide = int(0 to 100)
 
-function setTo(mutates slot T, value T) uses T
-	slot = value
+function setTo(mutates slot T, value T) uses T where T implements Droppable and Copyable
+	slot = value.clone()
 end 'setTo'
 
 function main() returns ExitCode

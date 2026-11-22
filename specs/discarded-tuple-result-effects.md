@@ -162,6 +162,7 @@ end 'main'
 ```
 
 <!-- test: refuses-a-callee-with-no-effect -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ⭐ **THE CONTROL, AND IT MUST STAY RED.** The four cases above prove the rule does not refuse things it
 should not; this one proves it still refuses what it should. A callee that only builds and returns a
 value has no reason to run when nothing takes the result.

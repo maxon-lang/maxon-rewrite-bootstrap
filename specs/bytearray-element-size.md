@@ -305,7 +305,6 @@ error E2015: specs/bytearray-element-size/byte-string-literal-refused-when-byte-
 ```
 
 <!-- test: byte-string-global-refused-when-byte-is-wider-than-one-byte -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ### The refusal reaches a top-level byte-string global, which no function body ever parses
 A `let`/`var` at file scope is folded to bytes by the initializer sweep and its record is built by
@@ -321,7 +320,7 @@ let BUFFER = b"hi"
 function main() returns ExitCode
 	var made = Bytes.create(0)
 	made.push(1)
-	return made.count() + BUFFER.count()
+	return try made.count() + BUFFER.count() otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -525,7 +524,6 @@ end 'main'
 ```
 
 <!-- test: byte-string-global-refused-when-a-byte-is-outside-the-elements-range -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ### The refusal reaches a top-level byte-string global, which no function body ever parses
 The narrow twin of `byte-string-global-refused-when-byte-is-wider-than-one-byte`, and it is here for the
@@ -541,7 +539,7 @@ let BUFFER = b"\xdf"
 function main() returns ExitCode
 	var made = Bytes.create(0)
 	made.push(1)
-	return made.count() + BUFFER.count()
+	return try made.count() + BUFFER.count() otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -990,7 +988,7 @@ error E2015: <fragment>:12:10: Unsupported: a `b"…"` byte-string literal in a 
 ```
 
 <!-- test: the-wide-files-own-byte-literal-is-still-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 ### …and the WIDE file's own `b"…"` is still refused, in the same program
 The other half, and the half that proves the case above is not simply a lost refusal: the identical
 literal moved into `wide.maxon` meets the wall its own declaration builds. One program, two files,
@@ -1008,7 +1006,7 @@ end 'widen'
 export typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
-	return widen() as ExitCode
+	return try widen() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -2370,7 +2368,7 @@ end 'main'
 ```
 
 <!-- test: error.a-byte-string-literal-under-an-ambiguous-bare-byte-is-ambiguous -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 `main.maxon` declares no `Byte` and sees two exported author declarations of it, so its bare `Byte` is
 ambiguous, and the `b"hi"` literal, whose element is what that bare name means, is ambiguous with it.
 ```maxon

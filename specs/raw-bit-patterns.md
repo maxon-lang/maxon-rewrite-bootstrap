@@ -391,6 +391,7 @@ error E3011: specs/raw-bit-patterns/error.bare-bits-is-not-a-type.maxon:3:12: Un
 ```
 
 <!-- test: error.a-cast-to-a-values-own-pattern-alias-is-unneeded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ### E3010 is unchanged — a pattern is an alias like any other
 ```maxon
 typealias Word = bits(64)
@@ -1470,7 +1471,7 @@ end 'main'
 ```
 
 <!-- test: error.a-wrapping-unsigned-fold-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 ### A fold over full-width unsigned operands that wraps is refused
 `+` and `-` over a full-width unsigned alias are checked at the operation, so a constant expression whose result
 leaves the range is E3005. Arithmetic meant to wrap is written over `bits(64)`.
@@ -1482,8 +1483,8 @@ function take(c Count) returns Count
 end 'take'
 
 function main() returns ExitCode
-	print("{take((0xFFFFFFFFFFFFFFFF as Count) + 1)}\n")
-	print("{take(0 - (0xFFFFFFFFFFFFFFFF as Count))}\n")
+	print("{take(try (0xFFFFFFFFFFFFFFFF as Count) + 1 otherwise panic("out of range"))}\n")
+	print("{take(try 0 - (0xFFFFFFFFFFFFFFFF as Count) otherwise panic("out of range"))}\n")
 	return 0
 end 'main'
 ```
@@ -1693,7 +1694,7 @@ end 'main'
 ```
 
 <!-- test: an-unsigned-difference-that-borrows-is-refused-when-folded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 ### …and a borrow is refused, folded
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1703,7 +1704,7 @@ function take(c Count) returns Count
 end 'take'
 
 function main() returns ExitCode
-	print("{take((0 as Count) - (1 as Count))}\n")
+	print("{take(try (0 as Count) - (1 as Count) otherwise panic("out of range"))}\n")
 	return 0
 end 'main'
 ```

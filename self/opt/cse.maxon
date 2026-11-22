@@ -155,7 +155,7 @@ export type Cse
 		cursor.clear()
 		marks.clear()
 		self.enter(f, s: 0, analysis: analysis, facts: facts)
-		while stack.count() > 0 'walk'
+		while stack.count() > 0 'pending'
 			let top = try stack.count() - 1 otherwise panic("opt: an empty walk")
 			let s = stack[top]
 			let at = cursor[top]
@@ -172,7 +172,7 @@ export type Cse
 				_ = try stack.pop() otherwise panic("opt: an empty walk")
 				_ = try cursor.pop() otherwise panic("opt: an empty walk")
 			end 'leave'
-		end 'walk'
+		end 'pending'
 	end 'walk'
 
 	// enter visits the segment s: what it computes that was computed on the path to it goes, and the rest is recorded.

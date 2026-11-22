@@ -24,9 +24,9 @@ end 'Step'
 // expect-error: E3919 at 26:2
 function f(flag bool)
 	var t as Txn
-	if flag 'f'
+	if flag 'fBlock'
 		t = Txn.begin()
-	end 'f'
+	end 'fBlock'
 end 'f'
 
 function main() returns ExitCode

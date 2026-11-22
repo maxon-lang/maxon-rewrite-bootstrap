@@ -7,29 +7,29 @@ type Stage
 end 'Stage'
 
 function third(c cown with Stage, carried Count)
-	when c as s 'third'
+	when c as s 'thirdBlock'
 		s.value = try s.value + carried otherwise return
 		print("third {s.value}\n")
-	end 'third'
+	end 'thirdBlock'
 end 'third'
 
 function second(b cown with Stage, c cown with Stage, carried Count)
 	let next = share(c)
-	when b as s 'second'
+	when b as s 'secondBlock'
 		s.value = try s.value * carried otherwise return
 		print("second {s.value}\n")
 		third(next, carried: s.value)
-	end 'second'
+	end 'secondBlock'
 end 'second'
 
 function first(a cown with Stage, b cown with Stage, c cown with Stage)
 	let nextB = share(b)
 	let nextC = share(c)
-	when a as s 'first'
+	when a as s 'firstBlock'
 		s.value = try s.value + 1 otherwise return
 		print("first {s.value}\n")
 		second(nextB, c: nextC, carried: s.value)
-	end 'first'
+	end 'firstBlock'
 end 'first'
 
 function main() returns ExitCode

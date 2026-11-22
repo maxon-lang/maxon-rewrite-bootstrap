@@ -48,9 +48,9 @@ type Holder
 end 'Holder'
 
 function use(r cown with Resource)
-	when r as x 'use'
+	when r as x 'useBlock'
 		x.useCount = try x.useCount + 1 otherwise 0
-	end 'use'
+	end 'useBlock'
 end 'use'
 
 function main() returns ExitCode

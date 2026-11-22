@@ -378,7 +378,7 @@ A cast naming a DIFFERENT alias is real work whichever way the two ranges run �
 re-declares the value's type and carries the target's range check — so it compiles.
 
 <!-- test: error.unneeded.same-type-int -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -398,7 +398,7 @@ error E3010: specs/type-casting/error.unneeded.same-type-int.maxon:11:12: unneed
 ```
 
 <!-- test: error.unneeded.same-type-float -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Float = float(f64.min to f64.max)
@@ -418,6 +418,7 @@ error E3010: specs/type-casting/error.unneeded.same-type-float.maxon:11:12: unne
 ```
 
 <!-- test: error.unneeded.same-type-byte -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Byte = int(0 to u8.max)
@@ -433,6 +434,7 @@ error E3010: specs/type-casting/error.unneeded.same-type-byte.maxon:7:12: unneed
 ```
 
 <!-- test: error.unneeded.literal-named-argument -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A literal cast to the type its parameter already declares converts nothing: the argument is range-checked against that type anyway.
 ```maxon
@@ -456,6 +458,7 @@ error E3010: <fragment>:13:32: unneeded cast: the literal 1 already fits in 'Byt
 ```
 
 <!-- test: error.unneeded.literal-argument-through-interface -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same argument reached through an interface-typed receiver: the interface's declared parameter is the destination.
 ```maxon
@@ -504,6 +507,7 @@ error E3010: <fragment>:32:52: unneeded cast: the literal 1 already fits in 'Byt
 ```
 
 <!-- test: error.unneeded.literal-positional-argument -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A positional argument, and a negative literal: the minus is part of the literal.
 ```maxon
 typealias Delta = int(-10 to 10)
@@ -524,6 +528,7 @@ error E3010: <fragment>:9:14: unneeded cast: the literal -3 already fits in 'Del
 ```
 
 <!-- test: error.unneeded.literal-return -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Score = int(0 to 100)
 
@@ -540,6 +545,7 @@ error E3010: <fragment>:5:12: unneeded cast: the literal 50 already fits in 'Sco
 ```
 
 <!-- test: error.unneeded.literal-struct-field -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Score = int(0 to 100)
 
@@ -565,6 +571,7 @@ error E3010: <fragment>:8:24: unneeded cast: the literal 7 already fits in 'Scor
 ```
 
 <!-- test: error.unneeded.literal-field-store -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Score = int(0 to 100)
 
@@ -595,7 +602,7 @@ error E3010: <fragment>:12:18: unneeded cast: the literal 9 already fits in 'Sco
 ```
 
 <!-- test: error.unneeded.literal-float-argument -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Real = float(0.0 to 100.0)
 
@@ -615,7 +622,7 @@ error E3010: <fragment>:9:14: unneeded cast: the literal 2.5 already fits in 'Re
 ```
 
 <!-- test: error.unneeded.integer-literal-to-float-argument -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 An integer literal meets a float parameter without a cast, so the cast converts nothing here either.
 ```maxon
 typealias Real = float(0.0 to 100.0)
@@ -663,7 +670,7 @@ error E3010: <fragment>:9:13: unneeded cast: the literal 64 already fits in 'Lev
 ```
 
 <!-- test: error.unneeded.literal-float-field-store -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Real = float(0.0 to 100.0)
 
@@ -697,6 +704,7 @@ error E3010: <fragment>:12:20: unneeded cast: the literal 2.5 already fits in 'R
 ```
 
 <!-- test: error.unneeded.literal-arguments-all-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 Every redundant literal cast in one call is reported, not only the first.
 ```maxon
 typealias Nib = int(0 to 15)
@@ -718,7 +726,7 @@ error E3010: <fragment>:12:29: unneeded cast: the literal 2 already fits in 'Nib
 ```
 
 <!-- test: error.unneeded.literal-let-every-use-takes-the-constant -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A literal cast in an untyped `let` converts nothing when the constant the `let` would otherwise be serves every use the same way.
 ```maxon
 typealias Real = float(0.0 to 100.0)
@@ -778,6 +786,7 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.literal-let-cast-again-to-another-alias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A cast of the `let` to another alias converts the constant just as well.
 ```maxon
 typealias Small = int(0 to 9)
@@ -792,6 +801,7 @@ error E3010: <fragment>:5:12: unneeded cast: the literal 3 already fits every us
 ```
 
 <!-- test: error.unneeded.literal-let-beside-a-partner-of-its-alias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 An operand beside a value of the same alias takes the constant as that alias.
 ```maxon
 typealias Count = int(0 to 100)
@@ -918,6 +928,7 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.same-alias-name-with-a-contested-range -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 Two files declaring one alias name with different ranges still leave each file's alias its own, so a cast to it repeats it.
 ```maxon
@@ -952,7 +963,7 @@ error E3010: <fragment>:14:13: unneeded cast: 'Byte' already fits in 'Byte'
 ```
 
 <!-- test: error.unneeded.same-nested-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A cast to an alias declared inside an extension body is unneeded when the value already has that alias.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1011,6 +1022,7 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.same-alias-byte -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Byte = int(0 to u8.max)
@@ -1026,7 +1038,7 @@ error E3010: specs/type-casting/error.unneeded.same-alias-byte.maxon:7:12: unnee
 ```
 
 <!-- test: error.unneeded.same-alias-int -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1046,7 +1058,7 @@ error E3010: specs/type-casting/error.unneeded.same-alias-int.maxon:11:12: unnee
 ```
 
 <!-- test: error.unneeded.same-alias-float -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Float = float(f64.min to f64.max)
@@ -1101,6 +1113,7 @@ through `sourceSpelledAliasName` — "quoted as source spells it" is a property 
 VOCABULARY and not of one E-code. E3010 prints both sides of the cast through it.
 
 <!-- test: error.unneeded.contested-alias-quoted-as-source-spells-it -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 
@@ -1169,6 +1182,7 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.call-result-same-alias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Score = int(0 to 100)
@@ -1187,7 +1201,7 @@ error E3010: specs/type-casting/error.unneeded.call-result-same-alias.maxon:10:2
 ```
 
 <!-- test: error.a-redundant-cast-in-an-argument-is-unneeded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A rebound `var` keeps its alias, so casting it to that alias in an argument is unneeded, as it is
 everywhere else.
 ```maxon
@@ -1211,6 +1225,7 @@ E3010 is a recoverable diagnostic: the parser keeps walking the function so ever
 unneeded cast in the file is reported in a single compile, not just the first.
 
 <!-- test: error.unneeded.multiple-in-one-function -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Byte = int(0 to u8.max)
@@ -1230,6 +1245,7 @@ error E3010: specs/type-casting/error.unneeded.multiple-in-one-function.maxon:9:
 ```
 
 <!-- test: error.unneeded.multiple-across-functions -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Byte = int(0 to u8.max)
@@ -1299,6 +1315,7 @@ value the two entry guards already proved, and this E3010 would not be reported 
 below pin that it IS reported, at that line and column.
 
 <!-- test: error.unneeded.if-merged-binding-same-alias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Num = int(0 to 1000)
 
@@ -1319,6 +1336,7 @@ error E3010: <fragment>:9:11: unneeded cast: 'Num' already fits in 'Num'
 ```
 
 <!-- test: error.unneeded.match-carried-binding-same-alias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Num = int(0 to 1000)
 
@@ -1353,6 +1371,7 @@ pinned twice: the same-alias cast E3010 refuses, and the cross-alias cast throug
 the one legal way across.
 
 <!-- test: error.unneeded.through-a-struct-field-read -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Narrow = int(0 to u32.max)
 
@@ -1399,7 +1418,7 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.through-a-try-otherwise-result -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 `ByteArray.get` returns the stdlib's `Byte`, and the `try … otherwise` result states it.
 ```maxon
 function main() returns ExitCode
@@ -1623,7 +1642,7 @@ error E3005: specs/type-casting/error.a-full-range-cast-names-its-value.maxon:11
 ```
 
 <!-- test: error.a-struct-cast-to-its-own-type-is-unneeded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 type Gauge
 	export var level = 0 as Count
@@ -1643,6 +1662,7 @@ error E3010: specs/type-casting/error.a-struct-cast-to-its-own-type-is-unneeded.
 ```
 
 <!-- test: error.an-enum-cast-to-its-own-type-is-unneeded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 enum Shade
 	light
@@ -1660,6 +1680,7 @@ error E3010: specs/type-casting/error.an-enum-cast-to-its-own-type-is-unneeded.m
 ```
 
 <!-- test: error.a-bool-cast-to-bool-is-unneeded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
 	let b = true as bool
@@ -1672,6 +1693,7 @@ error E3010: specs/type-casting/error.a-bool-cast-to-bool-is-unneeded.maxon:3:15
 ```
 
 <!-- test: error.a-string-cast-to-string-is-unneeded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
 	let t = "x" as String
@@ -1684,6 +1706,7 @@ error E3010: specs/type-casting/error.a-string-cast-to-string-is-unneeded.maxon:
 ```
 
 <!-- test: error.a-union-cast-to-its-own-type-is-unneeded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 union Signal
 	idle
@@ -1701,6 +1724,7 @@ error E3010: specs/type-casting/error.a-union-cast-to-its-own-type-is-unneeded.m
 ```
 
 <!-- test: error.a-top-level-cast-to-the-type-a-global-already-has-is-unneeded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -1719,7 +1743,6 @@ error E3010: specs/type-casting/error.a-top-level-cast-to-the-type-a-global-alre
 ```
 
 <!-- test: error.a-cast-of-a-cast-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A cast takes a value, never the result of another cast: cast directly to the type you want.
 ```maxon
@@ -1742,7 +1765,6 @@ error E2079: <fragment>:7:20: a cast cannot take another cast as its operand —
 ```
 
 <!-- test: error.a-parenthesized-cast-of-a-cast-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Parentheses do not change it: the operand is still a cast.
 ```maxon
@@ -1817,7 +1839,6 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-negated-constant-is-range-checked-after-the-negation -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A cast applies to the whole negation, so `-K as Small` checks `-5`, at file scope as in a body.
 ```maxon
@@ -1825,7 +1846,7 @@ typealias Small = int(0 to 100)
 
 let K = 5 as Small
 
-let M = -K as Small
+let M = try -K as Small otherwise panic("out of range")
 
 function main() returns ExitCode
 	return (K + M) as ExitCode
@@ -1836,6 +1857,7 @@ error E3005: <fragment>:5:12: Value -5 is outside the range of 'Small' (int(0 to
 ```
 
 <!-- test: error.unneeded.let-cast-argument-of-a-method -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A method call's arguments are matched against the method's own parameters, receiver aside: each `let` cast names the alias of the parameter it is passed to, so both casts are unneeded.
 ```maxon

@@ -97,7 +97,6 @@ ok
 ```
 
 <!-- test: union-literal-argument-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A union literal takes the local and the by-reference call's result. The read runs before the write.
 
@@ -292,7 +291,6 @@ ok
 ```
 
 <!-- test: call-field-read-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A call takes a field read of the local and the by-reference call's result. The read runs before the write.
 
@@ -308,7 +306,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
@@ -883,7 +881,6 @@ ok
 ```
 
 <!-- test: ternary-chained-else-arm-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The inner ternary sits in the outer one's else arm, and the outer then arm reads the local beside the call: the arms are numbered in order, so the read runs before the write.
 
@@ -891,7 +888,7 @@ The inner ternary sits in the outer one's else arm, and the outer then arm reads
 typealias Tally = int(0 to u64.max)
 
 function bump(mutates n Tally) returns bool
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return true
 end 'bump'
 
@@ -1357,7 +1354,6 @@ error E3186: <fragment>:21:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: read-between-sibling-writes -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A read between two sibling writes of the local.
 
@@ -1377,7 +1373,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'sum3'
 
 function main() returns ExitCode
@@ -1393,7 +1389,6 @@ error E3186: <fragment>:23:48: argument 'label' is read by another operand of th
 ```
 
 <!-- test: match-subject-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A match subject reads the local and then rewrites it.
 
@@ -1625,7 +1620,6 @@ ok
 ```
 
 <!-- test: two-locals-read-before-each-write -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Each local is read before the other's rewrite, one of them rewritten twice.
 
@@ -1645,7 +1639,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'sum3'
 
 function main() returns ExitCode
@@ -1770,7 +1764,6 @@ ok
 ```
 
 <!-- test: field-cell-two-levels-sibling-read-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A two-level field cell is handed by reference and a sibling of its parent is read before the write.
 
@@ -1786,11 +1779,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -1807,7 +1800,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -1943,7 +1936,6 @@ ok
 ```
 
 <!-- test: field-cell-sibling-read-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A field is handed by reference and a sibling field read before the write.
 
@@ -1959,11 +1951,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -1972,7 +1964,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -2095,7 +2087,6 @@ ok
 ```
 
 <!-- test: field-cell-ternary-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A ternary condition reads the field its arm hands by reference. The read runs before the write.
 
@@ -2111,11 +2102,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -2186,7 +2177,6 @@ ok
 ```
 
 <!-- test: field-cell-twice-between -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A read of the field between two writes of it.
 
@@ -2202,11 +2192,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -2223,7 +2213,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'sum3'
 
 function main() returns ExitCode
@@ -2239,7 +2229,6 @@ error E3186: <fragment>:40:44: argument 'h.f' is read by another operand of this
 ```
 
 <!-- test: write-between-reads -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A read before and a read after the write: the one before decides.
 
@@ -2259,7 +2248,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'sum3'
 
 function main() returns ExitCode
@@ -2401,7 +2390,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -2414,7 +2403,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function id(text String) returns String
-	return text
+	return text.clone()
 end 'id'
 
 function main() returns ExitCode
@@ -2839,7 +2828,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function id(text String) returns String
-	return text
+	return text.clone()
 end 'id'
 
 function main() returns ExitCode
@@ -4660,7 +4649,6 @@ error E3186: <fragment>:15:26: argument 'type' is read by another operand of thi
 ```
 
 <!-- test: map-literal-key-reads-the-root -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A map literal's key is an operand that reads the local before the call rewrites it.
 
@@ -4670,12 +4658,12 @@ typealias Tally = int(0 to u64.max)
 typealias CountMap = Map with (Tally, Tally)
 
 function bump(mutates n Tally) returns Tally
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return n
 end 'bump'
 
 function tally(m CountMap, k Tally) returns Tally
-	return (m.count() as Tally) + k
+	return try (m.count() as Tally) + k otherwise panic("out of range")
 end 'tally'
 
 function keep(_ T) uses T
@@ -5065,7 +5053,6 @@ error E3186: <fragment>:33:35: argument 'self.inner.f' is read by another operan
 ```
 
 <!-- test: self-field-sibling-field-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Another field of `self` read by an earlier operand is a read of the same root, as a sibling field of a local record is.
 
@@ -5081,7 +5068,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 type Holder
@@ -5092,7 +5079,7 @@ type Holder
 		return Self{label: "original", other: "other"}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		return two(other, k: put(label))
 	end 'run'
 end 'Holder'
@@ -5109,7 +5096,6 @@ error E3186: <fragment>:26:28: argument 'label' is read by another operand of th
 ```
 
 <!-- test: self-field-method-receiver-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A method called on a field of `self` reads the root before a later operand's write.
 
@@ -5125,7 +5111,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 type Holder
@@ -5135,7 +5121,7 @@ type Holder
 		return Self{label: "original"}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		return sum(label.byteLength() as Tally, b: put(label))
 	end 'run'
 end 'Holder'
@@ -5255,7 +5241,6 @@ error E3186: <fragment>:27:31: argument 'holder.f' is read by another operand of
 ```
 
 <!-- test: local-var-method-receiver-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A method called on a local `var` reads it before a later operand's write.
 
@@ -5271,7 +5256,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
@@ -5375,7 +5360,6 @@ error E3186: <fragment>:15:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: call-receiver-write-then-argument-read -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The compiler runs a receiver call before the arguments of the method call, and the program is refused anyway: the order the rule is stated in evaluates a method call's arguments before its receiver, so the receiver call's write follows the argument's read, which no hold can protect.
 
@@ -5390,7 +5374,7 @@ type Meter
 	end 'create'
 
 	function add(text String) returns Tally
-		return self.n + (text.byteLength() as Tally)
+		return try self.n + (text.byteLength() as Tally) otherwise panic("out of range")
 	end 'add'
 end 'Meter'
 
@@ -5591,7 +5575,6 @@ error E3186: <fragment>:12:15: argument 's' is read by another operand of this s
 ```
 
 <!-- test: self-field-receiver-beside-a-field-cell -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A method called on one field of `self` reads the root before the call that takes another field of `self` by reference writes it.
 
@@ -5606,7 +5589,7 @@ type Gauge
 	end 'create'
 
 	function bump(mutates by Tally)
-		by = by + self.n
+		by = try by + self.n otherwise panic("out of range")
 	end 'bump'
 end 'Gauge'
 
@@ -5618,7 +5601,7 @@ type Holder
 		return Self{gauge: Gauge.create(), level: 4}
 	end 'create'
 
-	function run()
+	function run(mutates self)
 		gauge.bump(level)
 	end 'run'
 end 'Holder'
@@ -5679,7 +5662,6 @@ end 'main'
 ```
 
 <!-- test: record-method-result-beside-a-field-cell-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A later argument that is a method call on the record whose field the call hands by reference reads the record before the write, whatever the call returns.
 
@@ -5699,7 +5681,7 @@ type Holder
 end 'Holder'
 
 function bump(mutates n Coord, h Holder) returns Coord
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return h.n
 end 'bump'
 
@@ -5715,7 +5697,6 @@ error E3186: <fragment>:23:18: argument 'h.n' is read by another operand of this
 ```
 
 <!-- test: captured-record-field-cell-before -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A field of a captured record is handed by reference inside a closure body and read by an earlier operand of the same statement.
 
@@ -5862,7 +5843,6 @@ error E3186: <fragment>:9:13: argument 's' is read by another operand of this st
 ```
 
 <!-- test: cure-names-the-other-operand-a-sibling-field -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The cure names the operand that reads the local, which is not the cell's own path.
 
@@ -5879,8 +5859,8 @@ type Holder
 end 'Holder'
 
 function bump(mutates n Coord, text String) returns Coord
-	n = n + 1
-	return (text.byteLength() as Coord) + n
+	n = try n + 1 otherwise panic("out of range")
+	return try (text.byteLength() as Coord) + n otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode

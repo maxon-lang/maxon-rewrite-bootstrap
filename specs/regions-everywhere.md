@@ -17,7 +17,6 @@ it writes, keeps or returns is marked, and a function type never waits or yields
 ## Tests
 
 <!-- test: a-function-value-keeping-its-parameter-in-a-container-does-not-convert-to-a-plain-function-type -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `stash` pushes `thing` into the shelf it was handed, so it keeps `thing`. `Stasher` declares nothing about its
 second parameter, so a caller holding that argument read-only would have it written through.
@@ -50,7 +49,7 @@ end 'Shelf'
 typealias Stasher = function(mutates Shelf, Thing)
 
 function stash(mutates shelf Shelf, thing Thing)
-	shelf.things.push(thing)
+	shelf.things.push(thing.clone())
 end 'stash'
 
 function apply(stasher Stasher, mutates shelf Shelf, thing Thing)
@@ -60,7 +59,7 @@ end 'apply'
 function main() returns ExitCode
 	var shelf = Shelf.create()
 	apply(stash, shelf: shelf, thing: Thing.create(1))
-	return shelf.count() as ExitCode
+	return try shelf.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -586,7 +585,7 @@ end 'main'
 ```
 
 <!-- test: a-function-value-returning-its-read-only-parameter-does-not-convert-to-a-plain-function-type -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 `same` returns data reached from its read-only parameter, and a function type promises nothing about what its
 result shares with its argument.
 
@@ -595,7 +594,7 @@ type Key
 	var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 
 	function length() returns Count
@@ -606,7 +605,7 @@ end 'Key'
 typealias KeyOf = function(Key) returns Key
 
 function same(key Key) returns Key
-	return key
+	return key.clone()
 end 'same'
 
 function apply(keyOf KeyOf, key Key) returns Key
@@ -615,7 +614,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let key = Key.create("abc")
-	return apply(same, key: key).length() as ExitCode
+	return try apply(same, key: key).length() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -658,7 +657,7 @@ end 'main'
 ```
 
 <!-- test: a-function-value-throwing-its-parameter-in-a-payload-does-not-convert-to-a-plain-function-type -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 A thrown payload stores its argument, so `find` keeps `key`, and `lookup`, which hands `key` to it, keeps `key` too.
 
 ```maxon
@@ -666,7 +665,7 @@ type Key
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Key'
 
@@ -678,7 +677,7 @@ typealias Lookup = function(Key) returns Count
 
 function find(key Key) returns Count throws Missing
 	if key.text.count() == 0 'empty'
-		throw Missing.absent(key)
+		throw Missing.absent(key.clone())
 	end 'empty'
 	return key.text.count()
 end 'find'
@@ -693,7 +692,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let key = Key.create("abc")
-	return apply(lookup, key: key) as ExitCode
+	return try apply(lookup, key: key) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

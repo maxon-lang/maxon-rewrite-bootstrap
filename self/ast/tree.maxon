@@ -97,6 +97,10 @@ end 'StrPartsBuilder'
 // endKeywordToLabelName is how many bytes an end label's name lies after the 'end' that it closes: 'end', a space and an apostrophe.
 let endKeywordToLabelName = 5 as diag.U32
 
+// labelNameToApostrophe is how many bytes before the offset that a label's reference holds the apostrophe that opens it lies:
+// the reference is one past the start of the name.
+let labelNameToApostrophe = 2 as diag.U32
+
 // asKeywordToType is how many bytes the type of a cast lies after its 'as': 'as' and a space.
 let asKeywordToType = 3 as diag.U32
 
@@ -222,6 +226,11 @@ export type Tree
 	export function endKeywordStart(id NodeID) returns diag.U32
 		return try records[id as Count].start - endKeywordToLabelName otherwise panic("an end label starts before its 'end'")
 	end 'endKeywordStart'
+
+	// labelStart is where a block's label starts, which is where a diagnostic about a reused label points.
+	export function labelStart(ref diag.U32) returns diag.U32
+		return try ref - labelNameToApostrophe otherwise panic("a label starts before the apostrophe that opens it")
+	end 'labelStart'
 
 	// castKeywordStart is where the 'as' of a cast starts, given the type it names.
 	export function castKeywordStart(typeRef NodeID) returns diag.U32

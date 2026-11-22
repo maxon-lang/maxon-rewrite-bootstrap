@@ -337,9 +337,9 @@ type Vm
 	// ref is the object a register holds, or 0.
 	function ref(r ir.Reg) returns Count
 		let word = regR[self.regAt(r)]
-		if word > 0 'ref'
+		if word > 0 'positive'
 			return word as Count
-		end 'ref'
+		end 'positive'
 		return 0
 	end 'ref'
 

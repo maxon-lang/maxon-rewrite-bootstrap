@@ -621,7 +621,7 @@ error E3207: <fragment>:21:14: 'take' takes `immutable` 'item'; 'pick(p)' is rea
 ```
 
 <!-- test: a-closure-that-writes-a-captured-call-result-pins-the-parameter-it-may-hand-back -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `step` writes `r`, which `pick` may take from `p`, so `relay` needs `p` writable and the frozen argument is refused.
 
@@ -1234,7 +1234,7 @@ type Box
 end 'Box'
 
 function pick(a Box, b Box, first bool) returns Box
-	return a if first else b
+	return a.clone() if first else b.clone()
 end 'pick'
 
 function main() returns ExitCode

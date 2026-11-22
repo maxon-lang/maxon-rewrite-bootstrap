@@ -238,18 +238,18 @@ function arrive(ctx frozen with Context, task Count, consumes arrival Arrival)
 	let k = share(ctx)
 	if isModuleStage(ctx.graph.tasks[task].stage) 'ofModule'
 		let station = share(ctx.stations[ctx.compile.slotOf(ctx.graph.tasks[task].module)])
-		when station as s 'arrive'
+		when station as s 'atStation'
 			if s.receive(k, task: task, arrival: arrival) 'ready'
 				runModule(k, station: s, task: task)
 			end 'ready'
-		end 'arrive'
+		end 'atStation'
 	end 'ofModule' else 'ofProject'
 		let station = share(ctx.project)
-		when station as s 'arrive'
+		when station as s 'atStation'
 			if s.receive(k, task: task, arrival: arrival) 'ready'
 				runProject(k, station: s, task: task)
 			end 'ready'
-		end 'arrive'
+		end 'atStation'
 	end 'ofProject'
 end 'arrive'
 

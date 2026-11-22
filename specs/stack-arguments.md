@@ -272,14 +272,14 @@ end 'main'
 ```
 
 <!-- test: argument-slots-are-capped-and-the-cap-is-stated -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 The remaining ceiling is the width of the per-argument float mask that routes each argument to its
 register file, not a register count — and it is diagnosed rather than silently miscompiled.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function tooWide(p1 Integer, p2 Integer, p3 Integer, p4 Integer, p5 Integer, p6 Integer, p7 Integer, p8 Integer, p9 Integer, p10 Integer, p11 Integer, p12 Integer, p13 Integer, p14 Integer, p15 Integer, p16 Integer, p17 Integer, p18 Integer, p19 Integer, p20 Integer, p21 Integer, p22 Integer, p23 Integer, p24 Integer, p25 Integer, p26 Integer, p27 Integer, p28 Integer, p29 Integer, p30 Integer, p31 Integer, p32 Integer, p33 Integer, p34 Integer, p35 Integer, p36 Integer, p37 Integer, p38 Integer, p39 Integer, p40 Integer, p41 Integer, p42 Integer, p43 Integer, p44 Integer, p45 Integer, p46 Integer, p47 Integer, p48 Integer, p49 Integer, p50 Integer, p51 Integer, p52 Integer, p53 Integer, p54 Integer, p55 Integer, p56 Integer, p57 Integer, p58 Integer, p59 Integer, p60 Integer, p61 Integer, p62 Integer, p63 Integer, p64 Integer, p65 Integer) returns Integer
-	return p1 + p65
+	return try p1 + p65 otherwise panic("out of range")
 end 'tooWide'
 
 function main() returns ExitCode

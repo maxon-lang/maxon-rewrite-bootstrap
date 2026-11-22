@@ -75,9 +75,9 @@ export type Rotator
 		end 'names'
 		ir.resetCounts(paramMark, n: f.regs.count())
 		for l in 0 upto facts.loops.loopCount() 'loops'
-			if self.rotatable(f, l: l, analysis: analysis, facts: facts) 'rotate'
+			if self.rotatable(f, l: l, analysis: analysis, facts: facts) 'rotatable'
 				self.rotateLoop(f, l: l, analysis: analysis, facts: facts)
-			end 'rotate'
+			end 'rotatable'
 		end 'loops'
 		editor.finish(f)
 		return editor.changed

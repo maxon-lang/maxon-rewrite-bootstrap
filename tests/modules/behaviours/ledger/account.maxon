@@ -7,14 +7,14 @@ export type Account
 end 'Account'
 
 export function credit(into cown with Account, amount Count)
-	when into as a 'credit'
+	when into as a 'creditBlock'
 		a.balance = try a.balance + amount otherwise a.balance
-	end 'credit'
+	end 'creditBlock'
 end 'credit'
 
 export function report(from cown with Account, label String)
 	let note = label.clone()
-	when from as a 'report'
+	when from as a 'reportBlock'
 		print("{note}: {a.balance}\n")
-	end 'report'
+	end 'reportBlock'
 end 'report'

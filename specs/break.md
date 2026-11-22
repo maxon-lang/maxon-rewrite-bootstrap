@@ -256,6 +256,7 @@ end 'main'
 ```
 
 <!-- test: break.error-break-own-label -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 Error: break with the label of its own loop is redundant.
 ```maxon
 function main() returns ExitCode
@@ -270,6 +271,7 @@ error E2048: specs/break/break.error-break-own-label.maxon:4:9: 'break' with lab
 ```
 
 <!-- test: break.error-continue-own-label -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 Error: continue with the label of its own loop is redundant.
 ```maxon
 function main() returns ExitCode
@@ -286,7 +288,6 @@ error E2048: specs/break/break.error-continue-own-label.maxon:6:12: 'continue' w
 ```
 
 <!-- test: break.error-unreachable-after-break -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 Error: `break` leaves the block unconditionally, so a statement after it in the
 same block is unreachable — the same rule `return`/`throw`/`panic` already carry.
 It is also what keeps the block well formed: `break` emits its branch and leaves
@@ -314,7 +315,6 @@ error E3071: specs/break/break.error-unreachable-after-break.maxon:9:4: unreacha
 ```
 
 <!-- test: break.error-unreachable-after-continue -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 Error: the same for `continue`, which branches to the loop header.
 ```maxon
 function main() returns ExitCode

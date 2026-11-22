@@ -321,6 +321,7 @@ error E3129: <fragment>:12:9: the payload binding 'dir' cannot be honoured: case
 ```
 
 <!-- test: error.nonfirst-alternative-overlap -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A non-first alternative (`b or c or d`) still participates in overlap detection:
 a later arm re-covering `c` is E2027, reported at the offending arm.

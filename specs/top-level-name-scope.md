@@ -410,6 +410,7 @@ end 'fromOther'
 ```
 
 <!-- test: error.a-bare-type-name-is-ambiguous-where-neither-the-readers-directory-nor-the-root-declares-it -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 `a/` and `b/` each export a `type Box`, and `c/` declares none. A bare `Box` in `c/` has no nearer declaration to
 mean, so it is E3063 and lists both directories' spellings.

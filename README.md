@@ -81,8 +81,8 @@ IEEE's). A test that expects a compile error and is first refused under another 
 (arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
 fixes move text; if that is never reached, it is skipped when the code left after the fixes and the expected one are a
-pair of the table, or when the code it was first refused under is one of the table's `first` rows (`E3057`: arithmetic
-that needs a proof is asked for before what maxon reports), and otherwise left as it was. A test whose program changes the collection that its `for`
+pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3057`: arithmetic
+that needs a proof is asked for before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose program changes the collection that its `for`
 walks gets `<!-- skip: language difference: a loop holds the collection it walks -->`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
 never edited by hand, except that the runner writes `specs/passed.txt` (see "Tests").
 
@@ -1970,10 +1970,17 @@ edit to `runtime/` rebuilds everything.
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), and a `try` block with or
   without a handler (see "Checked arithmetic").
-- Code after a statement that ends its block (`return`, a `panic`, `break`, `continue`, or an `if`/`else` or `match`
-  whose every branch returns or panics) is allowed and type-checked, but never compiled (`ast.Live`): its calls make no
-  instance of a generic. A `break` or `continue` inside a branch does not end the code after the `if` or `match`,
-  since a `break` can leave a `match`.
+- A statement after a `return`, a `throw`, a `break`, a `continue` or a `panic(...)` in its block is `E3071`, once for each
+  such statement, at the statement that follows it; a call of a function that never returns does not count, as in maxon.
+  Code after an `if`/`else` or `match` whose every branch returns or panics is allowed and type-checked, but never compiled
+  (`ast.Live`): its calls make no instance of a generic. A `break` or `continue` inside a branch does not end the code after
+  the `if` or `match`, since a `break` can leave a `match`.
+- A block's label may not be the label of a block that encloses it, or the name of the function, method or type that holds
+  it (`E2081`, at the inner label): an `end` names the innermost one, so a repeat leaves it ambiguous. Blocks that do not
+  enclose one another share a label.
+- A `default` arm is the last arm of its match (`E2029`, at the first arm after it), the action of an arm is one statement, so
+  a block-form `try` or a `try` with a block handler there is `E2049` as an `if` is, and the operand of a cast is no cast, with
+  or without parentheses (`E2079`, at the outer `as`).
 - Tuples (see "Tuples"): the type `(A, B)`, the value `(a, b)`, `t.0`, `typealias Span = (A, B)`, a tuple as a parameter, a result or a
   field, `let (a, b) = t`, `(a, let b) = t` and `for (a, b) in xs`.
 - Integer, float, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
@@ -3639,7 +3646,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   root's public declarations bare, as in maxon, and nothing else of the library. The built-ins are public, so a public
   declaration of the library may name `Count` or `ByteArray` (E3167 holds only for a type less visible than public).
 - It checks only the rules that the generated code depends on. The style rules are left out: an unused
-  name (`E3012`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
+  name (`E3012`) or typealias (`E3062`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
   an unneeded cast (`E3010`, so a cast to the type a value has is accepted), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
   (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3092`, `E3219`).
 - A diagnostic with a maxon code has maxon's code and position, except where the language differs; its text is

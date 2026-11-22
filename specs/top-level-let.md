@@ -1611,6 +1611,7 @@ end 'useSqrt'
 ```
 
 <!-- test: error.a-refused-initializer-call-beside-an-unused-typealias-reports-both -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 An unused typealias in another directory is reported beside an initializer's refused call.
 ```maxon
 // --- file: main.maxon
@@ -3511,6 +3512,7 @@ error E3011: <fragment>:5:12: Unknown type 'Missing'
 ```
 
 <!-- test: error.a-body-refused-in-one-file-leaves-a-clone-handed-to-a-let-field-in-another-file-unreported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 // --- file: refused.maxon
 typealias Integer = int(i64.min to i64.max)

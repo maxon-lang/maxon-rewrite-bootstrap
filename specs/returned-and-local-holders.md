@@ -144,7 +144,7 @@ error E3197: <fragment>:21:2: cannot write 'count' through 'h.box', which is rea
 ```
 
 <!-- test: error.a-returned-holder-whose-parameter-is-also-written-needs-a-mutable-argument -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `reset` writes the box it also holds in the record it returns, so the frozen argument is refused.
 
@@ -1206,6 +1206,7 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-building-a-record-from-its-capture-is-refused-under-a-plain-function-type -->
+<!-- positions: moved -->
 M3V: the same closure converted to a plain function type is refused where it is converted, outside any window. A plain function type promises no capture writes, and a closure that builds a record from its captures needs a mutable `self`.
 
 ```maxon
@@ -1223,7 +1224,7 @@ type Reader
 	var row as Row
 
 	static function over(row Row) returns Self
-		return Self{row: row}
+		return Self{row: row.clone()}
 	end 'over'
 
 	function size() returns Count

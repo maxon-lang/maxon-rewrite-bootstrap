@@ -305,10 +305,10 @@ type Board
 
 	// staged takes in what the compile of the test at index gave.
 	function staged(mutates self, bench frozen with Bench, index Count, consumes staged Staged)
-		match consumes staged 'staged'
+		match consumes staged 'stagedValue'
 			done(value) then settle(bench, index: index, finished: value)
 			needsRun(value) then queueRun(bench, pending: value)
-		end 'staged'
+		end 'stagedValue'
 	end 'staged'
 
 	function queueRun(mutates self, bench frozen with Bench, consumes pending PendingRun)

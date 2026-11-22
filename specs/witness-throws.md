@@ -597,6 +597,7 @@ error E3057: <fragment>:31:20: throwing interface method requires try: wrap the 
 ```
 
 <!-- test: witness-throws.error.try-on-nonthrowing-witness -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 A `try` on a NON-throwing interface method is E3055, exactly as a `try` on a non-throwing direct call is —
 the desugar would branch on an error-flag register the callee never wrote.

@@ -5,9 +5,9 @@ typealias StringCountMap = Map with String, Count
 typealias NameList = List with String
 
 function add(mutates m StringCountMap, key String, value Count) returns String
-	try 'add'
+	try 'addBlock'
 		m.insert(key.clone(), value: value)
-	end 'add' otherwise (e) 'failed'
+	end 'addBlock' otherwise (e) 'failed'
 		return match e 'why'
 			keyNotFound gives "not found"
 			keyAlreadyExists gives "{key} is there"

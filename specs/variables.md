@@ -335,12 +335,12 @@ Stack trace:
 ```
 
 <!-- test: error.a-let-bound-to-a-number-of-unknown-range -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 A `let` of a number whose range the compiler cannot know is refused, because nothing could check its uses: the cast names the type and checks the value once.
 ```maxon
 function main() returns ExitCode
 	let k = CommandLine.args().count()
-	let m = 1 shl k
+	let m = try 1 shl k otherwise panic("out of range")
 	return 0
 end 'main'
 ```

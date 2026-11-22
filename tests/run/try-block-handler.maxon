@@ -21,10 +21,10 @@ function parseDigit(s String) returns Amount throws ParseError
 end 'parseDigit'
 
 function kind(e ParseError) returns String
-	return match e 'kind'
+	return match e 'kindBlock'
 		empty gives "empty"
 		invalidSyntax gives "invalid"
-	end 'kind'
+	end 'kindBlock'
 end 'kind'
 
 function asValue(text String) returns Amount

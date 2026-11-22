@@ -456,6 +456,7 @@ end 'main'
 ```
 
 <!-- test: ternary-expression.error.unused-loopvar-before-ternary -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 
 Regression: a postfix ternary appearing downstream of an inner-loop

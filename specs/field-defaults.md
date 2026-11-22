@@ -824,7 +824,7 @@ end 'main'
 ```
 
 <!-- test: error.a-redundant-cast-on-an-inferable-field-default-is-unneeded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A member-head default already gives the field its type, so a cast to that same type is unneeded.
 ```maxon
 type Gauge

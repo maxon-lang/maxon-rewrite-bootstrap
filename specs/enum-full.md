@@ -1062,6 +1062,7 @@ error E3034: specs/enum-full/error.match-enum-unknown-case.maxon:13:3: unknown u
 ```
 
 <!-- test: error.match-discarded-bindings -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)

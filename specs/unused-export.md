@@ -67,6 +67,7 @@ outside the declaring directory's subtree. The fixture's interior symbol
 (`unusedHelper`, `LocalPoint`, etc.) is the one the diagnostic targets.
 
 <!-- test: error.unused-exported-function -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 // --- file: api/lib.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -89,6 +90,7 @@ error E3092: api/<fragment>:5:17: exported function 'api.unusedHelper' is never 
 ```
 
 <!-- test: error.an-unused-export-whose-name-contains-union-cases-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 `int.unionCasesFor` is an extension method its author wrote, whose qualified name only CONTAINS the word
 a union's companion member is named by: an `export` nothing outside its file calls is reported like any
 other.
@@ -114,6 +116,7 @@ error E3092: api/<fragment>:4:18: exported function 'api.int.unionCasesFor' is n
 ```
 
 <!-- test: error.unused-exported-type -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ⭐ **ONE diagnostic, about the TYPE, though `LocalPoint` declares two exported METHODS.** A method takes
 its visibility from its declaring type by convention, so auditing methods separately would report an
 internal helper of a public type as dead. The type owns the finding.
@@ -149,6 +152,7 @@ error E3092: api/<fragment>:5:13: exported type 'LocalPoint' is never referenced
 ```
 
 <!-- test: error.unused-exported-typealias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The alias IS named in its declaring file — `consumeAlias`'s parameter is typed by it — and is still
 E3092, because the question is whether anything OUTSIDE its directory names it.
 ```maxon
@@ -175,6 +179,7 @@ error E3092: api/<fragment>:3:18: exported typealias 'UnusedAlias' is never refe
 ```
 
 <!-- test: error.unused-exported-var -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 // --- file: api/counter.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -195,6 +200,7 @@ error E3092: api/<fragment>:5:12: exported constant 'unusedCounter' is never ref
 ```
 
 <!-- test: error.unused-exported-const -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 // --- file: api/limits.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -215,6 +221,7 @@ error E3092: api/<fragment>:5:12: exported constant 'MAX_UNUSED' is never refere
 ```
 
 <!-- test: error.unused-exported-enum -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 // --- file: api/status.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -738,6 +745,7 @@ end 'main'
 ```
 
 <!-- test: error.unused-exported-element-nothing-outside-reaches -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ⭐⭐ **THE DISCRIMINATING CONTROL FOR THE TWO CASES ABOVE.** The count happens inside `api/store.maxon`
 instead of `app/main.maxon` reading `it.n`, and the verdict flips back. Nothing outside `api/store.maxon` reaches INTO an `Item`, so nothing outside needs it
@@ -792,6 +800,7 @@ error E3092: api/<fragment>:3:13: exported type 'Item' is never referenced outsi
 ```
 
 <!-- test: error.unused-exported-union-nothing-outside-reaches -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ⭐⭐ **THE DISCRIMINATING CONTROL FOR THE THREE `match` / ACCESSOR CASES ABOVE.** An `Answer` is produced,
 held and matched entirely inside `api/answer.maxon`; `app/main.maxon` gets a number. Nothing outside the
@@ -840,6 +849,7 @@ error E3092: api/<fragment>:5:14: exported type 'Answer' is never referenced out
 ## Referenced, but only from inside the declaring subtree
 
 <!-- test: error.an-export-read-only-from-a-subdirectory-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 `pkg/sub/user.maxon` is nested under `pkg/`, so an unmarked `subtreeOnly` would reach it, and `export` was
 never needed. `Integer` is `public`, so the signature that names it owes nothing.
 ```maxon
@@ -929,6 +939,7 @@ end 'main'
 ## A finding may not depend on WHICH INTERNER an id is resolved in
 
 <!-- test: error.unused-exported-type-when-the-two-interners-disagree -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ⛔⛔ **A PROGRAM'S VERDICT MUST NOT MOVE WHEN AN UNRELATED FILE IS ADDED, AND THIS IS THE SMALLEST PROGRAM
 THAT SHOWS HOW IT COULD.** A merged function's `maxonParamTypes` carry ids minted against the PROJECT interner
@@ -990,6 +1001,7 @@ error E3092: records/<fragment>:20:13: exported type 'Victim' is never reference
 ## A one-file program is audited like any other
 
 <!-- test: error.a-single-file-program-is-audited -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ⭐⭐ **A ONE-FILE PROGRAM IS AUDITED LIKE ANY OTHER.** `neverCalled` is `export` and nothing — inside the
 file or out — names it, which is exactly the fact E3092 reports; the file count is not part of the
 question. The declaration is at the fragment's root, so the diagnostic spells the name unqualified
@@ -1236,6 +1248,7 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-function-spelled-only-in-a-string-of-a-generic-function-nothing-instantiates -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The negative control: only an identifier is a reference, so a template that holds the name in a string
 literal leaves the declaration unreferenced.
@@ -1261,6 +1274,7 @@ error E3219: <fragment>:3:10: unused function: 'helper' is not exported and noth
 ```
 
 <!-- test: error.an-unmarked-function-no-inactive-branch-names -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib.maxon

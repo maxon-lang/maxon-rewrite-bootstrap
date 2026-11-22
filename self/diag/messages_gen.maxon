@@ -35,6 +35,21 @@ export function mismatchedEndLabel(expected String, got String) returns String
 	return "Mismatched end label: expected '{expected}', got '{got}'"
 end 'mismatchedEndLabel'
 
+// The text of errCastOperandIsACast for: a cast cannot take another cast as its operand — cast directly to '{target}'
+export function castOperandIsACast(target String) returns String
+	return "a cast cannot take another cast as its operand — cast directly to '{target}'"
+end 'castOperandIsACast'
+
+// The text of errBlockLabelReused for: Block label '{label}' is already the label of an enclosing block or declaration (line {line}, column {column}); an `end '{label}'` could close either, so rename the inner block's label
+export function reusedBlockLabel(label String, line String, column String) returns String
+	return "Block label '{label}' is already the label of an enclosing block or declaration (line {line}, column {column}); an `end '{label}'` could close either, so rename the inner block's label"
+end 'reusedBlockLabel'
+
+// The text of errUnreachableCode for: unreachable code after '{terminator}'
+export function unreachableCode(terminator String) returns String
+	return "unreachable code after '{terminator}'"
+end 'unreachableCode'
+
 // The text of errExpectedToken for: Expected {expected} but got '{got}'
 export function expectedToken(expected String, got String) returns String
 	return "Expected {expected} but got '{got}'"
@@ -79,6 +94,21 @@ end 'enumMatchNotExhaustive'
 export function matchBlockStatement(keyword String) returns String
 	return "block-opening statement '{keyword}' is not allowed in a match arm; use a function call instead"
 end 'matchBlockStatement'
+
+// The text of errMatchBlockStatement for: block-form 'try ... end' is not allowed in a match arm; use a single-statement try form (e.g. 'try call()' or 'try call() otherwise panic(...)') instead
+export function matchTryBlockForm() returns String
+	return "block-form 'try ... end' is not allowed in a match arm; use a single-statement try form (e.g. 'try call()' or 'try call() otherwise panic(...)') instead"
+end 'matchTryBlockForm'
+
+// The text of errMatchBlockStatement for: block-form 'try ... otherwise 'label' ... end' is not allowed in a match arm; use 'otherwise panic(...)', 'otherwise ignore', or 'otherwise return/throw/...' instead
+export function matchOtherwiseBlockForm() returns String
+	return "block-form 'try ... otherwise 'label' ... end' is not allowed in a match arm; use 'otherwise panic(...)', 'otherwise ignore', or 'otherwise return/throw/...' instead"
+end 'matchOtherwiseBlockForm'
+
+// The text of errMatchDefaultNotLast for: 'default' case must be the last case in match
+export function matchDefaultNotLast() returns String
+	return "'default' case must be the last case in match"
+end 'matchDefaultNotLast'
 
 // The text of errCallFirstArgNamed for: the first argument cannot be named because its parameter has no default
 export function firstArgNamed() returns String

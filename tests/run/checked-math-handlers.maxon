@@ -133,7 +133,7 @@ function main() returns ExitCode
 		end 'why'
 	end 'failed'
 	try 'cases'
-		print("{big as Count as Small}\n")
+		print("{big as Small}\n")
 	end 'cases' otherwise (e) 'failed'
 		match e 'why'
 			overflow then print("cast: overflow\n")

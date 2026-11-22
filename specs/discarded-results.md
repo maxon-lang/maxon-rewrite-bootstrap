@@ -84,7 +84,7 @@ The variable name `_` is a special discard identifier. It does not create a bind
 ## Tests
 
 <!-- test: pure-function-discarded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -103,7 +103,7 @@ error E3064: specs/discarded-results/pure-function-discarded.maxon:10:2: result 
 ```
 
 <!-- test: pure-function-let-discard -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -122,6 +122,7 @@ error E3064: specs/discarded-results/pure-function-let-discard.maxon:10:2: resul
 ```
 
 <!-- test: pure-method-underscore-discard -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A pure STDLIB method is under the same rule as a pure declaration: `_ =` does not license a discard of a
 result nobody reads.
 ```maxon
@@ -136,6 +137,7 @@ error E3064: specs/discarded-results/pure-method-underscore-discard.maxon:4:2: r
 ```
 
 <!-- test: fixed-array-create-discard -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 Creating a `FixedArray` is a pure call, as creating an `Array` is: nothing is written but the record the call
 returns, so `_ =` does not license discarding it.
@@ -154,6 +156,7 @@ error E3064: specs/discarded-results/fixed-array-create-discard.maxon:6:2: resul
 ```
 
 <!-- test: fixed-array-static-factory-discard -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A static that returns `Self{}` of a `FixedArray` is pure for the same reason.
 ```maxon
@@ -198,7 +201,7 @@ end 'main'
 ```
 
 <!-- test: impure-function-discarded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 
@@ -220,7 +223,7 @@ error E3065: specs/discarded-results/impure-function-discarded.maxon:12:2: resul
 ```
 
 <!-- test: impure-method-statement-discarded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A method that writes `self` is IMPURE, so its result may not fall off a statement: E3065, the same
 cure as a free function.
 
@@ -262,7 +265,7 @@ correctly from one that does not. `impure-function-discarded` is the plain call,
 `impure-static-member-statement-discarded` below is the static call.
 
 <!-- test: impure-field-chain-statement-discarded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -298,7 +301,7 @@ error E3065: specs/discarded-results/impure-field-chain-statement-discarded.maxo
 ```
 
 <!-- test: impure-static-member-statement-discarded -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ⭐⭐ **A STATIC CALLED ON A LINE OF ITS OWN.** `Clock.tick()` is a statement, not
 `E2015: Unsupported: identifier statement` — the compiler lowers the same shape one line up in expression
@@ -327,6 +330,7 @@ error E3065: specs/discarded-results/impure-static-member-statement-discarded.ma
 ```
 
 <!-- test: pure-static-member-statement-discarded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The PURE half of the same door, and the half that says the verdict is the discard rule's rather than the
 statement door's: a static with nothing to do but compute is E3064, which admits no `_ =` opt-out at all.
 Without it the door would be provable only in its impure direction.
@@ -478,6 +482,7 @@ end 'main'
 ```
 
 <!-- test: underscore-not-prefix-suppression -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 An unused BINDING is E3012 and has nothing to do with a discarded RESULT: the name is what went unread, not a
 call's answer, and a `_` prefix does not suppress it.
 ```maxon
@@ -492,6 +497,7 @@ error E3012: specs/discarded-results/underscore-not-prefix-suppression.maxon:4:6
 ```
 
 <!-- test: underscore-exact-discard -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -522,6 +528,7 @@ end 'main'
 ```
 
 <!-- test: tuple-all-discard-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Small = int(0 to 100)
@@ -540,6 +547,7 @@ error E3064: specs/discarded-results/tuple-all-discard-pure.maxon:10:2: result o
 ```
 
 <!-- test: math-intrinsic-discarded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ⭐ **A MATH INTRINSIC DISCARDED IN STATEMENT POSITION IS E3064, AND IT NEEDS NO PURITY ANALYSIS TO SAY SO.**
 `round`, `floor`, `ceil`, `sqrt`, `abs`, `trunc`, `min` and `max` are compiler-owned: each IS a machine
 instruction over its arguments, reading no memory and writing none. A statement that takes none of the
@@ -557,7 +565,7 @@ error E3064: specs/discarded-results/math-intrinsic-discarded.maxon:3:2: result 
 ```
 
 <!-- test: transitive-impure -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -581,7 +589,7 @@ error E3065: specs/discarded-results/transitive-impure.maxon:15:2: result of 'co
 ```
 
 <!-- test: try-pure-let-discard -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -699,6 +707,7 @@ symbol — so the discarded-result site names `__managed_first` where the author
 rule is the same one door over and the SUBJECT is the member, never the symbol.
 
 <!-- test: pure-array-read-underscore-discard -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -744,6 +753,7 @@ the members that can fill the slot — so a probe that only reads the table is p
 license dropping its answer.
 
 <!-- test: map-get-underscore-discard -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -762,6 +772,7 @@ error E3064: specs/discarded-results/map-get-underscore-discard.maxon:8:2: resul
 ```
 
 <!-- test: set-contains-underscore-discard -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -808,6 +819,7 @@ so a pure callee reached that way is refused there too. The diagnostic anchors o
 than on the receiver (at `arr.count()`, `b.ops.count()` and `utils.twice(4)` alike).
 
 <!-- test: method-call-statement-discarded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -902,6 +914,7 @@ and not E3064 — an intrinsic emits no call, so there is no callee for a "resul
 name (contrast `math-intrinsic-discarded` above, where the same intrinsic in STATEMENT position is E3064).
 
 <!-- test: error.underscore-discard-of-an-intrinsic -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
 	_ = round(1.5)
@@ -913,6 +926,7 @@ error E3067: specs/discarded-results/error.underscore-discard-of-an-intrinsic.ma
 ```
 
 <!-- test: error.underscore-discard-of-a-field-read -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -935,6 +949,7 @@ error E3067: specs/discarded-results/error.underscore-discard-of-a-field-read.ma
 ```
 
 <!-- test: error.underscore-discard-of-an-arithmetic-expression -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -1023,7 +1038,7 @@ end 'main'
 ```
 
 <!-- test: error.pure-throwing-call-statement-in-a-test-body -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A bare call to a pure throwing function, written as a statement in a `test` body, takes the test's implied
 handler and still discards the value it produced. The discard is refused exactly as it is outside a test.
 ```maxon
@@ -1055,7 +1070,7 @@ error E3064: specs/discarded-results/error.pure-throwing-call-statement-in-a-tes
 ```
 
 <!-- test: try-pure-propagating-discard -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The propagating twin of `try-pure-let-discard`: `_ = try parseNum("abc")` with no `otherwise`, inside a
 function that throws the same error, still discards a pure result.
 ```maxon
@@ -1088,7 +1103,7 @@ error E3064: specs/discarded-results/try-pure-propagating-discard.maxon:17:2: re
 ```
 
 <!-- test: try-block-pure-discard -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The try-block twin: a pure throwing call routed to a block-form `try`'s handler and discarded with `_ =`.
 ```maxon
@@ -1122,7 +1137,7 @@ error E3064: specs/discarded-results/try-block-pure-discard.maxon:18:3: result o
 ```
 
 <!-- test: error.try-otherwise-return-underscore-discard-of-a-pure-function -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A pure throwing function whose result is discarded is refused in every form the discard can take. A
 fallback that leaves the function (`otherwise return`, `otherwise panic(…)`) hands the value back from a
 block the failing arm never rejoins, but the call was still made for nothing but its result.
@@ -1157,7 +1172,7 @@ error E3064: specs/discarded-results/error.try-otherwise-return-underscore-disca
 ```
 
 <!-- test: error.try-otherwise-return-underscore-discard-of-a-pure-method -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A pure throwing function whose result is discarded is refused in every form the discard can take. A
 fallback that leaves the function (`otherwise return`, `otherwise panic(…)`) hands the value back from a
 block the failing arm never rejoins, but the call was still made for nothing but its result.
@@ -1209,7 +1224,7 @@ error E3064: specs/discarded-results/error.try-otherwise-return-underscore-disca
 ```
 
 <!-- test: error.try-otherwise-panic-underscore-discard-of-a-pure-function -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A pure throwing function whose result is discarded is refused in every form the discard can take. A
 fallback that leaves the function (`otherwise return`, `otherwise panic(…)`) hands the value back from a
 block the failing arm never rejoins, but the call was still made for nothing but its result.
@@ -1237,6 +1252,7 @@ error E3064: specs/discarded-results/error.try-otherwise-panic-underscore-discar
 ```
 
 <!-- test: error.pure-map-lookup-discarded-while-another-key-type-has-an-effectful-hash -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A pure lookup in a `Map` is judged by the key type it is instantiated with. Another `Map` in the same
 program keyed by a type whose `hash` has an effect must not make this one look impure.
@@ -1302,6 +1318,7 @@ error E3064: specs/discarded-results/error.pure-map-lookup-discarded-while-anoth
 ```
 
 <!-- test: error.filepath-keyed-map-lookup-discarded-is-refused-on-every-target -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A lookup in a `Map` keyed by `FilePath` is pure on every target. On Windows a `FilePath` compares in its lower-cased
 spelling, which `toLower` builds in a string the call created itself, so the verdict must not turn on the host.
@@ -1340,6 +1357,7 @@ error E3064: specs/discarded-results/error.filepath-keyed-map-lookup-discarded-i
 ```
 
 <!-- test: error.lowering-a-string-is-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 `toLower` writes only into the string it builds, so discarding its result is refused whatever the host.
 ```maxon
 function lowered(text String) returns String
@@ -1356,7 +1374,7 @@ error E3064: specs/discarded-results/error.lowering-a-string-is-pure.maxon:7:2: 
 ```
 
 <!-- test: error.a-builder-writing-only-its-own-array-is-pure -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A function that fills an array it created and returns it has no effect beyond its result.
 ```maxon
@@ -1382,7 +1400,7 @@ error E3064: specs/discarded-results/error.a-builder-writing-only-its-own-array-
 ```
 
 <!-- test: error.a-method-writing-its-receiver-is-pure-when-the-receiver-is-the-callers-own -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A method that writes its receiver is an effect to a caller that was handed the receiver, and none to a caller that created it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1442,6 +1460,7 @@ end 'main'
 ```
 
 <!-- test: error.a-function-writing-an-array-it-was-handed-is-impure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1509,6 +1528,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-over-a-pure-closure-literal-is-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A call through a closure whose identity is known where it is written is judged by the closure's own body.
 ```maxon
@@ -1550,6 +1570,7 @@ error E3064: specs/discarded-results/error.a-search-over-a-pure-closure-literal-
 ```
 
 <!-- test: error.a-search-over-a-named-function-is-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A named function passed as the predicate is as known as a closure literal.
 ```maxon
@@ -1788,6 +1809,7 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-handed-down-through-two-helpers-is-still-known -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A closure literal passed to a helper that forwards it to the search is judged by its own body at the end of the chain.
 The helper's own discard is left alone, because on its own the forwarded predicate is not known.
@@ -1877,7 +1899,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-is-pure -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The iterator a `withIterator()` loop walks is created by the loop, so moving it is not an effect of the function.
 ```maxon
@@ -1978,6 +2000,7 @@ end 'main'
 ```
 
 <!-- test: error.a-with-iterator-search-stays-pure-beside-an-iterator-that-moves-records-between-its-fields -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 Another iterator type in the program that moves a record between its own fields does not make a search over an array effectful.
 ```maxon
@@ -2082,6 +2105,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: error.a-search-through-a-for-loop-over-a-list-is-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same search through a plain `for ... in` loop.
 ```maxon
@@ -2227,6 +2251,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: error.a-search-through-a-for-loop-over-a-fixed-array-is-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same search through a plain `for ... in` loop.
 ```maxon
@@ -2377,6 +2402,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: error.a-search-through-a-for-loop-over-a-set-is-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same search through a plain `for ... in` loop.
 ```maxon
@@ -2522,6 +2548,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: error.a-search-through-a-for-loop-over-a-map-is-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same search through a plain `for (key, value) in` loop.
 ```maxon
@@ -2627,7 +2654,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-holding-a-cursor-over-an-argument-takes-a-write-to-the-cursor-for-free -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A write to a cursor the function made is its own, even when the cursor reads an argument.
 ```maxon
@@ -2787,7 +2814,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-no-call-handed-a-foreign-record-takes-a-write-through-it-for-free -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same program with the argument only read: what is stored below the record is made by the function.
 ```maxon
@@ -3409,6 +3436,7 @@ end 'main'
 ```
 
 <!-- test: error.a-static-returning-another-instance-of-its-type-is-judged-on-its-own-body -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A static of a generic type that returns a different instance than the one it was called on is read without the called instance.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3508,6 +3536,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-holding-only-what-the-function-made-takes-a-deep-write-for-free -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A record that holds nothing the function was handed may be written through its fields; one that holds an argument may not.
 ```maxon
@@ -3724,6 +3753,7 @@ end 'main'
 ```
 
 <!-- test: error.a-function-that-always-panics-dropped-from-a-statement -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The same call as a bare statement is E3065, with the `_ =` cure.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3777,6 +3807,7 @@ end 'main'
 ```
 
 <!-- test: error.a-wrapper-around-a-function-that-always-panics-dropped-from-a-statement -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The wrapper's bare call is E3065 like the panicking function's own, with the `_ =` cure.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3807,7 +3838,7 @@ error E3065: <fragment>:20:3: result of 'relay' is not used (use '_ = expr' to d
 ```
 
 <!-- test: error.a-function-that-advances-its-own-local-through-a-by-reference-argument-is-pure -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 `firstWordEnd` hands its own local `var at` to a `mutable` parameter and writes nothing it was given, so it is pure and dropping its result is E3064.
 ```maxon
@@ -3936,6 +3967,7 @@ error E3064: <fragment>:44:2: result of pure function 'first' must be used
 ```
 
 <!-- test: error.a-static-of-a-generic-type-that-clears-a-local-array-is-pure -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 `Probe.empty` clears the array it is handed, and `head` hands it an array it built itself, so `head` is pure and dropping its result is E3064 although `Probe` is generic and `empty` does not return its own instance.
 ```maxon

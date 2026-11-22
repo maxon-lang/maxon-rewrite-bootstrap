@@ -461,7 +461,7 @@ typealias Len = int(0 to 256)
 function emptyThenGrow(n Len) returns ByteArray
 	let b = b"".clone()
 	for i in 0 upto n 'fill'
-		b.push(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((i + n) mod 251) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte) as Byte)
+		b.push((((i + n) mod 251) as Byte) as Byte)
 	end 'fill'
 	return b
 end 'emptyThenGrow'

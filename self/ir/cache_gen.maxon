@@ -233,7 +233,7 @@ function loadArrayOfReg(mutates r table.CacheReader) returns Array with Reg
 	var a as Array with Reg
 	a = Array.create(0)
 	for _ in 0 upto n 'items'
-		a.push(try (r.word64() as FullRangeInt as Reg) otherwise panic("cache: a stored Reg is out of its range"))
+		a.push(try (r.int64() as Reg) otherwise panic("cache: a stored Reg is out of its range"))
 	end 'items'
 	return a
 end 'loadArrayOfReg'
@@ -369,10 +369,10 @@ end 'storeInstr'
 extension Instr
 	static function cacheLoad(mutates r table.CacheReader) returns Instr
 		let theOp = Opcode.allCases[r.word8() as Count]
-		let theDst = try (r.word64() as FullRangeInt as Reg) otherwise panic("cache: a stored Reg is out of its range")
-		let theA = try (r.word64() as FullRangeInt as Reg) otherwise panic("cache: a stored Reg is out of its range")
-		let theB = try (r.word64() as FullRangeInt as Reg) otherwise panic("cache: a stored Reg is out of its range")
-		let theC = try (r.word64() as FullRangeInt as Index) otherwise panic("cache: a stored Index is out of its range")
+		let theDst = try (r.int64() as Reg) otherwise panic("cache: a stored Reg is out of its range")
+		let theA = try (r.int64() as Reg) otherwise panic("cache: a stored Reg is out of its range")
+		let theB = try (r.int64() as Reg) otherwise panic("cache: a stored Reg is out of its range")
+		let theC = try (r.int64() as Index) otherwise panic("cache: a stored Index is out of its range")
 		let theImm = r.word64() as Word
 		let theSub = try (r.word8() as Byte) otherwise panic("cache: a stored Byte is out of its range")
 		let theFlags = try (r.word8() as Byte) otherwise panic("cache: a stored Byte is out of its range")
@@ -456,7 +456,7 @@ end 'storeRefusal'
 
 extension Refusal
 	static function cacheLoad(mutates r table.CacheReader) returns Refusal
-		let theModule = try (r.word64() as FullRangeInt as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
+		let theModule = try (r.int64() as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
 		let theOffset = try (r.word32() as diag.U32) otherwise panic("cache: a stored diag.U32 is out of its range")
 		let theCode = r.text()
 		let theMessage = r.text()
@@ -474,9 +474,9 @@ end 'storeSwitchCase'
 extension SwitchCase
 	static function cacheLoad(mutates r table.CacheReader) returns SwitchCase
 		let theValue = r.word64() as Word
-		let theTarget = try (r.word64() as FullRangeInt as BlockID) otherwise panic("cache: a stored BlockID is out of its range")
-		let theArgs = try (r.word64() as FullRangeInt as Index) otherwise panic("cache: a stored Index is out of its range")
-		let theArgCount = try (r.word64() as FullRangeInt as Index) otherwise panic("cache: a stored Index is out of its range")
+		let theTarget = try (r.int64() as BlockID) otherwise panic("cache: a stored BlockID is out of its range")
+		let theArgs = try (r.int64() as Index) otherwise panic("cache: a stored Index is out of its range")
+		let theArgCount = try (r.int64() as Index) otherwise panic("cache: a stored Index is out of its range")
 		return SwitchCase{value: theValue, target: theTarget, args: theArgs, argCount: theArgCount}
 	end 'cacheLoad'
 end 'SwitchCase'
@@ -496,14 +496,14 @@ end 'storeTerm'
 extension Term
 	static function cacheLoad(mutates r table.CacheReader) returns Term
 		let theKind = TermKind.allCases[r.word8() as Count]
-		let theValue = try (r.word64() as FullRangeInt as Reg) otherwise panic("cache: a stored Reg is out of its range")
-		let theTarget = try (r.word64() as FullRangeInt as BlockID) otherwise panic("cache: a stored BlockID is out of its range")
-		let theOther = try (r.word64() as FullRangeInt as BlockID) otherwise panic("cache: a stored BlockID is out of its range")
-		let theFirst = try (r.word64() as FullRangeInt as Index) otherwise panic("cache: a stored Index is out of its range")
-		let theCount = try (r.word64() as FullRangeInt as Index) otherwise panic("cache: a stored Index is out of its range")
-		let theArgs = try (r.word64() as FullRangeInt as Index) otherwise panic("cache: a stored Index is out of its range")
-		let theTargetArgs = try (r.word64() as FullRangeInt as Index) otherwise panic("cache: a stored Index is out of its range")
-		let theOtherArgs = try (r.word64() as FullRangeInt as Index) otherwise panic("cache: a stored Index is out of its range")
+		let theValue = try (r.int64() as Reg) otherwise panic("cache: a stored Reg is out of its range")
+		let theTarget = try (r.int64() as BlockID) otherwise panic("cache: a stored BlockID is out of its range")
+		let theOther = try (r.int64() as BlockID) otherwise panic("cache: a stored BlockID is out of its range")
+		let theFirst = try (r.int64() as Index) otherwise panic("cache: a stored Index is out of its range")
+		let theCount = try (r.int64() as Index) otherwise panic("cache: a stored Index is out of its range")
+		let theArgs = try (r.int64() as Index) otherwise panic("cache: a stored Index is out of its range")
+		let theTargetArgs = try (r.int64() as Index) otherwise panic("cache: a stored Index is out of its range")
+		let theOtherArgs = try (r.int64() as Index) otherwise panic("cache: a stored Index is out of its range")
 		return Term{kind: theKind, value: theValue, target: theTarget, other: theOther, first: theFirst, count: theCount, args: theArgs, targetArgs: theTargetArgs, otherArgs: theOtherArgs}
 	end 'cacheLoad'
 end 'Term'

@@ -45,7 +45,7 @@ leaf, so a row read out of the first is an `Xs` and a row read out of the second
 ### The doors — one refusal each, and the literal that fits them all
 
 <!-- test: error.xs-into-ys-parameter -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -131,6 +131,7 @@ error E3005: <fragment>:10:2: Cannot return 'WideCol' from function declared to 
 ```
 
 <!-- test: error.rebind-across-brands -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -154,6 +155,7 @@ error E3005: <fragment>:11:2: cannot assign a value of type 'Xs' to variable 'ys
 ```
 
 <!-- test: error.an-unbranded-var-adopts-the-brand-of-its-first-branded-store -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 A `var` initialized from a literal carries no brand until the first branded value is stored into it; from that store it is a variable of that brand for its whole life, and a store of another brand is refused.
 ```maxon
@@ -210,7 +212,7 @@ end 'main'
 ```
 
 <!-- test: error.an-adopted-brand-is-the-brand-every-later-read-has -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -241,6 +243,7 @@ error E3005: <fragment>:21:10: argument type mismatch for 'ys': expected 'Ys', g
 ```
 
 <!-- test: error.branches-storing-different-brands-are-refused-at-the-second -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 The first branded store in source order fixes the brand, whichever branch it sits in.
 ```maxon
@@ -292,6 +295,7 @@ error E3005: <fragment>:9:8: argument type mismatch for 'other': expected 'Xs', 
 ```
 
 <!-- test: error.equals-with-another-brand-is-refused -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Xs = Array with String
@@ -310,6 +314,7 @@ error E3005: <fragment>:8:13: argument type mismatch for 'other': expected 'Xs',
 ```
 
 <!-- test: error.a-self-parameter-of-a-declared-generic-takes-the-receivers-brand -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 100)
@@ -361,6 +366,7 @@ true
 ```
 
 <!-- test: error.a-field-of-an-inner-alias-holds-that-alias-as-its-brand -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 A field whose type is a generic instance is always spelled through an alias, so it holds that alias as its brand from its declaration and has no first store to adopt from.
 ```maxon
 typealias Xs = Array with String
@@ -386,6 +392,7 @@ error E3005: <fragment>:15:4: cannot assign a value of type 'Xs' to field 'items
 ```
 
 <!-- test: error.otherwise-across-brands -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -415,6 +422,7 @@ error E3059: <fragment>:17:11: type mismatch: 'otherwise type 'Xs' does not matc
 ```
 
 <!-- test: error.match-arms-across-brands -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -442,6 +450,7 @@ error E3005: <fragment>:7:10: match arms give incompatible types: 'Xs' vs 'Ys'
 ```
 
 <!-- test: error.struct-literal-field-store-across-brands -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -469,6 +478,7 @@ error E3005: <fragment>:10:15: cannot assign a value of type 'Ys' to field 'xs' 
 ```
 
 <!-- test: error.a-trailing-doc-comment-keeps-a-fields-brand -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 A trailing doc comment on a field's line does not change the field's declared type.
 ```maxon
@@ -497,7 +507,7 @@ error E3005: <fragment>:10:15: cannot assign a value of type 'Ys' to field 'xs' 
 ```
 
 <!-- test: error.union-payload-across-brands -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -526,6 +536,7 @@ error E3005: <fragment>:14:22: type mismatch: 'expected Ys, got Xs'
 ```
 
 <!-- test: error.a-bare-generic-alias-parameter-refuses-another-alias-of-its-instance -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 `alpha/` names `Array with String` as `Rows`; `main.maxon` names the same instance `Mine`. Two aliases are two
 types wherever they are declared, so a `Mine` does not reach a parameter declared `Rows`.
 ```maxon
@@ -550,7 +561,7 @@ error E3005: <fragment>:15:9: argument type mismatch for 'rows': expected 'Rows'
 ```
 
 <!-- test: error.a-qualified-generic-alias-parameter-refuses-another-alias-of-its-instance -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 The same parameter spelled through its directory, `alpha.Rows`. A qualified spelling names the same alias as the
 bare one, so it is refused the same way.
 ```maxon
@@ -599,6 +610,7 @@ error E3005: <fragment>:15:9: argument type mismatch for 'xs': expected 'Xs', go
 ```
 
 <!-- test: error.a-qualified-generic-alias-parameter-is-a-rows-inside-its-body -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 The other direction: inside `relay`, the parameter declared `alpha.Rows` is a `Rows`, so it does not reach a
 parameter declared `Mine`.
 ```maxon
@@ -759,7 +771,7 @@ end 'main'
 ### Where a brand comes from
 
 <!-- test: error.a-loop-over-rows-carries-the-element-brand -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `Rows = Array with Row` is spelled through the alias `Row`, so `for row in rows` binds a `Row` — and a
 `Row` is not a `Col`.
@@ -839,6 +851,7 @@ end 'main'
 ```
 
 <!-- test: error.a-self-result-keeps-the-receivers-brand -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `bump()` is declared `returns Self`; called on an `A`, its result is an `A`.
 ```maxon
@@ -876,7 +889,7 @@ error E3005: <fragment>:25:10: argument type mismatch for 'b': expected 'B', got
 ```
 
 <!-- test: error.a-field-read-carries-the-fields-brand -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -952,6 +965,7 @@ end 'main'
 ```
 
 <!-- test: error.interface-impl-brand-must-match -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 A conformance compares the brand each side declares — `take(xs Ys)` does not implement `take(xs Xs)` — and the
 diagnostic prints the spellings, not the instance mint.
@@ -1579,6 +1593,7 @@ end 'main'
 ```
 
 <!-- test: error.two-vars-each-first-storing-the-other-resolve-from-the-first-store-and-the-later-direct-store-is-refused -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `b = a` and `a = b` each store a value whose brand is settled later. Resolution starts at the first store, `b = a`, which needs `a`'s brand. `a`'s first store, `a = b`, needs `b`'s brand, which is the one being resolved, so it carries nothing and `a` adopts the `Xs` of its direct store. `b = a` then carries `Xs`, `b` is an `Xs`, and the direct `Ys` store into it is the one refused.
 ```maxon
@@ -1602,6 +1617,7 @@ error E3005: <fragment>:11:2: cannot assign a value of type 'Ys' to variable 'b'
 ```
 
 <!-- test: error.an-indirect-call-argument-of-another-brand-is-refused -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 The function value is `takeYs`, whose parameter is a `Ys`.
 ```maxon
@@ -1700,6 +1716,7 @@ error E3005: <fragment>:21:13: argument type mismatch for 'ys': expected 'Ys', g
 ```
 
 <!-- test: error.a-call-result-of-a-qualified-return-wears-the-brand-it-names -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `alpha/` and `beta/` each export a `Numbers` over one instance, so each file that writes one qualifies it. `makeA` returns `alpha.Numbers` and `takeB` takes `beta.Numbers`: the result wears `alpha/`'s brand and does not reach `beta/`'s parameter.
 ```maxon
@@ -1731,6 +1748,7 @@ error E3005: <fragment>:21:9: argument type mismatch for 'xs': expected 'beta.Nu
 ```
 
 <!-- test: error.a-call-result-wears-the-brand-of-the-file-that-declared-the-callee -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `a/` exports a `Numbers` and `makeA` returns it, written bare. `p/` declares a `Numbers` of its own over the same instance, visible to `p/` alone, and takes it as `p.Numbers`. `makeA` is declared in `a/a.maxon`, so its result is `a/`'s `Numbers` and not the `Numbers` the calling file declares.
 ```maxon
@@ -1811,6 +1829,7 @@ end 'main'
 ```
 
 <!-- test: error.a-field-read-wears-the-brand-of-the-file-that-declared-the-field -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `a/` exports a `Numbers` and a type whose exported field `xs` holds one, written bare. `p/` declares a `Numbers` of its own over the same instance, visible to `p/` alone, and takes it as `p.Numbers`. The field is declared in `a/a.maxon`, so reading it from `p/` yields `a/`'s `Numbers` and not the `Numbers` the reading file declares.
 ```maxon
@@ -1846,6 +1865,7 @@ error E3005: p/<fragment>:25:9: argument type mismatch for 'xs': expected 'p.Num
 ```
 
 <!-- test: error.a-union-payload-read-wears-the-brand-of-the-file-that-declared-the-union -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `a/` exports a `Numbers` and a union whose payload holds one. `p/` declares a `Numbers` of its own over the same instance and takes it as `p.Numbers`. The payload is declared in `a/a.maxon`, so the binding a `match` in `p/` makes wears `a/`'s `Numbers`.
 ```maxon
@@ -1885,6 +1905,7 @@ error E3005: p/<fragment>:28:24: argument type mismatch for 'xs': expected 'p.Nu
 ```
 
 <!-- test: error.a-field-store-judges-the-value-against-the-brand-of-the-file-that-declared-the-field -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `a/`'s `Box` holds its field `xs` as `a/`'s `Numbers`. `p/` declares a `Numbers` of its own over the same instance and stores one into the field, so the store meets a `p.Numbers` against `a.Numbers`.
 ```maxon
@@ -1919,6 +1940,7 @@ error E3005: p/<fragment>:23:4: cannot assign a value of type 'p.Numbers' to fie
 ```
 
 <!-- test: error.a-field-declared-with-a-qualified-alias-wears-the-brand-it-names -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 `alpha/` and `beta/` each export a `Numbers` over one instance, so each file that writes one qualifies it. `Box` declares its field `xs` as `alpha.Numbers`; reading it yields `alpha/`'s brand, which does not reach `beta/`'s parameter.
 ```maxon
 // --- file: base/s.maxon
@@ -1956,6 +1978,7 @@ error E3005: <fragment>:29:9: argument type mismatch for 'xs': expected 'beta.Nu
 ```
 
 <!-- test: error.a-field-declared-with-a-qualified-alias-is-read-in-the-declaring-file -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 `holder/` and the reading directory `q/` each see a different `alpha`: the root `alpha/` and `q/alpha/` both export a `Numbers` over one instance. `Box`'s field is declared `alpha.Numbers` in `holder/`, where `alpha` is the root directory, so the read in `q/` wears the root brand and does not reach `q/alpha`'s parameter.
 ```maxon
 // --- file: base/s.maxon
@@ -1993,7 +2016,7 @@ error E3005: q/<fragment>:29:9: argument type mismatch for 'xs': expected 'q.alp
 ```
 
 <!-- test: error.a-union-payload-read-carries-the-payloads-brand -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)

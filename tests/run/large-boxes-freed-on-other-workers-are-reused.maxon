@@ -19,20 +19,20 @@ let rounds = 40 as Count
 function grow(c cown with Text, seed Count)
 	for r in 0 upto rounds 'each'
 		let mine = share(c)
-		when mine as t 'grow'
+		when mine as t 'growBlock'
 			var next = "{seed}{r mod 10}23456789abcdef"
 			for _ in 0 upto doublings 'double'
 				next = "{next}{next}"
 			end 'double'
 			t.s = next
-		end 'grow'
+		end 'growBlock'
 	end 'each'
 end 'grow'
 
 function lengths(a cown with Text, b cown with Text, c cown with Text, d cown with Text)
-	when a, b, c, d as w, x, y, z 'lengths'
+	when a, b, c, d as w, x, y, z 'lengthsBlock'
 		print("{w.s.byteLength()} {x.s.byteLength()} {y.s.byteLength()} {z.s.byteLength()}\n")
-	end 'lengths'
+	end 'lengthsBlock'
 end 'lengths'
 
 function main() returns ExitCode

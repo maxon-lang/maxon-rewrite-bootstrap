@@ -852,11 +852,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function firstOrPopped()
+	function firstOrPopped(mutates self) where Element implements Copyable
 		let owned = try self.items.pop() otherwise return
 		let x = try self.items.get(0) otherwise owned
 	end 'firstOrPopped'

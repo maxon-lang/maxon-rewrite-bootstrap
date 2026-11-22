@@ -44,7 +44,7 @@ end 'Sum'
 // pair moves amount from a to b when a has it.
 function pair(a cown with Cell, b cown with Cell, tally cown with Tally, amount Count)
 	let t = share(tally)
-	when a, b as x, y 'pair'
+	when a, b as x, y 'pairBlock'
 		x.touches = try x.touches + 1 otherwise return
 		y.touches = try y.touches + 1 otherwise return
 		if x.value >= amount 'enough'
@@ -52,7 +52,7 @@ function pair(a cown with Cell, b cown with Cell, tally cown with Tally, amount 
 			y.value = try y.value + amount otherwise return
 		end 'enough'
 		finished(t)
-	end 'pair'
+	end 'pairBlock'
 end 'pair'
 
 // triple moves what it can from a and b to c, and then schedules a pair that moves some of it back to a.
@@ -60,7 +60,7 @@ function triple(a cown with Cell, b cown with Cell, c cown with Cell, tally cown
 	let t = share(tally)
 	let back = share(a)
 	let from = share(c)
-	when a, b, c as x, y, z 'triple'
+	when a, b, c as x, y, z 'tripleBlock'
 		x.touches = try x.touches + 1 otherwise return
 		y.touches = try y.touches + 1 otherwise return
 		z.touches = try z.touches + 1 otherwise return
@@ -70,7 +70,7 @@ function triple(a cown with Cell, b cown with Cell, c cown with Cell, tally cown
 		z.value = try z.value + moved otherwise return
 		pair(from, b: back, tally: t, amount: moved / 3)
 		finished(t)
-	end 'triple'
+	end 'tripleBlock'
 end 'triple'
 
 // finished counts one piece of work done; the last starts the sum.

@@ -44,6 +44,7 @@ end 'main'
 ## Tests
 
 <!-- test: unused-var -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -56,6 +57,7 @@ error E3012: specs/unused-variables/unused-var.maxon:4:6: unused variable: 'x'
 ```
 
 <!-- test: unused-let -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -92,6 +94,7 @@ end 'main'
 ```
 
 <!-- test: underscore-discard -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -119,6 +122,7 @@ end 'main'
 ```
 
 <!-- test: tuple-destructuring-unused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Small = int(0 to 100)
@@ -137,6 +141,7 @@ error E3012: specs/unused-variables/tuple-destructuring-unused.maxon:10:10: unus
 ```
 
 <!-- test: multiple-unused-each-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -151,7 +156,7 @@ error E3012: specs/unused-variables/multiple-unused-each-reported.maxon:5:6: unu
 ```
 
 <!-- test: every-unused-kind-in-one-function-is-reported -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 An unused parameter, body `let`, body `var`, loop variable, caught `(e)` and match-arm payload binder in one
 function are each reported, in source order.
 ```maxon
@@ -203,6 +208,7 @@ error E3012: specs/unused-variables/every-unused-kind-in-one-function-is-reporte
 ```
 
 <!-- test: two-functions-each-report-their-own-unused-locals -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function first() returns ExitCode
@@ -229,7 +235,7 @@ error E3012: specs/unused-variables/two-functions-each-report-their-own-unused-l
 ```
 
 <!-- test: unused-for-in-variable -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -278,6 +284,7 @@ end 'main'
 ```
 
 <!-- test: unused-for-range-variable -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 function main() returns ExitCode
@@ -293,6 +300,7 @@ error E3012: specs/unused-variables/unused-for-range-variable.maxon:5:6: unused 
 ```
 
 <!-- test: unused-match-binding -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -359,7 +367,7 @@ end 'main'
 ```
 
 <!-- test: unused-closure-param -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 
@@ -421,6 +429,7 @@ end 'main'
 ```
 
 <!-- test: unused-otherwise-binding -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The `(e)` binding on `try expr otherwise (e) 'h' ... end 'h'` is a local variable.
 Declaring it without referencing it inside the handler body is a compile error.
 ```maxon

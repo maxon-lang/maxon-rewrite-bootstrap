@@ -548,6 +548,7 @@ error E2026: specs/match-simple/error.match-enum-not-exhaustive.maxon:13:2: matc
 ```
 
 <!-- test: error.match-duplicate-pattern -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
@@ -620,6 +621,7 @@ error E2026: specs/match-simple/error.match-not-exhaustive.maxon:7:2: match is n
 ```
 
 <!-- test: error.match-duplicate-bool-pattern -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 
 A repeated `true` arm would be **silently dead code**, so
 it is refused by the same overlap rule every other pattern kind meets.

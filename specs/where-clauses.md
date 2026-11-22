@@ -1492,7 +1492,6 @@ end 'main'
 ```
 
 <!-- test: where-clauses.error.witness-return-keeps-the-requirements-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A requirement's declared return alias is the type of the call's result, through a `where T is Maker`
 type parameter exactly as through a direct call: `Other` is a second alias of the same instance, so the
@@ -1529,8 +1528,8 @@ end 'head'
 type Box uses T where T implements Maker
 	let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function first() returns Integer
@@ -1541,7 +1540,7 @@ end 'Box'
 typealias BuilderBox = Box with Builder
 
 function main() returns ExitCode
-	return BuilderBox.create(Builder.create(42)).first() as ExitCode
+	return try BuilderBox.create(Builder.create(42)).first() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

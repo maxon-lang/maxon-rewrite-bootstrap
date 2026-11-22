@@ -466,6 +466,7 @@ error E2015: <fragment>:12:3: Unsupported: Self statement
 ```
 
 <!-- test: error.static-call-as-a-statement -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ### …and the type-named spelling is a statement whose RESULT nobody took
 The same call written `Gate.make(1)` IS claimed by the statement door, so what refuses it is the discard
 rule: `make` computes and returns without an effect, so its dropped result is E3064 — the anchor on the

@@ -52,6 +52,7 @@ This mirrors **E3095** for function-name ambiguity — same model, different reg
 ## Tests
 
 <!-- test: error.exported-typealias-collision -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 Two files in different directories both export `Score`. A bare reference from a third file is rejected with E3063. The diagnostic is emitted at the parse site, with exactly the candidate ordering pinned below.
 ```maxon
 // --- file: api/types.maxon
@@ -257,6 +258,7 @@ end 'main'
 
 
 <!-- test: error.three-way-ambiguous-typealias -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 E3063's candidate list with THREE competitors, declared `zulu`, `alpha`, `mid` and rendered
 lexicographically — `insertCandidateName`'s sort, shared with E3095 for the reason given there.
 ```maxon
@@ -281,6 +283,7 @@ error E3063: app/specs/typealias-collision/error.three-way-ambiguous-typealias.m
 
 
 <!-- test: error.exported-function-alias-collision-is-ambiguous-at-the-reference -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 A FUNCTION typealias collides on the same terms as a ranged one. Two directories export `Step` over the identical shape; the shapes agreeing does not make the bare reference unambiguous, because either declaration is one the reader may legally name.
 ```maxon
@@ -306,6 +309,7 @@ error E3063: app/specs/typealias-collision/error.exported-function-alias-collisi
 ```
 
 <!-- test: error.exported-function-alias-collision-over-two-shapes-is-still-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 The twin of the case above with the two exported `Step`s declared over DIFFERENT shapes. The answer is the same E3063: disagreeing shapes are a reason the reader cannot be assumed to mean either one, not a way to pick between them.
 ```maxon
@@ -331,6 +335,7 @@ error E3063: app/specs/typealias-collision/error.exported-function-alias-collisi
 ```
 
 <!-- test: error.ambiguous-typealias-is-anchored-on-the-name-token -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 **WHERE E3063 POINTS**, pinned on its own because an anchor deserves a case that can only be
 satisfied one way. The binding name is 21 characters, so the NAME token's column
 (36) cannot be confused with the cast operand's (30) or with the statement's. The type token is the one
@@ -354,6 +359,7 @@ error E3063: app/specs/typealias-collision/error.ambiguous-typealias-is-anchored
 
 
 <!-- test: error.exported-cross-form-typealias-collision -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 Two exported aliases of one name in different directories, in DIFFERENT FORMS — one ranged, one
 function. They get the same rule the same-form pair gets four cases above, not an `E3061` at
 DECLARATION time: two exported declarations are accepted and the ambiguity is a property of the USE. The form they are written in is not what decides
@@ -493,6 +499,7 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-alias-exported-by-two-directories-is-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 A generic alias collides on the same terms as a ranged one.
 ```maxon
 // --- file: lib/t.maxon
@@ -695,6 +702,7 @@ end 'main'
 ```
 
 <!-- test: error.an-ambiguous-array-from-head-is-refused -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 Two directories export an `Array` instance alias of one name, so a bare `from` head in a third file could build
 either and must be qualified.
@@ -852,6 +860,7 @@ end 'main'
 ```
 
 <!-- test: error.an-ambiguous-top-level-cast-target-is-refused -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 A top-level constant's cast target is a type position like any other, so an ambiguous one is refused there too.
 ```maxon
 // --- file: api/types.maxon

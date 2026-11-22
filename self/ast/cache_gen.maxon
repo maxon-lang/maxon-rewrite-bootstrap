@@ -687,7 +687,7 @@ end 'storeDeclRef'
 
 extension DeclRef
 	static function cacheLoad(mutates r table.CacheReader) returns DeclRef
-		let theModule = try (r.word64() as FullRangeInt as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
+		let theModule = try (r.int64() as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
 		let theOrdinal = try (r.word32() as DeclOrdinal) otherwise panic("cache: a stored DeclOrdinal is out of its range")
 		return DeclRef{module: theModule, ordinal: theOrdinal}
 	end 'cacheLoad'
@@ -804,7 +804,7 @@ extension FuncEntry
 		let theVisibility = r.text()
 		let theHasDecl = r.flag()
 		let theDecl = DeclRef.cacheLoad(r)
-		let theModule = try (r.word64() as FullRangeInt as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
+		let theModule = try (r.int64() as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
 		let theNodeID = try (r.word32() as NodeID) otherwise panic("cache: a stored NodeID is out of its range")
 		let theIsStatic = r.flag()
 		let theIsDestructor = r.flag()
@@ -1728,7 +1728,7 @@ extension LocalEntry
 		let theIsUninitialized = r.flag()
 		let theIsCapture = r.flag()
 		let theCaptureConv = Convention.allCases[r.word8() as Count]
-		let theSlot = try (r.word64() as FullRangeInt as SlotIndex) otherwise panic("cache: a stored SlotIndex is out of its range")
+		let theSlot = try (r.int64() as SlotIndex) otherwise panic("cache: a stored SlotIndex is out of its range")
 		return LocalEntry{id: theId, name: theName, ty: theTy, isVar: theIsVar, isParam: theIsParam, isSelf: theIsSelf, projected: theProjected, paramIndex: theParamIndex, conv: theConv, definedAt: theDefinedAt, isUninitialized: theIsUninitialized, isCapture: theIsCapture, captureConv: theCaptureConv, slot: theSlot}
 	end 'cacheLoad'
 end 'LocalEntry'
@@ -2438,7 +2438,7 @@ end 'storeTree'
 
 extension Tree
 	export static function cacheLoad(mutates r table.CacheReader) returns Tree
-		let theModule = try (r.word64() as FullRangeInt as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
+		let theModule = try (r.int64() as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
 		let theText = ""
 		let theRecords = loadArrayOfRecord(r)
 		let theLists = loadArrayOfDiagU32(r)
@@ -2569,7 +2569,7 @@ end 'storeTyping'
 
 extension Typing
 	export static function cacheLoad(mutates r table.CacheReader) returns Typing
-		let theModule = try (r.word64() as FullRangeInt as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
+		let theModule = try (r.int64() as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
 		let theTypes = NodeTypes.cacheLoad(r)
 		let theArith = loadIntMapOfArithInfo(r)
 		let theNames = loadIntMapOfNameInfo(r)
@@ -2623,7 +2623,7 @@ extension Witness
 	static function cacheLoad(mutates r table.CacheReader) returns Witness
 		let theParamTy = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theIfaceTy = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
-		let theModule = try (r.word64() as FullRangeInt as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
+		let theModule = try (r.int64() as diag.ModuleID) otherwise panic("cache: a stored diag.ModuleID is out of its range")
 		return Witness{paramTy: theParamTy, ifaceTy: theIfaceTy, module: theModule}
 	end 'cacheLoad'
 end 'Witness'

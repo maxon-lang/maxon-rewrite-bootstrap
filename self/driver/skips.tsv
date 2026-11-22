@@ -14,20 +14,94 @@
 #   run     `run`, the codes minimaxon reports and the reason: a test that runs a program is skipped when, after the fixes,
 #           the first diagnostic left is one of them, because minimaxon refuses by that rule what maxon runs
 #   first   `first`, the codes minimaxon reports and the reason: a test that expects a compile error is skipped when the
-#           first code minimaxon reports is one of them, and the fixes do not make the expected code the first, because
-#           minimaxon refuses by that rule, first, the program that maxon refuses for another reason
+#           first code left after the fixes is one of them, and the fixes do not make the expected code the first, because
+#           minimaxon refuses by that rule, first, the program that maxon refuses for another reason. A program that
+#           checks clean after the fixes is never skipped: it is fixed, and the code it expects is a diagnostic that
+#           minimaxon lacks
 #   test    `test`, the name of a spec file, the name of one of its tests, and the reason: a test that minimaxon compiles
 #           and runs to another answer than maxon's, because a language change (README, "Where it differs from Maxon") gives
 #           the program another meaning
+code	E2027	a match arm that repeats the pattern of an earlier arm
+code	E2048	a break or continue that names the label of the loop it already leaves
+code	E3010	a cast that converts nothing
+code	E3012	a local, parameter or name that is declared and never read
+code	E3055	a try that covers nothing that can fail
+code	E3062	a typealias that is declared and never used
+code	E3063	a bare name that two directories of the program declare, where no declaration is nearer
+code	E3064	the result of a pure function that is discarded
+code	E3065	the result of an impure function that is discarded without an explicit discard
+code	E3067	a self-assignment, or a discard of something that is no call
+code	E3077	a var that is never reassigned
+code	E3081	a match arm that binds payload values and never reads them
+code	E3092	an export declaration that nothing outside its directory uses
+code	E3219	an unmarked top-level declaration that nothing live names
 code	E3223	a linear value that is not consumed: minimaxon's linear values are noncopyable values with a destructor, so it refuses the move itself
 code	E3224	a linear value that is refused: minimaxon's linear values are noncopyable values with a destructor, so it refuses the move itself
+code	E3183	a closure that is stored into what it captures: minimaxon's closure holds the borrow, so it may not escape it
 code	E3207	an immutable value that is written: minimaxon meets it as a move out of a borrow or a write to a let
 code	E3214	a unique value that is kept or bound: minimaxon meets it as a move out of a borrow or a write to a let
 skip	ErrUseAfterMove,E3223,E3224,ErrFrozenChange	ErrMoveOutOfBorrow,ErrNotDroppable,ErrAssignToImmutable	language difference: ownership is refused by another rule
+skip	E3183,E3207	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 skip	E3207,E3214	ErrMoveOutOfBorrow,ErrAssignToImmutable	language difference: ownership is refused by another rule
 skip	ErrUnexpectedToken	ErrExpectedToken	differing error code: syntax error
 skip	ErrExpressionError	ErrTypeMismatch	differing error code: operand types
 expect	ErrModuleLetCallsFunction	language difference: a constant may call a literal factory, and E3220 names what it may call
+expect	E2027,E2048,E3010,E3012,E3062,E3064,E3065,E3067,E3077,E3081,E3092,E3219	language difference: style and lint rules are not checked, since the generated code does not depend on them
+expect	E3063	language difference: another module's names are always qualified by its path, so a bare name never finds two
+expect	E3055	language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program
 first	ErrUncheckedFailure	language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 test	fold-constants.md	a-float-division-by-a-constant-zero-is-not-folded	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero
+test	nominal-generic-alias.md	error.xs-into-ys-parameter	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.rebind-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.an-unbranded-var-adopts-the-brand-of-its-first-branded-store	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.an-adopted-brand-is-the-brand-every-later-read-has	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.branches-storing-different-brands-are-refused-at-the-second	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.equals-with-another-brand-is-refused	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-self-parameter-of-a-declared-generic-takes-the-receivers-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-field-of-an-inner-alias-holds-that-alias-as-its-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.otherwise-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.match-arms-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.struct-literal-field-store-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-trailing-doc-comment-keeps-a-fields-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.union-payload-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-bare-generic-alias-parameter-refuses-another-alias-of-its-instance	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-qualified-generic-alias-parameter-refuses-another-alias-of-its-instance	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-qualified-generic-alias-parameter-is-a-rows-inside-its-body	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-loop-over-rows-carries-the-element-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-self-result-keeps-the-receivers-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-field-read-carries-the-fields-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.interface-impl-brand-must-match	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.two-vars-each-first-storing-the-other-resolve-from-the-first-store-and-the-later-direct-store-is-refused	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.an-indirect-call-argument-of-another-brand-is-refused	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-call-result-of-a-qualified-return-wears-the-brand-it-names	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-call-result-wears-the-brand-of-the-file-that-declared-the-callee	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-field-read-wears-the-brand-of-the-file-that-declared-the-field	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-union-payload-read-wears-the-brand-of-the-file-that-declared-the-union	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-field-store-judges-the-value-against-the-brand-of-the-file-that-declared-the-field	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-field-declared-with-a-qualified-alias-wears-the-brand-it-names	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-field-declared-with-a-qualified-alias-is-read-in-the-declaring-file	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.a-union-payload-read-carries-the-payloads-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	generic-types.md	error.two-aliases-one-instance-are-two-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	fixed-array.md	error.same-size-aliases-are-two-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	type-name-collision.md	error.a-generic-alias-beside-a-type-of-its-name-refuses-another-alias-of-its-instance	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	associated-types.md	error.two-alias-spellings-of-one-generic-instance-do-not-conform	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	interface-conformance.md	error.an-interface-requirement-over-another-files-same-instance-alias-is-not-met	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	interface-dispatch.md	error.interface-returning-function-cannot-throw	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.function-value-of-an-interface-returning-function	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.closure-returning-an-interface	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.closure-parameter-at-an-interface-type	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-requirement-parameter	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-requirement-parameter-through-a-type-parameter	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-parameter-on-a-throwing-requirement	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-function-type-parameter	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-tuple-element	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-tuple-element-in-a-parameter	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-tuple-element-in-a-return	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-requirement-return	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	interface-dispatch.md	error.interface-typed-function-type-return	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	generic-opaque-value-store.md	error.an-interface-array-element-is-refused	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	generic-opaque-value-store.md	error.an-interface-array-literal-typed-as-the-refused-alias-is-reported-once	language difference: an interface value is one word that owns its value, so it may stand where any value may
+test	extension-over-primitive.md	error.an-interface-extension-publishes-nothing-onto-a-primitive	language difference: an extension of an interface reaches every conformer, an integer type too
+test	safety.md	error.float-divide-by-constant-zero	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero
+test	safety.md	error.float-divide-by-negative-constant-zero	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero

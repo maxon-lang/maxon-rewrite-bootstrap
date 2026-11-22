@@ -293,7 +293,6 @@ error E3005: <fragment>:8:24: argument type mismatch for 'value': expected 'Ints
 ```
 
 <!-- test: nested-typed-array-literal.error.a-value-of-another-brand -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Two aliases over one instance are two brands, and a literal element is judged exactly as `push` judges it: a `B` does not fit an `Array with A`.
 ```maxon
@@ -309,7 +308,7 @@ function main() returns ExitCode
 	var b = B.create(0)
 	b.push(1)
 	let rows = Rows from [b]
-	return rows.count() as ExitCode
+	return try rows.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -317,7 +316,6 @@ error E3005: <fragment>:10:24: argument type mismatch for 'value': expected 'A',
 ```
 
 <!-- test: nested-typed-array-literal.error.push-refuses-the-same-brand -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The `push` spelling of the same store is refused in the same words.
 ```maxon
@@ -334,7 +332,7 @@ function main() returns ExitCode
 	var b = B.create(0)
 	b.push(1)
 	rows.push(b)
-	return rows.count() as ExitCode
+	return try rows.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -342,7 +340,6 @@ error E3005: <fragment>:11:7: argument type mismatch for 'value': expected 'A', 
 ```
 
 <!-- test: nested-typed-array-literal.error.an-outer-literal-of-another-brand-at-a-declared-slot -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 An outer literal with no head takes the declared slot's instance, so its elements are judged against the slot's brand.
 ```maxon
@@ -355,7 +352,7 @@ typealias B = Array with Integer
 typealias Rows = Array with A
 
 function width(rows Rows) returns Integer
-	return rows.count() as Integer
+	return try rows.count() as Integer otherwise panic("out of range")
 end 'width'
 
 function main() returns ExitCode
@@ -363,7 +360,7 @@ function main() returns ExitCode
 	first.push(1)
 	var second = B.create(0)
 	second.push(2)
-	return width([first, second]) as ExitCode
+	return try width([first, second]) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

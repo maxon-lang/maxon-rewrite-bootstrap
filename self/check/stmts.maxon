@@ -76,6 +76,41 @@ function liveCount(tree ast.Tree, body diag.U32) returns Count
 	return n
 end 'liveCount'
 
+// keywordTerminator is the word that ends a block by being written as a statement: no statement after it runs, whatever
+// follows. A call of a function that never returns, or a statement that ends on every path, does not count: those are not
+// named by a keyword at the start of the statement.
+function keywordTerminator(tree ast.Tree, s ast.NodeID) returns table.Option with String
+	let k = tree.kindOf(s)
+	if k == ast.NodeKind.returnStmt 'return'
+		return table.Option.some("return")
+	end 'return'
+	if k == ast.NodeKind.throwStmt 'throw'
+		return table.Option.some("throw")
+	end 'throw'
+	if k == ast.NodeKind.breakStmt 'break'
+		return table.Option.some("break")
+	end 'break'
+	if k == ast.NodeKind.continueStmt 'continue'
+		return table.Option.some("continue")
+	end 'continue'
+	if k == ast.NodeKind.exprStmt and tree.kindOf(ast.exprStmtE(tree, id: s)) == ast.NodeKind.panicExpr 'panic'
+		return table.Option.some("panic")
+	end 'panic'
+	return table.Option.none
+end 'keywordTerminator'
+
+// failUnreachable reports the statement that follows a keyword terminator, where the code after it starts.
+function failUnreachable(mutates c Checker, tree ast.Tree, body diag.U32, index Count, mutates errs diag.ErrorList)
+	match consumes keywordTerminator(tree, s: tree.listAt(body, index: index) as ast.NodeID) 'terminator'
+		some(word) then failAfter(c, tree: tree, next: tree.listAt(body, index: try index + 1 otherwise panic("a statement follows the last of a block")) as ast.NodeID, word: word, errs: errs)
+		none then _ = 0
+	end 'terminator'
+end 'failUnreachable'
+
+function failAfter(mutates c Checker, tree ast.Tree, next ast.NodeID, word String, mutates errs diag.ErrorList)
+	checkFail(c.modID, off: tree.startOf(next), code: diag.errUnreachableCode, msg: diag.unreachableCode(word), errs: errs)
+end 'failAfter'
+
 function checkBlock(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, body diag.U32, mutates errs diag.ErrorList)
 	pushScope(c)
 	checkStmts(c, p: p, ms: ms, body: body, errs: errs)
@@ -86,7 +121,11 @@ end 'checkBlock'
 function checkStmts(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, body diag.U32, mutates errs diag.ErrorList)
 	let live = liveCount(ms.tree(), body: body)
 	let outer = c.dead
-	for i in 0 upto ms.tree().listLen(body) 'each'
+	let count = ms.tree().listLen(body)
+	for i in 0 upto count 'each'
+		if (try i + 1 otherwise count) < count 'followed'
+			failUnreachable(c, tree: ms.tree(), body: body, index: i, errs: errs)
+		end 'followed'
 		c.dead = outer or i >= live
 		checkStmt(c, p: p, ms: ms, s: ms.tree().listAt(body, index: i) as ast.NodeID, errs: errs)
 	end 'each'

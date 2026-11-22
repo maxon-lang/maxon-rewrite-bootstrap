@@ -220,9 +220,9 @@ type Outcome
 			known = other.known.clone()
 		end 'first' else 'later'
 			for k in 0 upto known.count() 'modules'
-				if other.known[k].segments() > known[k].segments() 'later'
+				if other.known[k].segments() > known[k].segments() 'longer'
 					known[k] = share(other.known[k])
-				end 'later'
+				end 'longer'
 			end 'modules'
 		end 'later'
 		noteFailure(other.failed, phase: other.failedPhase)

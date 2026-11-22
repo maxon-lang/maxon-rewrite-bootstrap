@@ -27,7 +27,7 @@ enum CodeSkipKind
 	expectedOnly
 	// refusedRun is the first code left that minimaxon refuses a program with that maxon runs.
 	refusedRun
-	// reportedFirst is the first code that minimaxon reports for a program whose fixes do not make the code maxon expects the first.
+	// reportedFirst is the first code left, after the fixes, of a program whose fixes do not make the code maxon expects the first.
 	reportedFirst
 	// namedTest is one test, by its spec file and its name, whose program runs to another answer by a language change.
 	namedTest
@@ -101,22 +101,40 @@ function refusedRunSkipLine(skips CodeSkips, left String) returns table.Option w
 end 'refusedRunSkipLine'
 
 // unreachedSkipLine is the skip line of a test that expects the compile error expected and whose fixes do not make it the
-// first: the pair it makes with left, the first code after the fixes, or else the row of reported, the first code before
-// them; nothing when the table has neither.
-function unreachedSkipLine(skips CodeSkips, expected table.Option with String, left String, reported String) returns table.Option with String
-	if left != "" 'refused'
-		let pair = pairAfterFixes(skips, expected: expected, left: left)
-		if pair.isSome() 'paired'
-			return pair
-		end 'paired'
-	end 'refused'
+// first: the pair it makes with left, the first code after the fixes, or else the row of left; nothing when the table has
+// neither. A program that checks clean after the fixes has no left, so a code it expects that minimaxon never reports is
+// never skipped as a difference of a rule.
+function unreachedSkipLine(skips CodeSkips, expected table.Option with String, left String) returns table.Option with String
+	if left == "" 'clean'
+		return table.Option.none
+	end 'clean'
+	let pair = pairAfterFixes(skips, expected: expected, left: left)
+	if pair.isSome() 'paired'
+		return pair
+	end 'paired'
 	for i in 0 upto skips.count() 'rows'
-		if skips[i].kind == CodeSkipKind.reportedFirst and skips[i].reported == reported 'found'
+		if skips[i].kind == CodeSkipKind.reportedFirst and skips[i].reported == left 'found'
 			return table.Option.some(skips[i].line.clone())
 		end 'found'
 	end 'rows'
 	return table.Option.none
 end 'unreachedSkipLine'
+
+// haltCodes is the codes that make a pair of the table with the code expected: a test whose fixes leave one of them first is
+// skipped for it, so fixing stops there instead of changing the program to reach another diagnostic.
+function haltCodes(skips CodeSkips, expected table.Option with String) returns ast.StringList
+	var codes = ast.StringList.create(0)
+	if not expected.isSome() 'none'
+		return codes
+	end 'none'
+	let code = expected.clone().unwrap()
+	for i in 0 upto skips.count() 'rows'
+		if skips[i].kind == CodeSkipKind.pair and skips[i].expected == code 'paired'
+			codes.push(skips[i].reported.clone())
+		end 'paired'
+	end 'rows'
+	return codes
+end 'haltCodes'
 
 // pairAfterFixes is the skip line of the pair that the code a test expects makes with left, the first code after its fixes.
 function pairAfterFixes(skips CodeSkips, expected table.Option with String, left String) returns table.Option with String
@@ -345,7 +363,7 @@ end 'applyChoice'
 // a fix that can be made, or the rounds run out. A round that leaves a file unparsable is undone, and the outcome says so. For
 // a test that expects a compile error it stops as soon as the first diagnostic has the expected code, or has no fix, and leaves the
 // diagnostics of that code alone.
-function fixProgram(consumes prog FixProgram, expected table.Option with String) returns FixOutcome
+function fixProgram(consumes prog FixProgram, expected table.Option with String, halts ast.StringList) returns FixOutcome
 	var current = prog
 	var changed = Flags.create(0)
 	for i in 0 upto current.files.count() 'unchanged'
@@ -364,7 +382,7 @@ function fixProgram(consumes prog FixProgram, expected table.Option with String)
 		end 'clean'
 		left = errs[0].code.clone()
 		leftCause = errs[0].cause
-		if isExpectedCode(left, expected: expected) 'reached'
+		if isExpectedCode(left, expected: expected) or holdsKind(halts, kind: left) 'reached'
 			break 'rounds'
 		end 'reached'
 		if expected.isSome() and not errs[0].fix.isSome() 'unfixable'
@@ -552,7 +570,7 @@ end 'programAt'
 
 // fixProgramAt fixes the program at path and writes the files it changed, or with check names them.
 function fixProgramAt(path String, checkOnly bool, mutates tally FixTally)
-	let outcome = fixProgram(programAt(path), expected: table.Option.none)
+	let outcome = fixProgram(programAt(path), expected: table.Option.none, halts: ast.StringList.create(0))
 	tally.count(outcome)
 	if not outcome.anyChanged() 'unchanged'
 		return
@@ -576,7 +594,7 @@ end 'fixProgramAt'
 function fixSource(path String, text String) returns FixOutcome
 	var files = project.SourceFiles.create(0)
 	files.push(project.SourceFile.make(path.clone(), text: text.clone()))
-	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files), expected: table.Option.none)
+	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files), expected: table.Option.none, halts: ast.StringList.create(0))
 end 'fixSource'
 
 // isFixable is whether fix may change a spec test: one that the conversion did not skip, that runs a program rather than
@@ -700,12 +718,12 @@ function fixSpecFile(shared SharedRuntime, mutates scratch Scratch, skips CodeSk
 				tally.codeSkips = increment(tally.codeSkips)
 				edits.push(syntax.Edit.make(tests[i].markerEnd, until: tests[i].markerEnd, replacement: codeSkip.unwrap()))
 			end 'codeSkipped' else 'fixing'
-				fixSpecTest(tests[i], text: text, display: display, skips: skips, expected: table.Option.some(pair.expected.clone()), reported: pair.reported, checkOnly: checkOnly, tally: tally, edits: edits)
+				fixSpecTest(tests[i], text: text, display: display, skips: skips, expected: table.Option.some(pair.expected.clone()), checkOnly: checkOnly, tally: tally, edits: edits)
 			end 'fixing'
 			continue 'tests'
 		end 'mismatched'
 		if isFixable(tests[i], text: text) 'runs'
-			fixSpecTest(tests[i], text: text, display: display, skips: skips, expected: table.Option.none, reported: "", checkOnly: checkOnly, tally: tally, edits: edits)
+			fixSpecTest(tests[i], text: text, display: display, skips: skips, expected: table.Option.none, checkOnly: checkOnly, tally: tally, edits: edits)
 		end 'runs'
 	end 'tests'
 	if checkOnly or edits.count() == 0 'unwritten'
@@ -714,19 +732,25 @@ function fixSpecFile(shared SharedRuntime, mutates scratch Scratch, skips CodeSk
 	try File.writeText(try FilePath.from(file) otherwise panic("fix: {file} is not a path"), content: syntax.applyEdits(text, edits: edits)) otherwise panic("fix: cannot write {file}")
 end 'fixSpecFile'
 
+// specProgram is the program of a spec test's source: the fragment, or the files of its sections.
+function specProgram(test SpecTest, display String, source String, sections SourceSections) returns FixProgram
+	if sections.count() == 0 'single'
+		var files = project.SourceFiles.create(0)
+		files.push(project.SourceFile.make(fragmentToken, text: "{fragmentHeader}{test.name}\n{source}\n"))
+		return FixProgram.make(fragmentToken, name: "{display}: {test.name}", single: true, files: files)
+	end 'single'
+	return FixProgram.make(projectRoot, name: "{display}: {test.name}", single: false, files: sectionFiles(sections))
+end 'specProgram'
+
 // fixSpecTest adds to edits what fixing one test comes to. A test that expects a compile error is changed only when its fixes
-// make the first error the expected one, and then its positions are marked as moved, which the fixes did; otherwise it is
-// skipped when the table names why (unreachedSkipLine), reported being the code it was first refused under.
-function fixSpecTest(test SpecTest, text String, display String, skips CodeSkips, expected table.Option with String, reported String, checkOnly bool, mutates tally FixTally, mutates edits syntax.Edits)
+// make the first error the expected one or leave the program clean, and then its positions are marked as moved, which the
+// fixes did; otherwise it is skipped when the table names why for the first code the fixes leave (unreachedSkipLine), the
+// fixes stopping at a code that makes a pair of the table with the expected one. A program that is clean after the fixes is
+// changed so that the test fails for the one thing missing: the diagnostic.
+function fixSpecTest(test SpecTest, text String, display String, skips CodeSkips, expected table.Option with String, checkOnly bool, mutates tally FixTally, mutates edits syntax.Edits)
 	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
 	let sections = splitSections(source)
-	var prog = FixProgram.make(fragmentToken, name: "{display}: {test.name}", single: true, files: project.SourceFiles.create(0))
-	if sections.count() == 0 'single'
-		prog.files.push(project.SourceFile.make(fragmentToken, text: "{fragmentHeader}{test.name}\n{source}\n"))
-	end 'single' else 'project'
-		prog = FixProgram.make(projectRoot, name: "{display}: {test.name}", single: false, files: sectionFiles(sections))
-	end 'project'
-	let outcome = fixProgram(prog, expected: expected)
+	let outcome = fixProgram(specProgram(test, display: display, source: source, sections: sections), expected: expected, halts: ast.StringList.create(0))
 	tally.count(outcome)
 	if outcome.leftCause == diag.ErrorCause.loopHoldsCollection 'loop'
 		tally.loopSkips = increment(tally.loopSkips)
@@ -742,12 +766,16 @@ function fixSpecTest(test SpecTest, text String, display String, skips CodeSkips
 		end 'refused'
 	end 'runs'
 	if expected.isSome() and not isExpectedCode(outcome.left, expected: expected) 'unreached'
-		let unreached = unreachedSkipLine(skips, expected: expected, left: outcome.left, reported: reported)
+		let halted = fixProgram(specProgram(test, display: display, source: source, sections: sections), expected: expected, halts: haltCodes(skips, expected: expected))
+		let unreached = unreachedSkipLine(skips, expected: expected, left: halted.left)
 		if unreached.isSome() 'skipped'
 			tally.codeSkips = increment(tally.codeSkips)
 			edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: unreached.unwrap()))
+			return
 		end 'skipped'
-		return
+		if outcome.left != "" 'refused'
+			return
+		end 'refused'
 	end 'unreached'
 	if not outcome.anyChanged() 'unchanged'
 		return

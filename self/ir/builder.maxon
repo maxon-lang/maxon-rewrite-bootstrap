@@ -512,12 +512,12 @@ export type Builder
 		end 'blocks'
 		for i in 0 upto instrs.count() 'fails'
 			let target = failTarget(instrs[i])
-			if target != noBlock 'fails'
+			if target != noBlock 'jumps'
 				if reached[blockIndex(instrBlock[i])] 'live'
 					let at = blockIndex(target)
 					into[at] = try into[at] + 1 otherwise panic("ir: a block has too many edges in")
 				end 'live'
-			end 'fails'
+			end 'jumps'
 		end 'fails'
 		return into
 	end 'edgesInto'

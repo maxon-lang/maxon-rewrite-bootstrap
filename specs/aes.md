@@ -874,6 +874,7 @@ end 'main'
 ```
 
 <!-- test: aes.a-discarded-block-or-key-stream-result-is-refused-on-every-target -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 `Aes.encryptBlock`, `Aes.decryptBlock` and `Aes.xorKeyStream` write only the array they create, so they are pure on every
 target, the hardware ones included: discarding a result is E3064 whether the host has AES instructions or not.

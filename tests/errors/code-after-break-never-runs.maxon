@@ -1,0 +1,10 @@
+function main() returns ExitCode
+	var total = 0 as ExitCode
+	while total < 3 'count'
+		break 'count'
+		total = 5
+	end 'count'
+	return total
+end 'main'
+
+// expect-error: E3071 at 5:3

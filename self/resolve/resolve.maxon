@@ -4,6 +4,18 @@ typealias ScopeStack = Array with BoolStrMap
 
 typealias TypeParamMap = table.StringMap with Count
 
+// OpenLabel is the label of a block or declaration that the resolver is inside of, and where it was written.
+type OpenLabel
+	export var name as String
+	export var at as diag.U32
+
+	static function make(consumes name String, at diag.U32) returns OpenLabel
+		return OpenLabel{name: name, at: at}
+	end 'make'
+end 'OpenLabel'
+
+typealias OpenLabels = Array with OpenLabel
+
 type LookupResult
 	export var found as bool
 	export var decl as ast.DeclRef
@@ -54,9 +66,12 @@ type Resolver
 	export var whenDepth as Count
 	// inClosure is whether the innermost of those bodies is a closure's.
 	export var inClosure as bool
+	// labels are the labels of the blocks and declarations that enclose the code being resolved, outermost first: an end
+	// label names the innermost one, so a block may not repeat any of them.
+	export var labels as OpenLabels
 
 	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
-		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false}
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false, labels: OpenLabels.create(0)}
 	end 'make'
 end 'Resolver'
 
@@ -78,6 +93,39 @@ function checkEnd(mutates r Resolver, label String, endNode ast.NodeID, mutates 
 		pushErr(errs, modID: r.modID, off: off, code: diag.errMismatchedEndLabel, msg: diag.mismatchedEndLabel(label, got: got))
 	end 'bad'
 end 'checkEnd'
+
+// openLabel starts a block or declaration that is labelled name at at, and reports it when a block or declaration that
+// encloses it has the same label.
+function openLabel(mutates r Resolver, p ast.Project, name String, at diag.U32, mutates errs diag.ErrorList)
+	for i in 0 upto r.labels.count() 'enclosing'
+		if r.labels[i].name == name 'reused'
+			let outer = ast.locateTextOffset(r.tree.text, files: p.modules[ast.modIndex(r.modID)].files, offset: r.labels[i].at)
+			pushErr(errs, modID: r.modID, off: at, code: diag.errBlockLabelReused, msg: diag.reusedBlockLabel(name, line: "{outer.line}", column: "{outer.col}"))
+			break 'enclosing'
+		end 'reused'
+	end 'enclosing'
+	r.labels.push(OpenLabel.make(name.clone(), at: at))
+end 'openLabel'
+
+// openBlock is openLabel for a block whose header holds its label, given by ref. A block with no label opens nothing, and so
+// does not need closeLabel.
+function openBlock(mutates r Resolver, p ast.Project, labelRef diag.U32, mutates errs diag.ErrorList)
+	if labelRef == 0 'none'
+		return
+	end 'none'
+	openLabel(r, p: p, name: r.tree.labelAt(labelRef), at: r.tree.labelStart(labelRef), errs: errs)
+end 'openBlock'
+
+function closeLabel(mutates r Resolver)
+	try r.labels.pop() otherwise panic("closeLabel: no label is open")
+end 'closeLabel'
+
+// closeBlock ends the block that openBlock started, when its header had a label.
+function closeBlock(mutates r Resolver, labelRef diag.U32)
+	if labelRef != 0 'labelled'
+		closeLabel(r)
+	end 'labelled'
+end 'closeBlock'
 
 function isDeclVisible(r Resolver, p ast.Project, ref ast.DeclRef) returns bool
 	if ref.module == r.modID or ref.module == diag.stdlibID 'ownOrStd'
@@ -616,22 +664,30 @@ function resolveStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 		checkEnd(r, label: ast.ifStmtLabel(r.tree, id: id), endNode: ast.ifStmtEnd(r.tree, id: id), errs: errs)
 		checkEnd(r, label: ast.ifStmtElseLabel(r.tree, id: id), endNode: ast.ifStmtElseEnd(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.ifStmtCond(r.tree, id: id), errs: errs)
+		openBlock(r, p: p, labelRef: ast.ifStmtLabelRef(r.tree, id: id), errs: errs)
 		resolveBlock(r, p: p, ms: ms, listRef: ast.ifStmtThenRef(r.tree, id: id), errs: errs)
+		closeBlock(r, labelRef: ast.ifStmtLabelRef(r.tree, id: id))
 		if ast.ifStmtHasElse(r.tree, id: id) 'el'
+			openBlock(r, p: p, labelRef: ast.ifStmtElseLabelRef(r.tree, id: id), errs: errs)
 			resolveBlock(r, p: p, ms: ms, listRef: ast.ifStmtElseRef(r.tree, id: id), errs: errs)
+			closeBlock(r, labelRef: ast.ifStmtElseLabelRef(r.tree, id: id))
 		end 'el'
 	end 'sIf' else if k == ast.NodeKind.ifTryStmt 'sIfTry'
 		resolveIfTryStmt(r, p: p, ms: ms, id: id, errs: errs)
 	end 'sIfTry' else if k == ast.NodeKind.whileStmt 'sWh'
 		checkEnd(r, label: ast.whileStmtLabel(r.tree, id: id), endNode: ast.whileStmtEnd(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.whileStmtCond(r.tree, id: id), errs: errs)
+		openBlock(r, p: p, labelRef: ast.whileStmtLabelRef(r.tree, id: id), errs: errs)
 		resolveBlock(r, p: p, ms: ms, listRef: ast.whileStmtBodyRef(r.tree, id: id), errs: errs)
+		closeBlock(r, labelRef: ast.whileStmtLabelRef(r.tree, id: id))
 	end 'sWh' else if k == ast.NodeKind.forStmt 'sFor'
 		checkEnd(r, label: ast.forStmtLabel(r.tree, id: id), endNode: ast.forStmtEnd(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.forStmtFrom(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.forStmtTo(r.tree, id: id), errs: errs)
 		pushScopeList(r, names: forNames(r, id: id))
+		openBlock(r, p: p, labelRef: ast.forStmtLabelRef(r.tree, id: id), errs: errs)
 		resolveBlock(r, p: p, ms: ms, listRef: ast.forStmtBodyRef(r.tree, id: id), errs: errs)
+		closeBlock(r, labelRef: ast.forStmtLabelRef(r.tree, id: id))
 		popScope(r)
 	end 'sFor' else if k == ast.NodeKind.matchStmt 'sM'
 		resolveMatchCore(r, p: p, ms: ms, mc: ast.matchStmtMatch(r.tree, id: id), errs: errs)
@@ -685,7 +741,9 @@ function resolveWhenStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 	let outer = r.inClosure
 	r.inClosure = false
 	r.whenDepth = try r.whenDepth + 1 otherwise r.whenDepth
+	openBlock(r, p: p, labelRef: ast.whenStmtLabelRef(r.tree, id: id), errs: errs)
 	resolveBlock(r, p: p, ms: ms, listRef: ast.whenStmtBodyRef(r.tree, id: id), errs: errs)
+	closeBlock(r, labelRef: ast.whenStmtLabelRef(r.tree, id: id))
 	if r.whenDepth > 0 'dec'
 		r.whenDepth = r.whenDepth - 1
 	end 'dec'
@@ -695,7 +753,9 @@ end 'resolveWhenStmt'
 
 function resolveTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	checkEnd(r, label: ast.tryStmtLabel(r.tree, id: id), endNode: ast.tryStmtEnd(r.tree, id: id), errs: errs)
+	openBlock(r, p: p, labelRef: ast.tryStmtLabelRef(r.tree, id: id), errs: errs)
 	resolveBlock(r, p: p, ms: ms, listRef: ast.tryStmtBodyRef(r.tree, id: id), errs: errs)
+	closeBlock(r, labelRef: ast.tryStmtLabelRef(r.tree, id: id))
 	if ast.tryStmtHasOtherwise(r.tree, id: id) 'ho'
 		checkEnd(r, label: ast.tryStmtHandlerLabel(r.tree, id: id), endNode: ast.tryStmtHandlerEnd(r.tree, id: id), errs: errs)
 		let bnd = ast.tryStmtBinding(r.tree, id: id)
@@ -704,7 +764,9 @@ function resolveTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, i
 			bs.push(bnd)
 		end 'hasB'
 		pushScopeList(r, names: bs)
+		openBlock(r, p: p, labelRef: ast.tryStmtHandlerLabelRef(r.tree, id: id), errs: errs)
 		resolveBlock(r, p: p, ms: ms, listRef: ast.tryStmtHandlerRef(r.tree, id: id), errs: errs)
+		closeBlock(r, labelRef: ast.tryStmtHandlerLabelRef(r.tree, id: id))
 		popScope(r)
 	end 'ho'
 end 'resolveTryStmt'
@@ -720,7 +782,9 @@ function resolveIfTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 		bound.push(ast.ifTryStmtName(r.tree, id: id))
 	end 'named'
 	pushScopeList(r, names: bound)
+	openBlock(r, p: p, labelRef: ast.ifTryStmtLabelRef(r.tree, id: id), errs: errs)
 	resolveBlock(r, p: p, ms: ms, listRef: ast.ifTryStmtThenRef(r.tree, id: id), errs: errs)
+	closeBlock(r, labelRef: ast.ifTryStmtLabelRef(r.tree, id: id))
 	popScope(r)
 	if ast.ifTryStmtHasElse(r.tree, id: id) 'else'
 		var failed = ast.StringList.create(0)
@@ -728,7 +792,9 @@ function resolveIfTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 			failed.push(ast.ifTryStmtErrName(r.tree, id: id))
 		end 'named'
 		pushScopeList(r, names: failed)
+		openBlock(r, p: p, labelRef: ast.ifTryStmtElseLabelRef(r.tree, id: id), errs: errs)
 		resolveBlock(r, p: p, ms: ms, listRef: ast.ifTryStmtElseRef(r.tree, id: id), errs: errs)
+		closeBlock(r, labelRef: ast.ifTryStmtElseLabelRef(r.tree, id: id))
 		popScope(r)
 	end 'else'
 end 'resolveIfTryStmt'
@@ -736,6 +802,7 @@ end 'resolveIfTryStmt'
 function resolveMatchCore(mutates r Resolver, p ast.Project, ms ast.ModuleState, mc ast.NodeID, mutates errs diag.ErrorList)
 	checkEnd(r, label: ast.matchCoreLabel(r.tree, id: mc), endNode: ast.matchCoreEnd(r.tree, id: mc), errs: errs)
 	resolveExpr(r, p: p, ms: ms, id: ast.matchCoreSubject(r.tree, id: mc), errs: errs)
+	openBlock(r, p: p, labelRef: ast.matchCoreLabelRef(r.tree, id: mc), errs: errs)
 	let armsRef = ast.matchCoreArmsRef(r.tree, id: mc)
 	let armCount = r.tree.listLen(armsRef)
 	for i in 0 upto armCount 'eachArm'
@@ -762,6 +829,7 @@ function resolveMatchCore(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 		end 'val'
 		popScope(r)
 	end 'eachArm'
+	closeBlock(r, labelRef: ast.matchCoreLabelRef(r.tree, id: mc))
 end 'resolveMatchCore'
 
 function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
@@ -1047,7 +1115,9 @@ function resolveTryHandler(mutates r Resolver, p ast.Project, ms ast.ModuleState
 		bs.push(ast.nameExprName(r.tree, id: bound))
 	end 'binds'
 	pushScopeList(r, names: bs)
+	openBlock(r, p: p, labelRef: ast.handlerBlockLabelRef(r.tree, id: handler), errs: errs)
 	resolveBlock(r, p: p, ms: ms, listRef: ast.handlerBlockBodyRef(r.tree, id: handler), errs: errs)
+	closeBlock(r, labelRef: ast.handlerBlockLabelRef(r.tree, id: handler))
 	popScope(r)
 end 'resolveTryHandler'
 
@@ -1225,6 +1295,7 @@ end 'resolveInterfaceList'
 function resolveFuncDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, hasReceiver bool, mutates errs diag.ErrorList)
 	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.whereList, errs: errs)
 	checkEnd(r, label: ast.sourceName(f), endNode: f.endRef, errs: errs)
+	openLabel(r, p: p, name: ast.sourceName(f), at: r.tree.declNameStart(f.id), errs: errs)
 	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
 	resolveParamDefaults(r, p: p, ms: ms, params: f.params, errs: errs)
 	r.scopes = ScopeStack.create(0)
@@ -1238,6 +1309,7 @@ function resolveFuncDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 	end 'receiver'
 	resolveBlock(r, p: p, ms: ms, listRef: f.body, errs: errs)
 	popScope(r)
+	closeLabel(r)
 	r.typeParams = outer
 end 'resolveFuncDecl'
 
@@ -1245,8 +1317,25 @@ function cloneBoolStrMap(m BoolStrMap) returns BoolStrMap
 	return m.clone()
 end 'cloneBoolStrMap'
 
+// openTypeLabel opens the name of the type, enum, union, interface or extension that d declares as a label, which the labels of
+// the blocks of its methods may not repeat. A function opens its own name, as resolveFuncDecl does.
+function openTypeLabel(mutates r Resolver, d ast.Decl) returns bool
+	match d 'k'
+		typeDecl(td) then r.labels.push(OpenLabel.make(td.name.clone(), at: r.tree.declNameStart(td.id)))
+		enumDecl(ed) then r.labels.push(OpenLabel.make(ed.name.clone(), at: r.tree.declNameStart(ed.id)))
+		unionDecl(ud) then r.labels.push(OpenLabel.make(ud.name.clone(), at: r.tree.declNameStart(ud.id)))
+		interfaceDecl(ifd) then r.labels.push(OpenLabel.make(ifd.name.clone(), at: r.tree.declNameStart(ifd.id)))
+		extensionDecl(xd) then r.labels.push(OpenLabel.make(extendedName(r, xd: xd), at: r.tree.declNameStart(xd.id)))
+		funcDecl(_) then return false
+		constDecl(_) then return false
+		aliasDecl(_) then return false
+	end 'k'
+	return true
+end 'openTypeLabel'
+
 function resolveTopDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, d ast.Decl, mutates errs diag.ErrorList)
 	let emptyFields = BoolStrMap.new()
+	let labelled = openTypeLabel(r, d: d)
 	match d 'k'
 		funcDecl(fd) then resolveFuncDecl(r, p: p, ms: ms, f: fd, s: declSurface(r, d: d, noun: "function"), fieldNames: emptyFields, hasReceiver: false, errs: errs)
 		constDecl(cd) then resolveTopConst(r, p: p, ms: ms, cd: cd, errs: errs)
@@ -1257,6 +1346,9 @@ function resolveTopDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, d
 		interfaceDecl(ifd) then resolveInterfaceDecl(r, p: p, ms: ms, ifd: ifd, errs: errs)
 		extensionDecl(xd) then resolveExtensionDecl(r, p: p, ms: ms, xd: xd, s: declSurface(r, d: d, noun: "extension"), errs: errs)
 	end 'k'
+	if labelled 'close'
+		closeLabel(r)
+	end 'close'
 end 'resolveTopDecl'
 
 // resolveTopAlias resolves a typealias of the module, except one a type's body declares, which its type resolves with the

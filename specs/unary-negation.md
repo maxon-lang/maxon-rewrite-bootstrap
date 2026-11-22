@@ -90,12 +90,12 @@ end 'main'
 ```
 
 <!-- test: unary-double-negate-float -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let f = 42.0
 	let g = --f
-	return trunc(g)
+	return try trunc(g) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

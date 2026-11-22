@@ -4,12 +4,6 @@ function keep(a T) uses T returns T where T implements Copyable
 	return a.clone()
 end 'keep'
 
-function afterReturn() returns Score
-	return 1
-	print("never\n")
-	return keep(2 as Score)
-end 'afterReturn'
-
 function afterBothBranches(c bool) returns Score
 	if c 'pick'
 		return 4
@@ -18,16 +12,6 @@ function afterBothBranches(c bool) returns Score
 	end 'other'
 	return keep(6 as Score)
 end 'afterBothBranches'
-
-function afterBreak() returns Score
-	var n = 0 as Score
-	while n < 3 'loop'
-		n = n + 1
-		break
-		n = keep(n)
-	end 'loop'
-	return n
-end 'afterBreak'
 
 function breakLeavesTheMatch(c bool) returns Score
 	match c 'leave'
@@ -38,9 +22,8 @@ function breakLeavesTheMatch(c bool) returns Score
 end 'breakLeavesTheMatch'
 
 function main() returns ExitCode
-	print("{afterReturn()} {afterBothBranches(false)} {afterBreak()} {breakLeavesTheMatch(true)}\n")
+	print("{afterBothBranches(false)} {breakLeavesTheMatch(true)}\n")
 	return 0
-	panic("never")
 end 'main'
 
-//> 1 5 1 9
+//> 5 9

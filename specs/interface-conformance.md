@@ -335,6 +335,7 @@ error E3016: <fragment>:11:6: Partial interface implementation: type 'Widget' ha
 ```
 
 <!-- test: error.an-interface-requirement-over-another-files-same-instance-alias-is-not-met -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 The same rule across two files, over a GENERIC alias. `alpha/ifc.maxon` and `beta/impl.maxon` each declare
 `Bag = Array with Integer` — one instance, two declarations — so the requirement's `alpha.Bag` is not met by
@@ -718,7 +719,7 @@ end 'main'
 ```
 
 <!-- test: non-interface-method-on-conforming-type-still-errors -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -754,7 +755,7 @@ error E3012: specs/interface-conformance/non-interface-method-on-conforming-type
 
 
 <!-- test: interface-method-local-var-still-errors -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -786,7 +787,7 @@ error E3012: specs/interface-conformance/interface-method-local-var-still-errors
 ```
 
 <!-- test: interface-method-reports-every-unused-local-and-no-waived-parameter -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The contract waives `volume` and `pitch`, which go unread; the two unread locals are each reported.
 ```maxon
 
@@ -821,7 +822,7 @@ error E3012: specs/interface-conformance/interface-method-reports-every-unused-l
 ```
 
 <!-- test: interface-method-loop-variable-still-errors -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ⭐ **THE WAIVER IS ABOUT PARAMETERS, AND A `for` BINDING IS NOT ONE**. `interface-method-may-leave-a-required-parameter-unread` above is the positive control that the waiver is live at all; this is the line it stops at. A contract can force an implementer to DECLARE a parameter it has no use for, and it has nothing whatever to say about a loop variable the author wrote inside the body — so the loop binding is still refused, and `for _ in` is the spelling that fixes it.
 
 ⚠ **`limit` IS ALSO UNREAD, DELIBERATELY.** The two unused declarations in one method are what make this case discriminating in BOTH directions: it fails if the waiver is allowed to reach the loop binding, and it fails again if a waived PARAMETER is allowed to end the scan before the loop binding is reached.

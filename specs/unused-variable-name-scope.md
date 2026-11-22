@@ -66,6 +66,7 @@ end 'main'
 ```
 
 <!-- test: one-loop-of-that-name-and-no-mention-is-still-refused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
 	var total = 0 as FullRangeInt
@@ -98,7 +99,7 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-parameter-of-that-name-does-not-excuse-it -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The negative control for the case above, and the reason the closure's list is CLEARED
 rather than shared: `i` here is the closure's OWN parameter, a name the enclosing

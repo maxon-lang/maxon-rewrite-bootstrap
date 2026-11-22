@@ -1891,6 +1891,7 @@ error E3005: <fragment>:25:15: argument type mismatch for 'v': expected 'Pair wi
 ```
 
 <!-- test: error.two-aliases-one-instance-are-two-brands -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 Two aliases over one instance are two BRANDS, and a `LeafBoxAgain` does not reach a `LeafBox` parameter
 unasked (`nominal-generic-alias.md`); `create` returns `Self`, so its result carries the receiver's brand.
@@ -3301,8 +3302,8 @@ wants.
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -3331,8 +3332,8 @@ is none.
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -3382,8 +3383,8 @@ typealias Real = float(f64.min to f64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -3497,8 +3498,8 @@ wrong and not merely that one of them is.
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 

@@ -1653,7 +1653,6 @@ total=2016
 
 
 <!-- test: range-check-panic.a-counted-loop-one-past-the-alias-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ⚠ **THE DISCRIMINATING CASE FOR THE EXCLUSIVE ARITHMETIC.** One more trip and the counter reaches 64,
 which `RegNum` does not admit — so the cast is refused at compile time. A rule that took the interval as
@@ -1666,7 +1665,7 @@ typealias RegNum = int(0 to 63)
 function main() returns ExitCode
 	var total = 0 as Integer
 	for r in 0 upto 65 'scan'
-		let g = r as RegNum
+		let g = try r as RegNum otherwise panic("out of range")
 		total = total + (g as Integer)
 	end 'scan'
 	print("total={total}\n")
@@ -1702,7 +1701,6 @@ total=2016
 
 
 <!-- test: range-check-panic.an-inclusive-counted-loop-one-past-its-top-bound-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ⚠ **THE DISCRIMINATING CASE FOR THE INCLUSIVE ARITHMETIC**, and it is the one that would go silently
 wrong if `to` were read as `upto`: under `[0, 63]` the cast would be admitted rather than refused at 64.
@@ -1714,7 +1712,7 @@ typealias RegNum = int(0 to 63)
 function main() returns ExitCode
 	var total = 0 as Integer
 	for r in 0 to 64 'scan'
-		let g = r as RegNum
+		let g = try r as RegNum otherwise panic("out of range")
 		total = total + (g as Integer)
 	end 'scan'
 	print("total={total}\n")
@@ -3336,14 +3334,14 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-carry-out-of-bit-63-on-folded-operands-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 The pair above with both operands known to the compiler. A result the compiler can compute that leaves the alias is E3005, as a literal outside it is: the program is refused at the operator, and nothing reaches run time.
 ```maxon
 typealias Slot = int(0 to u64.max)
 
 function main() returns ExitCode
 	let half = 9223372036854775808 as Slot
-	let sum = half + half
+	let sum = try half + half otherwise panic("out of range")
 	print("{sum}\n")
 	return 0
 end 'main'
@@ -3379,7 +3377,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-borrow-across-the-signed-midpoint-on-folded-operands-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 The pair above with both operands known to the compiler: E3005 at the operator, naming the operands.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3387,7 +3385,7 @@ typealias Slot = int(0 to u64.max)
 function main() returns ExitCode
 	let half = 9223372036854775808 as Slot
 	let below = half - 1
-	let difference = below - half
+	let difference = try below - half otherwise panic("out of range")
 	print("{difference}\n")
 	return 0
 end 'main'
@@ -3648,14 +3646,14 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-product-over-the-top-of-folded-operands-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 The factors known to the compiler: the product is E3005 at the operator.
 ```maxon
 typealias Slot = int(0 to u64.max)
 
 function main() returns ExitCode
 	let word = 4294967296 as Slot
-	let product = word * word
+	let product = try word * word otherwise panic("out of range")
 	print("{product}\n")
 	return 0
 end 'main'

@@ -1472,7 +1472,6 @@ end 'main'
 ```
 
 <!-- test: a-result-mixing-a-module-let-closure-with-a-fresh-one-is-not-callable-for-its-caller -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `pick` hands back a module `let` closure on one path and a closure `make` builds on the other, so its result is read-only for every caller and a `mutates captures` function cannot be called through it.
 
@@ -1488,8 +1487,8 @@ type Total
 		return Self{n: 0}
 	end 'create'
 
-	function bump() returns Tally
-		self.n = self.n + 1
+	function bump(mutates self) returns Tally
+		self.n = try self.n + 1 otherwise panic("out of range")
 		return self.n
 	end 'bump'
 end 'Total'
@@ -1509,7 +1508,7 @@ function pick(fresh bool) returns Bump
 end 'pick'
 
 function main() returns ExitCode
-	let f = pick(false)
+	var f = pick(false)
 	let n = f()
 	print("{n}\n")
 	return 0

@@ -260,12 +260,12 @@ type Row
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Row'
 
 function pick(a Row, b Row, first bool) returns Row
-	return a if first else b
+	return a.clone() if first else b.clone()
 end 'pick'
 
 function main() returns ExitCode
@@ -4312,7 +4312,7 @@ error E3207: <fragment>:24:7: 'bump' writes 'p' (line 19: `c.n = 5`); 'frozen' i
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-handed-to-a-writer-is-mutable-only -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `grow` writes the record `c` names, which may be `p`, so `p` is mutable only and the frozen argument is refused at the call.
 
@@ -4657,9 +4657,9 @@ type Box
 end 'Box'
 
 function pick(a Box, b Box, flag bool) returns Box
-	var c = a
+	var c = a.clone()
 	if flag 'useSecond'
-		c = b
+		c = b.clone()
 	end 'useSecond'
 	return c
 end 'pick'
@@ -4694,7 +4694,7 @@ type Box
 end 'Box'
 
 function pick(a Box, b Box, flag bool) returns Box
-	return a if flag else b
+	return a.clone() if flag else b.clone()
 end 'pick'
 
 function main() returns ExitCode

@@ -5,6 +5,8 @@ type MatchState
 	export var sawTrue as bool
 	export var sawFalse as bool
 	export var hasDefault as bool
+	// refusedOrder is whether an arm after the default arm was reported already: one is enough.
+	export var refusedOrder as bool
 	// refusedQualified is whether an arm named its case with its type's name, which maxon refuses at the first.
 	export var refusedQualified as bool
 	// result is the type the arms give, or none while no arm gave one.
@@ -13,7 +15,7 @@ type MatchState
 	export var at as diag.U32
 
 	static function make(at diag.U32) returns MatchState
-		return MatchState{seen: BoolIntMap.new(), sawTrue: false, sawFalse: false, hasDefault: false, refusedQualified: false, result: ast.noType, at: at}
+		return MatchState{seen: BoolIntMap.new(), sawTrue: false, sawFalse: false, hasDefault: false, refusedOrder: false, refusedQualified: false, result: ast.noType, at: at}
 	end 'make'
 end 'MatchState'
 
@@ -244,6 +246,13 @@ end 'hasCases'
 // checkArmScoped checks an arm in a scope of its own, which holds what its patterns bind.
 function checkArmScoped(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, arm ast.NodeID, st ast.TypeID, owned bool, isExpr bool, expect ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
 	let form = ast.matchArmForm(ms.tree(), id: arm)
+	if state.hasDefault 'afterDefault'
+		if not state.refusedOrder 'first'
+			state.refusedOrder = true
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: arm), code: diag.errMatchDefaultNotLast, msg: diag.matchDefaultNotLast(), errs: errs)
+		end 'first'
+		return
+	end 'afterDefault'
 	if ast.matchArmIsDefault(ms.tree(), id: arm) 'default'
 		if hasCases(p, ms: ms, t: st) and form != ast.ArmKind.armPanic and not ast.matchArmThrows(ms.tree(), id: arm) 'mustThrow'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: arm), code: diag.errMatchDefaultEnumMustThrow, msg: "on an enum or union, 'default' is 'default throws ...' or 'default panic(...)'", errs: errs)
@@ -283,6 +292,15 @@ function checkArm(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: action), code: diag.errMatchBlockStatement, msg: diag.matchBlockStatement(keyword), errs: errs)
 			return
 		end 'block'
+		if ms.tree().kindOf(action) == ast.NodeKind.tryStmt 'tryBlock'
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: action), code: diag.errMatchBlockStatement, msg: diag.matchTryBlockForm(), errs: errs)
+			return
+		end 'tryBlock'
+		let handler = blockHandlerOf(ms.tree(), action: action)
+		if handler != 0 'otherwiseBlock'
+			checkFail(c.modID, off: ms.tree().labelStart(ast.handlerBlockLabelRef(ms.tree(), id: handler)), code: diag.errMatchBlockStatement, msg: diag.matchOtherwiseBlockForm(), errs: errs)
+			return
+		end 'otherwiseBlock'
 		checkStmt(c, p: p, ms: ms, s: action, errs: errs)
 		return
 	end 'then'
@@ -298,6 +316,18 @@ function checkArm(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 end 'checkArm'
 
 // blockStatementKeyword is the word that opens a statement that holds a block, or "" for one that does not.
+// blockHandlerOf is the block handler of the try expression that an arm's statement is, or none.
+function blockHandlerOf(tree ast.Tree, action ast.NodeID) returns ast.NodeID
+	if tree.kindOf(action) != ast.NodeKind.exprStmt 'notExpression'
+		return 0
+	end 'notExpression'
+	let e = ast.exprStmtE(tree, id: action)
+	if tree.kindOf(e) != ast.NodeKind.tryExpr 'notTry'
+		return 0
+	end 'notTry'
+	return ast.tryExprHandler(tree, id: e)
+end 'blockHandlerOf'
+
 function blockStatementKeyword(kind ast.NodeKind) returns String
 	if kind == ast.NodeKind.ifStmt or kind == ast.NodeKind.ifTryStmt 'if'
 		return "if"

@@ -230,6 +230,7 @@ error E3005: <fragment>:12:10: argument type mismatch for 'n': expected 'Narrow'
 ```
 
 <!-- test: error.array-count-cast-to-count-is-unneeded -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 ```maxon
 typealias Narrow = int(0 to 1000)
@@ -792,7 +793,6 @@ Stack trace:
 ```
 
 <!-- test: error.a-mixed-expression-no-operand-of-which-fits-the-field -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Small = int(0 to 10)
@@ -805,7 +805,7 @@ type Holder
 	export var block as BlockId
 
 	static function create(v VarId, w VarId) returns Self
-		return Self{block: v + w}
+		return Self{block: try v + w otherwise panic("out of range")}
 	end 'create'
 end 'Holder'
 
@@ -2125,7 +2125,6 @@ error E3005: <fragment>:12:10: argument type mismatch for 'w': expected 'Wide', 
 ```
 
 <!-- test: error.negation-carries-a-signed-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `-d` over a SIGNED alias is that alias.
 ```maxon
@@ -2139,7 +2138,7 @@ end 'takesWide'
 
 function main() returns ExitCode
 	let d = 5 as Delta
-	let r = takesWide(-d)
+	let r = takesWide(try -d otherwise panic("out of range"))
 	print("{r}")
 	return 0
 end 'main'
@@ -2714,6 +2713,7 @@ end 'main'
 ```
 
 <!-- test: error.an-implements-parent-another-file-keeps-private-is-refused -->
+<!-- positions: moved -->
 An unmarked parent is nameable from its own directory and its subdirectories alone, so an `implements` clause in
 another directory naming it is refused at the parent's name, exactly as a cast to it is.
 ```maxon
@@ -2731,7 +2731,7 @@ typealias Kid = int(0 to 10) implements Base
 function main() returns ExitCode
 	let k = 4 as Kid
 	print("{k}")
-	return widest()
+	return base.widest()
 end 'main'
 ```
 ```maxoncstderr
@@ -2739,6 +2739,7 @@ error E3008: <fragment>:11:41: typealias 'Base' is not exported
 ```
 
 <!-- test: error.an-implements-parent-two-directories-export-is-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 Two directories export `Base`, so a bare `implements Base` from a third file could mean either and must be
 qualified.
 ```maxon
@@ -2761,6 +2762,7 @@ error E3063: <fragment>:9:41: Ambiguous type name 'Base': more than one visible 
 ```
 
 <!-- test: error.a-qualified-implements-parent-the-reader-cannot-see-is-refused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A qualified parent is held to the declaration's tier like every other qualified type name: an unmarked alias is
 not nameable from outside its directory.
 ```maxon

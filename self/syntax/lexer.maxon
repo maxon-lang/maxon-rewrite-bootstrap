@@ -695,9 +695,9 @@ export function lex(text String) returns LexResult
 	var errs = diag.ErrorList.create(0)
 	var toks = Tokens.create(0)
 	var failed = false
-	try 'lex'
+	try 'lexing'
 		toks = lexSource(src, errs: errs, lenient: false)
-	end 'lex' otherwise 'refused'
+	end 'lexing' otherwise 'refused'
 		failed = true
 	end 'refused'
 	if failed 'error'

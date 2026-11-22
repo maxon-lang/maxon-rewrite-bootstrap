@@ -311,11 +311,11 @@ type BlockScan
 	end 'readKind'
 
 	function writes(r MReg) returns bool
-		for d in 0 upto ops.writeLen 'writes'
+		for d in 0 upto ops.writeLen 'written'
 			if ops.writes[d] == r 'found'
 				return true
 			end 'found'
-		end 'writes'
+		end 'written'
 		return false
 	end 'writes'
 

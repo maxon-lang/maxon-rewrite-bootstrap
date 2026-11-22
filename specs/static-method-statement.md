@@ -76,6 +76,7 @@ ticktick
 ```
 
 <!-- test: static-method-statement.error.value-returning-static-is-still-refused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The NEGATIVE half. A static whose result falls off the statement is still refused — but under the
 DISCARD code, which names the callee and points at the member the author wrote. Accepting the shape
 strands no box: a program carrying this diagnostic never reaches codegen.

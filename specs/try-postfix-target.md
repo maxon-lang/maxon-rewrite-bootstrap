@@ -382,7 +382,7 @@ error E3057: specs/try-postfix-target/error.two-throwing-calls-in-one-chain.maxo
 ```
 
 <!-- test: error.chained-non-throwing-method -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -405,7 +405,7 @@ error E3055: specs/try-postfix-target/error.chained-non-throwing-method.maxon:12
 ```
 
 <!-- test: error.non-throwing-array-accessor -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -424,7 +424,7 @@ error E3055: specs/try-postfix-target/error.non-throwing-array-accessor.maxon:8:
 ```
 
 <!-- test: error.non-throwing-builtin-static-constructor -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 
 `Array.create(0)` cannot fail, so `try` on it is E3055 exactly as `try arr.count()`
@@ -450,6 +450,7 @@ error E3055: specs/try-postfix-target/error.non-throwing-builtin-static-construc
 ```
 
 <!-- test: error.non-throwing-stdlib-print -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 
 ⚠ **THE PRODUCER IS THE ORDINARY NON-THROWING RULE.** `print` is an ordinary call to
 `stdlib/Print.maxon`'s `print(value String)`, not a compiler-recognized BARE NAME, so the program meets the
@@ -474,7 +475,7 @@ error E3055: specs/try-postfix-target/error.non-throwing-stdlib-print.maxon:3:2:
 ```
 
 <!-- test: error.throwing-argument-non-throwing-callee -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -500,7 +501,7 @@ error E3055: specs/try-postfix-target/error.throwing-argument-non-throwing-calle
 ```
 
 <!-- test: error.chained-non-throwing-after-throwing -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)

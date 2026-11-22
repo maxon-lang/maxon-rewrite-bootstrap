@@ -400,7 +400,6 @@ error E3004: <fragment>:7:17: call to undefined function '__Clock.nowMs': the '_
 ```
 
 <!-- test: stdlib-user-shadows.error.a-user-reserved-declaration-beside-a-shadow -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ⚠ **A USER `__` DECLARATION IS E2051 WHETHER OR NOT IT COLLIDES WITH A MINT, AND THE DIAGNOSTIC POINTS AT
 THE USER'S OWN LINE.** This case is the TYPE half, and what guards it is that the mint re-probes past every
@@ -422,7 +421,7 @@ type Clock
 end 'Clock'
 
 function main() returns ExitCode
-	return Clock.make().y as ExitCode
+	return try Clock.make().y as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

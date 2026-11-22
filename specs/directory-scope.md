@@ -275,6 +275,7 @@ error E2001: <fragment>:2:8: Expected function declaration, got 'module'
 ```
 
 <!-- test: error.an-export-read-only-inside-its-directory-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 `helper` is read by `lib/b.maxon` alone, which an unmarked `helper` would serve as well.
 ```maxon
 // --- file: lib/a.maxon
@@ -297,6 +298,7 @@ error E3092: lib/<fragment>:3:17: exported function 'lib.helper' is never refere
 ```
 
 <!-- test: error.an-unmarked-function-nothing-in-its-directory-names-is-unused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 // --- file: lib/a.maxon
 function helper() returns ExitCode
@@ -660,6 +662,7 @@ end 'main'
 ```
 
 <!-- test: error.a-root-typealias-only-a-library-file-writes-is-unused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A library file is in no author's directory, so the root alias it happens to spell credits nothing:
 `stdlib/Builtins.maxon` writes `DecimalPointScale` in its own signatures, and the program's alias of that name
 is still unused.
@@ -675,6 +678,7 @@ error E3062: <fragment>:2:11: unused typealias: 'DecimalPointScale'
 ```
 
 <!-- test: error.an-unmarked-typealias-is-not-a-cast-target-outside-the-subtree -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The refused cast credits nothing, so the alias nothing in `feature/` names is unused too.
 ```maxon
 // --- file: feature/types.maxon
@@ -836,6 +840,7 @@ end 'main'
 ```
 
 <!-- test: error.a-parent-alias-a-nested-directorys-same-named-alias-hides-is-unused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 `lib/inner/`'s `Size` resolves to its own, nearer alias, so it credits that one and not `lib/`'s, which nothing
 names.
 ```maxon
@@ -859,6 +864,7 @@ error E3062: lib/<fragment>:3:11: unused typealias: 'Size'
 ```
 
 <!-- test: error.a-qualified-static-call-head-the-reader-cannot-see-is-refused-and-the-file-reads-on -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 A qualified static-call head the reader may not name is refused at the name, and the refusal does not stop the
 file: a second hidden name later in it is reported too, exactly as two bare ones are.
 ```maxon

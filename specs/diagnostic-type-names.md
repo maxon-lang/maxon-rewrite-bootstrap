@@ -576,8 +576,8 @@ typealias Count = int(0 to 100)
 
 typealias Counts = Array with Count
 
-function ident(a T) uses T returns T
-	return a
+function ident(a T) uses T returns T where T implements Copyable
+	return a.clone()
 end 'ident'
 
 function main() returns ExitCode

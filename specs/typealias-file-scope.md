@@ -2593,7 +2593,7 @@ end 'Holder'
 function main() returns ExitCode
 	let h = Holder.make()
 	print("{h.at}")
-	return otherIdx()
+	return other.otherIdx()
 end 'main'
 ```
 ```maxoncstderr
@@ -2928,6 +2928,7 @@ end 'main'
 ```
 
 <!-- test: error.two-authors-beside-the-library-are-still-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 Two author declarations are ambiguous whatever the library declares, and the candidate list names only the
 authors'.
 ```maxon

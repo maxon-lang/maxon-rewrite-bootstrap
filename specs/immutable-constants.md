@@ -195,6 +195,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-built-from-a-constant-static-let-is-refused-by-a-mutable-array -->
+<!-- positions: moved -->
 The `Tok` holds the constant `Alpha`, so it is read-only and the mutable array refuses it.
 
 ```maxon
@@ -204,14 +205,14 @@ type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
 type Names
 	static let Alpha = b"abc"
 
-	static function keep(into TokArray)
+	static function keep(mutates into TokArray)
 		into.push(Tok.create(Names.Alpha))
 	end 'keep'
 end 'Names'
@@ -712,6 +713,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-built-from-an-inline-byte-literal-is-refused-by-a-mutable-array -->
+<!-- positions: moved -->
 The `Tok` holds the literal, so it is read-only and the mutable array refuses it.
 
 ```maxon
@@ -721,7 +723,7 @@ type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 

@@ -752,7 +752,6 @@ error E3196: <fragment>:8:12: cannot store an immutable 'ByteArray' into 'List.a
 ```
 
 <!-- test: error.byte-string-literal.a-var-bound-to-a-literal-is-not-writable -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 
 A `var` bound to a literal holds the literal's `immutable` image data, so writing it is E3207; take a
@@ -761,7 +760,7 @@ A `var` bound to a literal holds the literal's `immutable` image data, so writin
 function main() returns ExitCode
 	var a = b"hi"
 	a.push(88)
-	return a.count()
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

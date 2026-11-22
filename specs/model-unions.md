@@ -15793,7 +15793,7 @@ type Hp is noncopyable
 	var n as Num
 
 	static function create(u UP, n Num) returns Self
-		return Self{u: u, n: n}
+		return Self{u: u.clone(), n: n}
 	end 'create'
 end 'Hp'
 

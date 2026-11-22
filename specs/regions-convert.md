@@ -20,7 +20,6 @@ so separately compiled libraries stay sound.
 ## Tests
 
 <!-- test: closure-writing-param-to-plain-function-type-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `advance` writes its parameter, and `Look` declares no `mutable` there, so a caller holding the argument read-only would be written through.
 
@@ -62,7 +61,6 @@ error E3210: <fragment>:28:16: function value for 'Look' writes its parameter 'c
 ```
 
 <!-- test: conformer-writing-receiver-needs-mutable-self -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 `Bag.grow` writes its receiver, and `Grows.grow` is read-only unless declared `mutable self`.
 
 ```maxon
@@ -620,7 +618,7 @@ type Holder
 	export var held as Box
 
 	static function build(item Box) returns Self
-		return Self{held: item}
+		return Self{held: item.clone()}
 	end 'build'
 end 'Holder'
 

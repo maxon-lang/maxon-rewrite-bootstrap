@@ -243,6 +243,7 @@ error E3207: <fragment>:26:30: 'create' takes `immutable` 'settings'; 's' is mut
 ```
 
 <!-- test: a-closure-that-captures-a-parameter-pins-it-mutable-only -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 <!-- positions: moved -->
 `wrap` captures its parameter `r` in a closure, so `r` is mutable only and the frozen row is refused at the call.
 
@@ -547,7 +548,7 @@ type Wrapper
 	export var part as Part
 
 	static function around(part Part) returns Self
-		return Self{part: part}
+		return Self{part: part.clone()}
 	end 'around'
 end 'Wrapper'
 

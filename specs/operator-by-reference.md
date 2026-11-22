@@ -368,6 +368,7 @@ true 2
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-a-field-of-its-operand -->
+<!-- positions: moved -->
 Writing a field of the operand modifies it as surely as reassigning it.
 ```maxon
 typealias Count = int(i64.min to i64.max)
@@ -379,7 +380,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function equals(other Self) returns bool
+	function equals(mutates other Self) returns bool
 		other.tag = 0
 		return true
 	end 'equals'
@@ -409,7 +410,7 @@ type Bag
 		return Self{items: Counts.create(0)}
 	end 'create'
 
-	function equals(other Self) returns bool
+	function equals(mutates other Self) returns bool
 		other.items.push(1)
 		return true
 	end 'equals'
@@ -426,6 +427,7 @@ error E3187: <fragment>:12:11: 'Bag.equals' writes its parameter 'other', but a 
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-hand-its-operand-to-a-writer -->
+<!-- positions: moved -->
 The write is found through the call graph: `equals` hands its operand to a method that writes a field of it.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -437,11 +439,11 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function clear(other Self)
+	function clear(mutates other Self)
 		other.tag = 0
 	end 'clear'
 
-	function equals(other Self) returns bool
+	function equals(mutates other Self) returns bool
 		self.clear(other)
 		return true
 	end 'equals'
@@ -458,6 +460,7 @@ error E3187: <fragment>:15:11: 'Tagged.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-a-field-of-its-receiver -->
+<!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -468,7 +471,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function equals(other Self) returns bool
+	function equals(mutates self, other Self) returns bool
 		self.tag = 0
 		return true
 	end 'equals'
@@ -498,7 +501,7 @@ type Bag
 		return Self{items: Counts.create(0)}
 	end 'create'
 
-	function equals(other Self) returns bool
+	function equals(mutates self, other Self) returns bool
 		self.items.push(1)
 		return true
 	end 'equals'
@@ -515,6 +518,7 @@ error E3187: <fragment>:12:11: 'Bag.equals' writes its receiver, but a method be
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-call-a-helper-that-writes-its-receiver -->
+<!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -525,11 +529,11 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function clear()
+	function clear(mutates self)
 		tag = 0
 	end 'clear'
 
-	function equals(other Self) returns bool
+	function equals(mutates self, other Self) returns bool
 		self.clear()
 		return true
 	end 'equals'
@@ -709,6 +713,7 @@ error E3187: <fragment>:16:11: 'Tagged.equals' writes its receiver, but a method
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-its-operand-through-a-holder -->
+<!-- positions: moved -->
 The operand is stored into a record whose method writes it.
 
 ```maxon
@@ -721,7 +726,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		tag = 0
 		return 0
 	end 'clear'
@@ -737,10 +742,10 @@ type Holder
 	export var held as Tagged
 
 	static function create(held Tagged) returns Self
-		return Self{held: held}
+		return Self{held: held.clone()}
 	end 'create'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.held.clear()
 	end 'run'
 end 'Holder'
@@ -756,6 +761,7 @@ error E3187: <fragment>:16:11: 'Tagged.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-its-receiver-through-a-holder -->
+<!-- positions: moved -->
 The receiver is stored into a record whose method writes it.
 
 ```maxon
@@ -768,7 +774,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		tag = 0
 		return 0
 	end 'clear'
@@ -784,10 +790,10 @@ type Holder
 	export var held as Tagged
 
 	static function create(held Tagged) returns Self
-		return Self{held: held}
+		return Self{held: held.clone()}
 	end 'create'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.held.clear()
 	end 'run'
 end 'Holder'

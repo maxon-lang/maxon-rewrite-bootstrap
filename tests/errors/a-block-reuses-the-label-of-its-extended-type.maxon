@@ -1,0 +1,26 @@
+typealias Amount = int(0 to 9)
+
+typealias Double = int(0 to 18)
+
+type Box
+	export var n as Amount
+
+	static function make() returns Box
+		return Box{n: 3}
+	end 'make'
+end 'Box'
+
+extension Box
+	function twice() returns Double
+		if self.n > 4 'Box'
+			return self.n + self.n
+		end 'Box'
+		return 0
+	end 'twice'
+end 'Box'
+
+function main() returns ExitCode
+	return Box.make().twice() as ExitCode
+end 'main'
+
+// expect-error: E2081 at 15:17

@@ -578,6 +578,7 @@ fin 1
 ```
 
 <!-- test: a-linear-value-dropped-at-the-end-of-its-scope-is-refused -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 
 ```maxon

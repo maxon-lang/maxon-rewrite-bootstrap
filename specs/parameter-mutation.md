@@ -1257,7 +1257,7 @@ end 'main'
 ```
 
 <!-- test: error.function-value-call-with-a-literal-container-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A call through a function VALUE may still not carry a LITERAL container: `a` is a `let` array literal, a
 constant the compiler read its range columns from, and the call may write it.
@@ -1915,7 +1915,7 @@ abXY
 ```
 
 <!-- test: constant-let-array-to-mutating-param-error -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `let` bound to an array literal is immutable image data, so a callee that pushes onto its parameter is refused.
 

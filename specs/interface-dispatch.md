@@ -1173,6 +1173,7 @@ hello bob2
 
 
 <!-- test: error.interface-returning-function-cannot-throw -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ⛔ **THE ONE SECONDARY REGISTER, CONTESTED.** A throwing function already spends it on the error flag, so
 an interface return has nowhere left to put the witness. Admitted, it would emit the throwing return
 with a constant-0 flag and hand back a bare pointer with no diagnostic. This refusal is
@@ -1310,7 +1311,7 @@ error E3121: specs/interface-dispatch/error.interface-return-of-a-float.maxon:9:
 
 
 <!-- test: error.function-value-of-an-interface-returning-function -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ⛔ A DIRECT call reads the secondary return register; a call through a function VALUE does not — its whole
 signature rides on `StdOp.callIndirect`, which has room for one result. So the refusal is at the line that
 makes the VALUE, not at the call: the same ABI fact that refuses a THROWING function as a function
@@ -1353,7 +1354,7 @@ error E2015: specs/interface-dispatch/error.function-value-of-an-interface-retur
 
 
 <!-- test: error.closure-returning-an-interface -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 The other route to the same function value, and the reason the refusal is a POSITION rather than one call
 site: a closure declares no return type at all — it is INFERRED from the `gives` expression — so there was
 nothing for the function-TYPE door to refuse. Refused at the `gives`, the line that decided it.
@@ -2545,7 +2546,7 @@ error E3005: specs/interface-dispatch/error.existentials-cannot-be-compared.maxo
 ```
 
 <!-- test: error.closure-parameter-at-an-interface-type -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ⭐⭐ **A CLOSURE PARAMETER DECLARED AT AN INTERFACE TYPE IS REFUSED; UNREFUSED, IT PANICS THE PARSER WITH NO
 POSITION.**
 ```text
@@ -2590,7 +2591,7 @@ error E2015: specs/interface-dispatch/error.closure-parameter-at-an-interface-ty
 ```
 
 <!-- test: error.interface-typed-requirement-parameter -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ⭐⭐ **AN INTERFACE-TYPED PARAMETER ON A REQUIREMENT IS REFUSED, BECAUSE A WITNESS CALL HAS ROOM FOR ONE
 WORD.** Five other declared places refuse an existential for the same reason — a struct
 field, a union payload, a return type, a container element and a closure parameter — because a value
@@ -2651,7 +2652,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-requirement-paramete
 ```
 
 <!-- test: error.interface-typed-requirement-parameter-through-a-type-parameter -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 <!-- positions: moved -->
 The SECOND dispatch door. The requirement is refused at its declaration, so it does not matter which
 receiver reaches it — but both doors collapse the formal identically (139 on x64, a trap on wasm,
@@ -2716,7 +2717,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-requirement-paramete
 ```
 
 <!-- test: error.interface-typed-parameter-on-a-throwing-requirement -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 The THIRD door: a throwing requirement lowers to `witnessTryCall`, a different Std op with its own
 argument marshalling, and it collapses the formal identically (139 on x64, a trap on wasm).
 Pinned because a refusal wired into the non-throwing dispatch alone would leave exactly this shape live.
@@ -2830,6 +2831,7 @@ end 'main'
 ```
 
 <!-- test: error.interface-typed-function-type-parameter -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ⭐⭐ **AN INTERFACE-TYPED POSITION INSIDE A FUNCTION TYPE.** (A TUPLE ELEMENT is another, reached by a route no field/parameter/return reader owns — see `error.interface-typed-tuple-element`. The count is deliberately not written down in the compiler either; `DeclaredStoragePosition` is the count.)
 Unrefused, it faults even given a proper conformer: exit 139 (SEGFAULT) on x64-windows and a PANIC in
 the wasm backend.
@@ -2879,7 +2881,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-function-type-parame
 ```
 
 <!-- test: error.function-value-of-an-interface-taking-function -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 ⭐⭐ **THE SAME ABI FACT REACHED WITHOUT A FUNCTION TYPE ANYWHERE, WHICH IS WHY THE CASE ABOVE COULD NOT
 REFUSE IT.** `let f = measure` takes a function value off the NAME, so nothing declares a function type for
 `parseTypeReference` to catch — and `measure`'s own parameter list is legal, because a DIRECT call reserves
@@ -2922,7 +2924,7 @@ end 'measure'
 
 function main() returns ExitCode
 	let f = measure
-	return f(Sq.create(42)) as ExitCode
+	return try f(Sq.create(42)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -2984,6 +2986,7 @@ end 'main'
 ```
 
 <!-- test: error.interface-typed-tuple-element -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ⭐⭐ **AN INTERFACE-TYPED POSITION THAT REACHES THE BACKEND WITHOUT ITS OWN DOOR.** A tuple type is
 interned as a SYNTHESIZED STRUCT, so its element list is read by `parseTupleTypeReference` — a third
 route, belonging to no field, parameter or return reader — so it asks a door of its own. Without one the
@@ -3026,6 +3029,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-tuple-element.maxon:
 ```
 
 <!-- test: error.interface-typed-tuple-element-in-a-parameter -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 The SECOND of the three spellings that reach `parseTupleTypeReference` — an inline tuple type in a
 parameter position, with no `typealias` in sight. Pinned separately because each spelling reaches the
 element loop by a different caller, and a guard placed at the `typealias` alone would close only one.
@@ -3061,6 +3065,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-tuple-element-in-a-p
 ```
 
 <!-- test: error.interface-typed-tuple-element-in-a-return -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 The THIRD spelling, pinned because the three reach the element loop by genuinely different paths rather
 than being one shape written three ways.
 ```maxon
@@ -3131,6 +3136,7 @@ end 'main'
 ```
 
 <!-- test: error.interface-typed-requirement-return -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ⭐⭐ **THE RETURN HALF OF THE REQUIREMENT POSITION.** `parseInterfaceMethod` reads its return through
 `parseOptionalReturnType`, so without the door the declared type degrades silently to the machine word —
 the program COMPILES and links, and the first dispatch on the result reports the misdirecting
@@ -3159,6 +3165,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-requirement-return.m
 ```
 
 <!-- test: error.interface-typed-function-type-return -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 The other return: a FUNCTION TYPE's. `readFunctionTypeAlias` reads it with a bare
 `parseTypeReference`, so without the door it degrades the same way. It is its own position too —
 `StdOp.callIndirect` carries its whole signature ON THE OP and has room for one result — gated on the
@@ -4097,7 +4104,6 @@ tally 2: 7 12
 ```
 
 <!-- test: error.interface-requirement-result-keeps-its-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A call through an interface-typed value is typed by the requirement's declared return alias, exactly as a
 direct call to the conformer is: `Other` is a second alias of the same instance, so the result of `m.make()`
@@ -4136,7 +4142,7 @@ function viaInterface(m Maker) returns Integer
 end 'viaInterface'
 
 function main() returns ExitCode
-	return viaInterface(Builder.create(42)) as ExitCode
+	return try viaInterface(Builder.create(42)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -4187,7 +4193,6 @@ error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-instan
 ```
 
 <!-- test: error.a-witness-argument-of-another-alias-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `Other` is a second alias of the same instance as `IntArray`, so an `Other` argument does not fit the
 requirement's `IntArray` parameter through the interface, as it does not fit it in a direct call.
@@ -4212,7 +4217,7 @@ type Adder implements Summer
 	function total(xs IntArray) returns Integer
 		var t = self.base
 		for x in xs 'each'
-			t = t + x
+			t = try t + x otherwise panic("out of range")
 		end 'each'
 		return t
 	end 'total'
@@ -4223,7 +4228,7 @@ function viaInterface(s Summer) returns Integer
 end 'viaInterface'
 
 function main() returns ExitCode
-	return viaInterface(Adder.create(0)) as ExitCode
+	return try viaInterface(Adder.create(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

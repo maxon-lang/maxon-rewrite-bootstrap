@@ -1623,7 +1623,7 @@ error E3207: <fragment>:5:2: 'upsert' writes its receiver (line 170: `try values
 ```
 
 <!-- test: error.a-let-map-passed-to-a-mutating-parameter-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A `let` map literal handed to a parameter its callee writes is refused at the call, so no callee can change what the literal's range was read from.
 ```maxon
 typealias CountMap = Map with (Count, Count)
@@ -1752,7 +1752,7 @@ error E3197: <fragment>:4:27: cannot write 'm' through the closure that captures
 ```
 
 <!-- test: error.a-let-map-stored-in-a-var-struct-field-cannot-be-written-through-it -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A `let` map literal stored into a field of a `var` record stays constant, so a write through that field is refused
 and the range column read from the `let` stays true.
 ```maxon
@@ -1778,7 +1778,7 @@ error E3207: <fragment>:15:5: 'upsert' writes its receiver (line 170: `try value
 ```
 
 <!-- test: error.a-let-map-handed-to-a-function-value-that-writes-it-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A function value has no callee to summarise, but a `let` map literal is a constant its range columns were read from: handing it to an indirect call is refused, because nothing may write it.
 ```maxon
 typealias CountMap = Map with (Count, Count)
@@ -1827,7 +1827,7 @@ error E3207: <fragment>:16:3: 'grow' writes 'm' (it calls 'upsert', which writes
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-map-to-a-function-value-is-refused -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A `let` map literal captured by a closure is still the constant its range columns were read from: the closure may not hand it to a function value, which may write it.
 ```maxon
 typealias CountMap = Map with (Count, Count)

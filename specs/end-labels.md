@@ -657,7 +657,6 @@ error E2081: <fragment>:9:24: Block label 'Color' is already the label of an enc
 ```
 
 <!-- test: error.a-block-in-an-extension-method-reuses-the-extended-types-name -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 10)

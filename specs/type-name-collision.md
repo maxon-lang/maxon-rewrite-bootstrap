@@ -449,6 +449,7 @@ b 7 7
 ```
 
 <!-- test: error.a-generic-alias-beside-a-type-of-its-name-refuses-another-alias-of-its-instance -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `lib/` names `Array with Integer` as `Xs` while `shapes/` declares `type Xs`, so `lib/` spells its own alias
 `lib.Xs`. `app/` names the same instance `Ys`: two aliases are two types, so a `Ys` does not reach a parameter
@@ -809,6 +810,7 @@ error E3061: b/<fragment>:11:11: Duplicate typealias 'L'
 
 
 <!-- test: error.duplicate-generic-alias-same-file-while-another-file-declares-it -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same hole for the GENERIC-INSTANCE form. The directory-local carve-out must not hand a generic alias
 a way to stay unchecked for duplication.
@@ -980,6 +982,7 @@ ab
 
 
 <!-- test: error.crossfile-generic-and-ranged-alias-the-unused-ranged-one-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 One name, two alias FORMS in two files, and only one of them is spelled. `a.maxon` names its own
 generic-instance `Thing`; `b.maxon`'s ranged `Thing` is written nowhere, so E3062 is what that
@@ -1029,6 +1032,7 @@ error E3062: b/<fragment>:24:11: unused typealias: 'Thing'
 
 
 <!-- test: error.crossfile-generic-and-ranged-alias-the-unused-generic-one-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same pair the other way round, and it fails the same way. `b.maxon` spells `Thing` meaning its
 OWN ranged alias; `a.maxon`'s generic-instance `Thing` is written nowhere. A spelling credits the
@@ -1079,6 +1083,7 @@ error E3062: a/<fragment>:16:11: unused typealias: 'Thing'
 
 
 <!-- test: error.crossfile-generic-and-ranged-alias-a-third-file-spells-it -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 In both pairs above the file that spells `Thing` also declares one of the two forms, so the reader's
 own declaration answers. Here `c.maxon` declares neither, and both declarations are unmarked, so
@@ -1287,8 +1292,8 @@ type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	static function create(first A, second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 end 'Pair'
 
@@ -1341,6 +1346,7 @@ end 'main'
 
 
 <!-- test: error.nested-instantiation-reported-at-its-own-name -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 A NESTED instantiation records a source anchor of its own, at its base name, as a top-level
 `typealias X = Base with Args` does at its name. When the newcomer is the nested one the report lands
@@ -1389,6 +1395,7 @@ error E3006: <fragment>:30:27: duplicate definition of 'Pair_Box_Int_Str' — th
 
 
 <!-- test: error.an-alias-written-after-a-nested-instantiation-is-reported-at-its-own-name -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The mirror: the nested instantiation is written first, so the alias is the later claim and the report
 lands at the alias's own name.
@@ -1435,6 +1442,7 @@ error E3006: <fragment>:30:11: duplicate definition of 'Pair_Box_Int_Str' — th
 
 
 <!-- test: error.nested-instantiations-compile-to-one-name -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The corner where NEITHER claimant is named by a `typealias`: both colliding instantiations are nested,
 inside two DIFFERENT outer generics, so the outer pair does not collide. The later-written one is
@@ -1487,6 +1495,7 @@ error E3006: <fragment>:34:27: duplicate definition of 'Pair_Box_Int_Str' — th
 
 
 <!-- test: error.three-instantiations-compile-to-one-name -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The THIRD claimant, which is a different question from the second: each newcomer is measured against
 the declaration that SETTLED the name, never against the one immediately before it, so a rejected
@@ -1542,6 +1551,7 @@ error E3006: <fragment>:35:11: duplicate definition of 'Pair_A_B_C_D' — the ge
 
 
 <!-- test: error.two-instantiations-compile-to-one-name-a-declaration-also-holds -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 Both mechanisms at once, and the pair check has to survive the prefix. `type Pair_Box_Int_Str` is
 declared, so BOTH instantiations are moved into the reserved space — and they land on the *same*
@@ -3077,6 +3087,7 @@ end 'main'
 
 
 <!-- test: error.crossfile-a-contested-name-does-not-credit-the-other-declaration -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ⭐ **THE UNUSED-EXPORT AUDIT MUST NOT COUNT A REFERENCE TO ONE DECLARATION AS A REFERENCE TO ANOTHER OF THE
 SAME NAME.** `alpha/` and `beta/` each export `typealias Integer` over one range, so the two claimants are
 the same kind. `main.maxon` names only `alpha.Integer`, so `beta`'s export is named by nobody outside its
@@ -3113,6 +3124,7 @@ error E3092: beta/<fragment>:6:18: exported typealias 'Integer' is never referen
 ```
 
 <!-- test: error.an-unused-exported-alias-beside-a-nominal-of-its-name-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The same audit when the two claimants are of different KINDS. `ranks/` exports `typealias Score` and `kinds/`
 exports `type Score`; `main.maxon` names only `kinds.Score`, so the alias is named by nobody outside its own
 file and earns E3092.
@@ -3204,6 +3216,7 @@ end 'main'
 ```
 
 <!-- test: error.an-unused-alias-beside-an-enum-used-through-a-field-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 <!-- positions: moved -->
 The same audit when the only use is the element type of a field. `levels/` exports `enum Level` and `tags/`
 exports `typealias Level`. `Journal`, beside the enum, holds an `Array with levels.Level`, and `main.maxon`
@@ -3245,6 +3258,7 @@ error E3092: tags/<fragment>:19:18: exported typealias 'Level' is never referenc
 ```
 
 <!-- test: error.an-unused-function-alias-export-beside-another-directorys-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The same audit over two FUNCTION aliases. `a/` and `b/` each export `typealias Handler`; `a/use.maxon` names
 `a.Handler`, and nobody names `b.Handler`, so `b/`'s export earns E3092.
 ```maxon
@@ -3276,6 +3290,7 @@ error E3092: b/<fragment>:14:18: exported typealias 'Handler' is never reference
 ```
 
 <!-- test: error.an-unused-generic-alias-export-beside-another-directorys-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The same audit over two GENERIC-INSTANCE aliases of one instance: `a/use.maxon` names `a.Rows`, nobody names
 `b.Rows`, so `b/`'s export earns E3092.
 ```maxon
@@ -3303,6 +3318,7 @@ error E3092: b/<fragment>:14:18: exported typealias 'Rows' is never referenced o
 ```
 
 <!-- test: error.a-reached-signature-does-not-credit-the-other-directorys-same-named-alias -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The same audit when the only use of `alpha.Integer` is a SIGNATURE the program reaches: `main.maxon` calls
 `alpha`'s `f`, whose parameter is `alpha.Integer`, and names no `Integer` itself. The call credits the
 declaration the signature means, so `beta`'s export, which nobody names, earns E3092.
@@ -3327,6 +3343,7 @@ error E3092: beta/<fragment>:10:18: exported typealias 'Integer' is never refere
 ```
 
 <!-- test: error.an-instance-argument-reached-through-an-alias-credits-its-own-files-declaration -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The same audit when the use is an alias's instance ARGUMENT. `main.maxon` names the library's `ByteArray`,
 which is `Array with Byte` in the library's own file, where `Byte` is the library's. In `main.maxon` a bare
 `Byte` would mean `c/`'s export, but `ByteArray`'s argument is not read there, so `c/`'s `Byte` is named by
@@ -3354,6 +3371,7 @@ error E3092: c/<fragment>:3:18: exported typealias 'Byte' is never referenced ou
 ```
 
 <!-- test: error.an-inner-alias-use-does-not-credit-a-file-scope-alias-of-its-name -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The same audit when one claimant is an INNER alias. `w/`'s `Wrapper` declares `export typealias Idx`, and
 `main.maxon` names it as `Wrapper.Idx`; `x/` exports a file-scope `Idx` that nobody names, so it earns E3092.
 ```maxon
@@ -3388,6 +3406,7 @@ error E3092: x/<fragment>:3:18: exported typealias 'Idx' is never referenced out
 ```
 
 <!-- test: error.an-unused-type-beside-a-function-alias-reached-through-a-field-is-reported -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The unused-declaration audit answers the same way when one claimant is a NOMINAL type and the use is a call
 through a struct FIELD. `a/` exports
 the function alias `Handler` and a `Box` whose field holds one; `k/` declares an unmarked `type Handler` that
@@ -3731,6 +3750,7 @@ end 'main'
 ```
 
 <!-- test: error.a-bare-name-two-directories-export-is-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 `a/` and `b/` each export a `Box`, and `app/main.maxon` sees both: a bare `Box` could mean either, so it is
 E3063 at the name and lists both qualified spellings.

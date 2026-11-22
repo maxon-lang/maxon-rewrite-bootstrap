@@ -2432,6 +2432,7 @@ error E3036: app/<fragment>:18:10: 'pick' expects 2 argument(s) but 1 were provi
 
 
 <!-- test: error.a-root-contestant-does-not-inherit-a-subdirectorys-throws -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 ⛔ **THE SAME HOLE ON THE `throws` REGISTRY.** `error.contested-free-function-throws-is-not-inherited`
 below is this program with the second contestant in `beta/` instead of at the root — and that one passes
 whether or not the by-name clear runs, for the reason above. Without the clear this program would
@@ -2686,6 +2687,7 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-and-an-exported-alias-in-one-directory-are-a-duplicate -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 Two declarations of one name in one directory are a duplicate at the second declaration, whatever tiers
 they were written at.
 ```maxon

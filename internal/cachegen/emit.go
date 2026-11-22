@@ -219,7 +219,7 @@ func (g *gen) loadExpr(t *rtype, mod string) string {
 		case checkedRead:
 			return fmt.Sprintf("try (%s as %s) otherwise panic(\"cache: a stored %s is out of its range\")", read, name, name)
 		case signedCheckedRead:
-			return fmt.Sprintf("try (%s as FullRangeInt as %s) otherwise panic(\"cache: a stored %s is out of its range\")", read, name, name)
+			return fmt.Sprintf("try (r.int%d() as %s) otherwise panic(\"cache: a stored %s is out of its range\")", 8*t.width, name, name)
 		}
 		panic("cachegen: a scalar of no read")
 	case boolKind:

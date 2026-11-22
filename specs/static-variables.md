@@ -777,7 +777,7 @@ end 'main'
 ```
 
 <!-- test: error.top-level-let-array-var-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 A `let` array's record cannot be laundered into a mutable ALIAS. A borrowed managed aggregate bound to a
 `var` is promoted to owned by an INCREF of the same box — reference semantics, deliberately, because the
 alias is observable — so without this refusal `var b = A` then `b.push(9)` would grow `A`. A `var` is a
@@ -801,7 +801,7 @@ let A = FullRangeIntArray from [1, 2]
 function main() returns ExitCode
 	var b = A
 	b.push(9)
-	return A.count()
+	return try A.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -809,7 +809,7 @@ error E3207: <fragment>:6:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.top-level-let-array-var-reassign-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 The same refusal through the other door — a REASSIGNMENT of an already-owned `var`, which promotes a
 borrowed value through the identical single-sourced path and so CARRIES the mark through the identical
 one. `b = A` is refused at the reassignment, as `var b = A` is at the binding.
@@ -820,7 +820,7 @@ function main() returns ExitCode
 	var b = FullRangeIntArray from [0]
 	b = A
 	b.push(9)
-	return A.count()
+	return try A.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -939,7 +939,6 @@ error E3207: <fragment>:24:2: 'upsert' writes its receiver (line 170: `try value
 ```
 
 <!-- test: error.top-level-let-array-ternary-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 And through a value MERGE, which is the door that costs one extra keyword. The mark that refuses the two
 above rides the VALUE, and a merge mints a NEW value — so the phi has to inherit it, or `var pick = A if c
@@ -953,7 +952,7 @@ let M = FullRangeIntArray from [5, 5]
 function main() returns ExitCode
 	var pick = A if M.count() == 2 else M
 	pick.push(9)
-	return A.count()
+	return try A.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -961,7 +960,6 @@ error E3207: <fragment>:7:7: 'push' needs a writable receiver; 'pick' is immutab
 ```
 
 <!-- test: error.top-level-let-array-match-arm-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The same merge, through the `match`-expression door rather than the ternary — one `finalizeMatchMerge`
 serves both, so a phi that inherits the mark for one inherits it for the other by construction.
@@ -982,7 +980,7 @@ function main() returns ExitCode
 		live gives M
 	end 'w'
 	pick.push(9)
-	return A.count()
+	return try A.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1440,7 +1438,7 @@ error E3220: <fragment>:12:9: the initializer of 'G' calls 'Box.make': a module-
 ```
 
 <!-- test: error.let-global-given-out-of-a-closure -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A closure hands out a read of a module-level `let`, and a write through the name bound to what the closure returns is
 refused as a write through immutable data, as it is for a named function.
 ```maxon
@@ -2018,7 +2016,7 @@ error E3006: <fragment>:3:5: duplicate definition of 'A' — already declared as
 ```
 
 <!-- test: error.top-level-let-array-owned-merge-alias -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
+<!-- positions: moved -->
 The FOURTH door onto the same guard. The three above all reach it as a `var`
 BINDING; this one reaches it as a MERGE that must be OWNED because its other arm gives a fresh record —
 so the borrowed arm is promoted, and for an aggregate a promotion is an INCREF of the same box. That is
@@ -2040,7 +2038,7 @@ function main() returns ExitCode
 	let c = true
 	var pick = A if c else fresh()
 	pick.push("qq")
-	return A.count()
+	return try A.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
