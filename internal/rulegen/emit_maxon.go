@@ -84,6 +84,8 @@ type ruleEmitter struct {
 	bound  map[string]bool
 	labels int
 	temps  int
+	// tg is the target of the rules, which says how the matcher reads the instruction that defines a register.
+	tg target
 }
 
 // local is the Maxon local of a variable, which no name of the generated code has.
@@ -97,15 +99,9 @@ func emitRule(b *strings.Builder, file string, c checked, i int, v *term) {
 		fmt.Fprintf(b, "// with the operands swapped: %s\n", v)
 	}
 	fmt.Fprintf(b, "function %s(%s) returns bool\n", fn, ruleParams)
-	e := &ruleEmitter{b: b, r: r, vars: map[string]*binding{}, bound: map[string]bool{}}
+	e := &ruleEmitter{b: b, r: r, vars: map[string]*binding{}, bound: map[string]bool{}, tg: genericTarget}
 	checkMatch(r, v, e.vars, true, genericTarget)
-	if v.bind != "" {
-		e.bindOrCompare(v.bind, "fn.instrs[at].dst")
-	}
-	e.matchOp(v, "at")
-	if r.cond != "" {
-		e.reject("not (" + rewriteExpr(r, r.cond, e.vars, local) + ")")
-	}
+	e.matchRoot(v, "fn.instrs[at]")
 	b.WriteString("\tout.pre.clear()\n")
 	res := r.results[0]
 	switch res.kind {
@@ -159,10 +155,21 @@ func (e *ruleEmitter) bindOrCompare(name, expr string) {
 
 func getter(o irtable.Op, x irtable.Operand) string { return "ir." + lowerFirst(o.Name) + x.Name }
 
-// matchOp matches the instruction fn.instrs[idx], whose opcode is already t's, against the rest of t.
-func (e *ruleEmitter) matchOp(t *term, idx string) {
+// matchRoot matches the instruction instr, whose opcode is already the pattern's, against the rest of the pattern
+// and the rule's condition.
+func (e *ruleEmitter) matchRoot(v *term, instr string) {
+	if v.bind != "" {
+		e.bindOrCompare(v.bind, instr+".dst")
+	}
+	e.matchOp(v, instr)
+	if e.r.cond != "" {
+		e.reject("not (" + rewriteExpr(e.r, e.r.cond, e.vars, local, e.tg == x64Target) + ")")
+	}
+}
+
+// matchOp matches the instruction instr, whose opcode is already t's, against the rest of t.
+func (e *ruleEmitter) matchOp(t *term, instr string) {
 	o := t.op
-	instr := "fn.instrs[" + idx + "]"
 	if t.cas != "" {
 		x, _ := enumOperand(o)
 		en := enumOf(x.Enum)
@@ -204,10 +211,18 @@ func (e *ruleEmitter) matchReg(a *term, expr string) {
 		if a.bind != "" {
 			e.bindOrCompare(a.bind, reg)
 		}
-		e.reject(fmt.Sprintf("not definedBy(fn, defs: defs, r: %s, op: ir.Opcode.op%s)", reg, a.op.Name))
 		def := e.temp("def")
-		e.line("let %s = defOf(defs, r: %s)", def, reg)
-		e.matchOp(a, def)
+		switch e.tg {
+		case genericTarget:
+			e.reject(fmt.Sprintf("not definedBy(fn, defs: defs, r: %s, op: ir.Opcode.op%s)", reg, a.op.Name))
+			e.line("let %s = defOf(defs, r: %s)", def, reg)
+		case x64Target:
+			e.reject(fmt.Sprintf("not sel.definedBy(fn, r: %s, op: ir.Opcode.op%s)", reg, a.op.Name))
+			e.line("let %s = sel.defOf(%s)", def, reg)
+		default:
+			panic(fmt.Sprintf("rulegen: target %d", e.tg))
+		}
+		e.matchOp(a, "fn.instrs["+def+"]")
 	case termAux:
 		panic("rulegen: a register matched by " + a.String())
 	default:
@@ -284,7 +299,7 @@ func (e *ruleEmitter) build(t *term, dst string) string {
 			case x.Kind == irtable.KReg:
 				v = e.buildReg(t.args[at])
 			default:
-				v = rewriteExpr(e.r, t.args[at].text, e.vars, local)
+				v = rewriteExpr(e.r, t.args[at].text, e.vars, local, false)
 			}
 			at++
 		}

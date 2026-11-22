@@ -1,5 +1,6 @@
 // Command rulegen generates, from the rewrite rules in generic.rules, the matcher of self/opt that rewrites an IR
-// instruction by the first rule that matches it and the instructions that define its operands. `go generate
+// instruction by the first rule that matches it and the instructions that define its operands, and from x64.rules the
+// instruction selection of self/backend, which writes the machine instructions of each IR instruction. `go generate
 // ./internal/rulegen` runs it. README "Generated code", "The rewrite rules", describes the rule language.
 //
 // The operations and operands a rule names are checked against the IR table (internal/irgen/irtable), and those of an
@@ -17,6 +18,8 @@ import (
 const (
 	genericRules = "generic.rules"
 	genericFile  = "../../self/opt/rewrite_gen.maxon"
+	x64Rules     = "x64.rules"
+	machineFile  = "../../self/backend/lower_x64_gen.maxon"
 )
 
 type output struct {
@@ -47,7 +50,15 @@ func generate() ([]output, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []output{{genericFile, []byte(code)}}, nil
+	src, err = os.ReadFile(x64Rules)
+	if err != nil {
+		return nil, err
+	}
+	machine, err := generateMachine(x64Rules, string(src))
+	if err != nil {
+		return nil, err
+	}
+	return []output{{genericFile, []byte(code)}, {machineFile, []byte(machine)}}, nil
 }
 
 // generateGeneric is the Maxon of the matcher of a file of generic rules.
@@ -56,11 +67,10 @@ func generateGeneric(file, src string) (code string, err error) {
 	return emitGeneric(file, checkRules(file, parseRules(file, src), genericTarget)), nil
 }
 
-// checkMachine checks a file of instruction selection rules for x64.
-func checkMachine(file, src string) (err error) {
+// generateMachine is the Maxon of instruction selection from a file of rules for x64.
+func generateMachine(file, src string) (code string, err error) {
 	defer recoverRuleError(&err)
-	checkRules(file, parseRules(file, src), x64Target)
-	return nil
+	return emitMachine(file, checkRules(file, parseRules(file, src), x64Target)), nil
 }
 
 // ruleError is a rule that the generator cannot make code of.

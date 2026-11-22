@@ -100,7 +100,7 @@ rename` rewrites built-in names by what the checker resolved. New code follows t
 - Every record value is a heap box in the compiled code, so a copy allocates. Pass by `mutates` or read in place on hot
   paths.
 - The backend writes the common case of array, byte-array and string length, element read and write, and push at the
-  end in place (`backend.Codegen.visitCallRuntime`); the runtime entry is only the slow path (panic, growth, insert in
+  end in place (`backend.emitCallRuntime`); the runtime entry is only the slow path (panic, growth, insert in
   the middle). Keep those entries' behaviour and the inline code in step, and index or `count()` freely.
 - Every other runtime call, and every `alloc`/`free` (a kernel32 heap call), is a real cost: after the second profile
   they are about 40% of a build. Never build an array or a list by pushing one element at a time where `clone()` or a

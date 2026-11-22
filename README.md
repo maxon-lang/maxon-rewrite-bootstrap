@@ -76,7 +76,7 @@ fixes move text; if that is never reached it is left as it was. A test whose pro
 walks gets `<!-- skip: language difference: a loop holds the collection it walks -->`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
 never edited by hand, except that the runner writes `specs/passed.txt` (see "Tests").
 
-`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, in SSA form as codegen gets it, and `--emit-map` the map of its code,
+`--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, in SSA form as instruction selection gets it, and `--emit-map` the map of its code,
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal
 and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
 `.\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
@@ -257,7 +257,7 @@ layering cannot erode:
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters), which `optimizeModule` runs on every function a native build compiles | `ir` |
-| `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), the trivial allocator (`trivial.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
+| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), the trivial allocator (`trivial.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -281,7 +281,7 @@ run.
 | `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv`, `self/driver/skips.tsv` (the code pairs `fix specs` skips; it names codes of the first) | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon`, `self/driver/skips_gen.maxon` |
 | `internal/irgen` | `internal/irgen/irtable/table.go` | `self/ir/ir_gen.maxon` |
 | `internal/x64gen` | `internal/x64gen/x64table/table.go` | `self/backend/x64_gen.maxon` |
-| `internal/rulegen` | `internal/rulegen/generic.rules`, checked against the IR table (and the x64 rules against the instruction table) | `self/opt/rewrite_gen.maxon` |
+| `internal/rulegen` | `internal/rulegen/generic.rules` and `internal/rulegen/x64.rules`, checked against the IR table and the x64 rules against the instruction table | `self/opt/rewrite_gen.maxon`, `self/backend/lower_x64_gen.maxon` |
 | `internal/abigen` | `internal/abigen/table.go`, `internal/abigen/imports.go` (the kernel32 functions of the import table, in slot order; a test checks that every name the runtime and the entry stub call is listed) | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon`, `self/backend/imports_gen.maxon` (`rtDll`, a slot constant `imp<Name>` for each import, `rtImports`) |
 | `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
 
@@ -390,7 +390,7 @@ The IR table and the x64 instruction table are Go packages of their own (`intern
 `internal/x64gen/x64table`), so that `rulegen` reads the same tables as the generators of the records and the encoder.
 
 **The rewrite rules** are written in a small language after the Go compiler's `_gen/*.rules`, one file per target:
-`internal/rulegen/generic.rules` rewrites IR to IR, and an instruction selection file (`x64.rules`, Phase 3) will rewrite IR
+`internal/rulegen/generic.rules` rewrites IR to IR, and an instruction selection file (`internal/rulegen/x64.rules`) rewrites IR
 to x64 forms. A rule is a pattern, a condition after `&&` if it has one, and after `=>` what the instruction is rewritten to;
 a line that starts with `&&` or `=>` goes on with the rule before it, and `//` starts a comment:
 
@@ -398,8 +398,11 @@ a line that starts with `&&` or `=>` goes on with the rule before it, and `//` s
 (bin.add x (const [0]))                                   => x
 (bin.mul.!checked x (const [c])) && isPowerOfTwo(c)       => (bin.shl x (const [log2(c)]))
 (bin.div.!unsigned.checked x (const [-1]) [fail])         => (neg x [fail])
-d:(loadField obj [off])                                   => (LoadRegBaseDisp d obj [off])     // x64.rules
-(branch (cmp.lt.unsigned x y) [yes] [no])                 => (CmpRegReg x y) (JccRel32 [X64CondCode.below] [yes])
+(loadField obj [off])                                     => (LoadRegBaseDisp r obj [off])     // x64.rules
+(bin.add.unsigned.checked x y [f])                        => (AddRegReg x y) (JccRel32 [X64CondCode.below] [f])
+(branch c [yes] [no])                                     => (TestRegReg c c) (JccRel32 [X64CondCode.equal] [no]) (JmpRel32 [yes])
+(bin.mul.unsigned.!checked x y)                           => (Copy rax x) (MulReg y) (Copy r rax)
+(call)                                                    => (emitCall)
 ```
 
 - An operation is its name in the IR table with the first letter lowered (`bin`, `loadField`), then suffixes: the case of
@@ -420,9 +423,18 @@ d:(loadField obj [off])                                   => (LoadRegBaseDisp d 
   instruction, whose nested operations become new instructions before it, each defining a new register. The instructions
   the pattern matched below the root stay for dead code removal, so a check they make still runs; `generic.rules` states the
   invariant its rules keep (a rewritten program fails exactly where and as it did).
-- An instruction selection rule rewrites to x64 forms, choices or sequences of the instruction table, each with as many
-  operands as its encoder takes, and the rules of a target must match every IR operation: the last rule of each has no
-  condition and matches any operands.
+- An instruction selection rule rewrites to a sequence of x64 forms and choices of the instruction table, each with its
+  operands in the order of its encoder's parameters, and `(Copy dst src)`, the machine IR's copy; or to one name in
+  lowercase, a hand-written helper of `self/backend/isel.maxon` called with the selector, the function and the instruction
+  (the calls and their argument passing, the operations whose code branches, the boxes). A register operand is a variable or
+  a register's name (`rax`, `rbp`): a form defines a new register for the variable it writes, and a two-address form one
+  for the variable it reads and writes, which the variable names from there on; the operation's result is the last
+  definition, or the last definition of the variable that `d:` binds the result to. A `rel32` given a block of the pattern
+  goes along that edge, with the arguments the IR passes it; any other bracket is a Maxon expression, which may name the
+  selector (`sel`), the function (`fn`), the instruction (`ins`) and the backend's constants and the helpers of
+  `self/backend/rules.maxon`. A sequence of forms that fixes registers (`SetccRax`) is none a rule names: it writes the
+  copies to and from them. The rules of a target must match every IR operation with every case of its enum and every
+  value of its flags: for each, some rule with no condition matches any operands.
 
 `rulegen` refuses, naming the rule and its line, a rule that names an operation, a case, a flag or an x64 form the tables do
 not have, gives an operation the wrong number or kind of operands, names a variable that its pattern does not bind, or can
@@ -433,6 +445,13 @@ returns at the first thing that does not match. It reads the operands in place t
 defining instruction of a register from `defs` (the `ir.Defs` of the function's `ir.Flow`), allocates nothing until a rule fires, and leaves the result
 in a reused `opt.Rewrite`; applying it to the function is the fold pass's work. `selftest` runs it on instructions built by
 hand (`self/opt_test.maxon`).
+
+It writes `self/backend/lower_x64_gen.maxon` from `x64.rules`: `selectInstr(sel, fn, ins)` and `selectTerm(sel, fn, ins)`
+dispatch on the opcode to `select<Op>`, which tries the operation's rules in the order of the file and ends in a panic
+that the rule with no condition never lets it reach; each rule is a function of flat `if`s over the instruction and the
+instructions that define its operands (`Selector.definedBy`, `defOf`) that returns false at the first thing that does not
+match, and otherwise writes the machine instructions (`newTarget`, `newCopy`, a `choose` function for a choice) into the
+selector's function, its own register for every IR register (`vregOf`) and a new one for every other definition.
 
 ## Pipeline
 
@@ -452,7 +471,7 @@ any, from every module. A `check` stops short of code generation but runs the st
 | constants | `check` | `moduleConstantOrder`, then `moduleConstants`, two stages: types the top-level `let`s and the raw values that enums and unions write that are no literal (see "Raw values"), each after the constants and raw values of its module that it names (a cycle is `E2012`) |
 | bodies | `check` | `moduleBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
 | verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
-| lower | `ir` | after `endChecks` has given every module's typing back to the project, `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before codegen, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
+| lower | `ir` | after `endChecks` has given every module's typing back to the project, `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before the backend, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
 | optimize | `opt` | for a native build, in the task that lowers the module, right after it: `opt.optimizeModule` puts each function in SSA form (see "The IR"); `--emit-ir` and `--verify-ir` see the result. A test keeps the IR as lowered for the interpreter (`Options.keepsLowered`), which tracks borrows by the loads of slots and reports a drop of a register that holds nothing |
 | emit | `backend` | `emitModule`: IR to x64, one code unit per module, in module order, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. In the link (`linkProgram`) the entry stub and the runtime's unit come first; `emitTypeRoutines` then makes the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in waves, ordered by where the modules first ask for them |
 | link | `backend` | `link` keeps only the sections of code and the pieces of data that the entry reaches through symbol and data references (every function is compiled; what nothing calls is dropped here), lays the units out in order, patches the references and `writePeImage` writes the executable. A symbol is its link name (see "Link names"); the one symbol that may be defined more than once is an instance of a generic function, and the table keeps the first unit's definition, so the copies are never reached and drop out like any dead section. Any other symbol defined twice is an internal error |
@@ -468,7 +487,7 @@ project as a whole knows, so it is written when the error is located (`ast.locat
 `diag.CompileError` is an internal compiler error.
 
 `interp` runs the same stages through lower, with no runtime module and without refusing what only the interpreter runs
-(`lowerForInterpreter` in `self/driver/interp.maxon`), and gives the IR to the interpreter instead of codegen. This is how a map,
+(`lowerForInterpreter` in `self/driver/interp.maxon`), and gives the IR to the interpreter instead of the backend. This is how a map,
 a list, a pool, a frozen value, a cown and a behaviour run.
 
 ### The modules phase
@@ -704,7 +723,7 @@ what a later pass such as reference counting or an optimization changes.
   entry), its `dropslot` is removed, and the `dropslot` of a slot that holds a value is a `drop` of that value, so a value
   that is empty only on some paths reaches its drop as a 0, which drops as nothing. An entry block that a back edge enters
   gets a new entry that jumps to it, since the entry takes no parameters. The slots that stay are numbered again from 0,
-  so codegen reserves and zeroes only those. On `self`, 17,784 of 17,923 slots are promoted.
+  so selection reserves and zeroes only those. On `self`, 17,784 of 17,923 slots are promoted.
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
 - Checks are explicit, and only the ones the range analysis could not rule out are there (see "Checked arithmetic"): a range
   check, a divisor that may be 0 and a shift count that may be negative are each a `guard` with its bound, and a `bin` or a
@@ -736,9 +755,9 @@ what a later pass such as reference counting or an optimization changes.
   one function to the next. `opt.Analysis` adds the dominator tree, the dominance frontiers, the loop nesting depth of each
   segment (natural loops from the retreating edges, each of which must go to a segment that dominates its source: lowering
   makes no irreducible flow, having no goto) and how often each register is read. `selftest` runs the verifier on IR built by hand
-  (`self/verify_test.maxon`), and `--verify-ir` on everything a build lowers, before SSA construction and after it. The interpreter and codegen read every
-  argument of an edge before they set a parameter: codegen pushes the arguments' frame slots and pops them into the
-  parameters', which are the frame slots of their registers.
+  (`self/verify_test.maxon`), and `--verify-ir` on everything a build lowers, before SSA construction and after it. The interpreter and the backend read every
+  argument of an edge before they set a parameter: the trivial allocator copies an edge's arguments to the target's
+  parameters as one parallel copy.
 - What an analysis asks of every operation is generated from the IR table: the registers it reads (`instrReads`, `termReads`,
   the edges' arguments included) and writes (`instrWrites`, a call's error register included). `SuccessorVisitor` gives a
   terminator's edges with their arguments.
@@ -754,9 +773,12 @@ what a later pass such as reference counting or an optimization changes.
 | ownership | `drop`, `dropslot`, `dropat`, `move`, `moveat`, `copy` (see "Drops") |
 | the runtime only | `loadraw.W`, `storeraw.W`, `globaladdr`, `import` (see "The runtime") |
 
-Codegen is deliberately naive: every register and slot has its own frame slot, so each instruction loads its operands and stores
-its result. That makes executables about twice the size of keeping values in registers; register allocation is the next step
-there. A frame larger than a page touches each page as it grows, as Windows requires. Calls use an internal convention:
+Native code goes from the IR, in SSA form, to machine IR (see "The machine IR") by instruction selection, which the rules of
+`internal/rulegen/x64.rules` and the helpers of `self/backend/isel.maxon` write; the trivial allocator then gives every
+virtual register a frame slot of its own, so each instruction loads its operands and stores its result, but for a value that
+only the next instruction reads, which stays in its register. That makes executables about twice the size of keeping
+values in registers; register allocation is the next step there. A frame larger than a page touches each page as it grows,
+as Windows requires. Calls use an internal convention:
 arguments are pushed left to right and the caller pops them. The Win64 ABI applies only to the DLL imports that the runtime calls
 (`import`).
 
@@ -845,7 +867,7 @@ with one `lock xadd`, and the owner that found 1 there frees the box and then en
 interpreter frees them in: the cown's `ending` with the value when it has one and the value is there, else the drop
 routine of `T`. A string literal stays immortal inside a frozen value, since dropping it is the string's drop.
 
-A `when` allocates the behaviour's **record** (`backend.Codegen.visitWhen`; layouts `behaviour*Offset` and `request*Offset`
+A `when` allocates the behaviour's **record** (`backend.emitWhen`; layouts `behaviour*Offset` and `request*Offset`
 of `internal/abigen`): `pending`, `run` (the address of the body's thunk), `n` (how many cowns it names), `n` request slots
 `{cown, next, blocked, owner}` that the runtime fills in, then the cowns in source order and the captures, a word each,
 which move into the record. It hands the record to `rt.cown.acquire` (`runtime/cown.maxon`, Verona's two-phase protocol,
@@ -930,7 +952,7 @@ type that only the interpreter runs is refused natively where it is boxed.
 ### Drops
 
 The IR says where every owner dies. Lowering emits a drop wherever the rules of "Ownership" free a value, and both the
-interpreter and codegen free exactly there.
+interpreter and native code free exactly there.
 
 | Instruction | Drops |
 |---|---|
@@ -941,7 +963,7 @@ interpreter and codegen free exactly there.
 | `%r = moveat %a` | reads the value at an address and leaves it empty: the payload that leaves the box of a union that `match consumes` takes apart, the String that leaves each element of the array `Directory.list` gives, for the `FilePath` made of it to take its place, and the value that `exchange` takes from a place |
 | `%r = copy %s T` | a deep copy of the owned value in `%s`, which stays where it is: a new box for each record, union and array inside it, a new string for each string that is not a literal, and another owner of the same box for a frozen value or a cown |
 
-`T` is the type with an instance's type arguments applied, so codegen can call the drop routine of that type. Dropping a value
+`T` is the type with an instance's type arguments applied, so the backend can call the drop routine of that type. Dropping a value
 drops what it owns, deeply by type: the fields of a record, the payload of a union, the elements of a primitive. A borrow is never
 dropped: a `let` or `mutates` parameter, a projection, and a `match` binding of a payload, which is stored with
 `store s3, %r borrow`. A place that holds nothing, because it was moved from or never assigned, drops as a no-op, so one drop at
@@ -1077,18 +1099,26 @@ output and exit code are its own, a violation exits with 4 and a program that ou
 
 ### The machine IR
 
-Phase 3 puts a machine IR between the IR and the encoder (`self/backend/mir.maxon`); nothing in a build uses it yet, and
-`selftest` runs it on functions written by hand. A function (`MirFunction`) is blocks of fixed-size instructions over
-virtual registers, in SSA form: a block is a range of `instrs` with a range of `blockParams`, a branch names an edge
-(`MEdge`: a target block and a range of `edgeArgs`), and the encoder lays the blocks out in `order`. Each block has a loop
-depth and a likelihood (`cold` for a failing check) for the passes that will read them. A virtual register's class
+A machine IR lies between the IR and the encoder (`self/backend/mir.maxon`): `emitModule` selects each function into it,
+allocates it and encodes it, and `selftest` also runs it on functions written by hand. A function (`MirFunction`) is blocks
+of fixed-size instructions over virtual registers, in SSA form: a block is a range of `instrs` with a range of
+`blockParams`, a branch names an edge (`MEdge`: a target block and a range of `edgeArgs`), and the encoder lays the blocks
+out in `order`, the order they are written in. A block can be made before it is written (`addBlock`, then `writeBlock`),
+so that IR block b is machine block b and a branch can name a block that comes later; selection writes a prologue block
+first, so that a branch to the IR's first block does not run it again, and the blocks a helper's branches need where they
+are. Every register of the IR is the virtual register of its number (`vregOf`), so a block's parameters and an edge's
+arguments are those. A conditional branch whose edge has arguments ends its block, before the jump that does; one in the
+middle of a block goes to a failure block, with no arguments, as the IR's own do. The frame below the frame pointer holds
+first the `fixedSlots` that selection gives the IR's slots and frame boxes, and then the spill slots allocation adds. Each
+block has a loop depth and a likelihood (`cold` for a failing check) for the passes that will read them. A virtual register's class
 (`RegClass`: `gpr`, and `xmm` once floats leave the general registers) is in `classes`, from `firstVirtual` (64) on;
 an operand below that is a physical register by its number in the register file, which is how selection fixes a value to a
 register: it copies the value into, say, rcx before a shift by `cl`, and the allocator sees the fixed register at the copy.
 
 An instruction (`MInstr`, 32 bytes when packed: kind, reference kind, form, condition, three register operands `a b c`, a
 32-bit `aux` and a 64-bit `imm`) is an x64 form (`MKind.target`) or a pseudo-instruction: `copy`, `parallelCopy` (a range
-of `copies`, every source read before any target is written), `spill` and `reload` against a spill slot, and `frameSetup`
+of `copies`, every source read before any target is written), `spill` and `reload` against a spill slot, `restore` (the end of a bracket that a `spill` of the same register opened:
+the value comes back into its own register, which the instructions between were lent), and `frameSetup`
 and `frameTeardown`. A form's register operands are in one order: the register it defines, then the one a two-address form
 reads and writes (which the definition must be given the register of: `reuses`), then the ones it reads. `aux` is a
 memory operand's displacement, or what the reference of a form's last 32-bit field names (`MRef`: an edge, a symbol of the
@@ -1100,11 +1130,14 @@ calling conventions (`CallConvention`: argument, result and error registers, and
 one (every argument on the stack, the result in rax and the error in rdx, nothing kept) and Win64 for an import.
 
 The trivial allocator (`allocateTrivially`) gives every virtual register a spill slot of its own, reloads each instruction's
-virtual operands into r10 and r11 (which no form or convention fixes) and spills its definition; it turns each edge's
-arguments into a parallel copy through temporary slots, splitting a conditional branch's edge that has any into a block of
-its own, and moves the values spilling put in slots (`spill`, `reload`, `restore`) between those slots and its own; the
-slots spilling gave out come first in the frame. `encodeMachineFunction` writes an allocated function into a code unit,
-leaving out a jump to the block that follows.
+virtual operands into r10 and r11 (which no form or convention fixes) and spills its definition, but for a definition that
+only the next instruction of its block reads, which it reads from the register it was defined in; it turns each edge's
+arguments into copies, through temporary slots where a target is also a source, splitting a conditional branch's edge that
+has any into a block of its own, and moves the values spilling put in slots (`spill`, `reload`, `restore`) between those
+slots and its own. The frame holds, from the frame pointer down, the slots given before allocation (`slotsGiven`: the
+`fixedSlots`, then the slots spilling gave out), then the trivial allocator's slot of each virtual register, then the
+temporary slots of parallel copies. `encodeMachineFunction` writes an allocated function into a code unit, leaving out a
+jump to the block that follows.
 
 #### Liveness, spilling and E5001
 
@@ -1113,7 +1146,9 @@ function under the registers free there, which the second half, colouring in dom
 calls it yet; `selftest` runs it on hand-built functions (`self/spill_test.maxon`) and runs them through the trivial
 allocator.
 
-- **Blocks** (`prepareBlocks`): the layout becomes the reverse postorder; an edge out of a block with more than one
+- **Blocks** (`prepareBlocks`): the block laid out first, selection's prologue, becomes block 0, the graph's entry; the
+  layout becomes the reverse postorder, which keeps it first and leaves each block's instructions as they are, so a
+  conditional branch with arguments still ends its block before its jump; an edge out of a block with more than one
   successor is split into a block of its own when its target has more than one predecessor or it has arguments; every
   loop gets a preheader. Dominators and natural loops come from `self/ir/graph.maxon`, the graph algorithms that
   `ir.Flow` uses too. A block is cold when it is marked so (a failing check) or a cold block dominates it; an ordinary
@@ -1213,7 +1248,7 @@ function's frame is not aligned, and keeps `rsp` in `rbx`, which the callee pres
 `ir.rtSymbol`, which gives a mapped entry its function's link name (`runtime::alloc`) and an entry that
 the stub or the linker defines its own symbol (`rt.entry`, `g.heap`); the linker resolves `rtSymbol(x)` by that text as
 it does any call. The two calling conventions are one by construction: a `callruntime` and a `call` of a Maxon function
-are both written by codegen's one `call`, which pushes the words left to right, calls and pops them, and the callee reads
+are both selected by one helper, `Selector.callWith` (`self/backend/isel.maxon`), which pushes the words left to right, calls and pops them, and the callee reads
 parameter `i` at `rbp + 16 + 8 * (count - 1 - i)` and returns in `rax`. So a runtime function takes only words (an
 integer, a `bool`, a `String` as its box address), takes none `mutates`, is not generic and throws nothing, since a
 function that throws returns its error in `rdx` too. `minimaxon check runtime` holds the runtime to the table: each
@@ -1277,7 +1312,7 @@ descriptor of its element's size and layout, and only a thin typed wrapper is pe
 share: the word, the string box (its length at 0, its bytes at 8), the array and byte array box (its length, its
 capacity and the address of its buffer, with a buffer of 8-byte words or of bytes), the first capacities and the empty
 box. A generator (`internal/abigen`, plain Go, see "Generated code") writes it, and `self/backend`'s and `self/ir`'s layout
-constants, from one table, so the runtime and codegen cannot disagree. The array entries
+constants, from one table, so the runtime and the backend cannot disagree. The array entries
 (`runtime/arrays.maxon`, `bytes.maxon`) are thin functions over one set of routines that take the size of an element
 as a word (`collectionReserve`, `collectionExtend`, `collectionOpenGap`, `collectionCloseGap`): collections take a layout
 descriptor, and only a thin typed wrapper is per type.
@@ -2997,8 +3032,8 @@ A typical change touches one file per stage. `.claude/skills/write-self` has the
    through `consume`, which is what marks it for lowering.
 5. **Lowering:** the lowerer (`self/ir`), built from the existing instructions where it can. A value it makes that nothing
    consumes is a temporary, and a place it declares or assigns drops what it held (see "Drops"). A new instruction is a row of
-   the IR table (`internal/irgen/irtable/table.go`, see "Generated code"); after `go generate ./internal/...`, codegen
-   (`self/backend`) and the interpreter (`self/interp`) fail to build until they handle it. A new built-in is a row of
+   the IR table (`internal/irgen/irtable/table.go`, see "Generated code"); after `go generate ./internal/...`, `rulegen`
+   fails until `internal/rulegen/x64.rules` selects it, and the interpreter (`self/interp`) fails to build until it handles it. A new built-in is a row of
    `internal/builtingen/table.go`, and the dispatch names the function for it in the checker, the lowerer and the interpreter.
 6. **Tests:** a `tests/run/` program for the behaviour (it runs natively and under the interpreter), a `tests/errors/` program
    for each diagnostic, and a test in `self/*_test.maxon` only when a part needs one. A new construct that the memory model's

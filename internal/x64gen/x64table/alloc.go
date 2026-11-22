@@ -186,9 +186,8 @@ func emitAlloc(b *strings.Builder) {
 		fmt.Fprintf(b, "\t\t%d gives X64Form.%s\n", i, lowerFirst(f.name))
 	}
 	b.WriteString("\t\tdefault panic(\"backend: a number that is no x64 form\")\n\tend 'number'\nend 'x64FormOf'\n\n")
-	emitGrouped(b, "machineOperandCount", "Count", "how many register operands a machine instruction of a form has", func(f form) string {
-		return fmt.Sprint(f.machineOperands())
-	})
+	b.WriteString("// machineOperandCount is how many register operands a machine instruction of a form has.\n")
+	emitFormTable(b, "machineOperandCount", "Count", form.machineOperands)
 	for _, p := range allocPredicates {
 		emitEffect(b, p.name, p.of)
 	}

@@ -1,0 +1,142 @@
+// Instruction selection for x64: the machine instructions of each IR instruction and terminator, which rulegen makes
+// self/backend/lower_x64_gen.maxon of. README "The rewrite rules" describes how a rule is written.
+//
+// A result is a sequence of x64 forms and choices, with their operands in the order of the form's encoder, and
+// (Copy dst src), the machine IR's copy, which is how a value is put in a fixed register (named as rax is) and taken
+// out of one. A form defines a new register for the variable it writes, and a two-address form one for the variable it
+// reads and writes, which the variable names from there on; the operation's result is the last definition, or the last
+// definition of the variable the pattern binds the result to (d:). A rel32 operand given a block of the pattern goes
+// along that edge, with the arguments the IR gives it. A result that is one name in lowercase is a hand-written helper
+// of self/backend/isel.maxon, called with the selector, the function and the instruction: the calls, which pass their
+// arguments by today's convention, the operations whose code branches, and the boxes. Conditions and expressions call
+// the helpers in self/backend/rules.maxon, and may name the selector (sel), the IR function (fn) and the instruction
+// (ins).
+//
+// A conditional branch with edge arguments ends its block, followed by the jump that does; one in the middle of a block
+// goes to a failure block, which takes no arguments, as the IR's own do.
+
+// Constants and the addresses of what the link places.
+(const [c]) => (MovRegImm r [c])
+(str) => (LeaRegRip r [sel.textRef(fn, ins: ins)])
+(loadGlobal [g]) => (LoadRegRip r [sel.symbolRef(ir.rtSymbol(g))])
+(globalAddr [g]) => (LeaRegRip r [sel.symbolRef(ir.rtSymbol(g))])
+(codeAddress) => (LeaRegRip r [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))])
+
+// The frame: slots and parameters are words at the frame pointer.
+(loadSlot [n]) => (LoadRegBaseDisp r rbp [slotDisp(n)])
+(storeSlot [n] v) => (StoreBaseDispReg rbp [slotDisp(n)] v)
+(slotAddr [n]) => (LeaRegBaseDisp r rbp [slotDisp(n)])
+(moveSlot [n]) => (LoadRegBaseDisp r rbp [slotDisp(n)]) (StoreBaseDispImm32 rbp [slotDisp(n)] [0])
+(loadParam [k]) => (LoadRegBaseDisp r rbp [paramDisp(fn, index: k)])
+
+// Memory.
+(loadField obj [off]) => (LoadRegBaseDisp r obj [off])
+(storeField obj [off] v) => (StoreBaseDispReg obj [off] v)
+(fieldAddr obj [off]) => (LeaRegBaseDisp r obj [off])
+(loadAt a) => (LoadRegBaseDisp r a [0])
+(storeAt a v) => (StoreBaseDispReg a [0] v)
+(moveAt a) => (LoadRegBaseDisp r a [0]) (StoreBaseDispImm32 a [0] [0])
+(loadRaw.8 a) => (MovzxRegByteBaseDisp r a [0])
+(loadRaw.16 a) => (MovzxRegWordBaseDisp r a [0])
+(loadRaw.32 a) => (LoadReg32BaseDisp r a [0])
+(loadRaw.64 a) => (LoadRegBaseDisp r a [0])
+(storeRaw.8 a v) => (StoreBaseDispReg8 a [0] v)
+(storeRaw.16 a v) => (StoreBaseDispReg16 a [0] v)
+(storeRaw.32 a v) => (StoreBaseDispReg32 a [0] v)
+(storeRaw.64 a v) => (StoreBaseDispReg a [0] v)
+
+// The atomic operations are a locked instruction each, so a full fence, and the thread's context is read from its TEB
+// as TlsGetValue does for a slot below 64, which the entry made sure the runtime's is.
+(atomicAdd a v) => (LockXaddBaseDispReg a [0] v)
+(atomicExchange a v) => (XchgBaseDispReg a [0] v)
+(compareExchange) => (emitCompareExchange)
+(spinPause) => (Pause)
+(threadContext) => (LoadRegRip t [sel.symbolRef(ir.rtSymbol(ir.Rt.rtTlsOffset))]) (LoadRegGsBaseDisp r t [tebTlsSlotsOffset])
+
+// Integer arithmetic. A checked operation goes to its failure block when the result does not fit: the carry flag says
+// so for an unsigned word, and the overflow flag for a signed one.
+(bin.add.!checked x (const [c])) && fitsImm32(c) => (AddRegImm x [c])
+(bin.add.!checked x y) => (AddRegReg x y)
+(bin.add.unsigned.checked x y [f]) => (AddRegReg x y) (JccRel32 [X64CondCode.below] [f])
+(bin.add.checked x y [f]) => (AddRegReg x y) (JccRel32 [X64CondCode.overflow] [f])
+(bin.sub.!checked x (const [c])) && fitsImm32(c) => (SubRegImm x [c])
+(bin.sub.!checked x y) => (SubRegReg x y)
+(bin.sub.unsigned.checked x y [f]) => (SubRegReg x y) (JccRel32 [X64CondCode.below] [f])
+(bin.sub.checked x y [f]) => (SubRegReg x y) (JccRel32 [X64CondCode.overflow] [f])
+(bin.mul.!unsigned.!checked x y) => (ImulRegReg x y)
+(bin.mul.!unsigned.checked x y [f]) => (ImulRegReg x y) (JccRel32 [X64CondCode.overflow] [f])
+(bin.mul.unsigned.!checked x y) => (Copy rax x) (MulReg y) (Copy r rax)
+(bin.mul.unsigned.checked x y [f]) => (Copy rax x) (MulReg y) (Copy r rax) (JccRel32 [X64CondCode.below] [f])
+// A divisor is never 0 here: a guard or the range analysis has made sure. A signed division by -1 is the one the
+// processor faults on, which emitSignedDivide branches around.
+(bin.div.unsigned x y) => (Copy rax x) (XorRegReg rdx rdx) (DivReg y) (Copy r rax)
+(bin.mod.unsigned x y) => (Copy rax x) (XorRegReg rdx rdx) (DivReg y) (Copy r rdx)
+(bin.div) => (emitSignedDivide)
+(bin.mod) => (emitSignedDivide)
+(bin.and x (const [c])) && fitsImm32(c) => (AndRegImm x [c])
+(bin.and x y) => (AndRegReg x y)
+(bin.or x y) => (OrRegReg x y)
+(bin.xor x y) => (XorRegReg x y)
+// A shift count past the word branches to the result every bit leaving gives.
+(bin.shl) => (emitShift)
+(bin.shr) => (emitShift)
+(neg.!checked x) => (NegReg x)
+(neg.checked x [f]) => (NegReg x) (JccRel32 [X64CondCode.overflow] [f])
+(not x) => (NotReg x)
+(cmp x y) => (CmpRegReg x y) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
+
+// Guards go to their failure block unless the value is in the range.
+(guard.NonNegative x [_] [f]) => (TestRegReg x x) (JccRel32 [X64CondCode.sign] [f])
+(guard.NonZero x [_] [f]) => (TestRegReg x x) (JccRel32 [X64CondCode.equal] [f])
+(guard x [bound] [f]) && fitsImm32(bound) => (CmpRegImm x [bound]) (JccRel32 [guardFailure(ins)] [f])
+(guard x [bound] [f]) => (MovRegImm t [bound]) (CmpRegReg x t) (JccRel32 [guardFailure(ins)] [f])
+
+// Floats are words in general registers between operations: an operation moves its operands into xmm0 and xmm1 and
+// its result back.
+(fBin.add x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (AddsdXmm0Xmm1) (MovqRegXmm0 r)
+(fBin.sub x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (SubsdXmm0Xmm1) (MovqRegXmm0 r)
+(fBin.mul x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (MulsdXmm0Xmm1) (MovqRegXmm0 r)
+(fBin.div x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (DivsdXmm0Xmm1) (MovqRegXmm0 r)
+// ucomisd sets the carry, zero and parity flags all for an unordered pair: a test of below swaps the operands, so that a
+// NaN fails it as it fails every test but ne, and eq and ne also test the parity flag, which says the pair is ordered.
+(fCmp.eq x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.equal] e) (SetccReg [X64CondCode.noParity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (AndRegReg r q)
+(fCmp.ne x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.notEqual] e) (SetccReg [X64CondCode.parity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (OrRegReg r q)
+(fCmp.lt x y) => (MovqXmm0Reg y) (MovqXmm1Reg x) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.above] b) (MovzxRegReg8 r b)
+(fCmp.le x y) => (MovqXmm0Reg y) (MovqXmm1Reg x) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.aboveEqual] b) (MovzxRegReg8 r b)
+(fCmp.gt x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.above] b) (MovzxRegReg8 r b)
+(fCmp.ge x y) => (MovqXmm0Reg x) (MovqXmm1Reg y) (UcomisdXmm0Xmm1) (SetccReg [X64CondCode.aboveEqual] b) (MovzxRegReg8 r b)
+(fUnary.sqrt x) => (MovqXmm0Reg x) (SqrtsdXmm0Xmm0) (MovqRegXmm0 r)
+(fUnary.round x) => (MovqXmm0Reg x) (RoundsdXmm0Xmm0Imm8 [roundNearest]) (MovqRegXmm0 r)
+(fUnary.floor x) => (MovqXmm0Reg x) (RoundsdXmm0Xmm0Imm8 [roundDown]) (MovqRegXmm0 r)
+(fUnary.ceil x) => (MovqXmm0Reg x) (RoundsdXmm0Xmm0Imm8 [roundUp]) (MovqRegXmm0 r)
+// cvtsi2sd reads a signed word, so an unsigned one past i64.max takes emitUnsignedToFloat's branch.
+(intToFloat.!unsigned x) => (Cvtsi2sdXmm0Reg x) (MovqRegXmm0 r)
+(intToFloat) => (emitUnsignedToFloat)
+(floatToInt x) => (MovqXmm0Reg x) (Cvttsd2siRaxXmm0) (Copy r rax)
+
+// Calls, by today's convention, and what allocates or calls a routine.
+(callImport) => (emitCallImport)
+(callCode) => (emitCallCode)
+(call) => (emitCall)
+(callRuntime) => (emitCallRuntime)
+(callValue) => (emitCallValue)
+(callWitness) => (emitCallWitness)
+(isType) => (emitIsType)
+(alloc) => (emitAlloc)
+(when) => (emitWhen)
+(closure) => (emitClosure)
+(funcValue) => (emitFuncValue)
+(box) => (emitBox)
+(frameBox) => (emitFrameBox)
+(drop) => (emitDropValue)
+(dropSlot) => (emitDropSlot)
+(dropAt) => (emitDropAt)
+(copy) => (emitCopyValue)
+
+// Terminators. A branch tests the condition against 0.
+(jump [b]) => (JmpRel32 [b])
+(branch c [yes] [no]) => (TestRegReg c c) (JccRel32 [X64CondCode.equal] [no]) (JmpRel32 [yes])
+(switch) => (emitSwitch)
+(ret) => (emitRet)
+(throw) => (emitThrow)
+(trap) => (Ud2)

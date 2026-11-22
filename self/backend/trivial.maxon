@@ -1,24 +1,34 @@
-// The trivial allocator: every virtual register lives in a spill slot of its own, above the slots that spilling gave
-// out, and each instruction reloads the virtual registers it reads into scratch registers and spills the one it defines;
-// a spill, reload or restore that spilling wrote moves the value between its own slot and the one spilling gave it. It leaves SSA by turning every
-// edge's arguments into copies to the target's parameters, splitting a conditional branch's edge that has any. It
-// makes the machine IR's path from selection to bytes complete before the real allocator replaces it.
+// The trivial allocator: every virtual register lives in a spill slot of its own, and each instruction reloads the
+// virtual registers it reads into scratch registers and spills the one it defines, but for a register that only the
+// next instruction reads, which stays in the register it was defined in. A spill, reload or restore that spilling wrote
+// moves the value between its own slot and the one spilling gave it. It leaves SSA by turning every edge's arguments
+// into copies to the target's parameters, splitting a conditional branch's edge that has any. It makes the machine IR's
+// path from selection to bytes complete before the real allocator replaces it.
+//
+// The frame holds, from the frame pointer down, the slots given before allocation (MirFunction.slotsGiven: the IR's
+// fixed slots, then those spilling gave out), then one slot per virtual register, then the temporary slots of parallel
+// copies.
 
-// TrivialAlloc is the allocation of one function: the instructions written so far, the slots spilling gave out, below
-// the virtual registers' own, and how many temporary slots a parallel copy has needed.
+// TrivialAlloc is the allocation of one function: the instructions written so far, the first slot of a virtual
+// register, after the slots given before it, how many temporary slots a parallel copy has needed, how often each virtual
+// register is read, and the virtual register that the instruction being written reads from heldIn rather than from its
+// slot.
 type TrivialAlloc
 	var out as MInstrList
-	var given as Count
+	var base as Count
 	var vregs as Count
 	var temps as Count
+	var reads as CountList
+	var held as MReg
+	var heldIn as MReg
 
-	static function new(given Count, vregs Count) returns TrivialAlloc
-		return TrivialAlloc{out: MInstrList.create(0), given: given, vregs: vregs, temps: 0}
+	static function new(base Count, vregs Count, consumes reads CountList) returns TrivialAlloc
+		return TrivialAlloc{out: MInstrList.create(0), base: base, vregs: vregs, temps: 0, reads: reads, held: noMReg, heldIn: noMReg}
 	end 'new'
 
 	function vregSlot(r MReg) returns SpillSlot
-		let index = try (r - firstVirtual) as Count otherwise panic("backend: a virtual register below the first")
-		return try (given + index) as SpillSlot otherwise panic("backend: a frame past 2 GiB")
+		let index = vregIndex(r)
+		return try (base + index) as SpillSlot otherwise panic("backend: a frame past 2 GiB")
 	end 'vregSlot'
 
 	// toGiven stores a value into a slot that spilling gave it, and fromGiven loads it from one.
@@ -26,59 +36,89 @@ type TrivialAlloc
 		let scratch = trivialScratch(0)
 		self.moveInto(scratch, src: src)
 		out.push(newSpill(scratch, slot: slot))
+		held = noMReg
 	end 'toGiven'
 
-	function fromGiven(mutates self, dst MReg, slot SpillSlot)
+	function fromGiven(mutates self, dst MReg, slot SpillSlot, keep bool)
 		let scratch = trivialScratch(0)
 		out.push(newReload(scratch, slot: slot))
-		self.moveOut(dst, src: scratch)
+		held = noMReg
+		self.moveOut(dst, src: scratch, keep: keep)
 	end 'fromGiven'
 
 	// moveInto puts the value of src into the physical register dst.
 	function moveInto(mutates self, dst MReg, src MReg)
-		if isVirtual(src) 'reload'
+		if src == held 'held'
+			if heldIn != dst 'move'
+				out.push(newCopy(dst, src: heldIn))
+			end 'move'
+		end 'held' else if isVirtual(src) 'reload'
 			out.push(newReload(dst, slot: self.vregSlot(src)))
 		end 'reload' else if src != dst 'move'
 			out.push(newCopy(dst, src: src))
 		end 'move'
 	end 'moveInto'
 
-	// moveOut puts the value of the physical register src into dst.
-	function moveOut(mutates self, dst MReg, src MReg)
-		if isVirtual(dst) 'spill'
+	// moveOut puts the value of the physical register src into dst, or with keep, leaves it there for the next
+	// instruction to read.
+	function moveOut(mutates self, dst MReg, src MReg, keep bool)
+		if isVirtual(dst) and keep 'keep'
+			held = dst
+			heldIn = src
+		end 'keep' else if isVirtual(dst) 'spill'
 			out.push(newSpill(src, slot: self.vregSlot(dst)))
 		end 'spill' else if src != dst 'move'
 			out.push(newCopy(dst, src: src))
 		end 'move'
 	end 'moveOut'
 
-	function copyOne(mutates self, dst MReg, src MReg)
+	function copyOne(mutates self, dst MReg, src MReg, keep bool)
 		if isVirtual(dst) and isVirtual(src) 'virtual'
-			let scratch = trivialScratch(0)
-			self.moveInto(scratch, src: src)
-			self.moveOut(dst, src: scratch)
+			var from = trivialScratch(0)
+			if src == held 'held'
+				from = heldIn
+			end 'held' else 'reload'
+				self.moveInto(from, src: src)
+			end 'reload'
+			held = noMReg
+			self.moveOut(dst, src: from, keep: keep)
 		end 'virtual' else if isVirtual(dst) 'toSlot'
-			self.moveOut(dst, src: src)
+			held = noMReg
+			self.moveOut(dst, src: src, keep: keep)
 		end 'toSlot' else 'toRegister'
 			self.moveInto(dst, src: src)
+			held = noMReg
 		end 'toRegister'
 	end 'copyOne'
 
-	// parallelCopy copies each source to its target as if every source were read first: through temporary slots
-	// above the virtual registers' when there is more than one.
+	// parallelCopy copies each source to its target as if every source were read first, leaving out a copy of a register
+	// to itself: one at a time when no target is another copy's source, and otherwise through temporary slots above the
+	// virtual registers'. A source held in a register is read first, before a copy writes a scratch register.
 	function parallelCopy(mutates self, dsts MRegList, srcs MRegList)
 		let n = dsts.count()
-		if n == 1 'one'
-			self.copyOne(dsts[0], src: srcs[0])
-			return
-		end 'one'
+		let apart = not overlaps(dsts, srcs: srcs)
+		let first = held
 		let scratch = trivialScratch(0)
-		for i in 0 upto n 'read'
-			self.moveInto(scratch, src: srcs[i])
-			out.push(newSpill(scratch, slot: self.tempSlot(i)))
-		end 'read'
+		for pass in 0 upto 2 'passes'
+			for i in 0 upto n 'read'
+				if dsts[i] != srcs[i] and (srcs[i] == first) == (pass == 0) 'copies'
+					if apart 'apart'
+						self.copyOne(dsts[i], src: srcs[i], keep: false)
+					end 'apart' else 'through'
+						self.moveInto(scratch, src: srcs[i])
+						out.push(newSpill(scratch, slot: self.tempSlot(i)))
+					end 'through'
+				end 'copies'
+			end 'read'
+		end 'passes'
+		held = noMReg
+		if apart 'done'
+			return
+		end 'done'
 		for i in 0 upto n 'write'
-			if isVirtual(dsts[i]) 'slot'
+			if dsts[i] == srcs[i] 'same'
+				_ = 0
+			end 'same' else if isVirtual(dsts[i]) 'slot'
 				out.push(newReload(scratch, slot: self.tempSlot(i)))
 				out.push(newSpill(scratch, slot: self.vregSlot(dsts[i])))
 			end 'slot' else 'register'
@@ -91,29 +131,51 @@ type TrivialAlloc
 	end 'parallelCopy'
 
 	function tempSlot(index Count) returns SpillSlot
-		return try (given + vregs + index) as SpillSlot otherwise panic("backend: a frame past 2 GiB")
+		return try (base + vregs + index) as SpillSlot otherwise panic("backend: a frame past 2 GiB")
 	end 'tempSlot'
 
 	// target writes a form with its virtual registers in scratch registers. A definition may share a use's scratch
-	// register, since an instruction reads every operand before it writes one.
-	function target(mutates self, x MInstr)
-		var y = x.clone()
+	// register, since an instruction reads every operand before it writes one, and an operand named twice is read once.
+	function target(mutates self, consumes x MInstr, keep bool)
+		var y = x
 		let n = operandCount(y)
+		let defined = defines(y)
+		let reused = reuses(y)
+		let s0 = trivialScratch(0)
+		let s1 = trivialScratch(1)
 		var first = 0 as Count
-		var scratch = 0 as Count
+		// in0 and in1 are the virtual registers that the first and the second scratch register hold for the instruction.
+		var in0 = noMReg
+		var in1 = noMReg
+		if held != noMReg and heldIn == s0 'first'
+			in0 = held
+		end 'first' else if held != noMReg and heldIn == s1 'second'
+			in1 = held
+		end 'second'
 		let def = y.a
-		if defines(y) 'defines'
+		if defined 'defines'
 			first = 1
 		end 'defines'
-		if reuses(y) 'reuses'
+		if reused 'reuses'
 			var shared = y.b
 			if isPhysical(def) 'fixedDef'
 				shared = def
+				self.moveInto(shared, src: y.b)
 			end 'fixedDef' else if isVirtual(shared) 'inScratch'
-				shared = trivialScratch(scratch)
-				scratch = try scratch + 1 otherwise panic("backend: more operands than memory")
+				if y.b == in0 'first'
+					shared = s0
+				end 'first' else if y.b == in1 'second'
+					shared = s1
+				end 'second' else if in0 == noMReg 'loadFirst'
+					shared = s0
+					in0 = y.b
+					self.moveInto(s0, src: y.b)
+				end 'loadFirst' else 'loadSecond'
+					shared = s1
+					in1 = y.b
+					self.moveInto(s1, src: y.b)
+				end 'loadSecond'
 			end 'inScratch'
-			self.moveInto(shared, src: y.b)
 			y.a = shared
 			y.b = shared
 			first = 2
@@ -121,23 +183,159 @@ type TrivialAlloc
 		for i in first upto n 'uses'
 			let r = operandAt(y, index: i)
 			if isVirtual(r) 'virtual'
-				let into = trivialScratch(scratch)
-				scratch = try scratch + 1 otherwise panic("backend: more operands than memory")
-				self.moveInto(into, src: r)
+				var into = s0
+				if r == in0 'first'
+					into = s0
+				end 'first' else if r == in1 'second'
+					into = s1
+				end 'second' else if r == held 'held'
+					into = heldIn
+				end 'held' else if in0 == noMReg 'loadFirst'
+					in0 = r
+					self.moveInto(s0, src: r)
+				end 'loadFirst' else if in1 == noMReg 'loadSecond'
+					in1 = r
+					into = s1
+					self.moveInto(s1, src: r)
+				end 'loadSecond' else 'full'
+					panic("backend: an instruction reads more registers than the trivial allocator has scratch registers")
+				end 'full'
 				setOperand(y, index: i, r: into)
 			end 'virtual'
 		end 'uses'
-		let defined = defines(y)
-		if defined and not reuses(y) and isVirtual(def) 'def'
-			y.a = trivialScratch(0)
+		if defined and not reused and isVirtual(def) 'def'
+			y.a = s0
 		end 'def'
 		let result = y.a
 		out.push(y)
+		held = noMReg
 		if defined 'spill'
-			self.moveOut(def, src: result)
+			self.moveOut(def, src: result, keep: keep)
 		end 'spill'
 	end 'target'
 end 'TrivialAlloc'
+
+// useCounts are how often each virtual register is read: by an instruction, a parallel copy or an edge.
+function useCounts(fn MirFunction) returns CountList
+	var reads = CountList.create(0)
+	for _ in 0 upto fn.vregCount() 'vregs'
+		reads.push(0)
+	end 'vregs'
+	for k in 0 upto fn.instrs.count() 'instrs'
+		match fn.instrs[k].kind 'kind'
+			target then countReads(reads, x: fn.instrs[k])
+			copy then countUse(reads, r: fn.instrs[k].b)
+			parallelCopy then countCopies(reads, fn: fn, x: fn.instrs[k])
+			spill then countUse(reads, r: fn.instrs[k].a)
+			reload or
+			restore or
+			frameSetup or
+			frameTeardown then _ = 0
+		end 'kind'
+	end 'instrs'
+	for e in 0 upto fn.edges.count() 'edges'
+		for i in 0 upto fn.edges[e].argCount 'args'
+			countUse(reads, r: fn.edgeArgs[try fn.edges[e].args + i otherwise panic("backend: an argument past the pool")])
+		end 'args'
+	end 'edges'
+	return reads
+end 'useCounts'
+
+// firstUse is the index of the first register operand that a target instruction reads.
+function firstUse(x MInstr) returns Count
+	return 1 if defines(x) else 0
+end 'firstUse'
+
+function countReads(mutates reads CountList, x MInstr)
+	for i in firstUse(x) upto operandCount(x) 'operands'
+		countUse(reads, r: operandAt(x, index: i))
+	end 'operands'
+end 'countReads'
+
+function countCopies(mutates reads CountList, fn MirFunction, x MInstr)
+	let start = refIndex(x)
+	for i in 0 upto copyCount(x) 'pairs'
+		countUse(reads, r: fn.copies[try start + i otherwise panic("backend: a copy past the pool")].src)
+	end 'pairs'
+end 'countCopies'
+
+function countUse(mutates reads CountList, r MReg)
+	if isVirtual(r) 'virtual'
+		let i = vregIndex(r)
+		reads[i] = try reads[i] + 1 otherwise panic("backend: more uses than memory")
+	end 'virtual'
+end 'countUse'
+
+// keepsDefinition is whether the virtual register that instruction at defines is read once, by the next instruction of
+// its block, which then reads it from the register it was defined in.
+function keepsDefinition(fn MirFunction, reads CountList, at Count, endAt Count) returns bool
+	let next = try at + 1 otherwise panic("backend: an instruction past memory")
+	if next >= endAt 'last'
+		return false
+	end 'last'
+	let defined = fn.instrs[at].a
+	let defining = match fn.instrs[at].kind 'kind'
+		target gives definesOperand(fn.instrs[at].form)
+		copy or
+		reload gives true
+		parallelCopy or
+		spill or
+		restore or
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+	if not defining or not isVirtual(defined) 'none'
+		return false
+	end 'none'
+	if reads[vregIndex(defined)] != 1 'shared'
+		return false
+	end 'shared'
+	return match fn.instrs[next].kind 'kind'
+		target gives readsRegister(fn.instrs[next], r: defined) or passesRegister(fn, x: fn.instrs[next], r: defined)
+		copy gives fn.instrs[next].b == defined
+		spill gives fn.instrs[next].a == defined
+		parallelCopy or
+		reload or
+		restore or
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'keepsDefinition'
+
+// passesRegister is whether an unconditional jump passes r along its edge, whose copies come before it.
+function passesRegister(fn MirFunction, x MInstr, r MReg) returns bool
+	if not isUnconditionalJump(x) or x.ref != MRef.edge 'other'
+		return false
+	end 'other'
+	let edge = refIndex(x)
+	for i in 0 upto fn.edges[edge].argCount 'args'
+		if fn.edgeArgs[try fn.edges[edge].args + i otherwise panic("backend: an argument past the pool")] == r 'passes'
+			return true
+		end 'passes'
+	end 'args'
+	return false
+end 'passesRegister'
+
+function readsRegister(x MInstr, r MReg) returns bool
+	for i in firstUse(x) upto operandCount(x) 'operands'
+		if operandAt(x, index: i) == r 'reads'
+			return true
+		end 'reads'
+	end 'operands'
+	return false
+end 'readsRegister'
+
+// overlaps is whether a target of a parallel copy is the source of another of its copies.
+function overlaps(dsts MRegList, srcs MRegList) returns bool
+	for i in 0 upto dsts.count() 'targets'
+		for j in 0 upto srcs.count() 'sources'
+			if i != j and dsts[i] == srcs[j] 'shared'
+				return true
+			end 'shared'
+		end 'sources'
+	end 'targets'
+	return false
+end 'overlaps'
 
 // edgeCopy writes the copies of an edge's arguments to its target's parameters, and takes the arguments off the edge.
 function edgeCopy(mutates t TrivialAlloc, mutates fn MirFunction, edge Count)
@@ -176,20 +374,21 @@ typealias SplitList = Array with Split
 // allocateTrivially gives every virtual register of the function a spill slot, after which every operand is
 // physical, no edge has arguments and no parallel copy is left.
 export function allocateTrivially(mutates fn MirFunction)
-	var t = TrivialAlloc.new(fn.spillSlots, vregs: fn.vregCount())
+	var t = TrivialAlloc.new(fn.slotsGiven(), vregs: fn.vregCount(), reads: useCounts(fn))
 	var splits = SplitList.create(0)
 	for pos in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[pos] as Count
 		let first = t.out.count()
 		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
 			let x = fn.instrs[k].clone()
+			let keep = keepsDefinition(fn, reads: t.reads, at: k, endAt: fn.blocks[b].endAt)
 			match x.kind 'kind'
-				target then trivialTarget(t, fn: fn, x: x, splits: splits)
-				copy then t.copyOne(x.a, src: x.b)
+				target then trivialTarget(t, fn: fn, x: x, splits: splits, keep: keep)
+				copy then t.copyOne(x.a, src: x.b, keep: keep)
 				parallelCopy then trivialParallelCopy(t, fn: fn, x: x)
 				spill then t.toGiven(x.a, slot: spillSlotOf(x))
-				reload or
-				restore then t.fromGiven(x.a, slot: spillSlotOf(x))
+				reload then t.fromGiven(x.a, slot: spillSlotOf(x), keep: keep)
+				restore then t.fromGiven(x.a, slot: spillSlotOf(x), keep: false)
 				frameSetup or
 				frameTeardown then t.out.push(x)
 			end 'kind'
@@ -212,31 +411,31 @@ export function allocateTrivially(mutates fn MirFunction)
 		fn.blocks[b].paramCount = 0
 	end 'params'
 	fn.instrs = exchange(t.out, value: MInstrList.create(0))
-	fn.spillSlots = try t.given + t.vregs + t.temps otherwise panic("backend: a frame past memory")
+	fn.spillSlots = try t.base + t.vregs + t.temps otherwise panic("backend: a frame past memory")
 end 'allocateTrivially'
 
 // trivialTarget writes a form; a branch along an edge first copies the edge's arguments, or, for a conditional one,
 // goes to a block of its own that does.
-function trivialTarget(mutates t TrivialAlloc, mutates fn MirFunction, x MInstr, mutates splits SplitList)
+function trivialTarget(mutates t TrivialAlloc, mutates fn MirFunction, consumes x MInstr, mutates splits SplitList, keep bool)
 	if x.ref != MRef.edge 'plain'
-		t.target(x)
+		t.target(x, keep: keep)
 		return
 	end 'plain'
 	let edge = refIndex(x)
 	if isUnconditionalJump(x) 'jump'
 		edgeCopy(t, fn: fn, edge: edge)
-		t.target(x)
+		t.target(x, keep: false)
 		return
 	end 'jump'
 	if fn.edges[edge].argCount == 0 'bare'
-		t.target(x)
+		t.target(x, keep: false)
 		return
 	end 'bare'
 	let block = try (fn.blocks.count() + splits.count()) as MBlockID otherwise panic("backend: more blocks than a branch names")
 	splits.push(Split.make(edge, block: block))
-	var y = x.clone()
+	var y = x
 	y.aux = fn.addEdge(block, args: MRegList.create(0))
-	t.target(y)
+	t.target(y, keep: false)
 end 'trivialTarget'
 
 function trivialParallelCopy(mutates t TrivialAlloc, fn MirFunction, x MInstr)

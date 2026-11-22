@@ -273,6 +273,9 @@ export type MirFunction
 	export var copies as MCopyList
 	export var symbols as NameList
 	export var classes as RegClassList
+	// fixedSlots are the words below the frame pointer that selection gives what the IR keeps in the frame, its slots
+	// and frame boxes; allocation numbers the spill slots it adds from there.
+	export var fixedSlots as Count
 	// spillSlots is how many words the frame holds below the frame pointer, which allocation decides.
 	export var spillSlots as Count
 	// canThrow is whether the function returns an error beside its value, so a return reads the convention's error
@@ -280,7 +283,7 @@ export type MirFunction
 	export var canThrow as bool
 
 	export static function new(symbol String, canThrow bool) returns MirFunction
-		return MirFunction{symbol: symbol.clone(), instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), spillSlots: 0, canThrow: canThrow}
+		return MirFunction{symbol: symbol.clone(), instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, canThrow: canThrow}
 	end 'new'
 
 	export function newVReg(mutates self, class RegClass) returns MReg
@@ -293,36 +296,72 @@ export type MirFunction
 		return classes.count()
 	end 'vregCount'
 
+	// slotsGiven is how many words of the frame the slots given so far take, and the number of the next slot a pass
+	// gives: the IR's fixed slots come first, then the ones spilling gives out, numbered from fixedSlots, so that once
+	// spilling has run spillSlots counts both.
+	function slotsGiven() returns Count
+		if spillSlots < fixedSlots 'fixed'
+			return fixedSlots
+		end 'fixed'
+		return spillSlots
+	end 'slotsGiven'
+
+	// addBlock is a block that is not written yet, so that a branch can name it before it is.
+	export function addBlock(mutates self) returns MBlockID
+		let id = try blocks.count() as MBlockID otherwise panic("backend: more blocks than a branch names")
+		blocks.push(MBlock.make(0, params: 0))
+		return id
+	end 'addBlock'
+
+	// writeBlock ends the block being written, if any, and starts writing the block id, which comes next in the order.
+	export function writeBlock(mutates self, id MBlockID)
+		self.endBlock()
+		blocks[id as Count].first = instrs.count()
+		blocks[id as Count].endAt = instrs.count()
+		blocks[id as Count].params = blockParams.count()
+		order.push(id)
+	end 'writeBlock'
+
 	// startBlock ends the block being written, if any, and starts the next one, which comes next in the order.
 	export function startBlock(mutates self) returns MBlockID
-		self.endBlock()
-		let id = try blocks.count() as MBlockID otherwise panic("backend: more blocks than a branch names")
-		blocks.push(MBlock.make(instrs.count(), params: blockParams.count()))
-		order.push(id)
+		let id = self.addBlock()
+		self.writeBlock(id)
 		return id
 	end 'startBlock'
 
+	// writing is the block being written: the last one in the order.
+	function writing() returns Count
+		let n = order.count()
+		if n == 0 'none'
+			panic("backend: no block is being written")
+		end 'none'
+		return order[try n - 1 otherwise panic("backend: no block")] as Count
+	end 'writing'
+
 	// endBlock makes the instructions since the last block started its body.
 	export function endBlock(mutates self)
-		let n = blocks.count()
-		if n > 0 'open'
-			let last = try n - 1 otherwise panic("backend: no block")
-			blocks[last].endAt = instrs.count()
+		if order.count() > 0 'open'
+			blocks[self.writing()].endAt = instrs.count()
 		end 'open'
 	end 'endBlock'
 
 	// addParam gives the block being written a parameter; its parameters are added before another block starts.
 	export function addParam(mutates self, class RegClass) returns MReg
 		let r = self.newVReg(class)
-		let last = try blocks.count() - 1 otherwise panic("backend: a parameter of no block")
+		self.addBlockParam(r)
+		return r
+	end 'addParam'
+
+	// addBlockParam makes the virtual register r a parameter of the block being written.
+	export function addBlockParam(mutates self, r MReg)
+		let last = self.writing()
 		let after = try blocks[last].params + blocks[last].paramCount otherwise panic("backend: more parameters than memory")
 		if after != blockParams.count() 'contiguous'
 			panic("backend: a block's parameters are added after another block's")
 		end 'contiguous'
 		blockParams.push(r)
 		blocks[last].paramCount = try blocks[last].paramCount + 1 otherwise panic("backend: more parameters than memory")
-		return r
-	end 'addParam'
+	end 'addBlockParam'
 
 	// addEdge is an edge to a block with the given arguments, for a branch to name.
 	export function addEdge(mutates self, target MBlockID, args MRegList) returns Imm32

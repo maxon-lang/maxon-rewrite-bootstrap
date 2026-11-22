@@ -369,6 +369,14 @@ export function encodeStoreBaseDispImm8(mutates code ByteArray, base X64Register
 	writeImm8(code, value: imm)
 end 'encodeStoreBaseDispImm8'
 
+// mov [base + disp], imm: REX.W C7 /0.
+export function encodeStoreBaseDispImm32(mutates code ByteArray, base X64Register, disp Imm32, imm Imm32)
+	emitRex(code, wide: true, regField: X64Register.rax, rmField: base, force: false)
+	code.push(0xC7)
+	writeMem(code, regBits: 0, base: base, disp: disp)
+	writeImm32(code, value: imm)
+end 'encodeStoreBaseDispImm32'
+
 // movzx dest, src: REX.W 0F B6 /r.
 export function encodeMovzxRegReg8(mutates code ByteArray, dest X64Register, src X64Register)
 	emitRex(code, wide: true, regField: dest, rmField: src, force: needsByteRex(src))
@@ -546,6 +554,12 @@ export function encodePushReg(mutates code ByteArray, reg X64Register)
 	emitRex(code, wide: false, regField: X64Register.rax, rmField: reg, force: false)
 	code.push(0x50 + regLow3(reg))
 end 'encodePushReg'
+
+// push imm: 68.
+export function encodePushImm32(mutates code ByteArray, imm Imm32)
+	code.push(0x68)
+	writeImm32(code, value: imm)
+end 'encodePushImm32'
 
 // pop reg: 58+r.
 export function encodePopReg(mutates code ByteArray, reg X64Register)
@@ -856,6 +870,7 @@ export enum X64Form
 	storeBaseDispReg16
 	storeBaseDispReg32
 	storeBaseDispImm8
+	storeBaseDispImm32
 	movzxRegReg8
 	setccReg
 	movRegImm32
@@ -880,6 +895,7 @@ export enum X64Form
 	sarRegCl
 	sarRegImm8
 	pushReg
+	pushImm32
 	popReg
 	ret
 	ud2
@@ -913,320 +929,28 @@ export enum X64Form
 	cvttsd2siRaxXmm0
 end 'X64Form'
 
+// formTableZero is the byte of the digit 0, which a form table's digits count from.
+let formTableZero = 48
+
+// formTableDigit is the digit a form table holds for a form.
+function formTableDigit(table String, form X64Form) returns Count
+	return try (table.byteAt(form.rawValue) as Count) - formTableZero otherwise panic("backend: a form table holds a byte that is no digit")
+end 'formTableDigit'
+
 export function setsFlags(form X64Form) returns bool
-	return match form 'form'
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		cmpRegReg or
-		testRegReg or
-		imulRegReg or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		negReg or
-		mulReg or
-		divReg or
-		idivReg or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		repeCmpsb or
-		lockXaddBaseDispReg or
-		lockCmpxchgBaseDispReg or
-		ucomisdXmm0Xmm1 gives true
-		movRegReg or
-		loadRegBaseDisp or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		storeBaseDispReg8 or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		movzxRegReg8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		notReg or
-		cqo or
-		pushReg or
-		popReg or
-		ret or
-		ud2 or
-		repMovsb or
-		repStosq or
-		leaRegRip or
-		loadRegRip or
-		storeRipReg or
-		callRip or
-		callReg or
-		xchgBaseDispReg or
-		pause or
-		loadRegGsBaseDisp or
-		jmpRel32 or
-		callRel32 or
-		jccRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0111111110000000000000000111111110111101111000000010000010100000000000001000", form: form) == 1
 end 'setsFlags'
 
 export function readsFlags(form X64Form) returns bool
-	return match form 'form'
-		setccReg or
-		jccRel32 gives true
-		movRegReg or
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		cmpRegReg or
-		testRegReg or
-		imulRegReg or
-		loadRegBaseDisp or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		storeBaseDispReg8 or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		movzxRegReg8 or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		notReg or
-		negReg or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		pushReg or
-		popReg or
-		ret or
-		ud2 or
-		repMovsb or
-		repStosq or
-		repeCmpsb or
-		leaRegRip or
-		loadRegRip or
-		storeRipReg or
-		callRip or
-		callReg or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg or
-		lockCmpxchgBaseDispReg or
-		pause or
-		loadRegGsBaseDisp or
-		jmpRel32 or
-		callRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0000000000000000000001000000000000000000000000000000000000000001000000000000", form: form) == 1
 end 'readsFlags'
 
 export function readsMemory(form X64Form) returns bool
-	return match form 'form'
-		loadRegBaseDisp or
-		movzxRegByteBaseDisp or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		popReg or
-		ret or
-		repMovsb or
-		repeCmpsb or
-		loadRegRip or
-		callRip or
-		callReg or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg or
-		lockCmpxchgBaseDispReg or
-		loadRegGsBaseDisp gives true
-		movRegReg or
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		cmpRegReg or
-		testRegReg or
-		imulRegReg or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		storeBaseDispReg8 or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		movzxRegReg8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		notReg or
-		negReg or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		pushReg or
-		ud2 or
-		repStosq or
-		leaRegRip or
-		storeRipReg or
-		pause or
-		jmpRel32 or
-		callRel32 or
-		jccRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0000000001001011000000000000000000000000000001101010101111101000000000000000", form: form) == 1
 end 'readsMemory'
 
 export function writesMemory(form X64Form) returns bool
-	return match form 'form'
-		storeBaseDispReg or
-		storeBaseDispReg8 or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		pushReg or
-		repMovsb or
-		repStosq or
-		storeRipReg or
-		callRip or
-		callReg or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg or
-		lockCmpxchgBaseDispReg or
-		callRel32 gives true
-		movRegReg or
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		cmpRegReg or
-		testRegReg or
-		imulRegReg or
-		loadRegBaseDisp or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		movzxRegReg8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		notReg or
-		negReg or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		popReg or
-		ret or
-		ud2 or
-		repeCmpsb or
-		leaRegRip or
-		loadRegRip or
-		pause or
-		loadRegGsBaseDisp or
-		jmpRel32 or
-		jccRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0000000000100100111100000000000000000000000110001100011111100010000000000000", form: form) == 1
 end 'writesMemory'
 
 // x64FirstVector is the number of xmm0 in the register file, after the general registers.
@@ -1234,7 +958,7 @@ export let x64FirstVector = 16
 
 export let x64RegisterFileSize = 32
 
-export let x64FormCount = 74
+export let x64FormCount = 76
 
 // x64RegisterOf is the general register with a number of the register file.
 export function x64RegisterOf(number RegNum) returns X64Register
@@ -1281,617 +1005,94 @@ export function x64FormOf(number Count) returns X64Form
 		16 gives X64Form.storeBaseDispReg16
 		17 gives X64Form.storeBaseDispReg32
 		18 gives X64Form.storeBaseDispImm8
-		19 gives X64Form.movzxRegReg8
-		20 gives X64Form.setccReg
-		21 gives X64Form.movRegImm32
-		22 gives X64Form.movRegImm32Signed
-		23 gives X64Form.movRegImm64
-		24 gives X64Form.addRegImm8
-		25 gives X64Form.addRegImm32
-		26 gives X64Form.andRegImm8
-		27 gives X64Form.andRegImm32
-		28 gives X64Form.subRegImm8
-		29 gives X64Form.subRegImm32
-		30 gives X64Form.cmpRegImm8
-		31 gives X64Form.cmpRegImm32
-		32 gives X64Form.notReg
-		33 gives X64Form.negReg
-		34 gives X64Form.mulReg
-		35 gives X64Form.divReg
-		36 gives X64Form.idivReg
-		37 gives X64Form.cqo
-		38 gives X64Form.shlRegCl
-		39 gives X64Form.shrRegCl
-		40 gives X64Form.sarRegCl
-		41 gives X64Form.sarRegImm8
-		42 gives X64Form.pushReg
-		43 gives X64Form.popReg
-		44 gives X64Form.ret
-		45 gives X64Form.ud2
-		46 gives X64Form.repMovsb
-		47 gives X64Form.repStosq
-		48 gives X64Form.repeCmpsb
-		49 gives X64Form.leaRegRip
-		50 gives X64Form.loadRegRip
-		51 gives X64Form.storeRipReg
-		52 gives X64Form.callRip
-		53 gives X64Form.callReg
-		54 gives X64Form.lockXaddBaseDispReg
-		55 gives X64Form.xchgBaseDispReg
-		56 gives X64Form.lockCmpxchgBaseDispReg
-		57 gives X64Form.pause
-		58 gives X64Form.loadRegGsBaseDisp
-		59 gives X64Form.jmpRel32
-		60 gives X64Form.callRel32
-		61 gives X64Form.jccRel32
-		62 gives X64Form.movqXmm0Reg
-		63 gives X64Form.movqXmm1Reg
-		64 gives X64Form.movqRegXmm0
-		65 gives X64Form.addsdXmm0Xmm1
-		66 gives X64Form.subsdXmm0Xmm1
-		67 gives X64Form.mulsdXmm0Xmm1
-		68 gives X64Form.divsdXmm0Xmm1
-		69 gives X64Form.sqrtsdXmm0Xmm0
-		70 gives X64Form.ucomisdXmm0Xmm1
-		71 gives X64Form.roundsdXmm0Xmm0Imm8
-		72 gives X64Form.cvtsi2sdXmm0Reg
-		73 gives X64Form.cvttsd2siRaxXmm0
+		19 gives X64Form.storeBaseDispImm32
+		20 gives X64Form.movzxRegReg8
+		21 gives X64Form.setccReg
+		22 gives X64Form.movRegImm32
+		23 gives X64Form.movRegImm32Signed
+		24 gives X64Form.movRegImm64
+		25 gives X64Form.addRegImm8
+		26 gives X64Form.addRegImm32
+		27 gives X64Form.andRegImm8
+		28 gives X64Form.andRegImm32
+		29 gives X64Form.subRegImm8
+		30 gives X64Form.subRegImm32
+		31 gives X64Form.cmpRegImm8
+		32 gives X64Form.cmpRegImm32
+		33 gives X64Form.notReg
+		34 gives X64Form.negReg
+		35 gives X64Form.mulReg
+		36 gives X64Form.divReg
+		37 gives X64Form.idivReg
+		38 gives X64Form.cqo
+		39 gives X64Form.shlRegCl
+		40 gives X64Form.shrRegCl
+		41 gives X64Form.sarRegCl
+		42 gives X64Form.sarRegImm8
+		43 gives X64Form.pushReg
+		44 gives X64Form.pushImm32
+		45 gives X64Form.popReg
+		46 gives X64Form.ret
+		47 gives X64Form.ud2
+		48 gives X64Form.repMovsb
+		49 gives X64Form.repStosq
+		50 gives X64Form.repeCmpsb
+		51 gives X64Form.leaRegRip
+		52 gives X64Form.loadRegRip
+		53 gives X64Form.storeRipReg
+		54 gives X64Form.callRip
+		55 gives X64Form.callReg
+		56 gives X64Form.lockXaddBaseDispReg
+		57 gives X64Form.xchgBaseDispReg
+		58 gives X64Form.lockCmpxchgBaseDispReg
+		59 gives X64Form.pause
+		60 gives X64Form.loadRegGsBaseDisp
+		61 gives X64Form.jmpRel32
+		62 gives X64Form.callRel32
+		63 gives X64Form.jccRel32
+		64 gives X64Form.movqXmm0Reg
+		65 gives X64Form.movqXmm1Reg
+		66 gives X64Form.movqRegXmm0
+		67 gives X64Form.addsdXmm0Xmm1
+		68 gives X64Form.subsdXmm0Xmm1
+		69 gives X64Form.mulsdXmm0Xmm1
+		70 gives X64Form.divsdXmm0Xmm1
+		71 gives X64Form.sqrtsdXmm0Xmm0
+		72 gives X64Form.ucomisdXmm0Xmm1
+		73 gives X64Form.roundsdXmm0Xmm0Imm8
+		74 gives X64Form.cvtsi2sdXmm0Reg
+		75 gives X64Form.cvttsd2siRaxXmm0
 		default panic("backend: a number that is no x64 form")
 	end 'number'
 end 'x64FormOf'
 
 // machineOperandCount is how many register operands a machine instruction of a form has.
 export function machineOperandCount(form X64Form) returns Count
-	return match form 'form'
-		movRegReg or
-		cmpRegReg or
-		testRegReg or
-		loadRegBaseDisp or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		storeBaseDispReg8 or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		movzxRegReg8 or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		notReg or
-		negReg or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		lockCmpxchgBaseDispReg or
-		loadRegGsBaseDisp gives 2
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		imulRegReg or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg gives 3
-		storeBaseDispImm8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		mulReg or
-		divReg or
-		idivReg or
-		pushReg or
-		popReg or
-		leaRegRip or
-		loadRegRip or
-		storeRipReg or
-		callReg or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		cvtsi2sdXmm0Reg gives 1
-		cqo or
-		ret or
-		ud2 or
-		repMovsb or
-		repStosq or
-		repeCmpsb or
-		callRip or
-		pause or
-		jmpRel32 or
-		callRel32 or
-		jccRel32 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvttsd2siRaxXmm0 gives 0
-	end 'form'
+	return formTableDigit("2333332232222222221121111222222112211102222101000001110133202000111000000010", form: form)
 end 'machineOperandCount'
 
 export function definesOperand(form X64Form) returns bool
-	return match form 'form'
-		movRegReg or
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		imulRegReg or
-		loadRegBaseDisp or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		movzxRegReg8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		notReg or
-		negReg or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		popReg or
-		leaRegRip or
-		loadRegRip or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg or
-		loadRegGsBaseDisp or
-		movqRegXmm0 gives true
-		cmpRegReg or
-		testRegReg or
-		storeBaseDispReg or
-		storeBaseDispReg8 or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		pushReg or
-		ret or
-		ud2 or
-		repMovsb or
-		repStosq or
-		repeCmpsb or
-		storeRipReg or
-		callRip or
-		callReg or
-		lockCmpxchgBaseDispReg or
-		pause or
-		jmpRel32 or
-		callRel32 or
-		jccRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("1111110011011011000011111111111001100001111001000001100011001000001000000000", form: form) == 1
 end 'definesOperand'
 
 export function reusesOperand(form X64Form) returns bool
-	return match form 'form'
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		imulRegReg or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		notReg or
-		negReg or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg gives true
-		movRegReg or
-		cmpRegReg or
-		testRegReg or
-		loadRegBaseDisp or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		storeBaseDispReg8 or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		movzxRegReg8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		pushReg or
-		popReg or
-		ret or
-		ud2 or
-		repMovsb or
-		repStosq or
-		repeCmpsb or
-		leaRegRip or
-		loadRegRip or
-		storeRipReg or
-		callRip or
-		callReg or
-		lockCmpxchgBaseDispReg or
-		pause or
-		loadRegGsBaseDisp or
-		jmpRel32 or
-		callRel32 or
-		jccRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0111110010000000000000000111111001100001111000000000000011000000000000000000", form: form) == 1
 end 'reusesOperand'
 
 export function isCall(form X64Form) returns bool
-	return match form 'form'
-		callRip or
-		callReg or
-		callRel32 gives true
-		movRegReg or
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		cmpRegReg or
-		testRegReg or
-		imulRegReg or
-		loadRegBaseDisp or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		storeBaseDispReg8 or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		movzxRegReg8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		notReg or
-		negReg or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		pushReg or
-		popReg or
-		ret or
-		ud2 or
-		repMovsb or
-		repStosq or
-		repeCmpsb or
-		leaRegRip or
-		loadRegRip or
-		storeRipReg or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg or
-		lockCmpxchgBaseDispReg or
-		pause or
-		loadRegGsBaseDisp or
-		jmpRel32 or
-		jccRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0000000000000000000000000000000000000000000000000000001100000010000000000000", form: form) == 1
 end 'isCall'
 
 export function isReturn(form X64Form) returns bool
-	return match form 'form'
-		ret gives true
-		movRegReg or
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		cmpRegReg or
-		testRegReg or
-		imulRegReg or
-		loadRegBaseDisp or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		storeBaseDispReg8 or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		movzxRegReg8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		notReg or
-		negReg or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		pushReg or
-		popReg or
-		ud2 or
-		repMovsb or
-		repStosq or
-		repeCmpsb or
-		leaRegRip or
-		loadRegRip or
-		storeRipReg or
-		callRip or
-		callReg or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg or
-		lockCmpxchgBaseDispReg or
-		pause or
-		loadRegGsBaseDisp or
-		jmpRel32 or
-		callRel32 or
-		jccRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0000000000000000000000000000000000000000000000100000000000000000000000000000", form: form) == 1
 end 'isReturn'
 
 export function hasPatchField(form X64Form) returns bool
-	return match form 'form'
-		leaRegRip or
-		loadRegRip or
-		storeRipReg or
-		callRip or
-		jmpRel32 or
-		callRel32 or
-		jccRel32 gives true
-		movRegReg or
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		cmpRegReg or
-		testRegReg or
-		imulRegReg or
-		loadRegBaseDisp or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		storeBaseDispReg8 or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		movzxRegReg8 or
-		setccReg or
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		notReg or
-		negReg or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		pushReg or
-		popReg or
-		ret or
-		ud2 or
-		repMovsb or
-		repStosq or
-		repeCmpsb or
-		callReg or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg or
-		lockCmpxchgBaseDispReg or
-		pause or
-		loadRegGsBaseDisp or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0000000000000000000000000000000000000000000000000001111000000111000000000000", form: form) == 1
 end 'hasPatchField'
 
 export function rematerializable(form X64Form) returns bool
-	return match form 'form'
-		movRegImm32 or
-		movRegImm32Signed or
-		movRegImm64 gives true
-		movRegReg or
-		addRegReg or
-		subRegReg or
-		andRegReg or
-		orRegReg or
-		xorRegReg or
-		cmpRegReg or
-		testRegReg or
-		imulRegReg or
-		loadRegBaseDisp or
-		storeBaseDispReg or
-		leaRegBaseDisp or
-		movzxRegByteBaseDisp or
-		storeBaseDispReg8 or
-		movzxRegWordBaseDisp or
-		loadReg32BaseDisp or
-		storeBaseDispReg16 or
-		storeBaseDispReg32 or
-		storeBaseDispImm8 or
-		movzxRegReg8 or
-		setccReg or
-		addRegImm8 or
-		addRegImm32 or
-		andRegImm8 or
-		andRegImm32 or
-		subRegImm8 or
-		subRegImm32 or
-		cmpRegImm8 or
-		cmpRegImm32 or
-		notReg or
-		negReg or
-		mulReg or
-		divReg or
-		idivReg or
-		cqo or
-		shlRegCl or
-		shrRegCl or
-		sarRegCl or
-		sarRegImm8 or
-		pushReg or
-		popReg or
-		ret or
-		ud2 or
-		repMovsb or
-		repStosq or
-		repeCmpsb or
-		leaRegRip or
-		loadRegRip or
-		storeRipReg or
-		callRip or
-		callReg or
-		lockXaddBaseDispReg or
-		xchgBaseDispReg or
-		lockCmpxchgBaseDispReg or
-		pause or
-		loadRegGsBaseDisp or
-		jmpRel32 or
-		callRel32 or
-		jccRel32 or
-		movqXmm0Reg or
-		movqXmm1Reg or
-		movqRegXmm0 or
-		addsdXmm0Xmm1 or
-		subsdXmm0Xmm1 or
-		mulsdXmm0Xmm1 or
-		divsdXmm0Xmm1 or
-		sqrtsdXmm0Xmm0 or
-		ucomisdXmm0Xmm1 or
-		roundsdXmm0Xmm0Imm8 or
-		cvtsi2sdXmm0Reg or
-		cvttsd2siRaxXmm0 gives false
-	end 'form'
+	return formTableDigit("0000000000000000000000111000000000000000000000000000000000000000000000000000", form: form) == 1
 end 'rematerializable'
 
 // fixedUses is the registers a form reads that no operand names.
@@ -1916,6 +1117,7 @@ export function fixedUses(form X64Form) returns RegMask
 		storeBaseDispReg16 or
 		storeBaseDispReg32 or
 		storeBaseDispImm8 or
+		storeBaseDispImm32 or
 		movzxRegReg8 or
 		setccReg or
 		movRegImm32 or
@@ -1933,6 +1135,7 @@ export function fixedUses(form X64Form) returns RegMask
 		negReg or
 		sarRegImm8 or
 		pushReg or
+		pushImm32 or
 		popReg or
 		ret or
 		ud2 or
@@ -1996,6 +1199,7 @@ export function fixedDefs(form X64Form) returns RegMask
 		storeBaseDispReg16 or
 		storeBaseDispReg32 or
 		storeBaseDispImm8 or
+		storeBaseDispImm32 or
 		movzxRegReg8 or
 		setccReg or
 		movRegImm32 or
@@ -2016,6 +1220,7 @@ export function fixedDefs(form X64Form) returns RegMask
 		sarRegCl or
 		sarRegImm8 or
 		pushReg or
+		pushImm32 or
 		popReg or
 		ret or
 		ud2 or
@@ -2076,6 +1281,7 @@ export function clobbers(form X64Form) returns RegMask
 		storeBaseDispReg16 or
 		storeBaseDispReg32 or
 		storeBaseDispImm8 or
+		storeBaseDispImm32 or
 		movzxRegReg8 or
 		setccReg or
 		movRegImm32 or
@@ -2100,6 +1306,7 @@ export function clobbers(form X64Form) returns RegMask
 		sarRegCl or
 		sarRegImm8 or
 		pushReg or
+		pushImm32 or
 		popReg or
 		ret or
 		ud2 or
@@ -2200,6 +1407,7 @@ export function encodeMachineForm(mutates code ByteArray, form X64Form, a X64Reg
 		storeBaseDispReg16 then encodeStoreBaseDispReg16(code, base: a, disp: aux, src: b)
 		storeBaseDispReg32 then encodeStoreBaseDispReg32(code, base: a, disp: aux, src: b)
 		storeBaseDispImm8 then encodeStoreBaseDispImm8(code, base: a, disp: aux, imm: try imm as Imm8 otherwise panic("backend: the immediate of StoreBaseDispImm8 does not fit it"))
+		storeBaseDispImm32 then encodeStoreBaseDispImm32(code, base: a, disp: aux, imm: try imm as Imm32 otherwise panic("backend: the immediate of StoreBaseDispImm32 does not fit it"))
 		movzxRegReg8 then encodeMovzxRegReg8(code, dest: a, src: b)
 		setccReg then encodeSetccReg(code, cond: cond, dest: a)
 		movRegImm32 then encodeMovRegImm32(code, dest: a, imm: try imm as Imm32U otherwise panic("backend: the immediate of MovRegImm32 does not fit it"))
@@ -2224,6 +1432,7 @@ export function encodeMachineForm(mutates code ByteArray, form X64Form, a X64Reg
 		sarRegCl then encodeSarRegCl(code, reg: a)
 		sarRegImm8 then encodeSarRegImm8(code, reg: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of SarRegImm8 does not fit it"))
 		pushReg then encodePushReg(code, reg: a)
+		pushImm32 then encodePushImm32(code, imm: try imm as Imm32 otherwise panic("backend: the immediate of PushImm32 does not fit it"))
 		popReg then encodePopReg(code, reg: a)
 		ret then encodeRet(code)
 		ud2 then encodeUd2(code)

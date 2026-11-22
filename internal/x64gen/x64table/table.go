@@ -373,6 +373,11 @@ func buildForms() []form {
 			name: "StoreBaseDispImm8", mnemonic: "mov", operands: []operand{mem(), imm8()},
 			opcode: []byte{0xC6}, modrm: modDigit, digit: 0, effects: writes,
 		},
+		// The doubleword is sign-extended to the word it stores.
+		form{
+			name: "StoreBaseDispImm32", mnemonic: "mov", operands: []operand{mem(), imm32()},
+			rexW: true, opcode: []byte{0xC7}, modrm: modDigit, digit: 0, effects: writes,
+		},
 		form{
 			name: "MovzxRegReg8", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg, write), byteReg("src", fieldRM, read)},
 			rexW: true, opcode: []byte{opcodeHigh, 0xB6}, modrm: modOperands, effects: noEffects,
@@ -419,6 +424,8 @@ func buildForms() []form {
 			rexW: true, opcode: []byte{0xC1}, modrm: modDigit, digit: 7, effects: flags,
 		},
 		form{name: "PushReg", mnemonic: "push", operands: []operand{reg("reg", fieldOpcode, read)}, opcode: []byte{0x50}, effects: writes},
+		// The doubleword is sign-extended to the word it pushes.
+		form{name: "PushImm32", mnemonic: "push", operands: []operand{imm32()}, opcode: []byte{0x68}, effects: writes},
 		form{name: "PopReg", mnemonic: "pop", operands: []operand{reg("reg", fieldOpcode, write)}, opcode: []byte{0x58}, effects: reads},
 		form{name: "Ret", mnemonic: "ret", opcode: []byte{0xC3}, effects: reads, ret: true},
 		form{name: "Ud2", mnemonic: "ud2", opcode: []byte{opcodeHigh, 0x0B}, effects: noEffects},

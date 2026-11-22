@@ -6,7 +6,8 @@
 // page on the way down, so the guard page is met in order.
 let machinePageSize = 4096
 
-let machineFrameAlignment = 16
+// stackAlignment is the alignment of rsp at a call, which a frame keeps and a call of a DLL import needs.
+let stackAlignment = 16
 
 // encodeMachineFunction writes a function whose registers are allocated into the unit, as a section of its own, and
 // defines its symbol.
@@ -62,8 +63,8 @@ end 'encodeCopy'
 
 // operandRegister is register operand i of a form, or rax for one the form does not have, which its encoder does not
 // read.
-function operandRegister(x MInstr, index Count) returns X64Register
-	if index >= operandCount(x) 'absent'
+function operandRegister(x MInstr, index Count, count Count) returns X64Register
+	if index >= count 'absent'
 		return X64Register.rax
 	end 'absent'
 	return generalRegister(operandAt(x, index: index))
@@ -76,7 +77,8 @@ function encodeTargetInstr(mutates u CodeUnit, fn MirFunction, x MInstr)
 	if hasPatchField(x.form) != (x.ref != MRef.none) 'reference'
 		panic("backend: a reference on a form without a field for it, or a field with no reference")
 	end 'reference'
-	encodeMachineForm(u.asm.code, form: x.form, a: operandRegister(x, index: 0), b: operandRegister(x, index: 1), c: operandRegister(x, index: 2), aux: x.aux, imm: x.imm, cond: x.cond)
+	let n = machineOperandCount(x.form)
+	encodeMachineForm(u.asm.code, form: x.form, a: operandRegister(x, index: 0, count: n), b: operandRegister(x, index: 1, count: n), c: operandRegister(x, index: 2, count: n), aux: x.aux, imm: x.imm, cond: x.cond)
 	match x.ref 'ref'
 		none then return
 		edge then u.asm.useLabel(edgeLabel(fn, edge: refIndex(x)))
@@ -97,7 +99,7 @@ end 'edgeLabel'
 function encodeFrameSetup(mutates u CodeUnit, bytes Count)
 	encodePushReg(u.asm.code, reg: X64Register.rbp)
 	encodeMovRegReg(u.asm.code, dest: X64Register.rbp, src: X64Register.rsp)
-	var frame = alignUp(bytes, alignment: machineFrameAlignment)
+	var frame = alignUp(bytes, alignment: stackAlignment)
 	while frame > machinePageSize 'pages'
 		encodeSubRegImm(u.asm.code, dest: X64Register.rsp, imm: machinePageSize)
 		encodeStoreBaseDispReg(u.asm.code, base: X64Register.rsp, disp: 0, src: X64Register.rax)

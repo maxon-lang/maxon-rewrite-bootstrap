@@ -24,6 +24,7 @@ func emitMaxon() string {
 		emitSequence(&b, s)
 	}
 	emitFormEnum(&b)
+	b.WriteString(formTableHelper)
 	for _, e := range effectList {
 		emitEffect(&b, e.name, e.of)
 	}
@@ -459,17 +460,42 @@ func emitFormEnum(b *strings.Builder) {
 }
 
 func emitEffect(b *strings.Builder, name string, of func(form) bool) {
-	fmt.Fprintf(b, "export function %s(form X64Form) returns bool\n", name)
-	b.WriteString("\treturn match form 'form'\n")
-	for _, want := range []bool{true, false} {
-		var cases []string
-		for _, f := range forms {
-			if of(f) == want {
-				cases = append(cases, lowerFirst(f.name))
-			}
+	emitFormTable(b, name, "bool", func(f form) int {
+		if of(f) {
+			return 1
 		}
-		b.WriteString("\t\t" + strings.Join(cases, " or\n\t\t") + fmt.Sprintf(" gives %t\n", want))
+		return 0
+	})
+}
+
+// formTableHelper reads the tables that emitFormTable writes: a string of one digit per form, in the order of X64Form,
+// so that what an allocator or an encoder asks of a form for every instruction is one read of data rather than a
+// match over every form.
+const formTableHelper = `// formTableZero is the byte of the digit 0, which a form table's digits count from.
+let formTableZero = 48
+
+// formTableDigit is the digit a form table holds for a form.
+function formTableDigit(table String, form X64Form) returns Count
+	return try (table.byteAt(form.rawValue) as Count) - formTableZero otherwise panic("backend: a form table holds a byte that is no digit")
+end 'formTableDigit'
+
+`
+
+// emitFormTable writes a function of a form that gives a digit, or a bool that is the digit 1, from a form table.
+func emitFormTable(b *strings.Builder, name, ty string, of func(form) int) {
+	var digits strings.Builder
+	for _, f := range forms {
+		v := of(f)
+		if v < 0 || v > 9 {
+			panic(fmt.Sprintf("%s of %s is %d, which no digit is", name, f.name, v))
+		}
+		digits.WriteByte(byte('0' + v))
 	}
-	b.WriteString("\tend 'form'\n")
+	fmt.Fprintf(b, "export function %s(form X64Form) returns %s\n", name, ty)
+	test := ""
+	if ty == "bool" {
+		test = " == 1"
+	}
+	fmt.Fprintf(b, "\treturn formTableDigit(\"%s\", form: form)%s\n", digits.String(), test)
 	fmt.Fprintf(b, "end '%s'\n\n", name)
 }

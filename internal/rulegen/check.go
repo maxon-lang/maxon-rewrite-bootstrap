@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -32,6 +33,8 @@ type checked struct {
 type binding struct {
 	reg   bool
 	count int
+	// operand is the operand of the pattern that a variable that is no register is bound to.
+	operand irtable.Operand
 }
 
 // checkRules resolves the rules against the tables and refuses the first that names what they do not have, uses a
@@ -41,8 +44,11 @@ func checkRules(file string, rules []*rule, tg target) []checked {
 	for _, r := range rules {
 		vars := map[string]*binding{}
 		checkMatch(r, r.match, vars, true, tg)
+		if tg == x64Target {
+			checkMachineNames(r, vars)
+		}
 		if r.cond != "" {
-			rewriteExpr(r, r.cond, vars, nil)
+			rewriteExpr(r, r.cond, vars, nil, tg == x64Target)
 		}
 		switch tg {
 		case genericTarget:
@@ -261,10 +267,11 @@ func checkMatch(r *rule, t *term, vars map[string]*binding, root bool, tg target
 				}
 			default:
 				(&termParser{r: r}).variable(a.text)
-				if x.Kind == irtable.KFail && !t.flags[x.Flag] {
+				if x.Kind == irtable.KFail && x.Flag != "" && !t.flags[x.Flag] {
 					r.fail("only a %s with .%s has the block %s, which the pattern binds", t.name, lowerFirst(x.Flag), lowerFirst(x.Name))
 				}
 				declare(r, vars, a.text, false)
+				vars[a.text].operand = x
 			}
 		default:
 			panic(fmt.Sprintf("rulegen: a term of kind %d", a.kind))
@@ -355,55 +362,210 @@ func checkResult(r *rule, t *term, vars map[string]*binding, root bool) {
 			if a.text == "_" {
 				r.fail("a result has no _: it gives %s's %s", t.name, lowerFirst(x.Name))
 			}
-			rewriteExpr(r, a.text, vars, nil)
+			rewriteExpr(r, a.text, vars, nil, false)
 		default:
 			panic(fmt.Sprintf("rulegen: a term of kind %d", a.kind))
 		}
 	}
 }
 
-// checkMachineResults refuses an x64 form that the table does not have, or one given the wrong number of operands.
+// machineContext are the names that the conditions and expressions of an instruction selection rule may name besides
+// its variables: the selector, the IR function and the instruction being selected.
+var machineContext = []string{"sel", "fn", "ins"}
+
+// copyForm is the copy of the machine IR, which a rule names as it names a form, (Copy dst src): it is how a value is
+// put in a fixed register and taken out of one.
+const copyForm = "Copy"
+
+// shapeOf is the shape of what a result names: a form, a choice or the copy.
+func shapeOf(r *rule, res *term) x64table.Shape {
+	if res.name == copyForm {
+		return x64table.Shape{Form: copyForm, Params: []x64table.ShapeParam{
+			{Name: "dst", Role: x64table.RoleDef, Letter: "a"}, {Name: "src", Role: x64table.RoleUse, Letter: "b"}}}
+	}
+	sh, ok := x64table.ShapeOf(res.name)
+	if !ok {
+		r.fail("there is no x64 form or choice %s", res.name)
+	}
+	return sh
+}
+
+// isHelper is whether a result is a call of a hand-written selection helper: a name that starts with a lowercase
+// letter, which no form has.
+func isHelper(res *term) bool {
+	return res.kind == termOp && res.name[0] >= 'a' && res.name[0] <= 'z'
+}
+
+func isRegisterName(name string) bool { return slices.Contains(x64table.Registers(), name) }
+
+// checkMachineNames refuses a variable of a pattern that is named like a register or a name of the context, which the
+// results and conditions would read as that instead.
+func checkMachineNames(r *rule, vars map[string]*binding) {
+	for name := range vars {
+		if isRegisterName(name) || slices.Contains(machineContext, name) {
+			r.fail("%s is a register or a name of the selector's, and no variable", name)
+		}
+	}
+}
+
+// checkMachineResults refuses results that the selection code cannot build: an x64 form that the table does not have,
+// one given the wrong number or kind of operands, a register read before it is defined or defined twice, or a rule
+// that gives the operation no result.
 func checkMachineResults(r *rule, vars map[string]*binding) {
+	if len(r.results) == 1 && isHelper(r.results[0]) {
+		h := r.results[0]
+		if h.bind != "" || len(h.suffixes) > 0 || len(h.args) > 0 {
+			r.fail("%s: a helper is called with the selector, the function and the instruction, and no operands", h)
+		}
+		return
+	}
+	root := r.match
+	defined := map[string]bool{}
+	defs := 0
+	use := func(res *term, p x64table.ShapeParam, a *term) {
+		if a.kind != termVar {
+			r.fail("%s's %s is a register: a variable or a register's name", res.name, p.Name)
+		}
+		if isRegisterName(a.name) || defined[a.name] {
+			return
+		}
+		b, ok := vars[a.name]
+		switch {
+		case !ok:
+			r.fail("%s's %s reads %s, which nothing defines before it", res.name, p.Name, a.name)
+		case !b.reg:
+			r.fail("%s is no register", a.name)
+		case a.name == root.bind:
+			r.fail("%s's %s reads %s, the result, before a form defines it", res.name, p.Name, a.name)
+		}
+	}
 	for _, res := range r.results {
 		if res.kind != termOp {
 			r.fail("an instruction selection rule rewrites to x64 forms, and %s is none", res)
 		}
+		if isHelper(res) {
+			r.fail("%s: a helper is the only result of its rule", res)
+		}
 		if res.bind != "" || len(res.suffixes) > 0 {
 			r.fail("%s: an x64 form has no binding and no suffixes", res)
 		}
-		params, ok := x64table.Params(res.name)
-		if !ok {
-			r.fail("there is no x64 form, choice or sequence %s", res.name)
-		}
-		if len(res.args) != len(params) {
-			r.fail("%s takes %d operands (%s), and the rule gives it %d", res.name, len(params), strings.Join(params, " "), len(res.args))
+		sh := shapeOf(r, res)
+		if len(res.args) != len(sh.Params) {
+			names := make([]string, len(sh.Params))
+			for i, p := range sh.Params {
+				names[i] = p.Name
+			}
+			r.fail("%s takes %d operands (%s), and the rule gives it %d", res.name, len(sh.Params), strings.Join(names, " "), len(res.args))
 		}
 		for i, a := range res.args {
-			switch a.kind {
-			case termVar:
-				if _, ok := vars[a.name]; !ok {
-					r.fail("%s is no variable of the pattern", a.name)
+			p := sh.Params[i]
+			switch p.Role {
+			case x64table.RoleUse:
+				use(res, p, a)
+			case x64table.RoleReuse:
+				use(res, p, a)
+				if !isRegisterName(a.name) {
+					defs++
+					if a.name == root.bind {
+						defined[a.name] = true
+					}
 				}
-			case termAux:
-				rewriteExpr(r, a.text, vars, nil)
-			case termWild, termOp:
-				r.fail("%s's %s is a variable or a [value]", res.name, params[i])
+			case x64table.RoleDef:
+				if a.kind != termVar {
+					r.fail("%s's %s is a register: a variable or a register's name", res.name, p.Name)
+				}
+				if isRegisterName(a.name) {
+					continue
+				}
+				if slices.Contains(machineContext, a.name) {
+					r.fail("%s is a name of the selector's, and no variable", a.name)
+				}
+				if _, ok := vars[a.name]; ok && a.name != root.bind {
+					r.fail("%s's %s defines %s, a register of the pattern", res.name, p.Name, a.name)
+				}
+				if defined[a.name] {
+					r.fail("%s's %s defines %s again: a two-address form redefines the register it reads", res.name, p.Name, a.name)
+				}
+				defined[a.name] = true
+				defs++
+			case x64table.RoleRel:
+				if a.kind != termAux {
+					r.fail("%s's %s is a [value]", res.name, p.Name)
+				}
+				if isEdgeVar(vars, a.text) {
+					continue
+				}
+				rewriteExpr(r, a.text, vars, nil, true)
+			case x64table.RoleDisp, x64table.RoleImm, x64table.RoleCond, x64table.RoleRip:
+				if a.kind != termAux {
+					r.fail("%s's %s is a [value]", res.name, p.Name)
+				}
+				rewriteExpr(r, a.text, vars, nil, true)
 			default:
-				panic(fmt.Sprintf("rulegen: a term of kind %d", a.kind))
+				panic(fmt.Sprintf("rulegen: role %d", p.Role))
+			}
+		}
+	}
+	if root.op.Result != irtable.NoResult && defs == 0 {
+		r.fail("%s gives a register, and no form defines one", root.name)
+	}
+	if root.bind != "" && !defined[root.bind] {
+		r.fail("no form defines %s, the result", root.bind)
+	}
+}
+
+// isEdgeVar is whether a variable is bound to a block that the instruction branches to, which a rel32 then goes to.
+func isEdgeVar(vars map[string]*binding, name string) bool {
+	b, ok := vars[name]
+	return ok && !b.reg && (b.operand.Kind == irtable.KBlock || b.operand.Kind == irtable.KFail)
+}
+
+// checkTotal refuses rules that leave an IR operation, of some case of its enum and some value of its flags, with no
+// rule that matches all of it, which instruction selection would have no forms for.
+func checkTotal(file string, rules []*rule) {
+	for _, o := range irtable.Ops {
+		for _, whole := range wholes(o) {
+			if !slices.ContainsFunc(rules, func(r *rule) bool { return r.cond == "" && covers(r.match, whole) }) {
+				panic(&ruleError{fmt.Sprintf("%s: no rule matches every %s: the last rule of an operation has no condition and matches any operands", file, strings.Trim(whole.String(), "()"))})
 			}
 		}
 	}
 }
 
-// checkTotal refuses rules that leave an IR operation with no rule that matches all of it, which instruction selection
-// would have no forms for.
-func checkTotal(file string, rules []*rule) {
-	for _, o := range irtable.Ops {
-		whole := &term{kind: termOp, name: lowerFirst(o.Name), op: o, flags: map[string]bool{}}
-		if !slices.ContainsFunc(rules, func(r *rule) bool { return r.cond == "" && covers(r.match, whole) }) {
-			panic(&ruleError{fmt.Sprintf("%s: no rule matches every %s: the last rule of an operation has no condition and matches any operands", file, whole.name)})
+// wholes are the patterns of an operation with each case of its enum and each value of its flags, and nothing else.
+func wholes(o irtable.Op) []*term {
+	out := []*term{{kind: termOp, name: lowerFirst(o.Name), op: o, flags: map[string]bool{}}}
+	if x, ok := enumOperand(o); ok {
+		var next []*term
+		for _, c := range enumOf(x.Enum).Cases {
+			n := *out[0]
+			n.cas, n.suffixes = c.Name, []string{c.Text}
+			n.flags = map[string]bool{}
+			next = append(next, &n)
 		}
+		out = next
 	}
+	for _, x := range o.Operands {
+		if x.Flag == "" {
+			continue
+		}
+		var next []*term
+		for _, t := range out {
+			for _, set := range []bool{false, true} {
+				n := *t
+				n.flags = maps.Clone(t.flags)
+				n.flags[x.Flag] = set
+				suffix := lowerFirst(x.Flag)
+				if !set {
+					suffix = "!" + suffix
+				}
+				n.suffixes = append(slices.Clone(t.suffixes), suffix)
+				next = append(next, &n)
+			}
+		}
+		out = next
+	}
+	return out
 }
 
 // commutative are the cases of the operations whose two register operands can be swapped.
@@ -525,8 +687,9 @@ var keywords = []string{"and", "or", "not", "true", "false"}
 
 // rewriteExpr is a Maxon expression of a rule with each variable written as locals names it, and refuses a name that is
 // none of the rule's variables. A name that a call, a label or a qualified name has is Maxon's, which its compile
-// checks.
-func rewriteExpr(r *rule, expr string, vars map[string]*binding, locals func(string) string) string {
+// checks, and so, when open, is every other name: an instruction selection rule names the selector, the function and
+// the instruction (machineContext) and the backend's constants.
+func rewriteExpr(r *rule, expr string, vars map[string]*binding, locals func(string) string, open bool) string {
 	var b strings.Builder
 	for i := 0; i < len(expr); {
 		c := expr[i]
@@ -555,6 +718,8 @@ func rewriteExpr(r *rule, expr string, vars map[string]*binding, locals func(str
 				} else {
 					b.WriteString(name)
 				}
+			case open:
+				b.WriteString(name)
 			default:
 				r.fail("%s is no variable of the pattern", name)
 			}

@@ -39,9 +39,9 @@ function vregIndex(r MReg) returns Count
 	return try (r - firstVirtual) as Count otherwise panic("backend: a register operand that is not virtual")
 end 'vregIndex'
 
-function vregOf(index Count) returns MReg
+function vregAt(index Count) returns MReg
 	return try (firstVirtual as Count + index) as MReg otherwise panic("backend: more virtual registers than an operand names")
-end 'vregOf'
+end 'vregAt'
 
 function indexOfCount(n Count) returns ir.Index
 	return try n as ir.Index otherwise panic("backend: a count past an index")
@@ -351,10 +351,40 @@ function colder(a Likelihood, b Likelihood) returns Likelihood
 	return Likelihood.usual
 end 'colder'
 
+// entryFirst makes the function's entry, the block laid out first, block 0, which the graph takes as its entry:
+// selection numbers its prologue block after the IR's blocks, so that IR block b stays machine block b.
+function entryFirst(mutates fn MirFunction)
+	let entry = fn.order[0] as Count
+	if entry == 0 'first'
+		return
+	end 'first'
+	let moved = exchange(fn.blocks[0], value: MBlock.make(0, params: 0))
+	let first = exchange(fn.blocks[entry], value: moved)
+	fn.blocks[0] = first
+	for e in 0 upto fn.edges.count() 'edges'
+		fn.edges[e].target = swappedBlock(fn.edges[e].target, entry: entry)
+	end 'edges'
+	for i in 0 upto fn.order.count() 'order'
+		fn.order[i] = swappedBlock(fn.order[i], entry: entry)
+	end 'order'
+end 'entryFirst'
+
+// swappedBlock is the number of block b once block 0 and block entry have swapped numbers.
+function swappedBlock(b MBlockID, entry Count) returns MBlockID
+	if b == 0 'zero'
+		return blockIdOf(entry)
+	end 'zero'
+	if b as Count == entry 'entry'
+		return 0
+	end 'entry'
+	return b
+end 'swappedBlock'
+
 // prepareBlocks gives fn the shape spilling and colouring need, finds its graph in g, and makes the reverse postorder
 // its layout and the loops' depths its blocks'.
 function prepareBlocks(mutates fn MirFunction, mutates g MirGraph)
 	fn.endBlock()
+	entryFirst(fn)
 	g.build(fn)
 	if splitEdges(fn, g: g) 'split'
 		g.build(fn)
@@ -537,7 +567,7 @@ type Liveness
 				continue 'values'
 			end 'unused'
 			if defBlock[v] == noBlock 'undefined'
-				panic("backend: virtual register {vregOf(v)} is read but never defined")
+				panic("backend: virtual register {vregAt(v)} is read but never defined")
 			end 'undefined'
 			let home = countOfIndex(defBlock[v])
 			let mark = nextCount(v)

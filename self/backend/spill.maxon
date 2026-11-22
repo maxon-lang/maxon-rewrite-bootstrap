@@ -154,12 +154,12 @@ export type Spiller
 		constAt.clear()
 		consts.clear()
 		for v in 0 upto fn.vregCount() 'values'
-			root.push(vregOf(v))
+			root.push(vregAt(v))
 			slotOf.push(noDef)
 			stored.push(false)
 			constAt.push(noDef)
 		end 'values'
-		slots = fn.spillSlots
+		slots = fn.slotsGiven()
 		current = false
 	end 'start'
 
@@ -187,7 +187,7 @@ export type Spiller
 		end 'made'
 		for v in 0 upto regs 'constants'
 			let at = lv.defAt[v]
-			if at != noDef and root[v] == vregOf(v) and constAt[v] == noDef and isRematerializable(fn.instrs[countOfIndex(at)]) 'constant'
+			if at != noDef and root[v] == vregAt(v) and constAt[v] == noDef and isRematerializable(fn.instrs[countOfIndex(at)]) 'constant'
 				constAt[v] = indexOfCount(consts.count())
 				consts.push(fn.instrs[countOfIndex(at)].clone())
 			end 'constant'
@@ -649,7 +649,8 @@ function swapCounts(mutates a CountList, i Count, j Count)
 end 'swapCounts'
 
 // spillFunction spills fn, which instruction selection made and prepareBlocks has not yet seen. Without a refusal, every
-// instruction of the result fits the registers free there, and fn.spillSlots counts the slots it gave out.
+// instruction of the result fits the registers free there, and fn.spillSlots counts the fixed slots and the slots it
+// gave out.
 export function spillFunction(mutates fn MirFunction, mutates s Spiller) returns SpillResult
 	prepareBlocks(fn, g: s.graph)
 	s.start(fn)
@@ -777,7 +778,7 @@ function takeIdle(mutates fn MirFunction, mutates s Spiller, loop Count, c Count
 	var distance = CountList.create(0)
 	for e in s.lv.liveInStart[head] upto s.lv.liveInStart[nextCount(head)] 'live'
 		let v = s.lv.liveIn[e]
-		let r = vregOf(v)
+		let r = vregAt(v)
 		if classIndex(fn.classes[v]) != c or hotIn(s, v: v, loop: loop) 'hot'
 			continue 'live'
 		end 'hot'
@@ -857,7 +858,7 @@ function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief
 	s.pendOut.clear()
 	for j in s.lv.liveInStart[b] upto s.lv.liveInStart[nextCount(b)] 'liveIn'
 		let v = s.lv.liveIn[j]
-		enter(fn, s: s, r: vregOf(v), owner: v, cursor: s.firstEntryFrom(v, at: first), out: s.outMark[v] == s.blockMark)
+		enter(fn, s: s, r: vregAt(v), owner: v, cursor: s.firstEntryFrom(v, at: first), out: s.outMark[v] == s.blockMark)
 	end 'liveIn'
 	for p in 0 upto fn.blocks[b].paramCount 'params'
 		let r = fn.blockParams[addCounts(fn.blocks[b].params, b: p)]

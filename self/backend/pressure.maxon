@@ -131,7 +131,7 @@ type BlockScan
 		for e in g.succStart[b] upto g.succStart[nextCount(b)] 'succs'
 			let s = g.succ[e]
 			for i in lv.liveInStart[s] upto lv.liveInStart[nextCount(s)] 'live'
-				self.setLive(fn, r: vregOf(lv.liveIn[i]))
+				self.setLive(fn, r: vregAt(lv.liveIn[i]))
 			end 'live'
 		end 'succs'
 		var phys = 0 as RegMask
@@ -799,7 +799,7 @@ function refusalOf(fn MirFunction, g MirGraph, lv Liveness, scan BlockScan, grou
 			break 'choose'
 		end 'stuck'
 		removed[best] = true
-		chosen.push(vregOf(best))
+		chosen.push(vregAt(best))
 		for i in 0 upto group.count() 'apply'
 			let p = group[i]
 			for e in scan.logStart[p] upto scan.logStart[nextCount(p)] 'entries'
