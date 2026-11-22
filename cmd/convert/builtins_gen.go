@@ -91,7 +91,7 @@ var builtinNames = map[string]bool{
 
 // builtinMethods are the methods minimaxon declares on each type it builds in, by the type's name, in the table's order.
 var builtinMethods = map[string][]string{
-	"Array":                 {"create", "filled", "count", "isEmpty", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "clearSlot", "contains", "containsSequence", "equals", "first", "last"},
+	"Array":                 {"create", "filled", "count", "isEmpty", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "clearSlot", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
 	"FixedArray":            {"create", "count", "get", "set", "refill"},
 	"__ManagedMemory":       {"length", "get", "createCursor"},
 	"__ManagedMemoryCursor": {"current", "index", "advance", "retreat", "seek", "peek"},

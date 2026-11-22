@@ -1,0 +1,30 @@
+// A cown's value is used by its behaviours on whichever thread runs them, so it crosses between threads; in generic code
+// each instance is judged at its own type arguments, here a record that holds a promise.
+typealias Tag = int(0 to 100)
+
+type Holder
+	var p as Promise with Tag
+
+	static function create(consumes p Promise with Tag) returns Self
+		return Self{p: p}
+	end 'create'
+end 'Holder'
+
+function keep(consumes value T) uses T where T implements Droppable
+	let c = cown(value)
+	when c as v 'touch'
+		_ = 0
+	end 'touch'
+end 'keep'
+
+function nap(tag Tag) returns Tag
+	sleep(1)
+	return tag
+end 'nap'
+
+function main() returns ExitCode
+	keep(Holder.create(async nap(1)))
+	return 0
+end 'main'
+
+// expect-error: E3171 at 14:15

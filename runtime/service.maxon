@@ -80,8 +80,5 @@ end 'replyNew'
 function replyGive(promise Count, value Count, error Count)
 	__Raw.storeWord(promise, offset: greenResultOffset, value: value)
 	__Raw.storeWord(promise, offset: greenErrorOffset, value: error)
-	let waiter = __Raw.atomicExchange(promise, offset: greenWaiterOffset, value: greenFinished)
-	if waiter != noGreen 'waiter'
-		ready(__Raw.threadContext(), g: waiter)
-	end 'waiter'
+	wakeWaiter(__Raw.threadContext(), waiter: __Raw.atomicExchange(promise, offset: greenWaiterOffset, value: greenFinished))
 end 'replyGive'

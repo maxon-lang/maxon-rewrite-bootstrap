@@ -799,6 +799,10 @@ function entryAsyncCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	throw asyncUnsupported(vm)
 end 'entryAsyncCancel'
 
+function entryAsyncAwaitAny(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw asyncUnsupported(vm)
+end 'entryAsyncAwaitAny'
+
 function entryAsyncComplete(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw asyncUnsupported(vm)
 end 'entryAsyncComplete'

@@ -1,0 +1,37 @@
+// A value that holds a promise may be dropped with its holder, which cancels the promise, but it is not put in an
+// interface value: the promise belongs to the strand that started its coroutine, and the rules of what crosses between
+// threads could not see it there.
+typealias Tag = int(0 to 100)
+
+interface Shape
+	function area() returns Tag
+end 'Shape'
+
+type Holder implements Shape
+	var p as Promise with Tag
+
+	static function create(consumes p Promise with Tag) returns Self
+		return Self{p: p}
+	end 'create'
+
+	function area() returns Tag
+		return 1
+	end 'area'
+end 'Holder'
+
+function nap(tag Tag) returns Tag
+	sleep(1)
+	return tag
+end 'nap'
+
+function make() returns Shape
+	return Holder.create(async nap(1))
+end 'make'
+
+function main() returns ExitCode
+	let s = make()
+	print("{s.area()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3919 at 28:2

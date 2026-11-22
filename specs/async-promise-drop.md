@@ -4468,11 +4468,11 @@ typealias PairArray = Array with Pair
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function main() returns ExitCode
-	let held = PairArray.create(0)
+	var held = PairArray.create(0)
 	held.push((1, async work(1)))
 	try held.set(0, value: (5, async work(5))) otherwise panic("index 0 exists")
 	let (tag, p) = try held.pop() otherwise panic("one held")

@@ -311,14 +311,14 @@ function main() returns ExitCode
 	let a = spawn Marker.create(1)
 	let b = spawn Marker.create(2)
 	let c = spawn Marker.create(3)
-	let replies = ReplyPromiseArray.create(0)
+	var replies = ReplyPromiseArray.create(0)
 	replies.push(try a.rank() otherwise panic("an open mailbox with room takes the send"))
 	replies.push(try b.rank() otherwise panic("an open mailbox with room takes the send"))
 	replies.push(try c.rank() otherwise panic("an open mailbox with room takes the send"))
 	let first = replies.awaitAny()
 	var sum = 0 as Integer
 	for p in replies 'drainthemall'
-		sum = sum + (await p)
+		sum = try sum + (await p) otherwise panic("out of range")
 	end 'drainthemall'
 	print("first={first} sum={sum}\n")
 	return 0

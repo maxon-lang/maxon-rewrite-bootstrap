@@ -80,6 +80,11 @@ function noteCallee(mutates c Checker, p ast.Project, ms ast.ModuleState, callee
 		if waitingIntrinsic(intrinsic) 'waits'
 			c.waitNow = true
 		end 'waits'
+		// awaitAny waits for a coroutine or a reply that the check cannot see, so on another party, as maxon has it.
+		if intrinsic == ast.Intrinsic.intrArrayAwaitAny 'select'
+			c.waitNow = true
+			c.partyWaitNow = true
+		end 'select'
 		return
 	end 'intrinsic'
 	c.waitCalls.push(callee)

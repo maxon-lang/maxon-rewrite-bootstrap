@@ -68,6 +68,29 @@ function panicAt(location String, message String)
 	exitProcess(panicExitCode)
 end 'panicAt'
 
+// The runtime's aborts, maxon's (its RuntimeAbort): each writes `fatal error: runtime abort N (name)` to standard error and
+// exits with N.
+let abortPrefix = "fatal error: runtime abort "
+
+let abortNameStart = " ("
+
+let abortNameEnd = ")\n"
+
+// promiseSlotConsumedTwice is the abort of a promise read out of a slot of a container or a field that an earlier read
+// emptied, which the compiler could not see was the same slot.
+let promiseSlotConsumedTwice = 118 as Count
+
+// runtimeAbort writes the abort of a code and its name and exits with the code.
+function runtimeAbort(code Count, name String)
+	let handle = standardError()
+	writeHandle(handle, text: abortPrefix)
+	writeHandle(handle, text: itoa(code, unsigned: true))
+	writeHandle(handle, text: abortNameStart)
+	writeHandle(handle, text: name)
+	writeHandle(handle, text: abortNameEnd)
+	exitProcess(code)
+end 'runtimeAbort'
+
 // panicIndex is the panic of the array entries when an index is past the end.
 function panicIndex()
 	panicWith(indexOutOfRange)

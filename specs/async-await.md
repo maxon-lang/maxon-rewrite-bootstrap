@@ -1030,7 +1030,6 @@ error E3141: <fragment>:14:16: a promise cannot be borrowed through 'get': it ow
 ```
 
 <!-- test: async-await.error.a-stored-parameter-awaited-afterwards-is-use-after-move -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Storing a parameter moves it into the container, so the function's own name for it is spent.
 ```maxon
@@ -1045,7 +1044,7 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function park(p IntPromise) returns Integer
+function park(consumes p IntPromise) returns Integer
 	var pending = IntPromiseArray.create(0)
 	pending.push(p)
 	return await p

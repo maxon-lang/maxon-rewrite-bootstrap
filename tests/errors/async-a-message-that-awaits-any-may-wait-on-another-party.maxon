@@ -1,0 +1,33 @@
+// awaitAny waits for a coroutine or a reply that the check cannot see, so a message that calls it may wait on another
+// party while it holds its service (E3221), as maxon has it.
+typealias Tag = int(0 to 100)
+
+typealias TagPromises = Array with Promise with Tag
+
+function nap(tag Tag) returns Tag
+	sleep(1)
+	return tag
+end 'nap'
+
+type Picker
+	var seen as Tag
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function pick() returns Tag
+		var held = TagPromises.create(0)
+		held.push(async nap(1))
+		let at = held.awaitAny() as Count
+		return await held[at]
+	end 'pick'
+end 'Picker'
+
+function main() returns ExitCode
+	let picker = spawn Picker.create()
+	picker.shutdown()
+	return 0
+end 'main'
+
+// expect-error: E3221 at 19:2

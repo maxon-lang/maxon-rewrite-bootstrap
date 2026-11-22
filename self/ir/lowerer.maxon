@@ -158,6 +158,22 @@ end 'WriteBack'
 
 export typealias WriteBackList = Array with WriteBack
 
+// SlotLoop is a for over an array whose variable names the slot of each element in turn: the local of the variable, the
+// slots that hold the array and the index, and the array's box, through which a take of a promise out of the variable
+// empties the element's slot (takeFromSlot).
+export type SlotLoop
+	export var local as ast.LocalID
+	export var held as Count
+	export var index as Count
+	export var box as ArrayBox
+
+	export static function make(local ast.LocalID, held Count, index Count, consumes box ArrayBox) returns SlotLoop
+		return SlotLoop{local: local, held: held, index: index, box: box}
+	end 'make'
+end 'SlotLoop'
+
+export typealias SlotLoopList = Array with SlotLoop
+
 // Lowerer lowers one function at a time into the IR a builder makes. It reads what the check pass found out about every
 // module's bodies: a body that lowering reaches may be another module's (an instance of its generic, a constant, a
 // field's default), so a node is looked up in the typing of the module it is in, which module names.
@@ -205,9 +221,11 @@ export type Lowerer
 	// writeBacks are the elements of byte arrays that the calls being lowered take by address, each through a slot that
 	// holds it until the call returns.
 	export var writeBacks as WriteBackList
+	// slotLoops are the fors around the code being lowered whose variable names an element's slot, innermost last.
+	export var slotLoops as SlotLoopList
 
 	export static function new(consumes instances InstanceSet) returns Lowerer
-		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, lentElements: 0, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0)}
+		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, lentElements: 0, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0), slotLoops: SlotLoopList.create(0)}
 	end 'new'
 end 'Lowerer'
 

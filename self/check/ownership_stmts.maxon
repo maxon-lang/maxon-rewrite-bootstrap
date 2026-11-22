@@ -210,8 +210,10 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 end 'assignStmtOwn'
 
 // requireOverwriteDroppable is the drop of the value a field or an element holds when an assignment replaces it.
+// A promise there is dropped as its holder would drop it, cancelled, or skipped when a take left the slot empty, as maxon's
+// store into a promise field releases what the field held.
 function requireOverwriteDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, target ast.NodeID, s OwnState)
-	if not s.dead 'live'
+	if not s.dead and not ast.isPromiseType(ms.types, reads: p.types, t: ownType(o, node: target)) 'live'
 		let name = placeText(ms.tree(), e: target)
 		requireDroppable(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: st), t: ownType(o, node: target), d: OwnDrop.make(OwnDropKind.dropOverwrite, name: name))
 	end 'live'
@@ -618,6 +620,10 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	var lent = ast.LocalIDList.create(0)
 	if lends 'element'
 		lent.push(ownLocalOf(o, node: st))
+		// A take of the promise out of the slot the variable names spends the variable for the pass alone.
+		if ast.isPromiseType(ms.types, reads: p.types, t: o.c.typing.locals[ownLocalOf(o, node: st) as Count].ty) 'slots'
+			fresh = ownLocalOf(o, node: st)
+		end 'slots'
 	end 'element'
 	for i in 0 upto lent.count() 'lend'
 		o.lenders.push(OwnLender.make(lent[i], collection: path.clone()))

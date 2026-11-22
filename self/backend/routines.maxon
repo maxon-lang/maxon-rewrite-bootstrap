@@ -474,6 +474,19 @@ function dropRecord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleStat
 	let done = u.asm.newLabel()
 	routinePrologue(u, locals: 0)
 	returnIfEmpty(u, done: done)
+	// Each promise a field holds is cancelled before the drop of any of them waits, as an array's are (cancelElements).
+	for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'promises'
+		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
+		if ast.isPromiseType(ms.types, reads: p.types, t: fieldTy) 'promise'
+			let skip = u.asm.newLabel()
+			u.asm.load(rcx, base: rbp, disp: routineArg)
+			u.asm.load(rax, base: rcx, disp: imm32Of(ir.fieldOffset(i, tagged: false)))
+			u.asm.test(rax, right: rax)
+			u.asm.jcc(MCond.equal, label: skip)
+			callRuntimeWithRax(u, entry: ir.Rt.rtAsyncCancel)
+			u.asm.bind(skip)
+		end 'promise'
+	end 'promises'
 	for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'fields'
 		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
 		if ast.isManagedType(ms.types, reads: p.types, t: fieldTy) 'managed'
@@ -543,6 +556,9 @@ function dropArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	routinePrologue(u, locals: 1)
 	returnIfEmpty(u, done: done)
 	let elem = elementType(ms.types, reads: p.types, array: ty)
+	if ast.isPromiseType(ms.types, reads: p.types, t: elem) 'promises'
+		cancelElements(u)
+	end 'promises'
 	if ast.isManagedType(ms.types, reads: p.types, t: elem) 'managed'
 		let top = u.asm.newLabel()
 		let out = u.asm.newLabel()
@@ -573,6 +589,37 @@ function dropArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	u.asm.bind(done)
 	routineEpilogue(u)
 end 'dropArray'
+
+// cancelElements cancels each promise an array holds, its address in the routine's argument, before the drop of any of
+// them waits for its coroutine: a coroutine that has not started then never starts, where the wait for one before it
+// would otherwise let it run. An element that a take left empty is skipped.
+function cancelElements(mutates u CodeUnit)
+	let top = u.asm.newLabel()
+	let next = u.asm.newLabel()
+	let out = u.asm.newLabel()
+	u.asm.bitXor(rax, src: rax)
+	u.asm.store(rbp, disp: routineLocal0, src: rax)
+	u.asm.bind(top)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rdx, base: rcx, disp: arrayLengthOffset)
+	u.asm.load(rax, base: rbp, disp: routineLocal0)
+	u.asm.cmp(rax, right: rdx)
+	u.asm.jcc(MCond.aboveEqual, label: out)
+	u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
+	u.asm.movImm(rdx, imm: wordBytes)
+	u.asm.imul(rax, src: rdx)
+	u.asm.add(rcx, src: rax)
+	u.asm.load(rax, base: rcx, disp: 0)
+	u.asm.test(rax, right: rax)
+	u.asm.jcc(MCond.equal, label: next)
+	callRuntimeWithRax(u, entry: ir.Rt.rtAsyncCancel)
+	u.asm.bind(next)
+	u.asm.load(rax, base: rbp, disp: routineLocal0)
+	u.asm.addImm(rax, imm: 1)
+	u.asm.store(rbp, disp: routineLocal0, src: rax)
+	u.asm.jmp(top)
+	u.asm.bind(out)
+end 'cancelElements'
 
 // dropClosure lets go of one of the function values that share a closure: the last one drops what the closure owns, by the
 // routine the closure holds, and frees the box.

@@ -1,0 +1,23 @@
+// native-only
+// A read of a promise out of an element that is consumed leaves the element empty, so a second take of the same slot,
+// which the check cannot tell is the same one, is maxon's runtime abort 118.
+// expect-exit: 118
+//> first=4
+typealias Tag = int(0 to 100)
+
+typealias TagPromises = Array with Promise with Tag
+
+function nap(tag Tag) returns Tag
+	sleep(1)
+	return tag
+end 'nap'
+
+function main() returns ExitCode
+	var naps = TagPromises.create(0)
+	naps.push(async nap(4))
+	var at = 0 as Count
+	print("first={await naps[at]}\n")
+	at = at + 0
+	print("second={await naps[at]}\n")
+	return 0
+end 'main'

@@ -132,13 +132,24 @@ end 'asyncStart'
 // asyncAwait is `await` of a promise whose function throws nothing: it waits for the coroutine to finish, gives the value its
 // function returned, and frees the coroutine.
 function asyncAwait(promise Count) returns Count
+	requireHeld(promise)
 	return greenAwait(promise)
 end 'asyncAwait'
 
 // asyncWait is the wait of `await` of a promise whose function throws, which asyncError and asyncTake then read.
 function asyncWait(promise Count)
+	requireHeld(promise)
 	greenWait(promise)
 end 'asyncWait'
+
+// requireHeld aborts a use of a promise read out of a slot that an earlier read took it out of, which left the slot empty
+// (noGreen), as maxon's runtime does: the compiler refuses a second take of one slot it can see, and this is the one it
+// cannot.
+function requireHeld(promise Count)
+	if promise == noGreen 'empty'
+		runtimeAbort(promiseSlotConsumedTwice, name: "promiseSlotConsumedTwice")
+	end 'empty'
+end 'requireHeld'
 
 // asyncError is what the function of a coroutine that asyncWait waited for failed with, 0 when it returned.
 function asyncError(promise Count) returns Count
@@ -157,6 +168,7 @@ let cancelled = 1 as Count
 // marked cancelled, so its thunk does not start a function that has not started, and a sleep it is in ends at once, as do
 // the sleeps it makes after. A reply's cell is marked too, and changes nothing: its message runs on.
 function asyncCancel(promise Count)
+	requireHeld(promise)
 	__Raw.storeWord(promise, offset: greenCancelOffset, value: cancelled)
 	expireSleep(__Raw.threadContext(), g: promise)
 end 'asyncCancel'
@@ -164,6 +176,7 @@ end 'asyncCancel'
 // asyncComplete is whether the coroutine or the reply of a promise has finished, which its finish publishes by the exchange
 // of greenFinished into its waiter.
 function asyncComplete(promise Count) returns bool
+	requireHeld(promise)
 	return __Raw.atomicAdd(promise, offset: greenWaiterOffset, value: 0) == greenFinished
 end 'asyncComplete'
 

@@ -1,0 +1,55 @@
+// 1,000 services with 1,000 messages each: one sender sends a message to each service in turn, a thousand rounds, so every
+// service has work queued while the others run, then awaits each service's total. Each message is a behaviour of its own
+// on its service's cown, and the services run on every core.
+typealias Word = int(0 to u64.max)
+
+typealias Counters = Array with Counter.handle
+
+let services = 1000 as Count
+
+let rounds = 1000 as Count
+
+type Counter
+	var sum as Word
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	export function add(mutates self, n Word)
+		self.sum = try self.sum + n otherwise panic("the sum overflowed")
+	end 'add'
+
+	export function total() returns Word
+		return self.sum
+	end 'total'
+end 'Counter'
+
+function work() returns ExitCode
+	var counters = Counters.create(0)
+	for s in 0 upto services 'spawn'
+		counters.push(spawn Counter.create())
+	end 'spawn'
+	for r in 0 upto rounds 'rounds'
+		for s in 0 upto services 'each'
+			try counters[s].add(r as Word) otherwise panic("the mailbox has room for every round")
+		end 'each'
+	end 'rounds'
+	var total = 0 as Word
+	for s in 0 upto services 'totals'
+		total = try total + (try await counters[s].total() otherwise panic("the service runs until it is shut down")) otherwise panic("the total overflowed")
+	end 'totals'
+	print("{total}\n")
+	return 0
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let started = Clock.nowNanos()
+	let code = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("work ns {elapsed}\n")
+	return code
+end 'main'
+
+//> 499500000

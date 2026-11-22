@@ -105,3 +105,9 @@ end 'lowerPromiseCancel'
 function lowerPromiseIsComplete(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtAsyncComplete, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerPromiseIsComplete'
+
+// lowerArrayAwaitAny waits until a promise of an array of them has finished and gives the index of the first that has,
+// as maxon's awaitAny does: it consumes none, and a slot a take left empty holds none.
+function lowerArrayAwaitAny(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtAsyncAwaitAny, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerArrayAwaitAny'

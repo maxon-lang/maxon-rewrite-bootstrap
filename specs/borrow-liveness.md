@@ -4006,6 +4006,7 @@ end 'main'
 ```
 
 <!-- test: a-service-send-interface-let-field-read-through-a-var-field-survives-a-later-argument-rebinding-it -->
+<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 ### An interface-typed `let` field read through a `var` field as a service message's argument survives a later argument that rebinds the `var` field
 ```maxon
 interface Named
@@ -4076,6 +4077,7 @@ end 'main'
 ```
 
 <!-- test: a-bound-read-only-interface-field-is-shared-with-a-service-as-its-struct-twin-is -->
+<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 ### A `let` interface field bound through a `var` root is shared with a service, as the struct-typed twin below is
 ```maxon
 interface Named

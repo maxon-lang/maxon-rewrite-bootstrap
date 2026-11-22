@@ -18,7 +18,7 @@
 
 	// newStack maps a stack whose pages the kernel commits as they are touched, its lowest page the guard, as a worker
 	// thread's (startThread).
-	function newStack(scheduler Count) returns Count
+	function newStack() returns Count
 		let low = __Raw.syscall6(linuxSysMmap, arg1: 0, arg2: stackReserveBytes, arg3: linuxProtReadWrite, arg4: linuxMapAnonPrivate or linuxMapNoReserve, arg5: noFd, arg6: noMappingOffset)
 		if failed(low) 'unmapped'
 			panic("out of memory: no address space for a green thread's stack")
@@ -26,8 +26,21 @@
 		if failed(__Raw.syscall3(linuxSysMprotect, arg1: low, arg2: stackGuardBytes, arg3: linuxProtNone)) 'unguarded'
 			panic("cannot guard a green thread's stack")
 		end 'unguarded'
-		return stackRecord(scheduler, low: low, high: __Raw.wrappingAdd(low, right: stackReserveBytes), limit: low)
+		return stackRecord(low, high: __Raw.wrappingAdd(low, right: stackReserveBytes), limit: low)
 	end 'newStack'
+
+	// releaseStack unmaps a stack's reserve, its record with it.
+	function releaseStack(stack Count)
+		if failed(__Raw.syscall2(linuxSysMunmap, arg1: __Raw.loadWord(stack, offset: pooledStackLowOffset), arg2: stackReserveBytes)) 'failed'
+			panic("a green thread's stack cannot be given back to the system")
+		end 'failed'
+	end 'releaseStack'
+
+	// stackGrew is false: the kernel commits a stack's pages as they are touched and does not say how many were, so a
+	// pooled stack keeps what its green threads touched, and only the cap on the pools bounds it.
+	function stackGrew(stack Count) returns bool
+		return false
+	end 'stackGrew'
 
 	// nanotime is the monotonic clock in nanoseconds, read into the thread's block, so it allocates nothing.
 	function nanotime(context Count) returns Count

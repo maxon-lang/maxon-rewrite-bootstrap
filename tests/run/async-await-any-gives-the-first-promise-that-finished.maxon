@@ -1,0 +1,53 @@
+// native-only
+// awaitAny waits until a promise of an array of them has finished and gives the index of the first that has, consuming
+// none: each is still awaited after, the winner too. A slot that a take left empty holds no promise and is skipped, so a
+// loop can drain an array in the order its promises finish. Replies of services are promises like any other.
+//> first=1
+//> order=1,2,0
+//> reply=2
+typealias Tag = int(0 to 1000)
+
+typealias TagPromises = Array with Promise with Tag
+
+function nap(delay Milliseconds, tag Tag) returns Tag
+	sleep(delay)
+	return tag
+end 'nap'
+
+type Echo
+	var delay as Milliseconds
+
+	static function create(delay Milliseconds) returns Self
+		return Self{delay: delay}
+	end 'create'
+
+	export function echo(tag Tag) returns Tag
+		sleep(self.delay)
+		return tag
+	end 'echo'
+end 'Echo'
+
+function main() returns ExitCode
+	var naps = TagPromises.create(0)
+	naps.push(async nap(200, tag: 0))
+	naps.push(async nap(10, tag: 1))
+	naps.push(async nap(100, tag: 2))
+	print("first={naps.awaitAny()}\n")
+	var order = ""
+	for round in 0 upto 3 'drain'
+		let at = naps.awaitAny() as Count
+		let tag = await naps[at]
+		order = "{order}," if round > 0 else order
+		order = "{order}{tag}"
+	end 'drain'
+	print("order={order}\n")
+	let slow = spawn Echo.create(300)
+	let quick = spawn Echo.create(1)
+	var replies = TagPromises.create(0)
+	replies.push(try slow.echo(1) otherwise panic("the mailbox has room"))
+	replies.push(try quick.echo(2) otherwise panic("the mailbox has room"))
+	let won = replies.awaitAny() as Count
+	print("reply={await replies[won]}\n")
+	_ = await replies[replies.awaitAny() as Count]
+	return 0
+end 'main'

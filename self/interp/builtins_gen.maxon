@@ -143,6 +143,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryAsyncCancel(vm, f: f, x: x)
 		return
 	end 'rtAsyncCancel'
+	if symbol == ir.Rt.rtAsyncAwaitAny 'rtAsyncAwaitAny'
+		try entryAsyncAwaitAny(vm, f: f, x: x)
+		return
+	end 'rtAsyncAwaitAny'
 	if symbol == ir.Rt.rtAsyncComplete 'rtAsyncComplete'
 		try entryAsyncComplete(vm, f: f, x: x)
 		return

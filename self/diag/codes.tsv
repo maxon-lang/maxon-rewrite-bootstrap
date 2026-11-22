@@ -95,6 +95,7 @@ ErrPromiseConsumed	E3142	semanticPromiseAlreadyConsumed	A promise is used after 
 ErrIllegalBitWidth	E3148	semanticIllegalBitWidth	A bits(n) typealias has a width the language does not have.
 ErrRawIntrinsicOutsideRuntime	E3152	rawIntrinsicOutsideRuntimeTier	A source file outside the runtime calls a __Raw intrinsic.
 ErrExposesHiddenType	E3167	semanticSignatureTypeLessVisibleThanDeclaration	A declaration's signature names a type less visible than the declaration.
+ErrValueNotShareable	E3171	registryValueNotShareable	A value that more than one thread reaches, a frozen value or a cown's, holds what cannot cross between threads.
 ErrAliasRangeDoesNotFit	E3178	aliasImplementsRangeDoesNotFit	A typealias implements one whose range does not hold its own, or that is over another primitive or signedness.
 ErrCannotInfer	E3179	genericTypeParameterNotInferable	A type parameter of a generic function is fixed by no argument.
 ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program cannot be spelled as a module name.

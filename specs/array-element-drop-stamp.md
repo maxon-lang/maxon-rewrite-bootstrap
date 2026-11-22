@@ -87,7 +87,7 @@ typealias IntPromise = Promise with Integer
 type Job
 	var running as IntPromise
 
-	static function start(running IntPromise) returns Self
+	static function start(consumes running IntPromise) returns Self
 		return Self{running: running}
 	end 'start'
 end 'Job'
@@ -100,7 +100,7 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	let held = JobArray.create(0)
+	var held = JobArray.create(0)
 	held.push(Job.start(async work(1)))
 	held.clear()
 	return 0
@@ -119,7 +119,7 @@ typealias IntPromise = Promise with Integer
 type Box uses Item
 	var item as Item
 
-	static function wrap(item Item) returns Self
+	static function wrap(item Item) returns Self where Item implements Copyable
 		return Self{item: item}
 	end 'wrap'
 end 'Box'
@@ -134,7 +134,7 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	let held = PromiseBoxArray.create(0)
+	var held = PromiseBoxArray.create(0)
 	held.push(PromiseBox.wrap(async work(1)))
 	held.clear()
 	return 0
@@ -163,7 +163,7 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	let held = SlotArray.create(0)
+	var held = SlotArray.create(0)
 	held.push(Slot.running(async work(1)))
 	held.clear()
 	return 0
@@ -189,7 +189,7 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	let held = EntryArray.create(0)
+	var held = EntryArray.create(0)
 	held.push((1, async work(1)))
 	held.clear()
 	return 0

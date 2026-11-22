@@ -7153,7 +7153,6 @@ error E3102: <fragment>:19:23: use of moved value 'item': it was moved in an ear
 ```
 
 <!-- test: error.a-concrete-factory-stores-a-promise-argument-in-a-loop -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The concrete twin of the case above, refused with the same sentence.
 ```maxon
@@ -7170,7 +7169,7 @@ type Holder
 	public var slot as IntPromise
 	var origin as Whole
 
-	static function create(item IntPromise, spare IntPromise, n Whole) returns Self
+	static function create(consumes item IntPromise, consumes spare IntPromise, n Whole) returns Self
 		var found = Self{slot: spare, origin: 0}
 		var round = 0 as Whole
 		while round < n 'scan'
@@ -7227,7 +7226,6 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 ```
 
 <!-- test: error.a-concrete-factory-stores-a-promise-argument-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The concrete twin of the case above, refused with the same sentence.
 ```maxon
@@ -7244,9 +7242,9 @@ type Holder
 	public var slot as IntPromise
 	var origin as Whole
 
-	static function create(item IntPromise) returns Self
+	static function create(consumes item IntPromise) returns Self
 		let first = Self{slot: item, origin: 1}
-		return Self{slot: item, origin: first.origin + 1}
+		return Self{slot: item, origin: try first.origin + 1 otherwise panic("out of range")}
 	end 'create'
 end 'Holder'
 

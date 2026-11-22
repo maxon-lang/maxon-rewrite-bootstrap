@@ -11038,8 +11038,8 @@ type Idle
 		return Self{n: 0}
 	end 'create'
 
-	export function touch()
-		self.n = self.n + 1
+	export function touch(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'touch'
 end 'Idle'
 
@@ -11050,7 +11050,7 @@ function main() returns ExitCode
 	try second.touch() otherwise panic("an open mailbox with room takes the send")
 	let arr = IntPromiseArray.create(0)
 	let ready = arr.awaitAny()
-	return ready as ExitCode
+	return try ready as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -122,6 +122,15 @@ function checkElementsComparable(mutates c Checker, p ast.Project, ms ast.Module
 	failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: '{method}' on an array of '{nameOfType(p, ms: ms, t: elem)}': only an array of integers, bools, enums or strings compares its elements, since there is no Equatable interface yet", errs: errs)
 end 'checkElementsComparable'
 
+// checkArrayAwaitAnyArgs refuses awaitAny on an array whose elements are not promises, which has no such method, as maxon's
+// has none.
+function checkArrayAwaitAnyArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	let elem = callElement(c, call: call)
+	if not ast.isPromiseType(ms.types, reads: p.types, t: elem) 'notPromises'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errUnknownFunction, msg: undefinedFunctionText("Array with {nameOfType(p, ms: ms, t: elem)}.awaitAny"), errs: errs)
+	end 'notPromises'
+end 'checkArrayAwaitAnyArgs'
+
 function checkArrayContainsArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	checkElementsComparable(c, p: p, ms: ms, call: call, method: "contains", errs: errs)
 end 'checkArrayContainsArgs'

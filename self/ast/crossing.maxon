@@ -187,6 +187,16 @@ function argsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, function
 	return ""
 end 'argsUnsendable'
 
+// sharedCrossingText is the refusal of a value given to freeze, when frozen is set, or to a cown, whose type name cannot
+// cross between threads, why being the reason: a frozen value is read by every thread that holds it, and a cown's value
+// by the behaviours that run on it, on whichever thread runs them.
+export function sharedCrossingText(name String, why String, frozen bool) returns String
+	if frozen 'frozen'
+		return "'{name}' cannot be frozen: {why}; a frozen value is read by every thread at once, so it may hold only what crosses between threads. Hold that part in a service or a cown, or freeze a value without it"
+	end 'frozen'
+	return "'{name}' cannot be the value of a cown: {why}; a cown's value is used by its behaviours on whichever thread runs them, so it may hold only what crosses between threads. Keep that part out of the cown"
+end 'sharedCrossingText'
+
 // behaviourCrossingText is the refusal of a value a behaviour takes that cannot cross to the thread that runs it, why being
 // the reason.
 export function behaviourCrossingText(name String, why String) returns String

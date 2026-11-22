@@ -514,6 +514,9 @@ export type Typing
 	export var funcUses as NodeUsesMap
 	export var fieldUses as NodeUsesMap
 	export var consumed as NodeBoolMap
+	// slotTakes are the reads of a promise out of an element or a field that a consume empties: the slot is left empty, and
+	// its holder keeps its other parts, as maxon's read of a promise out of storage names its slot.
+	export var slotTakes as NodeBoolMap
 	// boxes are the expressions whose value goes where an interface value is expected, each with that interface: the value
 	// moves into the box of an interface value there, or the box lends it where the place only borrows.
 	export var boxes as NodeBoxMap
@@ -546,9 +549,10 @@ export type Typing
 		let fum = NodeUsesMap.new()
 		let fdum = NodeUsesMap.new()
 		let con = NodeBoolMap.new()
+		let st = NodeBoolMap.new()
 		let bx = NodeBoxMap.new()
 		let wt = FuncWaitingMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, boxes: bx, waiting: wt, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, boxes: bx, waiting: wt, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

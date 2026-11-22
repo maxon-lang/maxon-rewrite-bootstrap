@@ -307,6 +307,7 @@ export enum Intrinsic
 	intrSleep
 	intrServiceShutdown
 	intrPromiseCancel
+	intrArrayAwaitAny
 	intrPromiseIsComplete
 	intrFilePathFrom
 	intrFilePathInit
@@ -963,6 +964,7 @@ function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	let p64 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
 	ft.lists[funcList(ft, f: f63)][funcIndex(ft, f: f63)].bounds.push(ParamBound.make(p64, ifaceTy: b.copyableTy))
 	ft.lists[funcList(ft, f: f63)][funcIndex(ft, f: f63)].errTy = b.arrayErrorTy
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayAwaitAny, name: "awaitAny", isStatic: false, selfConv: Convention.convLet, ret: b.elementIndexTy, params: ParamSpecList.create(0), listed: true)
 end 'declareArrayMethods'
 
 function declareFixedArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

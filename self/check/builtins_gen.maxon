@@ -43,6 +43,10 @@ function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.Mod
 		checkThawArgs(c, p: p, ms: ms, call: call, ordered: ordered, errs: errs)
 		return
 	end 'checkThaw'
+	if op == ast.Intrinsic.intrArrayAwaitAny 'checkArrayAwaitAny'
+		checkArrayAwaitAnyArgs(c, p: p, ms: ms, call: call, ordered: ordered, errs: errs)
+		return
+	end 'checkArrayAwaitAny'
 	if op == ast.Intrinsic.intrReadBigEndian 'checkReadBigEndian'
 		checkReadBigEndianArgs(c, p: p, ms: ms, call: call, ordered: ordered, errs: errs)
 		return

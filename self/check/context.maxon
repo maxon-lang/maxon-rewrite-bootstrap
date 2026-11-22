@@ -881,7 +881,7 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 			let fCount = ast.typeEntry(ms.types, reads: p.types, t: orig).fields.count()
 			for fi in 0 upto fCount 'eachF'
 				let fTy = ast.fieldType(ms.types, reads: p.types, owner: t, index: fi)
-				let sub = lacksCap(c, p: p, ms: ms, wantCopy: wantCopy, t: fTy)
+				let sub = partLacks(c, p: p, ms: ms, wantCopy: wantCopy, t: fTy)
 				if sub.missing 'fMiss'
 					let fName = ast.typeEntry(ms.types, reads: p.types, t: orig).fields[fi].name.clone()
 					res = LackInfo.wrap(LackStep.part(t, partTy: fTy, place: "in its field '{fName}'"), inner: sub)
@@ -902,7 +902,7 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 				let pCount = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload.count()
 				for pi in 0 upto pCount 'eachP'
 					let pTy = ast.payloadType(ms.types, reads: p.types, owner: t, caseIndex: ci, index: pi)
-					let sub = lacksCap(c, p: p, ms: ms, wantCopy: wantCopy, t: pTy)
+					let sub = partLacks(c, p: p, ms: ms, wantCopy: wantCopy, t: pTy)
 					if sub.missing 'pMiss'
 						let pName = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload[pi].name.clone()
 						res = LackInfo.wrap(LackStep.part(t, partTy: pTy, place: "in the payload '{pName}' of its case '{cName}'"), inner: sub)
@@ -913,7 +913,7 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 		end 'cases'
 	end 'uni' else if k == ast.TypeKind.builtinArray or k == ast.TypeKind.builtinList or k == ast.TypeKind.builtinPool 'col'
 		let elTy = typeElemType(p, ms: ms, ownerTy: t)
-		let sub = lacksCap(c, p: p, ms: ms, wantCopy: wantCopy, t: elTy)
+		let sub = partLacks(c, p: p, ms: ms, wantCopy: wantCopy, t: elTy)
 		if sub.missing 'elMiss'
 			res = LackInfo.wrap(LackStep.part(t, partTy: elTy, place: "as its elements"), inner: sub)
 		end 'elMiss'
@@ -924,6 +924,15 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 	end 'cache'
 	return res
 end 'lacksCap'
+
+// partLacks is lacksCap of a part of a value: a promise that a record, a union, a tuple or a collection holds is Droppable,
+// since the drop of its holder cancels it, as maxon's does; a promise of its own, in a local, is must-use (E3213).
+function partLacks(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, wantCopy bool, t ast.TypeID) returns LackInfo
+	if not wantCopy and ast.isPromiseType(ms.types, reads: p.types, t: t) 'promise'
+		return LackInfo.ok()
+	end 'promise'
+	return lacksCap(c, p: p, ms: ms, wantCopy: wantCopy, t: t)
+end 'partLacks'
 
 export function lackWhyText(tt ast.TypeSlot, reads ast.TypeTable, info LackInfo, capName String) returns String
 	var buf = ByteArray.create(0)

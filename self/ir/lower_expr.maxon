@@ -50,6 +50,9 @@ function lowerExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if isViewExpr(l, p: p, e: e) 'view'
 		return lowerExpr(l, p: p, ms: ms, e: ast.memberExprObj(p.modules[l.mi].tree, id: e))
 	end 'view'
+	if p.typings[l.mi].slotTakes.has(e as Count) 'slot'
+		return takeFromSlot(l, p: p, ms: ms, e: e, ty: ty)
+	end 'slot'
 	let mark = l.pending.count()
 	var v = visitExpr(l, p: p, ms: ms, e: e)
 	popPending(l, n: mark)
@@ -67,6 +70,40 @@ function lowerExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	end 'inFlight'
 	return v
 end 'lowerExpr'
+
+// takeFromSlot moves the promise out of the element or the field e, which the ownership pass found consumed there, and
+// leaves the slot empty, so that the holder's drop skips it and a second take finds it empty (rt.async's exit 118). The
+// promise is in flight until what takes it runs.
+function takeFromSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID) returns Reg
+	let places = l.writeBacks.count()
+	let addr = slotAddress(l, p: p, ms: ms, e: e)
+	let v = moveOutAt(l, p: p, ms: ms, addr: addr, t: ty)
+	writeBack(l, p: p, ms: ms, mark: places)
+	let dropTy = dropType(l, p: p, ms: ms, t: ty)
+	l.pending.push(PendingDrop.ofReg(v, ty: dropTy))
+	return v
+end 'takeFromSlot'
+
+// slotAddress is the address of the slot that e names: the element a for's variable stands for, in a for over slots, or
+// the element or field e is.
+function slotAddress(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	if p.modules[l.mi].tree.kindOf(e) == ast.NodeKind.nameExpr and nameInfoAt(p, module: l.module, node: e).kind == ast.NameKind.nameLocal 'name'
+		let name = nameInfoAt(p, module: l.module, node: e)
+		for k in 0 upto l.slotLoops.count() 'loops'
+			let at = try l.slotLoops.count() - 1 - k otherwise panic("lower: a for over slots past the list")
+			if l.slotLoops[at].local == name.local 'loop'
+				let box = l.slotLoops[at].box.clone()
+				let held = l.slotLoops[at].held
+				let index = l.slotLoops[at].index
+				let arr = load(l, slot: held)
+				let i = load(l, slot: index)
+				return arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: i, checked: false)
+			end 'loop'
+		end 'loops'
+		panic("lower: a promise is taken out of the variable of no for over slots at offset {p.modules[l.mi].tree.startOf(e)}")
+	end 'name'
+	return address(l, p: p, ms: ms, e: e)
+end 'slotAddress'
 
 // settle gives the managed value v of e its owner, as far as the expression decides: a fresh value that is not consumed is
 // a temporary of the statement, and a consumed place that shares on copy is copied.

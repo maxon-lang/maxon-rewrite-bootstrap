@@ -220,25 +220,25 @@ function delayed(ms Tally, answer Tally) returns Tally
 end 'delayed'
 
 function firstOf() returns Tally
-	let jobs = Jobs.create(0)
+	var jobs = Jobs.create(0)
 	jobs.push(async delayed(200, answer: 1))
 	jobs.push(async delayed(1, answer: 2))
 	let ready = jobs.awaitAny()
 	var sum = 0 as Tally
 	for job in jobs 'eachJob'
-		sum = sum + await job
+		sum = try sum + await job otherwise panic("out of range")
 	end 'eachJob'
-	return ready as Tally * 100 + sum
+	return try ready as Tally * 100 + sum otherwise panic("out of range")
 end 'firstOf'
 
 function main() returns ExitCode
-	let jobs = Jobs.create(0)
+	var jobs = Jobs.create(0)
 	jobs.push(async delayed(200, answer: 3))
 	jobs.push(async delayed(1, answer: 4))
 	let ready = jobs.awaitAny()
 	var sum = 0 as Tally
 	for job in jobs 'eachJob'
-		sum = sum + await job
+		sum = try sum + await job otherwise panic("out of range")
 	end 'eachJob'
 	let inner = async firstOf()
 	let innerAnswer = await inner

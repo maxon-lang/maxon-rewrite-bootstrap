@@ -334,13 +334,31 @@ function describeType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 end 'describeType'
 
 // checkFreezeArgs refuses a value to freeze that is no managed value and so cannot be frozen.
-function checkFreezeArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+function checkFreezeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let arg = soleArg(ordered)
 	let t = argumentType(c, node: arg)
 	if isConstInt(p, ms: ms, t: t) or (t != p.builtins.neverTy and t != p.builtins.voidTy and not ast.isManagedType(ms.types, reads: p.types, t: t)) 'plain'
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errFreezeScalar, msg: "'{nameOfType(p, ms: ms, t: t)}' is a plain value, which is immutable already and copied freely, so there is nothing to freeze: freeze a record, a union, a String or a collection", errs: errs)
+		return
 	end 'plain'
+	requireShareable(c, p: p, ms: ms, call: call, arg: arg, frozen: true, errs: errs)
 end 'checkFreezeArgs'
+
+// requireShareable refuses the value given to freeze, when frozen is set, or to a cown, when it cannot cross between
+// threads (ast.unsendable): a frozen value is read by every thread that holds it, and a cown's value by its behaviours,
+// which run on any thread. A value of a type that mentions a type parameter is judged at each instance of the generic code
+// (ir.requireShareable), which the call is recorded for.
+function requireShareable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, arg ast.NodeID, frozen bool, mutates errs diag.ErrorList)
+	let t = argumentType(c, node: arg)
+	if ast.mentionsTypeParam(ms.types, reads: p.types, t: t) 'generic'
+		recordUse(c, call: call)
+		return
+	end 'generic'
+	let why = ast.unsendable(ms.types, reads: p.types, t: t)
+	if why != "" 'refused'
+		failAt(c, p: p, ms: ms, node: arg, code: diag.errValueNotShareable, msg: ast.sharedCrossingText(nameOfType(p, ms: ms, t: t), why: why, frozen: frozen), errs: errs)
+	end 'refused'
+end 'requireShareable'
 
 // checkShareArgs refuses a value to share that is neither kind of shared value, which the generic signature allows.
 function checkShareArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
@@ -395,7 +413,11 @@ function cownCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	let newFn = p.builtins.cownNewFunc
 	let newDropFn = p.builtins.cownNewDropWithFunc
 	if dropAt == 0 'plain'
-		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callFunction, target: newFn, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+		let plain = callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callFunction, target: newFn, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+		if plain != ast.noType 'typed'
+			requireCownShareable(c, p: p, ms: ms, call: call, errs: errs)
+		end 'typed'
+		return plain
 	end 'plain'
 	c.hasOmitted = true
 	c.omittedCall = call
@@ -404,9 +426,20 @@ function cownCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	c.hasOmitted = false
 	if t != ast.noType 'typed'
 		checkDropWith(c, p: p, ms: ms, call: call, arg: dropArg, errs: errs)
+		requireCownShareable(c, p: p, ms: ms, call: call, errs: errs)
 	end 'typed'
 	return t
 end 'cownCall'
+
+// requireCownShareable refuses the value of a cown that cannot cross between threads, the content argument of the typed
+// call.
+function requireCownShareable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, mutates errs diag.ErrorList)
+	let content = match consumes c.typing.calls.get(call as Count) 'recorded'
+		some(info) gives info.ordered[0]
+		none panic("the cown at node {call} was typed without a record of what it calls")
+	end 'recorded'
+	requireShareable(c, p: p, ms: ms, call: call, arg: content, frozen: false, errs: errs)
+end 'requireCownShareable'
 
 // checkDropWith records the destructor named by the 'dropWith:' of a cown, which the call of the constructor leaves out of
 // its arguments.

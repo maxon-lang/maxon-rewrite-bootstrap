@@ -267,6 +267,9 @@ export let errRawIntrinsicOutsideRuntime = "E3152"
 // A declaration's signature names a type less visible than the declaration.
 export let errExposesHiddenType = "E3167"
 
+// A value that more than one thread reaches, a frozen value or a cown's, holds what cannot cross between threads.
+export let errValueNotShareable = "E3171"
+
 // A typealias implements one whose range does not hold its own, or that is over another primitive or signedness.
 export let errAliasRangeDoesNotFit = "E3178"
 

@@ -266,6 +266,10 @@ function visitUses(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 			continue 'each'
 		end 'notCall'
 		let info = callInfoAt(p, module: module, node: site)
+		if info.intrinsic == ast.Intrinsic.intrFreeze or info.intrinsic == ast.Intrinsic.intrCown 'shared'
+			requireShareable(p, ms: ms, module: module, site: site, info: info, bindParams: bindParams, bindArgs: bindArgs, errs: errs)
+			continue 'each'
+		end 'shared'
 		if not runsFunction(info.kind) 'noFunction'
 			continue 'each'
 		end 'noFunction'
@@ -299,6 +303,19 @@ function requireCrossings(p ast.Project, mutates ms ast.ModuleState, module diag
 		end 'refused'
 	end 'captures'
 end 'requireCrossings'
+
+// requireShareable refuses, in an instance of generic code, the value that a freeze or a cown at site is given when it
+// cannot cross between threads at the instance's type arguments: the check judged every other such value where it was
+// written (check.requireShareable).
+function requireShareable(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, mutates errs diag.ErrorList)
+	let arg = info.ordered[0]
+	let t = ast.substituteType(ms.types, reads: p.types, t: exprType(p, module: module, node: arg), params: bindParams, args: bindArgs)
+	let why = ast.unsendable(ms.types, reads: p.types, t: t)
+	if why != "" 'refused'
+		let name = ast.typeName(ms.types, reads: p.types, t: t)
+		pushInstanceError(p, module: module, site: arg, code: diag.errValueNotShareable, message: ast.sharedCrossingText(name, why: why, frozen: info.intrinsic == ast.Intrinsic.intrFreeze), errs: errs)
+	end 'refused'
+end 'requireShareable'
 
 // runsFunction is whether a call of the kind runs a function that can be an instance. A site is recorded for a use that
 // is not the call itself, such as the value that is put in an interface value, which can be a union case or a copy.

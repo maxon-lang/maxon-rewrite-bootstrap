@@ -51,12 +51,21 @@ let intentFinish = 4 as Count
 let intentNoProc = 5 as Count
 
 // A processor keeps up to freeGreensKept free green threads' records and freeStacksKept free stacks, and sends half of
-// them to the scheduler's lists when it has more, as Go's gfput does; a processor with none takes freeBatch at once.
+// them to the scheduler's lists when it has more, as Go's gfput does. A green thread's record is kept for good, as Go keeps
+// its gs; a stack is not: the scheduler's list holds at most schedStacksKept, and a stack spilled past that goes back to
+// the system, as Go's collector frees the stacks of the gs on its global free list, so a burst of green threads that
+// parked leaves no stacks behind. Only a green thread that runs holds a record and a stack (a behaviour takes them when
+// it starts, execute), so the pools hold what the peak of running and parked green threads used.
 let freeGreensKept = 64 as Count
 
 let freeStacksKept = 16 as Count
 
-let freeBatch = 8 as Count
+let schedStacksKept = 64 as Count
+
+// stackKeptBytes is how much of a stack its last green thread may have committed for the stack to be pooled: one that grew
+// past it goes back to the system when it is freed, as Go's gfput frees a stack that is not of the starting size, so the
+// pages of one deep recursion do not stay committed in the pool. It is maxon's largest adaptive stack seed.
+let stackKeptBytes = 65536 as Count
 
 // newGreen is a green thread of a kind that runs code, not yet runnable: from the processor's free records, the
 // scheduler's, or a new one. It counts among the live ones until it finishes.
@@ -164,6 +173,113 @@ function greenWait(g Count)
 	end 'wait'
 end 'greenWait'
 
+// A waiter word may name a selector, the record of an awaitAny that waits on several promises at once (Go's select, whose
+// one sudog every case shares), tagged with selectorTag: a box's address is a multiple of a word, and greenFinished and
+// noGreen are no tagged address.
+let selectorTag = 1 as Count
+
+// noneFinished is what completedIn gives when no promise of the array has finished: no index, since an array's length
+// is below it.
+let noneFinished = 0xFFFFFFFFFFFFFFFF as Count
+
+function isSelector(waiter Count) returns bool
+	return waiter != greenFinished and (waiter and selectorTag) != 0
+end 'isSelector'
+
+// wakeWaiter is what a finish does for the waiter it exchanged greenFinished for: a green thread is readied, and a
+// selector's green thread is, by the finish that claims it first; the finish then lets the selector go.
+function wakeWaiter(context Count, waiter Count)
+	if waiter == noGreen 'none'
+		return
+	end 'none'
+	if isSelector(waiter) 'selector'
+		let selector = __Raw.wrappingSub(waiter, right: selectorTag)
+		if __Raw.compareExchange(selector, offset: selectorDoneOffset, expected: unset, desired: set) == unset 'first'
+			ready(context, g: __Raw.loadWord(selector, offset: selectorGreenOffset))
+		end 'first'
+		releaseSelector(selector)
+		return
+	end 'selector'
+	ready(context, g: waiter)
+end 'wakeWaiter'
+
+// releaseSelector lets a selector go, and frees it when nothing else holds it.
+function releaseSelector(selector Count)
+	if __Raw.atomicAdd(selector, offset: selectorRefsOffset, value: stepDown) == 1 'last'
+		free(selector)
+	end 'last'
+end 'releaseSelector'
+
+// asyncAwaitAny is maxon's awaitAny of an array of promises: it gives the index of the first that has finished, a slot
+// that a take left empty holding none, and when none has it waits, registered as the waiter of each (Go's selectgo): the
+// first finish readies it, and it takes itself off every promise before it looks again, so a later await of any finds no
+// waiter. It consumes no promise. A promise that another waits for is a broken invariant, since only its owner awaits it.
+function asyncAwaitAny(array Count) returns Count
+	let found = completedIn(array)
+	if found != noneFinished 'already'
+		return found
+	end 'already'
+	let context = __Raw.threadContext()
+	let selector = alloc(selectorBytes)
+	__Raw.storeWord(selector, offset: selectorGreenOffset, value: greenCurrent())
+	__Raw.storeWord(selector, offset: selectorDoneOffset, value: unset)
+	__Raw.storeWord(selector, offset: selectorRefsOffset, value: 1)
+	let tagged = __Raw.wrappingAdd(selector, right: selectorTag)
+	let n = __Raw.loadWord(array, offset: arrayLengthOffset)
+	var finishedEarly = false
+	for i in 0 upto n 'register'
+		let promise = promiseAt(array, index: i)
+		if promise == noGreen 'empty'
+			continue 'register'
+		end 'empty'
+		_ = __Raw.atomicAdd(selector, offset: selectorRefsOffset, value: 1)
+		let was = __Raw.compareExchange(promise, offset: greenWaiterOffset, expected: noGreen, desired: tagged)
+		if was == noGreen 'registered'
+			continue 'register'
+		end 'registered'
+		_ = __Raw.atomicAdd(selector, offset: selectorRefsOffset, value: stepDown)
+		if was != greenFinished 'waited'
+			panic("a promise that awaitAny waits on has another waiter")
+		end 'waited'
+		finishedEarly = true
+		break 'register'
+	end 'register'
+	// A finish that claimed the wake readies this green thread, which the park takes; one found finished while registering
+	// claims it here, unless a finish claimed it first.
+	if not finishedEarly or __Raw.compareExchange(selector, offset: selectorDoneOffset, expected: unset, desired: set) != unset 'wait'
+		park(context)
+	end 'wait'
+	for i in 0 upto n 'deregister'
+		let promise = promiseAt(array, index: i)
+		if promise != noGreen and __Raw.compareExchange(promise, offset: greenWaiterOffset, expected: tagged, desired: noGreen) == tagged 'mine'
+			releaseSelector(selector)
+		end 'mine'
+	end 'deregister'
+	releaseSelector(selector)
+	let after = completedIn(array)
+	if after == noneFinished 'none'
+		panic("awaitAny was woken with no promise finished")
+	end 'none'
+	return after
+end 'asyncAwaitAny'
+
+// completedIn is the index of the first promise of an array that has finished, or noneFinished.
+function completedIn(array Count) returns Count
+	let n = __Raw.loadWord(array, offset: arrayLengthOffset)
+	for i in 0 upto n 'scan'
+		let promise = promiseAt(array, index: i)
+		if promise != noGreen and __Raw.atomicAdd(promise, offset: greenWaiterOffset, value: 0) == greenFinished 'finished'
+			return i
+		end 'finished'
+	end 'scan'
+	return noneFinished
+end 'completedIn'
+
+// promiseAt is the promise an array of them holds at an index, noGreen where a take left the slot empty.
+function promiseAt(array Count, index Count) returns Count
+	return __Raw.loadWord(__Raw.loadWord(array, offset: arrayDataOffset), offset: try index * wordBytes otherwise panic("an array past memory"))
+end 'promiseAt'
+
 // greenTake gives the word a green thread that greenWait waited for gave back, and frees its record.
 function greenTake(g Count) returns Count
 	let result = __Raw.loadWord(g, offset: greenResultOffset)
@@ -256,9 +372,10 @@ function switchStacks(context Count, from Count, onto Count)
 	_ = __Raw.callCode1(__Raw.stackSwitchAddress(), arg1: __Raw.wrappingAdd(context, right: contextSwitchFromOffset))
 end 'switchStacks'
 
-// execute is Go's execute: the thread runs a green thread on its stack, giving it one when it first runs, until it
-// switches back, then does what it asked.
-function execute(context Count, g Count)
+// execute is Go's execute: the thread runs a run queue's entry, a green thread or a behaviour that starts on one, on its
+// stack, giving it one when it first runs, until it switches back, then does what it asked.
+function execute(context Count, entry Count)
+	let g = greenOf(context, entry: entry)
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
 	__Raw.storeWord(proc, offset: procSchedTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSchedTickOffset), right: 1))
 	_ = __Raw.atomicExchange(g, offset: greenStatusOffset, value: greenRunning)
@@ -280,6 +397,18 @@ function execute(context Count, g Count)
 		panic("a green thread asks its scheduler for what it does not do")
 	end 'unknown'
 end 'execute'
+
+// greenOf is the green thread that runs a run queue's entry: the entry itself, or for a behaviour that starts, a green
+// thread made now that runs the record's run with the record, so a behaviour holds a green thread only once it runs.
+function greenOf(context Count, entry Count) returns Count
+	if not isBehaviourEntry(entry) 'green'
+		return entry
+	end 'green'
+	let record = __Raw.wrappingSub(entry, right: behaviourEntryTag)
+	let g = newGreen(context, code: __Raw.loadWord(record, offset: behaviourRunOffset), kind: greenBehaviour)
+	__Raw.storeWord(g, offset: greenArgOffset, value: record)
+	return g
+end 'greenOf'
 
 // parked is Go's park_m, the scheduler's half of a park: the green thread waits, unless a ready came while it switched, and
 // then it runs next.
@@ -315,10 +444,7 @@ function finished(context Count, g Count)
 	if __Raw.loadWord(g, offset: greenKindOffset) == greenBehaviour 'behaviour'
 		putFreeGreen(scheduler, proc: proc, g: g)
 	end 'behaviour' else 'awaited'
-		let waiter = __Raw.atomicExchange(g, offset: greenWaiterOffset, value: greenFinished)
-		if waiter != noGreen 'waiter'
-			ready(context, g: waiter)
-		end 'waiter'
+		wakeWaiter(context, waiter: __Raw.atomicExchange(g, offset: greenWaiterOffset, value: greenFinished))
 	end 'awaited'
 	if __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: stepDown) == 1 'last'
 		endDrain(scheduler)
@@ -422,17 +548,23 @@ function takeFreeStack(scheduler Count, proc Count) returns Count
 	let shared = __Raw.loadWord(scheduler, offset: schedFreeStacksOffset)
 	if shared != noStack 'shared'
 		__Raw.storeWord(scheduler, offset: schedFreeStacksOffset, value: __Raw.loadWord(shared, offset: pooledStackNextOffset))
+		__Raw.storeWord(scheduler, offset: schedFreeStackCountOffset, value: __Raw.wrappingSub(__Raw.loadWord(scheduler, offset: schedFreeStackCountOffset), right: 1))
 	end 'shared'
 	unlockScheduler(scheduler)
 	if shared != noStack 'reused'
 		return shared
 	end 'reused'
-	return newStack(scheduler)
+	return newStack()
 end 'takeFreeStack'
 
 // putFreeStack keeps a stack for reuse on the processor, and sends half of what it keeps to the scheduler's list when it
-// keeps too many. A stack keeps the pages its last green thread committed.
+// keeps too many, which gives back to the system what it has no room for; a stack that grew past stackKeptBytes goes back
+// at once. A pooled stack keeps the pages its last green thread committed. The system calls are made after the lock.
 function putFreeStack(scheduler Count, proc Count, stack Count)
+	if stackGrew(stack) 'grew'
+		releaseStack(stack)
+		return
+	end 'grew'
 	__Raw.storeWord(stack, offset: pooledStackNextOffset, value: __Raw.loadWord(proc, offset: procFreeStacksOffset))
 	__Raw.storeWord(proc, offset: procFreeStacksOffset, value: stack)
 	let kept = __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procFreeStackCountOffset), right: 1)
@@ -440,15 +572,28 @@ function putFreeStack(scheduler Count, proc Count, stack Count)
 	if kept <= freeStacksKept 'few'
 		return
 	end 'few'
+	var released = noStack
 	lockScheduler(scheduler)
 	for i in 0 upto freeStacksKept / 2 'spill'
 		let spilled = __Raw.loadWord(proc, offset: procFreeStacksOffset)
 		__Raw.storeWord(proc, offset: procFreeStacksOffset, value: __Raw.loadWord(spilled, offset: pooledStackNextOffset))
-		__Raw.storeWord(spilled, offset: pooledStackNextOffset, value: __Raw.loadWord(scheduler, offset: schedFreeStacksOffset))
-		__Raw.storeWord(scheduler, offset: schedFreeStacksOffset, value: spilled)
+		let shared = __Raw.loadWord(scheduler, offset: schedFreeStackCountOffset)
+		if shared < schedStacksKept 'room'
+			__Raw.storeWord(spilled, offset: pooledStackNextOffset, value: __Raw.loadWord(scheduler, offset: schedFreeStacksOffset))
+			__Raw.storeWord(scheduler, offset: schedFreeStacksOffset, value: spilled)
+			__Raw.storeWord(scheduler, offset: schedFreeStackCountOffset, value: __Raw.wrappingAdd(shared, right: 1))
+		end 'room' else 'full'
+			__Raw.storeWord(spilled, offset: pooledStackNextOffset, value: released)
+			released = spilled
+		end 'full'
 	end 'spill'
 	unlockScheduler(scheduler)
 	__Raw.storeWord(proc, offset: procFreeStackCountOffset, value: __Raw.wrappingSub(kept, right: freeStacksKept / 2))
+	while released != noStack 'release'
+		let next = __Raw.loadWord(released, offset: pooledStackNextOffset)
+		releaseStack(released)
+		released = next
+	end 'release'
 end 'putFreeStack'
 
 // The blocking-call hand-off, Go's entersyscall and exitsyscall. A runtime function that makes a system call that may
@@ -578,9 +723,14 @@ end 'resumeAt'
 	// stackGuardBytes is the guard page at the bottom of a stack's reserve.
 	let stackGuardBytes = 4096 as Count
 
+	let memRelease = 0x8000 as Count
+
+	// releaseWholeReserve is VirtualFree's size of a release, which frees the whole reserve.
+	let releaseWholeReserve = 0 as Count
+
 	// newStack reserves a stack and commits its top, with a guard page below the committed part, so that the kernel
 	// commits a page more each time the stack reaches the guard, by the TEB's bounds that rt.stackSwitch moves with it.
-	function newStack(scheduler Count) returns Count
+	function newStack() returns Count
 		let low = __Raw.callImport4("VirtualAlloc", arg1: 0, arg2: stackReserveBytes, arg3: memReserve, arg4: pageReadWrite)
 		if low == 0 'reserve'
 			panic("out of memory: no address space for a green thread's stack")
@@ -593,15 +743,29 @@ end 'resumeAt'
 		if __Raw.callImport4("VirtualAlloc", arg1: __Raw.wrappingSub(committed, right: stackGuardBytes), arg2: stackGuardBytes, arg3: memCommit, arg4: pageReadWrite or pageGuard) == 0 'guard'
 			panic("out of memory: cannot guard a green thread's stack")
 		end 'guard'
-		return stackRecord(scheduler, low: low, high: high, limit: committed)
+		return stackRecord(low, high: high, limit: committed)
 	end 'newStack'
+
+	// releaseStack gives a stack's reserve, its record with it, back to the system.
+	function releaseStack(stack Count)
+		if __Raw.callImport3("VirtualFree", arg1: __Raw.loadWord(stack, offset: pooledStackLowOffset), arg2: releaseWholeReserve, arg3: memRelease) == 0 'failed'
+			panic("a green thread's stack cannot be given back to the system")
+		end 'failed'
+	end 'releaseStack'
+
+	// stackGrew is whether a stack's last green thread committed more of it than a pooled stack keeps, by the TEB's
+	// StackLimit it left.
+	function stackGrew(stack Count) returns bool
+		let top = __Raw.wrappingAdd(stack, right: pooledStackBytes)
+		return __Raw.wrappingSub(top, right: __Raw.loadWord(stack, offset: pooledStackLimitOffset)) > stackKeptBytes
+	end 'stackGrew'
 #endif
 
-// stackRecord is the record of a new stack.
-function stackRecord(scheduler Count, low Count, high Count, limit Count) returns Count
-	let stack = carve(scheduler, bytes: pooledStackBytes)
+// stackRecord is the record of a new stack, at the top of its reserve, below high, which the stack starts under.
+function stackRecord(low Count, high Count, limit Count) returns Count
+	let stack = __Raw.wrappingSub(high, right: pooledStackBytes)
 	__Raw.storeWord(stack, offset: pooledStackLowOffset, value: low)
-	__Raw.storeWord(stack, offset: pooledStackHighOffset, value: high)
+	__Raw.storeWord(stack, offset: pooledStackHighOffset, value: stack)
 	__Raw.storeWord(stack, offset: pooledStackLimitOffset, value: limit)
 	__Raw.storeWord(stack, offset: pooledStackNextOffset, value: noStack)
 	return stack

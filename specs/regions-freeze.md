@@ -381,6 +381,7 @@ frozen-tag-with-a-heap-string:2 cell-tag-with-a-heap-string:2 1000 1000
 ```
 
 <!-- test: a-frozen-interface-holder-is-read-by-two-services -->
+<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 <!-- procs: 4 -->
 The same frozen `Holder` is handed `immutable` to two services, which read it three hundred times each at once, so every read of the `Labeled` and its `String` and array steps counts both strands hold; a spawned service is what makes the witness tables carry the walk that marks the graph shared.
 
@@ -2016,7 +2017,7 @@ end 'Shape'
 type Stepper implements Shape
 	export let step as Step
 
-	static function create(consumes step Step) returns Self
+	static function create(step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
@@ -2042,8 +2043,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(mutates self, n Tally)
-		self.seen = try self.seen + n otherwise panic("out of range")
+	export function look(n Tally)
+		self.seen = self.seen + n
 	end 'look'
 end 'Door'
 
@@ -2051,7 +2052,7 @@ type W implements Shape
 	let s as Stepper
 
 	static function create(s Stepper) returns Self
-		return Self{s: s.clone()}
+		return Self{s: s}
 	end 'create'
 
 	function area() returns Tally
@@ -2062,7 +2063,7 @@ end 'W'
 type Holder
 	export let shape as Shape
 
-	static function create(consumes shape Shape) returns Self
+	static function create(shape Shape) returns Self
 		return Self{shape: shape}
 	end 'create'
 end 'Holder'
@@ -2070,7 +2071,7 @@ end 'Holder'
 function main() returns ExitCode
 	let d = spawn Door.create()
 	d.shutdown()
-	let f = freeze(Holder.create(W.create(Stepper.create(function(n Tally) gives try n + 1 otherwise panic("out of range")))))
+	let f = freeze(Holder.create(W.create(Stepper.create(function(n Tally) gives n + 1))))
 	print("{f.shape.area()} {Plain.create().area()}\n")
 	return 0
 end 'main'
@@ -2913,6 +2914,7 @@ end 'main'
 ```
 
 <!-- test: a-string-conformer-widened-to-a-share-reached-interface-runs -->
+<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 A `String` stands at `Shape` through an extension, and the interface is share-reached; the widening is judged like any conformer's and the program runs.
 
 ```maxon
@@ -2935,15 +2937,15 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(mutates self, n Tally)
-		self.seen = try self.seen + n otherwise panic("out of range")
+	export function look(n Tally)
+		self.seen = self.seen + n
 	end 'look'
 end 'Door'
 
 type Holder
 	export let shape as Shape
 
-	static function create(consumes shape Shape) returns Self
+	static function create(shape Shape) returns Self
 		return Self{shape: shape}
 	end 'create'
 end 'Holder'
@@ -3156,7 +3158,7 @@ end 'I3'
 type Stepper
 	export let step as Step
 
-	static function create(consumes step Step) returns Self
+	static function create(step Step) returns Self
 		return Self{step: step}
 	end 'create'
 end 'Stepper'
@@ -3164,8 +3166,8 @@ end 'Stepper'
 type Box uses T
 	export let item as T
 
-	static function create(item T) returns Self where T implements Copyable
-		return Self{item: item.clone()}
+	static function create(item T) returns Self
+		return Self{item: item}
 	end 'create'
 end 'Box'
 
@@ -3216,7 +3218,7 @@ end 'DeepBag'
 type H1
 	export let s as I1
 
-	static function create(consumes s I1) returns Self
+	static function create(s I1) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H1'
@@ -3224,7 +3226,7 @@ end 'H1'
 type H2
 	export let s as I2
 
-	static function create(consumes s I2) returns Self
+	static function create(s I2) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H2'
@@ -3232,7 +3234,7 @@ end 'H2'
 type H3
 	export let s as I3
 
-	static function create(consumes s I3) returns Self
+	static function create(s I3) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H3'
@@ -3244,8 +3246,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(mutates self, n Tally)
-		self.seen = try self.seen + n otherwise panic("out of range")
+	export function look(n Tally)
+		self.seen = self.seen + n
 	end 'look'
 end 'Door'
 

@@ -1,0 +1,82 @@
+// native-only
+// A promise can be held in an array, a field or a union's payload, and each read of one that is consumed takes it out of
+// the slot that held it, which is left empty: an element, a field of a var or of a mutates receiver, and the variable of a
+// for over an array, which names each element's slot in turn. pop and remove take one out whole. A holder dropped with
+// promises in it cancels them: a coroutine that has not started never runs.
+//> sum=6
+//> second=20
+//> pending=7
+//> popped=3
+//> cancelled none ran
+//> left=2
+typealias Tag = int(0 to 1000)
+
+typealias TagPromise = Promise with Tag
+
+typealias TagPromises = Array with TagPromise
+
+function nap(delay Milliseconds, tag Tag) returns Tag
+	sleep(delay)
+	return tag
+end 'nap'
+
+function loud(tag Tag) returns Tag
+	sleep(1)
+	print("ran {tag}\n")
+	return tag
+end 'loud'
+
+type Pending
+	var next as TagPromise
+	var count as Tag
+
+	static function make(consumes next TagPromise) returns Self
+		return Self{next: next, count: 0}
+	end 'make'
+
+	function take(mutates self) returns Tag
+		self.count = try self.count + 1 otherwise 0
+		return await self.next
+	end 'take'
+end 'Pending'
+
+// dropsUnstarted drops an array of coroutines that have not started, since nothing waited after the async calls: each is
+// cancelled, so neither prints.
+function dropsUnstarted()
+	var dropped = TagPromises.create(0)
+	dropped.push(async loud(1))
+	dropped.push(async loud(2))
+end 'dropsUnstarted'
+
+function main() returns ExitCode
+	var naps = TagPromises.create(0)
+	naps.push(async nap(30, tag: 1))
+	naps.push(async nap(5, tag: 2))
+	naps.push(async nap(15, tag: 3))
+	var sum = 0 as Tag
+	for p in naps 'drain'
+		sum = try sum + await p otherwise 0
+	end 'drain'
+	print("sum={sum}\n")
+	var two = TagPromises.create(0)
+	two.push(async nap(1, tag: 10))
+	two.push(async nap(1, tag: 20))
+	let second = await two[1]
+	print("second={second}\n")
+	_ = await two[0]
+	var pending = Pending.make(async nap(1, tag: 7))
+	print("pending={pending.take()}\n")
+	var stack = TagPromises.create(0)
+	stack.push(async nap(1, tag: 3))
+	let popped = try stack.pop() otherwise panic("one is pushed")
+	print("popped={await popped}\n")
+	dropsUnstarted()
+	print("cancelled none ran\n")
+	var left = TagPromises.create(0)
+	left.push(async nap(1, tag: 1))
+	left.push(async nap(1, tag: 2))
+	let gone = try left.remove(0) otherwise panic("two are pushed")
+	gone.cancel()
+	print("left={await left[0]}\n")
+	return 0
+end 'main'

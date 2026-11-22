@@ -8,8 +8,9 @@
 // not by the processor count: a green thread readied while a processor is idle and no thread is spinning starts one
 // (wakep), and the monitor (monitor.maxon) starts one for a processor it takes from a blocking call.
 //
-// A behaviour is a green thread: `when` calls schedEnter once for each behaviour it makes, before the behaviour can run,
-// and schedPush when it becomes runnable, which gives it a green thread that runs the record's run with the record. The
+// A behaviour is a green thread once it starts: `when` calls schedEnter once for each behaviour it makes, before the
+// behaviour can run, and schedPush when it becomes runnable, which queues its record; a processor that takes the record
+// from a run queue gives it a green thread that runs the record's run with the record (execute). The
 // main thread is thread 0 with processor 0, made with the scheduler when mainRun starts main's green thread; it runs the
 // scheduler on its own stack until no behaviour or green thread is left. The program then ends with ExitProcess, which
 // ends the other threads wherever they are. A program whose code needs none of this is linked without the scheduler
@@ -110,14 +111,47 @@ function schedEnter()
 	_ = __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: 1)
 end 'schedEnter'
 
-// schedPush makes a behaviour runnable: a green thread runs its record's run with the record, next on the running
-// thread's processor, and a thread is woken for the processors that are idle.
+// schedPush makes a behaviour runnable: its record goes next on the running thread's processor as a run queue's entry, and
+// a thread is woken for the processors that are idle. It takes a green thread only when a processor starts it (execute).
 function schedPush(record Count)
 	let context = __Raw.threadContext()
-	let g = newGreen(context, code: __Raw.loadWord(record, offset: behaviourRunOffset), kind: greenBehaviour)
-	__Raw.storeWord(g, offset: greenArgOffset, value: record)
-	ready(context, g: g)
+	runqPut(__Raw.loadWord(context, offset: contextProcOffset), g: behaviourEntry(record), next: true)
+	wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
 end 'schedPush'
+
+// A run queue's entry is a green thread's record, or a runnable behaviour's record with behaviourEntryTag added: a
+// behaviour that has not started holds no green thread and no stack, as a message in maxon's cown queue holds no runner,
+// so a burst of them costs their records only. A record's address is a box's, a multiple of a word, so the tag's bit is
+// free. Go has no such entry, since a goroutine is made with its g; a behaviour is made by `when` before it can run.
+let behaviourEntryTag = 1 as Count
+
+// behaviourEntry is the run queue's entry of a runnable behaviour's record.
+function behaviourEntry(record Count) returns Count
+	return __Raw.wrappingAdd(record, right: behaviourEntryTag)
+end 'behaviourEntry'
+
+// isBehaviourEntry is whether a run queue's entry is a behaviour that has not started.
+function isBehaviourEntry(entry Count) returns bool
+	return (entry and behaviourEntryTag) != 0
+end 'isBehaviourEntry'
+
+// entryLink is the entry after one in the global run queue, linked through a green thread's greenLinkOffset or a runnable
+// behaviour's behaviourLinkOffset.
+function entryLink(entry Count) returns Count
+	if isBehaviourEntry(entry) 'behaviour'
+		return __Raw.loadWord(__Raw.wrappingSub(entry, right: behaviourEntryTag), offset: behaviourLinkOffset)
+	end 'behaviour'
+	return __Raw.loadWord(entry, offset: greenLinkOffset)
+end 'entryLink'
+
+// setEntryLink links an entry of the global run queue to the one after it.
+function setEntryLink(entry Count, next Count)
+	if isBehaviourEntry(entry) 'behaviour'
+		__Raw.storeWord(__Raw.wrappingSub(entry, right: behaviourEntryTag), offset: behaviourLinkOffset, value: next)
+		return
+	end 'behaviour'
+	__Raw.storeWord(entry, offset: greenLinkOffset, value: next)
+end 'setEntryLink'
 
 // osSetExitCode is Process.setExitCode: the process ends with the last code set, in place of main's, when main has
 // returned and nothing is left. The code is read only then, after every behaviour has finished, so a plain store is
@@ -220,7 +254,7 @@ function scheduleLoop(context Count)
 		if __Raw.loadWord(context, offset: contextSpinningOffset) == set 'spinning'
 			resetSpinning(context)
 		end 'spinning'
-		execute(context, g: g)
+		execute(context, entry: g)
 	end 'schedule'
 end 'scheduleLoop'
 
@@ -675,18 +709,20 @@ function runqPutSlow(proc Count, g Count, head Count, tail Count) returns bool
 	if __Raw.wrappingSub(tail, right: head) != procRunqSlots 'notFull'
 		panic("the run queue is not full")
 	end 'notFull'
-	var first = __Raw.loadWord(runqSlot(proc, index: head), offset: 0)
-	var last = first
-	for i in 1 upto half 'batch'
-		let at = __Raw.loadWord(runqSlot(proc, index: __Raw.wrappingAdd(head, right: i)), offset: 0)
-		__Raw.storeWord(last, offset: greenLinkOffset, value: at)
-		last = at
-	end 'batch'
 	if __Raw.compareExchange(proc, offset: procRunqHeadOffset, expected: head, desired: __Raw.wrappingAdd(head, right: half)) != head 'lost'
 		return false
 	end 'lost'
-	__Raw.storeWord(last, offset: greenLinkOffset, value: g)
-	__Raw.storeWord(g, offset: greenLinkOffset, value: noGreen)
+	// Linked only once claimed, as Go links its batch after the compare-exchange: an entry a thief took meanwhile may have
+	// run and had its record freed. The claimed slots still hold them, since only the owner writes a slot.
+	let first = __Raw.loadWord(runqSlot(proc, index: head), offset: 0)
+	var last = first
+	for i in 1 upto half 'batch'
+		let at = __Raw.loadWord(runqSlot(proc, index: __Raw.wrappingAdd(head, right: i)), offset: 0)
+		setEntryLink(last, next: at)
+		last = at
+	end 'batch'
+	setEntryLink(last, next: g)
+	setEntryLink(g, next: noGreen)
 	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
 	lockScheduler(scheduler)
 	globalPutBatch(scheduler, first: first, last: g, count: __Raw.wrappingAdd(half, right: 1))
@@ -777,7 +813,7 @@ function runqSlot(proc Count, index Count) returns Count
 	return __Raw.wrappingAdd(proc, right: __Raw.wrappingAdd(procRunqOffset, right: (index mod procRunqSlots) * wordBytes))
 end 'runqSlot'
 
-// The global run queue, Go's sched.runq, under the scheduler's lock: green threads linked through greenLinkOffset.
+// The global run queue, Go's sched.runq, under the scheduler's lock: entries linked through setEntryLink.
 
 // globalQueued is whether the global run queue holds anything, read without the lock to choose whether to take it.
 function globalQueued(scheduler Count) returns bool
@@ -785,17 +821,17 @@ function globalQueued(scheduler Count) returns bool
 end 'globalQueued'
 
 function globalPut(scheduler Count, g Count)
-	__Raw.storeWord(g, offset: greenLinkOffset, value: noGreen)
+	setEntryLink(g, next: noGreen)
 	globalPutBatch(scheduler, first: g, last: g, count: 1)
 end 'globalPut'
 
-// globalPutBatch puts a linked list of count green threads, whose last links to nothing, at the tail.
+// globalPutBatch puts a linked list of count entries, whose last links to nothing, at the tail.
 function globalPutBatch(scheduler Count, first Count, last Count, count Count)
 	let tail = __Raw.loadWord(scheduler, offset: schedRunqTailOffset)
 	if tail == noGreen 'empty'
 		__Raw.storeWord(scheduler, offset: schedRunqHeadOffset, value: first)
 	end 'empty' else 'after'
-		__Raw.storeWord(tail, offset: greenLinkOffset, value: first)
+		setEntryLink(tail, next: first)
 	end 'after'
 	__Raw.storeWord(scheduler, offset: schedRunqTailOffset, value: last)
 	__Raw.storeWord(scheduler, offset: schedRunqSizeOffset, value: __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedRunqSizeOffset), right: count))
@@ -839,7 +875,7 @@ end 'globalGet'
 // globalPop takes the head of the global run queue, whose size the caller has lowered.
 function globalPop(scheduler Count) returns Count
 	let g = __Raw.loadWord(scheduler, offset: schedRunqHeadOffset)
-	let next = __Raw.loadWord(g, offset: greenLinkOffset)
+	let next = entryLink(g)
 	__Raw.storeWord(scheduler, offset: schedRunqHeadOffset, value: next)
 	if next == noGreen 'last'
 		__Raw.storeWord(scheduler, offset: schedRunqTailOffset, value: noGreen)
@@ -962,7 +998,7 @@ function threadBlockSwitch(context Count) returns Count
 end 'threadBlockSwitch'
 
 // carve is a record of a number of bytes from the scheduler's carving block, which the runtime keeps for good: the
-// records of green threads and of stacks, which free lists reuse, so the leak check does not count them.
+// records of green threads, which free lists reuse, so the leak check does not count them.
 function carve(scheduler Count, bytes Count) returns Count
 	lockScheduler(scheduler)
 	var next = __Raw.loadWord(scheduler, offset: schedCarveNextOffset)

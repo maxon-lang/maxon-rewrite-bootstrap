@@ -3447,10 +3447,10 @@ end 'transfer'
 
 | Written | Means |
 |---|---|
-| `freeze(x)` | takes `x` (`consumes`) and gives a `frozen with T`, an immutable value; `T` is not a plain value (`E3910`) and must be `Droppable`, because the last owner drops it (`E3017`) |
+| `freeze(x)` | takes `x` (`consumes`) and gives a `frozen with T`, an immutable value; `T` is not a plain value (`E3910`) and must be `Droppable`, because the last owner drops it (`E3017`), and what it holds crosses between threads (`ast.unsendable`, `E3171`), since every thread that holds the frozen value reads it |
 | `share(f)` | another owner of the frozen value or the cown that `f` (a `let` borrow) names; the count goes up by 1 |
 | `thaw(f)` | an owned, mutable deep copy of what a frozen value holds, so `T` must be `Copyable` (`E3017`) |
-| `cown(x)` | takes `x` (`consumes`) and gives a `cown with T`, a reference to a cown that owns the value; `T` may be a plain value and must be `Droppable` (`E3017`) |
+| `cown(x)` | takes `x` (`consumes`) and gives a `cown with T`, a reference to a cown that owns the value; `T` may be a plain value and must be `Droppable` (`E3017`), and crosses between threads (`E3171`), since its behaviours run on any thread; in generic code each instance is judged at its own type arguments (`ir.requireShareable`), as for `freeze` |
 | `cown(x, dropWith: d)` | the same for a `T` that has destructors: `d` names one that takes nothing else and returns nothing, and the last reference runs it on the value (`E3921`) |
 | `when a, b as x, y 'label'` … `end` | a behaviour: runs later, once it has exclusive access to the cowns `a` and `b`, with `mutates` access to their values as `x` and `y` |
 
@@ -3528,7 +3528,7 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
     `E3102`, maxon's message; anything else by reference is `E2015`, and a function value that lives on and borrows
     what is lent is `E3186`;
   - a promise is taken only by a `consumes` parameter (`E3141` at a `let` one).
-- **A promise is linear.** It is never copied and never dropped: on every path out of its scope it is awaited, cancelled,
+- **A promise in a local is linear.** It is never copied, and never dropped there: on every path out of its scope it is awaited, cancelled,
   returned or passed to a `consumes` parameter, else `E3213`. Awaiting or cancelling it again is `E3142`, and awaiting
   inside a loop one started outside it `E3100` (the loop's paths meeting refuse it no second time). A promise whose call lent anything is **tied** to what it borrows: it is bound by the declaration
   of a local, which ends inside the scope of everything it borrows, and awaited there; returning it, storing it, passing
@@ -3552,8 +3552,25 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
   interpreter`, so a test that starts one is `// native-only`. Running them needs a strand of its threads (the
   scheduler already keeps each thread's frames apart, so a coroutine is a thread that runs only while it holds its
   strand) and a clock that sleeps advance; `sleep` and `Scheduler.yield()` change nothing there.
-- Not yet: `awaitAny`, promises in containers and fields (a promise is not `Copyable` nor `Droppable`, which arrays need),
-  an async call of a built-in such as `File.readText`, `sendTimeout:`, the deadlock exit 92, and I/O on the poller.
+- **Promises in containers and fields.** A promise held by an array, a record, a tuple or a union's payload is dropped
+  with its holder, which cancels it (`partLacks`: a promise part is `Droppable`, a promise of its own in a local is
+  must-use); a store into a promise field drops what the field held. A read of a promise out of storage that is consumed
+  (awaited, cancelled, stored, passed to a `consumes` parameter, returned) takes it out of its slot, which is left empty
+  (`ast.Typing.slotTakes`, lowered by `ir.takeFromSlot`): an element of an array, a field of a `var` the function owns
+  or of a `mutates` parameter or receiver, and the variable of a `for` over such an array, which names each element's slot
+  in turn and is spent for the pass by its take. The holder stays whole, its drop skips an empty slot, and a second take
+  of one slot is maxon's run-time abort 118 (`promiseSlotConsumedTwice`). `pop` and `remove` give a promise outright. A
+  drop cancels every promise of an array or a record before it waits for any, so none of them that has not started
+  starts. A value that holds a promise is not
+  put in an interface value (`E3919`), where the rules of what crosses could not see it, and does not cross (`E3171`,
+  `E3216`, `E3217`).
+- **`promises.awaitAny()`** on an `Array with Promise with ...` gives the `ElementIndex` of the first promise that has
+  finished, an empty slot holding none, and else waits, registered as the waiter of every one through one selector, as
+  Go's select shares one sudog among its cases (`rt.async.awaitAny`); it consumes none. It is a wait on another party
+  (`E3221` in a message or a factory), as maxon has it; on an array of anything else it is `E3004`.
+- Not yet: `get(i)`, `first()` and `last()` of an array of promises as reads of a slot (maxon's), which want `T`
+  `Copyable` here (`E3017`), an async call of a built-in such as `File.readText`, `sendTimeout:`, the deadlock exit 92,
+  and I/O on the poller.
 
 ### Services
 
@@ -3588,9 +3605,13 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
 - A message is as visible as its service and no more (`E3167`), as maxon holds it: an unexported type that its module
   spawns may name unexported types in its messages. A spawn in another module does not narrow them.
 - An idle service holds its state, its cown and its gate (48 bytes), and no green thread or stack: each message is a
-  behaviour that takes a green thread's record and a stack from its processor's pools when it runs and gives them back
-  when it ends, so a handler that sleeps or awaits holds one of each for that long. maxon runs a service's messages on one
-  runner, up to 64 a turn; here each is its own behaviour on the one cown.
+  behaviour whose record, once it is runnable, is an entry of a run queue, and which takes a green thread's record and a
+  stack from its processor's pools only when a processor starts it, and gives them back when it ends, so a handler that
+  sleeps or awaits holds one of each for that long and a burst of runnable messages holds their records alone. Measured
+  with 100,000 and 1,000,000 idle services spawned in a burst: about 95 bytes each on Windows (private bytes) and 93 on
+  Linux (RssAnon) with every core; with one processor, where the spawner runs the whole burst before any factory, about
+  180 bytes on Windows, the factories' records freed into the heap's classes, which keeps freed slots for reuse. maxon runs
+  a service's messages on one runner, up to 64 a turn; here each is its own behaviour on the one cown.
 - **Holders never wait** (`E3221`): a message or a factory of a type the module spawns that keeps a reply, starts a
   service whose factory throws, calls through a function value or an interface, whose target the check cannot see, or
   calls a function that may do one of these, is refused, so services never wait on each other in a cycle. A function of
@@ -3779,8 +3800,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   it. An async call takes at most eight arguments, and none that is not `Droppable` at a `consumes` parameter (`E2015`),
   where maxon refuses only a float result. `p.cancel()` waits for a coroutine that has started, as maxon's does for a tied
   promise, where maxon's returns at once for any other and lets the coroutine run on behind it: what the coroutine prints
-  after its cancel comes before what the caller prints after it. maxon's `awaitAny` and promises held in containers and
-  fields are not there yet.
+  after its cancel comes before what the caller prints after it. So does the drop of a promise in a container, which
+  cancels it as `p.cancel()` does, where maxon's returns at once; an array's or a record's drop cancels all of its
+  promises before it waits for one, so a coroutine there that has not started never starts, but in a container of
+  containers a coroutine that has not started may start while the drop waits for one before it that has. A second take
+  of one slot is found at run time (abort 118) where maxon's check refuses the ones it can see (`E3141`), and a value
+  that holds a promise is not put in an interface value (`E3919`), where maxon walks its conformers at the doors that
+  share it.
 
 - `Clock` has only `nowNanos()`, which maxon's gives as `InstantNanos`, here a `Count`; maxon's `nowMs`, `osTickMs`,
   `threadCpuTicks`, `elapsedMs`, `elapsedNanos`, `remainingMs` and `WallClock` are not there. Natively a reading is the
@@ -3998,7 +4024,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `returns immutable T` into `returns T` and `returns frozen with T`; a `let` parameter of a message is given its own
   value, which the behaviour drops once the handler returns. What crosses is one rule (`ast.unsendable`), which a
   behaviour's captures follow too, so `E3200`, `E3207` and `E3214` do not exist and a value that cannot cross is `E3217`
-  at the spawn, or `E3140` for a reply. A message that calls through a function value or an interface is `E3221`, where
+  at the spawn, or `E3140` for a reply. What `freeze` and `cown` are given follows the same rule (`E3171`, maxon's code
+  for a value that cannot be shared), since a frozen value is read by every thread that holds it and a cown's value by
+  its behaviours: a value at an interface type is refused there, where maxon walks the conformers the program converts to
+  the interface (the spec tests that freeze one are skipped with that reason). A message that calls through a function value or an interface is `E3221`, where
   maxon's inference counts such a call as no wait: the check cannot see what it runs, so it cannot show that the holder
   never waits on another party (the spec tests that run one are skipped with that reason). A
   factory that throws runs on the spawner's green thread, where maxon's runs on the service's while the spawner waits.

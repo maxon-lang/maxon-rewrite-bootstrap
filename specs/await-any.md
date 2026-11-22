@@ -159,7 +159,7 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function slow(ms Integer) returns Integer
-	sleep(ms as Milliseconds)
+	sleep(try ms as Milliseconds otherwise panic("out of range"))
 	return 1
 end 'slow'
 
@@ -169,7 +169,7 @@ function quick() returns Integer
 end 'quick'
 
 function main() returns ExitCode
-	let arr = IntPromiseArray.create(0)
+	var arr = IntPromiseArray.create(0)
 	arr.push(async slow(120))
 	arr.push(async quick())
 	arr.push(async slow(240))
@@ -180,12 +180,12 @@ function main() returns ExitCode
 	end 'themiddleonefinishedfirst'
 	var sum = 0 as Integer
 	for p in arr 'drainthemall'
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'drainthemall'
 	if sum == 4 'everypromisewasstillawaitable'
-		score = score + 4
+		score = try score + 4 otherwise panic("out of range")
 	end 'everypromisewasstillawaitable'
-	return score as ExitCode
+	return try score as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -260,7 +260,7 @@ function value(v Integer) returns Integer
 end 'value'
 
 function main() returns ExitCode
-	let arr = IntPromiseArray.create(0)
+	var arr = IntPromiseArray.create(0)
 	arr.push(async value(10))
 	arr.push(async value(20))
 	arr.push(async value(30))
@@ -272,12 +272,12 @@ function main() returns ExitCode
 	end 'aselectiswithoutsideeffect'
 	var sum = 0 as Integer
 	for p in arr 'awaiteveryone'
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'awaiteveryone'
 	if sum == 60 'allthreewerestillthere'
-		score = score + 6
+		score = try score + 6 otherwise panic("out of range")
 	end 'allthreewerestillthere'
-	return score as ExitCode
+	return try score as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -298,12 +298,12 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function nap(ms Integer, tag Integer) returns Integer
-	sleep(ms as Milliseconds)
+	sleep(try ms as Milliseconds otherwise panic("out of range"))
 	return tag
 end 'nap'
 
 function main() returns ExitCode
-	let arr = IntPromiseArray.create(0)
+	var arr = IntPromiseArray.create(0)
 	arr.push(async nap(200, tag: 1))
 	arr.push(async nap(20, tag: 2))
 	arr.push(async nap(400, tag: 3))
@@ -314,12 +314,12 @@ function main() returns ExitCode
 	end 'theearliestdeadlinewon'
 	var sum = 0 as Integer
 	for p in arr 'drainthemall'
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'drainthemall'
 	if sum == 6 'everysleeperwasstillawaitable'
-		score = score + 4
+		score = try score + 4 otherwise panic("out of range")
 	end 'everysleeperwasstillawaitable'
-	return score as ExitCode
+	return try score as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -371,7 +371,7 @@ end 'Quick'
 function main() returns ExitCode
 	let slow = spawn Slow.create()
 	let quick = spawn Quick.create()
-	let ps = ReplyPromiseArray.create(0)
+	var ps = ReplyPromiseArray.create(0)
 	ps.push(try slow.value() otherwise panic("send slow"))
 	ps.push(try quick.value() otherwise panic("send quick"))
 	let ready = ps.awaitAny()
@@ -381,12 +381,12 @@ function main() returns ExitCode
 	end 'thequickreplywonthoughitwassentsecond'
 	var sum = 0 as Integer
 	for p in ps 'drainbothreplies'
-		sum = sum + (await p)
+		sum = try sum + (await p) otherwise panic("out of range")
 	end 'drainbothreplies'
 	if sum == 3 'bothrepliessurvivedtheselect'
-		score = score + 4
+		score = try score + 4 otherwise panic("out of range")
 	end 'bothrepliessurvivedtheselect'
-	return score as ExitCode
+	return try score as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -415,20 +415,20 @@ function inner(v Integer) returns Integer
 end 'inner'
 
 function selectOver() returns Integer
-	let ps = IntPromiseArray.create(0)
+	var ps = IntPromiseArray.create(0)
 	ps.push(async inner(3))
 	ps.push(async inner(4))
 	let ready = ps.awaitAny()
 	var sum = 0 as Integer
 	for p in ps 'all'
-		sum = sum + await p
+		sum = try sum + await p otherwise panic("out of range")
 	end 'all'
-	return sum + (ready as Integer)
+	return try sum + (ready as Integer) otherwise panic("out of range")
 end 'selectOver'
 
 function main() returns ExitCode
 	let outer = async selectOver()
-	return await outer as ExitCode
+	return try await outer as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -488,7 +488,7 @@ typealias IntPromiseArray = Array with IntPromise
 function main() returns ExitCode
 	let arr = IntPromiseArray.create(0)
 	let ready = arr.awaitAny()
-	return ready as ExitCode
+	return try ready as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -565,30 +565,30 @@ type Echo
 		return Self{served: 0}
 	end 'create'
 
-	export function value(v Integer) returns Integer
-		self.served = self.served + 1
+	export function value(mutates self, v Integer) returns Integer
+		self.served = try self.served + 1 otherwise panic("out of range")
 		return v
 	end 'value'
 end 'Echo'
 
 function main() returns ExitCode
-	let echoes = EchoHandleArray.create(0)
+	var echoes = EchoHandleArray.create(0)
 	for _ in 0 upto services 'spawnEach'
 		echoes.push(spawn Echo.create())
 	end 'spawnEach'
 	var sum = 0 as Integer
 	var completedPicks = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
-		let replies = ReplyPromiseArray.create(0)
+		var replies = ReplyPromiseArray.create(0)
 		for (slot, echo) in echoes.enumerated() 'sendEach'
 			replies.push(try echo.value((r as Integer) * services + (slot as Integer)) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
 		for (slot, p) in replies.enumerated() 'drain'
 			if slot == ready and p.isComplete() 'theNamedSlotHadCompleted'
-				completedPicks = completedPicks + 1
+				completedPicks = try completedPicks + 1 otherwise panic("out of range")
 			end 'theNamedSlotHadCompleted'
-			sum = sum + (await p)
+			sum = try sum + (await p) otherwise panic("out of range")
 		end 'drain'
 	end 'eachRound'
 	print("picks={completedPicks} sum={sum}\n")
@@ -630,30 +630,30 @@ type Echo
 		return Self{served: 0}
 	end 'create'
 
-	export function value(v Integer) returns Integer
-		self.served = self.served + 1
+	export function value(mutates self, v Integer) returns Integer
+		self.served = try self.served + 1 otherwise panic("out of range")
 		return v
 	end 'value'
 end 'Echo'
 
 function main() returns ExitCode
-	let echoes = EchoHandleArray.create(0)
+	var echoes = EchoHandleArray.create(0)
 	for _ in 0 upto services 'spawnEach'
 		echoes.push(spawn Echo.create())
 	end 'spawnEach'
 	var sum = 0 as Integer
 	var completedPicks = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
-		let replies = ReplyPromiseArray.create(0)
+		var replies = ReplyPromiseArray.create(0)
 		for (slot, echo) in echoes.enumerated() 'sendEach'
 			replies.push(try echo.value((r as Integer) * services + (slot as Integer)) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
 		for (slot, p) in replies.enumerated() 'drain'
 			if slot == ready and p.isComplete() 'theNamedSlotHadCompleted'
-				completedPicks = completedPicks + 1
+				completedPicks = try completedPicks + 1 otherwise panic("out of range")
 			end 'theNamedSlotHadCompleted'
-			sum = sum + (await p)
+			sum = try sum + (await p) otherwise panic("out of range")
 		end 'drain'
 	end 'eachRound'
 	print("picks={completedPicks} sum={sum}\n")
@@ -710,35 +710,35 @@ type Echo
 		return Self{served: 0}
 	end 'create'
 
-	export function value(v Integer, spins Integer) returns Integer
+	export function value(mutates self, v Integer, spins Integer) returns Integer
 		for _ in 0 upto spins 'dawdle'
 			Scheduler.yield()
 		end 'dawdle'
-		self.served = self.served + 1
+		self.served = try self.served + 1 otherwise panic("out of range")
 		return v
 	end 'value'
 end 'Echo'
 
 function main() returns ExitCode
-	let echoes = EchoHandleArray.create(0)
+	var echoes = EchoHandleArray.create(0)
 	for _ in 0 upto services 'spawnEach'
 		echoes.push(spawn Echo.create())
 	end 'spawnEach'
 	var sum = 0 as Integer
 	var completedPicks = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
-		let replies = ReplyPromiseArray.create(0)
+		var replies = ReplyPromiseArray.create(0)
 		for (slot, echo) in echoes.enumerated() 'sendEach'
-			let s = slot as Integer
-			let spins = (s * slotStride + (r as Integer) * roundStride) mod services
+			let s = try slot as Integer otherwise panic("out of range")
+			let spins = try (s * slotStride + (r as Integer) * roundStride) mod services otherwise panic("out of range")
 			replies.push(try echo.value((r as Integer) * services + s, spins: spins) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
 		for (slot, p) in replies.enumerated() 'drain'
 			if slot == ready and p.isComplete() 'theNamedSlotHadCompleted'
-				completedPicks = completedPicks + 1
+				completedPicks = try completedPicks + 1 otherwise panic("out of range")
 			end 'theNamedSlotHadCompleted'
-			sum = sum + (await p)
+			sum = try sum + (await p) otherwise panic("out of range")
 		end 'drain'
 	end 'eachRound'
 	print("picks={completedPicks} sum={sum}\n")
@@ -784,35 +784,35 @@ type Echo
 		return Self{served: 0}
 	end 'create'
 
-	export function value(v Integer, spins Integer) returns Integer
+	export function value(mutates self, v Integer, spins Integer) returns Integer
 		for _ in 0 upto spins 'dawdle'
 			Scheduler.yield()
 		end 'dawdle'
-		self.served = self.served + 1
+		self.served = try self.served + 1 otherwise panic("out of range")
 		return v
 	end 'value'
 end 'Echo'
 
 function main() returns ExitCode
-	let echoes = EchoHandleArray.create(0)
+	var echoes = EchoHandleArray.create(0)
 	for _ in 0 upto services 'spawnEach'
 		echoes.push(spawn Echo.create())
 	end 'spawnEach'
 	var sum = 0 as Integer
 	var completedPicks = 0 as Integer
 	for r in 0 upto rounds 'eachRound'
-		let replies = ReplyPromiseArray.create(0)
+		var replies = ReplyPromiseArray.create(0)
 		for (slot, echo) in echoes.enumerated() 'sendEach'
-			let s = slot as Integer
-			let spins = (s * slotStride + (r as Integer) * roundStride) mod services
+			let s = try slot as Integer otherwise panic("out of range")
+			let spins = try (s * slotStride + (r as Integer) * roundStride) mod services otherwise panic("out of range")
 			replies.push(try echo.value((r as Integer) * services + s, spins: spins) otherwise panic("send value"))
 		end 'sendEach'
 		let ready = replies.awaitAny()
 		for (slot, p) in replies.enumerated() 'drain'
 			if slot == ready and p.isComplete() 'theNamedSlotHadCompleted'
-				completedPicks = completedPicks + 1
+				completedPicks = try completedPicks + 1 otherwise panic("out of range")
 			end 'theNamedSlotHadCompleted'
-			sum = sum + (await p)
+			sum = try sum + (await p) otherwise panic("out of range")
 		end 'drain'
 	end 'eachRound'
 	print("picks={completedPicks} sum={sum}\n")

@@ -1,0 +1,49 @@
+// One sender and one service: 1,000,000 messages that change the state, sent in batches of 1,000, each batch ended by a
+// message whose reply the sender awaits before it sends the next, so the mailbox never holds more than a batch. Each
+// message is a behaviour of its own on the service's cown: this is the cost of a send, a behaviour and its green thread.
+typealias Word = int(0 to u64.max)
+
+let batches = 1000 as Word
+
+let batchMessages = 1000 as Word
+
+type Counter
+	var sum as Word
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	export function add(mutates self, n Word)
+		self.sum = try self.sum + n otherwise panic("the sum overflowed")
+	end 'add'
+
+	export function total() returns Word
+		return self.sum
+	end 'total'
+end 'Counter'
+
+function work() returns ExitCode
+	let counter = spawn Counter.create()
+	var total = 0 as Word
+	for b in 0 upto batches 'batches'
+		for i in 0 upto batchMessages 'batch'
+			try counter.add(try b * batchMessages + i otherwise panic("the message number overflowed")) otherwise panic("the mailbox has room for a batch")
+		end 'batch'
+		total = try await counter.total() otherwise panic("the service runs until it is shut down")
+	end 'batches'
+	counter.shutdown()
+	print("{total}\n")
+	return 0
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let started = Clock.nowNanos()
+	let code = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("work ns {elapsed}\n")
+	return code
+end 'main'
+
+//> 499999500000

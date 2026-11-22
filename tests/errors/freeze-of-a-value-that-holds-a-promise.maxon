@@ -1,0 +1,24 @@
+// What freeze is given crosses between threads by the rule of a message's arguments (ast.unsendable), since every thread
+// that holds the frozen value reads it: a value that holds a promise, whose coroutine belongs to its strand, does not.
+typealias Tag = int(0 to 100)
+
+type Holder
+	var p as Promise with Tag
+
+	static function create(consumes p Promise with Tag) returns Self
+		return Self{p: p}
+	end 'create'
+end 'Holder'
+
+function nap(tag Tag) returns Tag
+	sleep(1)
+	return tag
+end 'nap'
+
+function main() returns ExitCode
+	let held = freeze(Holder.create(async nap(1)))
+	let other = share(held)
+	return 0
+end 'main'
+
+// expect-error: E3171 at 19:27

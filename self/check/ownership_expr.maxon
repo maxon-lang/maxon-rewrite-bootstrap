@@ -86,6 +86,14 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 		fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "'{text}' is part of a frozen value, which keeps its contents and shares them with its other owners, so it cannot be moved out of it into {dest.text()}; {advice}")
 		return out
 	end 'frozen'
+	if ast.isPromiseType(ms.types, reads: p.types, t: t) and takesFromSlot(o, p: p, ms: ms, path: path) 'slot'
+		requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
+		o.c.typing.slotTakes.insert(e as Count, value: true)
+		if path.steps.count() == 0 'loopVariable'
+			return withFact(out, fact: OwnFact.make(path.root, site: site, kind: OwnFactKind.factMoved, dest: dest))
+		end 'loopVariable'
+		return out
+	end 'slot'
 	if isBorrowed(o.c.typing.locals[path.root as Count]) and ast.isPromiseType(ms.types, reads: p.types, t: t) 'borrowedPromise'
 		let root = o.c.typing.locals[path.root as Count].clone()
 		var fix = diag.Fix.none()
@@ -119,6 +127,44 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	let released = releaseHolder(o, p: p, root: path.root, site: site, dest: dest, s: out)
 	return withFact(released, fact: OwnFact.make(path.root, site: site, kind: OwnFactKind.factMoved, dest: dest))
 end 'consume'
+
+// takesFromSlot is whether consuming a promise at path takes it out of the slot that holds it, which is left empty, as
+// maxon's read of a promise out of storage names its slot: an element of a collection, or a field of a value the function
+// may change in place, a var it owns or a mutates parameter or receiver. The holder stays whole, and a second take of one
+// slot finds it empty at run time (exit 118); a field of a let the function owns is moved out of as any part is.
+function takesFromSlot(o Ownership, p ast.Project, ms ast.ModuleState, path AccessPath) returns bool
+	let root = o.c.typing.locals[path.root as Count].clone()
+	if path.steps.count() == 0 'whole'
+		return path.isPlace() and root.projected and isForVariable(ms.tree(), l: root) and walksSlots(o, p: p, ms: ms, loop: root.definedAt)
+	end 'whole'
+	if root.projected 'projected'
+		return false
+	end 'projected'
+	return changesInPlace(root)
+end 'takesFromSlot'
+
+// changesInPlace is whether the function may change in place what a local holds: a var it owns, or a mutates parameter or
+// receiver.
+function changesInPlace(l ast.LocalEntry) returns bool
+	if isBorrowed(l) 'borrowed'
+		return l.conv == ast.Convention.convMutates
+	end 'borrowed'
+	return l.isVar
+end 'changesInPlace'
+
+// walksSlots is whether a for loop walks the slots of an array that the function may change in place, so that its variable
+// names the slot of each element in turn, as maxon's does for a promise: consuming it takes the promise out of the slot.
+function walksSlots(o Ownership, p ast.Project, ms ast.ModuleState, loop ast.NodeID) returns bool
+	if ast.forStmtIsRange(ms.tree(), id: loop) or o.c.typing.iterations.has(loop as Count) 'notArray'
+		return false
+	end 'notArray'
+	let source = ast.forStmtFrom(ms.tree(), id: loop)
+	if ast.typeKind(ms.types, reads: p.types, t: ownType(o, node: source)) != ast.TypeKind.builtinArray 'kind'
+		return false
+	end 'kind'
+	let walked = pathOf(o, p: p, ms: ms, e: source)
+	return walked.isPlace() and not walked.crossesFrozen() and changesInPlace(o.c.typing.locals[walked.root as Count])
+end 'walksSlots'
 
 // moveOfProjection refuses to move a part of a borrowed result, which its function lends from its arguments: E3900 where
 // what it lends from is itself borrowed, and E3901 where it is a part of a value that stays where it is, as for an element.

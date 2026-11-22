@@ -686,6 +686,9 @@ var tableFunctions = []function{
 	// cancel is maxon's: it consumes the promise; a coroutine that has not started never runs, and one that has runs on with
 	// each sleep it is in or makes ending at once, and the cancel waits for it to finish and drops what it gave.
 	{Owner: "Promise", Name: "cancel", Self: "consumes", Intrinsic: "PromiseCancel"},
+	// awaitAny is maxon's: it waits until a promise of an array of them has finished and gives the index of the first that has,
+	// consuming none; a slot a take left empty is skipped.
+	{Owner: "Array", Name: "awaitAny", Result: "ElementIndex", Intrinsic: "ArrayAwaitAny", Checked: true},
 	// isComplete is maxon's: whether the coroutine or the reply has finished, which neither waits nor consumes the promise.
 	{Owner: "Promise", Name: "isComplete", Result: "Bool", Intrinsic: "PromiseIsComplete"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
@@ -843,6 +846,7 @@ var entries = []entry{
 	{"AsyncError", "rt.async.error", "Source", roleCall, "(promise) -> error: what the function of a coroutine that rt.async.wait waited for failed with, 0 when it returned"},
 	{"AsyncTake", "rt.async.take", "Source", roleCall, "(promise) -> value: what the function of a coroutine that rt.async.wait waited for returned, which frees the coroutine"},
 	{"AsyncCancel", "rt.async.cancel", "Source", roleCall, "(promise): marks the coroutine of a promise cancelled, which ends the sleep it is in at once, before the cancel awaits it"},
+	{"AsyncAwaitAny", "rt.async.awaitAny", "Source", roleCall, "(array) -> index: waits until a promise of an array of them has finished, a slot that holds none skipped, and gives the index of the first that has"},
 	{"AsyncComplete", "rt.async.complete", "Source", roleCall, "(promise) -> bool: whether the coroutine or the reply of a promise has finished"},
 	{"Sleep", "rt.sleep", "Source", roleCall, "(milliseconds): parks the running green thread for at least that long"},
 	{"Yield", "rt.yield", "Source", roleCall, "(): lets the members of the strand that wait, else the runnable green threads, run first"},
@@ -990,6 +994,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"AsyncError", "asyncError(promise Count) Count"},
 	{"AsyncTake", "asyncTake(promise Count) Count"},
 	{"AsyncCancel", "asyncCancel(promise Count)"},
+	{"AsyncAwaitAny", "asyncAwaitAny(array Count) Count"},
 	{"AsyncComplete", "asyncComplete(promise Count) Bool"},
 	{"Sleep", "sleepMs(milliseconds Count)"},
 	{"Yield", "schedYield()"},

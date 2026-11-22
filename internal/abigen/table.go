@@ -120,6 +120,8 @@ var layouts = []layoutConst{
 	// the source names them, and its captures.
 	{"behaviourPendingOffset", 0, false, toRuntime | toSelfBack,
 		"where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0."},
+	{"behaviourLinkOffset", 0, false, toRuntime,
+		"where a runnable behaviour's record links to the next entry of the global run queue: the word of its pending count, which nothing reads once that has reached 0."},
 	{"behaviourRunOffset", 1, false, toRuntime | toSelfBack,
 		"where a behaviour's record holds the address of its thunk, which is called with the record."},
 	{"behaviourCownCountOffset", 2, false, toRuntime | toSelfBack,
@@ -320,14 +322,16 @@ var layouts = []layoutConst{
 	{"schedRegistersOffset", 29, false, toRuntime,
 		"where the scheduler's record holds the CONTEXT the monitor reads and sets a thread's registers in, on Windows."},
 	{"schedCarveNextOffset", 30, false, toRuntime,
-		"where the scheduler's record holds the next free byte of the block the green threads' records and the stacks' records are carved from, under the lock."},
+		"where the scheduler's record holds the next free byte of the block the green threads' records are carved from, under the lock."},
 	{"schedCarveEndOffset", 31, false, toRuntime,
 		"where the scheduler's record holds the end of that block."},
 	{"schedCarveBytesOffset", 32, false, toRuntime,
 		"where the scheduler's record holds the size of the next block that records are carved from, 0 before the first, under the lock."},
 	{"schedMadeProcsOffset", 33, false, toRuntime,
 		"where the scheduler's record holds how many processors are made: a processor is made when a thread first takes it, and those made are the first of the ids, under the lock."},
-	{"schedProcessorsOffset", 34, false, toRuntime,
+	{"schedFreeStackCountOffset", 34, false, toRuntime,
+		"where the scheduler's record holds how many stacks its list of free ones holds, under the lock."},
+	{"schedProcessorsOffset", 35, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
@@ -427,11 +431,23 @@ var layouts = []layoutConst{
 	{"greenBytes", 57, false, toRuntime,
 		"the size of a green thread's record."},
 
-	// A pooled stack: a reserve of stackReserveBytes that the system commits a page at a time, its lowest page the guard.
+	// A selector: the record of an awaitAny that waits, which every promise it waits on names as its waiter, tagged, as the
+	// one sudog of Go's select that every case shares.
+	{"selectorGreenOffset", 0, false, toRuntime,
+		"where a selector holds the green thread that waits."},
+	{"selectorDoneOffset", 1, false, toRuntime,
+		"where a selector holds 1 once a finish has claimed the wake of its green thread, by a compare-exchange from 0."},
+	{"selectorRefsOffset", 2, false, toRuntime,
+		"where a selector holds how many hold it, the green thread and each promise it is the waiter of, stepped atomically: the last to let it go frees it."},
+	{"selectorBytes", 3, false, toRuntime,
+		"the size of a selector."},
+
+	// A pooled stack: a reserve of stackReserveBytes that the system commits a page at a time, its lowest page the guard,
+	// with its record at the top of the reserve, so a stack given back to the system takes its record with it.
 	{"pooledStackLowOffset", 0, false, toRuntime,
 		"where a pooled stack holds the lowest address of its reserve."},
 	{"pooledStackHighOffset", 1, false, toRuntime,
-		"where a pooled stack holds the address past its top."},
+		"where a pooled stack holds the address past its top, which is its record's."},
 	{"pooledStackLimitOffset", 2, false, toRuntime,
 		"where a pooled stack holds the lowest address committed, the TEB's StackLimit on Windows, as its last green thread left it."},
 	{"pooledStackNextOffset", 3, false, toRuntime,
