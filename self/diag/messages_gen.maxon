@@ -864,3 +864,18 @@ end 'conditionalExtensionWithheld'
 export function registerPressureLoop(place String, over String, held String, class String, target String, available String, deficit String) returns String
 	return "the loop at {place} needs {over} more register(s) than are available: {held} values must be held in {class} registers at once inside this loop, but {target} has only {available}; remove {deficit} of them from the loop, for example by holding them in an array that the loop indexes"
 end 'registerPressureLoop'
+
+// The text of errRawSurfaceOutsideLibrary for: call to '{callee}' from outside the library tiers: '{owner}' names a raw runtime intrinsic, callable only from a source file under stdlib/ or runtime/ — use '{instead}'
+export function rawCallOutsideLibrary(callee String, owner String, instead String) returns String
+	return "call to '{callee}' from outside the library tiers: '{owner}' names a raw runtime intrinsic, callable only from a source file under stdlib/ or runtime/ — use '{instead}'"
+end 'rawCallOutsideLibrary'
+
+// The text of errRawSurfaceOutsideLibrary for: '.{member}' read from outside the library tiers: {what} only from a source file under stdlib/ or runtime/ — {instead}
+export function rawMemberOutsideLibrary(member String, what String, instead String) returns String
+	return "'.{member}' read from outside the library tiers: {what} only from a source file under stdlib/ or runtime/ — {instead}"
+end 'rawMemberOutsideLibrary'
+
+// The text of errRawSurfaceOutsideLibrary for: '{typeName}' named outside the library tiers: {what} only from a source file under stdlib/ or runtime/ — {instead}
+export function rawTypeOutsideLibrary(typeName String, what String, instead String) returns String
+	return "'{typeName}' named outside the library tiers: {what} only from a source file under stdlib/ or runtime/ — {instead}"
+end 'rawTypeOutsideLibrary'

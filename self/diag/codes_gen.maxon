@@ -258,6 +258,9 @@ export let errBadModuleName = "E3182"
 // A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
 export let errGenericGrowsWithoutBound = "E3184"
 
+// A source file outside the library tiers names a part of the raw surface: a __Builtins call, a .managed read, a __ManagedMemory type or a method of one.
+export let errRawSurfaceOutsideLibrary = "E3185"
+
 // An argument handed to a written parameter overlaps another operand of the call.
 export let errExclusivity = "E3186"
 

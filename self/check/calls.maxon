@@ -559,6 +559,9 @@ function callFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		failAt(c, p: p, ms: ms, node: call, code: diag.errRawIntrinsicOutsideRuntime, msg: diag.rawIntrinsicOutsideRuntime(funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: target)), errs: errs)
 		return ast.noType
 	end 'outsideRuntime'
+	if refusesRawCall(c, p: p, ms: ms, call: call, target: target, errs: errs) 'raw'
+		return ast.noType
+	end 'raw'
 	if not requireVisible(c, p: p, ms: ms, node: call, target: target, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'

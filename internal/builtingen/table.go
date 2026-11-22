@@ -63,11 +63,30 @@ type builtinType struct {
 	// Managed is whether a value of it owns a box; Subscriptable whether t[i] names an element; Shared whether it is
 	// counted and has many owners.
 	Managed, Subscriptable, Shared bool
+	// Raw makes it a type of maxon's raw surface, which only the library tiers may name.
+	Raw *rawType
+}
+
+// rawSurface is how a door of maxon's raw surface is refused outside the library tiers (E3185), in maxon's words: what it
+// is or reaches, and what a program uses instead.
+type rawSurface struct {
+	What, Instead string
+}
+
+// rawType is a type of the raw surface: naming it is one door, and calling a method on a value of it is another.
+type rawType struct {
+	Named, Methods rawSurface
 }
 
 var builtinTypes = []builtinType{
 	{Key: "Array", Name: "Array", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "FixedArray", Name: "FixedArray", Params: []string{"T"}, Kind: "Array", Managed: true, Subscriptable: true},
+	// ManagedMemory is maxon's raw buffer: the box of an array, seen through maxon's buffer operations, each of which is
+	// the array operation that does the same.
+	{Key: "ManagedMemory", Name: "__ManagedMemory", Params: []string{"T"}, Kind: "Array", Managed: true, Raw: &rawType{
+		Named:   rawSurface{What: "the raw buffer type is nameable", Instead: "use 'Array'"},
+		Methods: rawSurface{What: "a raw '__ManagedMemory' buffer is reachable", Instead: "use the 'Array' methods"},
+	}},
 	{Key: "Map", Name: "Map", Params: []string{"K", "V"}, Managed: true, Subscriptable: true},
 	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "Pool", Name: "Pool", Params: []string{"T"}, Managed: true, Subscriptable: true},
@@ -102,6 +121,9 @@ type recordType struct {
 	Fields []string
 	// Implements are the marker interfaces the record conforms to.
 	Implements []string
+	// RawCalls makes its static functions maxon's raw intrinsics, which only the library tiers may call (E3185); each
+	// row of it names what a program calls instead.
+	RawCalls bool
 }
 
 var recordTypes = []recordType{
@@ -130,6 +152,20 @@ var recordTypes = []recordType{
 	// Raw is maxon's __Raw: the closed set of raw machine and OS operations the runtime's source is written on, which
 	// only the runtime module may call (runtimeOnly).
 	{Key: "Raw", Name: "__Raw"},
+	// Builtins is maxon's __Builtins: the runtime's operations that maxon's library is written on, each the built-in that
+	// does the same.
+	{Key: "Builtins", Name: "__Builtins", RawCalls: true},
+}
+
+// view is a member of a built-in generic type, read without parentheses, that is the same value seen as an instance of
+// another type of the table at the same type arguments: maxon's `.managed`, the buffer of an array.
+type view struct {
+	Owner, Name, Type string
+	Raw               rawSurface
+}
+
+var views = []view{
+	{Owner: "Array", Name: "managed", Type: "ManagedMemory", Raw: rawSurface{What: "a value's raw '__ManagedMemory' buffer is reachable", Instead: "use the 'Array' methods"}},
 }
 
 // unionCase is a case of a built-in union; Payload are its fields as "name Type".
@@ -185,6 +221,18 @@ var enumTypes = []enumType{
 	{Key: "MapError", Name: "MapError", Cases: []enumCase{
 		{"keyNotFound", "ErrorKeyNotFound"},
 		{"keyAlreadyExists", "ErrorKeyAlreadyExists"},
+	}},
+	// ManagedMemoryError is what maxon's buffer operations throw; its first cases are an array's, so an array operation
+	// that a buffer's row lowers to fails with the same case of either.
+	{Key: "ManagedMemoryError", Name: "__ManagedMemoryError", Cases: []enumCase{
+		{"indexOutOfBounds", "ErrorBufferIndexOutOfBounds"},
+		{"emptySlot", "ErrorBufferEmptySlot"},
+		{"sliceOutOfBounds", "ErrorBufferSliceOutOfBounds"},
+		{"invalidLength", "ErrorBufferInvalidLength"},
+		{"invalidCapacity", "ErrorBufferInvalidCapacity"},
+		{"shiftOutOfBounds", "ErrorBufferShiftOutOfBounds"},
+		{"invalidByteRange", "ErrorBufferInvalidByteRange"},
+		{"invalidAllocation", "ErrorBufferInvalidAllocation"},
 	}},
 	{Key: "FilePathError", Name: "FilePathError", Cases: []enumCase{
 		{"invalidCharacter", "ErrorPathInvalidCharacter"},
@@ -311,6 +359,9 @@ type function struct {
 	// RuntimeOnly is whether only the runtime module may call it (E3152): a raw operation with no runtime between it and
 	// the machine.
 	RuntimeOnly bool
+	// Instead is what a program calls in place of a static function of a record whose calls are raw (RawCalls), which
+	// E3185 names.
+	Instead string
 }
 
 // maxImportArgs is the most words a DLL import of the runtime takes: CreateProcessA's ten.
@@ -445,6 +496,10 @@ var tableFunctions = []function{
 	{Owner: "FixedArray", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet"},
 	{Owner: "FixedArray", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Intrinsic: "FixedArraySetProven", Field: "FixedArraySetProven"},
 	{Owner: "FixedArray", Name: "refill", Self: "mutates", Params: []string{"value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "FixedArrayRefill"},
+
+	// A buffer's length is the count of its elements, and get gives a copy of the one at an index below it, as an array's do.
+	{Owner: "ManagedMemory", Name: "length", Result: "Count", Intrinsic: "ArrayCount"},
+	{Owner: "ManagedMemory", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "ArrayGet"},
 
 	{Owner: "Map", Name: "create", Static: true, Result: "Self", Intrinsic: "MapCreate"},
 	{Owner: "Map", Name: "count", Result: "Count", Intrinsic: "MapCount"},
@@ -582,6 +637,9 @@ var tableFunctions = []function{
 	{Owner: "Subprocess", Name: "runWithDeadline", Static: true, Params: []string{"executable Executable", "arguments Array with String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithDeadline"},
 	{Owner: "CollectedOutput", Name: "exitCode", Result: "ExitCode", Intrinsic: "CollectedOutputExitCode"},
 	{Owner: "CollectedOutput", Name: "succeeded", Result: "Bool", Intrinsic: "CollectedOutputSucceeded"},
+
+	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
+	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
 }
 
 // unit is a code unit of the backend's runtime, or a place an entry lives that has no code of its own.

@@ -351,6 +351,22 @@ end 'listsTarget'
 
 let commaByte = 44 as Byte
 
+// tierDirective names the tier a case is compiled in, and libraryTier the tier of the library's root, which a program staged in
+// it is compiled in (Options.stagesInLibrary).
+let tierDirective = "tier"
+
+let libraryTier = "stdlib"
+
+// stagedInLibrary is whether a case is compiled in the library tier.
+function stagedInLibrary(test SpecTest) returns bool
+	for i in 0 upto test.directives.count() 'directives'
+		if directiveKey(test.directives[i]) == tierDirective and directiveValue(test.directives[i]) == libraryTier 'tier'
+			return true
+		end 'tier'
+	end 'directives'
+	return false
+end 'stagedInLibrary'
+
 // directiveSkip is why a directive keeps this runner from running the test, or nothing when the runner can honour it. Each
 // names a feature of maxon's runtime or of its runner that this compiler does not have yet.
 function directiveSkip(directive String) returns table.Option with String
@@ -361,8 +377,11 @@ function directiveSkip(directive String) returns table.Option with String
 		end 'excluded'
 		return table.Option.none
 	end 'targets'
-	if key == "tier" 'tier'
-		return table.Option.some("needs maxon's stdlib, which is not ported (tier)")
+	if key == tierDirective 'tier'
+		if directiveValue(directive) == libraryTier 'library'
+			return table.Option.none
+		end 'library'
+		return table.Option.some("stages the program in a module of the library (tier)")
 	end 'tier'
 	if key == "procs" or key == "preempt" or key == "runs" or key == "process" 'scheduler'
 		return table.Option.some("needs maxon's scheduler or process isolation ({key})")
@@ -1072,11 +1091,13 @@ end 'stageSpecTest'
 // compileSpecSource compiles the maxon block of a test, split into sections, as the runner does: a fragment under maxon's
 // header line, or the files of a multi-file block. An executable is made at exe when there is no error.
 function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, source String, sections SourceSections, mutates errs diag.ErrorList)
+	var options = testOptions()
+	options.stagesInLibrary = stagedInLibrary(test)
 	if sections.count() == 0 'single'
 		let fragment = "{fragmentHeader}{test.name}\n{source}\n"
-		compileSourceWith(shared, path: fragmentToken, text: fragment, output: exe, options: testOptions(), errs: errs)
+		compileSourceWith(shared, path: fragmentToken, text: fragment, output: exe, options: options, errs: errs)
 	end 'single' else 'project'
-		compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: exe, options: testOptions(), errs: errs)
+		compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: exe, options: options, errs: errs)
 	end 'project'
 end 'compileSpecSource'
 

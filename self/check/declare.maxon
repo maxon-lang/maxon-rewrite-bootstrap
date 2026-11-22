@@ -316,10 +316,14 @@ function typeNamed(c Checker, p ast.Project, ms ast.ModuleState, name ast.NodeID
 	if rt != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt)).findField(spelling).isSome() 'field'
 		return ast.noType
 	end 'field'
-	match consumes ast.nodeDecl(p, ms: ms, node: name as Count) 'bound'
-		some(ref) then return nominalTypeOf(p, ms: ms, ref: ref)
-		none then return ast.noType
+	let named = match consumes ast.nodeDecl(p, ms: ms, node: name as Count) 'bound'
+		some(ref) gives nominalTypeOf(p, ms: ms, ref: ref)
+		none gives ast.noType
 	end 'bound'
+	if named != ast.noType and refusesRawType(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: name), t: named, errs: errs) 'raw'
+		return ast.noType
+	end 'raw'
+	return named
 end 'typeNamed'
 
 function nominalTypeOf(p ast.Project, ms ast.ModuleState, consumes ref ast.DeclRef) returns ast.TypeID

@@ -1663,6 +1663,7 @@ end 'main'
 ```
 
 <!-- test: error.try-on-the-buffers-append -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 <!-- tier: stdlib -->
 
 ⚖ **`append` IS THE ONE BUFFER MUTATOR THAT CANNOT FAIL, SO A `try` ON IT IS E3055 — USER RULING.**

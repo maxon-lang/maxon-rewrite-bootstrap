@@ -1289,6 +1289,9 @@ function applyTypeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		failUnknownType(c, p: p, ms: ms, tr: tr, errs: errs)
 		return ast.noType
 	end 'unk'
+	if refusesRawType(c, p: p, ms: ms, off: off, t: target, errs: errs) 'raw'
+		return ast.noType
+	end 'raw'
 	let argsRef = ast.typeRefTypeArgsRef(ms.tree(), id: tr)
 	let argCount = ms.tree().listLen(argsRef)
 	if ast.typeEntry(ms.types, reads: p.types, t: target).typeParams.count() == 0 'nonGen'

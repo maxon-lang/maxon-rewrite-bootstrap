@@ -185,6 +185,9 @@ function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) re
 	end 'self'
 	if k == ast.NodeKind.memberExpr 'member'
 		let member = ownMember(o, node: n)
+		if member.kind == ast.MemberKind.memberView 'view'
+			return pathOf(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: n))
+		end 'view'
 		if member.kind != ast.MemberKind.memberField 'notField'
 			return AccessPath.none()
 		end 'notField'
@@ -210,6 +213,17 @@ function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) re
 	return AccessPath.none()
 end 'pathOf'
 
+// isPlaceMember is whether a member of a value is a place inside it, or the value itself seen as another type (a view).
+function isPlaceMember(kind ast.MemberKind) returns bool
+	return kind == ast.MemberKind.memberField or kind == ast.MemberKind.memberView
+end 'isPlaceMember'
+
+// isView is whether an expression is a view of a value (`xs.managed`), which is the value, so it is owned, moved and borrowed
+// as its object is.
+function isView(o Ownership, ms ast.ModuleState, e ast.NodeID) returns bool
+	return ms.tree().kindOf(e) == ast.NodeKind.memberExpr and ownMember(o, node: e).kind == ast.MemberKind.memberView
+end 'isView'
+
 // indexArg is the expression between the brackets of a subscript.
 function indexArg(tree ast.Tree, e ast.NodeID) returns ast.NodeID
 	return tree.listAt(ast.indexExprArgsRef(tree, id: e), index: 0) as ast.NodeID
@@ -223,7 +237,7 @@ function projectsElement(o Ownership, p ast.Project, ms ast.ModuleState, e ast.N
 		return true
 	end 'index'
 	if k == ast.NodeKind.memberExpr 'member'
-		return ownMember(o, node: n).kind == ast.MemberKind.memberField and projectsElement(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: n))
+		return isPlaceMember(ownMember(o, node: n).kind) and projectsElement(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: n))
 	end 'member'
 	return false
 end 'projectsElement'
@@ -241,7 +255,7 @@ function projectionOf(o Ownership, ms ast.ModuleState, e ast.NodeID) returns ast
 		return 0 as ast.NodeID
 	end 'call'
 	if k == ast.NodeKind.memberExpr 'member'
-		if ownMember(o, node: n).kind != ast.MemberKind.memberField 'notField'
+		if not isPlaceMember(ownMember(o, node: n).kind) 'notField'
 			return 0 as ast.NodeID
 		end 'notField'
 		return projectionOf(o, ms: ms, e: ast.memberExprObj(ms.tree(), id: n))

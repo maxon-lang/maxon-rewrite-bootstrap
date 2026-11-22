@@ -192,6 +192,7 @@ arrays.md: error.create-with-capacity-cannot-hold-a-record-with-a-zero-excluding
 arrays.md: error.create-with-capacity-in-a-generic-body-is-refused-for-a-managed-instantiation
 arrays.md: error.create-with-capacity-in-a-generic-body-is-refused-for-a-zero-excluding-alias-instantiation
 arrays.md: error.create-with-capacity-in-a-generic-body-is-refused-for-an-enum-instantiation
+arrays.md: error.create-with-capacity-in-a-library-tier-generic-body-is-refused-for-an-enum-instantiation
 arrays.md: error.create-with-capacity-that-a-contested-alias-excludes-zero-is-refused
 arrays.md: error.create-with-capacity-zeroed-cannot-hold-a-function
 arrays.md: error.create-with-capacity-zeroed-cannot-hold-a-managed-element
@@ -559,8 +560,11 @@ break.md: break.labeled-continue-outer
 break.md: break.labeled-continue-triple-nested
 break.md: break.multiple-conditions
 break.md: break.with-if
+builtins-clock.md: builtins-clock.nanos-monotonic
 builtins-clock.md: builtins-clock.unknown-internal-callee
 builtins-clock.md: builtins-clock.unknown-internal-callee-statement
+builtins-clock.md: builtins-clock.unknown-intrinsic
+builtins-sleep.md: builtins-sleep.unknown-member-in-statement-position
 builtins-type.md: builtins-type.print-via-stdlib
 byref-param-widening-and-guard.md: full-range-byref-param-needs-no-guard
 byref-param-widening-and-guard.md: narrow-ranged-byref-param-guards-the-pointee
@@ -1401,6 +1405,7 @@ enum-match-only.md: error.callarg-wrong-union-borrowed
 enum-match-only.md: error.callarg-wrong-union-consumed
 enum-match-only.md: error.enum-eq
 enum-match-only.md: error.enum-eq-associated
+enum-match-only.md: error.enum-eq-library-tier
 enum-match-only.md: error.enum-eq-method
 enum-match-only.md: error.enum-lt
 enum-match-only.md: error.enum-ne
@@ -1992,6 +1997,7 @@ fixed-array.md: error.a-constant-length-of-zero
 fixed-array.md: error.a-contested-alias-instantiation-that-excludes-zero-refuses-a-fixed-array-field
 fixed-array.md: error.a-length-of-another-integer-type-names-the-cast
 fixed-array.md: error.a-let-fixed-array-read-outside-a-narrower-alias
+fixed-array.md: error.a-library-tier-fixed-array-field-is-refused-for-a-zero-excluding-instantiation
 fixed-array.md: error.a-managed-element-under-create-n
 fixed-array.md: error.a-managed-instantiation-of-a-fixed-array-field-is-refused
 fixed-array.md: error.a-negative-constant-length-is-one-diagnostic
@@ -2991,6 +2997,15 @@ lexer-parser-robustness.md: truncated-after-let-name
 lexer-parser-robustness.md: truncated-after-return-type
 lexer-parser-robustness.md: truncated-after-returns
 lexer-parser-robustness.md: truncated-after-while
+library-tier-surface.md: a-builtins-call-compiles-in-the-library-tier
+library-tier-surface.md: a-scalar-builtins-member-compiles-in-the-library-tier
+library-tier-surface.md: error.a-builtins-call-is-refused-outside-the-library-tiers
+library-tier-surface.md: error.a-managed-memory-static-is-refused-outside-the-library-tiers
+library-tier-surface.md: error.a-managed-memory-type-is-refused-outside-the-library-tiers
+library-tier-surface.md: error.a-managed-read-is-refused-outside-the-library-tiers
+library-tier-surface.md: error.a-scalar-builtins-member-is-refused-too
+library-tier-surface.md: error.a-self-managed-call-in-an-array-extension-is-refused-at-the-field
+library-tier-surface.md: error.a-self-managed-read-in-an-array-extension-is-refused-at-the-field
 linear-types.md: a-conditional-expression-whose-arms-build-the-value-is-accepted
 linear-types.md: a-finalizer-ends-the-value-and-every-branch-consumes-it
 linear-types.md: a-finalizer-that-throws-after-destruct-is-caught-without-the-value-live
@@ -3099,6 +3114,8 @@ managed-memory-methods.md: clear-then-resize-scalar-reads-zeros
 managed-memory-methods.md: empty-bstring-push
 managed-memory-methods.md: empty-string-bytes-push
 managed-memory-methods.md: error.a-negative-index-into-a-managed-array-is-refused
+managed-memory-methods.md: error.buffer-makeCharFromBytes-is-library-tier
+managed-memory-methods.md: error.buffer-toCString-is-library-tier
 managed-memory-methods.md: remove-then-resize-scalar-reads-zero
 managed-memory-methods.md: shrink-managed-elements-no-leak
 managed-memory-methods.md: shrink-struct-elements-no-leak
@@ -3752,6 +3769,7 @@ nominal-generic-alias.md: an-inline-spelled-element-carries-no-brand
 nominal-generic-alias.md: an-unbranded-var-that-adopted-a-brand-reaches-that-brands-parameter
 nominal-generic-alias.md: an-xs-converts-at-a-ys-return
 nominal-generic-alias.md: error.a-different-instance-returned-is-still-refused
+nominal-generic-alias.md: error.a-managed-buffer-of-one-brand-does-not-reach-another-brands-parameter
 nominal-generic-alias.md: error.an-adopted-element-is-still-range-checked
 nominal-generic-alias.md: error.as-to-a-different-instance-is-still-refused
 nominal-generic-alias.md: error.comparing-two-brands-of-one-instance-is-refused
@@ -4213,6 +4231,7 @@ process-environment-variable.md: process-environment-variable.unset-name-throws
 process-executable-path.md: process-executable-path.is-absolute
 process-executable-path.md: process-executable-path.is-not-empty
 process-executable-path.md: process-executable-path.is-stable-across-calls
+process-id.md: process-id.arity-checked
 process-id.md: process-id.fits-in-a-dword
 process-id.md: process-id.is-positive
 process-id.md: process-id.is-stable-across-calls

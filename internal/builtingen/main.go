@@ -207,11 +207,15 @@ func load() table {
 			r.bounds = append(r.bounds, parseBound(b))
 		}
 		r.check()
+		if rawCalls(f.Owner) != (f.Instead != "") || (f.Instead != "" && !f.Static) {
+			fail("%s: a row names what a program calls instead exactly where it is a static function of a record whose calls are raw", key)
+		}
 		t.fns = append(t.fns, r)
 		if i, ok := seen[f.Intrinsic]; ok {
 			if t.intrinsics[i].checked != f.Checked || t.intrinsics[i].ownsOperands != f.OwnsOperands || t.intrinsics[i].runtimeOnly != f.RuntimeOnly || t.intrinsics[i].mayOverlap != f.MayOverlap {
 				fail("the rows of intrinsic %s disagree on how it is checked or lowered, or where it may be called", f.Intrinsic)
 			}
+			checkSharedFailure(t.fns, f)
 			continue
 		}
 		seen[f.Intrinsic] = len(t.intrinsics)
@@ -219,6 +223,12 @@ func load() table {
 	}
 	for _, a := range typeAliases {
 		fn{Name: a.Name}.checkType(parseType(a.Type))
+	}
+	for _, v := range views {
+		owner, of := builtinTypeOf(v.Owner), builtinTypeOf(v.Type)
+		if owner == nil || of == nil || len(owner.Params) == 0 || len(owner.Params) != len(of.Params) {
+			fail("view %s.%s: a view is of a generic built-in type, as another built-in type of as many parameters", v.Owner, v.Name)
+		}
 	}
 	for _, e := range entries {
 		if unitOf(e.Unit) == nil {
@@ -234,6 +244,45 @@ func load() table {
 
 // stringOwner is the Owner of a method of String, which is a primitive and no type the table declares.
 const stringOwner = "String"
+
+// checkSharedFailure holds the rows that lower to one intrinsic and throw different enums to enums whose shared cases have
+// the same indexes, since the lowering fails with a case's index and knows nothing of the row.
+func checkSharedFailure(fns []fn, f function) {
+	thrown := enumOf(f.Throws)
+	for _, other := range fns {
+		if other.Intrinsic != f.Intrinsic || other.Throws == f.Throws {
+			continue
+		}
+		was := enumOf(other.Throws)
+		if thrown == nil || was == nil {
+			fail("the rows of intrinsic %s disagree on whether it throws", f.Intrinsic)
+		}
+		for i := range min(len(thrown.Cases), len(was.Cases)) {
+			if thrown.Cases[i].Name != was.Cases[i].Name {
+				fail("the rows of intrinsic %s throw %s and %s, whose case %d differs", f.Intrinsic, f.Throws, other.Throws, i)
+			}
+		}
+	}
+}
+
+// rawCalls is whether owner is a record of the table whose static functions are raw intrinsics.
+func rawCalls(owner string) bool {
+	for _, r := range recordTypes {
+		if r.Key == owner {
+			return r.RawCalls
+		}
+	}
+	return false
+}
+
+func builtinTypeOf(key string) *builtinType {
+	for i := range builtinTypes {
+		if builtinTypes[i].Key == key {
+			return &builtinTypes[i]
+		}
+	}
+	return nil
+}
 
 // check refuses a signature that names a type the row cannot see.
 func (f fn) check() {

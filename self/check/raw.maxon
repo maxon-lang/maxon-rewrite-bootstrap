@@ -1,0 +1,59 @@
+// The doors of maxon's raw surface (E3185): naming a type of it, calling a function or a method of it, and reading a view.
+// They read and write memory past the ownership model's bookkeeping, so only a module of a library tier goes through one;
+// each refusal is at the door, in maxon's words, with what a program uses instead.
+
+// refusesRawType refuses a type of the raw surface that a module outside the library tiers names at off.
+function refusesRawType(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, t ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if p.modules[c.modIdx].inLibraryTier() 'tier'
+		return false
+	end 'tier'
+	let origin = ast.originOf(ms.types, reads: p.types, t: t)
+	match consumes ast.rawTypeSurface(p.builtins, origin: origin) 'raw'
+		some(door) then checkFail(c.modID, off: off, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawTypeOutsideLibrary(ast.typeEntry(ms.types, reads: p.types, t: origin).name.clone(), what: door.what, instead: door.instead), errs: errs)
+		none then return false
+	end 'raw'
+	return true
+end 'refusesRawType'
+
+// refusesRawCall refuses a call that a module outside the library tiers makes of a raw static function or of a method of a
+// type of the raw surface. A static function of such a type is called on its name, which refusesRawType refused already.
+function refusesRawCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList) returns bool
+	if p.modules[c.modIdx].inLibraryTier() 'tier'
+		return false
+	end 'tier'
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).ownerTy
+	if owner == ast.noType 'free'
+		return false
+	end 'free'
+	let origin = ast.originOf(ms.types, reads: p.types, t: owner)
+	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).name.clone()
+	match consumes ast.rawCallInstead(p.builtins, owner: origin, name: name) 'call'
+		some(instead) then return refuseRawCall(c, p: p, ms: ms, call: call, ownerName: ast.typeEntry(ms.types, reads: p.types, t: origin).name.clone(), name: name, instead: instead, errs: errs)
+		none then _ = 0
+	end 'call'
+	if not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).hasReceiver 'static'
+		return false
+	end 'static'
+	match consumes ast.rawMethodSurface(p.builtins, origin: origin) 'method'
+		some(door) then failAt(c, p: p, ms: ms, node: call, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawMemberOutsideLibrary("{name}()", what: door.what, instead: door.instead), errs: errs)
+		none then return false
+	end 'method'
+	return true
+end 'refusesRawCall'
+
+function refuseRawCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ownerName String, name String, instead String, mutates errs diag.ErrorList) returns bool
+	failAt(c, p: p, ms: ms, node: call, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawCallOutsideLibrary("{ownerName}.{name}", owner: ownerName, instead: instead), errs: errs)
+	return true
+end 'refuseRawCall'
+
+// checkViewMember types a view of a built-in generic value, `xs.managed`: the same value as an instance of the view's type
+// at the value's type arguments, which a module outside the library tiers may not read.
+function checkViewMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, member String, consumes view ast.BuiltinView, mutates errs diag.ErrorList) returns ast.TypeID
+	if not p.modules[c.modIdx].inLibraryTier() 'outside'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawMemberOutsideLibrary(member, what: view.surface.what, instead: view.surface.instead), errs: errs)
+		return ast.noType
+	end 'outside'
+	c.typing.members.insert(e as Count, value: ast.MemberInfo.make(ast.MemberKind.memberView, ownerTy: t))
+	let args = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: view.origin, args: args, errs: errs)
+end 'checkViewMember'

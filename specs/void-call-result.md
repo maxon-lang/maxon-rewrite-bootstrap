@@ -682,6 +682,7 @@ error E3059: <fragment>:4:10: type mismatch: ''grow' does not return a value'
 ```
 
 <!-- test: error.buffer-try-append-in-value-position -->
+<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
 <!-- tier: stdlib -->
 
 ⚖ **`append` IS NOT IN THIS ENUMERATION, AND THIS IS THE CASE THAT SAYS SO.** The four above it are void

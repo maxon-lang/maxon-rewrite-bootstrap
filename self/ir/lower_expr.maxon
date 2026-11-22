@@ -47,6 +47,9 @@ function lowerExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if p.modules[l.mi].tree.kindOf(e) == ast.NodeKind.tryExpr and ast.isTransparent(p.modules[l.mi].tree, e: e) 'transparent'
 		return lowerThrough(l, p: p, ms: ms, t: e)
 	end 'transparent'
+	if isViewExpr(l, p: p, e: e) 'view'
+		return lowerExpr(l, p: p, ms: ms, e: ast.memberExprObj(p.modules[l.mi].tree, id: e))
+	end 'view'
 	let mark = l.pending.count()
 	var v = visitExpr(l, p: p, ms: ms, e: e)
 	popPending(l, n: mark)
@@ -226,6 +229,11 @@ function isWholeLocal(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bo
 	end 'name'
 	return k == ast.NodeKind.selfExpr
 end 'isWholeLocal'
+
+// isViewExpr is whether an expression is a view of a value (`xs.managed`), which is the value itself.
+function isViewExpr(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
+	return p.modules[l.mi].tree.kindOf(e) == ast.NodeKind.memberExpr and memberInfoAt(p, module: l.module, node: e).kind == ast.MemberKind.memberView
+end 'isViewExpr'
 
 // isField is whether a place is a field of a record, which a move leaves empty.
 function isField(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
@@ -449,6 +457,9 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 	end 'name'
 	if k == ast.NodeKind.memberExpr 'member'
 		let member = memberInfoAt(p, module: l.module, node: e)
+		if member.kind == ast.MemberKind.memberView 'view'
+			return address(l, p: p, ms: ms, e: ast.memberExprObj(p.modules[l.mi].tree, id: e))
+		end 'view'
 		if member.kind == ast.MemberKind.memberField 'field'
 			let obj = lowerRead(l, p: p, ms: ms, e: ast.memberExprObj(p.modules[l.mi].tree, id: e))
 			let d = newReg(l, kind: IrKind.kindScalar)
@@ -793,6 +804,9 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		loadField(l, p: p, ms: ms, d: d, obj: base, e: e, index: member.fieldIndex)
 		return d
 	end 'field'
+	if kind == ast.MemberKind.memberView 'view'
+		return visitExpr(l, p: p, ms: ms, e: obj)
+	end 'view'
 	if kind == ast.MemberKind.memberEnumCase 'enumCase'
 		return konst(l, value: try member.enumCase as Word otherwise panic("ir: a case index is out of range"))
 	end 'enumCase'

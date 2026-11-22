@@ -36,6 +36,9 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 		handled(o, p: p, ms: ms, e: e, entry: entry)
 		return after
 	end 'transparent'
+	if isView(o, ms: ms, e: e) 'view'
+		return consume(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: e), dest: dest, s: s)
+	end 'view'
 	let out = eval(o, p: p, ms: ms, e: e, s: s)
 	if out.dead 'dead'
 		return out

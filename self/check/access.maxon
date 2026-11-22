@@ -383,6 +383,10 @@ function checkValueMember(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	if typeHasKind(p, ms: ms, t: content, kind: ast.TypeKind.record) and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: content)).findField(member).isSome() 'field'
 		return checkFieldMember(c, p: p, ms: ms, e: e, rt: content, member: member, errs: errs)
 	end 'field'
+	match consumes ast.builtinView(p.builtins, owner: ast.originOf(ms.types, reads: p.types, t: content), name: member) 'view'
+		some(view) then return checkViewMember(c, p: p, ms: ms, e: e, t: content, member: member, view: view, errs: errs)
+		none then _ = 0
+	end 'view'
 	if rawValuesUntyped(p, ms: ms, t: t) and member != "name" and member != "ordinal" 'untyped'
 		return failRawUntyped(c, p: p, ms: ms, e: e, t: t, errs: errs)
 	end 'untyped'

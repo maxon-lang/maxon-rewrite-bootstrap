@@ -54,6 +54,8 @@ export enum MemberKind
 	memberAllCases
 	memberAllCaseNames
 	memberLimit
+	// memberView is a view of a built-in generic value (`xs.managed`): the value itself, as an instance of another type.
+	memberView
 end 'MemberKind'
 
 // memberOfType is whether a member is read from a type that the expression names, never from a value, so there is no

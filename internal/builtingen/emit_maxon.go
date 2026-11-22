@@ -147,6 +147,7 @@ func emitMaxon(t table) string {
 		}
 	}
 	sb.WriteString("\treturn false\nend 'intrinsicMayOverlap'\n\n")
+	emitMaxonRawSurface(&sb, t)
 
 	var groups []string
 	byGroup := map[string][]fn{}
@@ -243,6 +244,58 @@ func emitMaxon(t table) string {
 		fmt.Fprintf(&sb, "end '%s'\n", name)
 	}
 	return sb.String()
+}
+
+// emitMaxonRawSurface writes what the checker refuses outside the library tiers (E3185): the types of maxon's raw surface,
+// the static functions of the records whose calls are raw, and the views.
+func emitMaxonRawSurface(sb *strings.Builder, t table) {
+	sb.WriteString("// RawSurface is a door of maxon's raw surface, which only the library tiers may go through (E3185): what it is or reaches,\n// and what a program uses instead.\n")
+	sb.WriteString("export type RawSurface\n\texport var what as String\n\texport var instead as String\n\n")
+	sb.WriteString("\tstatic function make(consumes what String, consumes instead String) returns RawSurface\n\t\treturn RawSurface{what: what, instead: instead}\n\tend 'make'\nend 'RawSurface'\n\n")
+	some := func(s rawSurface) string {
+		return fmt.Sprintf("table.Option.some(RawSurface.make(%q, instead: %q))", s.What, s.Instead)
+	}
+	for _, door := range []struct {
+		name, doc string
+		of        func(rawType) rawSurface
+	}{
+		{"rawTypeSurface", "naming a type of the table is", func(r rawType) rawSurface { return r.Named }},
+		{"rawMethodSurface", "calling a method of a type of the table is", func(r rawType) rawSurface { return r.Methods }},
+	} {
+		fmt.Fprintf(sb, "// %s is the door of the raw surface that %s, or none for a type that is no part of it.\n", door.name, door.doc)
+		fmt.Fprintf(sb, "export function %s(b Builtins, origin TypeID) returns table.Option with RawSurface\n", door.name)
+		for _, bt := range builtinTypes {
+			if bt.Raw != nil {
+				fmt.Fprintf(sb, "\tif origin == %s 'raw%s'\n\t\treturn %s\n\tend 'raw%s'\n", maxonOwner(bt.Key), bt.Key, some(door.of(*bt.Raw)), bt.Key)
+			}
+		}
+		fmt.Fprintf(sb, "\treturn table.Option.none\nend '%s'\n\n", door.name)
+	}
+	sb.WriteString("// rawCallInstead is what a program calls in place of a static function of a record of the table whose calls are raw, or\n// none for a function of any other owner.\n")
+	sb.WriteString("export function rawCallInstead(b Builtins, owner TypeID, name String) returns table.Option with String\n")
+	for _, r := range recordTypes {
+		if !r.RawCalls {
+			continue
+		}
+		fmt.Fprintf(sb, "\tif owner == %s 'raw%s'\n", maxonOwner(r.Key), r.Key)
+		for _, f := range t.fns {
+			if f.Owner == r.Key {
+				fmt.Fprintf(sb, "\t\tif name == %q '%s'\n\t\t\treturn table.Option.some(%q)\n\t\tend '%s'\n", f.Name, f.Name, f.Instead, f.Name)
+			}
+		}
+		fmt.Fprintf(sb, "\t\tpanic(\"'{name}' is no static function of %s\")\n\tend 'raw%s'\n", r.Name, r.Key)
+	}
+	sb.WriteString("\treturn table.Option.none\nend 'rawCallInstead'\n\n")
+	sb.WriteString("// BuiltinView is a member of a built-in generic type that is the same value seen as an instance of another type of the\n// table, at the same type arguments, and the door of the raw surface that reading it is.\n")
+	sb.WriteString("export type BuiltinView\n\texport var origin as TypeID\n\texport var surface as RawSurface\n\n")
+	sb.WriteString("\tstatic function make(origin TypeID, consumes surface RawSurface) returns BuiltinView\n\t\treturn BuiltinView{origin: origin, surface: surface}\n\tend 'make'\nend 'BuiltinView'\n\n")
+	sb.WriteString("// builtinView is the view of that name of a built-in generic type, or none.\n")
+	sb.WriteString("export function builtinView(b Builtins, owner TypeID, name String) returns table.Option with BuiltinView\n")
+	for _, v := range views {
+		fmt.Fprintf(sb, "\tif owner == %s and name == %q '%s%s'\n\t\treturn table.Option.some(BuiltinView.make(%s, surface: RawSurface.make(%q, instead: %q)))\n\tend '%s%s'\n",
+			maxonOwner(v.Owner), v.Name, lowerFirst(v.Owner), upperFirst(v.Name), maxonOwner(v.Type), v.Raw.What, v.Raw.Instead, lowerFirst(v.Owner), upperFirst(v.Name))
+	}
+	sb.WriteString("\treturn table.Option.none\nend 'builtinView'\n\n")
 }
 
 func maxonGroupFunction(owner string) string {

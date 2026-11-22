@@ -213,8 +213,18 @@ end 'prepareRuntime'
 // that p started with, from their parse, and gives back what the generate stage lowered. memory holds the files that the
 // parse reads from memory rather than disk; ready are the units the program is linked with.
 function compileDiscovered(mutates p ast.Project, memory project.SourceFiles, first Count, ready frozen with backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
+	if options.stagesInLibrary 'staged'
+		stageInLibrary(p, first: first)
+	end 'staged'
 	return compileFrom(p, from: Stage.parse, memory: memory, first: first, ready: ready, output: output, options: options, errs: errs)
 end 'compileDiscovered'
+
+// stageInLibrary puts the program's modules from first on in the library tier.
+function stageInLibrary(mutates p ast.Project, first Count)
+	for m in first upto p.modules.count() 'modules'
+		p.modules[m].stagedInLibrary = not p.modules[m].isLibrary
+	end 'modules'
+end 'stageInLibrary'
 
 // compileLoaded is compileDiscovered for modules that are parsed already.
 function compileLoaded(mutates p ast.Project, first Count, ready frozen with backend.UnitList, output String, options Options, mutates errs diag.ErrorList)

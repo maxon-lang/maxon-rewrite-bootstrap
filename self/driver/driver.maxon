@@ -105,9 +105,12 @@ type Options
 	var speculates as bool
 	// target is the platform the executable is made for, and whose branches of a #if the compile reads.
 	var target as ast.Target
+	// stagesInLibrary compiles the program's modules in the library tier, as maxon's spec runner compiles a case marked
+	// `tier: stdlib`: they may name maxon's raw surface.
+	var stagesInLibrary as bool
 
 	static function new() returns Options
-		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, usesCache: true, speculates: false, target: hostTarget()}
+		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, usesCache: true, speculates: false, target: hostTarget(), stagesInLibrary: false}
 	end 'new'
 
 	// timesTasks is whether a compile reads the clock around each task, for --timings or --trace.

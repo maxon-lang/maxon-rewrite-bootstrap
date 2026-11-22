@@ -92,6 +92,7 @@ ErrAliasRangeDoesNotFit	E3178	aliasImplementsRangeDoesNotFit	A typealias impleme
 ErrCannotInfer	E3179	genericTypeParameterNotInferable	A type parameter of a generic function is fixed by no argument.
 ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program cannot be spelled as a module name.
 ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
+ErrRawSurfaceOutsideLibrary	E3185	rawSurfaceOutsideLibraryTier	A source file outside the library tiers names a part of the raw surface: a __Builtins call, a .managed read, a __ManagedMemory type or a method of one.
 ErrExclusivity	E3186	argumentOverlapsWrittenParameter	An argument handed to a written parameter overlaps another operand of the call.
 ErrInstanceMethodWithoutReceiver	E3193	semanticInstanceMethodCalledWithoutReceiver	An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.
 ErrFixedArrayCreateForm	E3194	fixedArrayCreateLengthForm	A fixed array's create takes a length its type does not need, or lacks one it does.
