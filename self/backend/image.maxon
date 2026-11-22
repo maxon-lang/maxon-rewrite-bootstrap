@@ -52,5 +52,5 @@ end 'placeData'
 
 // writeImage replaces the file at path with the image.
 export function writeImage(image Image, path FilePath) throws FileWriteError
-	try File.writeBinary(path, content: image.file)
+	try File.writeBinary(path, content: image.file, mode: FilePermission.executable)
 end 'writeImage'

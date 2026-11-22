@@ -3325,9 +3325,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
-- x64-linux: a file the Linux runtime writes (`File.writeText`, `File.writeBinary`) is made with mode 0666 under the umask, and
-  unless the write is given `mode: FilePermission.executable`, so an executable that a compiler running on Linux builds is not
-  executable until it is made so; maxon's ELF writer writes its executable with `FilePermission.executable`. `FilePath.from` turns a backslash into a slash
+- x64-linux: `FilePath.from` turns a backslash into a slash
   and refuses nothing on Linux, as maxon's does. A run of a program found on `PATH` looks for it as `execvp` does, in the run's
   own `PATH`; the run passes the child the run's environment.
 - `Process.setExitCode(code)` sets the code the process ends with when `main` has returned and no behaviour is left,

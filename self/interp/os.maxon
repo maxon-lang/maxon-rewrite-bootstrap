@@ -157,10 +157,10 @@ function entryOsReadText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	end 'read'
 end 'entryOsReadText'
 
-// writeBytes writes a file and gives the error word of its failure, or 0.
-function writeBytes(path FilePath, content ByteArray) returns ir.Word
+// writeBytes writes a file with the mode and gives the error word of its failure, or 0.
+function writeBytes(path FilePath, content ByteArray, mode FilePermission) returns ir.Word
 	try 'write'
-		File.writeBinary(path, content: content)
+		File.writeBinary(path, content: content, mode: mode)
 	end 'write' otherwise (e) 'failed'
 		match e 'kind'
 			failed then return caseWord(ast.errorWriteFailed)
@@ -174,28 +174,46 @@ function writeBytes(path FilePath, content ByteArray) returns ir.Word
 	return 0
 end 'writeBytes'
 
-function entryOsWriteText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+// writeMode is the mode a write asks for with the executable flag that it passes at argument i.
+function writeMode(vm Vm, f ir.IrFunction, x ir.Instr, i Count) returns FilePermission
+	if argNum(vm, f: f, x: x, i: i) != 0 'executable'
+		return FilePermission.executable
+	end 'executable'
+	return FilePermission.normal
+end 'writeMode'
+
+// writeTextEntry is the write of a string, which gives the file the mode.
+function writeTextEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePermission) throws Halt
 	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let path = pathOf(vm.h.texts[pathAt].clone())
 	let contentAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a file's content")
-	let word = writeBytes(path, content: vm.h.texts[contentAt].toByteArray())
+	let word = writeBytes(path, content: vm.h.texts[contentAt].toByteArray(), mode: mode)
 	try errorWord(vm, f: f, x: x, word: word)
-end 'entryOsWriteText'
+end 'writeTextEntry'
 
-function entryOsWriteBinary(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+// writeBinaryEntry is the write of a byte array, which gives the file the mode.
+function writeBinaryEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePermission) throws Halt
 	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let path = pathOf(vm.h.texts[pathAt].clone())
 	let bytes = try collection(vm, o: argRef(vm, f: f, x: x, i: 1), kind: kindBytes, what: "a file's content")
-	let word = writeBytes(path, content: vm.h.buffers[vm.h.oData[bytes]].clone())
+	let word = writeBytes(path, content: vm.h.buffers[vm.h.oData[bytes]].clone(), mode: mode)
 	try errorWord(vm, f: f, x: x, word: word)
+end 'writeBinaryEntry'
+
+function entryOsWriteText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try writeTextEntry(vm, f: f, x: x, mode: FilePermission.normal)
+end 'entryOsWriteText'
+
+function entryOsWriteBinary(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try writeBinaryEntry(vm, f: f, x: x, mode: FilePermission.normal)
 end 'entryOsWriteBinary'
 
 function entryOsWriteTextMode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	try entryOsWriteText(vm, f: f, x: x)
+	try writeTextEntry(vm, f: f, x: x, mode: writeMode(vm, f: f, x: x, i: 2))
 end 'entryOsWriteTextMode'
 
 function entryOsWriteBinaryMode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	try entryOsWriteBinary(vm, f: f, x: x)
+	try writeBinaryEntry(vm, f: f, x: x, mode: writeMode(vm, f: f, x: x, i: 2))
 end 'entryOsWriteBinaryMode'
 
 function entryOsRename(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
