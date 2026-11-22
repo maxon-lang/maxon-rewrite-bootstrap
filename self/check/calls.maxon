@@ -465,8 +465,24 @@ function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if sm != ast.noFunc 'instance'
 		return refuseInstanceMethodWithoutReceiver(c, p: p, ms: ms, node: ast.callExprCallee(ms.tree(), id: call), owner: nt, name: name, errs: errs)
 	end 'instance'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: nt)}.{name}", qualifiers: 1 as Count, errs: errs)
+	return unknownTypeFunction(c, p: p, ms: ms, call: call, nt: nt, name: name, errs: errs)
 end 'callOnType'
+
+// unknownTypeFunction refuses a call of a function that the type it is written on does not have. A bare type name that the
+// module does not declare is a built-in, and where another module declares a type of that name, maxon's bare lookup finds
+// that one, so the error names it with its module and its fix writes the module.
+function unknownTypeFunction(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, nt ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let written = "{nameOfType(p, ms: ms, t: nt)}.{name}"
+	let callee = ast.callExprCallee(ms.tree(), id: call)
+	if ms.tree().kindOf(callee) == ast.NodeKind.memberExpr 'member'
+		let head = ast.memberExprObj(ms.tree(), id: callee)
+		if ms.tree().kindOf(head) == ast.NodeKind.nameExpr and not isQualifiedName(c, p: p, ms: ms, e: head) and not p.modules[c.modIdx].names.has(ast.nameExprName(ms.tree(), id: head)) 'builtIn'
+			diag.pushUnqualifiedErrorAt(errs, code: diag.errUnknownFunction, message: undefinedFunctionText(written), module: c.modID, offset: offsetOf(c, p: p, ms: ms, node: call), name: ast.nameExprName(ms.tree(), id: head), at: offsetOf(c, p: p, ms: ms, node: head))
+			return ast.noType
+		end 'builtIn'
+	end 'member'
+	return unknownFunction(c, p: p, ms: ms, call: call, name: written, qualifiers: 1 as Count, errs: errs)
+end 'unknownTypeFunction'
 
 // callOnValue types 'value.method(...)'.
 function callOnValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID

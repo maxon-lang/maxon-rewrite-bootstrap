@@ -58,8 +58,7 @@ it carries today's code generator.
 
 is the gate: it formats and vets the Go, runs the generators and fails if a generated file changed, builds one compiler
 from the seed (`bin\minimaxon.exe`), runs the Go tests, and then has it run `selftest`, `check runtime`, `check self`,
-`fmt --check`, the corpus, the spec tests not yet passing (`specs/passed.txt` lists the rest, which are not run again)
-and `fuzz`.
+`fmt --check`, the corpus, every spec test (failing when one that `specs/passed.txt` lists does not pass) and `fuzz`.
 `.\seed.ps1` renews the seed, and is where the compiler is held to reproducing itself (seed builds C1, C1 builds C2, C2
 builds a C3 identical to it).
 
@@ -72,9 +71,12 @@ builds a C3 identical to it).
 - **Corpus tests** under `tests/` run whole programs (`tests/run/`), diagnostics (`tests/errors/`, with
   `// expect-error: CODE [at L:C]`), programs that must only compile clean (`tests/check/`) and multi-module projects
   (`tests/modules/<case>/`). Maxon's spec tests (`specs/`) are the corpus that measures progress: the count that passes
-  may only go up. Until Phase 3 makes the full run fast, a test that has passed (`specs/passed.txt`) is not run again, by
-  the gate or by `specs.ps1` (`test specs --skip-passed`, which `--record-passed` extends), so a regression in one shows
-  only when Phase 3 brings the full run back; plain `test specs` stays a full run that nothing in the scripts uses.
+  may only go up. The gate runs every spec test (`test specs --require-passed`) and fails when a test that
+  `specs/passed.txt` lists does not pass, so a regression in one stops the commit that makes it; a test that passes and
+  is not listed is counted as new. `specs.ps1` writes the list again (`--record-passed`): it adds the new passes, drops
+  a listed test only where the conversion now skips it, and keeps one that fails. A language change that makes a listed
+  test wrong changes its status through the conversion's skips (`self/driver/skips.tsv`, `cmd/convert`), never by an
+  edit of the list.
 - **Determinism.** Never let the iteration order of a map, in the compiler or a generator, reach output, diagnostics,
   or the order in which registers, slots, blocks, strings or symbols are allocated: iterate lists or sorted keys, and
   merge parallel results in source order.

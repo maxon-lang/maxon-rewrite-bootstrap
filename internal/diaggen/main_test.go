@@ -169,6 +169,9 @@ func TestParseSkipsRefusesBadRows(t *testing.T) {
 		"quote":        {"skip\tErrA\tErrB\tsay \"x\"\n", "reason is empty"},
 		"empty":        {"# only a comment\n", "no skip rows"},
 		"ok":           {declared + "skip\tErrA,E3223\tErrB\tr\n", ""},
+		"run maxon":    {declared + "run\tE3223\tr\n", "neither a constant"},
+		"expect ok":    {declared + "expect\tErrA,E3223\tr\n", ""},
+		"run ok":       {"run\tErrB\tr\n", ""},
 	} {
 		_, err := parseSkips(tc.src, codes)
 		switch {
@@ -182,7 +185,7 @@ func TestParseSkipsRefusesBadRows(t *testing.T) {
 
 func TestSkipTablePairsEveryExpectedWithEveryReported(t *testing.T) {
 	codes := []row{{"ErrA", "E2001", noMaxonName, "m"}, {"ErrB", "E2002", noMaxonName, "m"}}
-	skips, err := parseSkips("code\tE3223\tm\nskip\tErrA,E3223\tErrA,ErrB\twhy\n", codes)
+	skips, err := parseSkips("code\tE3223\tm\nskip\tErrA,E3223\tErrA,ErrB\twhy\nexpect\tE3223\tso\nrun\tErrB\tthus\n", codes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,6 +195,8 @@ func TestSkipTablePairsEveryExpectedWithEveryReported(t *testing.T) {
 		`CodeSkip.make(diag.errA.clone(), reported: diag.errB.clone(), line: "<!-- skip: why -->\n")`,
 		`CodeSkip.make("E3223", reported: diag.errA.clone(), line: "<!-- skip: why -->\n")`,
 		`CodeSkip.make("E3223", reported: diag.errB.clone(), line: "<!-- skip: why -->\n")`,
+		`CodeSkip.expecting("E3223", line: "<!-- skip: so -->\n")`,
+		`CodeSkip.refusing(diag.errB.clone(), line: "<!-- skip: thus -->\n")`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("generated table lacks %s:\n%s", want, got)

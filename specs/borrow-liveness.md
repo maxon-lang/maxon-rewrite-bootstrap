@@ -5261,6 +5261,7 @@ error E3197: <fragment>:19:3: cannot write 'n' through 'p', which is immutable
 ```
 
 <!-- test: error.a-module-let-built-by-a-factory-call-is-refused -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### A module `let` whose initializer calls a factory is refused
 Module-level data is built by literals only, so no record reachable from a module `let` is ever the result of a call: a function's result is built where it is used.
 ```maxon
@@ -5286,6 +5287,7 @@ error E3220: <fragment>:12:14: the initializer of 'Origin' calls 'Point.create':
 ```
 
 <!-- test: error.a-module-let-array-literal-holding-a-factory-call-is-refused -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### A module `let` array literal whose element is a factory call is refused
 The literal is not a call, but its element is.
 ```maxon

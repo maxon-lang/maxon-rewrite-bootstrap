@@ -14,14 +14,19 @@ const (
 	maxonOnlyColumns = 3
 	skipKind         = "skip"
 	skipColumns      = 4
+	expectKind       = "expect"
+	runKind          = "run"
+	codeListColumns  = 3
 
 	// reasonForbidden are the characters that Go and Maxon do not escape alike in a string.
 	reasonForbidden = "\"\\{}"
 )
 
-// skipRow is a row of the skip table: the codes maxon expects and the codes minimaxon reports for a test that is skipped
-// for the reason, each as the Maxon expression of the code.
+// skipRow is a row of the skip table: its kind, the codes maxon expects and the codes minimaxon reports for a test that is
+// skipped for the reason, each as the Maxon expression of the code. An expect row has no reported codes and a run row no
+// expected ones.
 type skipRow struct {
+	kind               string
 	expected, reported []string
 	reason             string
 }
@@ -44,6 +49,8 @@ func parseSkips(src string, codes []row) ([]skipRow, error) {
 		}
 		at := fmt.Sprintf("%s:%d", skipTableFile, i+1)
 		cols := strings.Split(line, "\t")
+		var s skipRow
+		var err error
 		switch {
 		case cols[0] == maxonOnlyKind && len(cols) == maxonOnlyColumns:
 			code := cols[1]
@@ -58,22 +65,32 @@ func parseSkips(src string, codes []row) ([]skipRow, error) {
 				return nil, fmt.Errorf("%s: %s has no meaning", at, code)
 			}
 			maxonOnly[code] = true
+			continue
 		case cols[0] == skipKind && len(cols) == skipColumns:
-			s := skipRow{reason: cols[3]}
-			var err error
+			s = skipRow{kind: skipKind, reason: cols[3]}
 			if s.expected, err = skipCodes(cols[1], known, maxonOnly, at); err != nil {
 				return nil, err
 			}
 			if s.reported, err = skipCodes(cols[2], known, nil, at); err != nil {
 				return nil, err
 			}
-			if s.reason == "" || strings.ContainsAny(s.reason, reasonForbidden) {
-				return nil, fmt.Errorf("%s: the reason is empty or holds a quote, a backslash or a brace, which Go and Maxon do not escape alike", at)
+		case cols[0] == expectKind && len(cols) == codeListColumns:
+			s = skipRow{kind: expectKind, reason: cols[2]}
+			if s.expected, err = skipCodes(cols[1], known, maxonOnly, at); err != nil {
+				return nil, err
 			}
-			rows = append(rows, s)
+		case cols[0] == runKind && len(cols) == codeListColumns:
+			s = skipRow{kind: runKind, reason: cols[2]}
+			if s.reported, err = skipCodes(cols[1], known, nil, at); err != nil {
+				return nil, err
+			}
 		default:
-			return nil, fmt.Errorf("%s: want a %s row of %d tab-separated columns or a %s row of %d", at, maxonOnlyKind, maxonOnlyColumns, skipKind, skipColumns)
+			return nil, fmt.Errorf("%s: want a %s row of %d tab-separated columns, a %s row of %d, or an %s or %s row of %d", at, maxonOnlyKind, maxonOnlyColumns, skipKind, skipColumns, expectKind, runKind, codeListColumns)
 		}
+		if s.reason == "" || strings.ContainsAny(s.reason, reasonForbidden) {
+			return nil, fmt.Errorf("%s: the reason is empty or holds a quote, a backslash or a brace, which Go and Maxon do not escape alike", at)
+		}
+		rows = append(rows, s)
 	}
 	if len(rows) == 0 {
 		return nil, fmt.Errorf("%s has no skip rows", skipTableFile)
@@ -101,21 +118,35 @@ func skipCodes(list string, constants, maxonOnly map[string]bool, at string) ([]
 func emitMaxonSkips(rows []skipRow) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "// %s\n\n", skipNote)
-	b.WriteString("// codeSkipTable is the pairs of codes whose tests `fix specs` skips, from self/driver/skips.tsv.\n")
+	b.WriteString("// codeSkipTable is the codes for which `fix specs` skips a test, from self/driver/skips.tsv.\n")
 	b.WriteString("function codeSkipTable() returns CodeSkips\n\tvar skips = CodeSkips.create(0)\n")
 	for _, r := range rows {
 		line := fmt.Sprintf("%q", "<!-- skip: "+r.reason+" -->\n")
-		for _, e := range r.expected {
-			for _, p := range r.reported {
-				fmt.Fprintf(&b, "\tskips.push(CodeSkip.make(%s, reported: %s, line: %s))\n", skipExpr(e), skipExpr(p), line)
+		switch r.kind {
+		case skipKind:
+			for _, e := range r.expected {
+				for _, p := range r.reported {
+					fmt.Fprintf(&b, "\tskips.push(CodeSkip.make(%s, reported: %s, line: %s))\n", skipExpr(e), skipExpr(p), line)
+				}
 			}
+		case expectKind:
+			for _, e := range r.expected {
+				fmt.Fprintf(&b, "\tskips.push(CodeSkip.expecting(%s, line: %s))\n", skipExpr(e), line)
+			}
+		case runKind:
+			for _, p := range r.reported {
+				fmt.Fprintf(&b, "\tskips.push(CodeSkip.refusing(%s, line: %s))\n", skipExpr(p), line)
+			}
+		default:
+			panic(fmt.Sprintf("diaggen: a skip row of kind %q", r.kind))
 		}
 	}
 	b.WriteString("\treturn skips\nend 'codeSkipTable'\n")
 	return b.String()
 }
 
-// skipExpr is the expression of a code as an argument that CodeSkip.make consumes: a constant is copied, a literal is not.
+// skipExpr is the expression of a code as an argument that a CodeSkip constructor consumes: a constant is copied, a literal
+// is not.
 func skipExpr(code string) string {
 	if strings.HasPrefix(code, "diag.") {
 		return code + ".clone()"

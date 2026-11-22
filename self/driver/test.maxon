@@ -384,16 +384,18 @@ type CorpusOptions
 end 'CorpusOptions'
 
 // testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--behaviours] [--repeat=N] [--executables=N]
-// [--skip-passed] [--record-passed]`: the corpus is the given directory of programs, or the spec files at the given path, or
+// [--skip-passed] [--require-passed] [--record-passed]`: the corpus is the given directory of programs, or the spec files at the given path, or
 // else the nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its
 // code at another place has the directive rewritten to that place, as after a change that only moves code, such as renaming
 // a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
-// such program N times. --executables lets at most N test executables run at once. The last two flags are for the spec
-// files: one writes the list of the tests that pass, the other leaves out the tests that the list has.
+// such program N times. --executables lets at most N test executables run at once. The last three flags are for the spec
+// files: one leaves out the tests that the list of the tests that pass has, one fails the run when one of them does not
+// pass, and one writes the list.
 function testCommand(rest CommandNames) returns ExitCode
 	var verbose = false
 	var record = false
 	var skipPassed = false
+	var requirePassed = false
 	var corpus = CorpusOptions.new()
 	var corpusFlags = false
 	var executables = 0 as Count
@@ -431,14 +433,16 @@ function testCommand(rest CommandNames) returns ExitCode
 			record = true
 		end 'record' else if rest[i] == skipPassedFlag 'skip'
 			skipPassed = true
-		end 'skip' else if not hasPath 'path'
+		end 'skip' else if rest[i] == requirePassedFlag 'require'
+			requirePassed = true
+		end 'require' else if not hasPath 'path'
 			path = rest[i].clone()
 			hasPath = true
 		end 'path'
 	end 'arguments'
-	let options = SpecOptions.make(verbose, record: record, skipPassed: skipPassed)
+	let options = SpecOptions.make(verbose, record: record, skipPassed: skipPassed, requirePassed: requirePassed)
 	if options.needsList() and not (hasPath and isSpecPath(path)) 'listFlags'
-		printError("test: {recordPassedFlag} and {skipPassedFlag} are for the spec files: name the specs directory\n")
+		printError("test: {recordPassedFlag}, {skipPassedFlag} and {requirePassedFlag} are for the spec files: name the specs directory\n")
 		return usageExitCode
 	end 'listFlags'
 	let width = RunWidth.of(runWorkers(), executables: executables)

@@ -502,7 +502,13 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	end 'lossy'
 	let tName = ast.typeName(ms.types, reads: p.types, t: target)
 	if (sk == ast.TypeKind.constInt or typeIsAnonInt(ms.types, reads: p.types, t: src)) and dk == ast.TypeKind.intRange 'valueFit'
-		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: valueOutOfRange(p, ms: ms, value: offendingBound(p, ms: ms, src: src, target: target), target: target), errs: errs)
+		// A constant that does not fit is wrong whatever converts it, and an anonymous range goes in by the cast that the
+		// range analysis proves where the value is used.
+		var fit = diag.Fix.none()
+		if sk != ast.TypeKind.constInt 'anonymous'
+			fit = castFix(ms.tree(), e: node, target: tName)
+		end 'anonymous'
+		checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: valueOutOfRange(p, ms: ms, value: offendingBound(p, ms: ms, src: src, target: target), target: target), fix: fit, errs: errs)
 		return false
 	end 'valueFit'
 	if sk == ast.TypeKind.typeParam and dk != ast.TypeKind.typeParam 'opaque'
@@ -510,7 +516,7 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		return false
 	end 'opaque'
 	if sk == ast.TypeKind.funcTy 'function'
-		let words = wrong.shapeWords(tName, got: gotName(p, ms: ms, t: src)) if dk == ast.TypeKind.funcTy else wrong.functionWords(tName)
+		let words = wrong.shapeWords(clashName(p, ms: ms, t: target, other: src), got: clashName(p, ms: ms, t: src, other: target)) if dk == ast.TypeKind.funcTy else wrong.functionWords(tName)
 		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: words, errs: errs)
 		return false
 	end 'function'

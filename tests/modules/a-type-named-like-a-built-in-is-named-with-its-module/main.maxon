@@ -1,0 +1,8 @@
+// A bare name means the built-in Clock, so the type that another module exports under its name is named with the module.
+function main() returns ExitCode
+	let c = lib.Clock.make()
+	print("{c.ticks}\n")
+	return 0
+end 'main'
+
+//> 7

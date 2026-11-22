@@ -1,8 +1,9 @@
 # Regenerates specs/ from maxon's spec tests: cmd/convert converts their syntax, then the compiler's fix command applies
 # the fix of each diagnostic that minimaxon's language differences raise (README, "Where it differs from Maxon"). The
 # compiler is bin\minimaxon.exe, the one the gate builds from the seed. Run .\check.ps1 first to build it. The run at
-# the end leaves out the tests of specs/passed.txt, which have passed, and adds the new passes to it. The argument is
-# maxon's specs directory.
+# the end runs every test and writes specs/passed.txt again: the new passes are added, a listed test that the conversion
+# now skips is dropped (the line "DROPPED"), and a listed test that fails stays, so the gate goes on failing until it is
+# fixed. The argument is maxon's specs directory.
 $ErrorActionPreference = 'Stop'
 if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 	$env:PATH += ';C:\Program Files\Go\bin'
@@ -25,7 +26,7 @@ $null | bin\minimaxon.exe fix specs
 if ($LASTEXITCODE -ne 0) {
 	exit 1
 }
-bin\minimaxon.exe test specs --skip-passed --record-passed
+bin\minimaxon.exe test specs --record-passed
 if ($LASTEXITCODE -ne 0) {
 	exit 1
 }

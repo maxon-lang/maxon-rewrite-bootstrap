@@ -632,7 +632,7 @@ end 'Clock'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let c = Clock.make()
+	let c = lib.Clock.make()
 	return c.ticks
 end 'main'
 ```

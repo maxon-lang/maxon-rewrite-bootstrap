@@ -2063,6 +2063,7 @@ end 'main'
 ```
 
 <!-- test: bitwise-operators.a-closure-capturing-a-difference-still-meets-the-parameter-door -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A captured value that wears `Small` without proving it is checked where it enters a `Small` parameter inside the closure.
 ```maxon
 typealias Small = int(0 to 100)

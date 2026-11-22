@@ -22,6 +22,7 @@ that returns it.
 ## Tests
 
 <!-- test: error.user-generic-instance-factory-at-file-scope -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -47,6 +48,7 @@ error E3220: <fragment>:14:9: the initializer of 'b' calls 'Box.create': a modul
 ```
 
 <!-- test: error.user-generic-instance-with-no-create-at-file-scope -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -146,6 +148,7 @@ end 'main'
 ```
 
 <!-- test: error.arguments-to-a-generic-instance-create-at-file-scope -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -219,6 +222,7 @@ end 'main'
 ```
 
 <!-- test: error.borrowed-record-argument-is-released -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Counter.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -247,6 +251,7 @@ error E3220: <fragment>:14:9: the initializer of 'c' calls 'Counter.create': a m
 ```
 
 <!-- test: error.cross-file-file-private-generic-create -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 // --- file: api/box.maxon
@@ -301,6 +306,7 @@ error E3008: bin/<fragment>:17:17: function 'Box.create' is not exported
 ```
 
 <!-- test: error.consumed-and-borrowed-arguments-in-one-call -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Mixed.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -332,6 +338,7 @@ error E3220: <fragment>:16:9: the initializer of 'm' calls 'Mixed.create': a mod
 ```
 
 <!-- test: error.same-file-file-private-factory -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Database.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -356,6 +363,7 @@ error E3220: <fragment>:10:10: the initializer of 'db' calls 'Database.create': 
 ```
 
 <!-- test: error.factory-returning-a-foreign-record -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Outer.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -386,6 +394,7 @@ error E3220: <fragment>:16:9: the initializer of 'a' calls 'Outer.build': a modu
 ```
 
 <!-- test: error.factory-returning-a-foreign-record-that-owns-a-managed-field -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Outer.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 type Inner
@@ -414,6 +423,7 @@ error E3220: <fragment>:16:9: the initializer of 'a' calls 'Outer.build': a modu
 ```
 
 <!-- test: error.factory-returning-a-record-declared-in-another-file -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Outer.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 // --- file: api/inner.maxon
@@ -445,6 +455,7 @@ error E3220: bin/<fragment>:20:9: the initializer of 'a' calls 'Outer.build': a 
 ```
 
 <!-- test: error.factory-returning-a-tuple-alias -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -470,6 +481,7 @@ error E3220: <fragment>:11:9: the initializer of 'a' calls 'Maker.build': a modu
 ```
 
 <!-- test: error.factory-returning-a-tuple-alias-declared-in-another-file -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -498,6 +510,7 @@ error E3220: bin/<fragment>:14:9: the initializer of 'a' calls 'Maker.build': a 
 ```
 
 <!-- test: error.factory-returning-a-tuple-that-owns-heap -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -523,6 +536,7 @@ error E3220: <fragment>:11:9: the initializer of 'a' calls 'Maker.build': a modu
 ```
 
 <!-- test: error.factory-returning-a-tuple-whose-spelling-is-already-canonical -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Both = (String, String)
@@ -545,6 +559,7 @@ error E3220: <fragment>:10:9: the initializer of 'a' calls 'Maker.build': a modu
 ```
 
 <!-- test: error.factory-returning-a-generic-alias -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Num = int(0 to 1000)
@@ -605,6 +620,7 @@ end 'main'
 ```
 
 <!-- test: error.factory-returning-a-boxed-union -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -662,6 +678,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.cross-file-file-private-factory -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Database.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 // --- file: api/db.maxon
@@ -709,6 +726,7 @@ error E3008: bin/<fragment>:14:20: function 'Database.create' is not exported
 ```
 
 <!-- test: error.stdlib-factory-reached-from-the-initializer -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `FilePath.separator`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 let sep = FilePath.separator()
@@ -722,6 +740,7 @@ error E3220: <fragment>:2:11: the initializer of 'sep' calls 'FilePath.separator
 ```
 
 <!-- test: error.stdlib-factory-with-arguments-reached-from-the-initializer -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `BuildConfig.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 let cfg = BuildConfig.create(StringArray.create(0), output: "app.exe", debug_info: false)
@@ -735,6 +754,7 @@ error E3220: <fragment>:2:11: the initializer of 'cfg' calls 'BuildConfig.create
 ```
 
 <!-- test: error.stdlib-generic-create-reached-as-a-factory-argument -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Map.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -761,6 +781,7 @@ error E3220: <fragment>:13:9: the initializer of 'h' calls 'Map.create': a modul
 ```
 
 <!-- test: error.a-factory-returning-an-interface-cannot-fill-a-global -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Square.shape`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Side = int(0 to 100)

@@ -68,7 +68,7 @@ function memoized(cache MemoMap, n Count) returns Count
 		return hit
 	end 'hit'
 	let computed = n + 1
-	try cache.insert(key, value: computed) otherwise ignore
+	try cache.insert(key, value: computed as Count) otherwise ignore
 	return computed
 end 'memoized'
 

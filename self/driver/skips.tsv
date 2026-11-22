@@ -1,12 +1,17 @@
-# The pairs of error codes that `fix specs` skips: the source of truth for self/driver/skips_gen.maxon.
+# The error codes for which `fix specs` skips a test: the source of truth for self/driver/skips_gen.maxon.
 # Run `go generate ./internal/...` after an edit. When a test of maxon's expects one code and minimaxon reports another for
-# a known reason, the test would test nothing of its own, and gets a skip line that names the reason. Rows, separated by tabs:
-#   code   a code of maxon that minimaxon has no diagnostic for: `code`, the number, what maxon reports it for. Only a skip
-#          row's expected codes may be such a code
-#   skip   `skip`, the codes maxon expects, the codes minimaxon reports, and the reason, which the skip line gives as
-#          `<!-- skip: reason -->`. Each list is separated by commas; a code of minimaxon is the constant of its row in
-#          self/diag/codes.tsv (ErrUseAfterMove), a code of maxon that it lacks is a `code` row's number. Every expected code is
-#          paired with every reported one, and a test is looked up by its first expected and first reported code
+# a known reason, or minimaxon refuses for a known reason a program that maxon runs, the test would test nothing of its own,
+# and gets a skip line that names the reason. Rows, separated by tabs:
+#   code    a code of maxon that minimaxon has no diagnostic for: `code`, the number, what maxon reports it for. Only a skip
+#           or expect row's expected codes may be such a code
+#   skip    `skip`, the codes maxon expects, the codes minimaxon reports, and the reason, which the skip line gives as
+#           `<!-- skip: reason -->`. Each list is separated by commas; a code of minimaxon is the constant of its row in
+#           self/diag/codes.tsv (ErrUseAfterMove), a code of maxon that it lacks is a `code` row's number. Every expected code is
+#           paired with every reported one, and a test is looked up by its first expected and first reported code
+#   expect  `expect`, the codes maxon expects and the reason: a test whose first expected code is one of them is skipped
+#           whatever minimaxon reports, and also when it compiles the program, because the rule behind the code differs
+#   run     `run`, the codes minimaxon reports and the reason: a test that runs a program is skipped when, after the fixes,
+#           the first diagnostic left is one of them, because minimaxon refuses by that rule what maxon runs
 code	E3223	a linear value that is not consumed: minimaxon's linear values are noncopyable values with a destructor, so it refuses the move itself
 code	E3224	a linear value that is refused: minimaxon's linear values are noncopyable values with a destructor, so it refuses the move itself
 code	E3207	an immutable value that is written: minimaxon meets it as a move out of a borrow or a write to a let
@@ -15,3 +20,5 @@ skip	ErrUseAfterMove,E3223,E3224,ErrFrozenChange	ErrMoveOutOfBorrow,ErrNotDroppa
 skip	E3207,E3214	ErrMoveOutOfBorrow,ErrAssignToImmutable	language difference: ownership is refused by another rule
 skip	ErrUnexpectedToken	ErrExpectedToken	differing error code: syntax error
 skip	ErrExpressionError	ErrTypeMismatch	differing error code: operand types
+expect	ErrModuleLetCallsFunction	language difference: a constant may call a literal factory, and E3220 names what it may call
+run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape

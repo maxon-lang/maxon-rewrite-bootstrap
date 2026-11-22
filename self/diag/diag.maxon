@@ -128,11 +128,16 @@ end 'pushSiteError'
 
 // pushUnqualifiedError reports a name that was not found, which another module may declare.
 export function pushUnqualifiedError(mutates errs ErrorList, consumes code String, consumes message String, module ModuleID, offset U32, consumes name String)
+	pushUnqualifiedErrorAt(errs, code: code, message: message, module: module, offset: offset, name: name, at: offset)
+end 'pushUnqualifiedError'
+
+// pushUnqualifiedErrorAt is pushUnqualifiedError for a name written at another place than the error's.
+export function pushUnqualifiedErrorAt(mutates errs ErrorList, consumes code String, consumes message String, module ModuleID, offset U32, consumes name String, at U32)
 	var e = CompileError.atSite(code, message: message, site: Site.make(module, offset: offset))
 	e.unqualified = name
-	e.unqualifiedAt = offset
+	e.unqualifiedAt = at
 	errs.push(e)
-end 'pushUnqualifiedError'
+end 'pushUnqualifiedErrorAt'
 
 // pushFixedError is pushSiteError for an error whose message names a change that fixes it.
 export function pushFixedError(mutates errs ErrorList, consumes code String, consumes message String, module ModuleID, offset U32, consumes fix Fix)

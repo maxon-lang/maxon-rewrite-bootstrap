@@ -13,18 +13,27 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 Set-Location $PSScriptRoot
 $compiler = (Resolve-Path $Compiler).Path
 
-# Until the parallel driver of Phase 3 makes the full run fast, only the spec tests that specs/passed.txt does not list
-# run, and those of them that pass now are reported (the line "NEW file.md: test") so that the list can be extended.
+# Every spec test runs, and the step fails when a test that specs/passed.txt lists does not pass (the line "LOST file.md:
+# test: what"). The tests that pass and are not listed are counted (the line "NEW file.md: test"), so that the list can be
+# extended.
 function Test-Specs {
-	$output = $null | & $compiler test specs --skip-passed 2>&1 | Out-String
+	$output = $null | & $compiler test specs --require-passed 2>&1 | Out-String
+	$code = $LASTEXITCODE
 	if ($output -notmatch '(?m)^(\d+) passed, \d+ failed, \d+ skipped') {
 		Write-Output $output
 		Write-Output 'the spec runner printed no count'
 		$global:LASTEXITCODE = 1
 		return
 	}
+	$counts = $Matches[0]
 	$new = ([regex]::Matches($output, '(?m)^NEW ')).Count
-	Write-Output "specs: $($Matches[0]); $new new, to add to specs/passed.txt with: bin\minimaxon.exe test specs --skip-passed --record-passed"
+	if ($code -ne 0) {
+		[regex]::Matches($output, '(?m)^(LOST [^\r\n]*|\d+ tests of [^\r\n]* did not pass)') | ForEach-Object { Write-Output $_.Value }
+		Write-Output "specs: $counts"
+		$global:LASTEXITCODE = 1
+		return
+	}
+	Write-Output "specs: $counts; $new new, to add to specs/passed.txt with: bin\minimaxon.exe test specs --record-passed"
 	$global:LASTEXITCODE = 0
 }
 

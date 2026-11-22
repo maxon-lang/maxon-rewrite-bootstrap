@@ -1520,6 +1520,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-captured-parameter-stays-readable -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A captured parameter takes a reference of its own, so the parameter is still the function's to read and the
 caller's argument outlives the closure that was returned.
 ```maxon
@@ -1528,7 +1529,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias Thunk = function() returns Integer
 
 function measurer(text String) returns Thunk
-	let f = function() gives try text.byteLength() as Integer otherwise panic("out of range")
+	let f = function() gives text.byteLength() as Integer
 	print("{text} {f()}\n")
 	return f
 end 'measurer'
@@ -1546,6 +1547,7 @@ a word padded long enough to heap allocate 1 44
 ```
 
 <!-- test: closure-capture.a-captured-self-is-shared-with-the-receiver -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A closure that reads `self` holds a reference to the receiver's record, not a copy of it: a write through the
 receiver after the closure was built is what the closure reads.
 ```maxon
@@ -1566,7 +1568,7 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	var counter = Counter.create(3)
+	let counter = Counter.create(3)
 	let read = counter.reader()
 	counter.n = 5
 	print("{read()} {counter.n}\n")
@@ -1620,6 +1622,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-captured-interface-value-keeps-its-witness -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A value held at an interface type is two words, and the environment captures both: the closure dispatches
 through the witness it was handed, and its drop releases the value through that witness.
 ```maxon
@@ -1636,7 +1639,7 @@ type Square implements Shape
 	let label as String
 
 	function area() returns Integer
-		return try self.side * self.side + (self.label.byteLength() as Integer) otherwise panic("out of range")
+		return self.side * self.side + (self.label.byteLength() as Integer)
 	end 'area'
 
 	static function create(side Integer) returns Self
@@ -1654,7 +1657,7 @@ end 'makeShape'
 
 function main() returns ExitCode
 	let local = makeShape(2)
-	let fromLocal = function() gives try local.area() + 1 otherwise panic("out of range")
+	let fromLocal = function() gives local.area() + 1
 	let fromParam = measurer(Square.create(3))
 	print("{fromLocal()} {fromParam()}\n")
 	return 0
@@ -1754,6 +1757,7 @@ load 1 4 true
 ```
 
 <!-- test: closure-capture.a-captured-union-value-calls-its-method -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A captured union value answers its own methods inside the closure, and the closure releases the payload.
 ```maxon
 typealias Message = function() returns String
@@ -1839,6 +1843,7 @@ true false
 ```
 
 <!-- test: closure-capture.a-captured-union-answers-its-payload-on-every-call -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A captured union's method hands back its managed payload each time the closure runs, and nothing leaks.
 ```maxon
 typealias Message = function() returns String
@@ -1849,8 +1854,8 @@ union Shape
 
 	function text() returns String
 		return match self 'shape'
-			circle(label) gives label.clone()
-			square(side) gives side.clone()
+			circle(label) gives label
+			square(side) gives side
 		end 'shape'
 	end 'text'
 end 'Shape'
@@ -1908,6 +1913,7 @@ beta b-
 ```
 
 <!-- test: closure-capture.a-captured-self-answers-its-record-and-a-union-self-its-name -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 `self` in a struct-backed enum's method answers its record's fields, and `self` in a union's method answers
 `name` and `ordinal`, directly and captured.
 ```maxon
@@ -1961,6 +1967,7 @@ fail 1 fail
 ```
 
 <!-- test: closure-capture.self-in-a-struct-backed-union-reads-its-backing-field -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 `self` in a struct-backed union's method reads a backing field by its short name, as a binding does, directly
 and captured.
 ```maxon
@@ -2310,6 +2317,7 @@ end 'main'
 ### Module-level function values
 
 <!-- test: closure-capture.module-level-function-values -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A module-level `let` and `var` hold function values: a plain function, and a capturing closure the `var` is
 rebound to and releases at exit.
 ```maxon
@@ -2318,17 +2326,17 @@ typealias Integer = int(i64.min to i64.max)
 typealias Op = function(Integer) returns Integer
 
 function twice(n Integer) returns Integer
-	return try n * 2 otherwise panic("out of range")
+	return n * 2
 end 'twice'
 
 function adder(text String) returns Op
-	return function(n Integer) gives try n + (text.byteLength() as Integer) otherwise panic("out of range")
+	return function(n Integer) gives n + (text.byteLength() as Integer)
 end 'adder'
 
 let doubler = twice
 
 function install(text String) returns Op
-	return function(n Integer) gives try n * (text.byteLength() as Integer) otherwise panic("out of range")
+	return function(n Integer) gives n * (text.byteLength() as Integer)
 end 'install'
 
 function main() returns ExitCode
@@ -2882,6 +2890,7 @@ error E3183: <fragment>:19:16: this value holds a closure that captures 'self' a
 ```
 
 <!-- test: closure-capture.a-closure-stored-into-a-record-it-does-not-capture -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A closure that captures one record may be stored into another.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2896,16 +2905,16 @@ type Counter
 		return Self{n: n, read: function() gives 0}
 	end 'create'
 
-	function lend(mutates other Counter)
+	function lend(other Counter)
 		other.read = function() gives self.n
 	end 'lend'
 end 'Counter'
 
 function main() returns ExitCode
 	let source = Counter.create(7)
-	var target = Counter.create(1)
+	let target = Counter.create(1)
 	source.lend(target)
-	return try target.read() as ExitCode otherwise panic("out of range")
+	return target.read() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -3827,6 +3836,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-call-through-a-function-value-lands-only-on-bodies-of-its-arity -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A call through a function value lands only on a body taking exactly its arguments, so a function of another arity that stores a closure is not consulted.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3846,18 +3856,18 @@ type Counter
 	end 'create'
 end 'Counter'
 
-function wire(mutates target Counter, source Counter)
+function wire(target Counter, source Counter)
 	target.read = function() gives source.n
 end 'wire'
 
 function readTwice(c Counter) returns Integer
-	let reader = function(t Counter) gives try t.n + c.n otherwise panic("out of range")
+	let reader = function(t Counter) gives t.n + c.n
 	return reader(c)
 end 'readTwice'
 
 function main() returns ExitCode
 	let wiring = wire
-	var a = Counter.create(1)
+	let a = Counter.create(1)
 	let b = Counter.create(2)
 	wiring(a, b)
 	print("{a.read()} {readTwice(b)}\n")
@@ -4167,6 +4177,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.an-escaping-closure-that-writes-a-captured-parameter-keeps-it -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 `arm` returns a closure that captures `b` and writes it, so the parameter outlives the call; handing `arm` a `let` is accepted, and `main` reads the write.
 
 ```maxon
@@ -4182,7 +4193,7 @@ type Box
 	end 'create'
 end 'Box'
 
-function zero(mutates b Box) returns Count
+function zero(b Box) returns Count
 	b.n = 9
 	return 0
 end 'zero'
@@ -4193,7 +4204,7 @@ end 'arm'
 
 function main() returns ExitCode
 	let b = Box.create(1)
-	var f = arm(b)
+	let f = arm(b)
 	_ = f()
 	print("{b.n}\n")
 	return 0
@@ -4207,6 +4218,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.an-escaping-closure-that-only-reads-a-captured-parameter-keeps-it -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 The closure stored in the slot outlives `arm`, so it keeps every record it captures, though its body only reads `b`; handing it the `let` is accepted.
 
 ```maxon
@@ -4235,7 +4247,7 @@ function arm(b Box, mutates slot Slot)
 end 'arm'
 
 function main() returns ExitCode
-	var slot = Slot.create()
+	let slot = Slot.create()
 	let b = Box.create(1)
 	arm(b, slot: slot)
 	print("{slot.show()} {b.n}\n")
@@ -4250,6 +4262,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-let-captured-by-an-escaping-closure-that-returns-it-is-accepted -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 The closure stored in the slot hands back the record it captured, so `main` writes it through `x`; the escaping closure keeps `b`, and handing it the `let` is accepted.
 
 ```maxon
@@ -4274,14 +4287,14 @@ type Slot
 end 'Slot'
 
 function arm(b Box, mutates slot Slot)
-	slot.get = function() gives b.clone()
+	slot.get = function() gives b
 end 'arm'
 
 function main() returns ExitCode
-	var slot = Slot.create()
+	let slot = Slot.create()
 	let b = Box.create(1)
 	arm(b, slot: slot)
-	var x = slot.get()
+	let x = slot.get()
 	x.n = 5
 	print("{b.n}\n")
 	return 0
@@ -4295,6 +4308,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-let-captured-by-an-escaping-closure-read-through-another-function-is-accepted -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 The same closure called from `fetch`, so nothing in `main`'s body links `x` to `b`; handing it the `let` is accepted.
 
 ```maxon
@@ -4319,7 +4333,7 @@ type Slot
 end 'Slot'
 
 function arm(b Box, mutates slot Slot)
-	slot.get = function() gives b.clone()
+	slot.get = function() gives b
 end 'arm'
 
 function fetch(slot Slot) returns Box
@@ -4327,10 +4341,10 @@ function fetch(slot Slot) returns Box
 end 'fetch'
 
 function main() returns ExitCode
-	var slot = Slot.create()
+	let slot = Slot.create()
 	let b = Box.create(1)
 	arm(b, slot: slot)
-	var x = fetch(slot)
+	let x = fetch(slot)
 	x.n = 5
 	print("{b.n}\n")
 	return 0
@@ -4344,6 +4358,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-parameter-kept-through-a-recursive-callee-beside-a-closure-is-accepted -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 `arm` captures `b` in an escaping closure and also hands it to `helper`, which pushes it into an array; each keeps it, and the two functions calling each other changes nothing.
 
 ```maxon
@@ -4377,16 +4392,16 @@ function arm(b Box, depth Count, mutates slot Slot, mutates kept Boxes)
 end 'arm'
 
 function helper(b Box, depth Count, mutates slot Slot, mutates kept Boxes)
-	kept.push(b.clone())
+	kept.push(b)
 	arm(b, depth: depth, slot: slot, kept: kept)
 end 'helper'
 
 function main() returns ExitCode
-	var kept = Boxes.create(0)
-	var slot = Slot.create()
+	let kept = Boxes.create(0)
+	let slot = Slot.create()
 	let b = Box.create(1)
 	arm(b, depth: 1, slot: slot, kept: kept)
-	var k = try kept.get(0) otherwise return 1
+	let k = try kept.get(0) otherwise return 1
 	k.n = 5
 	print("{b.n}\n")
 	return 0
@@ -4432,6 +4447,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-writing-closure-in-a-returned-array-literal-takes-a-let-argument -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 The returned literal carries a closure that writes `b`; handing `arm` the `let` is accepted.
 
 ```maxon
@@ -4449,7 +4465,7 @@ type Box
 	end 'create'
 end 'Box'
 
-function zero(mutates b Box) returns Count
+function zero(b Box) returns Count
 	b.n = 9
 	return 0
 end 'zero'
@@ -4473,6 +4489,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-reading-closure-in-a-returned-array-literal-takes-a-let-argument -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 A closure in the returned literal keeps `b` as a closure returned bare does, whether it reads or writes it; handing `arm` the `let` is accepted.
 
 ```maxon
@@ -5413,6 +5430,7 @@ end 'main'
 ```
 
 <!-- test: a-closure-cast-to-another-function-alias-outlives-its-var-being-reassigned -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 ```maxon
 typealias Small = int(0 to 100)
 
@@ -5421,7 +5439,7 @@ typealias Callback = function() returns Small
 typealias Other = function() returns Small
 
 function make(label String) returns Callback
-	return function() gives try label.count() as Small otherwise panic("out of range")
+	return function() gives label.count() as Small
 end 'make'
 
 function main() returns ExitCode

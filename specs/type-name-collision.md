@@ -4764,7 +4764,7 @@ end 'FilePath'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let g = FilePath.create()
+	let g = lib.FilePath.create()
 	return g.size
 end 'main'
 ```

@@ -4480,7 +4480,7 @@ function main() returns ExitCode
 	var lo = 1 as Word
 	var hi = 2 as Word
 	for round in 0 upto 4 'rounds'
-		let (x, y) = relay(round and 1, a: lo, b: hi)
+		let (x, y) = relay((round and 1) as Word, a: lo, b: hi)
 		lo = y
 		hi = x xor (round as Word)
 	end 'rounds'

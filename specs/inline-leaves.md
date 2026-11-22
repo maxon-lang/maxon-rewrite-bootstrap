@@ -196,6 +196,7 @@ Stack trace:
 ```
 
 <!-- test: a-leaf-relying-on-declined-cascades-keeps-them-at-an-unproven-site -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A leaf that fits its op budget only because its entry cascades are not counted is spliced where the caller
 proves every argument and stays a call anywhere else, so the cascade it keeps is still the one that refuses.
 `blend` is called twice, so the called-once rule does not admit it. The first call passes literals the `Stride`

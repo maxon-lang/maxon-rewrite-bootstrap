@@ -1,0 +1,19 @@
+// The cast of a literal counter is proved by the branch that guards its use, so it needs no try.
+typealias Small = int(0 to 100)
+
+function take(v Small) returns Small
+	return v
+end 'take'
+
+function main() returns ExitCode
+	var total = 0 as Count
+	for i in 0 upto 200 'each'
+		if i < 100 'inRange'
+			total = total + (take(i as Small) as Count)
+		end 'inRange'
+	end 'each'
+	print("{total}\n")
+	return 0
+end 'main'
+
+//> 4950

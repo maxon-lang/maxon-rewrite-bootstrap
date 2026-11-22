@@ -50,6 +50,7 @@ end 'CharacterSet'
 ## Tests
 
 <!-- test: error.a-static-initialized-by-a-function-call-is-refused -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### A static initialized by a function call is refused
 
 ```maxon
@@ -193,6 +194,7 @@ true false true
 ```
 
 <!-- test: error.a-static-initialized-by-a-free-function-is-refused -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### A static initialized by a free function is refused
 
 A bare call inside a type body names the free function, and a free function is a call like any other.
@@ -436,6 +438,7 @@ end 'main'
 ```
 
 <!-- test: error.struct-literal-field-is-a-call -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 ### A struct literal whose field is a static factory call is refused
 

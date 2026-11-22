@@ -1,0 +1,7 @@
+export type Clock
+	export var ticks as ExitCode
+
+	export static function make() returns Clock
+		return Clock{ticks: 7}
+	end 'make'
+end 'Clock'

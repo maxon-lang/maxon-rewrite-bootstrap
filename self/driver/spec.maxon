@@ -76,6 +76,8 @@ let recordPassedFlag = "--record-passed"
 
 let skipPassedFlag = "--skip-passed"
 
+let requirePassedFlag = "--require-passed"
+
 // The list of the tests that pass, in the specs directory: one `file.md: test name` per line, written only by the run that
 // records it.
 let passedListName = "passed.txt"
@@ -83,6 +85,13 @@ let passedListName = "passed.txt"
 let passedBeforeReason = "passed before (specs/passed.txt)"
 
 let newPrefix = "NEW"
+
+// lostPrefix starts the line of a listed test that a run requiring the list found failing or skipped.
+let lostPrefix = "LOST"
+
+// droppedPrefix starts the line of a listed test that a recording run leaves out of the list, because the conversion now
+// skips it.
+let droppedPrefix = "DROPPED"
 
 // The value that a member of a set has in the map that holds the set.
 let setMember = 1 as Count
@@ -116,21 +125,28 @@ typealias ReasonIndex = table.StringMap with Count
 
 typealias TestSet = table.StringMap with Count
 
-// SpecOptions are the flags of a run over spec files: whether it renews the list of the tests that pass, and whether it
-// leaves out the tests that the list has. A run that does neither is a full run that reads and writes nothing.
+// SpecOptions are the flags of a run over spec files: whether it renews the list of the tests that pass, whether it
+// leaves out the tests that the list has, and whether it fails when one of them does not pass. A run that does none of them
+// is a full run that reads and writes nothing.
 type SpecOptions
 	var verbose as bool
 	var record as bool
 	var skipPassed as bool
+	var requirePassed as bool
 
-	static function make(verbose bool, record bool, skipPassed bool) returns SpecOptions
-		return SpecOptions{verbose: verbose, record: record, skipPassed: skipPassed}
+	static function make(verbose bool, record bool, skipPassed bool, requirePassed bool) returns SpecOptions
+		return SpecOptions{verbose: verbose, record: record, skipPassed: skipPassed, requirePassed: requirePassed}
 	end 'make'
 
 	// needsList is whether the run reads the list of the tests that passed.
 	function needsList() returns bool
-		return record or skipPassed
+		return record or skipPassed or requirePassed
 	end 'needsList'
+
+	// reportsNew is whether the run says which tests pass that the list does not have.
+	function reportsNew() returns bool
+		return skipPassed or requirePassed
+	end 'reportsNew'
 end 'SpecOptions'
 
 // SpecFence is a fenced block of a test that is not its source: what the block is called, and where its text is in the file.
@@ -645,6 +661,31 @@ function withoutPositions(text String) returns String
 	return String.from(out)
 end 'withoutPositions'
 
+// withoutSyntaxMessages is the diagnostics with the message of each syntax error taken out after its place: the parser words
+// a syntax error by the tokens its grammar expects there, not as maxon does (README, "Where it differs from Maxon"), so
+// only the code and the place of one are maxon's.
+function withoutSyntaxMessages(text String) returns String
+	let prefix = "{errorLinePrefix}{diag.errExpectedToken}: "
+	let lines = splitLines(text)
+	var out = ast.StringList.create(0)
+	for i in 0 upto lines.count() 'lines'
+		let line = lines[i].clone()
+		if not hasPrefix(line, prefix: prefix) 'other'
+			out.push(line)
+			continue 'lines'
+		end 'other'
+		var at = prefix.byteLength()
+		while at < line.byteLength() and not matchesAt(line, at: at, needle: placeEnd) 'place'
+			at = offsetBy(at, by: 1)
+		end 'place'
+		out.push(line.sliceBytes(0, endPos: at))
+	end 'lines'
+	return joinLines(out)
+end 'withoutSyntaxMessages'
+
+// placeEnd ends the place of a diagnostic, before its message.
+let placeEnd = ": "
+
 // digitsEnd is where the run of decimal digits that starts at start ends.
 function digitsEnd(text String, start Count) returns Count
 	var at = start
@@ -713,20 +754,22 @@ type SpecRun
 	var reasons as ast.StringList
 	var counts as CountList
 	var indexes as ReasonIndex
-	// before is the list that was read, and listed the same keys for lookup.
-	var before as ast.StringList
+	// listed is the keys of the list that was read.
 	var listed as TestSet
-	// passedKeys are the tests that this run found passing.
-	var passedKeys as ast.StringList
+	// keptKeys are the tests that the next list holds: those that passed, and those of the list that the run did not find
+	// passing for any reason but the conversion's skip.
+	var keptKeys as ast.StringList
+	// lost counts the tests of the list that a run requiring it found failing or skipped.
+	var lost as Count
 	// listPath is where the list is, which a run that renews it writes.
 	var listPath as String
 
-	static function make(consumes options SpecOptions, consumes before ast.StringList, consumes listPath String) returns SpecRun
+	static function make(consumes options SpecOptions, before ast.StringList, consumes listPath String) returns SpecRun
 		var listed = TestSet.new()
 		for i in 0 upto before.count() 'keys'
 			listed.insert(before[i].clone(), value: setMember)
 		end 'keys'
-		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), before: before, listed: listed, passedKeys: ast.StringList.create(0), listPath: listPath}
+		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), listed: listed, keptKeys: ast.StringList.create(0), lost: 0, listPath: listPath}
 	end 'make'
 
 	// countSkip counts a skipped test under its reason.
@@ -749,11 +792,11 @@ type SpecRun
 		return options.skipPassed and listed.has(key)
 	end 'skipsPassed'
 
-	// notePass counts a test that passed, and says so when a run that skips the passed tests finds one that is not listed.
+	// notePass counts a test that passed, and says so when a run that reports new passes finds one that is not listed.
 	function notePass(mutates self, key String)
 		passed = offsetBy(passed, by: 1)
-		passedKeys.push(key.clone())
-		if options.skipPassed 'fresh'
+		keptKeys.push(key.clone())
+		if options.reportsNew() and not listed.has(key) 'fresh'
 			print("{newPrefix} {key}\n")
 		end 'fresh'
 		if options.verbose 'say'
@@ -761,18 +804,46 @@ type SpecRun
 		end 'say'
 	end 'notePass'
 
-	// take counts the result of the test of job and prints what the run says of it.
+	// noteLost counts a test of the list that did not pass, which a run that requires the list reports.
+	function noteLost(mutates self, key String, what String)
+		lost = offsetBy(lost, by: 1)
+		print("{lostPrefix} {key}: {what}\n")
+	end 'noteLost'
+
+	// take counts the result of the test of job and prints what the run says of it. A test of the list stays in it unless
+	// the conversion now skips it, which is a change of the language or of the conversion, never a regression.
 	function take(mutates self, job SpecJob, result TestResult)
+		let inList = listed.has(job.key)
 		if job.listed 'known'
 			self.countSkip(passedBeforeReason)
+			keptKeys.push(job.key.clone())
 		end 'known' else if result.outcome == TestOutcome.testFailed 'failed'
 			failed = offsetBy(failed, by: 1)
-			print("FAIL {job.key}: {result.detail}\n")
+			if inList and options.requirePassed 'lost'
+				self.noteLost(job.key, what: result.detail)
+			end 'lost' else 'new'
+				print("FAIL {job.key}: {result.detail}\n")
+			end 'new'
+			if inList 'kept'
+				keptKeys.push(job.key.clone())
+			end 'kept'
 		end 'failed' else if result.outcome == TestOutcome.testUnsupported 'unsupported'
 			self.countSkip(result.detail)
 			if options.verbose 'say'
 				print("SKIP {job.key}: {result.detail}\n")
 			end 'say'
+			if inList and job.test.skips.count() > 0 'converted'
+				if options.record 'dropped'
+					print("{droppedPrefix} {job.key}: {result.detail}\n")
+				end 'dropped' else if options.requirePassed 'lost'
+					self.noteLost(job.key, what: "skipped: {result.detail}")
+				end 'lost'
+			end 'converted' else if inList 'kept'
+				keptKeys.push(job.key.clone())
+				if options.requirePassed 'lost'
+					self.noteLost(job.key, what: "skipped: {result.detail}")
+				end 'lost'
+			end 'kept'
 		end 'unsupported' else 'passed'
 			self.notePass(job.key)
 		end 'passed'
@@ -780,13 +851,21 @@ type SpecRun
 end 'SpecRun'
 
 // finishSpecs prints the counts of a run over spec files, writes the list of the tests that passed when the run renews it,
-// and gives the code the run exits with.
+// and gives the code the run exits with: a run that requires the list fails when a test of it did not pass, and any other
+// that does not record fails when a test failed.
 function finishSpecs(tally SpecRun) returns ExitCode
 	print("\n")
 	printSummary(tally)
 	if tally.options.record 'record'
 		writePassedList(tally.listPath, tally: tally)
 	end 'record'
+	if tally.options.requirePassed 'required'
+		if tally.lost > 0 'lost'
+			print("{tally.lost} tests of {passedListName} did not pass\n")
+			return diagnosticsExitCode
+		end 'lost'
+		return 0
+	end 'required'
 	if tally.failed == 0 or tally.options.record 'clean'
 		return 0
 	end 'clean'
@@ -805,10 +884,10 @@ function passedKeysOf(text String) returns ast.StringList
 	return keys
 end 'passedKeysOf'
 
-// writePassedList writes the list of the next run: the tests that were listed and the tests this run found passing, sorted.
+// writePassedList writes the list of the next run, sorted: the tests this run found passing, and the listed ones that it
+// keeps.
 function writePassedList(path String, tally SpecRun)
-	var keys = tally.before.clone()
-	keys.append(tally.passedKeys.clone())
+	var keys = tally.keptKeys.clone()
 	project.sortStrings(keys)
 	let text = "{joinLines(keys)}\n"
 	try File.writeText(try FilePath.from(path) otherwise panic("test: {path} is not a path"), content: text) otherwise panic("test: cannot write {path}")
@@ -898,25 +977,26 @@ function specFiles(path String) returns ast.StringList
 end 'specFiles'
 
 // runSpecs runs the tests of the spec files at path as behaviours (startTests), which report the failures in the order of
-// the tests as they go and the counts at the end, and set the code the process exits with. A run that skips the passed tests leaves out those the list has; one that records writes the list again, with
-// the tests that passed in this run, and starts it when there is none.
+// the tests as they go and the counts at the end, and set the code the process exits with. A run that skips the passed tests
+// leaves out those the list has; one that requires them fails when one of them does not pass; one that records writes the
+// list again, with the tests that passed in this run, and starts it when there is none.
 function runSpecs(path String, options SpecOptions, width RunWidth) returns ExitCode
 	let root = project.absolutePath(path)
 	let listPath = project.joinPath(root, name: passedListName)
 	var before = ast.StringList.create(0)
 	if options.needsList() 'list'
 		if not project.isDirectoryPath(root) 'file'
-			printError("test: {recordPassedFlag} and {skipPassedFlag} take the directory of the specs, which holds {passedListName}\n")
+			printError("test: {recordPassedFlag}, {skipPassedFlag} and {requirePassedFlag} take the directory of the specs, which holds {passedListName}\n")
 			return usageExitCode
 		end 'file'
+		if options.skipPassed and options.requirePassed 'both'
+			printError("test: {skipPassedFlag} leaves out the tests that {requirePassedFlag} requires to pass: give one of them\n")
+			return usageExitCode
+		end 'both'
 		let text = project.readTextFile(listPath)
 		if text.isSome() 'read'
-			if not options.skipPassed 'full'
-				printError("test: {listPath} exists, so {recordPassedFlag} runs only with {skipPassedFlag}, which leaves out the tests it lists\n")
-				return usageExitCode
-			end 'full'
 			before = passedKeysOf(text.unwrap())
-		end 'read' else if options.skipPassed and not options.record 'missing'
+		end 'read' else if not options.record 'missing'
 			printError("test: {listPath} does not exist: run `test {path} {recordPassedFlag}` to write it\n")
 			return diagnosticsExitCode
 		end 'missing'
@@ -1039,6 +1119,8 @@ function checkSpecError(test SpecTest, expected String, stem String, errs diag.E
 		actual = withoutPositions(actual)
 		wanted = withoutPositions(wanted)
 	end 'moved'
+	actual = withoutSyntaxMessages(actual)
+	wanted = withoutSyntaxMessages(wanted)
 	if actual == wanted 'same'
 		return TestResult.passed()
 	end 'same'
