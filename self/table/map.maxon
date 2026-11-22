@@ -43,6 +43,12 @@ function hashCount(k Count) returns Count
 	return (x xor (x shr foldShift)) and hashLow32Mask
 end 'hashCount'
 
+// mapSlotOccupied is whether a slot of a map whose state is state (stateAt) holds an entry, which is all the build cache keeps
+// of a slot besides its state.
+export function mapSlotOccupied(state Count) returns bool
+	return state == SlotState.occupied.ordinal
+end 'mapSlotOccupied'
+
 // StringMap is an open-addressing hash map from String to V built on array.
 export type StringMap uses V
 	var states as States
@@ -62,6 +68,36 @@ export type StringMap uses V
 	export function isEmpty() returns bool
 		return len == 0
 	end 'isEmpty'
+
+	// capacity, stateAt, keyAt, valueAt, usedSlots and restored lay the map out as its arrays hold it, which the build cache
+	// stores and loads back as it is, so that a map it loads probes and iterates as the one it stored did.
+	export function capacity() returns Count
+		return states.count()
+	end 'capacity'
+
+	export function stateAt(index Count) returns Count
+		return states[index].ordinal
+	end 'stateAt'
+
+	export function keyAt(index Count) returns borrowed String
+		return keys[index]
+	end 'keyAt'
+
+	export function valueAt(index Count) returns borrowed Option with V
+		return vals[index]
+	end 'valueAt'
+
+	export function usedSlots() returns Count
+		return used
+	end 'usedSlots'
+
+	export static function restored(consumes states ByteArray, consumes keys Array with String, consumes values Array with (Option with V), length Count, used Count) returns Self
+		var held = States.create(0)
+		for i in 0 upto states.count() 'states'
+			held.push(SlotState.allCases[states[i] as Count])
+		end 'states'
+		return Self{states: held, keys: keys, vals: values, len: length, used: used}
+	end 'restored'
 
 	function findSlot(key String) returns Option with Count
 		let cap = states.count()
@@ -202,6 +238,36 @@ export type IntMap uses V
 	export function isEmpty() returns bool
 		return len == 0
 	end 'isEmpty'
+
+	// capacity, stateAt, keyAt, valueAt, usedSlots and restored lay the map out as its arrays hold it, which the build cache
+	// stores and loads back as it is, so that a map it loads probes and iterates as the one it stored did.
+	export function capacity() returns Count
+		return states.count()
+	end 'capacity'
+
+	export function stateAt(index Count) returns Count
+		return states[index].ordinal
+	end 'stateAt'
+
+	export function keyAt(index Count) returns borrowed Count
+		return keys[index]
+	end 'keyAt'
+
+	export function valueAt(index Count) returns borrowed Option with V
+		return vals[index]
+	end 'valueAt'
+
+	export function usedSlots() returns Count
+		return used
+	end 'usedSlots'
+
+	export static function restored(consumes states ByteArray, consumes keys Array with Count, consumes values Array with (Option with V), length Count, used Count) returns Self
+		var held = States.create(0)
+		for i in 0 upto states.count() 'states'
+			held.push(SlotState.allCases[states[i] as Count])
+		end 'states'
+		return Self{states: held, keys: keys, vals: values, len: length, used: used}
+	end 'restored'
 
 	function findSlot(key Count) returns Option with Count
 		let cap = states.count()

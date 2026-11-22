@@ -1,0 +1,180 @@
+// CacheWriter and CacheReader lay out and read back the values the build cache stores of a module's checked state, which the
+// functions of each module's cache_gen.maxon store field by field: each integer in the bytes its type's range takes, low byte
+// first, each flag in a byte, each run of bytes after its count, and each string as its place in a table of the entry's
+// strings, which the entry holds before the values, each string once.
+
+// cacheByteBits and cacheByteMask take a byte out of a word.
+let cacheByteBits = 8 as Word64
+
+let cacheByteMask = 255 as Word64
+
+export type CacheWriter
+	var bytes as ByteArray
+	var places as StringMap with Count
+	var strings as Array with String
+
+	export static function new() returns CacheWriter
+		return CacheWriter{bytes: ByteArray.create(0), places: StringMap.new(), strings: Array.create(0)}
+	end 'new'
+
+	export function word8(mutates self, n Word64)
+		bytes.push((n and cacheByteMask) as Byte)
+	end 'word8'
+
+	export function word16(mutates self, n Word64)
+		self.wordOf(n, width: 2)
+	end 'word16'
+
+	export function word32(mutates self, n Word64)
+		self.wordOf(n, width: 4)
+	end 'word32'
+
+	export function word64(mutates self, n Word64)
+		self.wordOf(n, width: 8)
+	end 'word64'
+
+	function wordOf(mutates self, n Word64, width Count)
+		var rest = n
+		for _ in 0 upto width 'bytes'
+			bytes.push((rest and cacheByteMask) as Byte)
+			rest = rest shr cacheByteBits
+		end 'bytes'
+	end 'wordOf'
+
+	export function flag(mutates self, value bool)
+		if value 'true'
+			bytes.push(1)
+		end 'true' else 'false'
+			bytes.push(0)
+		end 'false'
+	end 'flag'
+
+	// text stores a string as its place in the entry's table, which it adds the string to the first time.
+	export function text(mutates self, value String)
+		match places.get(value) 'place'
+			some(at) then self.word32(at as Word64)
+			none then self.addText(value)
+		end 'place'
+	end 'text'
+
+	function addText(mutates self, value String)
+		let at = strings.count()
+		places.insert(value, value: at)
+		strings.push(value.clone())
+		self.word32(at as Word64)
+	end 'addText'
+
+	export function run(mutates self, value ByteArray)
+		self.word64(value.count() as Word64)
+		bytes.append(value)
+	end 'run'
+
+	// finish is the entry's bytes: the table of strings, each its length and its bytes, then the values.
+	export function finish(consumes self) returns ByteArray
+		var out = ByteWriter.new()
+		out.count(strings.count())
+		for i in 0 upto strings.count() 'strings'
+			out.text(strings[i])
+		end 'strings'
+		var held = self
+		out.bytes.append(held.bytes)
+		return out.bytes
+	end 'finish'
+end 'CacheWriter'
+
+// CacheReader reads back what a CacheWriter laid out, from an entry read as a text. A read past the end makes the reader
+// broken and gives nothing, which a reader of a cut entry checks at its end.
+export type CacheReader
+	var source as String
+	var at as Count
+	var strings as Array with String
+	export var broken as bool
+
+	export static function of(consumes source String) returns CacheReader
+		var r = ByteReader.of(source)
+		let n = r.items()
+		var strings as Array with String
+		strings = Array.create(0)
+		for _ in 0 upto n 'strings'
+			strings.push(r.text())
+		end 'strings'
+		let at = r.at
+		let broken = r.broken
+		return CacheReader{source: exchange(r.source, value: ""), at: at, strings: strings, broken: broken}
+	end 'of'
+
+	export function atEnd() returns bool
+		return at == source.byteLength()
+	end 'atEnd'
+
+	function left() returns Count
+		return try source.byteLength() - at otherwise 0
+	end 'left'
+
+	export function word8(mutates self) returns Word64
+		return self.wordOf(1)
+	end 'word8'
+
+	export function word16(mutates self) returns Word64
+		return self.wordOf(2)
+	end 'word16'
+
+	export function word32(mutates self) returns Word64
+		return self.wordOf(4)
+	end 'word32'
+
+	export function word64(mutates self) returns Word64
+		return self.wordOf(8)
+	end 'word64'
+
+	function wordOf(mutates self, width Count) returns Word64
+		if broken or self.left() < width 'short'
+			broken = true
+			return 0
+		end 'short'
+		var value = 0 as Word64
+		var shift = 0 as Word64
+		for i in 0 upto width 'bytes'
+			value = value or ((source.byteAt(try at + i otherwise panic("table: a read past memory")) as Word64) shl shift)
+			shift = shift + cacheByteBits
+		end 'bytes'
+		at = try at + width otherwise panic("table: a read past memory")
+		return value
+	end 'wordOf'
+
+	// items reads the count of a list, each of whose items takes a byte at least, so that a count larger than what is left
+	// is damage: it makes the reader broken and gives none.
+	export function items(mutates self) returns Count
+		let n = self.word64() as Count
+		if n > self.left() 'damaged'
+			broken = true
+			return 0
+		end 'damaged'
+		return n
+	end 'items'
+
+	export function flag(mutates self) returns bool
+		return self.word8() != 0
+	end 'flag'
+
+	export function text(mutates self) returns String
+		let place = self.word32() as Count
+		if place >= strings.count() 'damaged'
+			broken = true
+			return ""
+		end 'damaged'
+		return strings[place].clone()
+	end 'text'
+
+	export function run(mutates self) returns ByteArray
+		let n = self.word64() as Count
+		if broken or self.left() < n 'short'
+			broken = true
+			return ByteArray.create(0)
+		end 'short'
+		let finish = try at + n otherwise panic("table: a read past memory")
+		let value = source.sliceBytes(at, endPos: finish)
+		at = finish
+		return value.toByteArray()
+	end 'run'
+end 'CacheReader'

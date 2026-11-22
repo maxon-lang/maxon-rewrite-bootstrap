@@ -93,6 +93,17 @@ function Test-Cache {
 			Same (Build 'edited-warm' @()) $editedUncached 'the warm build of the edited source differs from the uncached one'
 			$printed = & (Join-Path $root 'edited.exe')
 			if ($printed -eq '5920') { throw 'cache: the edited leaf did not change what the program prints' }
+			# Two edits of main's body: the first checks the module main names again and keeps its checked state, the second
+			# loads that state instead.
+			$main = Join-Path $project 'main.maxon'
+			$mainText = [IO.File]::ReadAllText($main)
+			foreach ($n in 1, 2) {
+				$probe = "`tif total == $(999990 + $n) 'probe'`n`t`tprint(`"probe`")`n`tend 'probe'`n`tprint("
+				[IO.File]::WriteAllText($main, $mainText.Replace("`tprint(", $probe))
+				$mainUncached = Build "main$n-uncached" @('--no-cache')
+				Same (Build "main$n" @()) $mainUncached "after edit $n of main the build differs from the uncached one"
+			}
+			if (-not (Get-ChildItem $env:MINIMAXON_CACHE -Filter *.checked)) { throw 'cache: no checked state was kept' }
 			$null = Build 'verified' @('--verify-cache')
 		}
 	} catch {

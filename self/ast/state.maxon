@@ -107,6 +107,30 @@ export type ModuleHome
 	export function startTyping() returns Typing
 		return thaw(typing)
 	end 'startTyping'
+
+	// storeChecked stores what the module's stages after its constants made of its home, as its lower left it: its slots of
+	// the tables, its tables, its tree and its typing. From them publish gives what each of those stages published, since
+	// the slots keep each segment and each stage's shells apart, so a home that loads them (loadChecked) is read as the
+	// one that made them.
+	export function storeChecked(mutates w table.CacheWriter)
+		storeTypeSlot(w, v: types)
+		storeFuncSlot(w, v: funcs)
+		storeModuleTables(w, v: tables)
+		storeTree(w, v: record.tree)
+		storeTyping(w, v: typing)
+	end 'storeChecked'
+
+	// loadChecked makes what storeChecked stored the home's, in place of what its stages up to its constants made.
+	export function loadChecked(mutates self, mutates r table.CacheReader)
+		types = TypeSlot.cacheLoad(r)
+		indexOwnShapes(types)
+		funcs = FuncSlot.cacheLoad(r)
+		tables = ModuleTables.cacheLoad(r)
+		var tree = Tree.cacheLoad(r)
+		tree.text = record.tree.text.clone()
+		record.tree = freeze(tree)
+		typing = freeze(Typing.cacheLoad(r))
+	end 'loadChecked'
 end 'ModuleHome'
 
 // takeHome takes what the tasks of module write out of the project, which keeps empty parts in its place.

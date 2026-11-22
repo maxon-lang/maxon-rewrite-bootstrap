@@ -70,10 +70,17 @@ type ModuleWork
 	// and mispredicted whether its lower then made another.
 	var speculated as bool
 	var mispredicted as bool
+	// checkedState is what the module's stages after its constants made, as its lower left them, which its emit keeps under
+	// checkedKey; checkedFound is the state the order found there for a module it restores, and restored what that state gives
+	// the module's verify and lower once its bodies loaded it.
+	var checkedState as ByteArray
+	var checkedKey as table.Digest
+	var checkedFound as table.Option with CheckedEntry
+	var restored as Restored
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), fallbacks: ir.Fallbacks.none(), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), fallbacks: ir.Fallbacks.none(), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none()}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -92,6 +99,8 @@ type ModuleWork
 		if speculated 'speculated'
 			digests.summary = held.summary.clone()
 		end 'speculated'
+		checkedKey = held.checkedKey
+		checkedFound = exchange(held.checked, value: FoundChecked.none)
 	end 'startCheck'
 
 	// endCheck ends the module's check, whose last stage ran with p, and gives its typing; a compile of tests keeps the
@@ -110,11 +119,13 @@ type ModuleWork
 end 'ModuleWork'
 
 // Reach is how far the stages of a module run: every one; none after the constants, for a module whose unit the cache holds
-// that no module the compile checks reaches, whose emit links that unit; or none after the resolve, for a module that a
-// compile of tests compiles no test of and that none of the modules it tests names.
+// that no module the compile checks reaches, whose emit links that unit; the same for one that such a module reaches and
+// whose checked state the cache holds, whose bodies, verify and lower give what that state holds instead (restored); or none
+// after the resolve, for a module that a compile of tests compiles no test of and that none of the modules it tests names.
 enum Reach
 	whole
 	loaded
+	restored
 	resolved
 end 'Reach'
 
@@ -124,6 +135,7 @@ function runs(reach Reach, stage Stage) returns bool
 	return match reach 'r'
 		whole gives true
 		loaded gives stage.ordinal <= Stage.constants.ordinal or stage == Stage.emit
+		restored gives stage.ordinal <= Stage.constants.ordinal or stage == Stage.emit
 		resolved gives stage.ordinal <= Stage.resolve.ordinal
 	end 'r'
 end 'runs'
@@ -139,9 +151,11 @@ type CheckStart
 	var found as table.Option with CachedEntry
 	var speculated as bool
 	var summary as table.Digest
+	var checkedKey as table.Digest
+	var checked as table.Option with CheckedEntry
 
 	static function make(consumes reads ast.SlotList, role check.EntryRole, reach Reach) returns CheckStart
-		return CheckStart{reads: reads, role: role, reach: reach, key: table.Digest.none(), found: FoundEntry.none, speculated: false, summary: table.Digest.none()}
+		return CheckStart{reads: reads, role: role, reach: reach, key: table.Digest.none(), found: FoundEntry.none, speculated: false, summary: table.Digest.none(), checkedKey: table.Digest.none(), checked: FoundChecked.none}
 	end 'make'
 end 'CheckStart'
 
@@ -305,6 +319,9 @@ function moduleTask(c Compile, mutates work ModuleWork, stage Stage, m Count, kn
 		if work.reach == Reach.loaded and stage == Stage.bodies 'ends'
 			return endLoadedCheck(c, work: work, known: known)
 		end 'ends'
+		if work.reach == Reach.restored 'restored'
+			return restoredTask(c, work: work, stage: stage)
+		end 'restored'
 		return share(known[c.slotOf(m)])
 	end 'beyond'
 	var inputs = inputsOf(c, known: known)
@@ -353,6 +370,24 @@ function endLoadedCheck(c Compile, mutates work ModuleWork, known Known) returns
 	let ended = exchange(work.checkState.unit, value: ast.ModuleState.idle(module))
 	return giveTask(work, ms: ended, stage: Stage.bodies)
 end 'endLoadedCheck'
+
+// restoredTask is the bodies, the verify or the lower of a module whose checked state the cache holds: the bodies load it,
+// which makes the module's home what its lower left the last time, the verify ends the check with what it ended with then,
+// and the lower gives its leaves and their code; each gives the product of the stages up to its own, as the stage would.
+function restoredTask(c Compile, mutates work ModuleWork, stage Stage) returns frozen with Product
+	if stage == Stage.bodies 'bodies'
+		restoreChecked(work, dir: c.cache.dir)
+	end 'bodies' else if stage == Stage.verify 'verify'
+		work.checked = exchange(work.restored.checked, value: check.ModuleChecked.none())
+		work.checkEnded = true
+	end 'verify' else if stage == Stage.lower 'lower'
+		work.code = freeze(exchange(work.restored.code, value: ir.IrFunctionList.create(0)))
+		work.leaves = freeze(exchange(work.restored.leaves, value: opt.Leaves.empty()))
+	end 'lower' else 'other'
+		panic("driver: the {stage} of a restored module runs as it always does")
+	end 'other'
+	return work.product(try phaseOfStage(stage).ordinal + 1 otherwise panic("driver: a phase past memory"))
+end 'restoredTask'
 
 // resolveTask resolves the module, whose tree and resolution it is lent.
 function resolveTask(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, mutates errs diag.ErrorList) returns frozen with Product
@@ -459,9 +494,22 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 		end 'optimize'
 		work.code = freeze(lowered)
 	end 'compiled'
+	let clean = found.count() == 0
 	appendErrors(errs, found: found)
-	return giveTask(work, ms: ms, stage: Stage.lower)
+	let product = giveTask(work, ms: ms, stage: Stage.lower)
+	if keepsChecked(c, work: work) and clean 'checked'
+		work.checkedState = checkedState(work)
+	end 'checked'
+	return product
 end 'lowerModule'
+
+// keepsChecked is whether the lower of the module of work keeps its checked state: where the module is settled and ran its
+// check and lower only because a module that names it is not (or the compile verifies the cache), which is where a later
+// compile loads that state instead. A module whose source changed is not settled, so no compile pays for the states of the
+// modules it compiles anew, a compile with an empty cache among them, and the first that needs one writes it.
+function keepsChecked(c Compile, work ModuleWork) returns bool
+	return c.cache.enabled() and makesCode(c.goal) and work.found.isSome()
+end 'keepsChecked'
 
 // inlineModule finds the leaves of module m, whose functions fns the optimizer has run on, and replaces the calls of leaves in
 // them: of its own, and of the modules it names (in p, the task's view) that this compile lowers, whose lower its own waited
@@ -499,13 +547,14 @@ function emitModule(c Compile, mutates work ModuleWork, known Known, inputs ast.
 	let m = ast.modIndex(work.home.module)
 	if c.cache.enabled() and work.found.isSome() and not c.cache.verifies 'kept'
 		work.unit = unitOf(work.found, dir: c.cache.dir, key: work.key)
+		keepChecked(c, work: work)
 		return share(known[c.slotOf(m)])
 	end 'kept'
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.emit, lent: ast.Lent.tables, known: known, inputs: inputs, view: view)
 	if c.cache.enabled() and not work.found.isSome() 'probe'
 		work.key = keyOf(c, p: view, m: m, own: work.digests, summaries: summariesOf(known))
-		work.found = readEntry(c.cache.dir, key: work.key)
+		work.found = readEntry(c.cache, key: work.key)
 		if work.found.isSome() and not c.cache.verifies 'hit'
 			work.unit = unitOf(work.found, dir: c.cache.dir, key: work.key)
 			return giveTask(work, ms: ms, stage: Stage.emit)
@@ -519,6 +568,7 @@ function emitModule(c Compile, mutates work ModuleWork, known Known, inputs ast.
 		end 'verify' else 'write'
 			writeEntry(c.cache.dir, key: work.key, summary: work.digests.summary, unit: work.unit)
 		end 'write'
+		keepChecked(c, work: work)
 	end 'keep'
 	return giveTask(work, ms: ms, stage: Stage.emit)
 end 'emitModule'
@@ -564,6 +614,8 @@ function orderedOf(c Compile, view ast.Project, graph project.Graph, known Known
 		start.found = exchange(plans[slot].found, value: FoundEntry.none)
 		start.speculated = plans[slot].speculated
 		start.summary = plans[slot].summary.clone()
+		start.checkedKey = plans[slot].checkedKey.clone()
+		start.checked = exchange(plans[slot].checked, value: FoundChecked.none)
 		starts.push(start)
 	end 'modules'
 	return Ordered.make(order, deps: moduleDeps(view), plan: plan, starts: starts)

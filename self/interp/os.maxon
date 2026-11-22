@@ -227,9 +227,69 @@ function entryOsDelete(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try errorWord(vm, f: f, x: x, word: word)
 end 'entryOsDelete'
 
-// entryOsFileInfo stops the run: the compiler that compiles the interpreter has no File.info to read a file's times with.
+// The places of rt.os.fileInfo's arguments that it stores what it found at, and the bits of its attributes word.
+let infoSizeArg = 1
+
+let infoCreatedArg = 2
+
+let infoAccessedArg = 3
+
+let infoAttributesArg = 4
+
+let infoDirectoryFlag = 1 as ir.Word
+
+let infoReadOnlyFlag = 2 as ir.Word
+
+// storeNumber stores n at the address that the argument at index of an entry's call gives.
+function storeNumber(mutates vm Vm, f ir.IrFunction, x ir.Instr, index Count, n ir.Word) throws Halt
+	let cell = try target(vm, addr: argAt(f, x: x, i: index), what: "a word an OS entry stores")
+	try changed(vm, c: cell, o: 0)
+	vm.h.cellN[cell] = n
+	vm.h.cellR[cell] = 0
+end 'storeNumber'
+
+// wordOf is a size or a time as the word an entry gives it in.
+function wordOf(n Count) returns ir.Word
+	return try n as ir.Word otherwise panic("interp: a file's size or time past a word")
+end 'wordOf'
+
 function entryOsFileInfo(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw trap(vm, message: "the interpreter cannot read a file's information")
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
+	let path = pathOf(vm.h.texts[at].clone())
+	var word = 0 as ir.Word
+	var size = 0 as ir.Word
+	var modified = 0 as ir.Word
+	var created = 0 as ir.Word
+	var accessed = 0 as ir.Word
+	var flags = 0 as ir.Word
+	try 'info'
+		let info = File.info(path)
+		size = wordOf(info.size)
+		modified = wordOf(info.modifiedTime)
+		created = wordOf(info.createdTime)
+		accessed = wordOf(info.accessedTime)
+		if info.isDirectory 'directory'
+			flags = flags or infoDirectoryFlag
+		end 'directory'
+		if info.isReadOnly 'readOnly'
+			flags = flags or infoReadOnlyFlag
+		end 'readOnly'
+	end 'info' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then word = caseWord(ast.errorInfoNotFound)
+			accessDenied then word = caseWord(ast.errorInfoAccessDenied)
+			busy then word = caseWord(ast.errorInfoBusy)
+			failed then word = caseWord(ast.errorInfoFailed)
+		end 'kind'
+	end 'failed'
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'found'
+		try storeNumber(vm, f: f, x: x, index: infoSizeArg, n: size)
+		try storeNumber(vm, f: f, x: x, index: infoCreatedArg, n: created)
+		try storeNumber(vm, f: f, x: x, index: infoAccessedArg, n: accessed)
+		try storeNumber(vm, f: f, x: x, index: infoAttributesArg, n: flags)
+		giveNum(vm, x: x, n: modified)
+	end 'found'
 end 'entryOsFileInfo'
 
 function entryOsIsDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

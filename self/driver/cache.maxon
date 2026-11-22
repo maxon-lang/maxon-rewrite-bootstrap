@@ -30,6 +30,22 @@ let entryExtension = ".entry"
 
 let temporaryExtension = ".tmp"
 
+// An entry's time on the file system says when a compile last used it: a compile that uses an entry whose time is older
+// than usedRefreshSeconds writes it again, so that a use costs no write most of the time, and the end of a compile, at most
+// once in trimIntervalSeconds, deletes every file of the cache unused for trimLimitSeconds (Go's rules for its build cache:
+// an hour, a day and five days). Every time is the file system's, so no clock of the machine is set against a file's.
+let usedRefreshSeconds = 3600 as Count
+
+let trimIntervalSeconds = 86400 as Count
+
+let trimLimitSeconds = 432000 as Count
+
+// trimStampName is the file whose time is when the cache was last trimmed, and clockName the one each compile writes to read
+// the file system's time now.
+let trimStampName = "trim.txt"
+
+let clockName = "clock"
+
 // cacheDirectory is the directory of the build cache, made if it is not there, or nothing when the environment turns the
 // cache off.
 function cacheDirectory() returns String
@@ -86,13 +102,15 @@ type CacheSetup
 	// the modules it names were what they are (speculationKey) for the one it will make, so that the modules that name it find
 	// their entries before it is lowered; a compile whose module then makes another is done again without (finishCompile).
 	var speculates as bool
+	// now is the file system's time when the compile began, which an entry's time is held to, or none where it cannot be read.
+	var now as table.Option with Count
 
 	static function off() returns CacheSetup
-		return CacheSetup{dir: "", base: table.Digest.none(), verifies: false, speculates: false}
+		return CacheSetup{dir: "", base: table.Digest.none(), verifies: false, speculates: false, now: table.Option.none}
 	end 'off'
 
-	static function make(consumes dir String, consumes base table.Digest, verifies bool, speculates bool) returns CacheSetup
-		return CacheSetup{dir: dir, base: base, verifies: verifies, speculates: speculates}
+	static function make(consumes dir String, consumes base table.Digest, verifies bool, speculates bool, consumes now table.Option with Count) returns CacheSetup
+		return CacheSetup{dir: dir, base: base, verifies: verifies, speculates: speculates, now: now}
 	end 'make'
 
 	function enabled() returns bool
@@ -116,7 +134,7 @@ function cacheSetupOf(p ast.Project, first Count, options Options) returns Cache
 	if first > 0 and p.modules[0].isRuntime 'program'
 		h.addDigest(sourceDigest(p.modules[0].path, text: p.modules[0].tree.text, files: p.modules[0].files))
 	end 'program'
-	return CacheSetup.make(options.cacheDir.clone(), base: h.digest(), verifies: options.verifiesCache, speculates: options.speculates and not options.verifiesCache)
+	return CacheSetup.make(options.cacheDir.clone(), base: h.digest(), verifies: options.verifiesCache, speculates: options.speculates and not options.verifiesCache, now: fileSystemNow(options.cacheDir))
 end 'cacheSetupOf'
 
 // ModuleDigests are what a module's key and summary are made from: its source and its public text, which its parse makes, and
@@ -360,9 +378,11 @@ end 'entryPath'
 
 // readEntry is the entry of the cache at dir under key, or nothing when there is none, or a file there that is no whole entry
 // of this layout under that key, which is then no entry.
-function readEntry(dir String, key table.Digest) returns table.Option with CachedEntry
+function readEntry(setup CacheSetup, key table.Digest) returns table.Option with CachedEntry
+	let dir = setup.dir.clone()
 	let path = try FilePath.from(entryPath(dir, key: key)) otherwise return table.Option.none
 	let text = try File.readText(path) otherwise return table.Option.none
+	markUsed(setup, path: entryPath(dir, key: key), bytes: text)
 	var r = table.ByteReader.of(text)
 	let magic = r.text()
 	let format = r.count()
@@ -439,18 +459,24 @@ type CachePlan
 	// speculated is the summary the module is taken to make, where its key finds no entry and speculationKey a summary.
 	var speculated as bool
 	var summary as table.Digest
+	// checkedKey is the key of the module's checked state, where its key is known, and checked the state found under it for a
+	// module that is restored.
+	var checkedKey as table.Digest
+	var checked as table.Option with CheckedEntry
 
 	static function make(reach Reach) returns CachePlan
-		return CachePlan{key: table.Digest.none(), found: FoundEntry.none, reach: reach, speculated: false, summary: table.Digest.none()}
+		return CachePlan{key: table.Digest.none(), found: FoundEntry.none, reach: reach, speculated: false, summary: table.Digest.none(), checkedKey: table.Digest.none(), checked: FoundChecked.none}
 	end 'make'
 end 'CachePlan'
 
 // planModules is, by place among the modules the compile compiles, what the order decides from the cache, in order, the
 // modules of p sorted each after the modules it names, of which reached are compiled past their resolve. A module is settled
 // when every module it names is and the cache holds an entry under its key, whose summary it then has. A module that is not
-// settled, and every module it names, directly or not, are checked and lowered, since it may instantiate a generic or inline
-// a leaf of any of them; a settled module that none of them reaches runs nothing after its constants, and its emit links the
-// entry's unit (Reach.loaded). A compile that verifies the cache checks and lowers every module.
+// settled, and every module it names, directly or not, read what one another's check and lower made, since it may
+// instantiate a generic or inline a leaf of any of them: a settled one among them whose checked state the cache holds loads
+// it (Reach.restored), and the others are checked and lowered. A settled module that none of them reaches runs nothing after
+// its constants, and its emit links the entry's unit (Reach.loaded). A compile that verifies the cache checks and lowers
+// every module.
 function planModules(c Compile, p ast.Project, order check.ModuleOrder, known Known, reached Placed) returns Array with CachePlan
 	var plans as Array with CachePlan
 	plans = Array.create(0)
@@ -476,12 +502,13 @@ function planModules(c Compile, p ast.Project, order check.ModuleOrder, known Kn
 		if reached[m] and namedSettled(c, p: p, m: m, settled: settled, plans: plans) 'named'
 			let key = keyOf(c, p: p, m: m, own: known[slot].digests, summaries: summaries)
 			plans[slot].key = key.clone()
-			plans[slot].found = readEntry(c.cache.dir, key: key)
+			plans[slot].checkedKey = checkedKey(c, p: p, m: m, key: key)
+			plans[slot].found = readEntry(c.cache, key: key)
 			if plans[slot].found.isSome() 'hit'
 				settled[slot] = true
 				summaries[slot] = foundSummary(plans[slot].found)
 			end 'hit' else if c.cache.speculates 'speculate'
-				match readSpeculation(c.cache.dir, key: speculationKey(c, p: p, m: m, own: known[slot].digests, summaries: summaries)) 'last'
+				match readSpeculation(c.cache, key: speculationKey(c, p: p, m: m, own: known[slot].digests, summaries: summaries)) 'last'
 					some(summary) then speculate(plans[slot], summaries: summaries, slot: slot, summary: summary)
 					none then _ = 0
 				end 'last'
@@ -510,7 +537,12 @@ function planModules(c Compile, p ast.Project, order check.ModuleOrder, known Kn
 	for slot in 0 upto c.modules 'loaded'
 		if settled[slot] and not checked[slot] 'loaded'
 			plans[slot].reach = Reach.loaded
-		end 'loaded'
+		end 'loaded' else if settled[slot] and not c.cache.verifies 'restored'
+			plans[slot].checked = readChecked(c.cache, key: plans[slot].checkedKey)
+			if plans[slot].checked.isSome() 'found'
+				plans[slot].reach = Reach.restored
+			end 'found'
+		end 'restored'
 	end 'loaded'
 	return plans
 end 'planModules'
@@ -569,9 +601,11 @@ function speculationPath(dir String, key table.Digest) returns String
 end 'speculationPath'
 
 // readSpeculation is the summary kept under key, or nothing.
-function readSpeculation(dir String, key table.Digest) returns table.Option with table.Digest
+function readSpeculation(setup CacheSetup, key table.Digest) returns table.Option with table.Digest
+	let dir = setup.dir.clone()
 	let path = try FilePath.from(speculationPath(dir, key: key)) otherwise return table.Option.none
 	let text = try File.readText(path) otherwise return table.Option.none
+	markUsed(setup, path: speculationPath(dir, key: key), bytes: text)
 	var r = table.ByteReader.of(text)
 	let magic = r.text()
 	let found = r.digest()
@@ -601,3 +635,383 @@ function writeWhole(path String, bytes ByteArray)
 	try File.rename(temporaryPath.clone(), to: finalPath) otherwise ignore
 	try File.delete(temporaryPath) otherwise ignore
 end 'writeWhole'
+
+// fileTime is the time the file at path was last written, in seconds on the file system's clock, or none where there is no
+// such file or it cannot be read.
+function fileTime(path String) returns table.Option with Count
+	let at = try FilePath.from(path) otherwise return table.Option.none
+	let info = try File.info(at) otherwise return table.Option.none
+	return table.Option.some(info.modifiedTime)
+end 'fileTime'
+
+// fileSystemNow is the file system's time now, as the time of a file of the cache at dir that this process writes and
+// deletes, or none where it cannot: each process names its own, so two compiles never write one.
+function fileSystemNow(dir String) returns table.Option with Count
+	if dir == "" 'off'
+		return table.Option.none
+	end 'off'
+	let path = project.joinPath(dir, name: "{clockName}.{Process.id()}{temporaryExtension}")
+	let at = try FilePath.from(path) otherwise return table.Option.none
+	try File.writeText(at.clone(), content: "") otherwise return table.Option.none
+	let now = fileTime(path)
+	try File.delete(at) otherwise ignore
+	return now
+end 'fileSystemNow'
+
+// needsRefresh is whether a file of the cache last written at written is used at now so long after that its use is written
+// down again (usedRefreshSeconds).
+function needsRefresh(written Count, now Count) returns bool
+	return now > written and now - written > usedRefreshSeconds
+end 'needsRefresh'
+
+// markUsed writes down that the file of the cache at path, which holds bytes, is used now: where its time is older than the
+// refresh allows, it is written again whole, as any write of the cache is, so that a reader meets the old bytes or the same
+// new ones. A write that fails leaves the use unrecorded, which can cost a trim that comes too early, so a miss, and never a
+// wrong build.
+function markUsed(setup CacheSetup, path String, bytes String)
+	var now = 0 as Count
+	match setup.now 'n'
+		some(t) then now = t
+		none then return
+	end 'n'
+	var written = 0 as Count
+	match fileTime(path) 'w'
+		some(t) then written = t
+		none then return
+	end 'w'
+	if needsRefresh(written, now: now) 'refresh'
+		writeWhole(path, bytes: bytes.toByteArray())
+	end 'refresh'
+end 'markUsed'
+
+// trimDue is whether a trim that was last done at stamp, where there was one, is due at now (trimIntervalSeconds).
+function trimDue(stamp table.Option with Count, now Count) returns bool
+	return match stamp 's'
+		some(t) gives now < t or now - t >= trimIntervalSeconds
+		none gives true
+	end 's'
+end 'trimDue'
+
+// CacheFile is a file of the cache's directory as a trim sees it: its path and the time it was last written.
+type CacheFile
+	var path as String
+	var written as Count
+
+	static function make(consumes path String, written Count) returns CacheFile
+		return CacheFile{path: path, written: written}
+	end 'make'
+end 'CacheFile'
+
+typealias CacheFiles = Array with CacheFile
+
+// isCacheFile is whether a file of the cache's directory is one the cache wrote and a trim or a clear may delete: an entry, a
+// checked state, a summary or a temporary file, never the stamp of the trims nor anything else that is there.
+function isCacheFile(path String) returns bool
+	return project.endsWithText(path, suffix: entryExtension) or project.endsWithText(path, suffix: checkedExtension) or project.endsWithText(path, suffix: speculationExtension) or project.endsWithText(path, suffix: temporaryExtension)
+end 'isCacheFile'
+
+// staleFiles are the paths of the files of the cache among files that were last written longer than limit seconds before now.
+function staleFiles(files CacheFiles, now Count, limit Count) returns ast.StringList
+	var stale = ast.StringList.create(0)
+	for i in 0 upto files.count() 'files'
+		let written = files[i].written
+		if isCacheFile(files[i].path) and now > written and now - written > limit 'stale'
+			stale.push(files[i].path.clone())
+		end 'stale'
+	end 'files'
+	return stale
+end 'staleFiles'
+
+// cacheFiles are the files of the cache at dir with their times, in the order the directory lists them.
+function cacheFiles(dir String) returns CacheFiles
+	var files = CacheFiles.create(0)
+	let at = try FilePath.from(dir) otherwise return files
+	let listed = try Directory.list(at) otherwise return files
+	for i in 0 upto listed.count() 'each'
+		let path = listed[i].toString()
+		if isCacheFile(path) 'cache'
+			match fileTime(path) 'time'
+				some(t) then files.push(CacheFile.make(path, written: t))
+				none then continue 'each'
+			end 'time'
+		end 'cache'
+	end 'each'
+	return files
+end 'cacheFiles'
+
+// deleteAll deletes the files at paths, and gives how many it deleted. A file that another compile has open is left, and so
+// is one another compile deleted first: a compile that looks for a deleted entry misses it and makes it again.
+function deleteAll(paths ast.StringList) returns Count
+	var deleted = 0 as Count
+	for i in 0 upto paths.count() 'each'
+		let at = try FilePath.from(paths[i]) otherwise continue 'each'
+		try 'delete'
+			File.delete(at)
+			deleted = try deleted + 1 otherwise panic("driver: more files deleted than memory")
+		end 'delete' otherwise 'kept'
+			continue 'each'
+		end 'kept'
+	end 'each'
+	return deleted
+end 'deleteAll'
+
+// trimWhenDue trims the cache at the end of a compile that used it, where the last trim is a day old: the stamp is written
+// first, so that the compiles that end meanwhile find the trim done.
+function trimWhenDue(setup CacheSetup)
+	var now = 0 as Count
+	match setup.now 'n'
+		some(t) then now = t
+		none then return
+	end 'n'
+	let stamp = project.joinPath(setup.dir, name: trimStampName)
+	if not trimDue(fileTime(stamp), now: now) 'early'
+		return
+	end 'early'
+	let at = try FilePath.from(stamp) otherwise return
+	try File.writeText(at, content: "") otherwise return
+	_ = deleteAll(staleFiles(cacheFiles(setup.dir), now: now, limit: trimLimitSeconds))
+end 'trimWhenDue'
+
+let cacheTrimVerb = "trim"
+
+let cacheClearVerb = "clear"
+
+// cacheCommand is `cache`: with no verb it says where the cache is and what it holds, `cache trim` deletes what a trim would
+// whether one is due or not, and `cache clear` deletes every file the cache wrote.
+function cacheCommand(rest CommandNames) returns ExitCode
+	let dir = cacheDirectory()
+	if dir == "" 'none'
+		printError("cache: there is no build cache: {cacheVariable} is {cacheOff}, or {localDataVariable} is not set\n")
+		return diagnosticsExitCode
+	end 'none'
+	let files = cacheFiles(dir)
+	if rest.count() == 1 'report'
+		var bytes = 0 as Count
+		for i in 0 upto files.count() 'files'
+			let at = try FilePath.from(files[i].path) otherwise continue 'files'
+			let info = try File.info(at) otherwise continue 'files'
+			bytes = try bytes + info.size otherwise panic("cache: more bytes than memory")
+		end 'files'
+		print("{dir}: {files.count()} files, {bytes} bytes\n")
+		return 0
+	end 'report'
+	if rest.count() == 2 and rest[1] == cacheTrimVerb 'trim'
+		var now = 0 as Count
+		match fileSystemNow(dir) 'n'
+			some(t) then now = t
+			none then return failCacheCommand("cache: the file system's time cannot be read in {dir}")
+		end 'n'
+		print("{deleteAll(staleFiles(files, now: now, limit: trimLimitSeconds))} files deleted\n")
+		return 0
+	end 'trim'
+	if rest.count() == 2 and rest[1] == cacheClearVerb 'clear'
+		var paths = ast.StringList.create(0)
+		for i in 0 upto files.count() 'files'
+			paths.push(files[i].path.clone())
+		end 'files'
+		print("{deleteAll(paths)} files deleted\n")
+		return 0
+	end 'clear'
+	printError(usage())
+	return usageExitCode
+end 'cacheCommand'
+
+function failCacheCommand(message String) returns ExitCode
+	printError("{message}\n")
+	return diagnosticsExitCode
+end 'failCacheCommand'
+
+// The checked state of a module is kept beside its unit, under its key and the places of the modules whose handles it
+// holds (checkedKey): a handle names a module by its place, so a state is read back only where every place it names is the
+// same, and nothing in it is ever relocated.
+let checkedExtension = ".checked"
+
+let checkedMagic = "minimaxon build cache checked state"
+
+let checkedFormat = 1 as Count
+
+// checkedKey is the key of the checked state of module m of p, whose key is key: the places of the modules that come before
+// the compiled ones and of m and every module it reaches, by their paths.
+function checkedKey(c Compile, p ast.Project, m Count, key table.Digest) returns table.Digest
+	var h = table.Hasher.new()
+	h.addDigest(key)
+	h.addText(checkedMagic)
+	for a in 0 upto c.first 'earlier'
+		h.addText(p.modules[a].path)
+	end 'earlier'
+	let reached = reachedFrom(p, m: m)
+	for d in 0 upto reached.count() 'reached'
+		if reached[d] 'named'
+			h.addText(p.modules[d].path)
+			h.addCount(d)
+		end 'named'
+	end 'reached'
+	return h.digest()
+end 'checkedKey'
+
+// reachedFrom is, by module of p, whether module m reaches it: m itself, and the modules it names, directly or through others.
+function reachedFrom(p ast.Project, m Count) returns Placed
+	var reached = Placed.create(0)
+	for _ in 0 upto p.modules.count() 'none'
+		reached.push(false)
+	end 'none'
+	reached[m] = true
+	var pending = TaskIDs.create(0)
+	pending.push(m)
+	while pending.count() > 0 'closure'
+		let at = try pending.pop() otherwise panic("driver: the pending modules ran out")
+		for j in 0 upto p.resolutions[at].deps.count() 'deps'
+			let d = ast.modIndex(p.resolutions[at].deps[j].module)
+			if not reached[d] 'new'
+				reached[d] = true
+				pending.push(d)
+			end 'new'
+		end 'deps'
+	end 'closure'
+	return reached
+end 'reachedFrom'
+
+function checkedPath(dir String, key table.Digest) returns String
+	return project.joinPath(dir, name: "{key.hex()}{checkedExtension}")
+end 'checkedPath'
+
+// CheckedEntry is the checked state of a module as a compile found it: its bytes and their digest, which its load holds them
+// to. FoundChecked is the one found under a module's checked key, or none.
+typealias FoundChecked = table.Option with CheckedEntry
+
+type CheckedEntry
+	var check as table.Digest
+	var payload as String
+
+	static function make(consumes check table.Digest, consumes payload String) returns CheckedEntry
+		return CheckedEntry{check: check, payload: payload}
+	end 'make'
+end 'CheckedEntry'
+
+// readChecked is the checked state that the cache holds under key, or none where it holds none, or a file there that is no
+// whole entry of this layout under that key.
+function readChecked(setup CacheSetup, key table.Digest) returns table.Option with CheckedEntry
+	let dir = setup.dir.clone()
+	let path = try FilePath.from(checkedPath(dir, key: key)) otherwise return table.Option.none
+	let text = try File.readText(path) otherwise return table.Option.none
+	markUsed(setup, path: checkedPath(dir, key: key), bytes: text)
+	var r = table.ByteReader.of(text)
+	let magic = r.text()
+	let format = r.count()
+	let found = r.digest()
+	let check = r.digest()
+	let payload = r.text()
+	if r.broken or not r.atEnd() or magic != checkedMagic or format != checkedFormat or not found.equals(key) 'none'
+		return table.Option.none
+	end 'none'
+	return table.Option.some(CheckedEntry.make(check, payload: payload))
+end 'readChecked'
+
+// writeChecked keeps the checked state payload under key, written whole and renamed over its name, as every entry is.
+function writeChecked(dir String, key table.Digest, payload ByteArray)
+	var check = table.Hasher.new()
+	check.addBytes(payload)
+	var w = table.ByteWriter.new()
+	w.text(checkedMagic)
+	w.count(checkedFormat)
+	w.digest(key)
+	w.digest(check.digest())
+	w.run(payload)
+	writeWhole(checkedPath(dir, key: key), bytes: w.bytes)
+end 'writeChecked'
+
+// checkedState is what the stages of the module of work after its constants made, as its lower left them: its home's parts,
+// what its check ended with, and its leaves with their code; a function of its code that is no leaf is kept as the place it
+// holds, since what reads the code of a module it names reads its leaves alone.
+function checkedState(work ModuleWork) returns ByteArray
+	var w = table.CacheWriter.new()
+	work.home.storeChecked(w)
+	check.storeModuleChecked(w, v: work.checked)
+	opt.storeLeaves(w, v: work.leaves)
+	w.word64(work.code.count() as table.Word64)
+	for i in 0 upto work.code.count() 'functions'
+		if work.leaves.holds(work.code[i].decl) 'leaf'
+			w.flag(true)
+			ir.storeIrFunction(w, v: work.code[i])
+		end 'leaf' else 'other'
+			w.flag(false)
+			w.word64(work.code[i].decl as table.Word64)
+		end 'other'
+	end 'functions'
+	return w.finish()
+end 'checkedState'
+
+// Restored is what the verify and the lower of a module whose checked state the cache holds give, once its bodies loaded it.
+type Restored
+	var checked as check.ModuleChecked
+	var code as ir.IrFunctionList
+	var leaves as opt.Leaves
+
+	static function none() returns Restored
+		return Restored{checked: check.ModuleChecked.none(), code: ir.IrFunctionList.create(0), leaves: opt.Leaves.empty()}
+	end 'none'
+
+	static function make(consumes checked check.ModuleChecked, consumes code ir.IrFunctionList, consumes leaves opt.Leaves) returns Restored
+		return Restored{checked: checked, code: code, leaves: leaves}
+	end 'make'
+end 'Restored'
+
+// restoreChecked makes the checked state that the entry the order found holds the module's: its home's parts at once, and
+// what its verify and its lower give in work.restored. An entry whose bytes are not those it was written with is damage of
+// the cache that no compile can go on from, as the stages that would make the state did not run.
+function restoreChecked(mutates work ModuleWork, dir String)
+	var found = exchange(work.checkedFound, value: FoundChecked.none)
+	var entry = match consumes found 'f'
+		some(e) gives e
+		none panic("driver: the checked state of a module that the cache holds none of")
+	end 'f'
+	var digest = table.Hasher.new()
+	digest.addText(entry.payload)
+	let path = checkedPath(dir, key: work.checkedKey)
+	if not digest.digest().equals(entry.check) 'damaged'
+		panic("driver: the build cache's entry {path} is damaged; delete it")
+	end 'damaged'
+	var r = table.CacheReader.of(exchange(entry.payload, value: ""))
+	work.home.loadChecked(r)
+	let checked = check.ModuleChecked.cacheLoad(r)
+	let leaves = opt.Leaves.cacheLoad(r)
+	let n = r.items()
+	var code = ir.IrFunctionList.create(0)
+	for _ in 0 upto n 'functions'
+		if r.flag() 'leaf'
+			code.push(ir.IrFunction.cacheLoad(r))
+		end 'leaf' else 'other'
+			let decl = try (r.word64() as ast.FuncID) otherwise panic("driver: the build cache's entry {path} holds no function")
+			code.push(ir.IrFunction.new(decl, name: "", paramCount: 0 as Count))
+		end 'other'
+	end 'functions'
+	if r.broken or not r.atEnd() 'cut'
+		panic("driver: the build cache's entry {path} is damaged; delete it")
+	end 'cut'
+	work.restored = Restored.make(checked, code: code, leaves: leaves)
+end 'restoreChecked'
+
+// keepChecked keeps the checked state that the lower of a settled module made (keepsChecked), under the checked key the order
+// gave it, once the module's emit linked its unit, or made one without an error where the compile verifies the cache, which
+// then holds the state to the entry found under that key: a difference is a fault of the key, which leaves out something the
+// state is made from.
+function keepChecked(c Compile, mutates work ModuleWork)
+	if work.checkedState.count() == 0 'none'
+		return
+	end 'none'
+	if c.cache.verifies 'verify'
+		match readChecked(c.cache, key: work.checkedKey) 'found'
+			some(entry) then holdToChecked(entry, state: work.checkedState, path: work.home.path())
+			none then writeChecked(c.cache.dir, key: work.checkedKey, payload: work.checkedState)
+		end 'found'
+	end 'verify' else 'write'
+		writeChecked(c.cache.dir, key: work.checkedKey, payload: work.checkedState)
+	end 'write'
+	work.checkedState = ByteArray.create(0)
+end 'keepChecked'
+
+function holdToChecked(entry CheckedEntry, state ByteArray, path String)
+	if String.from(state.clone()) != entry.payload 'differs'
+		panic("driver: module {path} makes another checked state than the build cache's entry under its key, so its key leaves out something its state is made from")
+	end 'differs'
+end 'holdToChecked'

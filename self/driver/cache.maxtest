@@ -1,0 +1,53 @@
+// day is a day in seconds, which the times of the trim's tests are counted in.
+let day = 86400 as Count
+
+let hour = 3600 as Count
+
+function fileAt(path String, written Count) returns CacheFile
+	return CacheFile.make(path.clone(), written: written)
+end 'fileAt'
+
+test 'a file of the cache unused for five days is trimmed, and nothing else is'
+	let now = 100 * day
+	var files = CacheFiles.create(0)
+	files.push(fileAt("c\\old.entry", written: now - 5 * day - 1))
+	files.push(fileAt("c\\recent.entry", written: now - 5 * day + 1))
+	files.push(fileAt("c\\old.summary", written: now - 6 * day))
+	files.push(fileAt("c\\clock.1.tmp", written: now - 9 * day))
+	files.push(fileAt("c\\trim.txt", written: now - 9 * day))
+	files.push(fileAt("c\\notes.md", written: now - 9 * day))
+	files.push(fileAt("c\\future.entry", written: now + day))
+	let stale = staleFiles(files, now: now, limit: trimLimitSeconds)
+	if stale.count() != 3 or stale[0] != "c\\old.entry" or stale[1] != "c\\old.summary" or stale[2] != "c\\clock.1.tmp" 'stale'
+		panic("the trim deletes {stale.count()} files, not the old entry, summary and temporary file")
+	end 'stale'
+end 'a file of the cache unused for five days is trimmed, and nothing else is'
+
+test 'a trim is due once a day'
+	let now = 100 * day
+	if not trimDue(table.Option.none, now: now) 'never'
+		panic("a cache never trimmed is not due")
+	end 'never'
+	if trimDue(table.Option.some(now - 23 * hour), now: now) 'early'
+		panic("a trim is due within a day of the last")
+	end 'early'
+	if not trimDue(table.Option.some(now - day), now: now) 'day'
+		panic("a trim is not due a day after the last")
+	end 'day'
+	if not trimDue(table.Option.some(now + hour), now: now) 'ahead'
+		panic("a trim whose stamp is ahead of the clock is never due")
+	end 'ahead'
+end 'a trim is due once a day'
+
+test 'a use is written down at most once an hour'
+	let now = 100 * day
+	if needsRefresh(now - hour, now: now) 'hour'
+		panic("a use within the hour is written down")
+	end 'hour'
+	if not needsRefresh(now - hour - 1, now: now) 'later'
+		panic("a use more than an hour after the last is not written down")
+	end 'later'
+	if needsRefresh(now + hour, now: now) 'ahead'
+		panic("a file ahead of the clock is written again")
+	end 'ahead'
+end 'a use is written down at most once an hour'

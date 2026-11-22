@@ -37,11 +37,12 @@ generator.
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules") |
 | `minimaxon run <file\|dir>` | compile to the temporary directory, as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
-| `minimaxon check <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
+| `minimaxon check [--tests] <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime"); `--tests` checks every module's files of tests (`.maxtest`) with its source |
 | `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--executables=N] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
 | `minimaxon test <module dir>` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests") |
 | `minimaxon selftest` | run the compiler's own tests: `test self`, from the root of the repository |
+| `minimaxon cache [trim\|clear]` | say where the build cache is and how many files and bytes it holds; `trim` deletes what a trim would (the files unused for five days) whether one is due or not, `clear` every file the cache wrote (see "Build cache") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
@@ -119,9 +120,11 @@ products of the stages it waited on, as an executor of behaviours gives it); the
 `.\check.ps1` is the gate. In order, it formats, `go fix`es and vets the Go of the generators and tools; runs the
 generators and fails if a generated file (`*_gen.*`) changed; has the seed build `bin\minimaxon.exe`; and then runs
 `suites.ps1` on it, which runs the Go tests of the generators and tools (`go test ./...`, with that compiler as
-`cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime`, `check self` (the compiler's own source under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
+`cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime`, `check self --tests` (the compiler's own source and its files of tests under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
 input), the programs that schedule behaviours again under one worker and under two (`test --behaviours` with
-`MAXON_MAX_PROCS` set), every spec test (`test specs --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass, and
+`MAXON_MAX_PROCS` set), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
+an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
+source, and `--verify-cache`), every spec test (`test specs --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass, and
 counts the new passes), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
 first step that fails. That the compiler reproduces itself (the seed builds C1, C1 builds C2, C2 builds C3, and C3 is
 byte-identical to C2) is checked where the seed is renewed, `.\seed.ps1`, which then runs the same `suites.ps1` on C2.
@@ -134,7 +137,10 @@ all it needs: the tests of the IR verifier on hand-built IR (`self/interp/verify
 pass (`self/interp/ssa.maxtest`, `fold.maxtest`) run their IR on the interpreter and through the backend, so they are
 `interp`'s; the declare's and the bodies' tests (`self/driver/declare.maxtest`, `bodies.maxtest`) and the chain of 200000
 terms (`self/driver/codegen.maxtest`) compile source through the front end, so they are the driver's, as are its timings.
-Helpers that tests of several modules use are each module's own copy. The tests (`test` declarations in each module's `.maxtest` files, run by `minimaxon test self/<module>` or all of them by `minimaxon selftest`) test the compiler's parts on programs and IR built by hand. **Go tests**
+Helpers that the tests of several modules use have one home, the lowest module that may name all they need
+(`self/table/testing.maxon`, `self/ir/testing.maxon`, `self/backend/testing.maxon`), since a module's tests may name only
+what the module may; they are exported source of that module, which the linker leaves out of every executable that does not
+call them. The tests (`test` declarations in each module's `.maxtest` files, run by `minimaxon test self/<module>` or all of them by `minimaxon selftest`) test the compiler's parts on programs and IR built by hand. **Go tests**
 test the generators (each regenerates its outputs and fails if the checked-in ones differ; `internal/x64gen` proves the
 instruction table against the bytes in its `testdata`) and `cmd/convert`.
 
@@ -289,7 +295,7 @@ layering cannot erode:
 | Module | Holds | Imports |
 |---|---|---|
 | `diag` | `CompileError` (a code, a message and a place: a `Site`, a module handle and an offset, until the error is located, then file, line and column), `ErrorList`, `sortErrors`, the error codes (generated from `codes.tsv`) and the message functions (from `messages.tsv`) | — |
-| `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides; `Digest`, `Hasher`, `ByteWriter` and `ByteReader` (`digest.maxon`), which the build cache names its entries by and stores them with | — |
+| `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides; `Digest`, `Hasher`, `ByteWriter` and `ByteReader` (`digest.maxon`), which the build cache names its entries by and stores them with, and `CacheWriter` and `CacheReader` (`cache.maxon`), which the generated functions store a module's checked state with | — |
 | `ast` | the program model: `Tree`, a module's nodes as flat `Record`s, the generated node kinds, accessors and declaration structs, `Module` and `Project`, the project's `TypeTable` and `FuncTable` of per-module slots and the accessors every read of an entry goes through (`typeEntry`, `funcEntry`), the `ModuleState` a module's task writes, which holds its module's slots (`state.maxon`), the built-in types and functions (generated), `Resolution` and `Typing`, the per-module tables the phases fill in (see "The AST"), link names, locating an error, `I128` | `diag`, `table` |
 | `syntax` | the grammar (`Maxon.g4`), the generated tokens and parser, the lexer loop, the layout rules, the formatter (the parser in a mode that writes the layout instead of checking it) and the edits that rename a keyword | `ast`, `diag`, `table` |
 | `project` | loading a project: discovery, finding the runtime's source (see "The runtime"), reading and parsing each module, the declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `syntax`, `table` |
@@ -324,6 +330,7 @@ run.
 | `internal/rulegen` | `internal/rulegen/generic.rules`, `internal/rulegen/pressure.rules` and `internal/rulegen/x64.rules`, checked against the IR table and the x64 rules against the instruction table | `self/opt/rewrite_gen.maxon`, `self/backend/lower_x64_gen.maxon` |
 | `internal/abigen` | `internal/abigen/table.go`, `internal/abigen/imports.go` (the kernel32 functions of the import table, in slot order; a test checks that every name the runtime and the entry stub call is listed) | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon`, `self/backend/imports_gen.maxon` (`rtDll`, a slot constant `imp<Name>` for each import, `rtImports`) |
 | `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
+| `internal/cachegen` | the `type`, `union`, `enum` and `typealias` declarations of `table`, `ast`, `ir`, `opt` and `check` themselves, from the types the build cache stores of a module's checked state (`ast.TypeSlot`, `FuncSlot`, `ModuleTables`, `Tree`, `Typing`, `ir.IrFunction`, `opt.Leaves`, `check.ModuleChecked`) through every type their fields reach; a field of a type it cannot store fails generation, naming it | `self/<module>/cache_gen.maxon` of each of those modules: `store<T>` and, for a record, a `cacheLoad` that an extension adds (only a record's own methods make one), for a union or an array `load<T>` |
 
 **The grammar.** `Maxon.g4` is a subset of ANTLR 4 notation that its header explains. It says how each construct is written
 and which AST node it builds: a label such as `cond=expr` is a field of the node, `@ast::Node { ... }` adds the fields later
@@ -862,12 +869,40 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
   straight). A unit carries its drop and copy routines (`backend.carryRoutines`), so it holds no handle and nothing is relocated
   when it is read back (`backend.readUnit`). Entries are written to a file of their own and renamed over their name, so a reader
   never meets half of one; a file that is no whole entry of this layout under its key is no entry, and one whose unit's bytes
-  differ from their digest stops the compile, naming the file to delete. Nothing trims the directory yet.
+  differ from their digest stops the compile, naming the file to delete.
+- **Eviction** is Go's: a file's time on the file system says when a compile last used it. A compile that reads an entry or
+  a summary whose time is more than an hour old writes it again whole (`markUsed`), so a use costs one `File.info` and, at
+  most once an hour, a write; the end of a compile that used the cache, when `trim.txt` is a day old, writes `trim.txt`
+  first and then deletes every entry, summary and temporary file unused for five days (`trimWhenDue`; the periods are named
+  constants of `cache.maxon`). Every time is the file system's own: a compile reads "now" as the time of a file it writes
+  and deletes, so no clock of the machine is held against a file's. Several compilers at once are safe: a write is a rename
+  over the name, an entry is read whole when it is probed, and a delete that meets a file another process holds open, or
+  one that is gone, is left; at worst a compile misses an entry and makes it again. `minimaxon cache` reports, `cache trim`
+  trims now and `cache clear` deletes everything.
 - **The order decides** (`planModules`), in the modules' order: a module is *settled* when every module it names is and the
   cache holds an entry under its key, whose summary it then has. A module that is not settled, and every module it names,
-  directly or not, run their check and lower, since it may instantiate a generic or inline a leaf of any of them; a settled
-  module that none of them names runs nothing after its constants (`Reach.loaded`: its check ends where its constants did, which
-  gives the entry function and the tests), and its emit links the entry's unit. Any other module's emit computes its key once
+  directly or not, read what one another's check and lower made, since it may instantiate a generic or inline a leaf of any
+  of them: one of those that is settled and whose checked state the cache holds loads it (`Reach.restored`), and the others
+  run their check and lower; a settled module that none of them names runs nothing after its constants (`Reach.loaded`: its
+  check ends where its constants did, which gives the entry function and the tests), and its emit links the entry's unit.
+- **The checked state** of a module (`<key'>.checked`) is what its stages after its constants made, as its lower left
+  them: its slots of the type and function tables whole (every segment's lists and the shells each stage left), its
+  `ModuleTables`, its tree as the bodies desugared it, its `Typing`, its `check.ModuleChecked`, and its leaves with their IR
+  (a function of its code that is no leaf is kept as its handle, since what reads the code of a module it names reads its
+  leaves alone). `publish` cuts a slot by segment and picks shells by stage, so the home as the lower left it gives each of
+  those stages' products exactly: a restored module's bodies load it (`restoreChecked`), its verify gives what its check
+  ended with and its lower its leaves, and none of them checks or lowers anything. It is written only by a settled module
+  that ran its check because a module that names it did not settle, the one place it is needed, so a compile of new source,
+  one with an empty cache among them, writes none. Its values are stored by the functions `internal/cachegen` generates from
+  the types' own declarations (`cache_gen.maxon`, over `table.CacheWriter` and `CacheReader`: each integer in the bytes its
+  range takes, a string as its place in the entry's table of strings, a map as its slots' states and its occupied entries),
+  and loaded as the same frozen values the stages publish. A handle names a module by its place, so the key adds to the
+  module's key the paths of the modules before the compiled ones and the place and path of the module and of each module it
+  reaches (`checkedKey`): a state is read back only where every place it holds is the same, and nothing is relocated; adding
+  or removing a module moves the places after it, and a module whose layout moved runs its check again. Two fields are no
+  part of the state, as their values are no function of the key: a slot's index of shapes and what it imported, which also
+  hold the shapes of the slots its tasks waited on as that compile made them; the loaded slot indexes its own shapes
+  (`ast.indexOwnShapes`). A tree's text is the module's source, which its parse read. Any other module's emit computes its key once
   the modules it names have their summaries, and links the entry if there is one, or emits and writes one. A module whose stages
   found an error never gets one, and every stage that can report an error, before the bodies, always runs.
 - **Speculation.** A module whose source changed has no entry, so the modules that name it could not know their keys before its
@@ -878,7 +913,8 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
 - **Correctness.** A unit is a function of its key, and the link lays the units out in module order whatever made them, so a
   cached build's executable and diagnostics are byte for byte an uncached build's, at any number of workers and with
   `--reverse-modules`. `--verify-cache` checks every module and holds the unit and the summary it makes to the entry under its key,
-  an internal error naming the module where they differ.
+  and the checked state it makes to the one under its checked key, byte for byte, an internal error naming the module where
+  they differ.
 
 What an edit costs (`build self`, best of three, 16 cores): with an empty cache 1.9 s; nothing changed 0.38 s (the front of every
 module and the runtime, and the link); a body edited in `diag`, which every module names, 0.39 s; a body in `check` 1.35 s, as
@@ -2987,6 +3023,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)` | — (a file that is there is replaced) | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
+| `File.info(path)` | `FileInfo`: `size`, `modifiedTime`, `createdTime` and `accessedTime` (Unix seconds on the file system's clock, as maxon's), `isDirectory`, `isReadOnly`; read from the directory's record of the file (`FindFirstFileW`), so a file another process holds open is no failure | `FileInfoError` |
 | `Directory.isDirectory(path)` | `bool` | — |
 | `Directory.create(path)` | `bool`, whether the directory is there after it; the missing parents are made too | — |
 | `Directory.currentPath()` | `FilePath`, the working directory; a panic when Windows cannot give it | — |

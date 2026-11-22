@@ -471,6 +471,9 @@ function finishCompile(ctx frozen with Context, mutates station ProjectStation, 
 	end 'trace'
 	ast.locateAllErrors(station.p.modules, errs: station.errs)
 	let code = report(station.errs)
+	if ctx.compile.cache.enabled() 'trim'
+		trimWhenDue(ctx.compile.cache)
+	end 'trim'
 	if code == 0 and ctx.compile.options.runsTests 'tests'
 		Process.setExitCode(runTestExecutable(ctx.compile.output, tests: testsOf(known).count(), under: ctx.compile.options.testsUnder))
 		return

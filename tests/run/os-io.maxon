@@ -14,6 +14,9 @@
 //> deleteMissing=notFound
 //> listMissing=notFound
 //> deleteDirectory=accessDenied
+//> info=3 false false true
+//> infoDirectory=true
+//> infoMissing=notFound
 //> gone=false
 
 function readError(path FilePath) returns String
@@ -75,6 +78,24 @@ function listError(path FilePath) returns String
 	end 'failed'
 	return "unreachable"
 end 'listError'
+
+function infoError(path FilePath) returns String
+	try 'info'
+		let info = File.info(path)
+		return "size {info.size}"
+	end 'info' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then return "notFound"
+			accessDenied then return "accessDenied"
+			busy then return "busy"
+			failed then return "failed"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'infoError'
+
+// lateIn2020 is a time in Unix seconds that a file written now is later than.
+let lateIn2020 = 1600000000
 
 function pathError(text String) returns String
 	try 'from'
@@ -139,6 +160,10 @@ function main() returns ExitCode
 	print("deleteMissing={deleteError(f1)}\n")
 	print("listMissing={listError(path("{dir}\\none"))}\n")
 	print("deleteDirectory={deleteError(path(dir))}\n")
+	let info = try File.info(f2) otherwise panic("cannot read the information")
+	print("info={info.size} {info.isDirectory} {info.isReadOnly} {info.modifiedTime > lateIn2020 and info.createdTime > lateIn2020}\n")
+	print("infoDirectory={(try File.info(path(dir)) otherwise panic("cannot read the information")).isDirectory}\n")
+	print("infoMissing={infoError(f1)}\n")
 	try File.delete(f2) otherwise panic("cannot delete")
 	print("gone={Directory.isDirectory(f2)}\n")
 	return 0

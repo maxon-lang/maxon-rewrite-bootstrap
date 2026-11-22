@@ -1009,6 +1009,19 @@ function adoptShape(mutates tt TypeSlot, reads TypeTable, place Count, word Coun
 	tt.shapeIndex.repoint(word, place: own)
 end 'adoptShape'
 
+// indexOwnShapes makes the index of the slot tt find every shape its own lists hold, at the place its stages left it: where a
+// slot loaded from the build cache starts, whose index holds no other slot's shapes until a task of its module imports them.
+export function indexOwnShapes(mutates tt TypeSlot)
+	for g in 0 upto tt.segments() 'segments'
+		let list = segmentList(g, kind: shapeTypes)
+		for i in 0 upto tt.listLength(list) 'shapes'
+			let word = tt.entryIn(list, index: i).id as Count
+			let place = handleWord(tt.slot, list: list, index: i)
+			tt.shapeIndex.insert(word, place: place)
+		end 'shapes'
+	end 'segments'
+end 'indexOwnShapes'
+
 // importShapes makes the index of the slot tt, whose task begins, find the shapes of the segments of each slot it reads that
 // the task waited on (inputs) and that it did not find already, so that one probe finds any shape the task reads. A
 // segment is complete once its stage ended, so it is taken in whole and once. A word the index finds already keeps its place.
