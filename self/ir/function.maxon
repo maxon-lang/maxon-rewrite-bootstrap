@@ -320,11 +320,11 @@ export function quote(s String) returns String
 end 'quote'
 
 // symbol is the name of the function in the IR text and in a report.
-export function irSymbol(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f IrFunction) returns String
+export function irSymbol(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction) returns String
 	if f.name != "" 'named'
 		return f.name.clone()
 	end 'named'
-	return funcSymbol(p, tt: tt, ft: ft, fid: f.decl)
+	return funcSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: f.decl)
 end 'irSymbol'
 
 function putText(mutates out ByteArray, s String)
@@ -332,8 +332,8 @@ function putText(mutates out ByteArray, s String)
 end 'putText'
 
 // printIr writes the text of a function and of the bodies of its behaviours and closures, as --emit-ir does.
-export function printIr(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f IrFunction, mutates out ByteArray)
-	putText(out, s: "function {irSymbol(p, tt: tt, ft: ft, f: f)} params {f.paramCount}")
+export function printIr(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction, mutates out ByteArray)
+	putText(out, s: "function {irSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f)} params {f.paramCount}")
 	if f.slots.count() > 0 'slots'
 		putText(out, s: " slots [")
 		for i in 0 upto f.slots.count() 'each'
@@ -351,19 +351,19 @@ export function printIr(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f IrF
 	for b in 0 upto f.blocks.count() 'blocks'
 		putText(out, s: "{f.blockHeader(b)}:\n")
 		for at in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
-			putText(out, s: "  {instrText(p, tt: tt, ft: ft, f: f, x: f.instrs[at])}\n")
+			putText(out, s: "  {instrText(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f, x: f.instrs[at])}\n")
 		end 'instrs'
 		putText(out, s: "  {termText(f, t: f.blocks[b].term)}\n")
 	end 'blocks'
 	putText(out, s: "\n")
 	for i in 0 upto f.bodies.count() 'bodies'
-		printIr(p, tt: tt, ft: ft, f: f.bodies[i], out: out)
+		printIr(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f.bodies[i], out: out)
 	end 'bodies'
 end 'printIr'
 
 // irText is the text of a function.
-export function irText(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f IrFunction) returns String
+export function irText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction) returns String
 	var out = ByteArray.create(0)
-	printIr(p, tt: tt, ft: ft, f: f, out: out)
+	printIr(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f, out: out)
 	return String.from(out)
 end 'irText'

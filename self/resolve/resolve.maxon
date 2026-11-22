@@ -497,7 +497,7 @@ function typeHasStatic(p ast.Project, ms ast.ModuleState, ref ast.DeclRef, td as
 		end 'hit'
 	end 'each'
 	match stdlibEntry(p, ms: ms, ref: ref) 'dt'
-		some(tid) then return ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findMethod(memberName).isSome()
+		some(tid) then return ast.typeEntry(ms.types, reads: p.types, t: tid).findMethod(memberName).isSome()
 		none then return false
 	end 'dt'
 end 'typeHasStatic'
@@ -522,7 +522,7 @@ end 'unionHasCase'
 
 function stdlibHasCase(p ast.Project, ms ast.ModuleState, ref ast.DeclRef, memberName String) returns bool
 	match stdlibEntry(p, ms: ms, ref: ref) 'dt'
-		some(tid) then return ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findCase(memberName).isSome()
+		some(tid) then return ast.typeEntry(ms.types, reads: p.types, t: tid).findCase(memberName).isSome()
 		none then return false
 	end 'dt'
 end 'stdlibHasCase'

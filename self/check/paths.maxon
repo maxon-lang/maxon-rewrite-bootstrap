@@ -110,12 +110,12 @@ typealias AccessPaths = Array with AccessPath
 
 // fieldName is the name of the field a step selects.
 function fieldName(p ast.Project, ms ast.ModuleState, step PathStep) returns String
-	return ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: step.owner))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: step.owner))].fields[step.field].name.clone()
+	return ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: step.owner)).fields[step.field].name.clone()
 end 'fieldName'
 
 // fieldIsVar is whether the field a step selects may be assigned.
 function fieldIsVar(p ast.Project, ms ast.ModuleState, step PathStep) returns bool
-	return ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: step.owner))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: step.owner))].fields[step.field].isVar
+	return ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: step.owner)).fields[step.field].isVar
 end 'fieldIsVar'
 
 function pathText(o Ownership, p ast.Project, ms ast.ModuleState, path AccessPath) returns String
@@ -156,9 +156,9 @@ end 'placeText'
 // withContents appends the steps from a value of type t to what it lends: one for each frozen value that t nests.
 function withContents(p ast.Project, ms ast.ModuleState, mutates steps PathSteps, t ast.TypeID)
 	var cur = t
-	while cur != ast.noType and ast.typeKind(ms.types, t: cur) == ast.TypeKind.builtinFrozen 'frozen'
+	while cur != ast.noType and ast.typeKind(ms.types, reads: p.types, t: cur) == ast.TypeKind.builtinFrozen 'frozen'
 		steps.push(PathStep.contents())
-		cur = ast.typeArgAt(ms.types, t: cur, index: 0)
+		cur = ast.typeArgAt(ms.types, reads: p.types, t: cur, index: 0)
 	end 'frozen'
 end 'withContents'
 
@@ -303,5 +303,5 @@ end 'addLentPaths'
 // projectionName is how a message names the function whose borrowed result a projection is part of.
 function projectionName(o Ownership, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns String
 	let info = ownCall(o, node: call)
-	return ms.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].name.clone()
+	return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).name.clone()
 end 'projectionName'

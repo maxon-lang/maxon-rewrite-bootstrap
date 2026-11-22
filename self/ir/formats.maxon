@@ -22,10 +22,10 @@ end 'argsOf4'
 // rendersUnsigned is whether a value of the type is written as the unsigned number its bits make: a range that has no
 // negative value and reaches past i64.max, or a constant that does.
 function rendersUnsigned(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	if ast.typeKind(ms.types, t: t) == ast.TypeKind.constInt 'constant'
-		return not ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.fitsI64()
+	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.constInt 'constant'
+		return not ast.typeEntry(ms.types, reads: p.types, t: t).minVal.fitsI64()
 	end 'constant'
-	return ast.isUnsignedInt(ms.types, t: t)
+	return ast.isUnsignedInt(ms.types, reads: p.types, t: t)
 end 'rendersUnsigned'
 
 // formattedInt is the text of an integer in the base and the field that the specifier says. A base that is not decimal

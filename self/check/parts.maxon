@@ -108,10 +108,10 @@ function requireMayTakeApart(mutates o Ownership, p ast.Project, ms ast.ModuleSt
 		return true
 	end 'plain'
 	let receiver = selfLocalOf(o, p: p, ms: ms)
-	if ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].isDestructor and o.c.typing.locals[receiver as Count].ty == t 'own'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).isDestructor and o.c.typing.locals[receiver as Count].ty == t 'own'
 		return true
 	end 'own'
-	fail(o, p: p, site: site, code: diag.errTakeApartDestructible, msg: "{what} takes '{ast.typeName(ms.types, t: t)}' apart, which ends it without calling a destructor, and only its own destructors may do that; end it by calling one of them, or read the part without moving it")
+	fail(o, p: p, site: site, code: diag.errTakeApartDestructible, msg: "{what} takes '{ast.typeName(ms.types, reads: p.types, t: t)}' apart, which ends it without calling a destructor, and only its own destructors may do that; end it by calling one of them, or read the part without moving it")
 	return false
 end 'requireMayTakeApart'
 
@@ -227,10 +227,10 @@ function requireRemainder(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 		requireDroppable(o, p: p, ms: ms, site: site, t: ty, d: OwnDrop.make(kind, name: name.clone()))
 		return
 	end 'whole'
-	let orig = ast.originOf(ms.types, t: ty)
-	let k = ast.typeKind(ms.types, t: ty)
+	let orig = ast.originOf(ms.types, reads: p.types, t: ty)
+	let k = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if k == ast.TypeKind.record 'record'
-		for fi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields.count() 'fields'
+		for fi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).fields.count() 'fields'
 			var gone = false
 			var inside = OwnMoves.create(0)
 			for i in 0 upto moves.count() 'moves'
@@ -244,24 +244,24 @@ function requireRemainder(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 				end 'deeper'
 			end 'moves'
 			if not gone 'left'
-				let fName = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].name.clone()
-				let fTy = ast.fieldType(ms.types, owner: ty, index: fi)
+				let fName = ast.typeEntry(ms.types, reads: p.types, t: orig).fields[fi].name.clone()
+				let fTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: fi)
 				requireRemainder(o, p: p, ms: ms, site: site, ty: fTy, depth: try depth + 1 otherwise depth, moves: inside, name: "{name}.{fName}", kind: kind, destroys: false)
 			end 'left'
 		end 'fields'
 		return
 	end 'record'
 	if k == ast.TypeKind.unionTy 'union'
-		for ci in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases.count() 'cases'
-			for pi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].payload.count() 'payload'
-				let pName = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].payload[pi].name.clone()
-				let pTy = ast.payloadType(ms.types, owner: ty, caseIndex: ci, index: pi)
+		for ci in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() 'cases'
+			for pi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload.count() 'payload'
+				let pName = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload[pi].name.clone()
+				let pTy = ast.payloadType(ms.types, reads: p.types, owner: ty, caseIndex: ci, index: pi)
 				requireDroppable(o, p: p, ms: ms, site: site, t: pTy, d: OwnDrop.make(kind, name: "{name}.{pName}"))
 			end 'payload'
 		end 'cases'
 		return
 	end 'union'
-	panic("ownership: '{ast.typeName(ms.types, t: ty)}' has no fields to move out of")
+	panic("ownership: '{ast.typeName(ms.types, reads: p.types, t: ty)}' has no fields to move out of")
 end 'requireRemainder'
 
 // requireHeld is the drop of an obliged local at the place where it is dropped, whatever its fact says it lost.

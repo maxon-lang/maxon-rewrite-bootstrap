@@ -240,7 +240,7 @@ end 'regKind'
 
 // kindOfType is the kind of a value of a type.
 function kindOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns IrKind
-	if ast.isManagedType(ms.types, t: t) 'managed'
+	if ast.isManagedType(ms.types, reads: p.types, t: t) 'managed'
 		return IrKind.kindManaged
 	end 'managed'
 	return IrKind.kindScalar
@@ -248,7 +248,7 @@ end 'kindOfType'
 
 // applyType is a type of the body with the type parameters of the function replaced by their arguments.
 function applyType(l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
-	return ast.substituteType(ms.types, t: t, params: l.bindParams, args: l.bindArgs)
+	return ast.substituteType(ms.types, reads: p.types, t: t, params: l.bindParams, args: l.bindArgs)
 end 'applyType'
 
 // kindOf is the kind of a value of a type the body names, which may be a type parameter of the function.

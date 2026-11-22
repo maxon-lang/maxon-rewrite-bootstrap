@@ -11,17 +11,18 @@ export enum Lent
 	source
 end 'Lent'
 
-// ModuleState is what a task of one module's stage writes: the type and function tables, in which the task makes and
-// fills entries only in its module's slot (beginModuleTask), and the shared slot only where it is a task of the project;
-// the module's tables of what its stages decide about its declarations; its resolution; and what else of the module its
-// stage writes (lent). A stage takes it `mutates` and the project `p` as the read-only outputs of the modules it waited on,
-// so that nothing a stage is given lets it write another module's declarations. The parts are lent out of the project for
-// the task and given back when it ends (lendModule, giveBack), so that the project holds them between tasks.
+// ModuleState is what a task of one module's stage writes: its module's slot of the type and of the function table, the
+// only slots it can make or fill an entry in (sharedSlot for a task of the project); the module's tables of what its
+// stages decide about its declarations; its resolution; and what else of the module its stage writes (lent). A stage takes
+// it `mutates` and the project `p` as the read-only outputs of the modules it waited on, the other slots of the tables
+// among them, so that nothing a stage is given lets it write another module's declarations or types. The parts are lent
+// out of the project for the task and given back when it ends (lendModule, giveBack), so that the project holds them
+// between tasks.
 export type ModuleState
 	export var module as diag.ModuleID
 	export var lent as Lent
-	export var types as TypeTable
-	export var funcs as FuncTable
+	export var types as TypeSlot
+	export var funcs as FuncSlot
 	export var tables as ModuleTables
 	export var resolution as Resolution
 	export var tree as Tree
@@ -30,7 +31,7 @@ export type ModuleState
 
 	// idle is the state of a module between its tasks, which holds none of its parts.
 	export static function idle(module diag.ModuleID) returns ModuleState
-		return ModuleState{module: module, lent: Lent.none, types: TypeTable.lent(), funcs: FuncTable.lent(), tables: ModuleTables.lentOut(), resolution: Resolution.new(module), tree: Tree.new(module, text: ""), source: Module.new(module, path: "", text: "", files: FileSpanList.create(0))}
+		return ModuleState{module: module, lent: Lent.none, types: TypeSlot.none(), funcs: FuncSlot.none(), tables: ModuleTables.lentOut(), resolution: Resolution.new(module), tree: Tree.new(module, text: ""), source: Module.new(module, path: "", text: "", files: FileSpanList.create(0))}
 	end 'idle'
 
 	// ofProject is the state of work of the project as a whole, which holds no module's parts: what it reads of a module, it
@@ -40,14 +41,14 @@ export type ModuleState
 	end 'ofProject'
 end 'ModuleState'
 
-// lendModule lends a task of module, which beginModuleTask has begun, the tables of the project and what lent says of the
-// module.
+// lendModule lends a task of module, which beginModuleTask has begun, the module's slots of the tables and what lent says
+// of the module.
 export function lendModule(mutates p Project, module diag.ModuleID, lent Lent) returns ModuleState
 	let m = modIndex(module)
 	var ms = ModuleState.idle(module)
 	ms.lent = lent
-	ms.types = exchange(p.types, value: TypeTable.lent())
-	ms.funcs = exchange(p.funcs, value: FuncTable.lent())
+	ms.types = lendTypeSlot(p.types, module: module)
+	ms.funcs = lendFuncSlot(p.funcs, module: module)
 	match lent 'lent'
 		none then return ms
 		tables then _ = 0
@@ -63,20 +64,20 @@ export function lendModule(mutates p Project, module diag.ModuleID, lent Lent) r
 	return ms
 end 'lendModule'
 
-// lendProject lends the tables of the project to work of the project as a whole, which may write any slot and holds no
+// lendProject lends sharedSlot of the tables to work of the project as a whole, which reads every other slot and holds no
 // module's parts.
 export function lendProject(mutates p Project) returns ModuleState
 	var ms = ModuleState.ofProject()
-	ms.types = exchange(p.types, value: TypeTable.lent())
-	ms.funcs = exchange(p.funcs, value: FuncTable.lent())
+	ms.types = lendTypeSlot(p.types, module: diag.stdlibID)
+	ms.funcs = lendFuncSlot(p.funcs, module: diag.stdlibID)
 	return ms
 end 'lendProject'
 
 // giveBack gives the project back what lendModule or lendProject lent.
 export function giveBack(mutates p Project, consumes ms ModuleState)
 	var held = ms
-	p.types = exchange(held.types, value: TypeTable.lent())
-	p.funcs = exchange(held.funcs, value: FuncTable.lent())
+	returnTypeSlot(p.types, held: exchange(held.types, value: TypeSlot.none()))
+	returnFuncSlot(p.funcs, held: exchange(held.funcs, value: FuncSlot.none()))
 	if held.lent == Lent.none 'none'
 		return
 	end 'none'
@@ -90,3 +91,20 @@ export function giveBack(mutates p Project, consumes ms ModuleState)
 	p.modules[m].tables = exchange(held.tables, value: ModuleTables.lentOut())
 	p.resolutions[m] = exchange(held.resolution, value: Resolution.new(held.module))
 end 'giveBack'
+
+// makeType makes a nominal type that module declares from work outside the tasks of a compile, which holds no slot of the
+// tables: it lends the module's slot for the one entry.
+export function makeType(mutates p Project, module diag.ModuleID, consumes e TypeEntry) returns TypeID
+	var held = lendTypeSlot(p.types, module: module)
+	let id = allocType(held, module: module, e: e)
+	returnTypeSlot(p.types, held: held)
+	return id
+end 'makeType'
+
+// makeFunc makes a function that module declares from work outside the tasks of a compile, as makeType makes a type.
+export function makeFunc(mutates p Project, module diag.ModuleID, consumes f FuncEntry) returns FuncID
+	var held = lendFuncSlot(p.funcs, module: module)
+	let id = allocFunc(held, module: module, f: f)
+	returnFuncSlot(p.funcs, held: held)
+	return id
+end 'makeFunc'

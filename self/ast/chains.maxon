@@ -38,7 +38,7 @@ export function trimFolded(p Project, ms ModuleState, typing Typing, mutates cha
 	for i in 0 upto chain.count() 'scan'
 		let nested = chain[i]
 		let ty = nodeType(typing, node: nested)
-		if i < keep and ty != noType and (typeKind(ms.types, t: ty) == TypeKind.constInt or typeKind(ms.types, t: ty) == TypeKind.constFloat) 'folded'
+		if i < keep and ty != noType and (typeKind(ms.types, reads: p.types, t: ty) == TypeKind.constInt or typeKind(ms.types, reads: p.types, t: ty) == TypeKind.constFloat) 'folded'
 			keep = i
 		end 'folded'
 	end 'scan'

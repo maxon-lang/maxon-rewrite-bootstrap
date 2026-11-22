@@ -547,7 +547,7 @@ end 'checkParamValues'
 // here on.
 function checkFunctionOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, fid ast.FuncID, body diag.U32, paramSites ast.NodeIDList)
 	o.c.boundedFn = ast.noFunc
-	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bounds.count() > 0 'bounded'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).bounds.count() > 0 'bounded'
 		o.c.boundedFn = fid
 	end 'bounded'
 	run(o, p: p, ms: ms, fid: fid, body: body, paramSites: paramSites)
@@ -574,22 +574,22 @@ function run(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, fid
 	let fnSite = funcSite(o, p: p, ms: ms)
 	var s = OwnState.clean()
 	let receiver = ast.receiverLocal(p, ms: ms, f: fid)
-	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'destructor'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).isDestructor 'destructor'
 		o.obliged.push(OwnObliged.make(receiver, site: fnSite, destroys: true))
-	end 'destructor' else if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].hasReceiver and ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].selfConv == ast.Convention.convConsumes 'consumesSelf'
+	end 'destructor' else if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).hasReceiver and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).selfConv == ast.Convention.convConsumes 'consumesSelf'
 		oblige(o, p: p, ms: ms, l: receiver, site: fnSite)
 	end 'consumesSelf'
-	for i in 0 upto ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
+	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params.count() 'params'
 		let sym = ast.paramLocal(p, ms: ms, f: fid, index: i)
 		let site = offsetOfOwn(o, p: p, ms: ms, node: paramSites[i])
-		let conv = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].conv
+		let conv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params[i].conv
 		if conv == ast.Convention.convSets 'sets'
 			o.setParams.push(sym)
 			s = withFact(s, fact: OwnFact.make(sym, site: site, kind: OwnFactKind.factUninitialised, dest: OwnDest.of(OwnDestKind.destVariable)))
 		end 'sets' else if conv == ast.Convention.convConsumes 'consumes'
 			if sym == ast.noLocal 'anonymous'
-				let t = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes[i]
-				requireDroppable(o, p: p, ms: ms, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropParameter, name: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].name.clone()))
+				let t = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).paramTypes[i]
+				requireDroppable(o, p: p, ms: ms, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropParameter, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params[i].name.clone()))
 			end 'anonymous' else 'named'
 				oblige(o, p: p, ms: ms, l: sym, site: site)
 			end 'named'
@@ -602,7 +602,7 @@ end 'run'
 
 // funcSite is where the function being checked is declared.
 function funcSite(o Ownership, p ast.Project, ms ast.ModuleState) returns diag.U32
-	return offsetOfOwn(o, p: p, ms: ms, node: ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].nodeID)
+	return offsetOfOwn(o, p: p, ms: ms, node: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).nodeID)
 end 'funcSite'
 
 function offsetOfOwn(o Ownership, p ast.Project, ms ast.ModuleState, node ast.NodeID) returns diag.U32
@@ -616,7 +616,7 @@ end 'selfLocalOf'
 
 // isManagedOwn is whether a value of type t is managed: it is owned, moved and dropped.
 function isManagedOwn(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	return ast.isManagedType(ms.types, t: t)
+	return ast.isManagedType(ms.types, reads: p.types, t: t)
 end 'isManagedOwn'
 
 // lacksDroppable is whether a value of type t cannot be dropped.
@@ -644,9 +644,9 @@ function requireDroppable(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 	end 'scalar'
 	let l = lacksCap(o.c, p: p, ms: ms, wantCopy: false, t: t)
 	if l.missing 'lacking'
-		let why = lackWhyText(ms.types, info: l, capName: "Droppable")
-		let fix = lackFixText(ms.types, info: l, capName: "Droppable")
-		fail(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(ms.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on")
+		let why = lackWhyText(ms.types, reads: p.types, info: l, capName: "Droppable")
+		let fix = lackFixText(ms.types, reads: p.types, info: l, capName: "Droppable")
+		fail(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(ms.types, reads: p.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on")
 	end 'lacking'
 end 'requireDroppable'
 
@@ -725,7 +725,7 @@ end 'join'
 // disagreeWhole is E3919 for a local that holds nothing on one path only; fact is that path's.
 function disagreeWhole(mutates o Ownership, p ast.Project, ms ast.ModuleState, ob OwnObliged, fact OwnFact)
 	let name = o.c.typing.locals[ob.local as Count].name.clone()
-	let tName = ast.typeName(ms.types, t: o.c.typing.locals[ob.local as Count].ty)
+	let tName = ast.typeName(ms.types, reads: p.types, t: o.c.typing.locals[ob.local as Count].ty)
 	if fact.kind == OwnFactKind.factMoved 'moved'
 		fail(o, p: p, site: fact.site, code: diag.errNotDroppable, msg: "'{name}' is moved into {fact.dest.text()} here on one path only, so the other path would drop it, but '{tName}' cannot be dropped; move it on every path, or end it on every path")
 		return
@@ -892,19 +892,19 @@ end 'checkValues'
 // checkRawValueExprs checks the values that the cases of an enum or a union write after "=" and that are no literal: each is
 // built where it is read and given to the one who reads it.
 function checkRawValueExprs(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID)
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases.count() 'each'
-		let e = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: tid).cases.count() 'each'
+		let e = ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].rawExpr
 		if e != 0 'written'
-			checkValue(o, p: p, ms: ms, e: e, name: ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].name.clone())
+			checkValue(o, p: p, ms: ms, e: e, name: ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].name.clone())
 		end 'written'
 	end 'each'
 end 'checkRawValueExprs'
 
 function checkFieldValues(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID)
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields.count() 'each'
-		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].hasDefault 'given'
-			let e = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].defaultExpr
-			let name = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].name.clone()
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: tid).fields.count() 'each'
+		if ast.typeEntry(ms.types, reads: p.types, t: tid).fields[i].hasDefault 'given'
+			let e = ast.typeEntry(ms.types, reads: p.types, t: tid).fields[i].defaultExpr
+			let name = ast.typeEntry(ms.types, reads: p.types, t: tid).fields[i].name.clone()
 			checkValue(o, p: p, ms: ms, e: e, name: name)
 		end 'given'
 	end 'each'

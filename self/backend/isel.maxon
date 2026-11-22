@@ -118,17 +118,17 @@ export type Selector
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
 	// routines of its types, which are asked for in the order the code does.
-	function prepare(mutates self, mutates p ast.Project, f ir.IrFunction)
-		canThrow = p.funcs.slots[ast.funcSlot(f.decl)][ast.funcIndex(f.decl)].errTy != ast.noType
+	function prepare(mutates self, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction)
+		canThrow = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f.decl).errTy != ast.noType
 		calleeSymbols = CalleeSymbols.new()
 		for i in 0 upto f.callees.count() 'callees'
-			calleeSymbols.insert(f.callees[i] as Count, value: ast.funcLinkName(p, fid: f.callees[i]))
+			calleeSymbols.insert(f.callees[i] as Count, value: ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: f.callees[i]))
 		end 'callees'
 		for i in 0 upto f.tables.count() 'tables'
 			if not tables.has(f.tables[i].symbol) 'new'
 				tables.insert(f.tables[i].symbol.clone(), value: true)
 				due.push(f.tables[i].clone())
-				_ = self.typeName(p, t: f.tables[i].concrete)
+				_ = self.typeName(p, ms: ms, t: f.tables[i].concrete)
 			end 'new'
 		end 'tables'
 		for i in 0 upto f.datums.count() 'datums'
@@ -148,25 +148,25 @@ export type Selector
 				defs[regIndex(dst)] = try k as DefAt otherwise panic("backend: more instructions than a register names")
 			end 'defines'
 			if op == ir.Opcode.opDrop 'drop'
-				_ = u.needed.symbol(p, kind: RoutineKind.dropRoutine, ty: ir.dropTy(f, x: f.instrs[k]))
+				_ = u.needed.symbol(p, ms: ms, kind: RoutineKind.dropRoutine, ty: ir.dropTy(f, x: f.instrs[k]))
 			end 'drop' else if op == ir.Opcode.opIsType 'isType'
 				let ty = ir.isTypeTy(f, x: f.instrs[k])
-				let named = self.typeName(p, t: ty)
+				let named = self.typeName(p, ms: ms, t: ty)
 				typeSymbols.insert(ty as Count, value: named)
 			end 'isType' else if op == ir.Opcode.opDropSlot 'dropSlot'
-				_ = u.needed.symbol(p, kind: RoutineKind.dropRoutine, ty: ir.dropSlotTy(f, x: f.instrs[k]))
+				_ = u.needed.symbol(p, ms: ms, kind: RoutineKind.dropRoutine, ty: ir.dropSlotTy(f, x: f.instrs[k]))
 			end 'dropSlot' else if op == ir.Opcode.opDropAt 'dropAt'
-				_ = u.needed.symbol(p, kind: RoutineKind.dropRoutine, ty: ir.dropAtTy(f, x: f.instrs[k]))
+				_ = u.needed.symbol(p, ms: ms, kind: RoutineKind.dropRoutine, ty: ir.dropAtTy(f, x: f.instrs[k]))
 			end 'dropAt' else if op == ir.Opcode.opCopy 'copy'
-				_ = u.needed.symbol(p, kind: RoutineKind.copyRoutine, ty: ir.copyTy(f, x: f.instrs[k]))
+				_ = u.needed.symbol(p, ms: ms, kind: RoutineKind.copyRoutine, ty: ir.copyTy(f, x: f.instrs[k]))
 			end 'copy'
 		end 'instrs'
 	end 'prepare'
 
 	// typeName is the symbol of the word of data whose address names the type t, for the table of a value of it and the cast
 	// that tests for it, defined in the unit once.
-	function typeName(mutates self, p ast.Project, t ast.TypeID) returns String
-		let symbol = typeNameSymbol(p, t: t)
+	function typeName(mutates self, p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+		let symbol = typeNameSymbol(p, ms: ms, t: t)
 		if not typeNames.has(symbol) 'new'
 			typeNames.insert(symbol.clone(), value: true)
 			u.defineSharedData(symbol, size: wordBytes)
@@ -970,8 +970,8 @@ end 'emitThrow'
 // selectFunction writes the code of one function into the unit: its machine IR, by the rules and the helpers, then
 // allocated and encoded. A prologue block of its own comes first, so that a branch to the IR's first block does not
 // run it again. A hot loop that needs more registers than the target has is E5001, reported at the function.
-function selectFunction(mutates sel Selector, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool, mutates errs diag.ErrorList)
-	sel.prepare(p, f: f)
+function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, symbol String, instance bool, mutates errs diag.ErrorList)
+	sel.prepare(p, ms: ms, f: f)
 	sel.fnSymbol = symbol.clone()
 	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow)
 	for _ in 0 upto f.regs.count() 'regs'
@@ -1002,7 +1002,7 @@ function selectFunction(mutates sel Selector, mutates p ast.Project, f ir.IrFunc
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)
 	let refusals = sel.allocator.allocate(mir)
 	if refusals.count() > 0 'refused'
-		reportRefusals(p, f: f, refusals: refusals, errs: errs)
+		reportRefusals(p, ms: ms, f: f, refusals: refusals, errs: errs)
 		return
 	end 'refused'
 	encodeMachineFunction(sel.u, fn: mir, instance: instance)
@@ -1014,15 +1014,15 @@ let targetName = "x64"
 
 // reportRefusals reports each hot loop of f that E5001 refuses, at the function's declaration, since the IR keeps no
 // place of a loop: an instance's at its generic's.
-function reportRefusals(p ast.Project, f ir.IrFunction, refusals PressureRefusalList, mutates errs diag.ErrorList)
+function reportRefusals(p ast.Project, ms ast.ModuleState, f ir.IrFunction, refusals PressureRefusalList, mutates errs diag.ErrorList)
 	var origin = f.decl
-	let generic = p.funcs.slots[ast.funcSlot(f.decl)][ast.funcIndex(f.decl)].genericOrigin
+	let generic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f.decl).genericOrigin
 	if generic != ast.noFunc 'instance'
 		origin = generic
 	end 'instance'
-	let module = p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].module
-	let offset = p.modules[ast.modIndex(module)].tree.startOf(p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].nodeID)
-	let place = "'{p.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].name}'"
+	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).module
+	let offset = p.modules[ast.modIndex(module)].tree.startOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).nodeID)
+	let place = "'{ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).name}'"
 	for i in 0 upto refusals.count() 'refusals'
 		let message = pressureRefusalMessage(refusals[i], place: place, target: targetName)
 		if not reported(errs, message: message, module: module, offset: offset) 'new'
@@ -1083,31 +1083,31 @@ end 'ownsCaptures'
 // selectFunctionTree writes the code of a function with the link name symbol, and of the bodies of its closures and its
 // behaviours, each closure's with the routine that drops what the closure owns and each behaviour's with its thunk, and
 // the tables that they name and the unit does not have yet.
-function selectFunctionTree(mutates sel Selector, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool, mutates errs diag.ErrorList)
-	selectFunction(sel, p: p, f: f, symbol: symbol, instance: instance, errs: errs)
+function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, symbol String, instance bool, mutates errs diag.ErrorList)
+	selectFunction(sel, p: p, ms: ms, f: f, symbol: symbol, instance: instance, errs: errs)
 	let due = exchange(sel.due, value: ir.WitnessTableList.create(0))
 	for i in 0 upto due.count() 'tables'
-		emitTable(sel.u, p: p, t: due[i], typeSymbol: typeNameSymbol(p, t: due[i].concrete))
+		emitTable(sel.u, p: p, ms: ms, t: due[i], typeSymbol: typeNameSymbol(p, ms: ms, t: due[i].concrete))
 	end 'tables'
 	for i in 0 upto f.bodies.count() 'bodies'
 		let body = bodySymbol(symbol, index: i)
-		selectFunctionTree(sel, p: p, f: f.bodies[i], symbol: body, instance: instance, errs: errs)
+		selectFunctionTree(sel, p: p, ms: ms, f: f.bodies[i], symbol: body, instance: instance, errs: errs)
 		if isBehaviourBody(f.bodies[i]) 'behaviour'
-			emitBehaviourThunk(sel.u, p: p, symbol: thunkSymbol(body), body: f.bodies[i], bodySymbol: body, instance: instance)
+			emitBehaviourThunk(sel.u, p: p, ms: ms, symbol: thunkSymbol(body), body: f.bodies[i], bodySymbol: body, instance: instance)
 		end 'behaviour' else if ownsCaptures(f.bodies[i]) 'owns'
-			emitCaptureDrop(sel.u, p: p, symbol: captureDropSymbol(body), body: f.bodies[i], instance: instance)
+			emitCaptureDrop(sel.u, p: p, ms: ms, symbol: captureDropSymbol(body), body: f.bodies[i], instance: instance)
 		end 'owns'
 	end 'bodies'
 end 'selectFunctionTree'
 
 // emitModule is the unit with the code of a module's functions, and the hot loops E5001 refuses in errs. With verifies,
 // register allocation holds each function to its invariants. clock is charged the time of each phase.
-export function emitModule(mutates p ast.Project, fns ir.IrFunctionList, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) returns CodeUnit
+export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) returns CodeUnit
 	var sel = Selector.new(verifies)
 	sel.allocator.spiller.clock = exchange(clock, value: EmitClock.off())
 	sel.allocator.spiller.clock.restart()
 	for i in 0 upto fns.count() 'each'
-		selectFunctionTree(sel, p: p, f: fns[i], symbol: ast.funcLinkName(p, fid: fns[i].decl), instance: p.funcs.slots[ast.funcSlot(fns[i].decl)][ast.funcIndex(fns[i].decl)].genericOrigin != ast.noFunc, errs: errs)
+		selectFunctionTree(sel, p: p, ms: ms, f: fns[i], symbol: ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fns[i].decl), instance: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl).genericOrigin != ast.noFunc, errs: errs)
 	end 'each'
 	sel.u.asm.endLabels()
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)

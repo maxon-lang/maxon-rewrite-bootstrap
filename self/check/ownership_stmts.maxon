@@ -234,7 +234,7 @@ end 'behaviourOwn'
 // runNested checks the body of a behaviour or a closure, written at site, as a function of its own.
 function runNested(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, fid ast.FuncID, body diag.U32, site ast.NodeID, closureTy ast.TypeID)
 	var sites = ast.NodeIDList.create(0)
-	for _ in 0 upto ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
+	for _ in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params.count() 'params'
 		sites.push(site)
 	end 'params'
 	let modID = o.c.modID
@@ -328,7 +328,7 @@ function failure(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	end 'none'
 	if o.inFlight.count() > 0 'inFlight'
 		let e = o.inFlight[try o.inFlight.count() - 1 otherwise 0 as Count]
-		fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: diag.errNotDroppable, msg: "a failure at line {lineOf(o, p: p, ms: ms, site: site)} would drop this value before what takes it runs, but '{ast.typeName(ms.types, t: ownType(o, node: e))}' cannot be dropped; compute what can fail first, into a variable")
+		fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: diag.errNotDroppable, msg: "a failure at line {lineOf(o, p: p, ms: ms, site: site)} would drop this value before what takes it runs, but '{ast.typeName(ms.types, reads: p.types, t: ownType(o, node: e))}' cannot be dropped; compute what can fail first, into a variable")
 	end 'inFlight'
 	let last = try o.catches.count() - 1 otherwise 0 as Count
 	if o.catches[last].propagates 'propagates'
@@ -410,7 +410,7 @@ end 'tryExprOwn'
 function returnStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
 	var out = s
 	let value = ast.returnStmtValue(ms.tree, id: st)
-	if value != 0 and ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].result == ast.ResultConv.resultBorrowed 'lent'
+	if value != 0 and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).result == ast.ResultConv.resultBorrowed 'lent'
 		out = expr(o, p: p, ms: ms, e: value, s: out)
 		requireLentByParameters(o, p: p, ms: ms, e: value)
 	end 'lent' else if value != 0 'value'
@@ -428,7 +428,7 @@ end 'returnStmtOwn'
 // argument of such a call lends nothing to a managed result.
 function requireLentByParameters(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID)
 	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
-	let fnName = ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].name.clone()
+	let fnName = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).name.clone()
 	if ast.boxedTo(o.c.typing, node: e) != ast.noType 'boxed'
 		fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' returns a borrowed place, and this one would be put in a new box to be the interface it returns; return a place that holds the interface value, or declare 'returns T' to give a value")
 		return
@@ -452,7 +452,7 @@ function requireLentByParameters(mutates o Ownership, p ast.Project, mutates ms 
 	let root = o.c.typing.locals[path.root as Count].clone()
 	let text = pathText(o, p: p, ms: ms, path: path)
 	if root.isSelf 'self'
-		let conv = ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].selfConv
+		let conv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).selfConv
 		if not lends(conv) 'owned'
 			fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{text}' lies in 'self', which '{fnName}' takes '{conv.keyword()} self' and so ends when it returns; take 'self' as a let or as 'mutates self', or declare 'returns T' to give a value")
 		end 'owned'
@@ -564,7 +564,7 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 		end 'advances'
 	end 'protocol'
 	var lent = ast.LocalIDList.create(0)
-	if lends and ast.typeKind(ms.types, t: ast.contentType(ms.types, t: ownType(o, node: source))) == ast.TypeKind.builtinMap 'entries'
+	if lends and ast.typeKind(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: ownType(o, node: source))) == ast.TypeKind.builtinMap 'entries'
 		lent = lentValue(o, p: p, ms: ms, st: st)
 	end 'entries' else if lends 'element'
 		lent.push(ownLocalOf(o, node: st))
@@ -616,7 +616,7 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 	let subject = ast.matchCoreSubject(ms.tree, id: core)
 	var start = s
 	if consuming 'consumes'
-		_ = requireMayTakeApart(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: subject), t: ast.contentType(ms.types, t: ownType(o, node: subject)), what: "a 'match consumes'")
+		_ = requireMayTakeApart(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: subject), t: ast.contentType(ms.types, reads: p.types, t: ownType(o, node: subject)), what: "a 'match consumes'")
 		start = consume(o, p: p, ms: ms, e: subject, dest: OwnDest.of(OwnDestKind.destMatch), s: start)
 	end 'consumes' else 'reads'
 		start = expr(o, p: p, ms: ms, e: subject, s: start)
@@ -692,11 +692,11 @@ end 'armBorrows'
 // takeApart is the start of an arm of a match that consumes its subject: each payload the arm names is an owned local of
 // the arm, and the payloads it does not name are dropped with the subject.
 function takeApart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, core ast.NodeID, arm ast.NodeID)
-	let u = ast.contentType(ms.types, t: ownType(o, node: ast.matchCoreSubject(ms.tree, id: core)))
-	if ast.typeKind(ms.types, t: u) != ast.TypeKind.unionTy 'notUnion'
+	let u = ast.contentType(ms.types, reads: p.types, t: ownType(o, node: ast.matchCoreSubject(ms.tree, id: core)))
+	if ast.typeKind(ms.types, reads: p.types, t: u) != ast.TypeKind.unionTy 'notUnion'
 		return
 	end 'notUnion'
-	let orig = ast.originOf(ms.types, t: u)
+	let orig = ast.originOf(ms.types, reads: p.types, t: u)
 	let patterns = ast.matchArmPatternsRef(ms.tree, id: arm)
 	for i in 0 upto ms.tree.listLen(patterns) 'patterns'
 		let pat = ms.tree.listAt(patterns, index: i) as ast.NodeID
@@ -705,12 +705,12 @@ function takeApart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleStat
 		end 'literal'
 		let info = ownPattern(o, node: pat)
 		let site = offsetOfOwn(o, p: p, ms: ms, node: pat)
-		for j in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[info.caseIdx].payload.count() 'payload'
+		for j in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[info.caseIdx].payload.count() 'payload'
 			if j < info.bindings.count() and info.bindings[j] != ast.noLocal 'named'
 				oblige(o, p: p, ms: ms, l: info.bindings[j], site: site)
 			end 'named' else 'dropped'
-				let name = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[info.caseIdx].payload[j].name.clone()
-				let t = ast.payloadType(ms.types, owner: u, caseIndex: info.caseIdx, index: j)
+				let name = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[info.caseIdx].payload[j].name.clone()
+				let t = ast.payloadType(ms.types, reads: p.types, owner: u, caseIndex: info.caseIdx, index: j)
 				requireDroppable(o, p: p, ms: ms, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropPayload, name: name))
 			end 'dropped'
 		end 'payload'
@@ -723,8 +723,8 @@ end 'takeApart'
 // requireUnnamedCasesDroppable is the drop of what a default arm leaves in the subject: the payloads of the cases that no
 // arm names.
 function requireUnnamedCasesDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, core ast.NodeID, arm ast.NodeID, u ast.TypeID)
-	let orig = ast.originOf(ms.types, t: u)
-	var named = Array.filled(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases.count(), value: false)
+	let orig = ast.originOf(ms.types, reads: p.types, t: u)
+	var named = Array.filled(ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count(), value: false)
 	let arms = ast.matchCoreArmsRef(ms.tree, id: core)
 	for i in 0 upto ms.tree.listLen(arms) 'arms'
 		let other = ms.tree.listAt(arms, index: i) as ast.NodeID
@@ -741,9 +741,9 @@ function requireUnnamedCasesDroppable(mutates o Ownership, p ast.Project, mutate
 		if named[ci] 'named'
 			continue 'cases'
 		end 'named'
-		for pi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].payload.count() 'payload'
-			let name = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].payload[pi].name.clone()
-			let t = ast.payloadType(ms.types, owner: u, caseIndex: ci, index: pi)
+		for pi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload.count() 'payload'
+			let name = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload[pi].name.clone()
+			let t = ast.payloadType(ms.types, reads: p.types, owner: u, caseIndex: ci, index: pi)
 			requireDroppable(o, p: p, ms: ms, site: site, t: t, d: OwnDrop.make(OwnDropKind.dropPayload, name: name))
 		end 'payload'
 	end 'cases'

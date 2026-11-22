@@ -1,8 +1,8 @@
 // arrayOf is the runtime of the array type t, read through the binding and through a frozen value.
 function arrayOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID) returns ArrayBox
 	let bt = builtinOf(l, p: p, ms: ms, collection: t)
-	if ast.typeKind(ms.types, t: bt) != ast.TypeKind.builtinArray 'notArray'
-		panic("lower: {ast.typeName(ms.types, t: t)} is not an array")
+	if ast.typeKind(ms.types, reads: p.types, t: bt) != ast.TypeKind.builtinArray 'notArray'
+		panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} is not an array")
 	end 'notArray'
 	return ArrayBox.make(site.clone(), ty: bt)
 end 'arrayOf'
@@ -11,16 +11,16 @@ end 'arrayOf'
 // a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an array
 // asks this, so the two boxes are never mistaken for each other.
 function arrayPacked(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
-	let elem = ast.typeArgAt(ms.types, t: box.ty, index: 0)
-	if ast.typeKind(ms.types, t: elem) != ast.TypeKind.intRange 'notInt'
+	let elem = ast.typeArgAt(ms.types, reads: p.types, t: box.ty, index: 0)
+	if ast.typeKind(ms.types, reads: p.types, t: elem) != ast.TypeKind.intRange 'notInt'
 		return false
 	end 'notInt'
 	let byte = p.builtins.byteTy
-	return ms.types.lists[ast.typeList(ms.types, t: byte)][ast.typeIndex(ms.types, t: byte)].minVal.le(ms.types.lists[ast.typeList(ms.types, t: elem)][ast.typeIndex(ms.types, t: elem)].minVal) and ms.types.lists[ast.typeList(ms.types, t: byte)][ast.typeIndex(ms.types, t: byte)].maxVal.ge(ms.types.lists[ast.typeList(ms.types, t: elem)][ast.typeIndex(ms.types, t: elem)].maxVal)
+	return ast.typeEntry(ms.types, reads: p.types, t: byte).minVal.le(ast.typeEntry(ms.types, reads: p.types, t: elem).minVal) and ast.typeEntry(ms.types, reads: p.types, t: byte).maxVal.ge(ast.typeEntry(ms.types, reads: p.types, t: elem).maxVal)
 end 'arrayPacked'
 
 function arrayElem(p ast.Project, ms ast.ModuleState, box ArrayBox) returns ast.TypeID
-	return ast.typeArgAt(ms.types, t: box.ty, index: 0)
+	return ast.typeArgAt(ms.types, reads: p.types, t: box.ty, index: 0)
 end 'arrayElem'
 
 function arrayNew(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox) returns Reg
@@ -88,7 +88,7 @@ end 'arrayStore'
 // its place is a slot instead.
 function arrayAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	if arrayPacked(p, ms: ms, box: box) 'packed'
-		panic("lower: an element of {ast.typeName(ms.types, t: box.ty)} has no word address")
+		panic("lower: an element of {ast.typeName(ms.types, reads: p.types, t: box.ty)} has no word address")
 	end 'packed'
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 end 'arrayAddress'
@@ -136,7 +136,7 @@ end 'arrayAppendCopy'
 
 function requirePacked(p ast.Project, ms ast.ModuleState, box ArrayBox)
 	if not arrayPacked(p, ms: ms, box: box) 'words'
-		panic("lower: {ast.typeName(ms.types, t: box.ty)} holds no bytes")
+		panic("lower: {ast.typeName(ms.types, reads: p.types, t: box.ty)} holds no bytes")
 	end 'words'
 end 'requirePacked'
 

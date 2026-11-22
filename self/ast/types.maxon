@@ -440,8 +440,6 @@ end 'FuncEntry'
 
 export typealias FuncEntryList = Array with FuncEntry
 
-export typealias FuncEntryLists = Array with FuncEntryList
-
 export type LocalEntry
 	export var id as LocalID
 	export var name as String
@@ -472,68 +470,76 @@ export typealias LocalEntryList = Array with LocalEntry
 
 export typealias SlotList = Array with Count
 
-export typealias SlotLists = Array with SlotList
-
 export typealias FuncInternMap = table.StringMap with FuncID
 
-export typealias FuncInternMaps = Array with FuncInternMap
+// TypeSlot is one slot of the type table: the entries of the types that one module's stages make, or, in sharedSlot, the
+// built-ins', the stdlib's and those of the stages of the project. A task holds its module's slot `mutates`, which is all
+// that it can make or write an entry in, and reads every other slot in the project's table, which it is given read-only.
+export type TypeSlot
+	// slot is the slot these are, by which a handle names them.
+	var slot as Count
+	// lists are the entries: at nominalTypes the slot's nominal types, in the order its stages made them, and at shapeTypes
+	// the structural types its stages made or took from a slot they read.
+	export var lists as TypeEntryLists
+	// shapeIndex finds, by handle, the shapes of the slot and those of the slots it reads that they held when its running
+	// task began (importShapes): the place of each, as the bits of a nominal handle are.
+	var shapeIndex as ShapeIndex
+	// reads are the slots of other modules whose shapes the stages of the slot's module read besides sharedSlot: those of
+	// the modules it names, directly or through others, and of the modules an earlier compile compiled.
+	var reads as SlotList
+	// imported are how many of the shapes of each slot it reads its index finds.
+	var imported as SlotList
+	// ends are, by phase, how many shapes the slot held when the task of its module's stage of that phase ended: what a task
+	// that waited on that stage reads of the slot, whatever the module's later stages have made since.
+	var ends as SlotList
+
+	static function make(slot Count) returns TypeSlot
+		var lists = TypeEntryLists.create(0)
+		lists.push(TypeEntryList.create(0))
+		lists.push(TypeEntryList.create(0))
+		return TypeSlot{slot: slot, lists: lists, shapeIndex: ShapeIndex.new(), reads: SlotList.create(0), imported: SlotList.create(0), ends: SlotList.create(0)}
+	end 'make'
+
+	// none is the slot of no module: what the project's table holds in place of a slot that a task holds, and what work that
+	// makes no type holds, which reads every slot in the project's table.
+	export static function none() returns TypeSlot
+		return TypeSlot{slot: noneSlot, lists: TypeEntryLists.create(0), shapeIndex: ShapeIndex.empty(), reads: SlotList.create(0), imported: SlotList.create(0), ends: SlotList.create(0)}
+	end 'none'
+end 'TypeSlot'
+
+export typealias TypeSlots = Array with TypeSlot
 
 export type TypeTable
-	// lists are the entries of the types, two lists to a slot: at nominalList(slot) the slot's nominal types, in the order
-	// its stages made them, and at shapeList(slot) the structural types its stages made or took from a slot they read.
-	export var lists as TypeEntryLists
-	// shapeIndexes find, by slot and by handle, the shapes of the slot and those of the slots it reads that they held when
-	// its running task began (importShapes): the place of each, as the bits of a nominal handle are.
-	var shapeIndexes as ShapeIndexes
-	// reads are, by slot, the slots of other modules whose shapes the stages of the slot's module read besides sharedSlot:
-	// those of the modules it names, directly or through others, and of the modules an earlier compile compiled.
-	var reads as SlotLists
-	// imported are, by slot, how many of the shapes of each slot it reads its index finds.
-	var imported as SlotLists
-	// ends are, by slot and by phase, how many shapes the slot held when the task of its module's stage of that phase ended:
-	// what a task that waited on that stage reads of the slot, whatever the module's later stages have made since.
-	var ends as SlotLists
-	// writer is the slot that the running task may make types in (see beginModuleTask).
-	var writer as Count
+	// slots are the slots by number, each of them here but the one a running task holds.
+	var slots as TypeSlots
 	// kinds are the kinds by their ordinal, which a structural handle holds.
 	var kinds as Array with TypeKind
 
 	export static function new() returns TypeTable
-		var es = TypeEntryList.create(0)
-		es.push(TypeEntry.make(TypeKind.invalid, name: "<invalid>"))
-		var lists = TypeEntryLists.create(0)
-		lists.push(es)
-		lists.push(TypeEntryList.create(0))
-		var indexes = ShapeIndexes.create(0)
-		indexes.push(ShapeIndex.new())
-		var reads = SlotLists.create(0)
-		reads.push(SlotList.create(0))
-		var imported = SlotLists.create(0)
-		imported.push(SlotList.create(0))
-		var ends = SlotLists.create(0)
-		ends.push(SlotList.create(0))
-		return TypeTable{lists: lists, shapeIndexes: indexes, reads: reads, imported: imported, ends: ends, writer: unscheduled, kinds: TypeKind.allCases}
+		var shared = TypeSlot.make(sharedSlot)
+		shared.lists[nominalTypes].push(TypeEntry.make(TypeKind.invalid, name: "<invalid>"))
+		var slots = TypeSlots.create(0)
+		slots.push(shared)
+		return TypeTable{slots: slots, kinds: TypeKind.allCases}
 	end 'new'
-
-	// lent is the table a project holds while a task holds its own: one with no slots, which no handle reads.
-	export static function lent() returns TypeTable
-		return TypeTable{lists: TypeEntryLists.create(0), shapeIndexes: ShapeIndexes.create(0), reads: SlotLists.create(0), imported: SlotLists.create(0), ends: SlotLists.create(0), writer: unscheduled, kinds: Array.create(0)}
-	end 'lent'
 end 'TypeTable'
 
 // A nominal type's handle and every function's name the slot that holds its entry, in the bits from handleSlotShift, and
 // its place there, in the bits below: sharedSlot is the stdlib's and the built-ins', and slot 1 + m is module m's. A
 // structural type's handle is its word (shapes.maxon), the same in every module, and each slot whose stages make it
-// holds a copy of its entry. Every read of an entry goes through typeList and typeIndex, so only ast knows how a handle
-// and an entry relate. A module's slot is written only by its own stages, so its handles are a function of its source.
+// holds a copy of its entry. Every read of an entry goes through typeEntry and funcEntry, and every write through
+// typeList and typeIndex or funcIndex of the slot the task holds, so only ast knows how a handle and an entry relate. A
+// module's slot is written only by its own stages, so its handles are a function of its source.
 let handleIndexMask = 4294967295 as Count
 
 let handleSlotShift = 32 as Count
 
 let handleSlotMask = 65535 as Count
 
-// listsPerSlot is how many lists of entries a slot of the type table has: its nominal types and its shapes.
-let listsPerSlot = 2 as Count
+// nominalTypes and shapeTypes are the lists of a TypeSlot that hold its nominal and its structural types.
+let nominalTypes = 0 as Count
+
+let shapeTypes = 1 as Count
 
 // handleWord is the handle of the entry at index in slot.
 function handleWord(slot Count, index Count) returns Count
@@ -546,27 +552,16 @@ end 'handleWord'
 // sharedSlot holds the built-ins and the stdlib, and what the stages of the project make.
 let sharedSlot = 0 as Count
 
-// unscheduled is the writer of the tables outside the tasks of a compile, where the project is set up and tests make
-// entries in any slot.
-let unscheduled = 65536 as Count
+// noneSlot is the slot of TypeSlot.none and FuncSlot.none, which no handle names.
+let noneSlot = 65536 as Count
 
-// requireWriter stops the compile where a task makes an entry in a slot other than its own: in the slot of a module it is no
-// stage of, whose handles would then depend on the order the tasks run in, or, for a task of a module, in sharedSlot, which
-// the tasks of every module read and which only what runs before them and the tasks of the project write.
-function requireWriter(writer Count, slot Count)
-	if writer != unscheduled and slot != writer 'foreign'
-		panic("an entry is made in slot {slot} by a task that may make them only in slot {writer}")
+// requireHeld stops the compile where a task makes or writes an entry of a slot other than the one it holds, held: which the
+// type of what it is given rules out, so that this is an internal error.
+function requireHeld(held Count, slot Count)
+	if slot != held 'foreign'
+		panic("an entry of slot {slot} is made or written by a task that holds slot {held}")
 	end 'foreign'
-end 'requireWriter'
-
-// ownSlot is the slot whose shapes and function instances the running task makes: its module's, or sharedSlot for a
-// stage of the project and outside the tasks.
-function ownSlot(writer Count) returns Count
-	if writer == unscheduled 'outside'
-		return sharedSlot
-	end 'outside'
-	return writer
-end 'ownSlot'
+end 'requireHeld'
 
 // moduleSlot is the slot of the entries that module makes.
 export function moduleSlot(module diag.ModuleID) returns Count
@@ -584,64 +579,69 @@ function handleIndex(h Count) returns Count
 	return h and handleIndexMask
 end 'handleIndex'
 
-function nominalList(slot Count) returns Count
-	return try slot * listsPerSlot otherwise panic("a slot past the lists of the type table")
-end 'nominalList'
+// heldShapePlace is where the entry of the structural type of handle word is among the shapes of the slot tt, which holds it.
+function heldShapePlace(tt TypeSlot, word Count) returns Count
+	let at = tt.shapeIndex.probe(word)
+	if not tt.shapeIndex.holds(at, word: word) 'absent'
+		panic("the structural type {word} is written by a task whose slot {tt.slot} does not hold it")
+	end 'absent'
+	let place = tt.shapeIndex.placeAt(at)
+	requireHeld(tt.slot, slot: handleSlot(place))
+	return place
+end 'heldShapePlace'
 
-function shapeList(slot Count) returns Count
-	return try slot * listsPerSlot + 1 otherwise panic("a slot past the lists of the type table")
-end 'shapeList'
-
-// typeList is the list of the type table that holds the entry of the type t. It and typeIndex run for every read of an
-// entry, so they read the bits of the handle in place.
-export function typeList(tt TypeTable, t TypeID) returns Count
+// typeList is the list of the slot tt that holds the entry of the type t, which a task writes: one of the slot it holds.
+export function typeList(tt TypeSlot, t TypeID) returns Count
 	let h = t as Count
 	if (h and structuralBit) != 0 'shape'
-		return shapeList((shapePlace(tt, word: h) shr handleSlotShift) and handleSlotMask)
+		_ = heldShapePlace(tt, word: h)
+		return shapeTypes
 	end 'shape'
-	return ((h shr handleSlotShift) and handleSlotMask) * listsPerSlot
+	requireHeld(tt.slot, slot: handleSlot(h))
+	return nominalTypes
 end 'typeList'
 
-// typePlace is where the entry of the type t is, its list in the bits from handleSlotShift and its position there below,
-// for a function that reads an entry more than once to find it once.
-function typePlace(tt TypeTable, t TypeID) returns Count
+// typeIndex is the position of the type t in the list typeList gives.
+export function typeIndex(tt TypeSlot, t TypeID) returns Count
 	let h = t as Count
 	if (h and structuralBit) != 0 'shape'
-		let place = shapePlace(tt, word: h)
-		return listPlace(shapeList((place shr handleSlotShift) and handleSlotMask), index: place and handleIndexMask)
+		return handleIndex(heldShapePlace(tt, word: h))
 	end 'shape'
-	return listPlace(nominalList((h shr handleSlotShift) and handleSlotMask), index: h and handleIndexMask)
-end 'typePlace'
-
-function listPlace(list Count, index Count) returns Count
-	return (try list shl handleSlotShift otherwise panic("a list past the bits of a place")) or index
-end 'listPlace'
-
-function placeList(at Count) returns Count
-	return at shr handleSlotShift
-end 'placeList'
-
-function placeIndex(at Count) returns Count
-	return at and handleIndexMask
-end 'placeIndex'
+	requireHeld(tt.slot, slot: handleSlot(h))
+	return handleIndex(h)
+end 'typeIndex'
 
 // typeKind is the kind of the type t, which a structural type's handle holds, so that reading it reads no entry.
-export function typeKind(tt TypeTable, t TypeID) returns TypeKind
+export function typeKind(tt TypeSlot, reads TypeTable, t TypeID) returns TypeKind
 	let h = t as Count
 	if (h and structuralBit) != 0 'shape'
-		return tt.kinds[(h shr shapeKindShift) and shapeKindMask]
+		return reads.kinds[(h shr shapeKindShift) and shapeKindMask]
 	end 'shape'
-	return tt.lists[((h shr handleSlotShift) and handleSlotMask) * listsPerSlot][h and handleIndexMask].kind
+	return typeEntry(tt, reads: reads, t: t).kind
 end 'typeKind'
 
-// typeIndex is the position of the type t in the list typeList gives.
-export function typeIndex(tt TypeTable, t TypeID) returns Count
+// typeEntry is the entry of the type t, read in place: in tt, the slot the task holds, or in another slot of the project's
+// table, reads. Every read of an entry goes through it and funcEntry, so only they know where the entry of a handle is.
+export function typeEntry(tt TypeSlot, reads TypeTable, t TypeID) returns borrowed TypeEntry
 	let h = t as Count
 	if (h and structuralBit) != 0 'shape'
-		return shapePlace(tt, word: h) and handleIndexMask
+		return shapeAt(tt, reads: reads, place: shapePlace(tt, reads: reads, word: h))
 	end 'shape'
-	return h and handleIndexMask
-end 'typeIndex'
+	let s = handleSlot(h)
+	if s == tt.slot 'held'
+		return tt.lists[nominalTypes][handleIndex(h)]
+	end 'held'
+	return reads.slots[s].lists[nominalTypes][handleIndex(h)]
+end 'typeEntry'
+
+// shapeAt is the entry of the shape at place, its slot and its position among that slot's shapes.
+function shapeAt(tt TypeSlot, reads TypeTable, place Count) returns borrowed TypeEntry
+	let s = handleSlot(place)
+	if s == tt.slot 'held'
+		return tt.lists[shapeTypes][handleIndex(place)]
+	end 'held'
+	return reads.slots[s].lists[shapeTypes][handleIndex(place)]
+end 'shapeAt'
 
 // leadingReads are the slots a module's stages look a shape up in before those it reads: its own and sharedSlot.
 let leadingReads = 2 as Count
@@ -650,9 +650,9 @@ let leadingReads = 2 as Count
 // those of the project, and otherwise own, sharedSlot and the slots it reads.
 function readCount(tt TypeTable, own Count) returns Count
 	if own == sharedSlot 'project'
-		return tt.shapeIndexes.count()
+		return tt.slots.count()
 	end 'project'
-	return try tt.reads[own].count() + leadingReads otherwise panic("more slots than memory")
+	return try tt.slots[own].reads.count() + leadingReads otherwise panic("more slots than memory")
 end 'readCount'
 
 // readAt is the slot at k in the order the stages of own look a shape up in: own first, then sharedSlot, then the slots
@@ -667,32 +667,31 @@ function readAt(tt TypeTable, own Count, k Count) returns Count
 	if k == 1 'shared'
 		return sharedSlot
 	end 'shared'
-	return tt.reads[own][try k - leadingReads otherwise panic("a read before the slots own reads")]
+	return tt.slots[own].reads[try k - leadingReads otherwise panic("a read before the slots own reads")]
 end 'readAt'
 
 // findShape finds the entry of the structure under word in a slot the running task reads, and sets place to its slot and
 // position, as the bits of a nominal handle are.
-function findShape(tt TypeTable, word Count, sets place Count) returns bool
-	let own = ownSlot(tt.writer)
-	let at = tt.shapeIndexes[own].probe(word)
-	if tt.shapeIndexes[own].holds(at, word: word) 'own'
-		place = tt.shapeIndexes[own].placeAt(at)
+function findShape(tt TypeSlot, reads TypeTable, word Count, sets place Count) returns bool
+	let at = tt.shapeIndex.probe(word)
+	if tt.shapeIndex.holds(at, word: word) 'own'
+		place = tt.shapeIndex.placeAt(at)
 		return true
 	end 'own'
-	// A task of a module took in at its start every shape it may read. A stage of the project, and what runs outside the
-	// tasks, read every slot as it stands.
-	if tt.writer != unscheduled and own != sharedSlot 'frozen'
+	// A task of a module took in at its start every shape it may read. A stage of the project, and work that holds no slot,
+	// read every slot as it stands.
+	if tt.slot != sharedSlot and tt.slot != noneSlot 'frozen'
 		place = 0 as Count
 		return false
 	end 'frozen'
-	let n = readCount(tt, own: own)
-	for k in 1 upto n 'slots'
-		let s = readAt(tt, own: own, k: k)
-		let other = tt.shapeIndexes[s].probe(word)
-		if tt.shapeIndexes[s].holds(other, word: word) 'hit'
-			place = tt.shapeIndexes[s].placeAt(other)
-			return true
-		end 'hit'
+	for s in 0 upto reads.slots.count() 'slots'
+		if s != tt.slot 'other'
+			let other = reads.slots[s].shapeIndex.probe(word)
+			if reads.slots[s].shapeIndex.holds(other, word: word) 'hit'
+				place = reads.slots[s].shapeIndex.placeAt(other)
+				return true
+			end 'hit'
+		end 'other'
 	end 'slots'
 	place = 0 as Count
 	return false
@@ -701,63 +700,55 @@ end 'findShape'
 // shapePlace is where the entry of the structural type of handle word is: the task that reads it got it from its own
 // stages or from a module it waited on, so one of the slots it reads holds it. The task's own index finds nearly every
 // one, which it probes in place as findShape does.
-function shapePlace(tt TypeTable, word Count) returns Count
-	var own = tt.writer
-	if own == unscheduled 'outside'
-		own = sharedSlot
-	end 'outside'
-	let mask = tt.shapeIndexes[own].mask
+function shapePlace(tt TypeSlot, reads TypeTable, word Count) returns Count
+	let mask = tt.shapeIndex.mask
 	var at = word and mask
-	while tt.shapeIndexes[own].cells[at] != emptyWord 'probe'
-		if tt.shapeIndexes[own].cells[at] == word 'hit'
-			return tt.shapeIndexes[own].cells[try at + 1 otherwise panic("a place past the cells of a shape index")]
+	while tt.shapeIndex.cells[at] != emptyWord 'probe'
+		if tt.shapeIndex.cells[at] == word 'hit'
+			return tt.shapeIndex.cells[try at + 1 otherwise panic("a place past the cells of a shape index")]
 		end 'hit'
 		at = (try at + shapeCell otherwise 0 as Count) and mask
 	end 'probe'
 	var place as Count
-	if not findShape(tt, word: word, place: place) 'lost'
-		panic("the structural type {word} is in none of the slots that slot {ownSlot(tt.writer)} reads")
+	if not findShape(tt, reads: reads, word: word, place: place) 'lost'
+		panic("the structural type {word} is in none of the slots that slot {tt.slot} reads")
 	end 'lost'
 	return place
 end 'shapePlace'
 
-// allocType makes a nominal type that module declares.
-export function allocType(mutates tt TypeTable, module diag.ModuleID, consumes e TypeEntry) returns TypeID
-	let slot = moduleSlot(module)
-	requireWriter(tt.writer, slot: slot)
-	let list = nominalList(slot)
-	let id = try handleWord(slot, index: tt.lists[list].count()) as TypeID otherwise panic("a type handle past its bits")
+// allocType makes a nominal type that module declares, in the slot tt, which is its module's.
+export function allocType(mutates tt TypeSlot, module diag.ModuleID, consumes e TypeEntry) returns TypeID
+	requireHeld(tt.slot, slot: moduleSlot(module))
+	let id = try handleWord(tt.slot, index: tt.lists[nominalTypes].count()) as TypeID otherwise panic("a type handle past its bits")
 	var copyE = e
 	copyE.id = id
-	tt.lists[list].push(copyE)
+	tt.lists[nominalTypes].push(copyE)
 	return id
 end 'allocType'
 
-// allocShape makes the structural type of word in the shapes of the running task's slot, which no slot it reads holds.
-function allocShape(mutates tt TypeTable, consumes e TypeEntry, word Count) returns TypeID
-	let own = ownSlot(tt.writer)
-	let list = shapeList(own)
-	let index = tt.lists[list].count()
+// allocShape makes the structural type of word in the shapes of the slot tt, which no slot it reads holds.
+function allocShape(mutates tt TypeSlot, consumes e TypeEntry, word Count) returns TypeID
+	let index = tt.lists[shapeTypes].count()
+	let place = handleWord(tt.slot, index: index)
 	let id = try word as TypeID otherwise panic("a structural word past the bits of a handle")
 	var copyE = e
 	copyE.id = id
-	tt.lists[list].push(copyE)
-	tt.shapeIndexes[own].insert(word, place: handleWord(own, index: index))
+	tt.lists[shapeTypes].push(copyE)
+	tt.shapeIndex.insert(word, place: place)
 	return id
 end 'allocShape'
 
 // adoptShape copies the entry of the structure at place, which another slot the running task reads holds, into the
 // task's own shapes, so that its slot holds every structure its stages made or used.
-function adoptShape(mutates tt TypeTable, place Count, word Count)
-	if handleSlot(place) == ownSlot(tt.writer) 'held'
+function adoptShape(mutates tt TypeSlot, reads TypeTable, place Count, word Count)
+	if handleSlot(place) == tt.slot 'held'
 		return
 	end 'held'
-	let own = ownSlot(tt.writer)
-	let list = shapeList(own)
-	let index = tt.lists[list].count()
-	let e = tt.lists[shapeList(handleSlot(place))][handleIndex(place)].clone()
-	tt.lists[list].push(e)
-	tt.shapeIndexes[own].repoint(word, place: handleWord(own, index: index))
+	let index = tt.lists[shapeTypes].count()
+	let own = handleWord(tt.slot, index: index)
+	let e = shapeAt(tt, reads: reads, place: place).clone()
+	tt.lists[shapeTypes].push(e)
+	tt.shapeIndex.repoint(word, place: own)
 end 'adoptShape'
 
 // importShapes makes the index of the slot own find the shapes that the slots it reads made since it last did, up to what
@@ -767,17 +758,16 @@ function importShapes(mutates tt TypeTable, own Count, phase Count)
 	let n = readCount(tt, own: own)
 	for k in 1 upto n 'slots'
 		let r = readAt(tt, own: own, k: k)
-		while tt.imported[own].count() <= r 'mark'
-			tt.imported[own].push(0 as Count)
+		while tt.slots[own].imported.count() <= r 'mark'
+			tt.slots[own].imported.push(0 as Count)
 		end 'mark'
-		let from = tt.imported[own][r]
-		let list = shapeList(r)
+		let from = tt.slots[own].imported[r]
 		let made = shapesAt(tt, slot: r, phase: phase)
 		for i in from upto made 'shapes'
-			let word = tt.lists[list][i].id as Count
-			tt.shapeIndexes[own].include(word, place: handleWord(r, index: i))
+			let word = tt.slots[r].lists[shapeTypes][i].id as Count
+			tt.slots[own].shapeIndex.include(word, place: handleWord(r, index: i))
 		end 'shapes'
-		tt.imported[own][r] = made
+		tt.slots[own].imported[r] = made
 	end 'slots'
 end 'importShapes'
 
@@ -788,72 +778,72 @@ let unrecorded = 4294967295 as Count
 // had made when it ended, or every one for a slot whose module an earlier compile compiled, or that a stage of the project
 // reads, which runs once every module's stage before it has ended.
 function shapesAt(tt TypeTable, slot Count, phase Count) returns Count
-	if phase < tt.ends[slot].count() and tt.ends[slot][phase] != unrecorded 'recorded'
-		return tt.ends[slot][phase]
+	if phase < tt.slots[slot].ends.count() and tt.slots[slot].ends[phase] != unrecorded 'recorded'
+		return tt.slots[slot].ends[phase]
 	end 'recorded'
-	return tt.lists[shapeList(slot)].count()
+	return tt.slots[slot].lists[shapeTypes].count()
 end 'shapesAt'
 
 // endModuleTask records what the task of the stage of phase of module, which ends, made of its slot's shapes.
 export function endModuleTask(mutates tt TypeTable, module diag.ModuleID, phase Count)
 	let slot = moduleSlot(module)
-	while tt.ends[slot].count() <= phase 'room'
-		tt.ends[slot].push(unrecorded)
+	while tt.slots[slot].ends.count() <= phase 'room'
+		tt.slots[slot].ends.push(unrecorded)
 	end 'room'
-	tt.ends[slot][phase] = tt.lists[shapeList(slot)].count()
+	let made = tt.slots[slot].lists[shapeTypes].count()
+	tt.slots[slot].ends[phase] = made
 end 'endModuleTask'
 
-// beginModuleTask lets the task of a stage of module, which begins, make entries in its slot only, and read
-// the shapes that the stage of phase made of each module it waited on.
-export function beginModuleTask(mutates tt TypeTable, mutates ft FuncTable, module diag.ModuleID, phase Count)
-	let slot = moduleSlot(module)
-	tt.writer = slot
-	ft.writer = slot
-	importShapes(tt, own: slot, phase: phase)
+// beginModuleTask makes the slot of module, whose task of a stage begins, find the shapes that the stage of phase made of
+// each module it waited on.
+export function beginModuleTask(mutates tt TypeTable, module diag.ModuleID, phase Count)
+	importShapes(tt, own: moduleSlot(module), phase: phase)
 end 'beginModuleTask'
 
-// beginProjectTask lets the task of a stage of the project, which begins, make entries in sharedSlot only.
-export function beginProjectTask(mutates tt TypeTable, mutates ft FuncTable)
-	tt.writer = sharedSlot
-	ft.writer = sharedSlot
+// beginProjectTask makes sharedSlot, whose task of a stage of the project begins, find every slot's shapes.
+export function beginProjectTask(mutates tt TypeTable)
 	importShapes(tt, own: sharedSlot, phase: unrecorded)
 end 'beginProjectTask'
 
-// endTasks lets what runs after the tasks of a compile make entries in any slot again.
-export function endTasks(mutates tt TypeTable, mutates ft FuncTable)
-	tt.writer = unscheduled
-	ft.writer = unscheduled
-	for s in 0 upto tt.ends.count() 'slots'
-		tt.ends[s] = SlotList.create(0)
+// endTasks forgets what the tasks of a compile made of each slot when they ended, which the next compile does not read.
+export function endTasks(mutates tt TypeTable)
+	for s in 0 upto tt.slots.count() 'slots'
+		tt.slots[s].ends = SlotList.create(0)
 	end 'slots'
 end 'endTasks'
 
 // addSlots makes the slots of a module added to the project, which come after those of the modules before it.
 export function addSlots(mutates tt TypeTable, mutates ft FuncTable)
-	tt.lists.push(TypeEntryList.create(0))
-	tt.lists.push(TypeEntryList.create(0))
-	tt.shapeIndexes.push(ShapeIndex.new())
-	tt.reads.push(SlotList.create(0))
-	tt.imported.push(SlotList.create(0))
-	tt.ends.push(SlotList.create(0))
-	ft.slots.push(FuncEntryList.create(0))
-	ft.instCaches.push(FuncInternMap.new())
+	let slot = tt.slots.count()
+	tt.slots.push(TypeSlot.make(slot))
+	ft.slots.push(FuncSlot.make(slot))
 end 'addSlots'
 
 // setShapeReads records the slots of the modules whose shapes the stages of module read besides its own and sharedSlot:
 // those of the modules it waits on, in slot order.
 export function setShapeReads(mutates tt TypeTable, module diag.ModuleID, consumes slots SlotList)
-	tt.reads[moduleSlot(module)] = slots
+	tt.slots[moduleSlot(module)].reads = slots
 end 'setShapeReads'
+
+// lendTypeSlot takes the slot of module out of the table for its task, which holds it until returnTypeSlot.
+export function lendTypeSlot(mutates tt TypeTable, module diag.ModuleID) returns TypeSlot
+	return exchange(tt.slots[moduleSlot(module)], value: TypeSlot.none())
+end 'lendTypeSlot'
+
+// returnTypeSlot puts a slot that lendTypeSlot lent back in the table.
+export function returnTypeSlot(mutates tt TypeTable, consumes held TypeSlot)
+	let s = held.slot
+	tt.slots[s] = held
+end 'returnTypeSlot'
 
 export function cloneTypeArgs(args TypeIDList) returns TypeIDList
 	return args.clone()
 end 'cloneTypeArgs'
 
-export function internIntRange(mutates tt TypeTable, consumes aliasName String, consumes minVal I128, consumes maxVal I128, inferred bool) returns TypeID
+export function internIntRange(mutates tt TypeSlot, reads TypeTable, consumes aliasName String, consumes minVal I128, consumes maxVal I128, inferred bool) returns TypeID
 	let word = intRangeWord(aliasName, minVal: minVal, maxVal: maxVal, inferred: inferred)
-	let found = intRangeUnder(tt, word: word, aliasName: aliasName, minVal: minVal, maxVal: maxVal, inferred: inferred)
-	match takeShape(tt, hit: found) 'hit'
+	let found = intRangeUnder(tt, reads: reads, word: word, aliasName: aliasName, minVal: minVal, maxVal: maxVal, inferred: inferred)
+	match takeShape(tt, reads: reads, hit: found) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -865,10 +855,10 @@ export function internIntRange(mutates tt TypeTable, consumes aliasName String, 
 	return id
 end 'internIntRange'
 
-export function internConstInt(mutates tt TypeTable, consumes val I128) returns TypeID
+export function internConstInt(mutates tt TypeSlot, reads TypeTable, consumes val I128) returns TypeID
 	let word = constIntWord(val)
-	let found = constIntUnder(tt, word: word, val: val)
-	match takeShape(tt, hit: found) 'hit'
+	let found = constIntUnder(tt, reads: reads, word: word, val: val)
+	match takeShape(tt, reads: reads, hit: found) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -881,10 +871,10 @@ end 'internConstInt'
 
 // internFloatRange is the float type of a range, whose bounds are the bits of the doubles that end it. One that runs from
 // f64.min to f64.max holds every double, the infinities and NaN among them.
-export function internFloatRange(mutates tt TypeTable, consumes aliasName String, lo Count, hi Count) returns TypeID
+export function internFloatRange(mutates tt TypeSlot, reads TypeTable, consumes aliasName String, lo Count, hi Count) returns TypeID
 	let word = floatRangeWord(aliasName, lo: lo, hi: hi)
-	let found = floatRangeUnder(tt, word: word, aliasName: aliasName, lo: lo, hi: hi)
-	match takeShape(tt, hit: found) 'hit'
+	let found = floatRangeUnder(tt, reads: reads, word: word, aliasName: aliasName, lo: lo, hi: hi)
+	match takeShape(tt, reads: reads, hit: found) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -896,10 +886,10 @@ export function internFloatRange(mutates tt TypeTable, consumes aliasName String
 end 'internFloatRange'
 
 // internConstFloat is the type of a float constant, whose value is the bits of its double.
-export function internConstFloat(mutates tt TypeTable, bits Count) returns TypeID
+export function internConstFloat(mutates tt TypeSlot, reads TypeTable, bits Count) returns TypeID
 	let word = constFloatWord(bits)
-	let found = constFloatUnder(tt, word: word, bits: bits)
-	match takeShape(tt, hit: found) 'hit'
+	let found = constFloatUnder(tt, reads: reads, word: word, bits: bits)
+	match takeShape(tt, reads: reads, hit: found) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -910,67 +900,67 @@ export function internConstFloat(mutates tt TypeTable, bits Count) returns TypeI
 	return id
 end 'internConstFloat'
 
-export function isFloatType(tt TypeTable, t TypeID) returns bool
+export function isFloatType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	let k = typeKind(tt, t: t)
+	let k = typeKind(tt, reads: reads, t: t)
 	return k == TypeKind.floatRange or k == TypeKind.constFloat
 end 'isFloatType'
 
 // floatBits is the double of a float constant, or a bound of a float range: minVal for the low one.
-export function floatLowBits(tt TypeTable, t TypeID) returns Count
-	return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].minVal.lo
+export function floatLowBits(tt TypeSlot, reads TypeTable, t TypeID) returns Count
+	return typeEntry(tt, reads: reads, t: t).minVal.lo
 end 'floatLowBits'
 
-export function floatHighBits(tt TypeTable, t TypeID) returns Count
-	return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].maxVal.lo
+export function floatHighBits(tt TypeSlot, reads TypeTable, t TypeID) returns Count
+	return typeEntry(tt, reads: reads, t: t).maxVal.lo
 end 'floatHighBits'
 
 // isFullFloatRange is whether a float range runs from f64.min to f64.max, and so holds every double.
-export function isFullFloatRange(tt TypeTable, t TypeID) returns bool
-	return typeKind(tt, t: t) == TypeKind.floatRange and floatLowBits(tt, t: t) == floatNegate(floatMaxBits) and floatHighBits(tt, t: t) == floatMaxBits
+export function isFullFloatRange(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return typeKind(tt, reads: reads, t: t) == TypeKind.floatRange and floatLowBits(tt, reads: reads, t: t) == floatNegate(floatMaxBits) and floatHighBits(tt, reads: reads, t: t) == floatMaxBits
 end 'isFullFloatRange'
 
 // floatRangeHolds is whether the float range t holds the double of the bits.
-export function floatRangeHolds(tt TypeTable, t TypeID, bits Count) returns bool
-	if isFullFloatRange(tt, t: t) 'all'
+export function floatRangeHolds(tt TypeSlot, reads TypeTable, t TypeID, bits Count) returns bool
+	if isFullFloatRange(tt, reads: reads, t: t) 'all'
 		return true
 	end 'all'
-	let low = floatCompare(bits, b: floatLowBits(tt, t: t))
-	let high = floatCompare(bits, b: floatHighBits(tt, t: t))
+	let low = floatCompare(bits, b: floatLowBits(tt, reads: reads, t: t))
+	let high = floatCompare(bits, b: floatHighBits(tt, reads: reads, t: t))
 	return (low == FloatOrder.greater or low == FloatOrder.equal) and (high == FloatOrder.less or high == FloatOrder.equal)
 end 'floatRangeHolds'
 
 // floatRangeCovers is whether the float range dst holds every value of the float range src.
-export function floatRangeCovers(tt TypeTable, dst TypeID, src TypeID) returns bool
-	if isFullFloatRange(tt, t: dst) 'all'
+export function floatRangeCovers(tt TypeSlot, reads TypeTable, dst TypeID, src TypeID) returns bool
+	if isFullFloatRange(tt, reads: reads, t: dst) 'all'
 		return true
 	end 'all'
-	if isFullFloatRange(tt, t: src) 'none'
+	if isFullFloatRange(tt, reads: reads, t: src) 'none'
 		return false
 	end 'none'
-	return floatRangeHolds(tt, t: dst, bits: floatLowBits(tt, t: src)) and floatRangeHolds(tt, t: dst, bits: floatHighBits(tt, t: src))
+	return floatRangeHolds(tt, reads: reads, t: dst, bits: floatLowBits(tt, reads: reads, t: src)) and floatRangeHolds(tt, reads: reads, t: dst, bits: floatHighBits(tt, reads: reads, t: src))
 end 'floatRangeCovers'
 
 // floatSpelling is how a float type's range is written: FullRangeFloat for the whole of it, as maxon names it.
-function floatSpelling(tt TypeTable, t TypeID) returns String
-	if isFullFloatRange(tt, t: t) 'full'
+function floatSpelling(tt TypeSlot, reads TypeTable, t TypeID) returns String
+	if isFullFloatRange(tt, reads: reads, t: t) 'full'
 		return "FullRangeFloat"
 	end 'full'
-	return "float({floatDiagnosticText(floatLowBits(tt, t: t))} to {floatDiagnosticText(floatHighBits(tt, t: t))})"
+	return "float({floatDiagnosticText(floatLowBits(tt, reads: reads, t: t))} to {floatDiagnosticText(floatHighBits(tt, reads: reads, t: t))})"
 end 'floatSpelling'
 
 // extendsInterface is whether an implementation of the interface have is one of want: have is want, or extends it,
 // directly or through the interfaces it extends. The interfaces an interface extends are held in its conforms, and take
 // no type arguments.
-export function extendsInterface(tt TypeTable, have TypeID, want TypeID) returns bool
+export function extendsInterface(tt TypeSlot, reads TypeTable, have TypeID, want TypeID) returns bool
 	if have == want 'same'
 		return true
 	end 'same'
-	let orig = tt.lists[typeList(tt, t: have)][typeIndex(tt, t: have)].effectiveOrigin()
-	for i in 0 upto tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].conforms.count() 'parents'
-		if extendsInterface(tt, have: tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].conforms[i], want: want) 'hit'
+	let orig = typeEntry(tt, reads: reads, t: have).effectiveOrigin()
+	for i in 0 upto typeEntry(tt, reads: reads, t: orig).conforms.count() 'parents'
+		if extendsInterface(tt, reads: reads, have: typeEntry(tt, reads: reads, t: orig).conforms[i], want: want) 'hit'
 			return true
 		end 'hit'
 	end 'parents'
@@ -978,25 +968,25 @@ export function extendsInterface(tt TypeTable, have TypeID, want TypeID) returns
 end 'extendsInterface'
 
 // isSubtypeOf is whether the ranged alias sub implements sup, directly or through the aliases it implements.
-export function isSubtypeOf(tt TypeTable, sub TypeID, sup TypeID) returns bool
-	var t = tt.lists[typeList(tt, t: sub)][typeIndex(tt, t: sub)].supertype
+export function isSubtypeOf(tt TypeSlot, reads TypeTable, sub TypeID, sup TypeID) returns bool
+	var t = typeEntry(tt, reads: reads, t: sub).supertype
 	while t != noType 'up'
 		if t == sup 'hit'
 			return true
 		end 'hit'
-		t = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].supertype
+		t = typeEntry(tt, reads: reads, t: t).supertype
 	end 'up'
 	return false
 end 'isSubtypeOf'
 
 // commonSupertype is the nearest alias that both ranged aliases a and b are or implement, or none.
-export function commonSupertype(tt TypeTable, a TypeID, b TypeID) returns TypeID
+export function commonSupertype(tt TypeSlot, reads TypeTable, a TypeID, b TypeID) returns TypeID
 	var t = a
 	while t != noType 'up'
-		if t == b or isSubtypeOf(tt, sub: b, sup: t) 'hit'
+		if t == b or isSubtypeOf(tt, reads: reads, sub: b, sup: t) 'hit'
 			return t
 		end 'hit'
-		t = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].supertype
+		t = typeEntry(tt, reads: reads, t: t).supertype
 	end 'up'
 	return noType
 end 'commonSupertype'
@@ -1022,39 +1012,39 @@ function funcInstanceKey(origin FuncID, args TypeIDList, witnesses WitnessList) 
 	return String.from(b)
 end 'funcInstanceKey'
 
-export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeIDList) returns TypeID
-	let baseOrigin = tt.lists[typeList(tt, t: origin)][typeIndex(tt, t: origin)].effectiveOrigin()
+export function instantiateType(mutates tt TypeSlot, reads TypeTable, origin TypeID, args TypeIDList) returns TypeID
+	let baseOrigin = typeEntry(tt, reads: reads, t: origin).effectiveOrigin()
 	if args.count() == 0 'none'
 		return baseOrigin
 	end 'none'
-	let word = instanceWord(tt, origin: baseOrigin, args: args)
-	let found = instanceUnder(tt, word: word, origin: baseOrigin, args: args)
-	match takeShape(tt, hit: found) 'hit'
+	let word = instanceWord(tt, reads: reads, origin: baseOrigin, args: args)
+	let found = instanceUnder(tt, reads: reads, word: word, origin: baseOrigin, args: args)
+	match takeShape(tt, reads: reads, hit: found) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
-	let origKind = typeKind(tt, t: baseOrigin)
-	let origName = tt.lists[typeList(tt, t: baseOrigin)][typeIndex(tt, t: baseOrigin)].name.clone()
-	let origNoncopyable = tt.lists[typeList(tt, t: baseOrigin)][typeIndex(tt, t: baseOrigin)].isNoncopyable
-	let hasOrigDecl = tt.lists[typeList(tt, t: baseOrigin)][typeIndex(tt, t: baseOrigin)].hasDecl
-	let origDecl = tt.lists[typeList(tt, t: baseOrigin)][typeIndex(tt, t: baseOrigin)].decl.clone()
+	let origKind = typeKind(tt, reads: reads, t: baseOrigin)
+	let origName = typeEntry(tt, reads: reads, t: baseOrigin).name.clone()
+	let origNoncopyable = typeEntry(tt, reads: reads, t: baseOrigin).isNoncopyable
+	let hasOrigDecl = typeEntry(tt, reads: reads, t: baseOrigin).hasDecl
+	let origDecl = typeEntry(tt, reads: reads, t: baseOrigin).decl.clone()
 	var e = TypeEntry.make(origKind, name: origName)
 	e.origin = baseOrigin
 	e.typeArgs = cloneTypeArgs(args)
-	e.isTuple = tt.lists[typeList(tt, t: baseOrigin)][typeIndex(tt, t: baseOrigin)].isTuple
+	e.isTuple = typeEntry(tt, reads: reads, t: baseOrigin).isTuple
 	e.isNoncopyable = origNoncopyable
 	e.hasDecl = hasOrigDecl
 	e.decl = origDecl
 	let id = allocShape(tt, e: e, word: word)
-	if statesCount(tt, t: id) 'counted'
+	if statesCount(tt, reads: reads, t: id) 'counted'
 		// A fixed array whose type states its count is one of the runtime-sized type of its element, which a place of that
 		// type takes and a join of the two gives.
-		let elements = tt.lists[typeList(tt, t: baseOrigin)][typeIndex(tt, t: baseOrigin)].typeParams.count()
+		let elements = typeEntry(tt, reads: reads, t: baseOrigin).typeParams.count()
 		var unsized = TypeIDList.create(0)
 		for i in 0 upto elements 'elements'
 			unsized.push(args[i])
 		end 'elements'
-		let sup = instantiateType(tt, origin: baseOrigin, args: unsized)
+		let sup = instantiateType(tt, reads: reads, origin: baseOrigin, args: unsized)
 		tt.lists[typeList(tt, t: id)][typeIndex(tt, t: id)].supertype = sup
 	end 'counted'
 	return id
@@ -1070,10 +1060,10 @@ let sizeofBool = 1 as Count
 // byteSize is what sizeof(t) gives: a bool's byte, a record's box of a word to each field (a word for one with none), and
 // a word for any other value, which is a word in every place. t is concrete: a type parameter has its argument's size,
 // which an instance knows.
-export function byteSize(tt TypeTable, t TypeID) returns Count
-	return match typeKind(tt, t: t) 'k'
+export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
+	return match typeKind(tt, reads: reads, t: t) 'k'
 		primBool gives sizeofBool
-		record gives recordByteSize(tt, t: t)
+		record gives recordByteSize(tt, reads: reads, t: t)
 		typeParam gives panic("the size of a type parameter is its argument's")
 		invalid gives panic("an invalid type has no size")
 		primVoid gives panic("Void has no size")
@@ -1097,9 +1087,9 @@ export function byteSize(tt TypeTable, t TypeID) returns Count
 	end 'k'
 end 'byteSize'
 
-function recordByteSize(tt TypeTable, t TypeID) returns Count
-	let origin = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].effectiveOrigin()
-	let fields = tt.lists[typeList(tt, t: origin)][typeIndex(tt, t: origin)].fields.count()
+function recordByteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
+	let origin = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
+	let fields = typeEntry(tt, reads: reads, t: origin).fields.count()
 	if fields == 0 'empty'
 		return sizeofWord
 	end 'empty'
@@ -1107,30 +1097,29 @@ function recordByteSize(tt TypeTable, t TypeID) returns Count
 end 'recordByteSize'
 
 // countedType is the instance of a fixed array of the element of unsized, a runtime-sized one, that states count.
-export function countedType(mutates tt TypeTable, unsized TypeID, count Count) returns TypeID
-	var args = cloneTypeArgs(tt.lists[typeList(tt, t: unsized)][typeIndex(tt, t: unsized)].typeArgs)
-	args.push(internConstInt(tt, val: I128.fromCount(count)))
-	return instantiateType(tt, origin: tt.lists[typeList(tt, t: unsized)][typeIndex(tt, t: unsized)].effectiveOrigin(), args: args)
+export function countedType(mutates tt TypeSlot, reads TypeTable, unsized TypeID, count Count) returns TypeID
+	var args = cloneTypeArgs(typeEntry(tt, reads: reads, t: unsized).typeArgs)
+	args.push(internConstInt(tt, reads: reads, val: I128.fromCount(count)))
+	return instantiateType(tt, reads: reads, origin: typeEntry(tt, reads: reads, t: unsized).effectiveOrigin(), args: args)
 end 'countedType'
 
 // statesCount is whether t is an instance of a fixed array that states its count, a type argument after its element.
-export function statesCount(tt TypeTable, t TypeID) returns bool
-	let at = typePlace(tt, t: t)
-	if typeKind(tt, t: t) != TypeKind.builtinArray 'notArray'
+export function statesCount(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	if typeKind(tt, reads: reads, t: t) != TypeKind.builtinArray 'notArray'
 		return false
 	end 'notArray'
-	let origin = tt.lists[placeList(at)][placeIndex(at)].effectiveOrigin()
-	return tt.lists[placeList(at)][placeIndex(at)].typeArgs.count() > tt.lists[typeList(tt, t: origin)][typeIndex(tt, t: origin)].typeParams.count()
+	let origin = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
+	return typeEntry(tt, reads: reads, t: t).typeArgs.count() > typeEntry(tt, reads: reads, t: origin).typeParams.count()
 end 'statesCount'
 
 // statedCount is the count that the type of a fixed array states (statesCount).
-export function statedCount(tt TypeTable, t TypeID) returns Count
-	if not statesCount(tt, t: t) 'none'
-		panic("the type {typeName(tt, t: t)} states no count")
+export function statedCount(tt TypeSlot, reads TypeTable, t TypeID) returns Count
+	if not statesCount(tt, reads: reads, t: t) 'none'
+		panic("the type {typeName(tt, reads: reads, t: t)} states no count")
 	end 'none'
-	let origin = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].effectiveOrigin()
-	let arg = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[tt.lists[typeList(tt, t: origin)][typeIndex(tt, t: origin)].typeParams.count()]
-	return tt.lists[typeList(tt, t: arg)][typeIndex(tt, t: arg)].minVal.lo
+	let origin = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
+	let arg = typeEntry(tt, reads: reads, t: t).typeArgs[typeEntry(tt, reads: reads, t: origin).typeParams.count()]
+	return typeEntry(tt, reads: reads, t: arg).minVal.lo
 end 'statedCount'
 
 // countedSpelling is how an instance of a fixed array that states its count is written: the count before the element.
@@ -1144,10 +1133,10 @@ end 'countedSpelling'
 // tupleOrigin is the record of which every tuple of arity elements is an instance: its fields are named by their places, 0, 1,
 // and so on, so that an element is read and written as a field is, and it has one type parameter for each, so that a tuple
 // has the layout, the copy and drop routines and the ownership rules of a record with those fields.
-export function tupleOrigin(mutates tt TypeTable, arity Count) returns TypeID
+export function tupleOrigin(mutates tt TypeSlot, reads TypeTable, arity Count) returns TypeID
 	let word = tupleOriginWord(arity)
-	let found = tupleOriginUnder(tt, word: word, arity: arity)
-	match takeShape(tt, hit: found) 'hit'
+	let found = tupleOriginUnder(tt, reads: reads, word: word, arity: arity)
+	match takeShape(tt, reads: reads, hit: found) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
@@ -1164,51 +1153,48 @@ export function tupleOrigin(mutates tt TypeTable, arity Count) returns TypeID
 end 'tupleOrigin'
 
 // tupleType is the tuple of the element types, which is one type however it is written.
-export function tupleType(mutates tt TypeTable, elems TypeIDList) returns TypeID
-	let origin = tupleOrigin(tt, arity: elems.count())
-	return instantiateType(tt, origin: origin, args: elems)
+export function tupleType(mutates tt TypeSlot, reads TypeTable, elems TypeIDList) returns TypeID
+	let origin = tupleOrigin(tt, reads: reads, arity: elems.count())
+	return instantiateType(tt, reads: reads, origin: origin, args: elems)
 end 'tupleType'
 
-export function isTupleType(tt TypeTable, t TypeID) returns bool
-	return t != noType and tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].isTuple
+export function isTupleType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return t != noType and typeEntry(tt, reads: reads, t: t).isTuple
 end 'isTupleType'
 
-export function selfType(mutates tt TypeTable, declTy TypeID) returns TypeID
-	let orig = tt.lists[typeList(tt, t: declTy)][typeIndex(tt, t: declTy)].effectiveOrigin()
-	if tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].declaring or tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].typeParams.count() == 0 'self'
+export function selfType(mutates tt TypeSlot, reads TypeTable, declTy TypeID) returns TypeID
+	let orig = typeEntry(tt, reads: reads, t: declTy).effectiveOrigin()
+	if typeEntry(tt, reads: reads, t: orig).declaring or typeEntry(tt, reads: reads, t: orig).typeParams.count() == 0 'self'
 		return orig
 	end 'self'
-	let args = cloneTypeArgs(tt.lists[typeList(tt, t: orig)][typeIndex(tt, t: orig)].typeParams)
-	return instantiateType(tt, origin: orig, args: args)
+	let args = cloneTypeArgs(typeEntry(tt, reads: reads, t: orig).typeParams)
+	return instantiateType(tt, reads: reads, origin: orig, args: args)
 end 'selfType'
 
-export function typeArgsOf(tt TypeTable, t TypeID) returns TypeIDList
-	let at = typePlace(tt, t: t)
-	if tt.lists[placeList(at)][placeIndex(at)].typeArgs.count() > 0 'hasArgs'
-		return cloneTypeArgs(tt.lists[placeList(at)][placeIndex(at)].typeArgs)
+export function typeArgsOf(tt TypeSlot, reads TypeTable, t TypeID) returns TypeIDList
+	if typeEntry(tt, reads: reads, t: t).typeArgs.count() > 0 'hasArgs'
+		return cloneTypeArgs(typeEntry(tt, reads: reads, t: t).typeArgs)
 	end 'hasArgs'
-	return cloneTypeArgs(tt.lists[placeList(at)][placeIndex(at)].typeParams)
+	return cloneTypeArgs(typeEntry(tt, reads: reads, t: t).typeParams)
 end 'typeArgsOf'
 
 // typeArgAt is the type argument at an index of what typeArgsOf gives, read in place.
-export function typeArgAt(tt TypeTable, t TypeID, index Count) returns TypeID
-	let at = typePlace(tt, t: t)
-	if tt.lists[placeList(at)][placeIndex(at)].typeArgs.count() > 0 'hasArgs'
-		return tt.lists[placeList(at)][placeIndex(at)].typeArgs[index]
+export function typeArgAt(tt TypeSlot, reads TypeTable, t TypeID, index Count) returns TypeID
+	if typeEntry(tt, reads: reads, t: t).typeArgs.count() > 0 'hasArgs'
+		return typeEntry(tt, reads: reads, t: t).typeArgs[index]
 	end 'hasArgs'
-	return tt.lists[placeList(at)][placeIndex(at)].typeParams[index]
+	return typeEntry(tt, reads: reads, t: t).typeParams[index]
 end 'typeArgAt'
 
-export function originOf(tt TypeTable, t TypeID) returns TypeID
-	return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].effectiveOrigin()
+export function originOf(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
+	return typeEntry(tt, reads: reads, t: t).effectiveOrigin()
 end 'originOf'
 
-export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList, args TypeIDList) returns TypeID
-	let at = typePlace(tt, t: t)
+export function substituteType(mutates tt TypeSlot, reads TypeTable, t TypeID, params TypeIDList, args TypeIDList) returns TypeID
 	if t == noType or params.count() == 0 'noop'
 		return t
 	end 'noop'
-	let kind = typeKind(tt, t: t)
+	let kind = typeKind(tt, reads: reads, t: t)
 	if kind == TypeKind.typeParam 'tp'
 		for i in 0 upto params.count() 'each'
 			if params[i] == t and i < args.count() 'hit'
@@ -1217,19 +1203,19 @@ export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList
 		end 'each'
 		return t
 	end 'tp'
-	let origArgs = cloneTypeArgs(tt.lists[placeList(at)][placeIndex(at)].typeArgs)
+	let origArgs = cloneTypeArgs(typeEntry(tt, reads: reads, t: t).typeArgs)
 	if origArgs.count() == 0 'nonInst'
 		return t
 	end 'nonInst'
-	let selfOrigin = tt.lists[placeList(at)][placeIndex(at)].effectiveOrigin()
-	if args.count() > params.count() and origArgs.equals(params) and tt.lists[typeList(tt, t: selfOrigin)][typeIndex(tt, t: selfOrigin)].typeParams.equals(params) 'countedSelf'
+	let selfOrigin = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
+	if args.count() > params.count() and origArgs.equals(params) and typeEntry(tt, reads: reads, t: selfOrigin).typeParams.equals(params) 'countedSelf'
 		// Self of a fixed array at the arguments of an instance that states its count is that instance.
-		return instantiateType(tt, origin: selfOrigin, args: args)
+		return instantiateType(tt, reads: reads, origin: selfOrigin, args: args)
 	end 'countedSelf'
 	var nextArgs = TypeIDList.create(0)
 	var changed = false
 	for i in 0 upto origArgs.count() 'eachArg'
-		let sub = substituteType(tt, t: origArgs[i], params: params, args: args)
+		let sub = substituteType(tt, reads: reads, t: origArgs[i], params: params, args: args)
 		if sub != origArgs[i] 'diff'
 			changed = true
 		end 'diff'
@@ -1238,8 +1224,8 @@ export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList
 	if not changed 'same'
 		return t
 	end 'same'
-	let orig = tt.lists[placeList(at)][placeIndex(at)].effectiveOrigin()
-	return instantiateType(tt, origin: orig, args: nextArgs)
+	let orig = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
+	return instantiateType(tt, reads: reads, origin: orig, args: nextArgs)
 end 'substituteType'
 
 // FuncBrand is the typealias that makes a function type a brand of its own, as in maxon: a typealias at the top of a
@@ -1274,11 +1260,11 @@ end 'FuncShape'
 // internFuncType is the function type with these parameters and result: an instance of the origin of its shape, so
 // that two spellings of one shape are one type and a generic one is substituted as any instance is. A brand is an origin
 // of its own.
-export function internFuncType(mutates tt TypeTable, params TypeIDList, shape FuncShape, result TypeID) returns TypeID
+export function internFuncType(mutates tt TypeSlot, reads TypeTable, params TypeIDList, shape FuncShape, result TypeID) returns TypeID
 	let word = funcOriginWord(shape)
 	var origin = noType
-	let found = funcOriginUnder(tt, word: word, shape: shape)
-	match takeShape(tt, hit: found) 'hit'
+	let found = funcOriginUnder(tt, reads: reads, word: word, shape: shape)
+	match takeShape(tt, reads: reads, hit: found) 'hit'
 		some(id) then origin = id
 		none then _ = 0
 	end 'hit'
@@ -1296,78 +1282,78 @@ export function internFuncType(mutates tt TypeTable, params TypeIDList, shape Fu
 	end 'new'
 	var args = params.clone()
 	args.push(result)
-	return instantiateType(tt, origin: origin, args: args)
+	return instantiateType(tt, reads: reads, origin: origin, args: args)
 end 'internFuncType'
 
 // funcMutatesCaptures is whether a value of the function type may write what it captured.
-export function funcMutatesCaptures(tt TypeTable, t TypeID) returns bool
-	return tt.lists[typeList(tt, t: originOf(tt, t: t))][typeIndex(tt, t: originOf(tt, t: t))].mutatesCaptures
+export function funcMutatesCaptures(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: t)).mutatesCaptures
 end 'funcMutatesCaptures'
 
 // funcIsBrand is whether a typealias made the function type a brand of its own.
-export function funcIsBrand(tt TypeTable, t TypeID) returns bool
-	return tt.lists[typeList(tt, t: originOf(tt, t: t))][typeIndex(tt, t: originOf(tt, t: t))].isBrand
+export function funcIsBrand(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: t)).isBrand
 end 'funcIsBrand'
 
 // funcParamCount is how many parameters a function type takes.
-export function funcParamCount(tt TypeTable, t TypeID) returns Count
-	return tt.lists[typeList(tt, t: originOf(tt, t: t))][typeIndex(tt, t: originOf(tt, t: t))].paramConvs.count()
+export function funcParamCount(tt TypeSlot, reads TypeTable, t TypeID) returns Count
+	return typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: t)).paramConvs.count()
 end 'funcParamCount'
 
-export function funcParamType(tt TypeTable, t TypeID, index Count) returns TypeID
-	return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[index]
+export function funcParamType(tt TypeSlot, reads TypeTable, t TypeID, index Count) returns TypeID
+	return typeEntry(tt, reads: reads, t: t).typeArgs[index]
 end 'funcParamType'
 
-export function funcParamConv(tt TypeTable, t TypeID, index Count) returns Convention
-	return tt.lists[typeList(tt, t: originOf(tt, t: t))][typeIndex(tt, t: originOf(tt, t: t))].paramConvs[index]
+export function funcParamConv(tt TypeSlot, reads TypeTable, t TypeID, index Count) returns Convention
+	return typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: t)).paramConvs[index]
 end 'funcParamConv'
 
 // funcResult is what a function type returns, void for nothing.
-export function funcResult(tt TypeTable, t TypeID) returns TypeID
-	return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[funcParamCount(tt, t: t)]
+export function funcResult(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
+	return typeEntry(tt, reads: reads, t: t).typeArgs[funcParamCount(tt, reads: reads, t: t)]
 end 'funcResult'
 
 // funcTypeSpelling is how a message spells a function type, as maxon's do: its brand's name, or its shape.
-function funcTypeSpelling(tt TypeTable, t TypeID) returns String
-	if funcIsBrand(tt, t: t) 'brand'
-		return tt.lists[typeList(tt, t: originOf(tt, t: t))][typeIndex(tt, t: originOf(tt, t: t))].name.clone()
+function funcTypeSpelling(tt TypeSlot, reads TypeTable, t TypeID) returns String
+	if funcIsBrand(tt, reads: reads, t: t) 'brand'
+		return typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: t)).name.clone()
 	end 'brand'
-	return funcShapeSpelling(tt, t: t)
+	return funcShapeSpelling(tt, reads: reads, t: t)
 end 'funcTypeSpelling'
 
 // funcShapeSpelling is the shape of a function type, 'fn(Count, mutates Box) returns Count', which a message names
 // where two function types differ by more than their brands.
-export function funcShapeSpelling(tt TypeTable, t TypeID) returns String
+export function funcShapeSpelling(tt TypeSlot, reads TypeTable, t TypeID) returns String
 	var b = ByteArray.create(0)
 	b.append("fn(".toByteArray())
-	for i in 0 upto funcParamCount(tt, t: t) 'params'
+	for i in 0 upto funcParamCount(tt, reads: reads, t: t) 'params'
 		if i > 0 'sep'
 			b.append(", ".toByteArray())
 		end 'sep'
-		let conv = funcParamConv(tt, t: t, index: i)
+		let conv = funcParamConv(tt, reads: reads, t: t, index: i)
 		if conv != Convention.convLet 'marked'
 			b.append("{conv.keyword()} ".toByteArray())
 		end 'marked'
-		b.append(typeName(tt, t: funcParamType(tt, t: t, index: i)).toByteArray())
+		b.append(typeName(tt, reads: reads, t: funcParamType(tt, reads: reads, t: t, index: i)).toByteArray())
 	end 'params'
 	b.push(41 as Byte)
-	let result = funcResult(tt, t: t)
-	if typeKind(tt, t: result) != TypeKind.primVoid 'returns'
-		b.append(" returns {typeName(tt, t: result)}".toByteArray())
+	let result = funcResult(tt, reads: reads, t: t)
+	if typeKind(tt, reads: reads, t: result) != TypeKind.primVoid 'returns'
+		b.append(" returns {typeName(tt, reads: reads, t: result)}".toByteArray())
 	end 'returns'
-	if funcMutatesCaptures(tt, t: t) 'captures'
+	if funcMutatesCaptures(tt, reads: reads, t: t) 'captures'
 		b.append(" mutates captures".toByteArray())
 	end 'captures'
 	return String.from(b)
 end 'funcShapeSpelling'
 
 // mentionsType is whether the type t is target or an instance with target anywhere in its arguments.
-export function mentionsType(tt TypeTable, t TypeID, target TypeID) returns bool
+export function mentionsType(tt TypeSlot, reads TypeTable, t TypeID, target TypeID) returns bool
 	if t == target 'same'
 		return true
 	end 'same'
-	for i in 0 upto tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count() 'each'
-		if mentionsType(tt, t: tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[i], target: target) 'inside'
+	for i in 0 upto typeEntry(tt, reads: reads, t: t).typeArgs.count() 'each'
+		if mentionsType(tt, reads: reads, t: typeEntry(tt, reads: reads, t: t).typeArgs[i], target: target) 'inside'
 			return true
 		end 'inside'
 	end 'each'
@@ -1375,12 +1361,12 @@ export function mentionsType(tt TypeTable, t TypeID, target TypeID) returns bool
 end 'mentionsType'
 
 // mentionsTypeParam is whether the type is a type parameter or an instance with one anywhere in its arguments.
-export function mentionsTypeParam(tt TypeTable, t TypeID) returns bool
-	if typeKind(tt, t: t) == TypeKind.typeParam 'param'
+export function mentionsTypeParam(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	if typeKind(tt, reads: reads, t: t) == TypeKind.typeParam 'param'
 		return true
 	end 'param'
-	for i in 0 upto tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count() 'each'
-		if mentionsTypeParam(tt, t: tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[i]) 'inside'
+	for i in 0 upto typeEntry(tt, reads: reads, t: t).typeArgs.count() 'each'
+		if mentionsTypeParam(tt, reads: reads, t: typeEntry(tt, reads: reads, t: t).typeArgs[i]) 'inside'
 			return true
 		end 'inside'
 	end 'each'
@@ -1391,127 +1377,127 @@ end 'mentionsTypeParam'
 // is built from type parameters without being one: the instances of origin that a program needs are then never all
 // found, since each holds a larger one. An argument that is a type parameter, as in a type that holds itself with its
 // parameters swapped, repeats.
-export function holdsGrowingInstance(tt TypeTable, t TypeID, origin TypeID) returns bool
-	let isInstanceOfOrigin = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count() > 0 and tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].effectiveOrigin() == origin
-	for i in 0 upto tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count() 'each'
-		let arg = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[i]
-		if isInstanceOfOrigin and typeKind(tt, t: arg) != TypeKind.typeParam and mentionsTypeParam(tt, t: arg) 'grows'
+export function holdsGrowingInstance(tt TypeSlot, reads TypeTable, t TypeID, origin TypeID) returns bool
+	let isInstanceOfOrigin = typeEntry(tt, reads: reads, t: t).typeArgs.count() > 0 and typeEntry(tt, reads: reads, t: t).effectiveOrigin() == origin
+	for i in 0 upto typeEntry(tt, reads: reads, t: t).typeArgs.count() 'each'
+		let arg = typeEntry(tt, reads: reads, t: t).typeArgs[i]
+		if isInstanceOfOrigin and typeKind(tt, reads: reads, t: arg) != TypeKind.typeParam and mentionsTypeParam(tt, reads: reads, t: arg) 'grows'
 			return true
 		end 'grows'
-		if holdsGrowingInstance(tt, t: arg, origin: origin) 'inside'
+		if holdsGrowingInstance(tt, reads: reads, t: arg, origin: origin) 'inside'
 			return true
 		end 'inside'
 	end 'each'
 	return false
 end 'holdsGrowingInstance'
 
-export function hasTypeDepthOverflow(tt TypeTable, t TypeID, depth Count) returns bool
+export function hasTypeDepthOverflow(tt TypeSlot, reads TypeTable, t TypeID, depth Count) returns bool
 	if depth > maxTypeDepth 'over'
 		return true
 	end 'over'
-	let n = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count()
+	let n = typeEntry(tt, reads: reads, t: t).typeArgs.count()
 	if n == 0 'leaf'
 		return false
 	end 'leaf'
 	let nextDepth = try depth + 1 otherwise maxTypeDepth
 	for i in 0 upto n 'each'
-		let child = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[i]
-		if hasTypeDepthOverflow(tt, t: child, depth: nextDepth) 'deep'
+		let child = typeEntry(tt, reads: reads, t: t).typeArgs[i]
+		if hasTypeDepthOverflow(tt, reads: reads, t: child, depth: nextDepth) 'deep'
 			return true
 		end 'deep'
 	end 'each'
 	return false
 end 'hasTypeDepthOverflow'
 
-export function isIntType(tt TypeTable, t TypeID) returns bool
+export function isIntType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	let k = typeKind(tt, t: t)
+	let k = typeKind(tt, reads: reads, t: t)
 	return k == TypeKind.intRange or k == TypeKind.constInt
 end 'isIntType'
 
 // isBitPattern is whether the type is that of a bits(n) typealias, a raw bit pattern.
-export function isBitPattern(tt TypeTable, t TypeID) returns bool
+export function isBitPattern(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].bitsWidth != 0
+	return typeEntry(tt, reads: reads, t: t).bitsWidth != 0
 end 'isBitPattern'
 
 // isWordPattern is whether the type is that of a bits(64) typealias: a pattern as wide as the word that arithmetic
 // computes in, so that its operations wrap and every integer converts to it.
-export function isWordPattern(tt TypeTable, t TypeID) returns bool
+export function isWordPattern(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].bitsWidth == 64
+	return typeEntry(tt, reads: reads, t: t).bitsWidth == 64
 end 'isWordPattern'
 
 // isErrorType is whether a function can throw the type: an enum, whose case is the error, or a union, whose value is.
-export function isErrorType(tt TypeTable, t TypeID) returns bool
+export function isErrorType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return typeKind(tt, t: t) == TypeKind.enumTy or typeKind(tt, t: t) == TypeKind.unionTy
+	return typeKind(tt, reads: reads, t: t) == TypeKind.enumTy or typeKind(tt, reads: reads, t: t) == TypeKind.unionTy
 end 'isErrorType'
 
 // isUnionError is whether the type is an error union: its error is a heap box that the failing function hands to its
 // caller, which owns it, and not a case number.
-export function isUnionError(tt TypeTable, t TypeID) returns bool
+export function isUnionError(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return typeKind(tt, t: t) == TypeKind.unionTy
+	return typeKind(tt, reads: reads, t: t) == TypeKind.unionTy
 end 'isUnionError'
 
-export function isUnsignedInt(tt TypeTable, t TypeID) returns bool
+export function isUnsignedInt(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	if typeKind(tt, t: t) != TypeKind.intRange 'notRange'
+	if typeKind(tt, reads: reads, t: t) != TypeKind.intRange 'notRange'
 		return false
 	end 'notRange'
-	return not tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].minVal.isNeg() and not tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].maxVal.fitsI64()
+	return not typeEntry(tt, reads: reads, t: t).minVal.isNeg() and not typeEntry(tt, reads: reads, t: t).maxVal.fitsI64()
 end 'isUnsignedInt'
 
-export function isSharedType(tt TypeTable, t TypeID) returns bool
+export function isSharedType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	let k = typeKind(tt, t: t)
+	let k = typeKind(tt, reads: reads, t: t)
 	return k == TypeKind.builtinFrozen or k == TypeKind.builtinCown
 end 'isSharedType'
 
 // isFunctionType is whether the type is a function type, whose values are closures that may hold borrows.
-export function isFunctionType(tt TypeTable, t TypeID) returns bool
-	return t != noType and typeKind(tt, t: t) == TypeKind.funcTy
+export function isFunctionType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return t != noType and typeKind(tt, reads: reads, t: t) == TypeKind.funcTy
 end 'isFunctionType'
 
 // castRebrands is whether a cast to target changes only the type of its value: a cast to anything but a number converts
 // nothing, so its value is the operand's.
-export function castRebrands(tt TypeTable, target TypeID) returns bool
-	let k = typeKind(tt, t: target)
+export function castRebrands(tt TypeSlot, reads TypeTable, target TypeID) returns bool
+	let k = typeKind(tt, reads: reads, t: target)
 	return k != TypeKind.intRange and k != TypeKind.floatRange
 end 'castRebrands'
 
 // sharesOnCopy is whether a value of the type is never moved: a function value whose closure is immutable, so that every
 // place that would take it takes another value that shares the closure. A value of a type that mutates its captures has
 // state of its own in its closure, so it has one owner and moves as a record does.
-export function sharesOnCopy(tt TypeTable, t TypeID) returns bool
-	return isFunctionType(tt, t: t) and not funcMutatesCaptures(tt, t: t)
+export function sharesOnCopy(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return isFunctionType(tt, reads: reads, t: t) and not funcMutatesCaptures(tt, reads: reads, t: t)
 end 'sharesOnCopy'
 
 // isMutatingFunction is whether the type is a function type whose values mutate their captures.
-export function isMutatingFunction(tt TypeTable, t TypeID) returns bool
-	return isFunctionType(tt, t: t) and funcMutatesCaptures(tt, t: t)
+export function isMutatingFunction(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return isFunctionType(tt, reads: reads, t: t) and funcMutatesCaptures(tt, reads: reads, t: t)
 end 'isMutatingFunction'
 
-export function isManagedType(tt TypeTable, t TypeID) returns bool
+export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false
 	end 'no'
-	return match typeKind(tt, t: t) 'k'
+	return match typeKind(tt, reads: reads, t: t) 'k'
 		primString gives true
 		record gives true
 		unionTy gives true
@@ -1537,13 +1523,13 @@ export function isManagedType(tt TypeTable, t TypeID) returns bool
 	end 'k'
 end 'isManagedType'
 
-export function contentType(tt TypeTable, t TypeID) returns TypeID
+export function contentType(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
 	var cur = t
-	while cur != noType and typeKind(tt, t: cur) == TypeKind.builtinFrozen 'unwrap'
-		if tt.lists[typeList(tt, t: cur)][typeIndex(tt, t: cur)].typeArgs.count() > 0 'arg'
-			cur = tt.lists[typeList(tt, t: cur)][typeIndex(tt, t: cur)].typeArgs[0]
-		end 'arg' else if tt.lists[typeList(tt, t: cur)][typeIndex(tt, t: cur)].typeParams.count() > 0 'tp'
-			cur = tt.lists[typeList(tt, t: cur)][typeIndex(tt, t: cur)].typeParams[0]
+	while cur != noType and typeKind(tt, reads: reads, t: cur) == TypeKind.builtinFrozen 'unwrap'
+		if typeEntry(tt, reads: reads, t: cur).typeArgs.count() > 0 'arg'
+			cur = typeEntry(tt, reads: reads, t: cur).typeArgs[0]
+		end 'arg' else if typeEntry(tt, reads: reads, t: cur).typeParams.count() > 0 'tp'
+			cur = typeEntry(tt, reads: reads, t: cur).typeParams[0]
 		end 'tp' else 'stop'
 			break 'unwrap'
 		end 'stop'
@@ -1581,205 +1567,258 @@ export function instanceSpelling(base String, args Array with String) returns St
 end 'instanceSpelling'
 
 // intSpelling is how an integer type's range is written.
-function intSpelling(tt TypeTable, t TypeID) returns String
-	return "int({tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].minVal.toString()} to {tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].maxVal.toString()})"
+function intSpelling(tt TypeSlot, reads TypeTable, t TypeID) returns String
+	return "int({typeEntry(tt, reads: reads, t: t).minVal.toString()} to {typeEntry(tt, reads: reads, t: t).maxVal.toString()})"
 end 'intSpelling'
 
-export function typeName(tt TypeTable, t TypeID) returns String
+export function typeName(tt TypeSlot, reads TypeTable, t TypeID) returns String
 	if t == noType 'none'
 		return "<invalid>"
 	end 'none'
-	let k = typeKind(tt, t: t)
+	let k = typeKind(tt, reads: reads, t: t)
 	if k == TypeKind.funcTy 'function'
-		return funcTypeSpelling(tt, t: t)
+		return funcTypeSpelling(tt, reads: reads, t: t)
 	end 'function'
 	if k == TypeKind.intRange 'rng'
-		if tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name != "" 'named'
-			return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name.clone()
+		if typeEntry(tt, reads: reads, t: t).name != "" 'named'
+			return typeEntry(tt, reads: reads, t: t).name.clone()
 		end 'named'
-		return intSpelling(tt, t: t)
+		return intSpelling(tt, reads: reads, t: t)
 	end 'rng'
-	if k == TypeKind.floatRange and tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name == "" 'anonFloat'
-		return floatSpelling(tt, t: t)
+	if k == TypeKind.floatRange and typeEntry(tt, reads: reads, t: t).name == "" 'anonFloat'
+		return floatSpelling(tt, reads: reads, t: t)
 	end 'anonFloat'
-	if isTupleType(tt, t: t) and tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count() > 0 'tuple'
+	if isTupleType(tt, reads: reads, t: t) and typeEntry(tt, reads: reads, t: t).typeArgs.count() > 0 'tuple'
 		var parts = ByteArray.create(0)
 		parts.push(40 as Byte)
-		for i in 0 upto tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count() 'each'
+		for i in 0 upto typeEntry(tt, reads: reads, t: t).typeArgs.count() 'each'
 			if i > 0 'sep'
 				parts.append(", ".toByteArray())
 			end 'sep'
-			parts.append(typeName(tt, t: tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[i]).toByteArray())
+			parts.append(typeName(tt, reads: reads, t: typeEntry(tt, reads: reads, t: t).typeArgs[i]).toByteArray())
 		end 'each'
 		parts.push(41 as Byte)
 		return String.from(parts)
 	end 'tuple'
-	if statesCount(tt, t: t) 'counted'
-		return countedSpelling(tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name, count: "{statedCount(tt, t: t)}", element: typeName(tt, t: tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[0]))
+	if statesCount(tt, reads: reads, t: t) 'counted'
+		return countedSpelling(typeEntry(tt, reads: reads, t: t).name, count: "{statedCount(tt, reads: reads, t: t)}", element: typeName(tt, reads: reads, t: typeEntry(tt, reads: reads, t: t).typeArgs[0]))
 	end 'counted'
-	if tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count() > 0 'inst'
+	if typeEntry(tt, reads: reads, t: t).typeArgs.count() > 0 'inst'
 		var argNames = StringList.create(0)
-		for i in 0 upto tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs.count() 'each'
-			argNames.push(typeName(tt, t: tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[i]))
+		for i in 0 upto typeEntry(tt, reads: reads, t: t).typeArgs.count() 'each'
+			argNames.push(typeName(tt, reads: reads, t: typeEntry(tt, reads: reads, t: t).typeArgs[i]))
 		end 'each'
-		return instanceSpelling(tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name, args: argNames)
+		return instanceSpelling(typeEntry(tt, reads: reads, t: t).name, args: argNames)
 	end 'inst'
-	return tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].name.clone()
+	return typeEntry(tt, reads: reads, t: t).name.clone()
 end 'typeName'
 
+// FuncSlot is one slot of the function table: the built-ins' in sharedSlot, and each module's functions, methods,
+// signatures, closures and behaviours and the instances its stages ask for in its own. A task holds its module's slot
+// `mutates` and reads every other slot in the project's table.
+export type FuncSlot
+	// slot is the slot these are, by which a handle names them.
+	var slot as Count
+	// entries are the slot's functions, in the order its stages made them.
+	export var entries as FuncEntryList
+	// instCache are the instances of generic functions that the stages of the slot's module made, by their key.
+	var instCache as FuncInternMap
+
+	static function make(slot Count) returns FuncSlot
+		return FuncSlot{slot: slot, entries: FuncEntryList.create(0), instCache: FuncInternMap.new()}
+	end 'make'
+
+	// none is the slot of no module, as TypeSlot.none is.
+	export static function none() returns FuncSlot
+		return FuncSlot{slot: noneSlot, entries: FuncEntryList.create(0), instCache: FuncInternMap.new()}
+	end 'none'
+end 'FuncSlot'
+
+export typealias FuncSlots = Array with FuncSlot
+
 export type FuncTable
-	// slots are the entries of the functions by slot: the built-ins' in sharedSlot, and each module's functions, methods,
-	// signatures, closures and behaviours and the instances its stages ask for in its own.
-	export var slots as FuncEntryLists
-	// instCaches are, by slot, the instances of generic functions that the stages of the slot's module made, by their key.
-	var instCaches as FuncInternMaps
-	// writer is the slot that the running task may make functions in (see beginModuleTask).
-	var writer as Count
+	// slots are the slots by number, each of them here but the one a running task holds.
+	var slots as FuncSlots
 
 	export static function new() returns FuncTable
-		var es = FuncEntryList.create(0)
-		es.push(FuncEntry.make("<invalid>", visibility: "", module: 0 as diag.ModuleID, nodeID: 0 as NodeID))
-		var slots = FuncEntryLists.create(0)
-		slots.push(es)
-		var caches = FuncInternMaps.create(0)
-		caches.push(FuncInternMap.new())
-		return FuncTable{slots: slots, instCaches: caches, writer: unscheduled}
+		var shared = FuncSlot.make(sharedSlot)
+		shared.entries.push(FuncEntry.make("<invalid>", visibility: "", module: 0 as diag.ModuleID, nodeID: 0 as NodeID))
+		var slots = FuncSlots.create(0)
+		slots.push(shared)
+		return FuncTable{slots: slots}
 	end 'new'
-
-	// lent is the table a project holds while a task holds its own.
-	export static function lent() returns FuncTable
-		return FuncTable{slots: FuncEntryLists.create(0), instCaches: FuncInternMaps.create(0), writer: unscheduled}
-	end 'lent'
 end 'FuncTable'
 
-// funcSlot is the slot that holds the entry of the function f.
-export function funcSlot(f FuncID) returns Count
-	return handleSlot(f as Count)
-end 'funcSlot'
+// funcEntry is the entry of the function f, read in place: in ft, the slot the task holds, or in another slot of the
+// project's table, funcReads.
+export function funcEntry(ft FuncSlot, funcReads FuncTable, f FuncID) returns borrowed FuncEntry
+	let h = f as Count
+	let s = handleSlot(h)
+	if s == ft.slot 'held'
+		return ft.entries[handleIndex(h)]
+	end 'held'
+	return funcReads.slots[s].entries[handleIndex(h)]
+end 'funcEntry'
 
-// funcIndex is the position of the function f in the entries of its slot.
-export function funcIndex(f FuncID) returns Count
-	return (f as Count) and handleIndexMask
+// funcIndex is the position of the function f among the entries of ft, which a task writes: one of the slot it holds.
+export function funcIndex(ft FuncSlot, f FuncID) returns Count
+	requireHeld(ft.slot, slot: handleSlot(f as Count))
+	return handleIndex(f as Count)
 end 'funcIndex'
 
 // allocFunc makes a function that module declares, or that its bodies make: a closure or a behaviour.
-export function allocFunc(mutates ft FuncTable, module diag.ModuleID, consumes f FuncEntry) returns FuncID
-	return allocFuncIn(ft, slot: moduleSlot(module), f: f)
+export function allocFunc(mutates ft FuncSlot, module diag.ModuleID, consumes f FuncEntry) returns FuncID
+	requireHeld(ft.slot, slot: moduleSlot(module))
+	return allocFuncIn(ft, f: f)
 end 'allocFunc'
 
-function allocFuncIn(mutates ft FuncTable, slot Count, consumes f FuncEntry) returns FuncID
-	requireWriter(ft.writer, slot: slot)
-	let id = try handleWord(slot, index: ft.slots[slot].count()) as FuncID otherwise panic("a function handle past its bits")
+function allocFuncIn(mutates ft FuncSlot, consumes f FuncEntry) returns FuncID
+	let id = try handleWord(ft.slot, index: ft.entries.count()) as FuncID otherwise panic("a function handle past its bits")
 	var copyF = f
 	copyF.id = id
-	ft.slots[slot].push(copyF)
+	ft.entries.push(copyF)
 	return id
 end 'allocFuncIn'
 
+// lendFuncSlot takes the slot of module out of the table for its task, which holds it until returnFuncSlot.
+export function lendFuncSlot(mutates ft FuncTable, module diag.ModuleID) returns FuncSlot
+	return exchange(ft.slots[moduleSlot(module)], value: FuncSlot.none())
+end 'lendFuncSlot'
+
+// returnFuncSlot puts a slot that lendFuncSlot lent back in the table.
+export function returnFuncSlot(mutates ft FuncTable, consumes held FuncSlot)
+	let s = held.slot
+	ft.slots[s] = held
+end 'returnFuncSlot'
+
 // typeParamOwnerName is the name of the generic type or function that declares the type parameter param, for a message.
-export function typeParamOwnerName(tt TypeTable, ft FuncTable, param TypeID) returns String
-	for l in 0 upto tt.lists.count() 'typeLists'
-		for i in 0 upto tt.lists[l].count() 'types'
-			if tt.lists[l][i].origin == noType and tt.lists[l][i].typeParams.contains(param) 'type'
-				return tt.lists[l][i].name.clone()
+export function typeParamOwnerName(tt TypeSlot, reads TypeTable, ft FuncSlot, funcReads FuncTable, param TypeID) returns String
+	match consumes typeParamOwnerIn(tt, param: param) 'held'
+		some(name) then return name
+		none then _ = 0
+	end 'held'
+	for s in 0 upto reads.slots.count() 'typeSlots'
+		match consumes typeParamOwnerIn(reads.slots[s], param: param) 'read'
+			some(name) then return name
+			none then _ = 0
+		end 'read'
+	end 'typeSlots'
+	match consumes funcParamOwnerIn(ft, param: param) 'heldFunc'
+		some(name) then return name
+		none then _ = 0
+	end 'heldFunc'
+	for s in 0 upto funcReads.slots.count() 'funcSlots'
+		match consumes funcParamOwnerIn(funcReads.slots[s], param: param) 'readFunc'
+			some(name) then return name
+			none then _ = 0
+		end 'readFunc'
+	end 'funcSlots'
+	panic("the type parameter '{typeName(tt, reads: reads, t: param)}' is declared by no type or function")
+end 'typeParamOwnerName'
+
+function typeParamOwnerIn(slot TypeSlot, param TypeID) returns table.Option with String
+	for l in 0 upto slot.lists.count() 'lists'
+		for i in 0 upto slot.lists[l].count() 'types'
+			if slot.lists[l][i].origin == noType and slot.lists[l][i].typeParams.contains(param) 'type'
+				return table.Option.some(slot.lists[l][i].name.clone())
 			end 'type'
 		end 'types'
-	end 'typeLists'
-	for s in 0 upto ft.slots.count() 'funcSlots'
-		for i in 0 upto ft.slots[s].count() 'funcs'
-			if ft.slots[s][i].generics.contains(param) 'func'
-				return ft.slots[s][i].name.clone()
-			end 'func'
-		end 'funcs'
-	end 'funcSlots'
-	panic("the type parameter '{typeName(tt, t: param)}' is declared by no type or function")
-end 'typeParamOwnerName'
+	end 'lists'
+	return table.Option.none
+end 'typeParamOwnerIn'
+
+function funcParamOwnerIn(slot FuncSlot, param TypeID) returns table.Option with String
+	for i in 0 upto slot.entries.count() 'funcs'
+		if slot.entries[i].generics.contains(param) 'func'
+			return table.Option.some(slot.entries[i].name.clone())
+		end 'func'
+	end 'funcs'
+	return table.Option.none
+end 'funcParamOwnerIn'
 
 // instantiateFunc is the instance of the generic function origin at the type arguments args, given the conformances
 // witnesses for its bounds: one instance for each in the slot of the module whose stage asks for it, since no two
 // modules compare their instances and the link keeps one definition of each link name.
-export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, origin FuncID, args TypeIDList, witnesses WitnessList) returns FuncID
+export function instantiateFunc(mutates ft FuncSlot, funcReads FuncTable, mutates tt TypeSlot, reads TypeTable, origin FuncID, args TypeIDList, witnesses WitnessList) returns FuncID
 	if args.count() == 0 'none'
 		return origin
 	end 'none'
 	let key = funcInstanceKey(origin, args: args, witnesses: witnesses)
-	let own = ownSlot(ft.writer)
-	match ft.instCaches[own].get(key) 'hit'
+	match ft.instCache.get(key) 'hit'
 		some(id) then return id
 		none then _ = 0
 	end 'hit'
-	let origName = ft.slots[funcSlot(origin)][funcIndex(origin)].name.clone()
-	let origVis = ft.slots[funcSlot(origin)][funcIndex(origin)].visibility.clone()
-	let origMod = ft.slots[funcSlot(origin)][funcIndex(origin)].module
-	let origNode = ft.slots[funcSlot(origin)][funcIndex(origin)].nodeID
+	let origName = funcEntry(ft, funcReads: funcReads, f: origin).name.clone()
+	let origVis = funcEntry(ft, funcReads: funcReads, f: origin).visibility.clone()
+	let origMod = funcEntry(ft, funcReads: funcReads, f: origin).module
+	let origNode = funcEntry(ft, funcReads: funcReads, f: origin).nodeID
 	var inst = FuncEntry.make(origName, visibility: origVis, module: origMod, nodeID: origNode)
-	inst.hasDecl = ft.slots[funcSlot(origin)][funcIndex(origin)].hasDecl
-	inst.decl = ft.slots[funcSlot(origin)][funcIndex(origin)].decl.clone()
-	inst.isStatic = ft.slots[funcSlot(origin)][funcIndex(origin)].isStatic
-	inst.isDestructor = ft.slots[funcSlot(origin)][funcIndex(origin)].isDestructor
-	inst.hasReceiver = ft.slots[funcSlot(origin)][funcIndex(origin)].hasReceiver
-	inst.selfConv = ft.slots[funcSlot(origin)][funcIndex(origin)].selfConv
-	inst.intrinsic = ft.slots[funcSlot(origin)][funcIndex(origin)].intrinsic
-	inst.errTy = ft.slots[funcSlot(origin)][funcIndex(origin)].errTy
-	inst.result = ft.slots[funcSlot(origin)][funcIndex(origin)].result
+	inst.hasDecl = funcEntry(ft, funcReads: funcReads, f: origin).hasDecl
+	inst.decl = funcEntry(ft, funcReads: funcReads, f: origin).decl.clone()
+	inst.isStatic = funcEntry(ft, funcReads: funcReads, f: origin).isStatic
+	inst.isDestructor = funcEntry(ft, funcReads: funcReads, f: origin).isDestructor
+	inst.hasReceiver = funcEntry(ft, funcReads: funcReads, f: origin).hasReceiver
+	inst.selfConv = funcEntry(ft, funcReads: funcReads, f: origin).selfConv
+	inst.intrinsic = funcEntry(ft, funcReads: funcReads, f: origin).intrinsic
+	inst.errTy = funcEntry(ft, funcReads: funcReads, f: origin).errTy
+	inst.result = funcEntry(ft, funcReads: funcReads, f: origin).result
 	inst.genericOrigin = origin
-	inst.extendedIface = ft.slots[funcSlot(origin)][funcIndex(origin)].extendedIface
+	inst.extendedIface = funcEntry(ft, funcReads: funcReads, f: origin).extendedIface
 	inst.typeArgs = cloneTypeArgs(args)
 	inst.witnesses = witnesses.clone()
-	let origParams = cloneTypeArgs(ft.slots[funcSlot(origin)][funcIndex(origin)].generics)
-	if ft.slots[funcSlot(origin)][funcIndex(origin)].ownerTy != noType 'own'
-		inst.ownerTy = substituteType(tt, t: ft.slots[funcSlot(origin)][funcIndex(origin)].ownerTy, params: origParams, args: args)
+	let origParams = cloneTypeArgs(funcEntry(ft, funcReads: funcReads, f: origin).generics)
+	if funcEntry(ft, funcReads: funcReads, f: origin).ownerTy != noType 'own'
+		inst.ownerTy = substituteType(tt, reads: reads, t: funcEntry(ft, funcReads: funcReads, f: origin).ownerTy, params: origParams, args: args)
 	end 'own'
-	inst.retTy = substituteType(tt, t: ft.slots[funcSlot(origin)][funcIndex(origin)].retTy, params: origParams, args: args)
-	for i in 0 upto ft.slots[funcSlot(origin)][funcIndex(origin)].params.count() 'eachP'
-		let pTy = substituteType(tt, t: ft.slots[funcSlot(origin)][funcIndex(origin)].params[i].ty, params: origParams, args: args)
-		var spec = ft.slots[funcSlot(origin)][funcIndex(origin)].params[i].clone()
+	inst.retTy = substituteType(tt, reads: reads, t: funcEntry(ft, funcReads: funcReads, f: origin).retTy, params: origParams, args: args)
+	for i in 0 upto funcEntry(ft, funcReads: funcReads, f: origin).params.count() 'eachP'
+		let pTy = substituteType(tt, reads: reads, t: funcEntry(ft, funcReads: funcReads, f: origin).params[i].ty, params: origParams, args: args)
+		var spec = funcEntry(ft, funcReads: funcReads, f: origin).params[i].clone()
 		spec.ty = pTy
 		inst.params.push(spec)
 		inst.paramTypes.push(pTy)
 	end 'eachP'
-	let id = allocFuncIn(ft, slot: own, f: inst)
-	ft.instCaches[own].insert(key, value: id)
+	let id = allocFuncIn(ft, f: inst)
+	ft.instCache.insert(key, value: id)
 	return id
 end 'instantiateFunc'
 
 // memberType is the type of a field or a payload that its declaration gives as declared, in the instance owner.
-export function memberType(mutates tt TypeTable, owner TypeID, declared TypeID) returns TypeID
-	let at = typePlace(tt, t: owner)
-	let origin = originOf(tt, t: owner)
-	if owner == origin or tt.lists[placeList(at)][placeIndex(at)].typeArgs.count() == 0 'declared'
+export function memberType(mutates tt TypeSlot, reads TypeTable, owner TypeID, declared TypeID) returns TypeID
+	let origin = originOf(tt, reads: reads, t: owner)
+	if owner == origin or typeEntry(tt, reads: reads, t: owner).typeArgs.count() == 0 'declared'
 		return declared
 	end 'declared'
-	let params = cloneTypeArgs(tt.lists[typeList(tt, t: origin)][typeIndex(tt, t: origin)].typeParams)
-	let args = cloneTypeArgs(tt.lists[placeList(at)][placeIndex(at)].typeArgs)
-	return substituteType(tt, t: declared, params: params, args: args)
+	let params = cloneTypeArgs(typeEntry(tt, reads: reads, t: origin).typeParams)
+	let args = cloneTypeArgs(typeEntry(tt, reads: reads, t: owner).typeArgs)
+	return substituteType(tt, reads: reads, t: declared, params: params, args: args)
 end 'memberType'
 
 // fieldType is the type of the field at index of the record owner, an instance's with its arguments applied.
-export function fieldType(mutates tt TypeTable, owner TypeID, index Count) returns TypeID
-	let declared = tt.lists[typeList(tt, t: originOf(tt, t: owner))][typeIndex(tt, t: originOf(tt, t: owner))].fields[index].ty
-	return memberType(tt, owner: owner, declared: declared)
+export function fieldType(mutates tt TypeSlot, reads TypeTable, owner TypeID, index Count) returns TypeID
+	let declared = typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: owner)).fields[index].ty
+	return memberType(tt, reads: reads, owner: owner, declared: declared)
 end 'fieldType'
 
 // payloadType is the type of the payload at index of a case of the union owner, an instance's with its arguments applied.
-export function payloadType(mutates tt TypeTable, owner TypeID, caseIndex Count, index Count) returns TypeID
-	let declared = tt.lists[typeList(tt, t: originOf(tt, t: owner))][typeIndex(tt, t: originOf(tt, t: owner))].cases[caseIndex].payload[index].ty
-	return memberType(tt, owner: owner, declared: declared)
+export function payloadType(mutates tt TypeSlot, reads TypeTable, owner TypeID, caseIndex Count, index Count) returns TypeID
+	let declared = typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: owner)).cases[caseIndex].payload[index].ty
+	return memberType(tt, reads: reads, owner: owner, declared: declared)
 end 'payloadType'
 
 // packsBytes is whether t is an array whose box holds each element in one byte: an array of an integer type whose range
 // fits in a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an
 // array asks this, so the two boxes are never mistaken for each other.
-export function packsBytes(tt TypeTable, b Builtins, t TypeID) returns bool
-	if typeKind(tt, t: t) != TypeKind.builtinArray 'notArray'
+export function packsBytes(tt TypeSlot, reads TypeTable, b Builtins, t TypeID) returns bool
+	if typeKind(tt, reads: reads, t: t) != TypeKind.builtinArray 'notArray'
 		return false
 	end 'notArray'
-	let elem = tt.lists[typeList(tt, t: t)][typeIndex(tt, t: t)].typeArgs[0]
-	if typeKind(tt, t: elem) != TypeKind.intRange 'notInt'
+	let elem = typeEntry(tt, reads: reads, t: t).typeArgs[0]
+	if typeKind(tt, reads: reads, t: elem) != TypeKind.intRange 'notInt'
 		return false
 	end 'notInt'
 	let byteTy = b.byteTy
-	return tt.lists[typeList(tt, t: elem)][typeIndex(tt, t: elem)].minVal.ge(tt.lists[typeList(tt, t: byteTy)][typeIndex(tt, t: byteTy)].minVal) and tt.lists[typeList(tt, t: elem)][typeIndex(tt, t: elem)].maxVal.le(tt.lists[typeList(tt, t: byteTy)][typeIndex(tt, t: byteTy)].maxVal)
+	return typeEntry(tt, reads: reads, t: elem).minVal.ge(typeEntry(tt, reads: reads, t: byteTy).minVal) and typeEntry(tt, reads: reads, t: elem).maxVal.le(typeEntry(tt, reads: reads, t: byteTy).maxVal)
 end 'packsBytes'
 
 // leadingParams is how many words a call of the function passes before its parameters: the receiver of a method, or the

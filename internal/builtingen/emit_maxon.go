@@ -59,7 +59,7 @@ func (m *maxonBody) strings(xs []string) string {
 // ownerParam binds a parameter of a type of the table.
 func (m *maxonBody) ownerParam(owner string, i int) string {
 	v := m.fresh("p")
-	m.line("let %s = tt.lists[typeList(tt, t: %[2]s)][typeIndex(tt, t: %[2]s)].typeParams[%d]", v, maxonOwner(owner), i)
+	m.line("let %s = typeEntry(tt, reads: reads, t: %s).typeParams[%d]", v, maxonOwner(owner), i)
 	return v
 }
 
@@ -69,7 +69,7 @@ func (m *maxonBody) ty(f fn, generic string, t *tyExpr) string {
 	switch {
 	case t.name == "Self":
 		v := m.fresh("ty")
-		m.line("let %s = selfType(tt, declTy: %s)", v, maxonOwner(f.Owner))
+		m.line("let %s = selfType(tt, reads: reads, declTy: %s)", v, maxonOwner(f.Owner))
 		return v
 	case t.name == f.generic:
 		return generic
@@ -80,7 +80,7 @@ func (m *maxonBody) ty(f fn, generic string, t *tyExpr) string {
 	case t.arg != nil:
 		arg := m.ty(f, generic, t.arg)
 		v := m.fresh("ty")
-		m.line("let %s = instantiateType(tt, origin: %s, args: oneArgList(%s))", v, maxonOwner(t.name), arg)
+		m.line("let %s = instantiateType(tt, reads: reads, origin: %s, args: oneArgList(%s))", v, maxonOwner(t.name), arg)
 		return v
 	}
 	return maxonOwner(t.name)
@@ -154,10 +154,10 @@ func emitMaxon(t table) string {
 		byGroup[g] = append(byGroup[g], f)
 	}
 
-	sb.WriteString("function declareBuiltinTable(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)\n")
-	sb.WriteString("\tdeclareBuiltinTypes(tt, std: std, b: b, typeMap: typeMap)\n")
+	sb.WriteString("function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)\n")
+	sb.WriteString("\tdeclareBuiltinTypes(tt, reads: reads, std: std, b: b, typeMap: typeMap)\n")
 	for _, g := range groups {
-		fmt.Fprintf(&sb, "\t%s(tt, ft: ft, std: std, b: b, funcMap: funcMap)\n", maxonGroupFunction(g))
+		fmt.Fprintf(&sb, "\t%s(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)\n", maxonGroupFunction(g))
 	}
 	sb.WriteString("end 'declareBuiltinTable'\n")
 
@@ -168,22 +168,22 @@ func emitMaxon(t table) string {
 		if kind == "" {
 			kind = bt.Key
 		}
-		types.line("%s = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtin%s, name: %q, paramNames: %s)", maxonOwner(bt.Key), kind, bt.Name, names)
+		types.line("%s = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtin%s, name: %q, paramNames: %s)", maxonOwner(bt.Key), kind, bt.Name, names)
 	}
 	for _, r := range recordTypes {
-		types.line("%s = registerRecordType(tt, std: std, typeMap: typeMap, name: %q)", maxonOwner(r.Key), r.Name)
+		types.line("%s = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: %q)", maxonOwner(r.Key), r.Name)
 	}
 	for _, r := range recordTypes {
 		owner := fn{Owner: r.Key}
 		for _, s := range r.Fields {
 			f := parseField(s)
 			ty := types.ty(owner, "", f.ty)
-			types.line("addRecordField(tt, owner: %s, name: %q, ty: %s, isVar: %v, exported: %v)", maxonOwner(r.Key), f.name, ty, f.isVar, !f.private)
+			types.line("addRecordField(tt, reads: reads, owner: %s, name: %q, ty: %s, isVar: %v, exported: %v)", maxonOwner(r.Key), f.name, ty, f.isVar, !f.private)
 		}
 	}
 	for _, u := range unionTypes {
 		names := types.strings(u.Params)
-		types.line("%s = registerUnionType(tt, std: std, typeMap: typeMap, name: %q, paramNames: %s)", maxonOwner(u.Key), u.Name, names)
+		types.line("%s = registerUnionType(tt, reads: reads, std: std, typeMap: typeMap, name: %q, paramNames: %s)", maxonOwner(u.Key), u.Name, names)
 		owner := fn{Owner: u.Key}
 		for _, c := range u.Cases {
 			payload := "CaseFieldList.create(0)"
@@ -201,7 +201,7 @@ func emitMaxon(t table) string {
 					types.line("%s.push(CaseFieldInfo.make(%q, ty: %s))", payload, fields[i], tys[i])
 				}
 			}
-			types.line("addUnionCase(tt, owner: %s, name: %q, payload: %s)", maxonOwner(u.Key), c.Name, payload)
+			types.line("addUnionCase(tt, reads: reads, owner: %s, name: %q, payload: %s)", maxonOwner(u.Key), c.Name, payload)
 		}
 	}
 	for _, e := range enumTypes {
@@ -210,10 +210,10 @@ func emitMaxon(t table) string {
 			cases = append(cases, c.Name)
 		}
 		names := types.strings(cases)
-		types.line("b.%s = registerEnumType(tt, std: std, typeMap: typeMap, name: %q, cases: %s)", maxonField(e.Key, false), e.Name, names)
+		types.line("b.%s = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: %q, cases: %s)", maxonField(e.Key, false), e.Name, names)
 	}
 	for _, c := range slices.Concat(capabilities, markers) {
-		types.line("b.%s = registerInterfaceType(tt, std: std, typeMap: typeMap, name: %q)", maxonField(c, false), c)
+		types.line("b.%s = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: %q)", maxonField(c, false), c)
 	}
 	for _, r := range recordTypes {
 		for _, iface := range r.Implements {
@@ -224,7 +224,7 @@ func emitMaxon(t table) string {
 		ty := types.ty(fn{}, "", parseType(a.Type))
 		types.line("registerStdInstanceAlias(std, typeMap: typeMap, name: %q, ty: %s)", a.Name, ty)
 	}
-	sb.WriteString("\nfunction declareBuiltinTypes(mutates tt TypeTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap)\n")
+	sb.WriteString("\nfunction declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std Module, mutates b Builtins, mutates typeMap TypeIDMap)\n")
 	sb.WriteString(types.sb.String())
 	sb.WriteString("end 'declareBuiltinTypes'\n")
 
@@ -234,7 +234,7 @@ func emitMaxon(t table) string {
 			emitMaxonFunction(body, f)
 		}
 		name := maxonGroupFunction(g)
-		fmt.Fprintf(&sb, "\nfunction %s(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)\n", name)
+		fmt.Fprintf(&sb, "\nfunction %s(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)\n", name)
 		sb.WriteString(body.sb.String())
 		fmt.Fprintf(&sb, "end '%s'\n", name)
 	}
@@ -253,7 +253,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	if f.Owner != "" && f.Owner != stringOwner {
 		ret := m.ty(f, "", f.result)
 		ps := m.params(f, "")
-		call := fmt.Sprintf("registerMethodOn(tt, ft: ft, std: std, owner: %s, op: %s, name: %q, isStatic: %v, selfConv: %s, ret: %s, params: %s, listed: %v)",
+		call := fmt.Sprintf("registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: %s, op: %s, name: %q, isStatic: %v, selfConv: %s, ret: %s, params: %s, listed: %v)",
 			maxonOwner(f.Owner), op, f.Name, f.Static, maxonConv(f.Self), ret, ps, f.Field == "")
 		if len(f.bounds) == 0 && f.Throws == "" && f.Field == "" {
 			m.line("_ = %s", call)
@@ -263,7 +263,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		m.line("let %s = %s", id, call)
 		for _, bd := range f.bounds {
 			p := m.ownerParam(f.Owner, paramIndex(ownerParams(f.Owner), bd.param))
-			m.line("ft.slots[funcSlot(%[1]s)][funcIndex(%[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
+			m.line("ft.entries[funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
 		}
 		m.errorType(f, id)
 		if f.Field != "" {
@@ -285,7 +285,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	ret := m.ty(f, generic, f.result)
 	ps := m.params(f, generic)
 	declared := f.Owner == "" && f.Field == ""
-	call := fmt.Sprintf("registerStdFunc(ft, std: std, funcMap: funcMap, op: %s, name: %q, generics: %s, ret: %s, params: %s, declareInStd: %v)",
+	call := fmt.Sprintf("registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: %s, name: %q, generics: %s, ret: %s, params: %s, declareInStd: %v)",
 		op, f.Name, generics, ret, ps, declared)
 	if declared && f.gbound == "" && f.Throws == "" {
 		m.line("_ = %s", call)
@@ -295,14 +295,14 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	m.line("let %s = %s", id, call)
 	m.errorType(f, id)
 	if f.gbound != "" {
-		m.line("ft.slots[funcSlot(%[1]s)][funcIndex(%[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
+		m.line("ft.entries[funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
 	}
 	if f.Owner == stringOwner {
-		m.line("ft.slots[funcSlot(%[1]s)][funcIndex(%[1]s)].ownerTy = b.stringTy", id)
-		m.line("ft.slots[funcSlot(%[1]s)][funcIndex(%[1]s)].isStatic = %v", id, f.Static)
-		m.line("ft.slots[funcSlot(%[1]s)][funcIndex(%[1]s)].hasReceiver = %v", id, !f.Static)
+		m.line("ft.entries[funcIndex(ft, f: %[1]s)].ownerTy = b.stringTy", id)
+		m.line("ft.entries[funcIndex(ft, f: %[1]s)].isStatic = %v", id, f.Static)
+		m.line("ft.entries[funcIndex(ft, f: %[1]s)].hasReceiver = %v", id, !f.Static)
 		if f.Self != "" {
-			m.line("ft.slots[funcSlot(%[1]s)][funcIndex(%[1]s)].selfConv = %s", id, maxonConv(f.Self))
+			m.line("ft.entries[funcIndex(ft, f: %[1]s)].selfConv = %s", id, maxonConv(f.Self))
 		}
 		m.line("b.stringMethods.insert(%q, value: %s)", f.Name, id)
 	}
@@ -314,7 +314,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 // errorType sets the error that the function id throws, when it throws one.
 func (m *maxonBody) errorType(f fn, id string) {
 	if f.Throws != "" {
-		m.line("ft.slots[funcSlot(%[1]s)][funcIndex(%[1]s)].errTy = b.%s", id, maxonField(f.Throws, false))
+		m.line("ft.entries[funcIndex(ft, f: %[1]s)].errTy = b.%s", id, maxonField(f.Throws, false))
 	}
 }
 
@@ -409,7 +409,7 @@ func emitMaxonCheck(t table) string {
 	sb.WriteString(maxonHeader)
 	sb.WriteString("// checkIntrinsicArgs refuses an argument of a built-in that its signature alone cannot.\n")
 	sb.WriteString("function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, target ast.FuncID, ordered ast.NodeIDList, mutates errs diag.ErrorList)\n")
-	sb.WriteString("\tlet op = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].intrinsic\n")
+	sb.WriteString("\tlet op = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic\n")
 	var unchecked []string
 	for _, in := range t.intrinsics {
 		if in.checked {

@@ -53,7 +53,7 @@ function rangeNarrow(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutate
 		end 'logical'
 		return
 	end 'both'
-	if isComparisonOp(op) and ast.isIntType(ms.types, t: typeOf(r, e: l)) and ast.isIntType(ms.types, t: typeOf(r, e: right)) 'comparison'
+	if isComparisonOp(op) and ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: l)) and ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: right)) 'comparison'
 		var holds = op.clone()
 		if not truth 'negated'
 			holds = negatedComparison(op)
@@ -171,7 +171,7 @@ end 'rangeRelate'
 function rangePeek(r Ranges, p ast.Project, ms ast.ModuleState, s Count, e ast.NodeID) returns Span
 	let t = typeOf(r, e: e)
 	if isConstInt(p, ms: ms, t: t) 'literal'
-		return typeSpan(ms.types, t: t)
+		return typeSpan(ms.types, reads: p.types, t: t)
 	end 'literal'
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 		some(place) then return rangeSpanAt(r, p: p, ms: ms, s: s, place: place, t: t)
@@ -183,7 +183,7 @@ function rangePeek(r Ranges, p ast.Project, ms ast.ModuleState, s Count, e ast.N
 			return constSpan(p, ms: ms, ref: name.decl)
 		end 'constant'
 	end 'name'
-	return typeSpan(ms.types, t: t)
+	return typeSpan(ms.types, reads: p.types, t: t)
 end 'rangePeek'
 
 // constSpan is the span that the range analysis gave a constant's value.
@@ -197,8 +197,8 @@ end 'constSpan'
 // rangeTyped is the span of a value that the analysis knows nothing more of than its type.
 function rangeTyped(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let t = typeOf(r, e: e)
-	if ast.isIntType(ms.types, t: t) 'int'
-		return typeSpan(ms.types, t: t)
+	if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
+		return typeSpan(ms.types, reads: p.types, t: t)
 	end 'int'
 	return noSpan()
 end 'rangeTyped'
@@ -215,7 +215,7 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 	end 'stopped'
 	let t = typeOf(r, e: e)
 	if isConstInt(p, ms: ms, t: t) 'literal'
-		return typeSpan(ms.types, t: t)
+		return typeSpan(ms.types, reads: p.types, t: t)
 	end 'literal'
 	let k = ms.tree.kindOf(e)
 	if k == ast.NodeKind.intLit 'intLit'
@@ -335,14 +335,14 @@ end 'rangeCollectionLit'
 
 function rangeNameExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let t = typeOf(r, e: e)
-	if ast.isIntType(ms.types, t: t) 'int'
+	if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
 		match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 			some(place) then return rangeSpanAt(r, p: p, ms: ms, s: r.st, place: place, t: t)
 			none then _ = 0
 		end 'place'
 	end 'int'
 	let name = nameInfoOf(r.typing, node: e)
-	if name.kind == ast.NameKind.nameConst and ast.isIntType(ms.types, t: t) 'constant'
+	if name.kind == ast.NameKind.nameConst and ast.isIntType(ms.types, reads: p.types, t: t) 'constant'
 		return constSpan(p, ms: ms, ref: name.decl)
 	end 'constant'
 	return rangeTyped(r, p: p, ms: ms, e: e)
@@ -354,7 +354,7 @@ function rangeMemberExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e 
 		_ = rangeEval(r, p: p, ms: ms, e: ast.memberExprObj(ms.tree, id: e))
 	end 'value'
 	let t = typeOf(r, e: e)
-	if ast.isIntType(ms.types, t: t) 'int'
+	if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
 		match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 			some(place) then return rangeSpanAt(r, p: p, ms: ms, s: r.st, place: place, t: t)
 			none then _ = 0
@@ -420,16 +420,16 @@ function isCountedAccess(r Ranges, p ast.Project, ms ast.ModuleState, info ast.C
 	if op != ast.Intrinsic.intrArrayGet and op != ast.Intrinsic.intrArraySet and op != ast.Intrinsic.intrFixedArrayGetProven and op != ast.Intrinsic.intrFixedArraySetProven 'other'
 		return false
 	end 'other'
-	let t = ast.contentType(ms.types, t: typeOf(r, e: receiver))
-	return ast.originOf(ms.types, t: t) == p.builtins.fixedArrayOrigin and ast.statesCount(ms.types, t: t)
+	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
+	return ast.originOf(ms.types, reads: p.types, t: t) == p.builtins.fixedArrayOrigin and ast.statesCount(ms.types, reads: p.types, t: t)
 end 'isCountedAccess'
 
 // rangeCountedAccess judges a get or a set of a fixed array that states its count by the span of its index: one inside
 // the count cannot fail, and the call becomes the access with no check; a constant outside it is an error; any other
 // index is checked, so the call fails as an array's does.
 function rangeCountedAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, info ast.CallInfo, receiver ast.NodeID, index Span)
-	let t = ast.contentType(ms.types, t: typeOf(r, e: receiver))
-	let count = ast.statedCount(ms.types, t: t)
+	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
+	let count = ast.statedCount(ms.types, reads: p.types, t: t)
 	let last = ast.I128.fromCount(count).sub(ast.I128.one())
 	let isGet = info.intrinsic == ast.Intrinsic.intrArrayGet or info.intrinsic == ast.Intrinsic.intrFixedArrayGetProven
 	var method = "set"
@@ -440,7 +440,7 @@ function rangeCountedAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState,
 	if not r.probing 'record'
 		var chosen = info.clone()
 		chosen.fn = countedAccessFunc(p, ms: ms, isGet: isGet, proven: proven)
-		chosen.intrinsic = ms.funcs.slots[ast.funcSlot(chosen.fn)][ast.funcIndex(chosen.fn)].intrinsic
+		chosen.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: chosen.fn).intrinsic
 		r.typing.calls.insert(e as Count, value: chosen)
 	end 'record'
 	if proven 'inside'
@@ -462,7 +462,7 @@ function countedAccessFunc(p ast.Project, ms ast.ModuleState, isGet bool, proven
 		return p.builtins.fixedArraySetProvenFunc
 	end 'provenSet'
 	let name = "get" if isGet else "set"
-	return ms.types.lists[ast.typeList(ms.types, t: p.builtins.fixedArrayOrigin)][ast.typeIndex(ms.types, t: p.builtins.fixedArrayOrigin)].findMethod(name).unwrap()
+	return ast.typeEntry(ms.types, reads: p.types, t: p.builtins.fixedArrayOrigin).findMethod(name).unwrap()
 end 'countedAccessFunc'
 
 // rangeChangedAt is an expression that a call may change, if it names a place.
@@ -582,17 +582,17 @@ end 'rangeOperator'
 // one, is one the code cannot reach.
 function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, rs Span, bound table.Option with Span) returns Span
 	let op = ast.binaryExprOp(ms.tree, id: e)
-	if isComparisonOp(op) or not ast.isIntType(ms.types, t: typeOf(r, e: e)) 'noSpan'
+	if isComparisonOp(op) or not ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: e)) 'noSpan'
 		return noSpan()
 	end 'noSpan'
 	var word = signedWord()
-	if ast.isUnsignedInt(ms.types, t: arithOf(r, e: e).operand) 'unsigned'
+	if ast.isUnsignedInt(ms.types, reads: p.types, t: arithOf(r, e: e).operand) 'unsigned'
 		word = unsignedWord()
 	end 'unsigned'
 	let computed = arithmetic(op, l: l, r: rs, word: word)
 	var exact = computed.span.clone()
 	var fails = computed.fails
-	if ast.isWordPattern(ms.types, t: arithOf(r, e: e).operand) and wraps(op) 'wrapping'
+	if ast.isWordPattern(ms.types, reads: p.types, t: arithOf(r, e: e).operand) and wraps(op) 'wrapping'
 		exact = unsignedWord()
 		fails = fails and (ast.failDivZero or ast.failShift)
 	end 'wrapping'
@@ -600,7 +600,7 @@ function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 		some(b) then exact = withinBound(exact, bound: b)
 		none then _ = 0
 	end 'bound'
-	if op == "-" and not isDead(r, s: r.st) and not ast.isWordPattern(ms.types, t: arithOf(r, e: e).operand) 'difference'
+	if op == "-" and not isDead(r, s: r.st) and not ast.isWordPattern(ms.types, reads: p.types, t: arithOf(r, e: e).operand) 'difference'
 		exact.lo = rangeDifferenceLow(r, p: p, ms: ms, e: e, low: exact.lo)
 	end 'difference'
 	return rangeResult(r, p: p, ms: ms, e: e, op: op, exact: exact, fails: fails, word: word)
@@ -656,7 +656,7 @@ end 'arithOf'
 // in or the range of its type, and gives the span of the values it can give.
 function rangeResult(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, exact Span, fails Byte, word Span) returns Span
 	let ty = typeOf(r, e: e)
-	let t = typeSpan(ms.types, t: ty)
+	let t = typeSpan(ms.types, reads: p.types, t: ty)
 	var f = fails
 	if not exact.isEmpty() 'reached'
 		if not exact.within(word) 'pastWord'
@@ -679,7 +679,7 @@ function failureText(p ast.Project, ms ast.ModuleState, op String, fails Byte, t
 	if (fails and ast.failDivZero) != 0 'zero'
 		return "the divisor of '{op}' may be 0"
 	end 'zero'
-	let t = typeSpan(ms.types, t: ty)
+	let t = typeSpan(ms.types, reads: p.types, t: ty)
 	let name = nameOfType(p, ms: ms, t: ty)
 	if (fails and ast.failShift) != 0 'shift'
 		return "the count of '{op}' may be negative"
@@ -723,10 +723,10 @@ end 'operandFix'
 
 // castText is the error for a conversion to ty that can fail where no try covers it.
 function castText(p ast.Project, ms ast.ModuleState, ty ast.TypeID) returns String
-	if ast.isFloatType(ms.types, t: ty) 'float'
+	if ast.isFloatType(ms.types, reads: p.types, t: ty) 'float'
 		return "the value may not fit {nameOfType(p, ms: ms, t: ty)} ({floatRangeText(p, ms: ms, t: ty)}){operandFix("")}"
 	end 'float'
-	return "the value may not fit {nameOfType(p, ms: ms, t: ty)} ({typeSpan(ms.types, t: ty).lo.toString()} to {typeSpan(ms.types, t: ty).hi.toString()}){operandFix("")}"
+	return "the value may not fit {nameOfType(p, ms: ms, t: ty)} ({typeSpan(ms.types, reads: p.types, t: ty).lo.toString()} to {typeSpan(ms.types, reads: p.types, t: ty).hi.toString()}){operandFix("")}"
 end 'castText'
 
 // uncheckedNode is the node an error for why is reported at: the operation, or the value that a return converts.
@@ -825,19 +825,19 @@ function rangeUnaryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e a
 	let operand = ast.unaryExprE(ms.tree, id: e)
 	let v = rangeEval(r, p: p, ms: ms, e: operand)
 	let t = typeOf(r, e: e)
-	if not ast.isIntType(ms.types, t: t) 'notInt'
+	if not ast.isIntType(ms.types, reads: p.types, t: t) 'notInt'
 		return noSpan()
 	end 'notInt'
 	let op = ast.unaryExprOp(ms.tree, id: e)
 	// A negation is computed in a signed word whatever type the context gives its result, and a complement in its
 	// operand's word.
-	let unsigned = op == "not" and ast.isUnsignedInt(ms.types, t: typeOf(r, e: operand))
+	let unsigned = op == "not" and ast.isUnsignedInt(ms.types, reads: p.types, t: typeOf(r, e: operand))
 	var word = signedWord()
 	if unsigned 'unsigned'
 		word = unsignedWord()
 	end 'unsigned'
 	var exact = Span.make(v.hi.neg(), hi: v.lo.neg())
-	if op == "-" and ast.isWordPattern(ms.types, t: t) 'wrappingNegation'
+	if op == "-" and ast.isWordPattern(ms.types, reads: p.types, t: t) 'wrappingNegation'
 		// The negation of a bit pattern wraps modulo 2^64, so it is a pattern too.
 		word = unsignedWord()
 		exact = unsignedWord()
@@ -864,11 +864,11 @@ function rangeCastExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 			rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.castErrorTy, why: Unchecked.recovered(src, ty: ty))
 		end 'live'
 		if typeHasKind(p, ms: ms, t: ty, kind: ast.TypeKind.intRange) 'integer'
-			return typeSpan(ms.types, t: ty)
+			return typeSpan(ms.types, reads: p.types, t: ty)
 		end 'integer'
 		return noSpan()
 	end 'recovered'
-	if ast.castRebrands(ms.types, target: ty) 'rebrand'
+	if ast.castRebrands(ms.types, reads: p.types, target: ty) 'rebrand'
 		return noSpan()
 	end 'rebrand'
 	return rangeConverted(r, p: p, ms: ms, e: e, v: v, src: typeOf(r, e: operand), ty: ty, why: Unchecked.cast(ty))
@@ -879,11 +879,11 @@ end 'rangeCastExpr'
 // a conversion between them changes the value and never fails; any other conversion keeps the value.
 function reinterpreted(p ast.Project, ms ast.ModuleState, v Span, src ast.TypeID, ty ast.TypeID) returns Span
 	let word = unsignedWord()
-	if ast.isWordPattern(ms.types, t: ty) and v.lo.isNeg() 'toPattern'
+	if ast.isWordPattern(ms.types, reads: p.types, t: ty) and v.lo.isNeg() 'toPattern'
 		return word
 	end 'toPattern'
-	let target = typeSpan(ms.types, t: ty)
-	if ast.isWordPattern(ms.types, t: src) and signedWord().within(target) and v.hi.gt(ast.I128.i64Max()) 'toSigned'
+	let target = typeSpan(ms.types, reads: p.types, t: ty)
+	if ast.isWordPattern(ms.types, reads: p.types, t: src) and signedWord().within(target) and v.hi.gt(ast.I128.i64Max()) 'toSigned'
 		if v.lo.gt(ast.I128.i64Max()) 'wholly'
 			let wrap = ast.I128.u64Max().add(ast.I128.one())
 			return Span.make(v.lo.sub(wrap), hi: v.hi.sub(wrap))
@@ -895,17 +895,17 @@ end 'reinterpreted'
 
 // rangeConverted is the conversion of the value of the span v to ty, at the node e that records how it can fail.
 function rangeConverted(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, v Span, src ast.TypeID, ty ast.TypeID, why Unchecked) returns Span
-	if ast.isFloatType(ms.types, t: ty) 'float'
+	if ast.isFloatType(ms.types, reads: p.types, t: ty) 'float'
 		rangeFail(r, p: p, ms: ms, e: e, fails: floatConversionFails(p, ms: ms, src: src, dst: ty), why: why)
 		return noSpan()
 	end 'float'
-	let t = typeSpan(ms.types, t: ty)
+	let t = typeSpan(ms.types, reads: p.types, t: ty)
 	let seen = reinterpreted(p, ms: ms, v: v, src: src, ty: ty)
 	var fails = ast.failNone
-	if seen.lo.lt(t.lo) and not ast.isWordPattern(ms.types, t: ty) 'below'
+	if seen.lo.lt(t.lo) and not ast.isWordPattern(ms.types, reads: p.types, t: ty) 'below'
 		fails = fails or ast.failBelow
 	end 'below'
-	if seen.hi.gt(t.hi) and not ast.isWordPattern(ms.types, t: ty) 'above'
+	if seen.hi.gt(t.hi) and not ast.isWordPattern(ms.types, reads: p.types, t: ty) 'above'
 		fails = fails or ast.failAbove
 	end 'above'
 	rangeFail(r, p: p, ms: ms, e: e, fails: fails, why: why)

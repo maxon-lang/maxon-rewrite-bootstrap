@@ -221,8 +221,8 @@ function voidCalleeText(c Checker, p ast.Project, ms ast.ModuleState, call ast.N
 		return calleeText(ms.tree, call: call)
 	end 'plain'
 	let name = ast.memberExprName(ms.tree, id: callee)
-	let holder = ast.contentType(ms.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(ms.tree, id: callee)))
-	if holder != ast.noType and ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: holder))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: holder))].hasDecl and ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: holder))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: holder))].decl.module != diag.stdlibID 'declared'
+	let holder = ast.contentType(ms.types, reads: p.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(ms.tree, id: callee)))
+	if holder != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: holder)).hasDecl and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: holder)).decl.module != diag.stdlibID 'declared'
 		return "{declaredNameOfType(p, ms: ms, t: holder)}.{name}"
 	end 'declared'
 	return name
@@ -303,7 +303,7 @@ function checkFor(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	if upperTy == ast.noType 'badUpper'
 		return
 	end 'badUpper'
-	if not ast.isIntType(ms.types, t: lowerTy) or not ast.isIntType(ms.types, t: upperTy) 'notInts'
+	if not ast.isIntType(ms.types, reads: p.types, t: lowerTy) or not ast.isIntType(ms.types, reads: p.types, t: upperTy) 'notInts'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: "a range needs integer bounds, found {nameOfType(p, ms: ms, t: lowerTy)} and {nameOfType(p, ms: ms, t: upperTy)}", errs: errs)
 		return
 	end 'notInts'
@@ -357,7 +357,7 @@ function checkMapEntries(mutates c Checker, p ast.Project, mutates ms ast.Module
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` needs a name for the key and one for the value, `for (key, value) in map`, with `_` for the one the body does not use: the map holds no pair of the two to bind to a single variable", errs: errs)
 		return
 	end 'notPair'
-	let args = ast.typeArgsOf(ms.types, t: t)
+	let args = ast.typeArgsOf(ms.types, reads: p.types, t: t)
 	enterForBody(c, p: p, ms: ms, s: s)
 	for i in 0 upto 2 'names'
 		let at = ms.tree.listAt(namesRef, index: i) as ast.NodeID
@@ -370,7 +370,7 @@ function checkMapEntries(mutates c Checker, p ast.Project, mutates ms ast.Module
 			leaveForBody(c)
 			return
 		end 'failed'
-		c.typing.locals[local as Count].projected = ast.isManagedType(ms.types, t: args[i])
+		c.typing.locals[local as Count].projected = ast.isManagedType(ms.types, reads: p.types, t: args[i])
 		c.typing.nodeLocals.insert(at as Count, value: local)
 	end 'names'
 	checkStmts(c, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree, id: s), errs: errs)
@@ -394,13 +394,13 @@ function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	if typed == ast.noType 'badSource'
 		return
 	end 'badSource'
-	let t = ast.contentType(ms.types, t: typed)
+	let t = ast.contentType(ms.types, reads: p.types, t: typed)
 	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: source), t: t, use: "a 'for' over its elements", errs: errs) 'cown'
 		return
 	end 'cown'
 	if kindOfType(p, ms: ms, t: t) == ast.TypeKind.builtinArray 'array'
 		let elem = typeElemType(p, ms: ms, ownerTy: t)
-		checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: ast.isManagedType(ms.types, t: elem), errs: errs)
+		checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: ast.isManagedType(ms.types, reads: p.types, t: elem), errs: errs)
 		return
 	end 'array'
 	if kindOfType(p, ms: ms, t: t) == ast.TypeKind.builtinMap 'map'
@@ -426,13 +426,13 @@ function checkIteration(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 			failNotIterable(c, p: p, ms: ms, s: s, t: typed, errs: errs)
 			return ast.noType
 		end 'none'
-		let thrown = ms.funcs.slots[ast.funcSlot(factory)][ast.funcIndex(factory)].errTy
+		let thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: factory).errTy
 		if thrown != ast.noType and thrown != p.builtins.iterationErrorTy 'otherError'
 			failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}`, whose `{createIteratorMethod}()` throws `{nameOfType(p, ms: ms, t: thrown)}` — the loop absorbs what the traversal protocol throws without binding it, which is sound only for the payload-free `IterationError`; a factory throwing anything else must be called with an explicit `try` and its result iterated", errs: errs)
 			return ast.noType
 		end 'otherError'
 		let made = methodResult(p, ms: ms, recv: t, method: factory)
-		cursor = ast.contentType(ms.types, t: made)
+		cursor = ast.contentType(ms.types, reads: p.types, t: made)
 		if not declaresCursor(p, ms: ms, t: cursor) 'notCursor'
 			failNotIterable(c, p: p, ms: ms, s: s, t: cursor, errs: errs)
 			return ast.noType
@@ -472,23 +472,23 @@ end 'failNotIterable'
 function declaresCursor(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 	let current = zeroArgumentMethod(p, ms: ms, t: t, name: currentMethod)
 	let advance = zeroArgumentMethod(p, ms: ms, t: t, name: advanceMethod)
-	return current != ast.noFunc and advance != ast.noFunc and ms.funcs.slots[ast.funcSlot(current)][ast.funcIndex(current)].retTy != p.builtins.voidTy and ms.funcs.slots[ast.funcSlot(current)][ast.funcIndex(current)].errTy == ast.noType and ms.funcs.slots[ast.funcSlot(advance)][ast.funcIndex(advance)].errTy == p.builtins.iterationErrorTy
+	return current != ast.noFunc and advance != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: current).retTy != p.builtins.voidTy and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: current).errTy == ast.noType and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: advance).errTy == p.builtins.iterationErrorTy
 end 'declaresCursor'
 
 // zeroArgumentMethod is the method of that name a value of type t has that takes no arguments, or none.
 function zeroArgumentMethod(p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns ast.FuncID
-	if not typeIsNominal(ms.types, t: t) 'notNominal'
+	if not typeIsNominal(ms.types, reads: p.types, t: t) 'notNominal'
 		return ast.noFunc
 	end 'notNominal'
 	let method = methodNamed(p, ms: ms, t: t, name: name)
-	if method == ast.noFunc or ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic or ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].params.count() != 0 'unfit'
+	if method == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).isStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).params.count() != 0 'unfit'
 		return ast.noFunc
 	end 'unfit'
 	return method
 end 'zeroArgumentMethod'
 
 function isGeneric(p ast.Project, ms ast.ModuleState, f ast.FuncID) returns bool
-	return ms.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].generics.count() > 0
+	return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).generics.count() > 0
 end 'isGeneric'
 
 // methodCall is a call of a method that takes no arguments on a value of type recv, as a call written in the source
@@ -496,28 +496,28 @@ end 'isGeneric'
 function methodCall(p ast.Project, ms ast.ModuleState, recv ast.TypeID, method ast.FuncID) returns ast.CallInfo
 	var info = ast.CallInfo.make(ast.CallKind.callMethod, fn: method, receiverTy: ast.noType)
 	if isGeneric(p, ms: ms, f: method) 'generic'
-		info.typeArgs = ms.types.lists[ast.typeList(ms.types, t: recv)][ast.typeIndex(ms.types, t: recv)].typeArgs.clone()
+		info.typeArgs = ast.typeEntry(ms.types, reads: p.types, t: recv).typeArgs.clone()
 	end 'generic'
-	info.selfConv = ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].selfConv
+	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).selfConv
 	return info
 end 'methodCall'
 
 // methodResult is the type that a method of the type recv returns, with the type's arguments for its parameters.
 function methodResult(p ast.Project, mutates ms ast.ModuleState, recv ast.TypeID, method ast.FuncID) returns ast.TypeID
-	let result = ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].retTy
+	let result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).retTy
 	if not isGeneric(p, ms: ms, f: method) 'plain'
 		return result
 	end 'plain'
-	let generics = ast.cloneTypeArgs(ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].generics)
-	let args = ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: recv)][ast.typeIndex(ms.types, t: recv)].typeArgs)
-	return ast.substituteType(ms.types, t: result, params: generics, args: args)
+	let generics = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).generics)
+	let args = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: recv).typeArgs)
+	return ast.substituteType(ms.types, reads: p.types, t: result, params: generics, args: args)
 end 'methodResult'
 
 // forVariableType is the type of the variable of a for: the alias of a bound that has one, else the range from the first
 // value of the lower bound to the last of the upper.
 function forVariableType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, lowerTy ast.TypeID, upperTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, ms: ms, node: s)
-	if typeIsNamedInt(ms.types, t: lowerTy) or typeIsNamedInt(ms.types, t: upperTy) 'named'
+	if typeIsNamedInt(ms.types, reads: p.types, t: lowerTy) or typeIsNamedInt(ms.types, reads: p.types, t: upperTy) 'named'
 		return unifyInts(c, p: p, ms: ms, off: off, clash: Clash.other, l: lowerTy, r: upperTy, errs: errs)
 	end 'named'
 	let lowerOff = offsetOf(c, p: p, ms: ms, node: ast.forStmtFrom(ms.tree, id: s))
@@ -528,12 +528,12 @@ function forVariableType(mutates c Checker, p ast.Project, mutates ms ast.Module
 	if not requireSigned64(c, off: upperOff, t: upperTy, p: p, ms: ms, errs: errs) 'wideUpper'
 		return ast.noType
 	end 'wideUpper'
-	let lo = rangeLo(ms.types, t: lowerTy)
-	var hi = rangeHi(ms.types, t: upperTy)
+	let lo = rangeLo(ms.types, reads: p.types, t: lowerTy)
+	var hi = rangeHi(ms.types, reads: p.types, t: upperTy)
 	if not ast.forStmtInclusive(ms.tree, id: s) 'exclusive'
 		hi = hi.sub(ast.I128.one())
 	end 'exclusive'
-	return ast.internIntRange(ms.types, aliasName: "", minVal: lo.clone(), maxVal: ast.maxI128(lo, b: hi), inferred: true)
+	return ast.internIntRange(ms.types, reads: p.types, aliasName: "", minVal: lo.clone(), maxVal: ast.maxI128(lo, b: hi), inferred: true)
 end 'forVariableType'
 
 // heapAnnotationWord is the one annotation of a binding.
@@ -619,7 +619,7 @@ function checkLet(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'noValue'
-	if isVar and (isConstInt(p, ms: ms, t: t) or typeIsAnonInt(ms.types, t: t) or holdsBareNumbers(p, ms: ms, t: t)) 'bareNumber'
+	if isVar and (isConstInt(p, ms: ms, t: t) or typeIsAnonInt(ms.types, reads: p.types, t: t) or holdsBareNumbers(p, ms: ms, t: t)) 'bareNumber'
 		failAt(c, p: p, ms: ms, node: initNode, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
@@ -664,7 +664,7 @@ function checkAssign(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 			failAt(c, p: p, ms: ms, node: s, code: diag.errAssignToImmutable, msg: "'{memberName}' cannot be assigned", errs: errs)
 			return
 		end 'notField'
-		let holder = ast.contentType(ms.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(ms.tree, id: targetNode)))
+		let holder = ast.contentType(ms.types, reads: p.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(ms.tree, id: targetNode)))
 		wrong = Mismatch.assignment("field '{memberName}' of '{declaredNameOfType(p, ms: ms, t: holder)}'", bare: "field '{memberName}'")
 	end 'member' else if k == ast.NodeKind.indexExpr 'index'
 		target = checkIndex(c, p: p, ms: ms, e: targetNode, errs: errs)
@@ -707,8 +707,8 @@ function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
 end 'memberKindOf'
 
 function checkReturn(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let ret = ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].retTy
-	let fnName = ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].name.clone()
+	let ret = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).retTy
+	let fnName = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).name.clone()
 	let value = ast.returnStmtValue(ms.tree, id: s)
 	if ret == p.builtins.voidTy 'void'
 		if value != 0 and c.inClosure 'closure'
@@ -763,7 +763,7 @@ function checkThrow(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if e == ast.noType 'badValue'
 		return
 	end 'badValue'
-	if not ast.isErrorType(ms.types, t: e) 'notError'
+	if not ast.isErrorType(ms.types, reads: p.types, t: e) 'notError'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: diag.thrownValueNotAnErrorEnum(), errs: errs)
 		return
 	end 'notError'

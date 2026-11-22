@@ -89,7 +89,7 @@ end 'entryRoleOf'
 function withoutTests(p ast.Project, consumes functions ast.FuncIDList) returns ast.FuncIDList
 	var kept = ast.FuncIDList.create(0)
 	for i in 0 upto functions.count() 'each'
-		if not p.funcs.slots[ast.funcSlot(functions[i])][ast.funcIndex(functions[i])].isTest 'program'
+		if not ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: functions[i]).isTest 'program'
 			kept.push(functions[i])
 		end 'program'
 	end 'each'

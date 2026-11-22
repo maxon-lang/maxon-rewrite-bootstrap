@@ -68,14 +68,14 @@ end 'lookupLocal'
 
 // selfRecord is the record that the method being checked belongs to, or none outside a method.
 function selfRecord(c Checker, p ast.Project, ms ast.ModuleState) returns ast.TypeID
-	if c.fn == ast.noFunc or not ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].hasReceiver 'none'
+	if c.fn == ast.noFunc or not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).hasReceiver 'none'
 		return ast.noType
 	end 'none'
 	return nominalRecordOrNone(p, ms: ms, t: c.owner)
 end 'selfRecord'
 
 function nominalRecordOrNone(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
-	if t != ast.noType and ast.typeKind(ms.types, t: t) == ast.TypeKind.record 'record'
+	if t != ast.noType and ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.record 'record'
 		return t
 	end 'record'
 	return ast.noType
@@ -85,8 +85,8 @@ end 'nominalRecordOrNone'
 function bindLocal(mutates c Checker, p ast.Project, ms ast.ModuleState, consumes entry ast.LocalEntry, off diag.U32, mutates errs diag.ErrorList) returns ast.LocalID
 	let name = entry.name.clone()
 	let rt = selfRecord(c, p: p, ms: ms)
-	if rt != ast.noType and ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: rt))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: rt))].findField(name).isSome() 'shadows'
-		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.localShadowsSelfField(name, typeName: ms.types.lists[ast.typeList(ms.types, t: rt)][ast.typeIndex(ms.types, t: rt)].name), errs: errs)
+	if rt != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt)).findField(name).isSome() 'shadows'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.localShadowsSelfField(name, typeName: ast.typeEntry(ms.types, reads: p.types, t: rt).name), errs: errs)
 		return ast.noLocal
 	end 'shadows'
 	let top = try c.scopes.count() - 1 otherwise panic("a local is declared outside every scope")
@@ -114,7 +114,7 @@ end 'declareLocal'
 
 // requireNotCown refuses the use of a cown's value outside a behaviour that holds it. use says what is done with it.
 function requireNotCown(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, t ast.TypeID, use String, mutates errs diag.ErrorList) returns bool
-	if t != ast.noType and ast.typeKind(ms.types, t: t) == ast.TypeKind.builtinCown 'cown'
+	if t != ast.noType and ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.builtinCown 'cown'
 		checkFail(c.modID, off: off, code: diag.errCownAccess, msg: "{use} needs the value of a {nameOfType(p, ms: ms, t: t)}, which is touched only inside a behaviour that holds the cown: write 'when <name> as x' and use x", errs: errs)
 		return false
 	end 'cown'
@@ -122,7 +122,7 @@ function requireNotCown(c Checker, p ast.Project, ms ast.ModuleState, off diag.U
 end 'requireNotCown'
 
 function isFrozenType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	return t != ast.noType and ast.typeKind(ms.types, t: t) == ast.TypeKind.builtinFrozen
+	return t != ast.noType and ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.builtinFrozen
 end 'isFrozenType'
 
 // checkMatch types a match and gives the type of its value, which is void for a statement and never where no arm gives
@@ -134,7 +134,7 @@ function checkMatch(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return ast.noType
 	end 'badSubject'
 	markMatchedBinding(c, p: p, ms: ms, subject: subject)
-	let st = ast.contentType(ms.types, t: subjectTy)
+	let st = ast.contentType(ms.types, reads: p.types, t: subjectTy)
 	if not checkSubject(c, p: p, ms: ms, core: core, subject: subject, subjectTy: subjectTy, st: st, errs: errs) 'unfit'
 		return ast.noType
 	end 'unfit'
@@ -223,7 +223,7 @@ function checkSubject(mutates c Checker, p ast.Project, ms ast.ModuleState, core
 		return false
 	end 'wide'
 	let k = kindOfType(p, ms: ms, t: st)
-	if ast.isIntType(ms.types, t: st) or st == p.builtins.stringTy or st == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'matchable'
+	if ast.isIntType(ms.types, reads: p.types, t: st) or st == p.builtins.stringTy or st == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'matchable'
 		return true
 	end 'matchable'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot match on a value of {nameOfType(p, ms: ms, t: st)}", errs: errs)
@@ -343,18 +343,18 @@ function checkExhaustive(c Checker, p ast.Project, ms ast.ModuleState, core ast.
 	end 'covered'
 	let off = matchEndOffset(c, p: p, ms: ms, core: core)
 	if hasCases(p, ms: ms, t: st) 'cases'
-		let orig = ast.originOf(ms.types, t: st)
-		if state.seen.count() < ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases.count() 'missing'
+		let orig = ast.originOf(ms.types, reads: p.types, t: st)
+		if state.seen.count() < ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() 'missing'
 			var word = unionWord
 			if kindOfType(p, ms: ms, t: st) == ast.TypeKind.enumTy 'enumWord'
 				word = enumWord
 			end 'enumWord'
-			checkFail(c.modID, off: off, code: diag.errMatchNotExhaustive, msg: diag.enumMatchNotExhaustive(word, typeName: ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].name, missing: missingCases(p, ms: ms, orig: orig, state: state)), errs: errs)
+			checkFail(c.modID, off: off, code: diag.errMatchNotExhaustive, msg: diag.enumMatchNotExhaustive(word, typeName: ast.typeEntry(ms.types, reads: p.types, t: orig).name, missing: missingCases(p, ms: ms, orig: orig, state: state)), errs: errs)
 		end 'missing'
 		return
 	end 'cases'
 	let leavesBoolOut = st == p.builtins.boolTy and not (state.sawTrue and state.sawFalse)
-	if leavesBoolOut or ast.isIntType(ms.types, t: st) or st == p.builtins.stringTy 'values'
+	if leavesBoolOut or ast.isIntType(ms.types, reads: p.types, t: st) or st == p.builtins.stringTy 'values'
 		var subject = "match"
 		if isExpr 'expr'
 			subject = "match expression"
@@ -367,12 +367,12 @@ end 'checkExhaustive'
 function missingCases(p ast.Project, ms ast.ModuleState, orig ast.TypeID, state MatchState) returns String
 	var buf = ByteArray.create(0)
 	var first = true
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases.count() 'each'
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() 'each'
 		if not state.seen.has(i) 'unmatched'
 			if not first 'sep'
 				buf.append(", ".toByteArray())
 			end 'sep'
-			buf.append(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[i].name.toByteArray())
+			buf.append(ast.typeEntry(ms.types, reads: p.types, t: orig).cases[i].name.toByteArray())
 			first = false
 		end 'unmatched'
 	end 'each'
@@ -415,9 +415,9 @@ function checkCasePattern(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	if isEnum 'enumWord'
 		word = enumWord
 	end 'enumWord'
-	let orig = ast.originOf(ms.types, t: st)
+	let orig = ast.originOf(ms.types, reads: p.types, t: st)
 	var caseIdx = 0 as Count
-	let found = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].findCase(caseName)
+	let found = ast.typeEntry(ms.types, reads: p.types, t: orig).findCase(caseName)
 	if not found.isSome() 'unknown'
 		reportUnknownCase(c, off: off, word: word, caseName: caseName, errs: errs)
 		return
@@ -451,10 +451,10 @@ function bindCase(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	let caseName = ast.patternCaseName(ms.tree, id: pattern)
 	let bindingsRef = ast.patternBindingsRef(ms.tree, id: pattern)
 	let bindingCount = ms.tree.listLen(bindingsRef)
-	let orig = ast.originOf(ms.types, t: st)
+	let orig = ast.originOf(ms.types, reads: p.types, t: st)
 	var payloadCount = 0 as Count
 	if kindOfType(p, ms: ms, t: st) == ast.TypeKind.unionTy 'union'
-		payloadCount = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[caseIdx].payload.count()
+		payloadCount = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[caseIdx].payload.count()
 	end 'union'
 	if bindingCount != payloadCount 'count'
 		checkFail(c.modID, off: off, code: diag.errEnumWrongBindingCount, msg: diag.enumWrongBindingCount(caseName, expected: "{payloadCount}", got: "{bindingCount}"), errs: errs)
@@ -470,12 +470,12 @@ function bindCase(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 			locals.push(ast.noLocal)
 			continue 'payload'
 		end 'ignored'
-		let payloadTy = ast.payloadType(ms.types, owner: st, caseIndex: caseIdx, index: i)
+		let payloadTy = ast.payloadType(ms.types, reads: p.types, owner: st, caseIndex: caseIdx, index: i)
 		let id = declareLocal(c, p: p, ms: ms, name: bindingName, t: payloadTy, isVar: false, definedAt: 0 as ast.NodeID, off: off, errs: errs)
 		if id == ast.noLocal 'failed'
 			return false
 		end 'failed'
-		c.typing.locals[id as Count].projected = ast.isManagedType(ms.types, t: payloadTy) and not owned
+		c.typing.locals[id as Count].projected = ast.isManagedType(ms.types, reads: p.types, t: payloadTy) and not owned
 		locals.push(id)
 	end 'payload'
 	return true
@@ -496,7 +496,7 @@ function checkLiteralPattern(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	if valueKind == ast.NodeKind.strLit and st == p.builtins.stringTy and ms.tree.strIsPlain(ast.strLitPartsRef(ms.tree, id: value)) 'string'
 		return
 	end 'string'
-	if isConstInt(p, ms: ms, t: t) and ast.isIntType(ms.types, t: st) 'integer'
+	if isConstInt(p, ms: ms, t: t) and ast.isIntType(ms.types, reads: p.types, t: st) 'integer'
 		var expected = st
 		if isConstInt(p, ms: ms, t: st) 'constSubject'
 			expected = p.builtins.anon64Ty
@@ -538,15 +538,15 @@ function checkRangePattern(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	if hi == ast.noType 'badHigh'
 		return
 	end 'badHigh'
-	if not ast.isIntType(ms.types, t: st) or not isConstInt(p, ms: ms, t: lo) or not isConstInt(p, ms: ms, t: hi) 'notInts'
+	if not ast.isIntType(ms.types, reads: p.types, t: st) or not isConstInt(p, ms: ms, t: lo) or not isConstInt(p, ms: ms, t: hi) 'notInts'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a range pattern needs integer bounds and an integer subject", errs: errs)
 		return
 	end 'notInts'
-	var top = ms.types.lists[ast.typeList(ms.types, t: hi)][ast.typeIndex(ms.types, t: hi)].minVal.clone()
+	var top = ast.typeEntry(ms.types, reads: p.types, t: hi).minVal.clone()
 	if not ast.patternInclusive(ms.tree, id: pattern) 'exclusive'
 		top = top.sub(ast.I128.one())
 	end 'exclusive'
-	if ms.types.lists[ast.typeList(ms.types, t: lo)][ast.typeIndex(ms.types, t: lo)].minVal.gt(top) 'empty'
+	if ast.typeEntry(ms.types, reads: p.types, t: lo).minVal.gt(top) 'empty'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the range pattern is empty", errs: errs)
 	end 'empty'
 end 'checkRangePattern'

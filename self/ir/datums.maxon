@@ -79,7 +79,7 @@ end 'constantSymbol'
 // rawSymbol is the name of the datum of the raw value of a case of an enum or a union: "raw ", the type's link name and
 // the case.
 function rawSymbol(p ast.Project, ms ast.ModuleState, origin ast.TypeID, index Count) returns String
-	return "raw {ast.typeLinkNameIn(p, tt: ms.types, t: origin)}.{ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[index].name}"
+	return "raw {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: origin)}.{ast.typeEntry(ms.types, reads: p.types, t: origin).cases[index].name}"
 end 'rawSymbol'
 
 // constantDatum is the datum of the constant a name stands for, or none when the constant is read as it is lowered: its
@@ -91,13 +91,13 @@ end 'constantDatum'
 // rawDatums are the datums of the raw values of the cases of an enum or a union, in the order of the cases, or none when
 // a case's raw value is not one: then every case's is built where it is read, so a read has one owner whichever case it is.
 function rawDatums(p ast.Project, ms ast.ModuleState, origin ast.TypeID) returns table.Option with DatumList
-	if ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].rawKind != ast.RawKind.value 'notBuilt'
+	if ast.typeEntry(ms.types, reads: p.types, t: origin).rawKind != ast.RawKind.value 'notBuilt'
 		return table.Option.none
 	end 'notBuilt'
-	let module = ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].decl.module
+	let module = ast.typeEntry(ms.types, reads: p.types, t: origin).decl.module
 	var out = DatumList.create(0)
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases.count() 'each'
-		let e = ExprRef.make(module, node: ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[i].rawExpr)
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count() 'each'
+		let e = ExprRef.make(module, node: ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].rawExpr)
 		if not pushFound(out, found: datumOf(p, ms: ms, symbol: rawSymbol(p, ms: ms, origin: origin, index: i), e: e)) 'unknown'
 			return table.Option.none
 		end 'unknown'
@@ -142,14 +142,14 @@ function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 		return false
 	end 'boxed'
 	let ty = exprType(p, module: module, node: e)
-	let tk = ast.typeKind(ms.types, t: ty)
+	let tk = ast.typeKind(ms.types, reads: p.types, t: ty)
 	let k = p.modules[mi].tree.kindOf(e)
 	if tk == ast.TypeKind.constInt and not isBranching(k) 'constInt'
-		w = DatumWord.make(DatumPart.scalar, value: wordOf(ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].minVal))
+		w = DatumWord.make(DatumPart.scalar, value: wordOf(ast.typeEntry(ms.types, reads: p.types, t: ty).minVal))
 		return true
 	end 'constInt'
 	if tk == ast.TypeKind.constFloat and not isBranching(k) 'constFloat'
-		w = DatumWord.make(DatumPart.scalar, value: floatWord(ast.floatLowBits(ms.types, t: ty)))
+		w = DatumWord.make(DatumPart.scalar, value: floatWord(ast.floatLowBits(ms.types, reads: p.types, t: ty)))
 		return true
 	end 'constFloat'
 	if k == ast.NodeKind.intLit 'intLit'
@@ -198,13 +198,13 @@ function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 	end 'callExpr'
 	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'structLitExpr'
 		let lit = structLitInfoAt(p, module: module, node: e)
-		let origin = ms.types.lists[ast.typeList(ms.types, t: lit.ty)][ast.typeIndex(ms.types, t: lit.ty)].effectiveOrigin()
+		let origin = ast.typeEntry(ms.types, reads: p.types, t: lit.ty).effectiveOrigin()
 		var values = ExprRefList.create(0)
 		for i in 0 upto lit.ordered.count() 'each'
 			if lit.ordered[i] != 0 'given'
 				values.push(ExprRef.make(module, node: lit.ordered[i]))
 			end 'given' else 'default'
-				values.push(ExprRef.make(ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].decl.module, node: ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].fields[i].defaultExpr))
+				values.push(ExprRef.make(ast.typeEntry(ms.types, reads: p.types, t: origin).decl.module, node: ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].defaultExpr))
 			end 'default'
 		end 'each'
 		return datumRecord(b, p: p, ms: ms, tag: noTag, module: module, values: values, w: w)
@@ -247,18 +247,18 @@ function datumCast(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 	let mi = ast.modIndex(module)
 	let inner = ast.castExprE(p.modules[mi].tree, id: e)
 	let target = exprType(p, module: module, node: e)
-	if ast.typeKind(ms.types, t: target) == ast.TypeKind.interfaceTy 'boxes'
+	if ast.typeKind(ms.types, reads: p.types, t: target) == ast.TypeKind.interfaceTy 'boxes'
 		return false
 	end 'boxes'
-	if ast.castRebrands(ms.types, target: target) 'rebrand'
+	if ast.castRebrands(ms.types, reads: p.types, target: target) 'rebrand'
 		return datumWord(b, p: p, ms: ms, module: module, e: inner, w: w)
 	end 'rebrand'
 	let source = exprType(p, module: module, node: inner)
-	if ast.typeKind(ms.types, t: source) != ast.TypeKind.constInt or ast.typeKind(ms.types, t: target) != ast.TypeKind.intRange 'notInteger'
+	if ast.typeKind(ms.types, reads: p.types, t: source) != ast.TypeKind.constInt or ast.typeKind(ms.types, reads: p.types, t: target) != ast.TypeKind.intRange 'notInteger'
 		return false
 	end 'notInteger'
-	let v = ms.types.lists[ast.typeList(ms.types, t: source)][ast.typeIndex(ms.types, t: source)].minVal.clone()
-	if not ms.types.lists[ast.typeList(ms.types, t: target)][ast.typeIndex(ms.types, t: target)].minVal.le(v) or not ms.types.lists[ast.typeList(ms.types, t: target)][ast.typeIndex(ms.types, t: target)].maxVal.ge(v) 'outside'
+	let v = ast.typeEntry(ms.types, reads: p.types, t: source).minVal.clone()
+	if not ast.typeEntry(ms.types, reads: p.types, t: target).minVal.le(v) or not ast.typeEntry(ms.types, reads: p.types, t: target).maxVal.ge(v) 'outside'
 		return false
 	end 'outside'
 	w = DatumWord.make(DatumPart.scalar, value: wordOf(v))
@@ -287,9 +287,9 @@ function datumCall(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 		return false
 	end 'notFactory'
 	let fn = info.fn
-	let fm = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module
+	let fm = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).module
 	let fmi = ast.modIndex(fm)
-	let body = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].bodyRef
+	let body = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).bodyRef
 	if p.modules[fmi].tree.listLen(body) != 1 'statements'
 		return false
 	end 'statements'
@@ -308,7 +308,7 @@ function datumCall(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 		if arg == 0 'defaulted'
 			return false
 		end 'defaulted'
-		if ast.isFloatType(ms.types, t: info.paramSpecs[i].ty) and ast.isIntType(ms.types, t: exprType(p, module: module, node: arg)) 'converted'
+		if ast.isFloatType(ms.types, reads: p.types, t: info.paramSpecs[i].ty) and ast.isIntType(ms.types, reads: p.types, t: exprType(p, module: module, node: arg)) 'converted'
 			return false
 		end 'converted'
 		var a = DatumWord.make(DatumPart.scalar, value: 0 as Word)
@@ -357,12 +357,12 @@ end 'datumRecord'
 // a list are built where they are read.
 function datumArray(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, e ast.NodeID, ty ast.TypeID, mutates w DatumWord) returns bool
 	let mi = ast.modIndex(module)
-	let bt = ast.contentType(ms.types, t: ty)
-	if ast.typeKind(ms.types, t: bt) != ast.TypeKind.builtinArray 'notArray'
+	let bt = ast.contentType(ms.types, reads: p.types, t: ty)
+	if ast.typeKind(ms.types, reads: p.types, t: bt) != ast.TypeKind.builtinArray 'notArray'
 		return false
 	end 'notArray'
-	let elem = ast.typeArgAt(ms.types, t: bt, index: 0)
-	if ast.typeKind(ms.types, t: elem) == ast.TypeKind.typeParam 'generic'
+	let elem = ast.typeArgAt(ms.types, reads: p.types, t: bt, index: 0)
+	if ast.typeKind(ms.types, reads: p.types, t: elem) == ast.TypeKind.typeParam 'generic'
 		return false
 	end 'generic'
 	let packed = arrayPacked(p, ms: ms, box: ArrayBox.make(diag.Site.make(module, offset: p.modules[mi].tree.startOf(e)), ty: bt))

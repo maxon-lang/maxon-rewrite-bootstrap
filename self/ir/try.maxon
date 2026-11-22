@@ -27,7 +27,7 @@ end 'leaveTry'
 // names no error drops.
 export function failure(mutates l Lowerer, p ast.Project, ms ast.ModuleState, errorCase Count, err Reg, errDrop ast.TypeID) returns BlockID
 	if l.handlers.count() == 0 'unhandled'
-		panic("lower: an operation of {funcSymbol(p, tt: ms.types, ft: ms.funcs, fid: l.fn)} that can fail is outside every try; the range analysis should have refused it")
+		panic("lower: an operation of {funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: l.fn)} that can fail is outside every try; the range analysis should have refused it")
 	end 'unhandled'
 	let h = l.handlers[pred(l.handlers.count())].clone()
 	var error = err
@@ -97,7 +97,7 @@ function visitThrowStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	// The throw takes the value: a failure from here on hands it to the caller or to a handler, and drops nothing of it.
 	popPending(l, n: mark)
 	var err = value
-	if not ast.isUnionError(ms.types, t: thrown) 'case'
+	if not ast.isUnionError(ms.types, reads: p.types, t: thrown) 'case'
 		err = newReg(l, kind: IrKind.kindScalar)
 		let one = konst(l, value: 1 as Word)
 		emit(l, i: newBin(err, op: BinOp.binAdd, left: value, right: one, unsigned: false, fail: noBlock))
@@ -113,7 +113,7 @@ end 'visitThrowStmt'
 
 // errorDropType is the type that drops the error of the type t, which is noType for an enum: its errors are numbers.
 export function errorDropType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
-	if not ast.isUnionError(ms.types, t: t) 'enum'
+	if not ast.isUnionError(ms.types, reads: p.types, t: t) 'enum'
 		return ast.noType
 	end 'enum'
 	return dropType(l, p: p, ms: ms, t: t)

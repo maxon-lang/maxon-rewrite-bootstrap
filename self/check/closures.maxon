@@ -9,17 +9,17 @@ function functionValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errExpressionError, msg: diag.undefinedVariable(name), errs: errs)
 		return ast.noType
 	end 'notFunction'
-	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].generics.count() > 0 or ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].intrinsic != ast.Intrinsic.intrNone 'generic'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).generics.count() > 0 or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).intrinsic != ast.Intrinsic.intrNone 'generic'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupported, msg: "'{name}' is generic or built in, so it is not a value of one function type; pass a closure that calls it: 'function(x T) gives {name}(x)'", errs: errs)
 		return ast.noType
 	end 'generic'
-	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].result != ast.ResultConv.resultOwned 'borrowed'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).result != ast.ResultConv.resultOwned 'borrowed'
 		// A function type gives a value, and has no way to say which of its arguments a lent place is borrowed from.
 		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupported, msg: "'{name}' returns a borrowed place, so it is not a value of a function type yet; pass a closure that copies the place: 'function(x T) gives {name}(x).clone()'", errs: errs)
 		return ast.noType
 	end 'borrowed'
-	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].errTy != ast.noType 'throws'
-		failAt(c, p: p, ms: ms, node: e, code: diag.errFunctionValueThrows, msg: diag.throwingFunctionAsValue(name, errorType: nameOfType(p, ms: ms, t: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].errTy)), errs: errs)
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).errTy != ast.noType 'throws'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errFunctionValueThrows, msg: diag.throwingFunctionAsValue(name, errorType: nameOfType(p, ms: ms, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).errTy)), errs: errs)
 		return ast.noType
 	end 'throws'
 	if not requireVisible(c, p: p, ms: ms, node: e, target: fid, errs: errs) 'hidden'
@@ -32,12 +32,12 @@ end 'functionValue'
 // signatureType is the function type of a function's parameters and result.
 function signatureType(p ast.Project, mutates ms ast.ModuleState, fid ast.FuncID) returns ast.TypeID
 	var convs = ast.ConventionList.create(0)
-	for i in 0 upto ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
-		convs.push(ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].conv)
+	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params.count() 'params'
+		convs.push(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params[i].conv)
 	end 'params'
-	let params = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes.clone()
-	let result = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].retTy
-	return ast.internFuncType(ms.types, params: params, shape: ast.FuncShape.make(convs, mutatesCaptures: false), result: result)
+	let params = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).paramTypes.clone()
+	let result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).retTy
+	return ast.internFuncType(ms.types, reads: p.types, params: params, shape: ast.FuncShape.make(convs, mutatesCaptures: false), result: result)
 end 'signatureType'
 
 // funcFits is whether a value of the function type src may stand where the function type dst is needed: the same
@@ -45,7 +45,7 @@ end 'signatureType'
 // dst's, a result that fits dst's, no writes to what it captured unless dst allows them, and, as in maxon, not one brand
 // where another is needed.
 function funcFits(p ast.Project, ms ast.ModuleState, src ast.TypeID, dst ast.TypeID) returns bool
-	if ast.funcIsBrand(ms.types, t: src) and ast.funcIsBrand(ms.types, t: dst) and ast.originOf(ms.types, t: src) != ast.originOf(ms.types, t: dst) 'brands'
+	if ast.funcIsBrand(ms.types, reads: p.types, t: src) and ast.funcIsBrand(ms.types, reads: p.types, t: dst) and ast.originOf(ms.types, reads: p.types, t: src) != ast.originOf(ms.types, reads: p.types, t: dst) 'brands'
 		return false
 	end 'brands'
 	return shapeFits(p, ms: ms, src: src, dst: dst)
@@ -60,7 +60,7 @@ end 'sameShape'
 // only the brands differ, and by its shape where more does. Any other type is named as always.
 function clashName(p ast.Project, ms ast.ModuleState, t ast.TypeID, other ast.TypeID) returns String
 	if typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.funcTy) and typeHasKind(p, ms: ms, t: other, kind: ast.TypeKind.funcTy) and not sameShape(p, ms: ms, a: t, b: other) 'shapes'
-		return ast.funcShapeSpelling(ms.types, t: t)
+		return ast.funcShapeSpelling(ms.types, reads: p.types, t: t)
 	end 'shapes'
 	return gotName(p, ms: ms, t: t)
 end 'clashName'
@@ -68,7 +68,7 @@ end 'clashName'
 // joinFunctions is the type of a conditional or a match whose values are function values: the brand where one value
 // has it and the other fits it, and either one where they fit each other. Two brands do not join.
 function joinFunctions(p ast.Project, ms ast.ModuleState, a ast.TypeID, b ast.TypeID) returns ast.TypeID
-	if funcFits(p, ms: ms, src: b, dst: a) and (ast.funcIsBrand(ms.types, t: a) or not funcFits(p, ms: ms, src: a, dst: b)) 'first'
+	if funcFits(p, ms: ms, src: b, dst: a) and (ast.funcIsBrand(ms.types, reads: p.types, t: a) or not funcFits(p, ms: ms, src: a, dst: b)) 'first'
 		return a
 	end 'first'
 	if funcFits(p, ms: ms, src: a, dst: b) 'second'
@@ -79,30 +79,30 @@ end 'joinFunctions'
 
 // shapeFits is funcFits without the brands, which a cast changes and a return changes implicitly.
 function shapeFits(p ast.Project, ms ast.ModuleState, src ast.TypeID, dst ast.TypeID) returns bool
-	if ast.funcMutatesCaptures(ms.types, t: src) and not ast.funcMutatesCaptures(ms.types, t: dst) 'captures'
+	if ast.funcMutatesCaptures(ms.types, reads: p.types, t: src) and not ast.funcMutatesCaptures(ms.types, reads: p.types, t: dst) 'captures'
 		return false
 	end 'captures'
-	let n = ast.funcParamCount(ms.types, t: src)
-	if n != ast.funcParamCount(ms.types, t: dst) 'arity'
+	let n = ast.funcParamCount(ms.types, reads: p.types, t: src)
+	if n != ast.funcParamCount(ms.types, reads: p.types, t: dst) 'arity'
 		return false
 	end 'arity'
 	for i in 0 upto n 'params'
-		let conv = ast.funcParamConv(ms.types, t: src, index: i)
-		if conv != ast.funcParamConv(ms.types, t: dst, index: i) 'convention'
+		let conv = ast.funcParamConv(ms.types, reads: p.types, t: src, index: i)
+		if conv != ast.funcParamConv(ms.types, reads: p.types, t: dst, index: i) 'convention'
 			return false
 		end 'convention'
-		let have = ast.funcParamType(ms.types, t: src, index: i)
-		let need = ast.funcParamType(ms.types, t: dst, index: i)
+		let have = ast.funcParamType(ms.types, reads: p.types, t: src, index: i)
+		let need = ast.funcParamType(ms.types, reads: p.types, t: dst, index: i)
 		if ast.isByAddress(conv) 'exact'
-			if not sameType(ms.types, a: have, b: need) 'differs'
+			if not sameType(ms.types, reads: p.types, a: have, b: need) 'differs'
 				return false
 			end 'differs'
 		end 'exact' else if not assignable(p, ms: ms, src: need, dst: have) 'narrower'
 			return false
 		end 'narrower'
 	end 'params'
-	let result = ast.funcResult(ms.types, t: src)
-	let wanted = ast.funcResult(ms.types, t: dst)
+	let result = ast.funcResult(ms.types, reads: p.types, t: src)
+	let wanted = ast.funcResult(ms.types, reads: p.types, t: dst)
 	if wanted == p.builtins.voidTy or result == p.builtins.voidTy 'void'
 		return result == wanted
 	end 'void'
@@ -118,8 +118,8 @@ function checkClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	end 'expected'
 	let paramsRef = ast.closureExprParamsRef(ms.tree, id: e)
 	let n = ms.tree.listLen(paramsRef)
-	if shape != ast.noType and n != ast.funcParamCount(ms.types, t: shape) 'arity'
-		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: "the closure takes {n} parameter(s), and '{nameOfType(p, ms: ms, t: shape)}' takes {ast.funcParamCount(ms.types, t: shape)}; give it one for each", errs: errs)
+	if shape != ast.noType and n != ast.funcParamCount(ms.types, reads: p.types, t: shape) 'arity'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: "the closure takes {n} parameter(s), and '{nameOfType(p, ms: ms, t: shape)}' takes {ast.funcParamCount(ms.types, reads: p.types, t: shape)}; give it one for each", errs: errs)
 		return ast.noType
 	end 'arity'
 	var types = ast.TypeIDList.create(0)
@@ -135,7 +135,7 @@ function checkClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 				return ast.noType
 			end 'failed'
 		end 'typed' else if shape != ast.noType 'inferred'
-			t = ast.funcParamType(ms.types, t: shape, index: i)
+			t = ast.funcParamType(ms.types, reads: p.types, t: shape, index: i)
 		end 'inferred' else 'untyped'
 			let name = ast.closureParamName(ms.tree, id: param)
 			failAt(c, p: p, ms: ms, node: param, code: diag.errUnsupportedFeature, msg: "the closure parameter '{name}' has no type, which only a closure written where a function type is expected may leave out; write it: 'function({name} Count) gives ...'", errs: errs)
@@ -152,18 +152,18 @@ function checkClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 			return ast.noType
 		end 'failed'
 	end 'declared' else if shape != ast.noType 'expected'
-		result = ast.funcResult(ms.types, t: shape)
+		result = ast.funcResult(ms.types, reads: p.types, t: shape)
 	end 'expected'
-	let mutating = shape != ast.noType and ast.funcMutatesCaptures(ms.types, t: shape)
+	let mutating = shape != ast.noType and ast.funcMutatesCaptures(ms.types, reads: p.types, t: shape)
 	let fid = enterClosure(c, p: p, ms: ms, e: e, types: types, convs: convs, result: result, mutating: mutating, errs: errs)
 	if fid != ast.noFunc 'entered'
 		checkBlock(c, p: p, ms: ms, body: ast.closureExprBodyRef(ms.tree, id: e), errs: errs)
 	end 'entered'
 	let made = leaveClosure(c, p: p, e: e)
-	if fid == ast.noFunc or ms.funcs.slots[ast.funcSlot(made)][ast.funcIndex(made)].retTy == ast.noType 'failed'
+	if fid == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: made).retTy == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let t = ast.internFuncType(ms.types, params: types, shape: ast.FuncShape.make(convs, mutatesCaptures: mutating), result: ms.funcs.slots[ast.funcSlot(made)][ast.funcIndex(made)].retTy)
+	let t = ast.internFuncType(ms.types, reads: p.types, params: types, shape: ast.FuncShape.make(convs, mutatesCaptures: mutating), result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: made).retTy)
 	var info = ast.ClosureInfo.make(made, ty: t, captures: ast.CaptureList.create(0))
 	match consumes c.typing.closures.get(e as Count) 'captured'
 		some(found) then info.captures = found.captures
@@ -177,7 +177,7 @@ end 'checkClosure'
 // parameters. A mutating closure, one written for a type that mutates its captures, borrows the mutable variables it
 // captures to change them. It gives none when a parameter cannot be bound, after reporting why.
 function enterClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, types ast.TypeIDList, convs ast.ConventionList, result ast.TypeID, mutating bool, mutates errs diag.ErrorList) returns ast.FuncID
-	var entry = ast.FuncEntry.make(ast.closureName(funcSymbol(p, tt: ms.types, ft: ms.funcs, f: c.fn), index: c.whens), visibility: ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].visibility.clone(), module: c.modID, nodeID: e)
+	var entry = ast.FuncEntry.make(ast.closureName(funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: c.fn), index: c.whens), visibility: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).visibility.clone(), module: c.modID, nodeID: e)
 	entry.bodyRef = ast.closureExprBodyRef(ms.tree, id: e)
 	entry.retTy = result
 	entry.isClosure = true
@@ -190,8 +190,8 @@ function enterClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	for i in 0 upto types.count() 'params'
 		let param = ms.tree.listAt(paramsRef, index: i) as ast.NodeID
 		let name = ast.closureParamName(ms.tree, id: param)
-		ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
-		ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes.push(types[i])
+		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
+		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].paramTypes.push(types[i])
 		if name == "_" 'anonymous'
 			ast.pushParamLocal(ms, f: fid, l: ast.noLocal)
 			continue 'params'
@@ -233,7 +233,7 @@ function inferResult(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if isConstInt(p, ms: ms, t: t) 'bare'
 		result = p.builtins.anon64Ty
 	end 'bare'
-	ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].retTy = result
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: c.fn)].retTy = result
 	return result
 end 'inferResult'
 
@@ -247,10 +247,10 @@ function callValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		failAt(c, p: p, ms: ms, node: callee, code: diag.errUnknownFunction, msg: "a value of {nameOfType(p, ms: ms, t: t)} is not a function, so it cannot be called", errs: errs)
 		return ast.noType
 	end 'notFunction'
-	let n = ast.funcParamCount(ms.types, t: t)
+	let n = ast.funcParamCount(ms.types, reads: p.types, t: t)
 	var specs = ast.ParamSpecList.create(0)
 	for i in 0 upto n 'params'
-		specs.push(ast.ParamSpec.make("{i + 1}", ty: ast.funcParamType(ms.types, t: t, index: i), conv: ast.funcParamConv(ms.types, t: t, index: i)))
+		specs.push(ast.ParamSpec.make("{i + 1}", ty: ast.funcParamType(ms.types, reads: p.types, t: t, index: i), conv: ast.funcParamConv(ms.types, reads: p.types, t: t, index: i)))
 	end 'params'
 	let argsRef = ast.callExprArgsRef(ms.tree, id: call)
 	let given = ms.tree.listLen(argsRef)
@@ -271,5 +271,5 @@ function callValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	end 'args'
 	info.paramSpecs = specs
 	c.typing.calls.insert(call as Count, value: info)
-	return ast.funcResult(ms.types, t: t)
+	return ast.funcResult(ms.types, reads: p.types, t: t)
 end 'callValue'

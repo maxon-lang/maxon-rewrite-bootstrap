@@ -677,7 +677,7 @@ function builtinMethod(p ast.Project, owner String, name String) returns table.O
 		panic("rename: {owner} is no built-in type with methods")
 	end 'unknown'
 	let t = ty.unwrap()
-	return p.types.lists[ast.typeList(p.types, t: t)][ast.typeIndex(p.types, t: t)].findMethod(name)
+	return ast.typeEntry(ast.TypeSlot.none(), reads: p.types, t: t).findMethod(name)
 end 'builtinMethod'
 
 // rulesFor are the rules that rename a call of the method name, as the checker resolved the call.
@@ -699,7 +699,7 @@ function rulesFor(p ast.Project, s Scan, info ast.CallInfo, name String) returns
 		let method = builtinMethod(p, owner: s.rules[r].owner, name: name)
 		if method.isSome() 'some'
 			let f = method.unwrap()
-			if p.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].intrinsic == info.intrinsic 'same'
+			if ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: f).intrinsic == info.intrinsic 'same'
 				found.push(r)
 			end 'same'
 		end 'some'
@@ -875,7 +875,7 @@ function freeCallSites(p ast.Project, s Scan, id ast.NodeID, info ast.CallInfo, 
 	let place = s.text.at(p.modules[s.module].tree.startOf(callee) as Count)
 	let file = place.file
 	let at = place.local
-	if info.fn == ast.noFunc or info.intrinsic == ast.Intrinsic.intrNone or p.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].module != diag.stdlibID 'notBuiltin'
+	if info.fn == ast.noFunc or info.intrinsic == ast.Intrinsic.intrNone or ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: info.fn).module != diag.stdlibID 'notBuiltin'
 		if info.kind == ast.CallKind.callUnresolved 'unresolved'
 			return missAt(s, file: file, at: at, name: "{name}{freeCallMark}")
 		end 'unresolved'

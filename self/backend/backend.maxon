@@ -10,9 +10,11 @@ export function buildProgram(mutates p ast.Project, modules FunctionLists, mutat
 	var units = UnitList.create(0)
 	var errs = diag.ErrorList.create(0)
 	var clock = EmitClock.off()
+	var ms = ast.lendProject(p)
 	for i in 0 upto modules.count() 'modules'
-		units.push(emitModule(p, fns: modules[i], verifies: true, clock: clock, errs: errs))
+		units.push(emitModule(p, ms: ms, fns: modules[i], verifies: true, clock: clock, errs: errs))
 	end 'modules'
+	ast.giveBack(p, ms: ms)
 	if errs.count() > 0 'refused'
 		panic("backend: a program built without the driver is refused: {errs[0].message}")
 	end 'refused'
@@ -26,14 +28,16 @@ end 'buildProgram'
 export function linkProgram(mutates p ast.Project, consumes modules UnitList, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions, mapsSymbols bool) returns Linked
 	var emitted = modules
 	var units = UnitList.create(0)
-	units.push(emitRuntime(ast.funcLinkName(p, fid: entry), options: options))
+	var ms = ast.lendProject(p)
+	units.push(emitRuntime(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: entry), options: options))
 	for i in 0 upto ready.count() 'ready'
 		units.push(exchange(ready[i], value: CodeUnit.new()))
 	end 'ready'
 	for i in 0 upto emitted.count() 'modules'
 		units.push(exchange(emitted[i], value: CodeUnit.new()))
 	end 'modules'
-	var routines = emitTypeRoutines(p, units: units)
+	var routines = emitTypeRoutines(p, ms: ms, units: units)
+	ast.giveBack(p, ms: ms)
 	for i in 0 upto routines.count() 'routines'
 		units.push(exchange(routines[i], value: CodeUnit.new()))
 	end 'routines'

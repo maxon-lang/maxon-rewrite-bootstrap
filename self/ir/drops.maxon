@@ -103,12 +103,12 @@ end 'fetch'
 function dropType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
 	let ty = applyType(l, p: p, ms: ms, t: t)
 	if l.b.f.refusals.count() == 0 'unrefused'
-		requireNative(l, p: p, ms: ms, site: diag.Site.make(ms.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].module, offset: functionOffset(l, p: p, ms: ms)), t: ty)
+		requireNative(l, p: p, ms: ms, site: diag.Site.make(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).module, offset: functionOffset(l, p: p, ms: ms)), t: ty)
 	end 'unrefused'
 	return ty
 end 'dropType'
 
 // functionOffset is where the function being lowered is declared.
 function functionOffset(l Lowerer, p ast.Project, ms ast.ModuleState) returns diag.U32
-	return p.modules[ast.modIndex(ms.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].module)].tree.startOf(ms.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].nodeID)
+	return p.modules[ast.modIndex(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).module)].tree.startOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).nodeID)
 end 'functionOffset'

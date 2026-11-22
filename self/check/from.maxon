@@ -28,7 +28,7 @@ function checkFromExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		failAt(c, p: p, ms: ms, node: head, code: diag.errUnknownType, msg: "'{placeText(ms.tree, e: head)}' names no type: 'from' follows the name of the type that is written from the value", errs: errs)
 		return ast.noType
 	end 'unnamed'
-	let kind = ast.typeKind(ms.types, t: ty)
+	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList 'collection'
 		return checkFromCollection(c, p: p, ms: ms, e: e, ty: ty, value: value, errs: errs)
 	end 'collection'
@@ -40,7 +40,7 @@ end 'checkFromExpr'
 function checkFromCollection(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = nameOfType(p, ms: ms, t: ty)
 	if ms.tree.kindOf(value) != ast.NodeKind.collectionLitExpr 'notLiteral'
-		if ast.typeKind(ms.types, t: ty) == ast.TypeKind.builtinList 'list'
+		if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.builtinList 'list'
 			failAt(c, p: p, ms: ms, node: value, code: diag.errUnsupportedFeature, msg: "Unsupported: '{name} from' an array value; write the elements as a literal: '{name} from [a, b]'", errs: errs)
 			return ast.noType
 		end 'list'
@@ -51,16 +51,16 @@ function checkFromCollection(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal, and this one gives keys: '{name} from [a, b]'", errs: errs)
 		return ast.noType
 	end 'map'
-	if ast.originOf(ms.types, t: ty) == p.builtins.fixedArrayOrigin 'fixed'
+	if ast.originOf(ms.types, reads: p.types, t: ty) == p.builtins.fixedArrayOrigin 'fixed'
 		return checkFromFixedArray(c, p: p, ms: ms, e: e, ty: ty, value: value, errs: errs)
 	end 'fixed'
-	let bare = ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].typeParams.count() > 0
+	let bare = ast.typeEntry(ms.types, reads: p.types, t: ty).typeParams.count() > 0
 	var want = ast.noType
 	if not bare 'stated'
 		want = ty
-		if ast.typeKind(ms.types, t: ty) == ast.TypeKind.builtinList 'list'
+		if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.builtinList 'list'
 			var args = ast.TypeIDList.create(0)
-			args.push(ast.typeArgAt(ms.types, t: ty, index: 0))
+			args.push(ast.typeArgAt(ms.types, reads: p.types, t: ty, index: 0))
 			let arrayOrigin = p.builtins.arrayOrigin
 			want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: arrayOrigin, args: args, errs: errs)
 		end 'list'
@@ -73,18 +73,18 @@ function checkFromCollection(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		return ty
 	end 'given'
 	var args = ast.TypeIDList.create(0)
-	args.push(ast.typeArgAt(ms.types, t: literal, index: 0))
+	args.push(ast.typeArgAt(ms.types, reads: p.types, t: literal, index: 0))
 	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: ty, args: args, errs: errs)
 end 'checkFromCollection'
 
 // checkFromFixedArray types a fixed array written from an array literal: an array of the element its head states, or of
 // the one the elements give, whose count is the literal's. A head that states a count takes a literal of as many elements.
 function checkFromFixedArray(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let bare = ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].typeParams.count() > 0
+	let bare = ast.typeEntry(ms.types, reads: p.types, t: ty).typeParams.count() > 0
 	var want = ast.noType
 	if not bare 'stated'
 		var args = ast.TypeIDList.create(0)
-		args.push(ast.typeArgAt(ms.types, t: ty, index: 0))
+		args.push(ast.typeArgAt(ms.types, reads: p.types, t: ty, index: 0))
 		let arrayOrigin = p.builtins.arrayOrigin
 		want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: arrayOrigin, args: args, errs: errs)
 	end 'stated'
@@ -93,8 +93,8 @@ function checkFromFixedArray(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		return ast.noType
 	end 'failed'
 	let written = ms.tree.listLen(ast.collectionLitExprElemsRef(ms.tree, id: value)) as Count
-	if ast.statesCount(ms.types, t: ty) 'counted'
-		let count = ast.statedCount(ms.types, t: ty)
+	if ast.statesCount(ms.types, reads: p.types, t: ty) 'counted'
+		let count = ast.statedCount(ms.types, reads: p.types, t: ty)
 		if written != count 'otherCount'
 			failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{nameOfType(p, ms: ms, t: ty)}' holds {count} elements, and the literal writes {written}: write exactly {count}", errs: errs)
 			return ast.noType
@@ -104,21 +104,21 @@ function checkFromFixedArray(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	var unsized = ty
 	if bare 'bare'
 		var args = ast.TypeIDList.create(0)
-		args.push(ast.typeArgAt(ms.types, t: literal, index: 0))
+		args.push(ast.typeArgAt(ms.types, reads: p.types, t: literal, index: 0))
 		unsized = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: ty, args: args, errs: errs)
 		if unsized == ast.noType 'badElement'
 			return ast.noType
 		end 'badElement'
 	end 'bare'
-	return ast.countedType(ms.types, unsized: unsized, count: written)
+	return ast.countedType(ms.types, reads: p.types, unsized: unsized, count: written)
 end 'checkFromFixedArray'
 
 // implementsNamed is whether the declaration of t says it implements an interface of that name, whichever declaration of
 // the name that is: Maxon finds a type's conformance to the literal interfaces by their names.
 function implementsNamed(p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns bool
-	let conforms = ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: t))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: t))].conforms)
+	let conforms = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t)).conforms)
 	for i in 0 upto conforms.count() 'each'
-		if ms.types.lists[ast.typeList(ms.types, t: conforms[i])][ast.typeIndex(ms.types, t: conforms[i])].name == name 'named'
+		if ast.typeEntry(ms.types, reads: p.types, t: conforms[i]).name == name 'named'
 			return true
 		end 'named'
 	end 'each'
@@ -137,7 +137,7 @@ function checkFromString(mutates c Checker, p ast.Project, mutates ms ast.Module
 		return ast.noType
 	end 'doesNotConform'
 	let init = methodNamed(p, ms: ms, t: ty, name: initName)
-	if init == ast.noFunc or not ms.funcs.slots[ast.funcSlot(init)][ast.funcIndex(init)].isStatic 'missing'
+	if init == ast.noFunc or not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).isStatic 'missing'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errUnknownFunction, msg: diag.undefinedFunction("{name}.{initName}"), errs: errs)
 		return ast.noType
 	end 'missing'
@@ -152,7 +152,7 @@ function checkFromString(mutates c Checker, p ast.Project, mutates ms ast.Module
 		return ast.noType
 	end 'failed'
 	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: init, receiverTy: ast.noType)
-	info.intrinsic = ms.funcs.slots[ast.funcSlot(init)][ast.funcIndex(init)].intrinsic
+	info.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).intrinsic
 	c.typing.calls.insert(e as Count, value: info)
 	return ty
 end 'checkFromString'

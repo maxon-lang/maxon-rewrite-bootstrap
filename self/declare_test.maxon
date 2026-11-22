@@ -23,7 +23,7 @@ function expectDeclared(path String)
 		ast.locateAllErrors(p.modules, errs: errs)
 		panic("{path}: declare error {errs[0].format()}")
 	end 'de'
-	if entry == ast.noFunc or p.funcs.slots[ast.funcSlot(entry)][ast.funcIndex(entry)].retTy != p.builtins.exitCodeTy 'main'
+	if entry == ast.noFunc or ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: entry).retTy != p.builtins.exitCodeTy 'main'
 		panic("{path}: main is not declared with the return type ExitCode")
 	end 'main'
 end 'expectDeclared'

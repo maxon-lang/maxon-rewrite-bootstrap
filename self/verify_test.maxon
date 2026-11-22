@@ -50,8 +50,8 @@ end 'bpRegs'
 // bpRun requires the function to print as want, to keep the verifier's rules, and to return exit both interpreted and
 // compiled.
 function bpRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.StringList, exit ExitCode)
-	expectIr(label, got: ir.irText(p, tt: p.types, ft: p.funcs, f: f), want: want)
-	let problems = ir.verifyIr(p, tt: p.types, ft: p.funcs, f: f)
+	expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f), want: want)
+	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f)
 	if problems.count() > 0 'refused'
 		panic("{label}: the verifier refuses it: {problems[0]}")
 	end 'refused'
@@ -61,7 +61,7 @@ end 'bpRun'
 
 // bpRefused requires the verifier to refuse the function, first for the reason fragment names.
 function bpRefused(label String, p ast.Project, f ir.IrFunction, fragment String)
-	let problems = ir.verifyIr(p, tt: p.types, ft: p.funcs, f: f)
+	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f)
 	if problems.count() == 0 'accepted'
 		panic("{label}: the verifier accepts IR that breaks its rule")
 	end 'accepted'

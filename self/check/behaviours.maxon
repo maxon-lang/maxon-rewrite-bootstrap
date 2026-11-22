@@ -67,7 +67,7 @@ function captureLocal(mutates c Checker, p ast.Project, ms ast.ModuleState, beha
 			if not source.isSelf 'byAddress'
 				inner.captureConv = ast.Convention.convMutates
 			end 'byAddress'
-		end 'mutable' else if ast.isManagedType(ms.types, t: source.ty) and borrowsValue(source) 'borrowed'
+		end 'mutable' else if ast.isManagedType(ms.types, reads: p.types, t: source.ty) and borrowsValue(source) 'borrowed'
 			conv = ast.Convention.convLet
 		end 'borrowed' else if c.bFrames[behaviour].mutatesCaptures 'owned'
 			inner.conv = ast.Convention.convMutates
@@ -88,7 +88,7 @@ end 'captureLocal'
 // when its call or match does, long before the behaviour runs.
 function requireCapturable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, use ast.NodeID, outer ast.LocalID, mutates errs diag.ErrorList) returns bool
 	let source = c.typing.locals[outer as Count].clone()
-	if not ast.isManagedType(ms.types, t: source.ty) or not borrowsValue(source) 'fine'
+	if not ast.isManagedType(ms.types, reads: p.types, t: source.ty) or not borrowsValue(source) 'fine'
 		return true
 	end 'fine'
 	var what = "a let or 'mutates' parameter"
@@ -104,7 +104,7 @@ function requireCapturable(mutates c Checker, p ast.Project, mutates ms ast.Modu
 		what = "the access that a behaviour has to a cown's value, for as long as it runs"
 	end 'access'
 	var fix = ""
-	if ast.isSharedType(ms.types, t: source.ty) 'shared'
+	if ast.isSharedType(ms.types, reads: p.types, t: source.ty) 'shared'
 		fix = "take an owner of it first: 'let own = share({source.name})', and use 'own' in the behaviour"
 	end 'shared' else 'copy'
 		fix = copyAdviceText(c, p: p, ms: ms, t: source.ty, ifCopyable: "give the behaviour a copy: 'let own = {source.name}.clone()' before the 'when', and use 'own'", otherwiseText: "pass what the behaviour needs through a cown")
@@ -144,18 +144,18 @@ end 'refuseBehaviourSelf'
 // one, so that a behaviour naming it is told why it cannot.
 function selfFieldInBehaviour(c Checker, p ast.Project, mutates ms ast.ModuleState, name String) returns table.Option with ast.TypeID
 	let root = c.outers[0].fn
-	if root == ast.noFunc or not ms.funcs.slots[ast.funcSlot(root)][ast.funcIndex(root)].hasReceiver 'notMethod'
+	if root == ast.noFunc or not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: root).hasReceiver 'notMethod'
 		return table.Option.none
 	end 'notMethod'
 	var rt = ast.noType
-	if ast.typeKind(ms.types, t: c.owner) == ast.TypeKind.record 'record'
+	if ast.typeKind(ms.types, reads: p.types, t: c.owner) == ast.TypeKind.record 'record'
 		rt = c.owner
 	end 'record'
 	if rt == ast.noType 'noRecord'
 		return table.Option.none
 	end 'noRecord'
-	match consumes ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: rt))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: rt))].findField(name) 'field'
-		some(index) then return table.Option.some(ast.fieldType(ms.types, owner: rt, index: index))
+	match consumes ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt)).findField(name) 'field'
+		some(index) then return table.Option.some(ast.fieldType(ms.types, reads: p.types, owner: rt, index: index))
 		none then return table.Option.none
 	end 'field'
 end 'selfFieldInBehaviour'
@@ -163,7 +163,7 @@ end 'selfFieldInBehaviour'
 // enterBehaviour starts checking the body of a behaviour as a function of its own, whose first parameters give access to
 // the values of the cowns it names. It is false when a name that gives access cannot be bound.
 function enterBehaviour(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, stmt ast.NodeID, values ast.TypeIDList, mutates errs diag.ErrorList) returns bool
-	var entry = ast.FuncEntry.make(ast.behaviourName(funcSymbol(p, tt: ms.types, ft: ms.funcs, f: c.fn), index: c.whens), visibility: ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].visibility.clone(), module: c.modID, nodeID: stmt)
+	var entry = ast.FuncEntry.make(ast.behaviourName(funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: c.fn), index: c.whens), visibility: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).visibility.clone(), module: c.modID, nodeID: stmt)
 	entry.bodyRef = ast.whenStmtBodyRef(ms.tree, id: stmt)
 	entry.retTy = p.builtins.voidTy
 	let fid = ast.allocFunc(ms.funcs, module: c.modID, f: entry)
@@ -246,8 +246,8 @@ end 'restoreOuter'
 
 function addBehaviourParam(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, local ast.LocalID)
 	let entry = c.typing.locals[local as Count].clone()
-	ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
-	ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].paramTypes.push(entry.ty)
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fn)].params.push(ast.ParamSpec.make(entry.name.clone(), ty: entry.ty, conv: entry.conv))
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fn)].paramTypes.push(entry.ty)
 	ast.pushParamLocal(ms, f: fn, l: local)
 end 'addBehaviourParam'
 
@@ -311,7 +311,7 @@ end 'describeType'
 function checkFreezeArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let arg = soleArg(ordered)
 	let t = argumentType(c, node: arg)
-	if isConstInt(p, ms: ms, t: t) or (t != p.builtins.neverTy and t != p.builtins.voidTy and not ast.isManagedType(ms.types, t: t)) 'plain'
+	if isConstInt(p, ms: ms, t: t) or (t != p.builtins.neverTy and t != p.builtins.voidTy and not ast.isManagedType(ms.types, reads: p.types, t: t)) 'plain'
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errFreezeScalar, msg: "'{nameOfType(p, ms: ms, t: t)}' is a plain value, which is immutable already and copied freely, so there is nothing to freeze: freeze a record, a union, a String or a collection", errs: errs)
 	end 'plain'
 end 'checkFreezeArgs'
@@ -320,7 +320,7 @@ end 'checkFreezeArgs'
 function checkShareArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let arg = soleArg(ordered)
 	let t = argumentType(c, node: arg)
-	if not ast.isSharedType(ms.types, t: t) 'owned'
+	if not ast.isSharedType(ms.types, reads: p.types, t: t) 'owned'
 		let advice = copyAdviceText(c, p: p, ms: ms, t: t, ifCopyable: "move it, or copy it with '.clone()'", otherwiseText: "move it")
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errShareTarget, msg: "share takes a frozen value or a cown reference, found {nameOfType(p, ms: ms, t: t)}; a value that is not shared has one owner, so {advice}", errs: errs)
 	end 'owned'
@@ -413,7 +413,7 @@ function dropWithCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errCapabilityMisuse, msg: "'dropWith:' names a destructor of the content by its name alone, as 'dropWith: rollback'", errs: errs)
 		return ast.noFunc
 	end 'notName'
-	if not typeIsNominal(ms.types, t: content) 'parameter'
+	if not typeIsNominal(ms.types, reads: p.types, t: content) 'parameter'
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errCapabilityMisuse, msg: "'{contentName}' is a type parameter and has no destructor to name: a value that is not Droppable cannot go into a cown in generic code; add the bound 'where {contentName} implements Droppable'", errs: errs)
 		return ast.noFunc
 	end 'parameter'
@@ -426,23 +426,23 @@ function dropWithCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	if not requireVisible(c, p: p, ms: ms, node: arg, target: method, errs: errs) 'hidden'
 		return ast.noFunc
 	end 'hidden'
-	queueMethodBounds(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), method: method, args: ms.types.lists[ast.typeList(ms.types, t: content)][ast.typeIndex(ms.types, t: content)].typeArgs.clone())
+	queueMethodBounds(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), method: method, args: ast.typeEntry(ms.types, reads: p.types, t: content).typeArgs.clone())
 	return method
 end 'dropWithCall'
 
 // isNakedDestructor is whether a method is a destructor that takes nothing else and returns nothing, which is all that a
 // cown can call.
 function isNakedDestructor(p ast.Project, ms ast.ModuleState, method ast.FuncID) returns bool
-	return not ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic and ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isDestructor and ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].params.count() == 0 and ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].retTy == p.builtins.voidTy
+	return not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).isStatic and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).isDestructor and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).params.count() == 0 and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).retTy == p.builtins.voidTy
 end 'isNakedDestructor'
 
 // dropWithCandidates names the destructors that dropWith: may name, in declaration order, for the error that names another.
 function dropWithCandidates(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
-	let orig = ast.originOf(ms.types, t: t)
+	let orig = ast.originOf(ms.types, reads: p.types, t: t)
 	var names = ast.StringList.create(0)
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].methods.count() 'methods'
-		if isNakedDestructor(p, ms: ms, method: ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].methods[i].func) 'candidate'
-			names.push(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].methods[i].name.clone())
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).methods.count() 'methods'
+		if isNakedDestructor(p, ms: ms, method: ast.typeEntry(ms.types, reads: p.types, t: orig).methods[i].func) 'candidate'
+			names.push(ast.typeEntry(ms.types, reads: p.types, t: orig).methods[i].name.clone())
 		end 'candidate'
 	end 'methods'
 	if names.count() == 0 'none'
@@ -456,7 +456,7 @@ end 'dropWithCandidates'
 // other, and counting never frees a cycle. Owned values and frozen values cannot form one: an owner is a tree, and a
 // frozen value refers only to values frozen before it.
 function checkCownCycle(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
-	let own = ast.selfType(ms.types, declTy: t)
+	let own = ast.selfType(ms.types, reads: p.types, declTy: t)
 	var path = ast.StringList.create(0)
 	var visited = BoolIntMap.new()
 	if not reachesThroughCown(p, ms: ms, from: own, target: own, via: false, path: path, visited: visited) 'acyclic'
@@ -468,13 +468,13 @@ end 'checkCownCycle'
 // reachesThroughCown is whether a value of type from holds one of type target, with a cown on the way. via is whether the
 // way so far already went through one.
 function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.TypeID, target ast.TypeID, via bool, mutates path ast.StringList, mutates visited BoolIntMap) returns bool
-	let kind = ast.typeKind(ms.types, t: from)
-	let orig = ast.originOf(ms.types, t: from)
+	let kind = ast.typeKind(ms.types, reads: p.types, t: from)
+	let orig = ast.originOf(ms.types, reads: p.types, t: from)
 	let holder = nameOfType(p, ms: ms, t: from)
 	if kind == ast.TypeKind.record 'record'
-		for fi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields.count() 'fields'
-			let label = "{holder}.{ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].name}"
-			let held = ast.fieldType(ms.types, owner: from, index: fi)
+		for fi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).fields.count() 'fields'
+			let label = "{holder}.{ast.typeEntry(ms.types, reads: p.types, t: orig).fields[fi].name}"
+			let held = ast.fieldType(ms.types, reads: p.types, owner: from, index: fi)
 			if followHolding(p, ms: ms, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 				return true
 			end 'found'
@@ -482,10 +482,10 @@ function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.
 		return false
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		for ci in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases.count() 'cases'
-			let label = "{holder}.{ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].name}"
-			for pi in 0 upto ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[ci].payload.count() 'payload'
-				let held = ast.payloadType(ms.types, owner: from, caseIndex: ci, index: pi)
+		for ci in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() 'cases'
+			let label = "{holder}.{ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].name}"
+			for pi in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[ci].payload.count() 'payload'
+				let held = ast.payloadType(ms.types, reads: p.types, owner: from, caseIndex: ci, index: pi)
 				if followHolding(p, ms: ms, label: label, held: held, isCown: false, target: target, via: via, path: path, visited: visited) 'found'
 					return true
 				end 'found'
@@ -494,8 +494,8 @@ function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.
 		return false
 	end 'union'
 	if kind.isBuiltin() and kind != ast.TypeKind.builtinHandle 'builtin'
-		for ai in 0 upto ms.types.lists[ast.typeList(ms.types, t: from)][ast.typeIndex(ms.types, t: from)].typeArgs.count() 'args'
-			let held = ms.types.lists[ast.typeList(ms.types, t: from)][ast.typeIndex(ms.types, t: from)].typeArgs[ai]
+		for ai in 0 upto ast.typeEntry(ms.types, reads: p.types, t: from).typeArgs.count() 'args'
+			let held = ast.typeEntry(ms.types, reads: p.types, t: from).typeArgs[ai]
 			if followHolding(p, ms: ms, label: holder, held: held, isCown: kind == ast.TypeKind.builtinCown, target: target, via: via, path: path, visited: visited) 'found'
 				return true
 			end 'found'
@@ -512,7 +512,7 @@ function followHolding(p ast.Project, mutates ms ast.ModuleState, label String, 
 	if held == target and next 'found'
 		return true
 	end 'found'
-	if not ast.hasTypeDepthOverflow(ms.types, t: held, depth: 0 as Count) 'bounded'
+	if not ast.hasTypeDepthOverflow(ms.types, reads: p.types, t: held, depth: 0 as Count) 'bounded'
 		let key = try (held as Count) * 2 + (1 if next else 0) otherwise panic("too many types")
 		if not visited.has(key) 'unseen'
 			visited.insert(key, value: true)

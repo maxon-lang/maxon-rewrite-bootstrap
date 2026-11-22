@@ -64,7 +64,7 @@ function testFilesOfTests()
 	end 'failed'
 	for m in 0 upto checked.functions.count() 'modules'
 		for i in 0 upto checked.functions[m].count() 'functions'
-			if p.funcs.slots[ast.funcSlot(checked.functions[m][i])][ast.funcIndex(checked.functions[m][i])].isTest 'test'
+			if ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: checked.functions[m][i]).isTest 'test'
 				panic("a test is among the functions of the program")
 			end 'test'
 		end 'functions'

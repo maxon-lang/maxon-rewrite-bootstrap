@@ -143,7 +143,8 @@ end 'block'
 function addFunction(mutates p ast.Project, name String, errTy ast.TypeID) returns ast.FuncID
 	var entry = ast.FuncEntry.make(name.clone(), visibility: "", module: p.rootModule, nodeID: 0 as ast.NodeID)
 	entry.errTy = errTy
-	return ast.allocFunc(p.funcs, module: p.rootModule, f: entry)
+	let module = p.rootModule
+	return ast.makeFunc(p, module: module, f: entry)
 end 'addFunction'
 
 // allocRootType adds a type that the root module declares, as a link name needs every declared type to be in a module.
@@ -151,7 +152,8 @@ function allocRootType(mutates p ast.Project, consumes entry ast.TypeEntry) retu
 	var declared = entry
 	declared.hasDecl = true
 	declared.decl = ast.DeclRef.make(p.rootModule, ordinal: 0 as ast.DeclOrdinal)
-	return ast.allocType(p.types, module: p.rootModule, e: declared)
+	let module = p.rootModule
+	return ast.makeType(p, module: module, e: declared)
 end 'allocRootType'
 
 // addPairType declares the record Pair with a number and a string.
@@ -506,10 +508,12 @@ function addRoutineTypes(mutates p ast.Project, pair ast.TypeID) returns Routine
 	let shape = allocRootType(p, entry: shapeEntry)
 	var pairArgs = ast.TypeIDList.create(0)
 	pairArgs.push(pair)
-	let pairs = ast.instantiateType(p.types, origin: p.builtins.arrayOrigin, args: pairArgs)
+	var shared = ast.lendProject(p)
+	let pairs = ast.instantiateType(shared.types, reads: p.types, origin: p.builtins.arrayOrigin, args: pairArgs)
 	var byteArgs = ast.TypeIDList.create(0)
 	byteArgs.push(p.builtins.byteTy)
-	let bytes = ast.instantiateType(p.types, origin: p.builtins.arrayOrigin, args: byteArgs)
+	let bytes = ast.instantiateType(shared.types, reads: p.types, origin: p.builtins.arrayOrigin, args: byteArgs)
+	ast.giveBack(p, ms: shared)
 	return RoutineTypes.make(plain, shape: shape, pairs: pairs, bytes: bytes, text: stringTy)
 end 'addRoutineTypes'
 

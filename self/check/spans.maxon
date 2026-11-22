@@ -60,11 +60,11 @@ function unsignedWord() returns Span
 end 'unsignedWord'
 
 // typeSpan is the values of an integer type.
-export function typeSpan(tt ast.TypeTable, t ast.TypeID) returns Span
-	if not ast.isIntType(tt, t: t) 'notInt'
-		panic("ranges: {ast.typeName(tt, t: t)} is not an integer")
+export function typeSpan(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Span
+	if not ast.isIntType(tt, reads: reads, t: t) 'notInt'
+		panic("ranges: {ast.typeName(tt, reads: reads, t: t)} is not an integer")
 	end 'notInt'
-	return Span.make(tt.lists[ast.typeList(tt, t: t)][ast.typeIndex(tt, t: t)].minVal.clone(), hi: tt.lists[ast.typeList(tt, t: t)][ast.typeIndex(tt, t: t)].maxVal.clone())
+	return Span.make(ast.typeEntry(tt, reads: reads, t: t).minVal.clone(), hi: ast.typeEntry(tt, reads: reads, t: t).maxVal.clone())
 end 'typeSpan'
 
 // ArithSpan is the span of the exact result of an operator, and how it fails beyond the result's range.

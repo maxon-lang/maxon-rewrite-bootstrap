@@ -50,14 +50,14 @@ end 'verifyValueTypes'
 // of a type that the code around it does not know, so a requirement that names 'Self', which is that type, or that is
 // static, which has no value to run on, could not be called through it.
 export function valueRefusal(p ast.Project, ms ast.ModuleState, iface ast.TypeID) returns String
-	let reqs = ast.requirementsOf(ms.types, iface: iface)
+	let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: iface)
 	for i in 0 upto reqs.count() 'each'
 		let sig = reqs[i].sig
-		let name = ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].name.clone()
-		if ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].isStatic 'static'
+		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).name.clone()
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic 'static'
 			return "its requirement '{name}' is static, and a static function has no value to run on"
 		end 'static'
-		let selfParam = ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: reqs[i].iface))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: reqs[i].iface))].selfParam
+		let selfParam = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: reqs[i].iface)).selfParam
 		if selfParam != ast.noType and namesType(p, ms: ms, sig: sig, t: selfParam) 'self'
 			return "its requirement '{name}' names 'Self', which is another type in each value"
 		end 'self'
@@ -67,11 +67,11 @@ end 'valueRefusal'
 
 // namesType is whether the signature of a function names the type t in a parameter or in its result.
 function namesType(p ast.Project, ms ast.ModuleState, sig ast.FuncID, t ast.TypeID) returns bool
-	if ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy != ast.noType and ast.mentionsType(ms.types, t: ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, target: t) 'result'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy != ast.noType and ast.mentionsType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, target: t) 'result'
 		return true
 	end 'result'
-	for i in 0 upto ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.count() 'params'
-		if ast.mentionsType(ms.types, t: ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params[i].ty, target: t) 'param'
+	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params.count() 'params'
+		if ast.mentionsType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params[i].ty, target: t) 'param'
 			return true
 		end 'param'
 	end 'params'
@@ -81,8 +81,8 @@ end 'namesType'
 // boxable is whether a value of the type t can be put in an interface value: a value of a type that can implement an
 // interface, or of a type parameter, whose bounds say which. A float is not one, as in maxon.
 function boxable(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	let k = ast.typeKind(ms.types, t: t)
-	return k == ast.TypeKind.typeParam or typeIsNominal(ms.types, t: t) or ast.extensionKey(p, ms: ms, t: t).isSome()
+	let k = ast.typeKind(ms.types, reads: p.types, t: t)
+	return k == ast.TypeKind.typeParam or typeIsNominal(ms.types, reads: p.types, t: t) or ast.extensionKey(p, ms: ms, t: t).isSome()
 end 'boxable'
 
 // boxInto puts the value of node, of the type src, in a value of the interface iface, where a value of iface is expected.
@@ -101,13 +101,13 @@ function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, n
 	end 'outside'
 	let dropping = lacksCap(c, p: p, ms: ms, wantCopy: false, t: src)
 	if dropping.missing 'notDroppable'
-		checkFail(c.modID, off: at, code: diag.errNotDroppable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which drops what it holds: {lackWhyText(ms.types, info: dropping, capName: "Droppable")}; {lackFixText(ms.types, info: dropping, capName: "Droppable")}", errs: errs)
+		checkFail(c.modID, off: at, code: diag.errNotDroppable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which drops what it holds: {lackWhyText(ms.types, reads: p.types, info: dropping, capName: "Droppable")}; {lackFixText(ms.types, reads: p.types, info: dropping, capName: "Droppable")}", errs: errs)
 		return false
 	end 'notDroppable'
-	if ast.reachesInterface(ms.types, have: iface, want: p.builtins.copyableTy) 'copyable'
+	if ast.reachesInterface(ms.types, reads: p.types, have: iface, want: p.builtins.copyableTy) 'copyable'
 		let copying = lacksCap(c, p: p, ms: ms, wantCopy: true, t: src)
 		if copying.missing 'notCopyable'
-			checkFail(c.modID, off: at, code: diag.errNotCopyable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which every value of is Copyable: {lackWhyText(ms.types, info: copying, capName: "Copyable")}; {lackFixText(ms.types, info: copying, capName: "Copyable")}", errs: errs)
+			checkFail(c.modID, off: at, code: diag.errNotCopyable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which every value of is Copyable: {lackWhyText(ms.types, reads: p.types, info: copying, capName: "Copyable")}; {lackFixText(ms.types, reads: p.types, info: copying, capName: "Copyable")}", errs: errs)
 			return false
 		end 'notCopyable'
 	end 'copyable'
@@ -156,7 +156,7 @@ function checkInterfaceCast(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	end 'badSource'
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if typeHasKind(p, ms: ms, t: src, kind: ast.TypeKind.interfaceTy) 'interface'
-		if sameType(ms.types, a: src, b: target) 'same'
+		if sameType(ms.types, reads: p.types, a: src, b: target) 'same'
 			checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, ms: ms, t: target)} is not supported by minimaxon", errs: errs)
 			return ast.noType
 		end 'same'
@@ -211,10 +211,10 @@ function witnessCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	let sig = named[0].sig
 	let selfParams = requirementParams(p, ms: ms, iface: named[0].iface)
 	let selfArgs = requirementArgs(p, ms: ms, iface: named[0].iface, own: iface)
-	let specs = applySpecs(p, ms: ms, specs: ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].params.clone(), params: selfParams, args: selfArgs)
+	let specs = applySpecs(p, ms: ms, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params.clone(), params: selfParams, args: selfArgs)
 	var info = ast.CallInfo.make(ast.CallKind.callBound, fn: ast.noFunc, receiverTy: receiver)
 	info.method = sig
-	info.selfConv = ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].selfConv
+	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).selfConv
 	info.paramSpecs = specs.clone()
 	let mark = errs.count()
 	info.ordered = bindArgs(c, p: p, ms: ms, call: call, callee: "{ifaceName}.{name}", specs: specs, receivers: 0, argsChecked: false, payload: false, errs: errs)
@@ -222,5 +222,5 @@ function witnessCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		return ast.noType
 	end 'badArgs'
 	c.typing.calls.insert(call as Count, value: info)
-	return ast.substituteType(ms.types, t: ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].retTy, params: selfParams, args: selfArgs)
+	return ast.substituteType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, params: selfParams, args: selfArgs)
 end 'witnessCall'

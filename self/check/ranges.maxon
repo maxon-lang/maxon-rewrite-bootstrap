@@ -105,8 +105,8 @@ end 'rangeHandOver'
 
 // rangeParamValues analyses the default of each parameter of a function, which a call that leaves the argument out evaluates.
 function rangeParamValues(mutates r Ranges, p ast.Project, ms ast.ModuleState, fid ast.FuncID)
-	for i in 0 upto ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
-		let e = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].defaultExpr
+	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params.count() 'params'
+		let e = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params[i].defaultExpr
 		if e != 0 'default'
 			r.failed = false
 			_ = rangeValue(r, p: p, ms: ms, e: e)
@@ -125,17 +125,17 @@ function rangeCheckValues(mutates r Ranges, p ast.Project, ms ast.ModuleState, o
 		return
 	end 'notRecord'
 	let tid = declTypeOf(p, ms: ms, ref: ast.DeclRef.make(r.modID, ordinal: ord))
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields.count() 'fields'
-		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].hasDefault 'default'
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: tid).fields.count() 'fields'
+		if ast.typeEntry(ms.types, reads: p.types, t: tid).fields[i].hasDefault 'default'
 			r.failed = false
-			_ = rangeValue(r, p: p, ms: ms, e: ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields[i].defaultExpr)
+			_ = rangeValue(r, p: p, ms: ms, e: ast.typeEntry(ms.types, reads: p.types, t: tid).fields[i].defaultExpr)
 		end 'default'
 	end 'fields'
 end 'rangeCheckValues'
 
 function rangeRawValues(mutates r Ranges, p ast.Project, ms ast.ModuleState, tid ast.TypeID)
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases.count() 'cases'
-		let e = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: tid).cases.count() 'cases'
+		let e = ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].rawExpr
 		if e != 0 'written'
 			r.failed = false
 			_ = rangeValue(r, p: p, ms: ms, e: e)
@@ -186,7 +186,7 @@ end 'rangeValue'
 
 // functionLocals are the locals that the bodies check declared in a function.
 function functionLocals(r Ranges, p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns ast.LocalIDList
-	return match r.typing.funcLocals.get(ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].nodeID as Count) 'locals'
+	return match r.typing.funcLocals.get(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).nodeID as Count) 'locals'
 		some(ids) gives ids.clone()
 		none gives ast.LocalIDList.create(0)
 	end 'locals'
@@ -214,17 +214,17 @@ function rangeFunction(mutates r Ranges, p ast.Project, ms ast.ModuleState, fid 
 	for i in 0 upto r.locals.count() 'locals'
 		let id = r.locals[i]
 		let ty = r.typing.locals[id as Count].ty
-		if ast.isIntType(ms.types, t: ty) 'int'
+		if ast.isIntType(ms.types, reads: p.types, t: ty) 'int'
 			let slot = slotOf(r, local: id)
 			let st = r.st
-			r.states.list[st].spans[slot] = typeSpan(ms.types, t: ty)
+			r.states.list[st].spans[slot] = typeSpan(ms.types, reads: p.types, t: ty)
 		end 'int'
 	end 'locals'
-	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isTest 'test'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).isTest 'test'
 		// A test handles every error its body raises: the failure of any call, of any error type, ends the test.
 		r.handlers.push(RangeHandler.make(false, takes: ast.noType))
 	end 'test'
-	rangeBlock(r, p: p, ms: ms, body: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bodyRef)
+	rangeBlock(r, p: p, ms: ms, body: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).bodyRef)
 	r.states.release(m)
 	r.fn = outerFn
 	r.st = outerSt
@@ -353,8 +353,8 @@ function rangeForget(mutates r Ranges, p ast.Project, ms ast.ModuleState)
 		let id = r.locals[i]
 		let ty = r.typing.locals[id as Count].ty
 		let slot = slotOf(r, local: id)
-		if r.mutable[slot] != 0 and ast.isIntType(ms.types, t: ty) 'forgotten'
-			r.states.list[st].spans[slot] = typeSpan(ms.types, t: ty)
+		if r.mutable[slot] != 0 and ast.isIntType(ms.types, reads: p.types, t: ty) 'forgotten'
+			r.states.list[st].spans[slot] = typeSpan(ms.types, reads: p.types, t: ty)
 		end 'forgotten'
 	end 'locals'
 	for i in 0 upto r.bounds.count() 'bounds'
@@ -377,15 +377,15 @@ function rangeWrite(mutates r Ranges, p ast.Project, ms ast.ModuleState, place P
 	end 'probed'
 	let st = r.st
 	r.states.list[st].drop(Gone.overlapping(place.clone()))
-	if ast.isIntType(ms.types, t: t) 'int'
-		r.states.list[st].refine(place, v: s.clamp(typeSpan(ms.types, t: t)))
+	if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
+		r.states.list[st].refine(place, v: s.clamp(typeSpan(ms.types, reads: p.types, t: t)))
 	end 'int'
 end 'rangeWrite'
 
 // rangeChanged is a place that a call may change: what was known of it no longer holds.
 function rangeChanged(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, t ast.TypeID)
-	if ast.isIntType(ms.types, t: t) 'int'
-		rangeWrite(r, p: p, ms: ms, place: place, s: typeSpan(ms.types, t: t), t: t)
+	if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
+		rangeWrite(r, p: p, ms: ms, place: place, s: typeSpan(ms.types, reads: p.types, t: t), t: t)
 		return
 	end 'int'
 	rangeWrite(r, p: p, ms: ms, place: place, s: Span.make(ast.I128.zero(), hi: ast.I128.zero()), t: t)
@@ -441,11 +441,11 @@ end 'nodeLocalOf'
 // rangeSpanAt is what is known of an integer place in the state s.
 function rangeSpanAt(r Ranges, p ast.Project, ms ast.ModuleState, s Count, place Place, t ast.TypeID) returns Span
 	if isDead(r, s: s) 'dead'
-		return typeSpan(ms.types, t: t)
+		return typeSpan(ms.types, reads: p.types, t: t)
 	end 'dead'
 	return match consumes r.states.list[s].at(place) 'known'
 		some(v) gives v
-		none gives typeSpan(ms.types, t: t)
+		none gives typeSpan(ms.types, reads: p.types, t: t)
 	end 'known'
 end 'rangeSpanAt'
 
@@ -531,8 +531,8 @@ function rangeLetStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast
 	var v = Span.make(ast.I128.zero(), hi: ast.I128.zero())
 	if init != 0 'init'
 		v = rangeEval(r, p: p, ms: ms, e: init)
-	end 'init' else if ast.isIntType(ms.types, t: ty) 'declared'
-		v = typeSpan(ms.types, t: ty)
+	end 'init' else if ast.isIntType(ms.types, reads: p.types, t: ty) 'declared'
+		v = typeSpan(ms.types, reads: p.types, t: ty)
 	end 'declared'
 	rangeWrite(r, p: p, ms: ms, place: Place.local(slotOf(r, local: local)), s: v, t: ty)
 end 'rangeLetStmt'
@@ -696,7 +696,7 @@ function rangeLoopBody(mutates r Ranges, p ast.Project, ms ast.ModuleState, s as
 		return top
 	end 'unknown'
 	let ty = r.typing.locals[local as Count].ty
-	if not ast.isIntType(ms.types, t: ty) 'notInt'
+	if not ast.isIntType(ms.types, reads: p.types, t: ty) 'notInt'
 		return top
 	end 'notInt'
 	var hi = upper.hi.clone()
@@ -704,7 +704,7 @@ function rangeLoopBody(mutates r Ranges, p ast.Project, ms ast.ModuleState, s as
 		hi = hi.sub(ast.I128.one())
 	end 'exclusive'
 	let body = r.states.copyOf(top)
-	let v = Span.make(from.lo.clone(), hi: hi).clamp(typeSpan(ms.types, t: ty))
+	let v = Span.make(from.lo.clone(), hi: hi).clamp(typeSpan(ms.types, reads: p.types, t: ty))
 	if v.isEmpty() 'never'
 		r.states.list[body].dead = true
 	end 'never' else 'runs'
@@ -753,7 +753,7 @@ function fnErrorType(r Ranges, p ast.Project, ms ast.ModuleState) returns ast.Ty
 	if r.fn == ast.noFunc 'outside'
 		return ast.noType
 	end 'outside'
-	return ms.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].errTy
+	return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: r.fn).errTy
 end 'fnErrorType'
 
 // rangeRequirePropagates refuses a try with no handler where there is no caller that takes its failure.
@@ -769,8 +769,8 @@ function rangeRequirePropagates(mutates r Ranges, p ast.Project, ms ast.ModuleSt
 		rangeRaise(r, p: p, ms: ms, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, and nothing waits for a behaviour: give 'otherwise' what to do")
 		return
 	end 'behaviour'
-	if ms.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].errTy == ast.noType 'noThrows'
-		let name = ms.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].name.clone()
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: r.fn).errTy == ast.noType 'noThrows'
+		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: r.fn).name.clone()
 		rangeRaise(r, p: p, ms: ms, node: site, code: diag.errErrorTypeMismatch, msg: "a 'try' without 'otherwise' passes a failure to the caller, but '{name}' does not throw: give 'otherwise' what to do, or declare '{name}' 'throws' the error")
 	end 'noThrows'
 end 'rangeRequirePropagates'
@@ -826,7 +826,7 @@ function rangeReturnStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s 
 	if value != 0 'value'
 		let v = rangeEval(r, p: p, ms: ms, e: value)
 		if r.typing.arith.get(s as Count).isSome() 'converts'
-			let ret = ms.funcs.slots[ast.funcSlot(r.fn)][ast.funcIndex(r.fn)].retTy
+			let ret = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: r.fn).retTy
 			_ = rangeConverted(r, p: p, ms: ms, e: s, v: v, src: typeOf(r, e: value), ty: ret, why: Unchecked.returned(ret, value: value))
 		end 'converts'
 	end 'value'
@@ -860,7 +860,7 @@ function rangeMatch(mutates r Ranges, p ast.Project, ms ast.ModuleState, core as
 	let start = rangeKeep(r)
 	let subjectTy = typeOf(r, e: subject)
 	var subjectPlace as table.Option with Place
-	if ast.isIntType(ms.types, t: subjectTy) 'int'
+	if ast.isIntType(ms.types, reads: p.types, t: subjectTy) 'int'
 		subjectPlace = rangePlaceOf(r, p: p, ms: ms, e: subject)
 	end 'int' else 'other'
 		subjectPlace = table.Option.none
@@ -888,7 +888,7 @@ function rangeMatch(mutates r Ranges, p ast.Project, ms ast.ModuleState, core as
 			rangeStmt(r, p: p, ms: ms, s: ast.matchArmAction(ms.tree, id: arm))
 		end 'then' else if form == ast.ArmKind.armGives 'gives'
 			let v = rangeEval(r, p: p, ms: ms, e: value)
-			if not isDead(r, s: r.st) and ast.isIntType(ms.types, t: typeOf(r, e: value)) 'int'
+			if not isDead(r, s: r.st) and ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: value)) 'int'
 				if anyGives 'more'
 					given = given.unionWith(v)
 				end 'more' else 'first'
@@ -927,10 +927,10 @@ function rangeArmState(mutates r Ranges, p ast.Project, ms ast.ModuleState, star
 		let form = ast.patternForm(ms.tree, id: pat)
 		var s = Span.make(ast.I128.zero(), hi: ast.I128.zero())
 		if form == ast.PatternKind.patLiteral 'literal'
-			s = typeSpan(ms.types, t: typeOf(r, e: ast.patternValue(ms.tree, id: pat)))
+			s = typeSpan(ms.types, reads: p.types, t: typeOf(r, e: ast.patternValue(ms.tree, id: pat)))
 		end 'literal' else if form == ast.PatternKind.patRange 'range'
-			let lo = typeSpan(ms.types, t: typeOf(r, e: ast.patternValue(ms.tree, id: pat))).lo.clone()
-			var hi = typeSpan(ms.types, t: typeOf(r, e: ast.patternHigh(ms.tree, id: pat))).hi.clone()
+			let lo = typeSpan(ms.types, reads: p.types, t: typeOf(r, e: ast.patternValue(ms.tree, id: pat))).lo.clone()
+			var hi = typeSpan(ms.types, reads: p.types, t: typeOf(r, e: ast.patternHigh(ms.tree, id: pat))).hi.clone()
 			if not ast.patternInclusive(ms.tree, id: pat) 'exclusive'
 				hi = hi.sub(ast.I128.one())
 			end 'exclusive'

@@ -4,13 +4,13 @@
 // convsOf are the conventions of the parameters of a declared function, the receiver of a method counting as the first.
 function convsOf(p ast.Project, decl ast.FuncID) returns CountList
 	var convs = CountList.create(0)
-	if p.funcs.slots[ast.funcSlot(decl)][ast.funcIndex(decl)].hasReceiver 'receiver'
-		convs.push(p.funcs.slots[ast.funcSlot(decl)][ast.funcIndex(decl)].selfConv.ordinal)
-	end 'receiver' else if p.funcs.slots[ast.funcSlot(decl)][ast.funcIndex(decl)].isClosure 'closure'
+	if ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl).hasReceiver 'receiver'
+		convs.push(ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl).selfConv.ordinal)
+	end 'receiver' else if ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl).isClosure 'closure'
 		convs.push(ast.Convention.convLet.ordinal)
 	end 'closure'
-	for i in 0 upto p.funcs.slots[ast.funcSlot(decl)][ast.funcIndex(decl)].params.count() 'params'
-		convs.push(p.funcs.slots[ast.funcSlot(decl)][ast.funcIndex(decl)].params[i].conv.ordinal)
+	for i in 0 upto ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl).params.count() 'params'
+		convs.push(ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl).params[i].conv.ordinal)
 	end 'params'
 	return convs
 end 'convsOf'
@@ -18,8 +18,8 @@ end 'convsOf'
 // addFunction indexes a function and the bodies of the behaviours and closures it holds.
 function addFunction(mutates prog Program, mutates paths CountLists, p ast.Project, f ir.IrFunction, path CountList, consumes convs CountList)
 	let fi = prog.symbols.count()
-	prog.add(ir.irSymbol(p, tt: p.types, ft: p.funcs, f: f), slots: f.slots.count(), regs: f.regs.count(), frameBoxes: f.frameBoxes, convs: convs)
-	prog.fnTakesClosure[fi] = p.funcs.slots[ast.funcSlot(f.decl)][ast.funcIndex(f.decl)].isClosure
+	prog.add(ir.irSymbol(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f), slots: f.slots.count(), regs: f.regs.count(), frameBoxes: f.frameBoxes, convs: convs)
+	prog.fnTakesClosure[fi] = ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: f.decl).isClosure
 	prog.fnCaptureOwned[fi] = f.captureOwned.clone()
 	paths.push(path.clone())
 	for b in 0 upto f.bodies.count() 'bodies'
@@ -27,7 +27,7 @@ function addFunction(mutates prog Program, mutates paths CountLists, p ast.Proje
 		child.push(b)
 		prog.fnChildren[fi].push(prog.symbols.count())
 		var bodyConvs = CountList.create(0)
-		if p.funcs.slots[ast.funcSlot(f.bodies[b].decl)][ast.funcIndex(f.bodies[b].decl)].isClosure 'closure'
+		if ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: f.bodies[b].decl).isClosure 'closure'
 			bodyConvs = convsOf(p, decl: f.bodies[b].decl)
 		end 'closure'
 		addFunction(prog, paths: paths, p: p, f: f.bodies[b], path: child, convs: bodyConvs)
@@ -148,7 +148,7 @@ type CodeText implements FunctionJob
 		end 'terminator'
 		let idx = try first + (pc as Count) otherwise panic("interp: an instruction past memory")
 		if idx < f.blocks[block].endAt 'instruction'
-			text = ir.instrText(p, tt: p.types, ft: p.funcs, f: f, x: f.instrs[idx])
+			text = ir.instrText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f, x: f.instrs[idx])
 		end 'instruction'
 	end 'run'
 end 'CodeText'

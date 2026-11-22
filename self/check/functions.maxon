@@ -3,7 +3,7 @@ function enterContext(mutates c Checker, p ast.Project, ms ast.ModuleState, f as
 	c.fn = f
 	c.rootFn = f
 	c.boundedFn = ast.noFunc
-	if f != ast.noFunc and ms.funcs.slots[ast.funcSlot(f)][ast.funcIndex(f)].bounds.count() > 0 'bounded'
+	if f != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).bounds.count() > 0 'bounded'
 		c.boundedFn = f
 	end 'bounded'
 	c.whens = 0 as Count
@@ -59,12 +59,12 @@ function declareGenerics(mutates c Checker, p ast.Project, mutates ms ast.Module
 		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.id), code: diag.errGenericDeclaration, msg: "the method '{f.name}' takes no type parameters of its own: use the type's, or write a function", errs: errs)
 		return
 	end 'ownParams'
-	let ofInterface = isMethod and ast.typeKind(ms.types, t: nt) == ast.TypeKind.typeParam
-	if isMethod and (ofInterface or ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].typeParams.count() > 0) 'ofType'
-		var generics = ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].typeParams)
+	let ofInterface = isMethod and ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.typeParam
+	if isMethod and (ofInterface or ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams.count() > 0) 'ofType'
+		var generics = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams)
 		if ofInterface 'interface'
 			generics.push(nt)
-			generics.append(ms.types.lists[ast.typeList(ms.types, t: ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].bounds[0].ifaceTy)][ast.typeIndex(ms.types, t: ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].bounds[0].ifaceTy)].typeArgs)
+			generics.append(ast.typeEntry(ms.types, reads: p.types, t: ast.typeEntry(ms.types, reads: p.types, t: nt).bounds[0].ifaceTy).typeArgs)
 		end 'interface'
 		var bounds = ast.ParamBoundList.create(0)
 		let mark = errs.count()
@@ -79,14 +79,14 @@ function declareGenerics(mutates c Checker, p ast.Project, mutates ms ast.Module
 				bounds.push(ast.ParamBound.make(constrained, ifaceTy: iface))
 			end 'bounds'
 		end 'cons'
-		ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].generics = generics
-		ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].bounds = bounds
+		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].generics = generics
+		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].bounds = bounds
 		return
 	end 'ofType'
 	if f.typeParams.count() > 0 'own'
 		var generics = ast.TypeIDList.create(0)
 		declareFunctionTypeParams(c, p: p, ms: ms, params: f.typeParams, constraints: f.whereList, generics: generics, errs: errs)
-		ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].generics = generics
+		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].generics = generics
 	end 'own'
 end 'declareGenerics'
 
@@ -103,20 +103,20 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	end 'receiver'
 	var selfTy = ast.noType
 	if nt != ast.noType 'owned'
-		selfTy = ast.selfType(ms.types, declTy: nt)
-		ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].ownerTy = selfTy
+		selfTy = ast.selfType(ms.types, reads: p.types, declTy: nt)
+		ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].ownerTy = selfTy
 	end 'owned'
 	let mark = errs.count()
 	declareGenerics(c, p: p, ms: ms, f: f, fid: fid, nt: nt, errs: errs)
 	if failedSince(errs, mark: mark) 'badGenerics'
 		return
 	end 'badGenerics'
-	if nt != ast.noType and ast.typeKind(ms.types, t: nt) == ast.TypeKind.enumTy and ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'enumDestructor'
-		let tName = ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].name.clone()
+	if nt != ast.noType and ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.enumTy and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).isDestructor 'enumDestructor'
+		let tName = ast.typeEntry(ms.types, reads: p.types, t: nt).name.clone()
 		checkFail(c.modID, off: off, code: diag.errDestructorMisuse, msg: "'{tName}' is an enum, whose values are plain numbers with nothing to end; remove 'destructs', or make '{tName}' a type or a union", errs: errs)
 		return
 	end 'enumDestructor'
-	ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].selfConv = ast.parseConvention(f.receiver)
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].selfConv = ast.parseConvention(f.receiver)
 	var specs = ast.ParamSpecList.create(0)
 	paramSpecs(c, p: p, ms: ms, params: f.params, selfTy: selfTy, specs: specs, errs: errs)
 	if failedSince(errs, mark: mark) 'badParams'
@@ -140,17 +140,17 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "'{f.name}' returns a borrowed place and throws, which is not supported yet; let the caller test first and remove 'throws', or return a value: 'returns T'", errs: errs)
 		return
 	end 'borrowedThrows'
-	ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].result = result
-	ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params = specs
-	ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].paramTypes = types
-	ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].retTy = ret
-	ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].errTy = err
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].result = result
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].params = specs
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].paramTypes = types
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].retTy = ret
+	ms.funcs.entries[ast.funcIndex(ms.funcs, f: fid)].errTy = err
 	declared.push(fid)
 end 'addFunction'
 
 // addMethods declares the methods of a type, a union or an enum.
 function addMethods(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, methods ast.FuncDeclList, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
-	let isRecord = ast.typeKind(ms.types, t: nt) == ast.TypeKind.record
+	let isRecord = ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.record
 	for i in 0 upto methods.count() 'each'
 		addMethod(c, p: p, ms: ms, m: methods[i].clone(), nt: nt, isRecord: isRecord, declared: declared, errs: errs)
 	end 'each'
@@ -166,13 +166,13 @@ function addMethod(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
 		return
 	end 'clone'
-	if ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].findMethod(m.name).isSome() 'dup'
-		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(m.name, typeName: ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].name), errs: errs)
+	if ast.typeEntry(ms.types, reads: p.types, t: nt).findMethod(m.name).isSome() 'dup'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(m.name, typeName: ast.typeEntry(ms.types, reads: p.types, t: nt).name), errs: errs)
 		return
 	end 'dup'
 	let fid = newFuncEntry(c, p: p, ms: ms, f: m, ownerTy: nt, ref: ast.DeclRef.make(c.modID, ordinal: 0 as ast.DeclOrdinal))
 	ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].methods.push(ast.MethodRef.make(m.name.clone(), func: fid))
-	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].isDestructor 'destructor'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).isDestructor 'destructor'
 		ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].dropFunc = fid
 	end 'destructor'
 	addFunction(c, p: p, ms: ms, f: m, fid: fid, nt: nt, declared: declared, errs: errs)

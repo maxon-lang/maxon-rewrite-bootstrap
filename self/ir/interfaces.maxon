@@ -9,7 +9,7 @@ let tableWord = "table"
 // tableConcrete is the type whose table a value of the type t is boxed with: t itself, but an integer constant is a value
 // of the integer type that its extensions add methods to.
 function tableConcrete(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
-	if ast.typeKind(ms.types, t: t) == ast.TypeKind.constInt 'constant'
+	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.constInt 'constant'
 		return p.builtins.anon64Ty
 	end 'constant'
 	return t
@@ -18,7 +18,7 @@ end 'tableConcrete'
 // standsForInterface is whether a value of the type t, with the code's type parameters bound, is an interface value
 // already, which a place of an interface takes as it is.
 function standsForInterface(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	return ast.typeKind(ms.types, t: t) == ast.TypeKind.interfaceTy
+	return ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.interfaceTy
 end 'standsForInterface'
 
 // witnessTable is the table that a value of the type src, written at site in the code of module, is boxed with to be a
@@ -26,16 +26,16 @@ end 'standsForInterface'
 // parameter, and for any other type the one that module sees. It is none after it refused a conformance that the module
 // does not see, or sees twice, which the verify stage reports first wherever the type is known there.
 export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, src ast.TypeID, iface ast.TypeID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates errs diag.ErrorList) returns table.Option with WitnessTable
-	let applied = ast.substituteType(ms.types, t: src, params: bindParams, args: bindArgs)
+	let applied = ast.substituteType(ms.types, reads: p.types, t: src, params: bindParams, args: bindArgs)
 	let concrete = tableConcrete(p, ms: ms, t: applied)
-	let wanted = ast.substituteType(ms.types, t: iface, params: bindParams, args: bindArgs)
+	let wanted = ast.substituteType(ms.types, reads: p.types, t: iface, params: bindParams, args: bindArgs)
 	var conformance = module
-	if ast.typeKind(ms.types, t: src) == ast.TypeKind.typeParam 'passed'
+	if ast.typeKind(ms.types, reads: p.types, t: src) == ast.TypeKind.typeParam 'passed'
 		conformance = passedWitness(p, ms: ms, enclosing: bindWitnesses, param: src, iface: wanted)
 	end 'passed' else 'seen'
 		let mark = errs.count()
-		let concreteName = ast.typeName(ms.types, t: concrete)
-		let ifaceName = ast.typeName(ms.types, t: wanted)
+		let concreteName = ast.typeName(ms.types, reads: p.types, t: concrete)
+		let ifaceName = ast.typeName(ms.types, reads: p.types, t: wanted)
 		match consumes ast.conformanceSource(p, ms: ms, from: module, t: concrete, iface: wanted) 'source'
 			found(c) then conformance = c.module
 			ambiguous(first, second) then pushInstanceError(p, module: module, site: site, code: diag.errAmbiguousConformance, message: ast.ambiguousConformanceText(p, from: module, typeName: concreteName, ifaceName: ifaceName, first: first, second: second), errs: errs)
@@ -45,16 +45,16 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 			return table.Option.none
 		end 'refused'
 	end 'seen'
-	let reqs = ast.requirementsOf(ms.types, iface: wanted)
+	let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: wanted)
 	var methods = ast.FuncIDList.create(0)
 	for i in 0 upto reqs.count() 'methods'
-		let name = ms.funcs.slots[ast.funcSlot(reqs[i].sig)][ast.funcIndex(reqs[i].sig)].name.clone()
+		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: reqs[i].sig).name.clone()
 		match consumes witnessFor(p, ms: ms, module: module, site: site, recv: concrete, name: name, conformance: conformance, errs: errs) 'method'
 			some(fid) then methods.push(fid)
 			none then return table.Option.none
 		end 'method'
 	end 'methods'
-	let symbol = "{tableWord} {ast.typeLinkNameIn(p, tt: ms.types, t: concrete)} as {ast.typeLinkNameIn(p, tt: ms.types, t: wanted)} by {ast.moduleLinkPath(p, modID: conformance)}"
+	let symbol = "{tableWord} {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: concrete)} as {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: wanted)} by {ast.moduleLinkPath(p, modID: conformance)}"
 	return table.Option.some(WitnessTable.make(symbol, concrete: concrete, iface: wanted, methods: methods))
 end 'witnessTable'
 
@@ -102,11 +102,11 @@ end 'lowerBoxed'
 // isRecoveryCast is whether the cast e takes a value of a type out of an interface value.
 function isRecoveryCast(l Lowerer, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
 	let castTy = exprType(p, module: l.module, node: e)
-	if ast.typeKind(ms.types, t: castTy) == ast.TypeKind.interfaceTy 'boxes'
+	if ast.typeKind(ms.types, reads: p.types, t: castTy) == ast.TypeKind.interfaceTy 'boxes'
 		return false
 	end 'boxes'
 	let operandTy = exprType(p, module: l.module, node: ast.castExprE(p.modules[l.mi].tree, id: e))
-	return ast.typeKind(ms.types, t: operandTy) == ast.TypeKind.interfaceTy
+	return ast.typeKind(ms.types, reads: p.types, t: operandTy) == ast.TypeKind.interfaceTy
 end 'isRecoveryCast'
 
 // lowerRecoveryCast takes the value out of the interface value inner, which the cast consumes, when the box holds a value
@@ -157,8 +157,8 @@ export function witnessInterface(p ast.Project, mutates ms ast.ModuleState, modu
 	if info.kind != ast.CallKind.callBound 'other'
 		return ast.noType
 	end 'other'
-	let received = ast.substituteType(ms.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
-	let recv = ast.contentType(ms.types, t: received)
+	let received = ast.substituteType(ms.types, reads: p.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
+	let recv = ast.contentType(ms.types, reads: p.types, t: received)
 	if standsForInterface(p, ms: ms, t: recv) 'interface'
 		return recv
 	end 'interface'

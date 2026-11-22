@@ -111,26 +111,26 @@ export union ShapeHit
 	clash(message String)
 end 'ShapeHit'
 
-function shapeClash(tt TypeTable, word Count, existing TypeID, other String) returns ShapeHit
-	return ShapeHit.clash(clashMessage(tt, word: word, existing: existing, other: other))
+function shapeClash(tt TypeSlot, reads TypeTable, word Count, existing TypeID, other String) returns ShapeHit
+	return ShapeHit.clash(clashMessage(tt, reads: reads, word: word, existing: existing, other: other))
 end 'shapeClash'
 
-function clashMessage(tt TypeTable, word Count, existing TypeID, other String) returns String
-	return "internal error: the types '{typeName(tt, t: existing)}' and '{other}' have one structural hash, {word}"
+function clashMessage(tt TypeSlot, reads TypeTable, word Count, existing TypeID, other String) returns String
+	return "internal error: the types '{typeName(tt, reads: reads, t: existing)}' and '{other}' have one structural hash, {word}"
 end 'clashMessage'
 
 // takeShape is the type a lookup found, which the running task's slot then holds, or none where it found nothing; it stops
 // the compile at a clash.
-function takeShape(mutates tt TypeTable, consumes hit ShapeHit) returns table.Option with TypeID
+function takeShape(mutates tt TypeSlot, reads TypeTable, consumes hit ShapeHit) returns table.Option with TypeID
 	match consumes hit 'hit'
 		absent then return table.Option.none
-		same(id, place) then return adoptedShape(tt, id: id, place: place)
+		same(id, place) then return adoptedShape(tt, reads: reads, id: id, place: place)
 		clash(message) then panic("{message}")
 	end 'hit'
 end 'takeShape'
 
-function adoptedShape(mutates tt TypeTable, id TypeID, place Count) returns table.Option with TypeID
-	adoptShape(tt, place: place, word: id as Count)
+function adoptedShape(mutates tt TypeSlot, reads TypeTable, id TypeID, place Count) returns table.Option with TypeID
+	adoptShape(tt, reads: reads, place: place, word: id as Count)
 	return table.Option.some(id)
 end 'adoptedShape'
 
@@ -139,18 +139,16 @@ function intRangeWord(aliasName String, minVal I128, maxVal I128, inferred bool)
 	return shapeWordOf(TypeKind.intRange, h: h)
 end 'intRangeWord'
 
-function intRangeUnder(tt TypeTable, word Count, aliasName String, minVal I128, maxVal I128, inferred bool) returns ShapeHit
+function intRangeUnder(tt TypeSlot, reads TypeTable, word Count, aliasName String, minVal I128, maxVal I128, inferred bool) returns ShapeHit
 	var place as Count
-	if not findShape(tt, word: word, place: place) 'absent'
+	if not findShape(tt, reads: reads, word: word, place: place) 'absent'
 		return ShapeHit.absent
 	end 'absent'
 	let id = shapeID(word)
-	let s = shapeList(handleSlot(place))
-	let i = handleIndex(place)
-	if tt.lists[s][i].kind == TypeKind.intRange and tt.lists[s][i].name == aliasName and tt.lists[s][i].minVal.eq(minVal) and tt.lists[s][i].maxVal.eq(maxVal) and tt.lists[s][i].inferred == inferred 'same'
+	if shapeAt(tt, reads: reads, place: place).kind == TypeKind.intRange and shapeAt(tt, reads: reads, place: place).name == aliasName and shapeAt(tt, reads: reads, place: place).minVal.eq(minVal) and shapeAt(tt, reads: reads, place: place).maxVal.eq(maxVal) and shapeAt(tt, reads: reads, place: place).inferred == inferred 'same'
 		return ShapeHit.same(id, place: place)
 	end 'same'
-	return shapeClash(tt, word: word, existing: id, other: "{aliasName} int({minVal.toString()} to {maxVal.toString()})")
+	return shapeClash(tt, reads: reads, word: word, existing: id, other: "{aliasName} int({minVal.toString()} to {maxVal.toString()})")
 end 'intRangeUnder'
 
 function floatRangeWord(aliasName String, lo Count, hi Count) returns Count
@@ -158,59 +156,53 @@ function floatRangeWord(aliasName String, lo Count, hi Count) returns Count
 	return shapeWordOf(TypeKind.floatRange, h: h)
 end 'floatRangeWord'
 
-function floatRangeUnder(tt TypeTable, word Count, aliasName String, lo Count, hi Count) returns ShapeHit
+function floatRangeUnder(tt TypeSlot, reads TypeTable, word Count, aliasName String, lo Count, hi Count) returns ShapeHit
 	var place as Count
-	if not findShape(tt, word: word, place: place) 'absent'
+	if not findShape(tt, reads: reads, word: word, place: place) 'absent'
 		return ShapeHit.absent
 	end 'absent'
 	let id = shapeID(word)
-	let s = shapeList(handleSlot(place))
-	let i = handleIndex(place)
-	if tt.lists[s][i].kind == TypeKind.floatRange and tt.lists[s][i].name == aliasName and tt.lists[s][i].minVal.eq(I128.fromCount(lo)) and tt.lists[s][i].maxVal.eq(I128.fromCount(hi)) 'same'
+	if shapeAt(tt, reads: reads, place: place).kind == TypeKind.floatRange and shapeAt(tt, reads: reads, place: place).name == aliasName and shapeAt(tt, reads: reads, place: place).minVal.eq(I128.fromCount(lo)) and shapeAt(tt, reads: reads, place: place).maxVal.eq(I128.fromCount(hi)) 'same'
 		return ShapeHit.same(id, place: place)
 	end 'same'
-	return shapeClash(tt, word: word, existing: id, other: "{aliasName} float with the bits {lo} to {hi}")
+	return shapeClash(tt, reads: reads, word: word, existing: id, other: "{aliasName} float with the bits {lo} to {hi}")
 end 'floatRangeUnder'
 
 function constIntWord(val I128) returns Count
 	return shapeWordOf(TypeKind.constInt, h: shapeI128Step(shapeStart(TypeKind.constInt, form: ShapeForm.constant), v: val))
 end 'constIntWord'
 
-function constIntUnder(tt TypeTable, word Count, val I128) returns ShapeHit
+function constIntUnder(tt TypeSlot, reads TypeTable, word Count, val I128) returns ShapeHit
 	var place as Count
-	if not findShape(tt, word: word, place: place) 'absent'
+	if not findShape(tt, reads: reads, word: word, place: place) 'absent'
 		return ShapeHit.absent
 	end 'absent'
 	let id = shapeID(word)
-	let s = shapeList(handleSlot(place))
-	let i = handleIndex(place)
-	if tt.lists[s][i].kind == TypeKind.constInt and tt.lists[s][i].minVal.eq(val) 'same'
+	if shapeAt(tt, reads: reads, place: place).kind == TypeKind.constInt and shapeAt(tt, reads: reads, place: place).minVal.eq(val) 'same'
 		return ShapeHit.same(id, place: place)
 	end 'same'
-	return shapeClash(tt, word: word, existing: id, other: "const({val.toString()})")
+	return shapeClash(tt, reads: reads, word: word, existing: id, other: "const({val.toString()})")
 end 'constIntUnder'
 
 function constFloatWord(bits Count) returns Count
 	return shapeWordOf(TypeKind.constFloat, h: shapeWordStep(shapeStart(TypeKind.constFloat, form: ShapeForm.constant), w: bits))
 end 'constFloatWord'
 
-function constFloatUnder(tt TypeTable, word Count, bits Count) returns ShapeHit
+function constFloatUnder(tt TypeSlot, reads TypeTable, word Count, bits Count) returns ShapeHit
 	var place as Count
-	if not findShape(tt, word: word, place: place) 'absent'
+	if not findShape(tt, reads: reads, word: word, place: place) 'absent'
 		return ShapeHit.absent
 	end 'absent'
 	let id = shapeID(word)
-	let s = shapeList(handleSlot(place))
-	let i = handleIndex(place)
-	if tt.lists[s][i].kind == TypeKind.constFloat and tt.lists[s][i].minVal.eq(I128.fromCount(bits)) 'same'
+	if shapeAt(tt, reads: reads, place: place).kind == TypeKind.constFloat and shapeAt(tt, reads: reads, place: place).minVal.eq(I128.fromCount(bits)) 'same'
 		return ShapeHit.same(id, place: place)
 	end 'same'
-	return shapeClash(tt, word: word, existing: id, other: "the float constant of the bits {bits}")
+	return shapeClash(tt, reads: reads, word: word, existing: id, other: "the float constant of the bits {bits}")
 end 'constFloatUnder'
 
 // instanceWord is the word of the instance of origin at args, whose kind is the origin's.
-export function instanceWord(tt TypeTable, origin TypeID, args TypeIDList) returns Count
-	let kind = typeKind(tt, t: origin)
+export function instanceWord(tt TypeSlot, reads TypeTable, origin TypeID, args TypeIDList) returns Count
+	let kind = typeKind(tt, reads: reads, t: origin)
 	var h = shapeWordStep(shapeStart(kind, form: ShapeForm.instance), w: (origin as Count))
 	h = shapeWordStep(h, w: args.count())
 	for i in 0 upto args.count() 'each'
@@ -220,22 +212,20 @@ export function instanceWord(tt TypeTable, origin TypeID, args TypeIDList) retur
 end 'instanceWord'
 
 // instanceUnder looks up the instance of origin at args under word, which a test gives to make two instances clash.
-export function instanceUnder(tt TypeTable, word Count, origin TypeID, args TypeIDList) returns ShapeHit
+export function instanceUnder(tt TypeSlot, reads TypeTable, word Count, origin TypeID, args TypeIDList) returns ShapeHit
 	var place as Count
-	if not findShape(tt, word: word, place: place) 'absent'
+	if not findShape(tt, reads: reads, word: word, place: place) 'absent'
 		return ShapeHit.absent
 	end 'absent'
 	let id = shapeID(word)
-	let s = shapeList(handleSlot(place))
-	let i = handleIndex(place)
-	if tt.lists[s][i].origin == origin and tt.lists[s][i].typeArgs.equals(args) 'same'
+	if shapeAt(tt, reads: reads, place: place).origin == origin and shapeAt(tt, reads: reads, place: place).typeArgs.equals(args) 'same'
 		return ShapeHit.same(id, place: place)
 	end 'same'
 	var names = StringList.create(0)
 	for j in 0 upto args.count() 'names'
-		names.push(typeName(tt, t: args[j]))
+		names.push(typeName(tt, reads: reads, t: args[j]))
 	end 'names'
-	return shapeClash(tt, word: word, existing: id, other: instanceSpelling(typeName(tt, t: origin), args: names))
+	return shapeClash(tt, reads: reads, word: word, existing: id, other: instanceSpelling(typeName(tt, reads: reads, t: origin), args: names))
 end 'instanceUnder'
 
 function funcOriginWord(shape FuncShape) returns Count
@@ -247,36 +237,32 @@ function funcOriginWord(shape FuncShape) returns Count
 	return shapeWordOf(TypeKind.funcTy, h: h)
 end 'funcOriginWord'
 
-function funcOriginUnder(tt TypeTable, word Count, shape FuncShape) returns ShapeHit
+function funcOriginUnder(tt TypeSlot, reads TypeTable, word Count, shape FuncShape) returns ShapeHit
 	var place as Count
-	if not findShape(tt, word: word, place: place) 'absent'
+	if not findShape(tt, reads: reads, word: word, place: place) 'absent'
 		return ShapeHit.absent
 	end 'absent'
 	let id = shapeID(word)
-	let s = shapeList(handleSlot(place))
-	let i = handleIndex(place)
-	if tt.lists[s][i].kind == TypeKind.funcTy and tt.lists[s][i].origin == noType and tt.lists[s][i].paramConvs.equals(shape.convs) and tt.lists[s][i].mutatesCaptures == shape.mutatesCaptures and tt.lists[s][i].brandKey == shape.brand.key 'same'
+	if shapeAt(tt, reads: reads, place: place).kind == TypeKind.funcTy and shapeAt(tt, reads: reads, place: place).origin == noType and shapeAt(tt, reads: reads, place: place).paramConvs.equals(shape.convs) and shapeAt(tt, reads: reads, place: place).mutatesCaptures == shape.mutatesCaptures and shapeAt(tt, reads: reads, place: place).brandKey == shape.brand.key 'same'
 		return ShapeHit.same(id, place: place)
 	end 'same'
-	return shapeClash(tt, word: word, existing: id, other: "the origin of the function types with {shape.convs.count()} parameters of the brand '{shape.brand.key}'")
+	return shapeClash(tt, reads: reads, word: word, existing: id, other: "the origin of the function types with {shape.convs.count()} parameters of the brand '{shape.brand.key}'")
 end 'funcOriginUnder'
 
 function tupleOriginWord(arity Count) returns Count
 	return shapeWordOf(TypeKind.record, h: shapeWordStep(shapeStart(TypeKind.record, form: ShapeForm.tupleOrigin), w: arity))
 end 'tupleOriginWord'
 
-function tupleOriginUnder(tt TypeTable, word Count, arity Count) returns ShapeHit
+function tupleOriginUnder(tt TypeSlot, reads TypeTable, word Count, arity Count) returns ShapeHit
 	var place as Count
-	if not findShape(tt, word: word, place: place) 'absent'
+	if not findShape(tt, reads: reads, word: word, place: place) 'absent'
 		return ShapeHit.absent
 	end 'absent'
 	let id = shapeID(word)
-	let s = shapeList(handleSlot(place))
-	let i = handleIndex(place)
-	if tt.lists[s][i].isTuple and tt.lists[s][i].origin == noType and tt.lists[s][i].typeParams.count() == arity 'same'
+	if shapeAt(tt, reads: reads, place: place).isTuple and shapeAt(tt, reads: reads, place: place).origin == noType and shapeAt(tt, reads: reads, place: place).typeParams.count() == arity 'same'
 		return ShapeHit.same(id, place: place)
 	end 'same'
-	return shapeClash(tt, word: word, existing: id, other: "Tuple{arity}")
+	return shapeClash(tt, reads: reads, word: word, existing: id, other: "Tuple{arity}")
 end 'tupleOriginUnder'
 
 // tupleParamWord is the word of the type parameter at index of the tuple record whose word is origin.
@@ -311,6 +297,11 @@ type ShapeIndex
 	static function new() returns ShapeIndex
 		return ShapeIndex{cells: ShapeWords.filled(shapeIndexStart * shapeCell, value: emptyWord), mask: (shapeIndexStart - 1) * shapeCell, used: 0 as Count}
 	end 'new'
+
+	// empty is the index of a slot that holds no shapes and never makes one: of one free place.
+	static function empty() returns ShapeIndex
+		return ShapeIndex{cells: ShapeWords.filled(shapeCell, value: emptyWord), mask: 0 as Count, used: 0 as Count}
+	end 'empty'
 
 	// probe is the place of word in the index, or the free place where it would go.
 	function probe(word Count) returns Count
@@ -388,5 +379,3 @@ type ShapeIndex
 		end 'rehash'
 	end 'grow'
 end 'ShapeIndex'
-
-typealias ShapeIndexes = Array with ShapeIndex

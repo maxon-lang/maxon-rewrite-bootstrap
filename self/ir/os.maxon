@@ -144,9 +144,9 @@ end 'pathText'
 // builtinRecord is a new box of a record of the table, whose fields are the values by index.
 function builtinRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, values RegList) returns Reg
 	let ty = applyType(l, p: p, ms: ms, t: t)
-	let origin = ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].effectiveOrigin()
-	if ast.typeKind(ms.types, t: ty) != ast.TypeKind.record or ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].fields.count() != values.count() 'shape'
-		panic("lower: {ast.typeName(ms.types, t: t)} is not a record of {values.count()} fields")
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: ty).effectiveOrigin()
+	if ast.typeKind(ms.types, reads: p.types, t: ty) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: origin).fields.count() != values.count() 'shape'
+		panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} is not a record of {values.count()} fields")
 	end 'shape'
 	let box = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newAlloc(box, bytes: boxBytes(values.count(), tagged: false)))

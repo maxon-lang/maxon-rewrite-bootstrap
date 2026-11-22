@@ -10,19 +10,19 @@ end 'floatWord'
 // double, and any other integer converts.
 function floatOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, e ast.NodeID) returns Reg
 	let t = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
-	let kind = ast.typeKind(ms.types, t: t)
+	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
 	if kind == ast.TypeKind.constInt 'constant'
-		return konst(l, value: floatWord(ast.floatFromInt(ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal)))
+		return konst(l, value: floatWord(ast.floatFromInt(ast.typeEntry(ms.types, reads: p.types, t: t).minVal)))
 	end 'constant'
 	if kind == ast.TypeKind.intRange 'integer'
 		let d = newReg(l, kind: IrKind.kindScalar)
-		emit(l, i: newIntToFloat(d, src: v, unsigned: ast.isUnsignedInt(ms.types, t: t)))
+		emit(l, i: newIntToFloat(d, src: v, unsigned: ast.isUnsignedInt(ms.types, reads: p.types, t: t)))
 		return d
 	end 'integer'
 	if kind == ast.TypeKind.constFloat or kind == ast.TypeKind.floatRange 'float'
 		return v
 	end 'float'
-	panic("lower: {ast.typeName(ms.types, t: t)} is no number to make a float of")
+	panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} is no number to make a float of")
 end 'floatOf'
 
 function fBinOpOfText(op String) returns FBinOp
@@ -72,11 +72,11 @@ function floatConverted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 		return d
 	end 'fits'
 	let fail = failure(l, p: p, ms: ms, errorCase: ast.errorOverflow, err: noReg, errDrop: ast.noType)
-	let lo = konst(l, value: floatWord(ast.floatLowBits(ms.types, t: target)))
+	let lo = konst(l, value: floatWord(ast.floatLowBits(ms.types, reads: p.types, t: target)))
 	let atLeast = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newFCmp(atLeast, op: CmpOp.cmpGe, left: d, right: lo))
 	branchUnless(l, cond: atLeast, fail: fail)
-	let hi = konst(l, value: floatWord(ast.floatHighBits(ms.types, t: target)))
+	let hi = konst(l, value: floatWord(ast.floatHighBits(ms.types, reads: p.types, t: target)))
 	let atMost = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newFCmp(atMost, op: CmpOp.cmpLe, left: d, right: hi))
 	branchUnless(l, cond: atMost, fail: fail)

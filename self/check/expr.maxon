@@ -16,7 +16,7 @@ function isComparisonOp(op String) returns bool
 end 'isComparisonOp'
 
 function kindOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.TypeKind
-	return ast.typeKind(ms.types, t: t)
+	return ast.typeKind(ms.types, reads: p.types, t: t)
 end 'kindOfType'
 
 function isConstInt(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
@@ -28,12 +28,12 @@ function typeHasKind(p ast.Project, ms ast.ModuleState, t ast.TypeID, kind ast.T
 end 'typeHasKind'
 
 function nameOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
-	return ast.typeName(ms.types, t: t)
+	return ast.typeName(ms.types, reads: p.types, t: t)
 end 'nameOfType'
 
 // declaredNameOfType is the name a type was declared with, which a generic instance shares with its generic.
 function declaredNameOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
-	return ast.typeName(ms.types, t: ast.originOf(ms.types, t: t))
+	return ast.typeName(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t))
 end 'declaredNameOfType'
 
 // checkExpr types an expression, which gives the type it has, or none after it reported why it has none.
@@ -48,9 +48,9 @@ function checkExpecting(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	c.expect = want
 	var t = visitExpr(c, p: p, ms: ms, e: e, errs: errs)
 	c.expect = outer
-	if isConstInt(p, ms: ms, t: t) and ast.isFloatType(ms.types, t: want) 'asFloat'
+	if isConstInt(p, ms: ms, t: t) and ast.isFloatType(ms.types, reads: p.types, t: want) 'asFloat'
 		// An integer constant where a float is needed is the double of its value.
-		t = ast.internConstFloat(ms.types, bits: constantBits(p, ms: ms, t: t))
+		t = ast.internConstFloat(ms.types, reads: p.types, bits: constantBits(p, ms: ms, t: t))
 	end 'asFloat'
 	recordType(c, e: e, t: t)
 	return t
@@ -66,10 +66,10 @@ end 'recordType'
 function visitExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let k = ms.tree.kindOf(e)
 	if k == ast.NodeKind.intLit 'intLit'
-		return ast.internConstInt(ms.types, val: ast.intLitValue(ms.tree, id: e))
+		return ast.internConstInt(ms.types, reads: p.types, val: ast.intLitValue(ms.tree, id: e))
 	end 'intLit'
 	if k == ast.NodeKind.floatLit 'floatLit'
-		return ast.internConstFloat(ms.types, bits: ast.floatLitBits(ms.tree, id: e))
+		return ast.internConstFloat(ms.types, reads: p.types, bits: ast.floatLitBits(ms.tree, id: e))
 	end 'floatLit'
 	if k == ast.NodeKind.boolLit 'boolLit'
 		return p.builtins.boolTy
@@ -166,7 +166,7 @@ function checkInterpolation(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if typed == ast.noType 'failed'
 		return false
 	end 'failed'
-	let t = ast.contentType(ms.types, t: typed)
+	let t = ast.contentType(ms.types, reads: p.types, t: typed)
 	let off = offsetOf(c, p: p, ms: ms, node: part)
 	if not requireSigned64(c, off: off, t: t, p: p, ms: ms, errs: errs) 'wide'
 		return false
@@ -219,7 +219,7 @@ function checkNameExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	end 'local'
 	let rt = selfRecord(c, p: p, ms: ms)
 	if rt != ast.noType 'inMethod'
-		match consumes ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: rt))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: rt))].findField(name) 'field'
+		match consumes ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt)).findField(name) 'field'
 			some(index) then return selfFieldType(c, p: p, ms: ms, e: e, rt: rt, name: name, index: index)
 			none then _ = 0
 		end 'field'
@@ -245,7 +245,7 @@ end 'checkNameExpr'
 // selfFieldType records that a name stands for a field of the receiver, and gives the type the field has in the receiver.
 function selfFieldType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, rt ast.TypeID, consumes name String, index Count) returns ast.TypeID
 	c.typing.names.insert(e as Count, value: ast.NameInfo.selfFieldName(name, fieldIndex: index))
-	return ast.fieldType(ms.types, owner: rt, index: index)
+	return ast.fieldType(ms.types, reads: p.types, owner: rt, index: index)
 end 'selfFieldType'
 
 function checkDeclaredName(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
@@ -280,7 +280,7 @@ function checkSelfExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		let owner = c.owner
 		return refuseBehaviourSelf(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), what: "'self'", t: owner, errs: errs)
 	end 'behaviour'
-	if c.fn == ast.noFunc or not ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].hasReceiver 'outside'
+	if c.fn == ast.noFunc or not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).hasReceiver 'outside'
 		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
 		return ast.noType
 	end 'outside'
@@ -388,7 +388,7 @@ function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	if op == "is" 'identity'
 		return checkIdentity(c, p: p, ms: ms, e: e, l: l, r: r, errs: errs)
 	end 'identity'
-	if ast.isFloatType(ms.types, t: l) or ast.isFloatType(ms.types, t: r) 'floats'
+	if ast.isFloatType(ms.types, reads: p.types, t: l) or ast.isFloatType(ms.types, reads: p.types, t: r) 'floats'
 		if isComparisonOp(op) 'comparison'
 			return checkFloatComparison(c, p: p, ms: ms, e: e, op: op, l: l, r: r, errs: errs)
 		end 'comparison'
@@ -396,7 +396,7 @@ function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 			return checkFloatOp(c, p: p, ms: ms, e: e, op: op, l: l, r: r, errs: errs)
 		end 'arithmetic'
 	end 'floats'
-	if isArithmeticOp(op) or (isLogicalOp(op) and ast.isIntType(ms.types, t: l)) 'integers'
+	if isArithmeticOp(op) or (isLogicalOp(op) and ast.isIntType(ms.types, reads: p.types, t: l)) 'integers'
 		return checkIntegerOp(c, p: p, ms: ms, e: e, op: op, l: l, r: r, want: want, errs: errs)
 	end 'integers'
 	if isLogicalOp(op) 'logical'
@@ -415,7 +415,7 @@ end 'checkOperator'
 // hasIdentity is whether a value of the type is an object that two names can stand for: a record, a string or a collection.
 // A number, a bool, an enum case, a union, a function and a type parameter are values with no object to name.
 function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	return match ast.typeKind(ms.types, t: t) 'kind'
+	return match ast.typeKind(ms.types, reads: p.types, t: t) 'kind'
 		record gives true
 		primString gives true
 		builtinArray gives true
@@ -470,13 +470,13 @@ end 'isWordOp'
 function refuseOperands(mutates c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let lName = gotName(p, ms: ms, t: l)
 	let rName = gotName(p, ms: ms, t: r)
-	if isWordOp(op) and not (l == r or (ast.isIntType(ms.types, t: l) and ast.isIntType(ms.types, t: r))) 'mixed'
+	if isWordOp(op) and not (l == r or (ast.isIntType(ms.types, reads: p.types, t: l) and ast.isIntType(ms.types, reads: p.types, t: r))) 'mixed'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operandTypeMismatch(op), errs: errs)
 		return ast.noType
 	end 'mixed'
 	if isWordOp(op) 'word'
 		var offending = lName
-		if ast.isIntType(ms.types, t: l) 'left'
+		if ast.isIntType(ms.types, reads: p.types, t: l) 'left'
 			offending = rName
 		end 'left'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.nonIntegralOperands(op, operand: offending), errs: errs)
@@ -493,7 +493,7 @@ end 'refuseOperands'
 // checkIntegerOp types an arithmetic, bitwise or shift operator on two integers.
 function checkIntegerOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, ms: ms, node: e)
-	if not ast.isIntType(ms.types, t: l) or not ast.isIntType(ms.types, t: r) 'notInts'
+	if not ast.isIntType(ms.types, reads: p.types, t: l) or not ast.isIntType(ms.types, reads: p.types, t: r) 'notInts'
 		return refuseOperands(c, p: p, ms: ms, off: off, op: op, l: l, r: r, errs: errs)
 	end 'notInts'
 	let lConst = isConstInt(p, ms: ms, t: l)
@@ -502,7 +502,7 @@ function checkIntegerOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		setOperand(c, node: e, operand: p.builtins.anon64Ty)
 		return foldedType(c, p: p, ms: ms, off: off, rightOff: exprOffset(c, p: p, ms: ms, node: ast.binaryExprR(ms.tree, id: e)), op: op, l: l, r: r, errs: errs)
 	end 'folded'
-	if (op == "/" or op == "mod") and rConst and ms.types.lists[ast.typeList(ms.types, t: r)][ast.typeIndex(ms.types, t: r)].minVal.isZero() 'byZero'
+	if (op == "/" or op == "mod") and rConst and ast.typeEntry(ms.types, reads: p.types, t: r).minVal.isZero() 'byZero'
 		checkFail(c.modID, off: off, code: diag.errDivisionByZero, msg: diag.divisionByProvableZero(op), errs: errs)
 		return ast.noType
 	end 'byZero'
@@ -537,7 +537,7 @@ function checkIntegerOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if typeHasKind(p, ms: ms, t: want, kind: ast.TypeKind.intRange) 'expected'
 		return want
 	end 'expected'
-	let computed = arithmetic(op, l: typeSpan(ms.types, t: l), r: typeSpan(ms.types, t: r), word: typeSpan(ms.types, t: word))
+	let computed = arithmetic(op, l: typeSpan(ms.types, reads: p.types, t: l), r: typeSpan(ms.types, reads: p.types, t: r), word: typeSpan(ms.types, reads: p.types, t: word))
 	let exact = computed.span.clone()
 	return exactType(p, ms: ms, word: word, lo: exact.lo, hi: exact.hi)
 end 'checkIntegerOp'
@@ -545,27 +545,27 @@ end 'checkIntegerOp'
 // wordPatternOf is the bits(64) type that an arithmetic operation on the operand types l and r computes in, which wraps
 // where another unsigned type fails, or noType where neither operand is one.
 function wordPatternOf(p ast.Project, ms ast.ModuleState, l ast.TypeID, r ast.TypeID) returns ast.TypeID
-	if ast.isWordPattern(ms.types, t: l) 'left'
+	if ast.isWordPattern(ms.types, reads: p.types, t: l) 'left'
 		return l
 	end 'left'
-	if ast.isWordPattern(ms.types, t: r) 'right'
+	if ast.isWordPattern(ms.types, reads: p.types, t: r) 'right'
 		return r
 	end 'right'
 	return ast.noType
 end 'wordPatternOf'
 
 function foldedType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, off diag.U32, rightOff diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let a = ms.types.lists[ast.typeList(ms.types, t: l)][ast.typeIndex(ms.types, t: l)].minVal.clone()
-	let b = ms.types.lists[ast.typeList(ms.types, t: r)][ast.typeIndex(ms.types, t: r)].minVal.clone()
+	let a = ast.typeEntry(ms.types, reads: p.types, t: l).minVal.clone()
+	let b = ast.typeEntry(ms.types, reads: p.types, t: r).minVal.clone()
 	match consumes foldOp(c, off: off, rightOff: rightOff, op: op, a: a, b: b, errs: errs) 'value'
-		some(v) then return ast.internConstInt(ms.types, val: v)
+		some(v) then return ast.internConstInt(ms.types, reads: p.types, val: v)
 		none then return ast.noType
 	end 'value'
 end 'foldedType'
 
 function checkComparison(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, ms: ms, node: e)
-	if ast.isIntType(ms.types, t: l) and ast.isIntType(ms.types, t: r) 'integers'
+	if ast.isIntType(ms.types, reads: p.types, t: l) and ast.isIntType(ms.types, reads: p.types, t: r) 'integers'
 		let word = operandWord(c, p: p, ms: ms, off: off, op: op, l: l, r: r, errs: errs)
 		if word == ast.noType 'noWord'
 			return ast.noType
@@ -608,9 +608,9 @@ function checkUnary(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return checkNot(c, p: p, ms: ms, off: off, t: t, want: want, errs: errs)
 	end 'not'
 	if isConstInt(p, ms: ms, t: t) 'constant'
-		return ast.internConstInt(ms.types, val: ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.neg())
+		return ast.internConstInt(ms.types, reads: p.types, val: ast.typeEntry(ms.types, reads: p.types, t: t).minVal.neg())
 	end 'constant'
-	if ast.isFloatType(ms.types, t: t) 'float'
+	if ast.isFloatType(ms.types, reads: p.types, t: t) 'float'
 		return checkFloatNegation(p, ms: ms, t: t)
 	end 'float'
 	if typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.intRange) 'range'
@@ -628,20 +628,20 @@ function checkNot(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		return t
 	end 'bool'
 	if isConstInt(p, ms: ms, t: t) 'constant'
-		return ast.internConstInt(ms.types, val: ast.notWord(ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal))
+		return ast.internConstInt(ms.types, reads: p.types, val: ast.notWord(ast.typeEntry(ms.types, reads: p.types, t: t).minVal))
 	end 'constant'
 	if typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.intRange) 'range'
-		let lo = rangeLo(ms.types, t: t)
-		let hi = rangeHi(ms.types, t: t)
+		let lo = rangeLo(ms.types, reads: p.types, t: t)
+		let hi = rangeHi(ms.types, reads: p.types, t: t)
 		var word = p.builtins.anon64Ty
 		var flippedLo = hi.neg().sub(ast.I128.one())
 		var flippedHi = lo.neg().sub(ast.I128.one())
-		if ast.isUnsignedInt(ms.types, t: t) 'unsigned'
+		if ast.isUnsignedInt(ms.types, reads: p.types, t: t) 'unsigned'
 			word = p.builtins.anonU64Ty
 			flippedLo = ast.I128.u64Max().sub(hi)
 			flippedHi = ast.I128.u64Max().sub(lo)
 		end 'unsigned'
-		if ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].bitsWidth != 0 or (flippedLo.eq(lo) and flippedHi.eq(hi)) 'closed'
+		if ast.typeEntry(ms.types, reads: p.types, t: t).bitsWidth != 0 or (flippedLo.eq(lo) and flippedHi.eq(hi)) 'closed'
 			return t
 		end 'closed'
 		if typeHasKind(p, ms: ms, t: want, kind: ast.TypeKind.intRange) 'expected'
@@ -654,18 +654,18 @@ function checkNot(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 end 'checkNot'
 
 function checkNegation(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, off diag.U32, t ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if ast.isWordPattern(ms.types, t: t) 'pattern'
+	if ast.isWordPattern(ms.types, reads: p.types, t: t) 'pattern'
 		return t
 	end 'pattern'
-	if ast.isUnsignedInt(ms.types, t: t) 'unsigned'
+	if ast.isUnsignedInt(ms.types, reads: p.types, t: t) 'unsigned'
 		checkFail(c.modID, off: off, code: diag.errUnsignedNegation, msg: diag.unsignedNegation(nameOfType(p, ms: ms, t: t)), errs: errs)
 		return ast.noType
 	end 'unsigned'
 	if typeHasKind(p, ms: ms, t: want, kind: ast.TypeKind.intRange) 'expected'
 		return want
 	end 'expected'
-	let lo = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].maxVal.neg()
-	let hi = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.neg()
+	let lo = ast.typeEntry(ms.types, reads: p.types, t: t).maxVal.neg()
+	let hi = ast.typeEntry(ms.types, reads: p.types, t: t).minVal.neg()
 	let word = p.builtins.anon64Ty
 	return exactType(p, ms: ms, word: word, lo: lo, hi: hi)
 end 'checkNegation'
@@ -752,10 +752,10 @@ function checkCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if not numeric 'notNumber'
 		// Every spelling of a type is that one type here, so a cast to the type the value has, or to one it retags to,
 		// is the value itself.
-		if retags(ms.types, a: src, b: target) 'identity'
+		if retags(ms.types, reads: p.types, a: src, b: target) 'identity'
 			return target
 		end 'identity'
-		if ms.types.lists[ast.typeList(ms.types, t: target)][ast.typeIndex(ms.types, t: target)].typeArgs.count() > 0 and not ms.types.lists[ast.typeList(ms.types, t: target)][ast.typeIndex(ms.types, t: target)].isTuple 'container'
+		if ast.typeEntry(ms.types, reads: p.types, t: target).typeArgs.count() > 0 and not ast.typeEntry(ms.types, reads: p.types, t: target).isTuple 'container'
 			checkFail(c.modID, off: off, code: diag.errCastTargetIsAContainer, msg: diag.castTargetIsAContainer(nameOfType(p, ms: ms, t: target), source: nameOfType(p, ms: ms, t: src)), errs: errs)
 			return ast.noType
 		end 'container'
@@ -769,13 +769,13 @@ function checkCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if toFloat 'float'
 		return checkFloatCast(c, p: p, ms: ms, off: off, src: src, target: target, errs: errs)
 	end 'float'
-	if ast.isFloatType(ms.types, t: src) 'fromFloat'
+	if ast.isFloatType(ms.types, reads: p.types, t: src) 'fromFloat'
 		failCast(c, p: p, ms: ms, off: off, src: src, target: target, errs: errs)
 		return ast.noType
 	end 'fromFloat'
 	if isConstInt(p, ms: ms, t: src) 'constant'
-		let value = ms.types.lists[ast.typeList(ms.types, t: src)][ast.typeIndex(ms.types, t: src)].minVal.clone()
-		if not intRangeHolds(ms.types, dst: target, v: value) 'doesNotFit'
+		let value = ast.typeEntry(ms.types, reads: p.types, t: src).minVal.clone()
+		if not intRangeHolds(ms.types, reads: p.types, dst: target, v: value) 'doesNotFit'
 			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: valueOutOfRange(p, ms: ms, value: value.toString(), target: target), errs: errs)
 			return ast.noType
 		end 'doesNotFit'
@@ -848,9 +848,9 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		primString gives "String"
 		primVoid gives name
 		primNever gives name
-		intRange gives "int" if typeIsAnonInt(ms.types, t: t) else name
+		intRange gives "int" if typeIsAnonInt(ms.types, reads: p.types, t: t) else name
 		constInt gives "int"
-		floatRange gives "float" if typeIsAnonFloat(ms.types, t: t) else name
+		floatRange gives "float" if typeIsAnonFloat(ms.types, reads: p.types, t: t) else name
 		constFloat gives "float"
 		record gives name
 		enumTy gives "enum"
@@ -1026,9 +1026,9 @@ function checkFallback(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	if other == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	if typeIsNamedInt(ms.types, t: result) and isConstInt(p, ms: ms, t: other) and fallbackIsPlainLiteral(p, ms: ms, c: c, fallback: fallback) 'literal'
-		let value = ms.types.lists[ast.typeList(ms.types, t: other)][ast.typeIndex(ms.types, t: other)].minVal.clone()
-		if not intRangeHolds(ms.types, dst: result, v: value) 'doesNotFit'
+	if typeIsNamedInt(ms.types, reads: p.types, t: result) and isConstInt(p, ms: ms, t: other) and fallbackIsPlainLiteral(p, ms: ms, c: c, fallback: fallback) 'literal'
+		let value = ast.typeEntry(ms.types, reads: p.types, t: other).minVal.clone()
+		if not intRangeHolds(ms.types, reads: p.types, dst: result, v: value) 'doesNotFit'
 			failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: otherwiseValueOutOfRange(p, ms: ms, value: value.toString(), target: result), errs: errs)
 			return ast.noType
 		end 'doesNotFit'

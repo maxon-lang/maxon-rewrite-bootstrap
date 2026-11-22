@@ -76,7 +76,7 @@ function rangeBind(mutates r Ranges, p ast.Project, ms ast.ModuleState, local Co
 		some(outer) then b = tighterBound(b, outer: outer)
 		none then _ = 0
 	end 'outer'
-	let t = typeSpan(ms.types, t: r.typing.locals[localAt(r, slot: local) as Count].ty)
+	let t = typeSpan(ms.types, reads: p.types, t: r.typing.locals[localAt(r, slot: local) as Count].ty)
 	if b.lo.lt(t.lo) and b.hi.gt(t.hi) 'noMore'
 		return
 	end 'noMore'
@@ -121,7 +121,7 @@ function rangeAccumulation(r Ranges, p ast.Project, ms ast.ModuleState, s ast.No
 end 'rangeAccumulation'
 
 function accumulationOf(r Ranges, p ast.Project, ms ast.ModuleState, place Place, target ast.NodeID, sum ast.NodeID) returns table.Option with Accumulation
-	if place.depth != 0 or not ast.isIntType(ms.types, t: typeOf(r, e: target)) 'notLocal'
+	if place.depth != 0 or not ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: target)) 'notLocal'
 		return table.Option.none
 	end 'notLocal'
 	let op = ast.binaryExprOp(ms.tree, id: sum)

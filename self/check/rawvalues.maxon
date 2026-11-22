@@ -31,7 +31,7 @@ end 'unionRawCases'
 // constant of the program, typed by the constants stage in the order of the constants it reads and checked as the value of a
 // constant is; all the cases of a type write the same type, which is the type of its `.rawValue`.
 function checkTypeRawValues(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID, cases RawCases, mutates errs diag.ErrorList)
-	if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].rawKind != ast.RawKind.value 'literals'
+	if ast.typeEntry(ms.types, reads: p.types, t: tid).rawKind != ast.RawKind.value 'literals'
 		return
 	end 'literals'
 	let mark = errs.count()
@@ -40,7 +40,7 @@ function checkTypeRawValues(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	for i in 0 upto cases.raws.count() 'each'
 		var noun = ""
 		var t = ast.noType
-		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr == 0 as ast.NodeID 'literal'
+		if ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].rawExpr == 0 as ast.NodeID 'literal'
 			noun = rawKindOf(p, ms: ms, raw: cases.raws[i]).noun()
 		end 'literal' else 'value'
 			t = checkRawValue(c, p: p, ms: ms, tid: tid, index: i, node: cases.nodes[i], raw: cases.raws[i], errs: errs)
@@ -65,7 +65,7 @@ end 'checkTypeRawValues'
 // it reported why it has none. Unlike a constant of the module, it may build any record, whatever its constructors say, since
 // it belongs to the type.
 function checkRawValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID, index Count, node ast.NodeID, raw ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let name = "{ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].name}.{ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[index].name}"
+	let name = "{ast.typeEntry(ms.types, reads: p.types, t: tid).name}.{ast.typeEntry(ms.types, reads: p.types, t: tid).cases[index].name}"
 	enterContext(c, p: p, ms: ms, f: ast.noFunc, owner: ast.noType, calls: false)
 	c.constName = name.clone()
 	c.inRawValue = true
@@ -85,8 +85,8 @@ function rawValuesUntyped(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 	if k != ast.TypeKind.enumTy and k != ast.TypeKind.unionTy 'notNominal'
 		return false
 	end 'notNominal'
-	let orig = ast.originOf(ms.types, t: t)
-	return ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].rawKind == ast.RawKind.value and ast.rawTypeOf(p, ms: ms, t: orig) == ast.noType
+	let orig = ast.originOf(ms.types, reads: p.types, t: t)
+	return ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind == ast.RawKind.value and ast.rawTypeOf(p, ms: ms, t: orig) == ast.noType
 end 'rawValuesUntyped'
 
 function failRawUntyped(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
@@ -101,25 +101,25 @@ function rawBackingField(p ast.Project, ms ast.ModuleState, t ast.TypeID, member
 	if member == "name" or member == "ordinal" or member == "rawValue" or (k != ast.TypeKind.enumTy and k != ast.TypeKind.unionTy) 'own'
 		return table.Option.none
 	end 'own'
-	let orig = ast.originOf(ms.types, t: t)
-	if ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].rawKind != ast.RawKind.value or not typeHasKind(p, ms: ms, t: ast.rawTypeOf(p, ms: ms, t: orig), kind: ast.TypeKind.record) 'noRecord'
+	let orig = ast.originOf(ms.types, reads: p.types, t: t)
+	if ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind != ast.RawKind.value or not typeHasKind(p, ms: ms, t: ast.rawTypeOf(p, ms: ms, t: orig), kind: ast.TypeKind.record) 'noRecord'
 		return table.Option.none
 	end 'noRecord'
-	return ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: ast.rawTypeOf(p, ms: ms, t: orig)))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: ast.rawTypeOf(p, ms: ms, t: orig)))].findField(member)
+	return ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: ast.rawTypeOf(p, ms: ms, t: orig))).findField(member)
 end 'rawBackingField'
 
 // rawFieldType is the type of the field at index of the raw value of the enum or union t, which a value reads straight off
 // the case: a scalar, since the record it is a field of is made for the read and gone after it.
 function rawFieldType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, index Count, mutates errs diag.ErrorList) returns ast.TypeID
-	let record = ast.rawTypeOf(p, ms: ms, t: ast.originOf(ms.types, t: t))
-	let orig = ast.originOf(ms.types, t: record)
-	let field = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[index].clone()
-	let owner = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].decl.module
+	let record = ast.rawTypeOf(p, ms: ms, t: ast.originOf(ms.types, reads: p.types, t: t))
+	let orig = ast.originOf(ms.types, reads: p.types, t: record)
+	let field = ast.typeEntry(ms.types, reads: p.types, t: orig).fields[index].clone()
+	let owner = ast.typeEntry(ms.types, reads: p.types, t: orig).decl.module
 	if not ast.isVisibleFrom(p, v: field.level, owner: owner, from: c.modID) 'hidden'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errFieldNotExported, msg: "field {ast.notVisible(p, name: "{nameOfType(p, ms: ms, t: record)}.{field.name}", v: field.level, owner: owner, from: c.modID)}", errs: errs)
 		return ast.noType
 	end 'hidden'
-	let ft = ast.fieldType(ms.types, owner: record, index: index)
+	let ft = ast.fieldType(ms.types, reads: p.types, owner: record, index: index)
 	if isManagedOwn(p, ms: ms, t: ft) 'managed'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "Unsupported: the field '{field.name}' of the raw value of '{nameOfType(p, ms: ms, t: t)}' holds a value that is made with the raw value, so it is not read off the case: write '.rawValue.{field.name}'", errs: errs)
 		return ast.noType
@@ -162,17 +162,17 @@ function payloadCaseNamed(mutates c Checker, p ast.Project, ms ast.ModuleState, 
 	end 'notName'
 	var probe = diag.ErrorList.create(0)
 	let named = typeNamed(c, p: p, ms: ms, name: head, errs: probe)
-	if probe.count() > 0 or not typeHasKind(p, ms: ms, t: named, kind: ast.TypeKind.unionTy) or ms.types.lists[ast.typeList(ms.types, t: named)][ast.typeIndex(ms.types, t: named)].typeParams.count() > 0 'notUnion'
+	if probe.count() > 0 or not typeHasKind(p, ms: ms, t: named, kind: ast.TypeKind.unionTy) or ast.typeEntry(ms.types, reads: p.types, t: named).typeParams.count() > 0 'notUnion'
 		return table.Option.none
 	end 'notUnion'
-	match consumes ms.types.lists[ast.typeList(ms.types, t: named)][ast.typeIndex(ms.types, t: named)].findCase(ast.memberExprName(ms.tree, id: obj)) 'found'
+	match consumes ast.typeEntry(ms.types, reads: p.types, t: named).findCase(ast.memberExprName(ms.tree, id: obj)) 'found'
 		some(i) then return payloadRead(p, ms: ms, t: named, caseIndex: i)
 		none then return table.Option.none
 	end 'found'
 end 'payloadCaseNamed'
 
 function payloadRead(p ast.Project, ms ast.ModuleState, t ast.TypeID, caseIndex Count) returns table.Option with CaseRead
-	if ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].cases[caseIndex].payload.count() == 0 'plain'
+	if ast.typeEntry(ms.types, reads: p.types, t: t).cases[caseIndex].payload.count() == 0 'plain'
 		return table.Option.none
 	end 'plain'
 	return table.Option.some(CaseRead.make(t, caseIndex: caseIndex))
@@ -217,7 +217,7 @@ function checkCaseRead(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 end 'checkCaseRead'
 
 function caseNeedsPayload(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, read CaseRead, mutates errs diag.ErrorList) returns ast.TypeID
-	let name = ms.types.lists[ast.typeList(ms.types, t: read.owner)][ast.typeIndex(ms.types, t: read.owner)].cases[read.caseIndex].name.clone()
+	let name = ast.typeEntry(ms.types, reads: p.types, t: read.owner).cases[read.caseIndex].name.clone()
 	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: ast.memberExprObj(ms.tree, id: e)), code: diag.errCallArgCountMismatch, msg: "case '{name}' carries a payload: construct it with arguments", errs: errs)
 	return ast.noType
 end 'caseNeedsPayload'

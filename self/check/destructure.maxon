@@ -60,7 +60,7 @@ function elementRead(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	var info = ast.MemberInfo.make(ast.MemberKind.memberField, ownerTy: ownerTy)
 	info.fieldIndex = index
 	c.typing.members.insert(read as Count, value: info)
-	ast.setNodeType(c.typing, node: read, ty: ast.fieldType(ms.types, owner: ownerTy, index: index))
+	ast.setNodeType(c.typing, node: read, ty: ast.fieldType(ms.types, reads: p.types, owner: ownerTy, index: index))
 	return read
 end 'elementRead'
 
@@ -83,11 +83,11 @@ function tupleSource(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if t == ast.noType 'failed'
 		return table.Option.none
 	end 'failed'
-	if not ast.isTupleType(ms.types, t: t) 'notTuple'
+	if not ast.isTupleType(ms.types, reads: p.types, t: t) 'notTuple'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: diag.destructureNonTuple(gotName(p, ms: ms, t: t)), errs: errs)
 		return table.Option.none
 	end 'notTuple'
-	let elements = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].typeArgs.count()
+	let elements = ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs.count()
 	if elements != names 'arity'
 		if assignment 'assign'
 			failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: diag.tupleAssignArity("{elements}", names: "{names}"), errs: errs)
@@ -124,7 +124,7 @@ function bindElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	end 'mutable'
 	let t = ast.nodeType(c.typing, node: elem)
 	let name = ms.tree.nameAt(ref)
-	if isVar and (isConstInt(p, ms: ms, t: t) or typeIsAnonInt(ms.types, t: t) or holdsBareNumbers(p, ms: ms, t: t)) 'bareNumber'
+	if isVar and (isConstInt(p, ms: ms, t: t) or typeIsAnonInt(ms.types, reads: p.types, t: t) or holdsBareNumbers(p, ms: ms, t: t)) 'bareNumber'
 		failAt(c, p: p, ms: ms, node: at, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
 		return
 	end 'bareNumber'
@@ -197,11 +197,11 @@ end 'assignElements'
 function declareTupleVariable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, varType ast.TypeID, mutates bound ast.NodeIDList, mutates errs diag.ErrorList) returns ast.LocalID
 	let namesRef = ast.forStmtVarsRef(ms.tree, id: s)
 	let count = ms.tree.listLen(namesRef)
-	if not ast.isTupleType(ms.types, t: varType) 'notTuple'
+	if not ast.isTupleType(ms.types, reads: p.types, t: varType) 'notTuple'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: diag.destructureNonTuple(gotName(p, ms: ms, t: varType)), errs: errs)
 		return ast.noLocal
 	end 'notTuple'
-	let elements = ms.types.lists[ast.typeList(ms.types, t: varType)][ast.typeIndex(ms.types, t: varType)].typeArgs.count()
+	let elements = ast.typeEntry(ms.types, reads: p.types, t: varType).typeArgs.count()
 	if elements != count 'arity'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: diag.destructureArity("{count}", elements: "{elements}"), errs: errs)
 		return ast.noLocal

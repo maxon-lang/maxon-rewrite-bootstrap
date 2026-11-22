@@ -134,7 +134,7 @@ function interpFunction(mutates p ast.Project, name String, convs ConvList) retu
 		entry.params.push(ast.ParamSpec.make("p{i}", ty: p.builtins.countTy, conv: convs[i]))
 		entry.paramTypes.push(p.builtins.countTy)
 	end 'params'
-	return ast.allocFunc(p.funcs, module: 0 as diag.ModuleID, f: entry)
+	return ast.makeFunc(p, module: 0 as diag.ModuleID, f: entry)
 end 'interpFunction'
 
 function regs3(a ir.Reg, b ir.Reg, c ir.Reg) returns ir.RegList

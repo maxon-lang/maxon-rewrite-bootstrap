@@ -6,10 +6,10 @@ function declareRecordMembers(mutates c Checker, p ast.Project, mutates ms ast.M
 	if failedSince(errs, mark: mark) 'conforms'
 		return
 	end 'conforms'
-	let selfTy = ast.selfType(ms.types, declTy: tid)
+	let selfTy = ast.selfType(ms.types, reads: p.types, declTy: tid)
 	for i in 0 upto td.fields.count() 'each'
 		let f = td.fields[i].clone()
-		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findField(f.name).isSome() 'dup'
+		if ast.typeEntry(ms.types, reads: p.types, t: tid).findField(f.name).isSome() 'dup'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.id), code: diag.errDuplicateDefinition, msg: diag.duplicateField(f.name, typeName: td.name), errs: errs)
 			return
 		end 'dup'
@@ -20,12 +20,12 @@ function declareRecordMembers(mutates c Checker, p ast.Project, mutates ms ast.M
 				return
 			end 'badType'
 		end 'typed'
-		if f.typeRef != 0 and ast.holdsGrowingInstance(ms.types, t: ft, origin: tid) 'grows'
+		if f.typeRef != 0 and ast.holdsGrowingInstance(ms.types, reads: p.types, t: ft, origin: tid) 'grows'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.typeRef), code: diag.errGenericGrowsWithoutBound, msg: diag.genericTypeGrowsWithoutBound(f.name, owner: td.name, declared: declaredTypeName(p, ms: ms, c: c, tr: f.typeRef, t: ft)), errs: errs)
 			return
 		end 'grows'
 		let level = ast.visibilityOf(f.visibility)
-		var info = ast.FieldInfo.make(f.name.clone(), ty: ft, isVar: f.isVar, exported: level != ast.Visibility.unexported, hasDefault: f.defaultRef != 0, defaultExpr: f.defaultRef, index: ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields.count())
+		var info = ast.FieldInfo.make(f.name.clone(), ty: ft, isVar: f.isVar, exported: level != ast.Visibility.unexported, hasDefault: f.defaultRef != 0, defaultExpr: f.defaultRef, index: ast.typeEntry(ms.types, reads: p.types, t: tid).fields.count())
 		info.level = level
 		ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].fields.push(info)
 	end 'each'
@@ -35,20 +35,20 @@ end 'declareRecordMembers'
 function declaredTypeName(p ast.Project, ms ast.ModuleState, c Checker, tr ast.NodeID, t ast.TypeID) returns String
 	match consumes ms.resolution.decls.get(tr as Count) 'bound'
 		some(ref) then return aliasOrTypeName(p, ms: ms, ref: ref, t: t)
-		none then return ast.typeName(ms.types, t: t)
+		none then return ast.typeName(ms.types, reads: p.types, t: t)
 	end 'bound'
 end 'declaredTypeName'
 
 function aliasOrTypeName(p ast.Project, ms ast.ModuleState, ref ast.DeclRef, t ast.TypeID) returns String
 	return match ast.moduleDecl(p, ref: ref) 'd'
 		aliasDecl(_) gives ast.declName(p, ref: ref)
-		funcDecl(_) gives ast.typeName(ms.types, t: t)
-		constDecl(_) gives ast.typeName(ms.types, t: t)
-		typeDecl(_) gives ast.typeName(ms.types, t: t)
-		enumDecl(_) gives ast.typeName(ms.types, t: t)
-		unionDecl(_) gives ast.typeName(ms.types, t: t)
-		interfaceDecl(_) gives ast.typeName(ms.types, t: t)
-		extensionDecl(_) gives ast.typeName(ms.types, t: t)
+		funcDecl(_) gives ast.typeName(ms.types, reads: p.types, t: t)
+		constDecl(_) gives ast.typeName(ms.types, reads: p.types, t: t)
+		typeDecl(_) gives ast.typeName(ms.types, reads: p.types, t: t)
+		enumDecl(_) gives ast.typeName(ms.types, reads: p.types, t: t)
+		unionDecl(_) gives ast.typeName(ms.types, reads: p.types, t: t)
+		interfaceDecl(_) gives ast.typeName(ms.types, reads: p.types, t: t)
+		extensionDecl(_) gives ast.typeName(ms.types, reads: p.types, t: t)
 	end 'd'
 end 'aliasOrTypeName'
 
@@ -136,8 +136,8 @@ function readRaw(mutates c Checker, p ast.Project, ms ast.ModuleState, tid ast.T
 	if valued 'unordered'
 		return true
 	end 'unordered'
-	for j in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases.count() 'rawDup'
-		let other = ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[j].clone()
+	for j in 0 upto ast.typeEntry(ms.types, reads: p.types, t: tid).cases.count() 'rawDup'
+		let other = ast.typeEntry(ms.types, reads: p.types, t: tid).cases[j].clone()
 		if other.rawValue.eq(st.value) and other.rawText == st.text 'same'
 			checkFail(c.modID, off: off, code: diag.errEnumDuplicateRawValue, msg: diag.duplicateRawValue(shown), errs: errs)
 			return false
@@ -170,7 +170,7 @@ function declareEnumMembers(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	for i in 0 upto ed.cases.count() 'each'
 		let cs = ed.cases[i].clone()
 		let off = offsetOf(c, p: p, ms: ms, node: cs.id)
-		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findCase(cs.name).isSome() 'dup'
+		if ast.typeEntry(ms.types, reads: p.types, t: tid).findCase(cs.name).isSome() 'dup'
 			checkFail(c.modID, off: off, code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
 			return
 		end 'dup'
@@ -188,11 +188,11 @@ function declareUnionMembers(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	if failedSince(errs, mark: mark) 'conforms'
 		return
 	end 'conforms'
-	let selfTy = ast.selfType(ms.types, declTy: tid)
+	let selfTy = ast.selfType(ms.types, reads: p.types, declTy: tid)
 	var st = RawState.new()
 	for i in 0 upto ud.cases.count() 'each'
 		let cs = ud.cases[i].clone()
-		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findCase(cs.name).isSome() 'dup'
+		if ast.typeEntry(ms.types, reads: p.types, t: tid).findCase(cs.name).isSome() 'dup'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: cs.id), code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
 			return
 		end 'dup'
@@ -223,12 +223,12 @@ function declareParentInterfaces(mutates c Checker, p ast.Project, mutates ms as
 	let parents = conformedInterfaces(c, p: p, ms: ms, interfaces: ifd.parents, capabilities: true, errs: errs)
 	for i in 0 upto parents.count() 'each'
 		let parent = parents[i]
-		let parentName = ms.types.lists[ast.typeList(ms.types, t: parent)][ast.typeIndex(ms.types, t: parent)].name.clone()
-		if ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: parent))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: parent))].typeParams.count() > 0 'generic'
+		let parentName = ast.typeEntry(ms.types, reads: p.types, t: parent).name.clone()
+		if ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: parent)).typeParams.count() > 0 'generic'
 			checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "the interface '{ifd.name}' extends '{parentName}', which has associated types; an interface extends only interfaces without them, so list '{parentName}' in the 'implements' of each type instead", errs: errs)
 			return
 		end 'generic'
-		if ast.extendsInterface(ms.types, have: parent, want: tid) 'cycle'
+		if ast.extendsInterface(ms.types, reads: p.types, have: parent, want: tid) 'cycle'
 			checkFail(c.modID, off: off, code: diag.errResolutionCycle, msg: "interface '{ifd.name}' forms a type cycle: the interface it extends, '{parentName}', extends '{ifd.name}'", errs: errs)
 			return
 		end 'cycle'

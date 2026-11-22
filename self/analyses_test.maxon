@@ -59,7 +59,7 @@ end 'expectText'
 
 // expectAnalysis requires the verifier to keep the function and its analyses to come out as written.
 function expectAnalysis(label String, p ast.Project, f ir.IrFunction, rpo String, idom String, front String, depth String, counts String)
-	let problems = ir.verifyIr(p, tt: p.types, ft: p.funcs, f: f)
+	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f)
 	if problems.count() > 0 'refused'
 		panic("{label}: the verifier refuses it: {problems[0]}")
 	end 'refused'

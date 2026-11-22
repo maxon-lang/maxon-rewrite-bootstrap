@@ -6,9 +6,9 @@ function hasZero(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 		return true
 	end 'bool'
 	if typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.floatRange) 'float'
-		return ast.floatRangeHolds(ms.types, t: t, bits: 0)
+		return ast.floatRangeHolds(ms.types, reads: p.types, t: t, bits: 0)
 	end 'float'
-	return typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.intRange) and ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.le(ast.I128.zero()) and ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].maxVal.ge(ast.I128.zero())
+	return typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.intRange) and ast.typeEntry(ms.types, reads: p.types, t: t).minVal.le(ast.I128.zero()) and ast.typeEntry(ms.types, reads: p.types, t: t).maxVal.ge(ast.I128.zero())
 end 'hasZero'
 
 // checkArrayCreateArgs refuses Array.create(n) of an element that has no zero value, whose n slots would hold no element,
@@ -81,7 +81,7 @@ function checkArrayResizeArgs(mutates c Checker, p ast.Project, ms ast.ModuleSta
 		failAt(c, p: p, ms: ms, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of a type parameter: '{name}' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'", errs: errs)
 		return
 	end 'parameter'
-	if ast.isManagedType(ms.types, t: elem) 'managed'
+	if ast.isManagedType(ms.types, reads: p.types, t: elem) 'managed'
 		failAt(c, p: p, ms: ms, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of '{name}': a grown slot holds NO element — Maxon has no default constructor — so 'count()' would not agree with 'get()'. Append with 'push(value)'", errs: errs)
 		return
 	end 'managed'

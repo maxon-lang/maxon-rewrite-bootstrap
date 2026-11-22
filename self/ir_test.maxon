@@ -36,7 +36,8 @@ function irFunction(mutates p ast.Project, name String, params Count) returns as
 		entry.params.push(ast.ParamSpec.make("p{i}", ty: p.builtins.countTy, conv: ast.Convention.convLet))
 		entry.paramTypes.push(p.builtins.countTy)
 	end 'params'
-	return ast.allocFunc(p.funcs, module: p.rootModule, f: entry)
+	let module = p.rootModule
+	return ast.makeFunc(p, module: module, f: entry)
 end 'irFunction'
 
 // irLocal declares a local of a function that is not a parameter, in the slot it is given.
@@ -44,7 +45,7 @@ function irLocal(mutates p ast.Project, fn ast.FuncID, name String, ty ast.TypeI
 	var entry = ast.LocalEntry.make(name.clone(), ty: ty, isVar: true, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
 	entry.slot = slot
 	let id = p.typings[0].allocLocal(entry)
-	let node = p.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].nodeID
+	let node = ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: fn).nodeID
 	var ids = ast.LocalIDList.create(0)
 	match consumes p.typings[0].funcLocals.get(node as Count) 'known'
 		some(list) then ids = list
@@ -116,7 +117,7 @@ function testSum()
 	want.push("b3:")
 	want.push("  jump b1")
 	want.push("")
-	expectIr("sum", got: ir.irText(p, tt: ms.types, ft: ms.funcs, f: f), want: want)
+	expectIr("sum", got: ir.irText(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: f), want: want)
 end 'testSum'
 
 // A switch's cases live in a pool, so the blocks that nothing reaches are dropped from the numbering of its targets too.
@@ -156,7 +157,7 @@ function testSwitch()
 	want.push("  %0 = const 3")
 	want.push("  ret %0")
 	want.push("")
-	expectIr("switch", got: ir.irText(p, tt: p.types, ft: p.funcs, f: done), want: want)
+	expectIr("switch", got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: done), want: want)
 end 'testSwitch'
 
 // A call, a branch, a loop, an array push and a drop: the function `main` of
@@ -183,7 +184,9 @@ function testMain()
 	let countTy = p.builtins.countTy
 	ofCount.push(countTy)
 	let arrayOrigin = p.builtins.arrayOrigin
-	let arrayTy = ast.instantiateType(p.types, origin: arrayOrigin, args: ofCount)
+	var shared = ast.lendProject(p)
+	let arrayTy = ast.instantiateType(shared.types, reads: p.types, origin: arrayOrigin, args: ofCount)
+	ast.giveBack(p, ms: shared)
 	irLocal(p, fn: main, name: "xs", ty: arrayTy, slot: 0 as ast.SlotIndex)
 	irLocal(p, fn: main, name: "h", ty: countTy, slot: 1 as ast.SlotIndex)
 	let createNode = irNode(p, kind: ast.NodeKind.callExpr, ty: arrayTy)
@@ -294,7 +297,7 @@ function testMain()
 	want.push("  dropslot s0 Array with Count")
 	want.push("  ret %24")
 	want.push("")
-	expectIr("main", got: ir.irText(p, tt: ms.types, ft: ms.funcs, f: f), want: want)
+	expectIr("main", got: ir.irText(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: f), want: want)
 end 'testMain'
 
 // rawSite is a call of a raw intrinsic whose operands the lowering evaluates itself: the nodes of its arguments in the order
@@ -329,7 +332,7 @@ function testRaw()
 	let wID = p.typings[0].allocLocal(local)
 	var ids = ast.LocalIDList.create(0)
 	ids.push(wID)
-	p.typings[0].funcLocals.insert(p.funcs.slots[ast.funcSlot(probe)][ast.funcIndex(probe)].nodeID as Count, value: ids)
+	p.typings[0].funcLocals.insert(ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: probe).nodeID as Count, value: ids)
 	let wNode = irNode(p, kind: ast.NodeKind.nameExpr, ty: countTy)
 	p.typings[0].names.insert(wNode as Count, value: ast.NameInfo.localName(wID))
 	let nameNode = ast.newStrLit(p.modules[0].tree, start: 0 as diag.U32)
@@ -381,7 +384,7 @@ function testRaw()
 	want.push("  %9 = import \"Sleep\"(%8)")
 	want.push("  ret %9")
 	want.push("")
-	expectIr("raw", got: ir.irText(p, tt: ms.types, ft: ms.funcs, f: f), want: want)
+	expectIr("raw", got: ir.irText(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: f), want: want)
 end 'testRaw'
 
 function testIr()

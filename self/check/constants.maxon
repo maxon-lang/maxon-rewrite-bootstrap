@@ -41,7 +41,7 @@ function typedByConstants(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) re
 	if not isNominalDecl(p.modules[ast.modIndex(ref.module)].decls[ref.ordinal as Count]) 'notNominal'
 		return false
 	end 'notNominal'
-	return ms.types.lists[ast.typeList(ms.types, t: declTypeOf(p, ms: ms, ref: ref))][ast.typeIndex(ms.types, t: declTypeOf(p, ms: ms, ref: ref))].rawKind == ast.RawKind.value
+	return ast.typeEntry(ms.types, reads: p.types, t: declTypeOf(p, ms: ms, ref: ref)).rawKind == ast.RawKind.value
 end 'typedByConstants'
 
 function pushIfConstant(p ast.Project, ms ast.ModuleState, consumes ref ast.DeclRef, mutates out ConstReads)
@@ -224,8 +224,8 @@ function constReadsOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) return
 		return out
 	end 'constant'
 	let tid = declTypeOf(p, ms: ms, ref: ref)
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases.count() 'cases'
-		constRefs(p, ms: ms, tree: ms.tree, res: ms.resolution, e: ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr, out: out)
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: tid).cases.count() 'cases'
+		constRefs(p, ms: ms, tree: ms.tree, res: ms.resolution, e: ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].rawExpr, out: out)
 	end 'cases'
 	return out
 end 'constReadsOf'
@@ -293,7 +293,7 @@ end 'constantOrder'
 // what it is written as.
 function checkConstantType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, name String, node ast.NodeID, value ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns bool
 	let off = offsetOf(c, p: p, ms: ms, node: node)
-	if typeIsAnonInt(ms.types, t: t) 'anonymous'
+	if typeIsAnonInt(ms.types, reads: p.types, t: t) 'anonymous'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "constant '{name}' has the range {nameOfType(p, ms: ms, t: t)}, which no type names: give it an alias, 'as <Alias>'", errs: errs)
 		return false
 	end 'anonymous'
@@ -307,8 +307,8 @@ function checkConstantType(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	end 'interpolates'
 	let lacking = lacksCap(c, p: p, ms: ms, wantCopy: true, t: t)
 	if lacking.missing 'noCopy'
-		let why = lackWhyText(ms.types, info: lacking, capName: "Copyable")
-		let fix = lackFixText(ms.types, info: lacking, capName: "Copyable")
+		let why = lackWhyText(ms.types, reads: p.types, info: lacking, capName: "Copyable")
+		let fix = lackFixText(ms.types, reads: p.types, info: lacking, capName: "Copyable")
 		checkFail(c.modID, off: off, code: diag.errNotCopyable, msg: "constant '{name}' has type '{nameOfType(p, ms: ms, t: t)}', which is not Copyable, and a constant is read any number of times: {why}; {fix}", errs: errs)
 		return false
 	end 'noCopy'
@@ -327,7 +327,7 @@ end 'interpolatesNothing'
 // of a literal's type. The range analysis gives the value of any other, once it runs.
 function constantValue(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.ConstValue
 	if isConstInt(p, ms: ms, t: t) 'literal'
-		return ast.ConstValue.makeInt(t, v: ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.clone())
+		return ast.ConstValue.makeInt(t, v: ast.typeEntry(ms.types, reads: p.types, t: t).minVal.clone())
 	end 'literal'
 	return ast.ConstValue.typed(t)
 end 'constantValue'
@@ -343,7 +343,7 @@ end 'constOwner'
 
 function ownerSelfType(c Checker, p ast.Project, mutates ms ast.ModuleState, typeName String) returns ast.TypeID
 	match consumes p.modules[c.modIdx].names.get(typeName) 'declared'
-		some(ord) then return ast.selfType(ms.types, declTy: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(c.modID, ordinal: ord)))
+		some(ord) then return ast.selfType(ms.types, reads: p.types, declTy: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(c.modID, ordinal: ord)))
 		none then panic("the type '{typeName}' of a static let is not among the declarations of its module")
 	end 'declared'
 end 'ownerSelfType'
@@ -371,7 +371,7 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if checkConstantType(c, p: p, ms: ms, name: cd.name, node: cd.id, value: cd.value, t: t, errs: errs) 'typed'
 		var value = constantValue(p, ms: ms, t: t)
 		let s = rangeConstant(c, p: p, ms: ms, value: cd.value, errs: errs)
-		if ast.isIntType(ms.types, t: t) 'int'
+		if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
 			value.low = s.lo.clone()
 			value.high = s.hi.clone()
 		end 'int'
@@ -420,15 +420,15 @@ end 'isLiteralFactoryCall'
 // is not generic, that is not generic and throws nothing, and whose body is one `return` of a record literal whose fields run
 // no code, so they are its parameters and constants. A call of it is the literal with the arguments written in.
 function isLiteralFactory(p ast.Project, ms ast.ModuleState, fn ast.FuncID) returns bool
-	let owner = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].ownerTy
-	if ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module == diag.stdlibID or not ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].isStatic or ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].generics.count() > 0 or ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].errTy != ast.noType or owner == ast.noType 'notStatic'
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).ownerTy
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).module == diag.stdlibID or not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).isStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).generics.count() > 0 or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).errTy != ast.noType or owner == ast.noType 'notStatic'
 		return false
 	end 'notStatic'
-	if ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: owner))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: owner))].typeParams.count() > 0 'genericOwner'
+	if ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner)).typeParams.count() > 0 'genericOwner'
 		return false
 	end 'genericOwner'
-	let module = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module
-	let body = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].bodyRef
+	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).module
+	let body = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).bodyRef
 	if module == ms.module 'own'
 		return returnsLiteral(p, ms: ms, tree: ms.tree, res: ms.resolution, body: body)
 	end 'own'

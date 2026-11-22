@@ -257,7 +257,7 @@ layering cannot erode:
 |---|---|---|
 | `diag` | `CompileError` (a code, a message and a place: a `Site`, a module handle and an offset, until the error is located, then file, line and column), `ErrorList`, `sortErrors`, the error codes (generated from `codes.tsv`) and the message functions (from `messages.tsv`) | — |
 | `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides | — |
-| `ast` | the program model: `Tree`, a module's nodes as flat `Record`s, the generated node kinds, accessors and declaration structs, `Module` and `Project`, the project-wide `TypeTable` and `FuncTable`, the `ModuleState` a module's task writes (`state.maxon`), the built-in types and functions (generated), `Resolution` and `Typing`, the per-module tables the phases fill in (see "The AST"), link names, locating an error, `I128` | `diag`, `table` |
+| `ast` | the program model: `Tree`, a module's nodes as flat `Record`s, the generated node kinds, accessors and declaration structs, `Module` and `Project`, the project's `TypeTable` and `FuncTable` of per-module slots and the accessors every read of an entry goes through (`typeEntry`, `funcEntry`), the `ModuleState` a module's task writes, which holds its module's slots (`state.maxon`), the built-in types and functions (generated), `Resolution` and `Typing`, the per-module tables the phases fill in (see "The AST"), link names, locating an error, `I128` | `diag`, `table` |
 | `syntax` | the grammar (`Maxon.g4`), the generated tokens and parser, the lexer loop, the layout rules, the formatter (the parser in a mode that writes the layout instead of checking it) and the edits that rename a keyword | `ast`, `diag`, `table` |
 | `project` | loading a project: discovery, finding the runtime's source (see "The runtime"), reading and parsing each module, the declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `syntax`, `table` |
 | `resolve` | name resolution, into the module's `Resolution`: which declaration each name and type reference names, which type parameter each constraint binds, which modules the module depends on, visibility | `ast`, `diag`, `table` |
@@ -475,7 +475,7 @@ any, from every module. A `check` stops short of code generation but runs the st
 | resolve | `resolve` | `resolveModule` binds every name, struct literal and type reference to its declaration, and each `where` constraint to the type parameter it names (`E3916`), into the module's `Resolution`; it records the modules the module depends on, checks visibility (`E3008`) and that no signature names a less visible type (`E3167`), and rewrites a qualified name in place (see "The AST"). It reads only the module's own declarations, the standard library and the declarations of the modules the module names |
 | module graph | `project` | `newGraph` turns each module's recorded dependencies into edges; `checkAcyclic` sorts the graph (Kahn's algorithm, linear in the edges) and reports `E2012` where the first module of a cycle names the second; `topoOrder` is the order every later stage visits the modules in, and the driver adds the tasks of the stages below |
 | aliases | `check` | `moduleAliases`: the bounds of each type's type parameters, the typealiases that the module's extensions declare under the types they extend, each type written `Type.name` bound to the typealias that the type's body or an extension the module sees declares, then each typealias of an instance, after the typealiases it names (a cycle is `E2012`) |
-| declare | `check` | `moduleDeclare`: the module's fields, cases, function signatures, type parameters and the interfaces its types implement, into the project's `TypeTable` and `FuncTable`; the declare finds `main`, in the first module that declares it (`E3001` when none does, a task of the project: `projectEntry`; `E3006` for a second) |
+| declare | `check` | `moduleDeclare`: the module's fields, cases, function signatures, type parameters and the interfaces its types implement, into the module's slots of the `TypeTable` and `FuncTable`; the declare finds `main`, in the first module that declares it (`E3001` when none does, a task of the project: `projectEntry`; `E3006` for a second) |
 | constants | `check` | `moduleConstantOrder`, then `moduleConstants`, two stages: types the top-level `let`s and the raw values that enums and unions write that are no literal (see "Raw values"), each after the constants and raw values of its module that it names (a cycle is `E2012`) |
 | bodies | `check` | `moduleBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
 | verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
@@ -519,23 +519,34 @@ list: the parse (`project.parseModule`), the resolve (`resolve.resolveModule`) a
 `ir.findInstances`) an `ast.ModuleState`, a stage of the check (`check.moduleAliases` to `check.moduleVerify`) a
 `check.ModuleState`, which holds one (`unit`) with the checker's state of the module. An `ast.ModuleState` holds what the task
 writes of the model, which the driver lends out of the project for the task and takes back when it ends (`ast.lendModule`,
-`ast.giveBack`): the `TypeTable` and `FuncTable`, in which the task makes and fills entries only in its module's slot, never in
-slot 0, the built-ins' and the standard library's, which only what runs before the tasks and the tasks of the project write
-(`beginModuleTask`, checked by `requireWriter`); the module's `ModuleTables` (the type, function and constant of each
-declaration, the locals its bodies bind, and what its extensions add to types) and its `Resolution`; and what else of the
-module its stage writes (`ast.Lent`): the whole module it makes for the parse (`source`), the tree for the resolve and the
-check (`tree`: the resolve rewrites qualified names in it and the bodies stage desugars into it), nothing more for the lower
-(`tables`), which reads every module's tree in the project as the check left it. A stage reads its own module's lent parts in
-its state and every other module's in the project, through the accessors of the module tables (`ast.declType`,
-`ast.declFunc`, `ast.paramType`, `ast.nodeFunc`, `ast.declConst`, `ast.rawTypeOf`, `ast.receiverLocal`, `ast.paramLocal`), of
-the extensions (`ast.extensionMethod` and the rest) and of the modules a module names (`ast.namedCount`, `ast.namedModule`),
-each taking the state; the tables a project holds while a task holds them refuse a read (`ModuleTables.requireHeld`), and a
-setter refuses a module other than the state's (`requireOwn`). Every function that writes takes the state `mutates` (`ms`)
-and the project read-only; one that only reads takes the state read-only, and what runs after the tasks too (the IR printer
-and verifier, link names, `ir.funcSymbol`) takes the tables it reads (`tt`, `ft`), or the state of the project
-(`ModuleState.ofProject`), which holds no module. What a stage reads of another module's shapes is what that module's stage
-it waited on had made when it ended (`TypeTable.ends`), so the order the tasks run in cannot change it. Only the emit
-(`backend.emitModule`) and the work of the project as a whole still take the project `mutates`.
+`ast.giveBack`): its module's slot of each table (`ast.TypeSlot`, `ast.FuncSlot`: the nominal types, the shapes and their
+index, the functions and the cache of instances), the only slot it can make or fill an entry in, so that no stage can write
+another module's types or functions; the work of the project holds slot 0 (`ast.lendProject`), the built-ins' and the
+standard library's, which only it and what runs before the tasks write. The project's `TypeTable` and `FuncTable` hold every
+other slot, which the task reads through `p`. Every read of an entry goes through one accessor family that takes the slot the
+task holds and the project's table, and finds the entry in one or the other: `ast.typeEntry(ms.types, reads: p.types, t: t)`
+and `ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f)`, functions that return a borrowed place (see "Ownership"), and
+`ast.typeKind`; a write indexes the task's own slot, `ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types,
+t: t)]` or `ms.funcs.entries[ast.funcIndex(ms.funcs, f: f)]`, whose accessors stop the compile with an internal error for an
+entry of another slot. Every function of `ast` and of the stages that reads entries takes the pair (`tt`, `reads`; `ft`,
+`funcReads`), and one that makes entries takes the slot `mutates`. The task also holds the module's `ModuleTables` (the type,
+function and constant of each declaration, the locals its bodies bind, and what its extensions add to types) and its
+`Resolution`; and what else of the module its stage writes (`ast.Lent`): the whole module it makes for the parse (`source`),
+the tree for the resolve and the check (`tree`: the resolve rewrites qualified names in it and the bodies stage desugars
+into it), nothing more for the lower and the emit (`tables`), which read every module's tree in the project as the check
+left it. A stage reads its own module's lent parts in its state and every other module's in the project, through the
+accessors of the module tables (`ast.declType`, `ast.declFunc`, `ast.paramType`, `ast.nodeFunc`, `ast.declConst`,
+`ast.rawTypeOf`, `ast.receiverLocal`, `ast.paramLocal`), of the extensions (`ast.extensionMethod` and the rest) and of the
+modules a module names (`ast.namedCount`, `ast.namedModule`), each taking the state; the tables a project holds while a task
+holds them refuse a read (`ModuleTables.requireHeld`), and a setter refuses a module other than the state's (`requireOwn`).
+Every function that writes takes the state `mutates` (`ms`) and the project read-only; one that only reads takes the state
+read-only. What runs outside the tasks and reads the tables (the IR printer and verifier after the lower, the interpreter,
+`ast.typeLinkName`) passes `ast.TypeSlot.none()` and `ast.FuncSlot.none()`, the slots of no module, with the project's
+tables, which then hold every slot; work outside the tasks that makes an entry lends the slot it makes it in
+(`ast.lendProject`, `ast.makeType`, `ast.makeFunc`). What a stage reads of another module's shapes is what that module's
+stage it waited on had made when it ended (`TypeSlot.ends`), so the order the tasks run in cannot change it. The emit
+(`backend.emitModule`) takes its module's state as the lower does, and the link the state of the project; only the work
+of the project as a whole (the order, the end of the check, the link) still takes the project `mutates`, to lend from it.
 
 
 The executor (`execute`) runs the tasks on one thread, one at a time, in the order they were added: stage by stage, and within
@@ -581,7 +592,7 @@ what it finds out is a table it owns, indexed by `NodeID`. Nothing adds a node a
 | `ast.NodeID` | a node of one module: its index in `Tree.records`, counted from 1 in the order the parser makes them; 0 is no node |
 | `diag.Site` | where a node is: its module and the byte offset of its first token |
 | `ast.DeclRef` | a top-level declaration: its module and its `DeclOrdinal`, its index in `Module.decls` |
-| `ast.TypeID`, `ast.FuncID` | a type or a function. A nominal type's handle and every function's is a word whose bits 32-47 name its slot of the `TypeTable` or `FuncTable` and whose bits 0-31 are its index there: slot 0 holds the built-ins, the stdlib and what the stages of the project make, and slot 1 + m the types and functions module m declares, the closures and behaviours its bodies make and the instances of generic functions its stages ask for, which only m's stages make, so their handles depend on m's source alone. A structural type's handle (an instance, a range, a constant, a function type's origin, a tuple's record and its type parameters) has bit 62 set, its `TypeKind` in bits 57-61 and a 57-bit hash of its structure below (`ast/shapes.maxon`), so it is one word in every module. Each slot holds the shapes its stages made or took from another slot, and a lookup goes through the task's own slot, slot 0 and the slots of the modules it names, directly or through others, which it waited on (`TypeTable.reads`): at the start of each task the slot's index takes in the places of the shapes those slots held when the stage the task waited on ended (`TypeTable.ends`, `frozenStage` in the driver), so a read is one probe and what a later stage of another module makes is never seen, and a kind is read from the handle (`ast.typeKind`); a stage never writes another slot. Two structures under one hash are an internal error that names both. 0 is none (`noType`, `noFunc`) |
+| `ast.TypeID`, `ast.FuncID` | a type or a function. A nominal type's handle and every function's is a word whose bits 32-47 name its slot of the `TypeTable` or `FuncTable` and whose bits 0-31 are its index there: slot 0 holds the built-ins, the stdlib and what the stages of the project make, and slot 1 + m the types and functions module m declares, the closures and behaviours its bodies make and the instances of generic functions its stages ask for, which only m's stages make, so their handles depend on m's source alone. A structural type's handle (an instance, a range, a constant, a function type's origin, a tuple's record and its type parameters) has bit 62 set, its `TypeKind` in bits 57-61 and a 57-bit hash of its structure below (`ast/shapes.maxon`), so it is one word in every module. Each slot holds the shapes its stages made or took from another slot, and a lookup goes through the task's own slot, slot 0 and the slots of the modules it names, directly or through others, which it waited on (`TypeSlot.reads`): at the start of each task the slot's index takes in the places of the shapes those slots held when the stage the task waited on ended (`TypeSlot.ends`, `frozenStage` in the driver), so a read is one probe and what a later stage of another module makes is never seen, and a kind is read from the handle (`ast.typeKind`); a task holds only its own slot `mutates`, so it cannot write another. Two structures under one hash are an internal error that names both. 0 is none (`noType`, `noFunc`) |
 | `ast.LocalID` | a local variable: its index in the module's `Typing.locals`; 0 is none |
 
 A node's index depends only on its module's text, so a module that did not change keeps its indexes and tables. What is
@@ -1839,7 +1850,7 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   be assigned, and the subject cannot be assigned, moved or passed `mutates` while the arm runs (`E3186`). There are no
   local projection bindings (`mutates r = a.f`): borrows exist only as parameters, match bindings, call arguments and
   the results of functions that return a borrowed place.
-- **A function can return a borrowed place.** `function typeEntry(v TypeView, t TypeID) returns borrowed TypeEntry`
+- **A function can return a borrowed place.** `typeEntry(tt TypeSlot, reads TypeTable, t TypeID) returns borrowed TypeEntry`
   gives a place of type `TypeEntry` that it borrows from its arguments, where `returns TypeEntry` gives a value the
   caller owns. `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else. Every
   `return` of such a function names a place in what the caller lent it: a `let` or `mutates` parameter or a `self` that

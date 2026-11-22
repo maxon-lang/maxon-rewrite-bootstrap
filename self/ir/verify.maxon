@@ -6,18 +6,18 @@
 // Dominance is over the segments of Flow (flow.maxon), the blocks cut after each instruction that can fail.
 
 // verifyIr is what is wrong with the IR of a function and of its bodies, a line for each rule it breaks.
-export function verifyIr(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f IrFunction) returns ast.StringList
+export function verifyIr(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction) returns ast.StringList
 	var problems = ast.StringList.create(0)
-	verifyInto(p, tt: tt, ft: ft, f: f, problems: problems)
+	verifyInto(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f, problems: problems)
 	return problems
 end 'verifyIr'
 
-function verifyInto(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f IrFunction, mutates problems ast.StringList)
-	var v = Verifier.new(irSymbol(p, tt: tt, ft: ft, f: f))
+function verifyInto(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction, mutates problems ast.StringList)
+	var v = Verifier.new(irSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f))
 	v.run(f)
 	problems.append(v.problems)
 	for i in 0 upto f.bodies.count() 'bodies'
-		verifyInto(p, tt: tt, ft: ft, f: f.bodies[i], problems: problems)
+		verifyInto(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f.bodies[i], problems: problems)
 	end 'bodies'
 end 'verifyInto'
 

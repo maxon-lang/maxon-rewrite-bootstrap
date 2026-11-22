@@ -62,7 +62,7 @@ function localBorrows(o Ownership, p ast.Project, ms ast.ModuleState, local ast.
 		return
 	end 'holder'
 	let entry = o.c.typing.locals[local as Count].clone()
-	if not ast.isFunctionType(ms.types, t: entry.ty) or not entry.isParam or ast.ownsValue(entry.conv) 'owned'
+	if not ast.isFunctionType(ms.types, reads: p.types, t: entry.ty) or not entry.isParam or ast.ownsValue(entry.conv) 'owned'
 		return
 	end 'owned'
 	out.name = entry.name.clone()
@@ -142,7 +142,7 @@ end 'borrowedType'
 // bindHolder records that a local declared here is bound to a function value that borrows, and holds what it borrows for
 // as long as the local's scope lasts.
 function bindHolder(mutates o Ownership, p ast.Project, ms ast.ModuleState, local ast.LocalID, e ast.NodeID)
-	if not ast.isFunctionType(ms.types, t: o.c.typing.locals[local as Count].ty) 'notFunction'
+	if not ast.isFunctionType(ms.types, reads: p.types, t: o.c.typing.locals[local as Count].ty) 'notFunction'
 		return
 	end 'notFunction'
 	let b = borrowsOf(o, p: p, ms: ms, e: e)
@@ -203,7 +203,7 @@ end 'releaseHolders'
 // call changes the state its closure holds. A temporary is called once, so nothing sees the change.
 function requireCallable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, callee ast.NodeID)
 	let t = ownType(o, node: callee)
-	if not ast.isMutatingFunction(ms.types, t: t) 'reads'
+	if not ast.isMutatingFunction(ms.types, reads: p.types, t: t) 'reads'
 		return
 	end 'reads'
 	if changesProjection(o, p: p, ms: ms, e: callee, site: offsetOfOwn(o, p: p, ms: ms, node: callee), what: "called, since '{nameOfType(p, ms: ms, t: t)}' mutates captures") 'projection'

@@ -2,7 +2,7 @@
 function lowerMatch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, core ast.NodeID, resultType ast.TypeID) returns Reg
 	let subjectNode = ast.matchCoreSubject(p.modules[l.mi].tree, id: core)
 	let applied = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: subjectNode))
-	let st = ast.contentType(ms.types, t: applied)
+	let st = ast.contentType(ms.types, reads: p.types, t: applied)
 	let mark = l.pending.count()
 	let subject = lowerRead(l, p: p, ms: ms, e: subjectNode)
 	// A subject that the match consumes is the match's from here: each arm takes it apart before anything can fail.
@@ -129,12 +129,12 @@ function takeApart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 end 'takeApart'
 
 function testPattern(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, pat ast.NodeID, st ast.TypeID, subject Reg, body BlockID)
-	let unsigned = ast.isUnsignedInt(ms.types, t: st)
+	let unsigned = ast.isUnsignedInt(ms.types, reads: p.types, t: st)
 	let fail = l.b.newBlock()
 	let form = ast.patternForm(p.modules[l.mi].tree, id: pat)
 	if form == ast.PatternKind.patCase 'case'
 		var scrutinee = subject
-		if ast.typeKind(ms.types, t: st) == ast.TypeKind.unionTy 'union'
+		if ast.typeKind(ms.types, reads: p.types, t: st) == ast.TypeKind.unionTy 'union'
 			scrutinee = tagReg(l, box: subject)
 		end 'union'
 		let idx = konst(l, value: try patternInfoAt(p, module: l.module, node: pat).caseIdx as Word otherwise panic("ir: a case index is out of range"))
@@ -180,10 +180,10 @@ end 'testPattern'
 
 // constValueOf is the value of an integer constant, which is the type the checker gave the expression that writes it.
 function constValueOf(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.I128
-	if ast.typeKind(ms.types, t: t) != ast.TypeKind.constInt 'notConst'
-		panic("lower: {ast.typeName(ms.types, t: t)} is not an integer constant")
+	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.constInt 'notConst'
+		panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} is not an integer constant")
 	end 'notConst'
-	return ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.clone()
+	return ast.typeEntry(ms.types, reads: p.types, t: t).minVal.clone()
 end 'constValueOf'
 
 function constBits(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Word

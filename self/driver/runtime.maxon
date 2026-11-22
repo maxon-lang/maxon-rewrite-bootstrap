@@ -46,7 +46,7 @@ function runtimeFunctionID(p ast.Project, module diag.ModuleID, ord ast.DeclOrdi
 end 'runtimeFunctionID'
 
 function matchesSignature(p ast.Project, fid ast.FuncID, want ir.RtFunction) returns bool
-	let f = p.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].clone()
+	let f = ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: fid).clone()
 	var result = f.retTy
 	if result == ast.noType 'void'
 		result = p.builtins.voidTy
@@ -73,11 +73,11 @@ function runtimeSignature(p ast.Project, want ir.RtFunction) returns String
 		if want.params[i].conv != ast.Convention.convLet 'conv'
 			out.append("{want.params[i].conv.keyword()} ".toByteArray())
 		end 'conv'
-		out.append("{want.params[i].name} {ast.typeName(p.types, t: want.params[i].ty)}".toByteArray())
+		out.append("{want.params[i].name} {ast.typeName(ast.TypeSlot.none(), reads: p.types, t: want.params[i].ty)}".toByteArray())
 	end 'params'
 	out.append(")".toByteArray())
 	if want.result != p.builtins.voidTy 'returns'
-		out.append(" returns {ast.typeName(p.types, t: want.result)}".toByteArray())
+		out.append(" returns {ast.typeName(ast.TypeSlot.none(), reads: p.types, t: want.result)}".toByteArray())
 	end 'returns'
 	return String.from(out)
 end 'runtimeSignature'

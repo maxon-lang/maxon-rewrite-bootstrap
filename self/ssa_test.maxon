@@ -13,8 +13,8 @@ function ssaRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.S
 	if got != counts 'counts'
 		panic("{label}: construction {got}, not {counts}")
 	end 'counts'
-	expectIr(label, got: ir.irText(p, tt: p.types, ft: p.funcs, f: g), want: want)
-	let problems = ir.verifyIr(p, tt: p.types, ft: p.funcs, f: g)
+	expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g), want: want)
+	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g)
 	if problems.count() > 0 'refused'
 		panic("{label}: the verifier refuses it: {problems[0]}")
 	end 'refused'

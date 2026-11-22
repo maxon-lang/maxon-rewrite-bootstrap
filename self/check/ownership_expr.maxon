@@ -42,10 +42,10 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	end 'dead'
 	o.c.typing.consumed.insert(e as Count, value: true)
 	let t = ownType(o, node: e)
-	if ast.isFunctionType(ms.types, t: t) and dest.kind != OwnDestKind.destClosure and dest.kind != OwnDestKind.destBinding and dest.kind != OwnDestKind.destCast and dest.kind != OwnDestKind.destBranch 'escapes'
+	if ast.isFunctionType(ms.types, reads: p.types, t: t) and dest.kind != OwnDestKind.destClosure and dest.kind != OwnDestKind.destBinding and dest.kind != OwnDestKind.destCast and dest.kind != OwnDestKind.destBranch 'escapes'
 		requireNoBorrows(o, p: p, ms: ms, e: e, what: "moved into {dest.text()}")
 	end 'escapes'
-	if not isManagedOwn(p, ms: ms, t: t) or ast.sharesOnCopy(ms.types, t: t) 'scalar'
+	if not isManagedOwn(p, ms: ms, t: t) or ast.sharesOnCopy(ms.types, reads: p.types, t: t) 'scalar'
 		return out
 	end 'scalar'
 	let projection = projectionOf(o, ms: ms, e: e)
@@ -89,7 +89,7 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	if path.steps.count() > 0 'part'
 		return movePart(o, p: p, ms: ms, e: e, path: path, dest: dest, s: out)
 	end 'part'
-	if o.c.typing.locals[path.root as Count].isSelf and ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].isDestructor and dest.kind != OwnDestKind.destDestructor and dest.kind != OwnDestKind.destMatch 'destructor'
+	if o.c.typing.locals[path.root as Count].isSelf and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).isDestructor and dest.kind != OwnDestKind.destDestructor and dest.kind != OwnDestKind.destMatch 'destructor'
 		fail(o, p: p, site: site, code: diag.errDestructorMisuse, msg: "'self' is moved into {dest.text()}, but inside a destructor it may only be passed whole to another destructor of its type, which ends it there; move its fields out instead, or call a destructor")
 		return out
 	end 'destructor'
@@ -181,7 +181,7 @@ function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.Modul
 		end 'letField'
 	end 'steps'
 	if root.isCapture and not isMutableLocal(root) 'capture'
-		if ast.funcMutatesCaptures(ms.types, t: o.closureTy) 'immutable'
+		if ast.funcMutatesCaptures(ms.types, reads: p.types, t: o.closureTy) 'immutable'
 			mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: "'{root.name}' is borrowed where the closure captures it, so even a closure that mutates its captures only reads it; a mutating closure changes what it owns, a 'var', a 'mutates' parameter or 'mutates self'")
 			return false
 		end 'immutable'
@@ -371,7 +371,7 @@ function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 			let moved = consume(o, p: p, ms: ms, e: operand, dest: OwnDest.of(OwnDestKind.destCast), s: s)
 			return failed(o, p: p, ms: ms, e: e, s: moved)
 		end 'interface'
-		if ast.castRebrands(ms.types, target: ownType(o, node: e)) 'rebrand'
+		if ast.castRebrands(ms.types, reads: p.types, target: ownType(o, node: e)) 'rebrand'
 			// The cast gives the same value, which the value it makes shares or takes over.
 			return consume(o, p: p, ms: ms, e: operand, dest: OwnDest.of(OwnDestKind.destCast), s: s)
 		end 'rebrand'
@@ -447,7 +447,7 @@ end 'partExpr'
 // holdText holds the first part of an interpolated string while the second is evaluated, when the first is a string and
 // a second part runs after it.
 function holdText(mutates o Ownership, p ast.Project, ms ast.ModuleState, first ast.NodeID, second ast.NodeID)
-	if first != 0 and second != 0 and not runsNoCode(ms.tree, e: second) and ast.contentType(ms.types, t: ownType(o, node: first)) == p.builtins.stringTy 'held'
+	if first != 0 and second != 0 and not runsNoCode(ms.tree, e: second) and ast.contentType(ms.types, reads: p.types, t: ownType(o, node: first)) == p.builtins.stringTy 'held'
 		hold(o, p: p, ms: ms, place: first, kind: OwnProjectionKind.projectPart, byAddress: false)
 	end 'held'
 end 'holdText'
@@ -536,7 +536,7 @@ function callExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSt
 	let receiver = ast.callReceiver(ms.tree, e: e, kind: call.kind)
 	let k = call.kind
 	if k == ast.CallKind.callCopy 'copy'
-		if ast.isFunctionType(ms.types, t: ownType(o, node: receiver)) 'function'
+		if ast.isFunctionType(ms.types, reads: p.types, t: ownType(o, node: receiver)) 'function'
 			requireNoBorrows(o, p: p, ms: ms, e: receiver, what: "copied with 'clone()'")
 		end 'function'
 		return expr(o, p: p, ms: ms, e: receiver, s: s)
@@ -545,10 +545,10 @@ function callExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSt
 		return expr(o, p: p, ms: ms, e: call.ordered[0], s: s)
 	end 'print'
 	if k == ast.CallKind.callUnionCtor 'unionCtor'
-		let orig = ast.originOf(ms.types, t: call.unionTy)
+		let orig = ast.originOf(ms.types, reads: p.types, t: call.unionTy)
 		var out = s
 		for i in 0 upto call.ordered.count() 'args'
-			let name = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[call.unionCase].payload[i].name.clone()
+			let name = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[call.unionCase].payload[i].name.clone()
 			out = consume(o, p: p, ms: ms, e: call.ordered[i], dest: OwnDest.make(OwnDestKind.destField, name: name), s: out)
 		end 'args'
 		return out
@@ -572,9 +572,9 @@ end 'callExprOwn'
 // callError is the error that the function a call runs throws, or noType for a call that cannot fail.
 function callError(p ast.Project, ms ast.ModuleState, call ast.CallInfo) returns ast.TypeID
 	if call.kind == ast.CallKind.callBound 'bound'
-		return ms.funcs.slots[ast.funcSlot(call.method)][ast.funcIndex(call.method)].errTy
+		return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: call.method).errTy
 	end 'bound'
-	return ms.funcs.slots[ast.funcSlot(call.fn)][ast.funcIndex(call.fn)].errTy
+	return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: call.fn).errTy
 end 'callError'
 
 function userCall(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, call ast.CallInfo, receiver ast.NodeID, consumes s OwnState) returns OwnState
@@ -741,7 +741,7 @@ function mutatesArgument(mutates o Ownership, p ast.Project, mutates ms ast.Modu
 		return out
 	end 'projection'
 	let path = pathOf(o, p: p, ms: ms, e: e)
-	if not path.isPlace() and ast.isMutatingFunction(ms.types, t: ownType(o, node: e)) 'temporary'
+	if not path.isPlace() and ast.isMutatingFunction(ms.types, reads: p.types, t: ownType(o, node: e)) 'temporary'
 		// A new function value is changed only by the call it is passed to, as one called where it is made is.
 		return out
 	end 'temporary'
@@ -882,11 +882,11 @@ function structLitOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		some(info) gives info
 		none panic("ownership: the struct literal at node {e} was not recorded by the bodies check")
 	end 'hit'
-	let orig = ast.originOf(ms.types, t: lit.ty)
+	let orig = ast.originOf(ms.types, reads: p.types, t: lit.ty)
 	var out = s
 	for i in 0 upto lit.ordered.count() 'fields'
 		if lit.ordered[i] != 0 'given'
-			let name = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[i].name.clone()
+			let name = ast.typeEntry(ms.types, reads: p.types, t: orig).fields[i].name.clone()
 			out = consume(o, p: p, ms: ms, e: lit.ordered[i], dest: OwnDest.make(OwnDestKind.destField, name: name), s: out)
 		end 'given'
 	end 'fields'

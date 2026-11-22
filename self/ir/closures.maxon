@@ -13,7 +13,7 @@ end 'closureBodyName'
 // variable that a mutating closure changes.
 function visitClosureExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let info = closureInfoAt(p, module: l.module, node: e)
-	var body = lowerNested(l, p: p, ms: ms, fn: info.fn, name: closureBodyName(irSymbol(p, tt: ms.types, ft: ms.funcs, f: l.b.f), index: l.b.f.bodies.count()))
+	var body = lowerNested(l, p: p, ms: ms, fn: info.fn, name: closureBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count()))
 	var captures = RegList.create(0)
 	for i in 0 upto info.captures.count() 'captures'
 		let ref = info.captures[i].refNode

@@ -22,10 +22,10 @@ end 'Column'
 // expectedArgs are the type arguments of the type that the context expects when it is an instance of the built-in
 // collection of kind, and none otherwise.
 function expectedArgs(p ast.Project, ms ast.ModuleState, want ast.TypeID, kind ast.TypeKind) returns ast.TypeIDList
-	if want == ast.noType or ast.typeKind(ms.types, t: want) != kind 'other'
+	if want == ast.noType or ast.typeKind(ms.types, reads: p.types, t: want) != kind 'other'
 		return ast.TypeIDList.create(0)
 	end 'other'
-	return ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: want)][ast.typeIndex(ms.types, t: want)].typeArgs)
+	return ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: want).typeArgs)
 end 'expectedArgs'
 
 function checkCollectionLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
@@ -95,7 +95,7 @@ end 'checkMapLit'
 // addToColumn types an element and folds its type into the column, which gives whether it could.
 function addToColumn(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates col Column, node ast.NodeID, mutates errs diag.ErrorList) returns bool
 	var wanted = col.ty
-	if not col.fixed and ast.isIntType(ms.types, t: col.ty) 'integers'
+	if not col.fixed and ast.isIntType(ms.types, reads: p.types, t: col.ty) 'integers'
 		wanted = ast.noType
 	end 'integers'
 	let t = checkExpecting(c, p: p, ms: ms, e: node, want: wanted, errs: errs)
@@ -117,7 +117,7 @@ function addToColumn(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		col.ty = bareRange(p, ms: ms, t: t)
 		return true
 	end 'first'
-	if ast.isIntType(ms.types, t: col.ty) and ast.isIntType(ms.types, t: t) 'integers'
+	if ast.isIntType(ms.types, reads: p.types, t: col.ty) and ast.isIntType(ms.types, reads: p.types, t: t) 'integers'
 		if not requireCommonWord(c, p: p, ms: ms, off: off, a: col.ty, b: t, errs: errs) 'mixed'
 			return false
 		end 'mixed'
@@ -133,12 +133,12 @@ function requireCommonWord(mutates c Checker, p ast.Project, ms ast.ModuleState,
 	let i64max = ast.I128.i64Max()
 	var negative = a
 	var large = b
-	if rangeLo(ms.types, t: b).isNeg() and rangeHi(ms.types, t: a).gt(i64max) 'swapped'
+	if rangeLo(ms.types, reads: p.types, t: b).isNeg() and rangeHi(ms.types, reads: p.types, t: a).gt(i64max) 'swapped'
 		negative = b
 		large = a
 	end 'swapped'
-	if rangeLo(ms.types, t: negative).isNeg() and rangeHi(ms.types, t: large).gt(i64max) 'mixed'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.noCommonIntegerType(rangeLo(ms.types, t: negative).toString(), high: rangeHi(ms.types, t: large).toString()), errs: errs)
+	if rangeLo(ms.types, reads: p.types, t: negative).isNeg() and rangeHi(ms.types, reads: p.types, t: large).gt(i64max) 'mixed'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.noCommonIntegerType(rangeLo(ms.types, reads: p.types, t: negative).toString(), high: rangeHi(ms.types, reads: p.types, t: large).toString()), errs: errs)
 		return false
 	end 'mixed'
 	return true
@@ -148,16 +148,16 @@ end 'requireCommonWord'
 // they span, so that they fit any alias that holds all of them; a literal inside another takes the whole word instead, since
 // no alias could be told apart from its siblings.
 function columnType(p ast.Project, mutates ms ast.ModuleState, col Column, wide bool) returns ast.TypeID
-	if col.fixed or not ast.isIntType(ms.types, t: col.ty) or typeIsNamedInt(ms.types, t: col.ty) 'named'
+	if col.fixed or not ast.isIntType(ms.types, reads: p.types, t: col.ty) or typeIsNamedInt(ms.types, reads: p.types, t: col.ty) 'named'
 		return col.ty
 	end 'named'
 	if wide 'word'
-		if rangeHi(ms.types, t: col.ty).gt(ast.I128.i64Max()) 'unsigned'
+		if rangeHi(ms.types, reads: p.types, t: col.ty).gt(ast.I128.i64Max()) 'unsigned'
 			return p.builtins.anonU64Ty
 		end 'unsigned'
 		return p.builtins.anon64Ty
 	end 'word'
-	return ast.internIntRange(ms.types, aliasName: "", minVal: rangeLo(ms.types, t: col.ty), maxVal: rangeHi(ms.types, t: col.ty), inferred: true)
+	return ast.internIntRange(ms.types, reads: p.types, aliasName: "", minVal: rangeLo(ms.types, reads: p.types, t: col.ty), maxVal: rangeHi(ms.types, reads: p.types, t: col.ty), inferred: true)
 end 'columnType'
 
 // bareRange is the range that a bare number spans, which a column of elements holds in place of the number; any other type
@@ -169,19 +169,19 @@ function bareRange(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) retu
 	if not isConstInt(p, ms: ms, t: t) 'other'
 		return t
 	end 'other'
-	return ast.internIntRange(ms.types, aliasName: "", minVal: rangeLo(ms.types, t: t), maxVal: rangeHi(ms.types, t: t), inferred: true)
+	return ast.internIntRange(ms.types, reads: p.types, aliasName: "", minVal: rangeLo(ms.types, reads: p.types, t: t), maxVal: rangeHi(ms.types, reads: p.types, t: t), inferred: true)
 end 'bareRange'
 
 // holdsBareNumbers is whether a collection stores numbers that no alias names, which a variable cannot hold: it could not
 // take a number outside their range later.
 function holdsBareNumbers(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	let kind = ast.typeKind(ms.types, t: t)
-	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinMap and kind != ast.TypeKind.builtinList and not ast.isTupleType(ms.types, t: t) 'other'
+	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
+	if kind != ast.TypeKind.builtinArray and kind != ast.TypeKind.builtinMap and kind != ast.TypeKind.builtinList and not ast.isTupleType(ms.types, reads: p.types, t: t) 'other'
 		return false
 	end 'other'
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].typeArgs.count() 'args'
-		let arg = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].typeArgs[i]
-		if typeIsAnonInt(ms.types, t: arg) or holdsBareNumbers(p, ms: ms, t: arg) 'bare'
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs.count() 'args'
+		let arg = ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs[i]
+		if typeIsAnonInt(ms.types, reads: p.types, t: arg) or holdsBareNumbers(p, ms: ms, t: arg) 'bare'
 			return true
 		end 'bare'
 	end 'args'

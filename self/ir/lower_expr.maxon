@@ -34,15 +34,15 @@ function lowerExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let applied = applyType(l, p: p, ms: ms, t: ty)
 	let boxes = iface != ast.noType and not standsForInterface(p, ms: ms, t: applied)
 	let branches = isBranching(p.modules[l.mi].tree.kindOf(e))
-	if ast.typeKind(ms.types, t: ty) == ast.TypeKind.constInt and not branches 'constant'
-		let c = konst(l, value: wordOf(ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].minVal))
+	if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.constInt and not branches 'constant'
+		let c = konst(l, value: wordOf(ast.typeEntry(ms.types, reads: p.types, t: ty).minVal))
 		if boxes 'boxedConstant'
 			return lowerBoxed(l, p: p, ms: ms, e: e, v: c, ty: ty, iface: iface)
 		end 'boxedConstant'
 		return c
 	end 'constant'
-	if ast.typeKind(ms.types, t: ty) == ast.TypeKind.constFloat and not branches 'floatConstant'
-		return konst(l, value: floatWord(ast.floatLowBits(ms.types, t: ty)))
+	if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.constFloat and not branches 'floatConstant'
+		return konst(l, value: floatWord(ast.floatLowBits(ms.types, reads: p.types, t: ty)))
 	end 'floatConstant'
 	if p.modules[l.mi].tree.kindOf(e) == ast.NodeKind.tryExpr and ast.isTransparent(p.modules[l.mi].tree, e: e) 'transparent'
 		return lowerThrough(l, p: p, ms: ms, t: e)
@@ -81,7 +81,7 @@ function settle(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e 
 		end 'temporary'
 		return v
 	end 'fresh'
-	if consumed and ast.sharesOnCopy(ms.types, t: ty) 'shared'
+	if consumed and ast.sharesOnCopy(ms.types, reads: p.types, t: ty) 'shared'
 		return copyValue(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), v: v, t: ty)
 	end 'shared'
 	if consumed and not isWholeLocal(l, p: p, e: e) and not isField(l, p: p, e: e) 'moved'
@@ -109,7 +109,7 @@ function readsDatum(mutates l Lowerer, p ast.Project, ms ast.ModuleState, e ast.
 	end 'raw' else if member.kind != ast.MemberKind.memberCaseRaw 'other'
 		return false
 	end 'other'
-	return rawDatums(p, ms: ms, origin: ms.types.lists[ast.typeList(ms.types, t: owner)][ast.typeIndex(ms.types, t: owner)].effectiveOrigin()).isSome()
+	return rawDatums(p, ms: ms, origin: ast.typeEntry(ms.types, reads: p.types, t: owner).effectiveOrigin()).isSome()
 end 'readsDatum'
 
 // datumReg is the value of a constant of the executable's data, which no one owns.
@@ -214,7 +214,7 @@ function visitTypeQueryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 		return arrayLength(l, p: p, ms: ms, box: box, arr: receiver)
 	end 'receiverCount'
 	let applied = applyType(l, p: p, ms: ms, t: written)
-	let size = try ast.byteSize(ms.types, t: applied) as Word otherwise panic("lower: a size is a word")
+	let size = try ast.byteSize(ms.types, reads: p.types, t: applied) as Word otherwise panic("lower: a size is a word")
 	return konst(l, value: size)
 end 'visitTypeQueryExpr'
 
@@ -302,12 +302,12 @@ function lowerConverted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	// A frozen value given to a let parameter of the type it holds lends its contents.
 	var have = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
 	let want = applyType(l, p: p, ms: ms, t: target)
-	while ast.typeKind(ms.types, t: have) == ast.TypeKind.builtinFrozen and have != want 'frozen'
+	while ast.typeKind(ms.types, reads: p.types, t: have) == ast.TypeKind.builtinFrozen and have != want 'frozen'
 		let held = heldType(p, ms: ms, t: have)
 		v = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, ms: ms, t: held), args: argsOf1(v))
 		have = held
 	end 'frozen'
-	if ast.isFloatType(ms.types, t: want) and ast.isIntType(ms.types, t: have) 'toFloat'
+	if ast.isFloatType(ms.types, reads: p.types, t: want) and ast.isIntType(ms.types, reads: p.types, t: have) 'toFloat'
 		return floatOf(l, p: p, ms: ms, v: v, e: e)
 	end 'toFloat'
 	return v
@@ -315,7 +315,7 @@ end 'lowerConverted'
 
 // heldType is the type of the value a frozen value or a cown holds.
 function heldType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
-	return ast.typeArgAt(ms.types, t: t, index: 0)
+	return ast.typeArgAt(ms.types, reads: p.types, t: t, index: 0)
 end 'heldType'
 
 // siteOf is where a node is, which a refusal at it is reported at.
@@ -326,13 +326,13 @@ end 'siteOf'
 function visitStructLitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let lit = structLitInfoAt(p, module: l.module, node: e)
 	let ty = exprType(p, module: l.module, node: e)
-	let origin = ms.types.lists[ast.typeList(ms.types, t: lit.ty)][ast.typeIndex(ms.types, t: lit.ty)].effectiveOrigin()
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: lit.ty).effectiveOrigin()
 	var values = ExprRefList.create(0)
 	for i in 0 upto lit.ordered.count() 'each'
 		if lit.ordered[i] != 0 'given'
 			values.push(ExprRef.make(l.module, node: lit.ordered[i]))
 		end 'given' else 'default'
-			values.push(ExprRef.make(ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].decl.module, node: ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].fields[i].defaultExpr))
+			values.push(ExprRef.make(ast.typeEntry(ms.types, reads: p.types, t: origin).decl.module, node: ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].defaultExpr))
 		end 'default'
 	end 'each'
 	return record(l, p: p, ms: ms, t: ty, tag: noTag, values: values)
@@ -345,7 +345,7 @@ function visitCastExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		return lowerRecoveryCast(l, p: p, ms: ms, e: e, inner: inner, target: castTy)
 	end 'recovered'
 	let v = lowerExpr(l, p: p, ms: ms, e: inner)
-	if ast.castRebrands(ms.types, target: castTy) 'rebrand'
+	if ast.castRebrands(ms.types, reads: p.types, target: castTy) 'rebrand'
 		// The value is the operand's, which the ownership pass gave it; a cast to an interface is the box its operand was
 		// put in.
 		return v
@@ -353,7 +353,7 @@ function visitCastExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let fails = arithInfoAt(p, module: l.module, node: e).fails
 	let fail = overflowTo(l, p: p, ms: ms, fails: fails)
 	let target = exprType(p, module: l.module, node: e)
-	if ast.typeKind(ms.types, t: target) == ast.TypeKind.floatRange 'float'
+	if ast.typeKind(ms.types, reads: p.types, t: target) == ast.TypeKind.floatRange 'float'
 		return floatConverted(l, p: p, ms: ms, v: v, e: inner, target: target, fails: fails)
 	end 'float'
 	requireInt(p, ms: ms, t: target)
@@ -362,8 +362,8 @@ function visitCastExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 end 'visitCastExpr'
 
 function requireInt(p ast.Project, ms ast.ModuleState, t ast.TypeID)
-	if ast.typeKind(ms.types, t: t) != ast.TypeKind.intRange 'range'
-		panic("lower: {ast.typeName(ms.types, t: t)} is not an integer type")
+	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.intRange 'range'
+		panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} is not an integer type")
 	end 'range'
 end 'requireInt'
 
@@ -464,7 +464,7 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 		return elemPlace(l, p: p, ms: ms, e: e)
 	end 'index'
 	let ty = exprType(p, module: l.module, node: e)
-	if ast.isMutatingFunction(ms.types, t: ty) 'temporary'
+	if ast.isMutatingFunction(ms.types, reads: p.types, t: ty) 'temporary'
 		// A new function value that the callee changes lives in a slot of its own, which drops what the callee leaves there.
 		let mark = l.pending.count()
 		let v = visitExpr(l, p: p, ms: ms, e: e)
@@ -513,7 +513,7 @@ function lowerCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let mark = l.pending.count()
 	let node = c.node
 	let kind = c.info.kind
-	if kind != ast.CallKind.callBound and ms.funcs.slots[ast.funcSlot(c.info.fn)][ast.funcIndex(c.info.fn)].intrinsic != ast.Intrinsic.intrNone 'intrinsic'
+	if kind != ast.CallKind.callBound and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).intrinsic != ast.Intrinsic.intrNone 'intrinsic'
 		return lowerIntrinsic(l, p: p, ms: ms, c: c)
 	end 'intrinsic'
 	let iface = witnessInterface(p, ms: ms, module: l.module, receiver: c.receiver, info: c.info, bindParams: l.bindParams, bindArgs: l.bindArgs)
@@ -531,9 +531,9 @@ function lowerCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let dst = callResult(l, p: p, ms: ms, node: node)
 	var errTy = ast.noType
 	if kind == ast.CallKind.callBound 'bound'
-		errTy = ms.funcs.slots[ast.funcSlot(c.info.method)][ast.funcIndex(c.info.method)].errTy
+		errTy = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).errTy
 	end 'bound' else 'target'
-		errTy = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].errTy
+		errTy = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).errTy
 	end 'target'
 	if errTy == ast.noType 'plain'
 		emitCallOf(l, p: p, ms: ms, c: c, iface: iface, dst: dst, target: target, args: argsSince(l, base: base), err: noReg)
@@ -541,7 +541,7 @@ function lowerCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		writeBack(l, p: p, ms: ms, mark: places)
 	end 'plain' else 'throwing'
 		var errKind = IrKind.kindScalar
-		if ast.isUnionError(ms.types, t: errTy) 'union'
+		if ast.isUnionError(ms.types, reads: p.types, t: errTy) 'union'
 			errKind = IrKind.kindManaged
 		end 'union'
 		let err = newReg(l, kind: errKind)
@@ -571,7 +571,7 @@ end 'lowerCall'
 // fail.
 function emitCallOf(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, iface ast.TypeID, dst Reg, target ast.FuncID, args RegList, err Reg)
 	if iface != ast.noType 'witness'
-		let slot = ast.requirementSlot(ms.types, iface: iface, sig: c.info.method)
+		let slot = ast.requirementSlot(ms.types, reads: p.types, iface: iface, sig: c.info.method)
 		var rest = RegList.create(0)
 		for i in 1 upto args.count() 'rest'
 			rest.push(args[i])
@@ -638,10 +638,10 @@ end 'visitCallExpr'
 // its type parameters bound to the call's type arguments, converted to the parameter's type.
 function lowerDefault(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, info ast.CallInfo, spec ast.ParamSpec) returns Reg
 	let saved = l.module
-	let args = applyAll(ms.types, ts: info.typeArgs, params: l.bindParams, args: l.bindArgs)
-	let savedParams = exchange(l.bindParams, value: ast.cloneTypeArgs(ms.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].generics))
+	let args = applyAll(ms.types, reads: p.types, ts: info.typeArgs, params: l.bindParams, args: l.bindArgs)
+	let savedParams = exchange(l.bindParams, value: ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).generics))
 	let savedArgs = exchange(l.bindArgs, value: args)
-	setModule(l, m: ms.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].module)
+	setModule(l, m: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).module)
 	let v = lowerConverted(l, p: p, ms: ms, e: spec.defaultExpr, target: spec.ty)
 	setModule(l, m: saved)
 	l.bindParams = savedParams
@@ -688,8 +688,8 @@ function callee(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, no
 end 'callee'
 
 function checkedCallee(l Lowerer, p ast.Project, ms ast.ModuleState, target ast.FuncID) returns ast.FuncID
-	if ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].genericOrigin != ast.noFunc and not l.instances.has(target) 'missing'
-		panic("lower: {funcSymbol(p, tt: ms.types, ft: ms.funcs, fid: target)} was not found among the instances of the module")
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).genericOrigin != ast.noFunc and not l.instances.has(target) 'missing'
+		panic("lower: {funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: target)} was not found among the instances of the module")
 	end 'missing'
 	return target
 end 'checkedCallee'
@@ -761,10 +761,10 @@ end 'tagReg'
 
 // caseNames are the names of the cases of an enum or a union, in the order of their indexes.
 function caseNames(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.StringList
-	let origin = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].effectiveOrigin()
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: t).effectiveOrigin()
 	var names = ast.StringList.create(0)
-	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases.count() 'each'
-		names.push(ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[i].name.clone())
+	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count() 'each'
+		names.push(ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].name.clone())
 	end 'each'
 	return names
 end 'caseNames'
@@ -810,7 +810,7 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		let ot = exprType(p, module: l.module, node: obj)
 		let v = lowerExpr(l, p: p, ms: ms, e: obj)
 		var index = v
-		if ast.typeKind(ms.types, t: ot) == ast.TypeKind.unionTy 'union'
+		if ast.typeKind(ms.types, reads: p.types, t: ot) == ast.TypeKind.unionTy 'union'
 			index = tagReg(l, box: v)
 		end 'union'
 		return rawFieldOf(l, p: p, ms: ms, t: ot, index: index, field: member.fieldIndex, ft: exprType(p, module: l.module, node: e))
@@ -834,8 +834,8 @@ end 'visitMemberExpr'
 function lowerCaseRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, member ast.MemberInfo) returns Reg
 	let index = konst(l, value: try member.enumCase as Word otherwise panic("ir: a case index is out of range"))
 	if member.kind == ast.MemberKind.memberCaseName 'name'
-		let origin = ms.types.lists[ast.typeList(ms.types, t: member.ownerTy)][ast.typeIndex(ms.types, t: member.ownerTy)].effectiveOrigin()
-		return strReg(l, value: ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[member.enumCase].name.clone())
+		let origin = ast.typeEntry(ms.types, reads: p.types, t: member.ownerTy).effectiveOrigin()
+		return strReg(l, value: ast.typeEntry(ms.types, reads: p.types, t: origin).cases[member.enumCase].name.clone())
 	end 'name'
 	if member.kind == ast.MemberKind.memberCaseOrdinal 'ordinal'
 		return index
@@ -853,7 +853,7 @@ end 'lowerCaseRead'
 // which only a field that holds no value of its own survives.
 function rawFieldOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, index Reg, field Count, ft ast.TypeID) returns Reg
 	let record = rawValueOf(l, p: p, ms: ms, t: t, index: index)
-	let origin = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].effectiveOrigin()
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: t).effectiveOrigin()
 	let recordTy = ast.rawTypeOf(p, ms: ms, t: origin)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: ft))
 	emit(l, i: newLoadField(d, obj: record, offset: wordOffset(field)))
@@ -885,8 +885,8 @@ end 'lowerCaseList'
 // rawValueOf is the raw value of the case of the enum or union type t that index says: the index itself for integers that the
 // cases did not write, and otherwise the raw value of each case, chosen by a switch.
 function rawValueOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, index Reg) returns Reg
-	let origin = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].effectiveOrigin()
-	let kind = ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].rawKind
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: t).effectiveOrigin()
+	let kind = ast.typeEntry(ms.types, reads: p.types, t: origin).rawKind
 	if kind == ast.RawKind.value 'value'
 		match consumes rawDatums(p, ms: ms, origin: origin) 'data'
 			some(ds) then return datumSelect(l, index: index, ds: ds)
@@ -896,19 +896,19 @@ function rawValueOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	end 'value'
 	if kind == ast.RawKind.string 'string'
 		var texts = ast.StringList.create(0)
-		for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases.count() 'texts'
-			texts.push(ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[i].rawText.clone())
+		for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count() 'texts'
+			texts.push(ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].rawText.clone())
 		end 'texts'
 		return names(l, index: index, names: texts)
 	end 'string'
-	if kind == ast.RawKind.integer and not ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].hasExplicitRaw 'ordinal'
+	if kind == ast.RawKind.integer and not ast.typeEntry(ms.types, reads: p.types, t: origin).hasExplicitRaw 'ordinal'
 		return index
 	end 'ordinal'
-	let count = ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases.count()
+	let count = ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count()
 	let sel = selectStart(l, kind: IrKind.kindScalar, index: index, count: count)
 	for i in 0 upto count 'each'
 		selectArm(l, s: sel, i: i)
-		let raw = konst(l, value: wordOf(ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[i].rawValue))
+		let raw = konst(l, value: wordOf(ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].rawValue))
 		selectStore(l, s: sel, v: raw)
 	end 'each'
 	return selectEnd(l, s: sel)
@@ -917,14 +917,14 @@ end 'rawValueOf'
 // builtRawValue is the raw value of the case that index says, when the cases write expressions: the one the case writes, built
 // where it is read, in the module that declares the type. Whoever reads it owns it, as for a call's result.
 function builtRawValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, origin ast.TypeID, index Reg) returns Reg
-	let count = ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases.count()
-	let module = ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].decl.module
+	let count = ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count()
+	let module = ast.typeEntry(ms.types, reads: p.types, t: origin).decl.module
 	let sel = selectStart(l, kind: kindOfType(p, ms: ms, t: ast.rawTypeOf(p, ms: ms, t: origin)), index: index, count: count)
 	for i in 0 upto count 'each'
 		selectArm(l, s: sel, i: i)
 		pushScope(l, block: false)
 		let mark = l.pending.count()
-		let v = exprIn(l, p: p, ms: ms, e: ExprRef.make(module, node: ms.types.lists[ast.typeList(ms.types, t: origin)][ast.typeIndex(ms.types, t: origin)].cases[i].rawExpr))
+		let v = exprIn(l, p: p, ms: ms, e: ExprRef.make(module, node: ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].rawExpr))
 		emit(l, i: newStoreSlot(sel.result, src: v, borrow: false))
 		popPending(l, n: mark)
 		popScope(l, p: p)
@@ -1090,8 +1090,8 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 	let e = p.modules[l.mi].tree.strPartExpr(partsRef, index: index)
 	let v = lowerRead(l, p: p, ms: ms, e: e)
 	let applied = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
-	let t = ast.contentType(ms.types, t: applied)
-	let kind = ast.typeKind(ms.types, t: t)
+	let t = ast.contentType(ms.types, reads: p.types, t: applied)
+	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
 	let spec = formatSpecOf(p.modules[l.mi].tree, partsRef: partsRef, index: index)
 	if t == p.builtins.stringTy and spec.quotes 'quoted'
 		return quotedText(l, v: v, spec: spec)
@@ -1120,7 +1120,7 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 	end 'constant'
 	if kind == ast.TypeKind.intRange 'int'
 		var flag = 0 as Word
-		if ast.isUnsignedInt(ms.types, t: t) 'unsigned'
+		if ast.isUnsignedInt(ms.types, reads: p.types, t: t) 'unsigned'
 			flag = 1
 		end 'unsigned'
 		let flagReg = konst(l, value: flag)
@@ -1129,7 +1129,7 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 	if kind == ast.TypeKind.constFloat or kind == ast.TypeKind.floatRange 'float'
 		return TextPart.make(runtime(l, symbol: Rt.rtFtoa, kind: IrKind.kindManaged, args: argsOf1(v)), owner: TextOwner.textFresh)
 	end 'float'
-	if kind == ast.TypeKind.enumTy and ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].hasExplicitRaw 'rawEnum'
+	if kind == ast.TypeKind.enumTy and ast.typeEntry(ms.types, reads: p.types, t: t).hasExplicitRaw 'rawEnum'
 		return rawText(l, p: p, ms: ms, t: t, index: v, spec: spec)
 	end 'rawEnum'
 	if kind == ast.TypeKind.enumTy 'enum'
@@ -1139,14 +1139,14 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 		let tag = tagReg(l, box: v)
 		return TextPart.make(names(l, index: tag, names: caseNames(p, ms: ms, t: t)), owner: TextOwner.textImmortal)
 	end 'union'
-	panic("lower: cannot interpolate {ast.typeName(ms.types, t: exprType(p, module: l.module, node: e))}")
+	panic("lower: cannot interpolate {ast.typeName(ms.types, reads: p.types, t: exprType(p, module: l.module, node: e))}")
 end 'strPart'
 
 // rawText is the text of an enum value whose cases write raw values, which is its raw value as the type of the raw value
 // writes it: the digits of an integer, the shortest spelling of a float, or the string itself.
 function rawText(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, index Reg, spec ast.FormatSpec) returns TextPart
 	let raw = rawValueOf(l, p: p, ms: ms, t: t, index: index)
-	let kind = ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].rawKind
+	let kind = ast.typeEntry(ms.types, reads: p.types, t: t).rawKind
 	if kind == ast.RawKind.string 'string'
 		return TextPart.make(raw, owner: TextOwner.textImmortal)
 	end 'string'
@@ -1291,10 +1291,10 @@ function lowerOperator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		return eq
 	end 'string'
 	let c = lowerExpr(l, p: p, ms: ms, e: right)
-	if ast.isFloatType(ms.types, t: arith.operand) 'float'
+	if ast.isFloatType(ms.types, reads: p.types, t: arith.operand) 'float'
 		return floatOperator(l, p: p, ms: ms, e: e, op: op, left: left, right: c)
 	end 'float'
-	let unsigned = ast.isUnsignedInt(ms.types, t: arith.operand)
+	let unsigned = ast.isUnsignedInt(ms.types, reads: p.types, t: arith.operand)
 	if isCmpOpText(op) 'cmp'
 		return compare(l, op: cmpOpOfText(op), a: left, b: c, unsigned: unsigned)
 	end 'cmp'
@@ -1316,7 +1316,7 @@ function lowerOperator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	end 'wordFail'
 	emit(l, i: newBin(d, op: binOp, left: left, right: c, unsigned: unsigned, fail: wordFail))
 	let ty = exprType(p, module: l.module, node: e)
-	if ast.typeKind(ms.types, t: ty) == ast.TypeKind.intRange 'range'
+	if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.intRange 'range'
 		rangeCheck(l, p: p, ms: ms, v: d, t: ty, unsigned: unsigned, fails: fails, fail: overflow)
 	end 'range'
 	return d
@@ -1346,7 +1346,7 @@ function visitUnaryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	if op == "not" and ty == p.builtins.boolTy 'boolean'
 		return flip(l, boolean: v)
 	end 'boolean'
-	if ast.isFloatType(ms.types, t: ty) 'float'
+	if ast.isFloatType(ms.types, reads: p.types, t: ty) 'float'
 		return floatNegation(l, v: v)
 	end 'float'
 	let fails = arithInfoAt(p, module: l.module, node: e).fails
@@ -1362,7 +1362,7 @@ function visitUnaryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 		emit(l, i: newNeg(d, src: v, fail: wordFail))
 	end 'neg'
 	requireInt(p, ms: ms, t: ty)
-	rangeCheck(l, p: p, ms: ms, v: d, t: ty, unsigned: op == "not" and ast.isUnsignedInt(ms.types, t: exprType(p, module: l.module, node: operand)), fails: fails, fail: overflow)
+	rangeCheck(l, p: p, ms: ms, v: d, t: ty, unsigned: op == "not" and ast.isUnsignedInt(ms.types, reads: p.types, t: exprType(p, module: l.module, node: operand)), fails: fails, fail: overflow)
 	return d
 end 'visitUnaryExpr'
 
@@ -1379,16 +1379,16 @@ end 'rangeCheck'
 // fit checks that a value of the type source is in the range of target, which goes to fail when it is not. It checks only
 // the bounds that fails says the value may be past, below or above: the range analysis proved the others.
 function fit(mutates l Lowerer, p ast.Project, ms ast.ModuleState, v Reg, target ast.TypeID, source ast.TypeID, fails Byte, fail BlockID)
-	if ast.typeKind(ms.types, t: source) == ast.TypeKind.constInt 'constant'
+	if ast.typeKind(ms.types, reads: p.types, t: source) == ast.TypeKind.constInt 'constant'
 		return
 	end 'constant'
 	requireInt(p, ms: ms, t: source)
-	let tMin = ms.types.lists[ast.typeList(ms.types, t: target)][ast.typeIndex(ms.types, t: target)].minVal.clone()
-	let tMax = ms.types.lists[ast.typeList(ms.types, t: target)][ast.typeIndex(ms.types, t: target)].maxVal.clone()
-	let sMin = ms.types.lists[ast.typeList(ms.types, t: source)][ast.typeIndex(ms.types, t: source)].minVal.clone()
-	let sMax = ms.types.lists[ast.typeList(ms.types, t: source)][ast.typeIndex(ms.types, t: source)].maxVal.clone()
-	let targetUnsigned = ast.isUnsignedInt(ms.types, t: target)
-	let sourceUnsigned = ast.isUnsignedInt(ms.types, t: source)
+	let tMin = ast.typeEntry(ms.types, reads: p.types, t: target).minVal.clone()
+	let tMax = ast.typeEntry(ms.types, reads: p.types, t: target).maxVal.clone()
+	let sMin = ast.typeEntry(ms.types, reads: p.types, t: source).minVal.clone()
+	let sMax = ast.typeEntry(ms.types, reads: p.types, t: source).maxVal.clone()
+	let targetUnsigned = ast.isUnsignedInt(ms.types, reads: p.types, t: target)
+	let sourceUnsigned = ast.isUnsignedInt(ms.types, reads: p.types, t: source)
 	if tMin.le(sMin) and tMax.ge(sMax) and targetUnsigned == sourceUnsigned 'covers'
 		return
 	end 'covers'

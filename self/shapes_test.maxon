@@ -5,16 +5,17 @@ function testShapeClash()
 	var p = ast.Project.new("self")
 	var counts = ast.TypeIDList.create(0)
 	counts.push(p.builtins.countTy)
-	let arrayOfCount = ast.instantiateType(p.types, origin: p.builtins.arrayOrigin, args: counts)
+	var ms = ast.lendProject(p)
+	let arrayOfCount = ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.arrayOrigin, args: counts)
 	var strings = ast.TypeIDList.create(0)
 	strings.push(p.builtins.stringTy)
-	let word = ast.instanceWord(p.types, origin: p.builtins.arrayOrigin, args: counts)
-	match consumes ast.instanceUnder(p.types, word: word, origin: p.builtins.arrayOrigin, args: counts) 'own'
+	let word = ast.instanceWord(ms.types, reads: p.types, origin: p.builtins.arrayOrigin, args: counts)
+	match consumes ast.instanceUnder(ms.types, reads: p.types, word: word, origin: p.builtins.arrayOrigin, args: counts) 'own'
 		same(id, _) then assertEqStr("{id}", expected: "{arrayOfCount}", label: "shapes: the instance under its own word")
 		absent then panic("shapes: an interned instance is not found under its word")
 		clash(message) then panic("shapes: an instance clashes with itself: {message}")
 	end 'own'
-	match consumes ast.instanceUnder(p.types, word: word, origin: p.builtins.arrayOrigin, args: strings) 'forced'
+	match consumes ast.instanceUnder(ms.types, reads: p.types, word: word, origin: p.builtins.arrayOrigin, args: strings) 'forced'
 		clash(message) then assertEqStr(message, expected: "internal error: the types 'Array with Count' and 'Array with String' have one structural hash, {word}", label: "shapes: a clash")
 		same(_, _) then panic("shapes: two instances under one word are taken for one type")
 		absent then panic("shapes: a word that holds a type is found empty")

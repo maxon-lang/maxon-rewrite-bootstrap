@@ -2,15 +2,15 @@
 // arguments, and bindWitnesses the conformances for their bounds; they are the function's own when it is an instance of a
 // generic function, and the ones of the function around it for the body of a behaviour.
 export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, consumes name String)
-	let paramCount = try ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].params.count() + ast.leadingParams(ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)]) otherwise panic("ir: too many parameters")
+	let paramCount = try ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).params.count() + ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn)) otherwise panic("ir: too many parameters")
 	l.b.start(fn, name: name, paramCount: paramCount)
-	l.b.f.lendsResult = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].result == ast.ResultConv.resultBorrowed
+	l.b.f.lendsResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).result == ast.ResultConv.resultBorrowed
 	l.fn = fn
 	l.origin = fn
-	if ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].genericOrigin != ast.noFunc 'instance'
-		l.origin = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].genericOrigin
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).genericOrigin != ast.noFunc 'instance'
+		l.origin = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).genericOrigin
 	end 'instance'
-	l.fnModule = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module
+	l.fnModule = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).module
 	let own = l.fnModule
 	setModule(l, m: own)
 	l.bindParams = bindParams.clone()
@@ -30,7 +30,7 @@ end 'begin'
 
 // functionLocals are the locals of the function whose body the lowerer is lowering, by handle.
 function functionLocals(l Lowerer, p ast.Project, ms ast.ModuleState) returns ast.LocalIDList
-	let node = ms.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].nodeID
+	let node = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).nodeID
 	return match consumes p.typings[ast.modIndex(l.fnModule)].funcLocals.get(node as Count) 'hit'
 		some(ids) gives ids
 		none gives ast.LocalIDList.create(0)
@@ -60,7 +60,7 @@ function declareSlots(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		let loc = localEntry(p, module: l.fnModule, id: ids[i])
 		if not loc.isParam 'slotted'
 			if slotOf(loc) >= count or filled[slotOf(loc)] 'dense'
-				panic("lower: local slots of {funcSymbol(p, tt: ms.types, ft: ms.funcs, fid: l.fn)} are not dense")
+				panic("lower: local slots of {funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: l.fn)} are not dense")
 			end 'dense'
 			filled[slotOf(loc)] = true
 			l.b.f.slots[slotOf(loc)] = kindOf(l, p: p, ms: ms, t: loc.ty)
@@ -72,7 +72,7 @@ end 'declareSlots'
 function lowerBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState) returns IrFunction
 	pushScope(l, block: true)
 	adoptParams(l, p: p, ms: ms)
-	let bodyRef = ms.funcs.slots[ast.funcSlot(l.origin)][ast.funcIndex(l.origin)].bodyRef
+	let bodyRef = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).bodyRef
 	lowerBlock(l, p: p, ms: ms, ref: bodyRef)
 	popScope(l, p: p)
 	if not l.b.terminated(l.cur) 'open'
@@ -86,7 +86,7 @@ end 'lowerBody'
 // (`_`) is dropped all the same, because the caller gave it away. The locals are the origin's, whose body an instance is;
 // the types are the instance's.
 function adoptParams(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState)
-	let hasReceiver = ms.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].hasReceiver
+	let hasReceiver = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).hasReceiver
 	if hasReceiver and ast.receiverLocal(p, ms: ms, f: l.origin) != ast.noLocal 'self'
 		let selfLocal = localEntry(p, module: l.fnModule, id: ast.receiverLocal(p, ms: ms, f: l.origin))
 		if ast.ownsValue(selfLocal.conv) and kindOf(l, p: p, ms: ms, t: selfLocal.ty) == IrKind.kindManaged 'owned'
@@ -94,10 +94,10 @@ function adoptParams(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 			l.selfOwner = indexOf(slot)
 		end 'owned'
 	end 'self'
-	let first = ast.leadingParams(ms.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)])
-	for i in 0 upto ms.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].params.count() 'each'
-		let ty = ms.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].paramTypes[i]
-		if ms.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, ms: ms, t: ty) == IrKind.kindManaged 'consumed'
+	let first = ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn))
+	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params.count() 'each'
+		let ty = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).paramTypes[i]
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, ms: ms, t: ty) == IrKind.kindManaged 'consumed'
 			let slot = adopt(l, p: p, ms: ms, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
 			let local = ast.paramLocal(p, ms: ms, f: l.origin, index: i)
 			if local != ast.noLocal 'named'
@@ -342,8 +342,8 @@ end 'visitReturnStmt'
 // convertReturned converts the value of a return to the declared type of the function as the cast 'value as T' does.
 function convertReturned(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, value ast.NodeID, v Reg) returns Reg
 	let fails = arithInfoAt(p, module: l.module, node: s).fails
-	let target = ms.funcs.slots[ast.funcSlot(l.fn)][ast.funcIndex(l.fn)].retTy
-	if ast.typeKind(ms.types, t: target) == ast.TypeKind.floatRange 'float'
+	let target = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).retTy
+	if ast.typeKind(ms.types, reads: p.types, t: target) == ast.TypeKind.floatRange 'float'
 		return floatConverted(l, p: p, ms: ms, v: v, e: value, target: target, fails: fails)
 	end 'float'
 	let fail = overflowTo(l, p: p, ms: ms, fails: fails)
@@ -427,7 +427,7 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
 	let slot = slotOf(sym)
 	let limit = l.b.f.newSlot(IrKind.kindScalar)
-	let unsigned = ast.isUnsignedInt(ms.types, t: sym.ty)
+	let unsigned = ast.isUnsignedInt(ms.types, reads: p.types, t: sym.ty)
 	let body = l.b.newBlock()
 	let cont = l.b.newBlock()
 	let step = l.b.newBlock()
@@ -615,13 +615,13 @@ end 'visitForCursor'
 // register of an operation that a built-in iterator's method lowers to in place. One that throws goes to exit when it
 // fails: the error is IterationError, which carries nothing to drop. resultTy is the type of the value the method gives.
 function protocolCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, info ast.CallInfo, recv Reg, dst Reg, resultTy ast.TypeID, exit BlockID) returns Reg
-	let op = ms.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].intrinsic
+	let op = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).intrinsic
 	if op != ast.Intrinsic.intrNone 'intrinsic'
 		return lowerViewMethod(l, p: p, ms: ms, op: op, site: siteOf(l, p: p, node: s), t: resultTy, recv: recv, exit: exit)
 	end 'intrinsic'
 	let target = callee(l, p: p, ms: ms, node: s, info: info, receiver: 0 as ast.NodeID)
 	let args = argsOf1(recv)
-	if ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].errTy == ast.noType 'plain'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).errTy == ast.noType 'plain'
 		emitCall(l, dst: dst, target: target, args: args)
 		return dst
 	end 'plain'
@@ -641,12 +641,12 @@ export function lowerFunction(p ast.Project, mutates ms ast.ModuleState, fn ast.
 	var l = Lowerer.new(exchange(instances, value: InstanceSet.new()))
 	var bindParams = ast.TypeIDList.create(0)
 	var bindArgs = ast.TypeIDList.create(0)
-	let origin = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].genericOrigin
+	let origin = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).genericOrigin
 	if origin != ast.noFunc 'instance'
-		bindParams = ast.cloneTypeArgs(ms.funcs.slots[ast.funcSlot(origin)][ast.funcIndex(origin)].generics)
-		bindArgs = ast.cloneTypeArgs(ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].typeArgs)
+		bindParams = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).generics)
+		bindArgs = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).typeArgs)
 	end 'instance'
-	begin(l, p: p, ms: ms, fn: fn, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].witnesses.clone(), name: "")
+	begin(l, p: p, ms: ms, fn: fn, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).witnesses.clone(), name: "")
 	let f = lowerBody(l, p: p, ms: ms)
 	instances = exchange(l.instances, value: InstanceSet.new())
 	return f
@@ -663,7 +663,7 @@ export function lowerModule(p ast.Project, mutates ms ast.ModuleState, functions
 		return lowered
 	end 'unfinite'
 	for i in 0 upto functions.count() 'functions'
-		if ms.funcs.slots[ast.funcSlot(functions[i])][ast.funcIndex(functions[i])].generics.count() == 0 'plain'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: functions[i]).generics.count() == 0 'plain'
 			lowered.push(lowerFunction(p, ms: ms, fn: functions[i], instances: instances))
 		end 'plain'
 	end 'functions'
@@ -675,10 +675,10 @@ export function lowerModule(p ast.Project, mutates ms ast.ModuleState, functions
 end 'lowerModule'
 
 // moduleIrText is the text of the IR of a module's functions, as --emit-ir writes it.
-export function moduleIrText(p ast.Project, tt ast.TypeTable, ft ast.FuncTable, functions IrFunctionList) returns String
+export function moduleIrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, functions IrFunctionList) returns String
 	var out = ByteArray.create(0)
 	for i in 0 upto functions.count() 'each'
-		printIr(p, tt: tt, ft: ft, f: functions[i], out: out)
+		printIr(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: functions[i], out: out)
 	end 'each'
 	return String.from(out)
 end 'moduleIrText'

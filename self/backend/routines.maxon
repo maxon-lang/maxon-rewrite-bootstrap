@@ -104,44 +104,44 @@ export type RoutineSet
 
 	// symbol is the name of the code that drops or copies a value of a type, and notes that the code asks for it. A drop of a
 	// box that holds nothing to drop is the free itself, with no routine of its own.
-	export function symbol(mutates self, mutates p ast.Project, kind RoutineKind, ty ast.TypeID) returns String
+	export function symbol(mutates self, p ast.Project, mutates ms ast.ModuleState, kind RoutineKind, ty ast.TypeID) returns String
 		match self.known(kind, ty: ty) 'hit'
 			some(name) then return name.clone()
 			none then _ = 0
 		end 'hit'
-		if kind == RoutineKind.dropRoutine and onlyFrees(p, ty: ty) 'frees'
+		if kind == RoutineKind.dropRoutine and onlyFrees(p, ms: ms, ty: ty) 'frees'
 			let free = ir.rtSymbol(ir.Rt.rtFree)
 			self.remember(kind, ty: ty, symbol: free)
 			return free
 		end 'frees'
-		let name = routineSymbol(kind, typeLinkName: ast.typeLinkName(p, t: ty))
+		let name = routineSymbol(kind, typeLinkName: ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: ty))
 		self.remember(kind, ty: ty, symbol: name)
 		list.push(TypeRoutine.make(kind, ty: ty, symbol: name.clone()))
 		return name
 	end 'symbol'
 end 'RoutineSet'
 
-function fieldCount(tt ast.TypeTable, owner ast.TypeID) returns Count
-	return tt.lists[ast.typeList(tt, t: ast.originOf(tt, t: owner))][ast.typeIndex(tt, t: ast.originOf(tt, t: owner))].fields.count()
+function fieldCount(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns Count
+	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).fields.count()
 end 'fieldCount'
 
-function caseCount(tt ast.TypeTable, owner ast.TypeID) returns Count
-	return tt.lists[ast.typeList(tt, t: ast.originOf(tt, t: owner))][ast.typeIndex(tt, t: ast.originOf(tt, t: owner))].cases.count()
+function caseCount(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns Count
+	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases.count()
 end 'caseCount'
 
-function payloadCount(tt ast.TypeTable, owner ast.TypeID, caseIndex Count) returns Count
-	return tt.lists[ast.typeList(tt, t: ast.originOf(tt, t: owner))][ast.typeIndex(tt, t: ast.originOf(tt, t: owner))].cases[caseIndex].payload.count()
+function payloadCount(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns Count
+	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases[caseIndex].payload.count()
 end 'payloadCount'
 
 // elementType is the type of what an array holds.
-function elementType(tt ast.TypeTable, array ast.TypeID) returns ast.TypeID
-	return tt.lists[ast.typeList(tt, t: array)][ast.typeIndex(tt, t: array)].typeArgs[0]
+function elementType(tt ast.TypeSlot, reads ast.TypeTable, array ast.TypeID) returns ast.TypeID
+	return ast.typeEntry(tt, reads: reads, t: array).typeArgs[0]
 end 'elementType'
 
-function anyManagedPayload(mutates tt ast.TypeTable, owner ast.TypeID, caseIndex Count) returns bool
-	for j in 0 upto payloadCount(tt, owner: owner, caseIndex: caseIndex) 'each'
-		let payloadTy = ast.payloadType(tt, owner: owner, caseIndex: caseIndex, index: j)
-		if ast.isManagedType(tt, t: payloadTy) 'managed'
+function anyManagedPayload(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns bool
+	for j in 0 upto payloadCount(tt, reads: reads, owner: owner, caseIndex: caseIndex) 'each'
+		let payloadTy = ast.payloadType(tt, reads: reads, owner: owner, caseIndex: caseIndex, index: j)
+		if ast.isManagedType(tt, reads: reads, t: payloadTy) 'managed'
 			return true
 		end 'managed'
 	end 'each'
@@ -150,20 +150,20 @@ end 'anyManagedPayload'
 
 // onlyFrees is whether dropping a value of the type is freeing its box and nothing else: a record with no managed field,
 // or a union that has no managed payload in any case.
-function onlyFrees(mutates p ast.Project, ty ast.TypeID) returns bool
-	let kind = ast.typeKind(p.types, t: ty)
+function onlyFrees(p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID) returns bool
+	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.record 'record'
-		for i in 0 upto fieldCount(p.types, owner: ty) 'fields'
-			let fieldTy = ast.fieldType(p.types, owner: ty, index: i)
-			if ast.isManagedType(p.types, t: fieldTy) 'managed'
+		for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'fields'
+			let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
+			if ast.isManagedType(ms.types, reads: p.types, t: fieldTy) 'managed'
 				return false
 			end 'managed'
 		end 'fields'
 		return true
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		for i in 0 upto caseCount(p.types, owner: ty) 'cases'
-			if anyManagedPayload(p.types, owner: ty, caseIndex: i) 'managed'
+		for i in 0 upto caseCount(ms.types, reads: p.types, owner: ty) 'cases'
+			if anyManagedPayload(ms.types, reads: p.types, owner: ty, caseIndex: i) 'managed'
 				return false
 			end 'managed'
 		end 'cases'
@@ -188,7 +188,7 @@ end 'addNew'
 // those routines reach. A routine asks for the routines of the parts of its type, so they are made in waves: the ones the
 // modules ask for, then the ones those ask for that are not made yet, and so on, each wave in the order the routines were
 // first asked for.
-export function emitTypeRoutines(mutates p ast.Project, units UnitList) returns UnitList
+export function emitTypeRoutines(p ast.Project, mutates ms ast.ModuleState, units UnitList) returns UnitList
 	var known = StringOffsets.new()
 	var pending = TypeRoutineList.create(0)
 	for i in 0 upto units.count() 'units'
@@ -207,7 +207,7 @@ export function emitTypeRoutines(mutates p ast.Project, units UnitList) returns 
 			for i in start upto stop 'slice'
 				chunk.push(pending[i].clone())
 			end 'slice'
-			wave.push(emitRoutines(p, routines: chunk))
+			wave.push(emitRoutines(p, ms: ms, routines: chunk))
 			start = stop
 		end 'chunks'
 		var next = TypeRoutineList.create(0)
@@ -222,17 +222,17 @@ export function emitTypeRoutines(mutates p ast.Project, units UnitList) returns 
 	return made
 end 'emitTypeRoutines'
 
-function emitRoutines(mutates p ast.Project, routines TypeRoutineList) returns CodeUnit
+function emitRoutines(p ast.Project, mutates ms ast.ModuleState, routines TypeRoutineList) returns CodeUnit
 	var u = CodeUnit.new()
 	for i in 0 upto routines.count() 'each'
-		emitRoutine(u, p: p, routine: routines[i])
+		emitRoutine(u, p: p, ms: ms, routine: routines[i])
 	end 'each'
 	return u
 end 'emitRoutines'
 
 // routineCall calls the routine of a type with the value in rax. A routine that has not been asked for yet is queued.
-function routineCall(mutates u CodeUnit, mutates p ast.Project, kind RoutineKind, ty ast.TypeID)
-	let symbol = u.needed.symbol(p, kind: kind, ty: ty)
+function routineCall(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, kind RoutineKind, ty ast.TypeID)
+	let symbol = u.needed.symbol(p, ms: ms, kind: kind, ty: ty)
 	u.asm.push(rax)
 	u.asm.callSymbol(symbol)
 	u.asm.addImm(rsp, imm: wordBytes)
@@ -274,36 +274,36 @@ function allocate(mutates u CodeUnit, bytes Count)
 end 'allocate'
 
 // emitRoutine emits the code of one routine.
-function emitRoutine(mutates u CodeUnit, mutates p ast.Project, routine TypeRoutine)
+function emitRoutine(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, routine TypeRoutine)
 	u.beginSection()
 	u.defineCode(routine.symbol)
 	if routine.kind == RoutineKind.dropRoutine 'drop'
-		emitDrop(u, p: p, ty: routine.ty)
+		emitDrop(u, p: p, ms: ms, ty: routine.ty)
 	end 'drop' else 'copy'
-		emitCopy(u, p: p, ty: routine.ty)
+		emitCopy(u, p: p, ms: ms, ty: routine.ty)
 	end 'copy'
 end 'emitRoutine'
 
-function emitDrop(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
-	let kind = ast.typeKind(p.types, t: ty)
+function emitDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.primString 'string'
 		dropString(u)
 		return
 	end 'string'
 	if kind == ast.TypeKind.record 'record'
-		dropRecord(u, p: p, ty: ty)
+		dropRecord(u, p: p, ms: ms, ty: ty)
 		return
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		dropUnion(u, p: p, ty: ty)
+		dropUnion(u, p: p, ms: ms, ty: ty)
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
-		if ast.packsBytes(p.types, b: p.builtins, t: ty) 'bytes'
+		if ast.packsBytes(ms.types, reads: p.types, b: p.builtins, t: ty) 'bytes'
 			dropBytes(u)
 			return
 		end 'bytes'
-		dropArray(u, p: p, ty: ty)
+		dropArray(u, p: p, ms: ms, ty: ty)
 		return
 	end 'array'
 	if kind == ast.TypeKind.funcTy 'function'
@@ -315,36 +315,36 @@ function emitDrop(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		return
 	end 'interface'
 	if kind == ast.TypeKind.builtinFrozen 'frozen'
-		dropFrozen(u, p: p, ty: ty)
+		dropFrozen(u, p: p, ms: ms, ty: ty)
 		return
 	end 'frozen'
 	if kind == ast.TypeKind.builtinCown 'cown'
-		dropCown(u, p: p, ty: ty)
+		dropCown(u, p: p, ms: ms, ty: ty)
 		return
 	end 'cown'
-	panic("routines: no drop routine for {ast.typeName(p.types, t: ty)}, which the driver should have refused")
+	panic("routines: no drop routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitDrop'
 
-function emitCopy(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
-	let kind = ast.typeKind(p.types, t: ty)
+function emitCopy(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.primString 'string'
 		copyString(u)
 		return
 	end 'string'
 	if kind == ast.TypeKind.record 'record'
-		copyRecord(u, p: p, ty: ty)
+		copyRecord(u, p: p, ms: ms, ty: ty)
 		return
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		copyUnion(u, p: p, ty: ty)
+		copyUnion(u, p: p, ms: ms, ty: ty)
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
-		if ast.packsBytes(p.types, b: p.builtins, t: ty) 'bytes'
+		if ast.packsBytes(ms.types, reads: p.types, b: p.builtins, t: ty) 'bytes'
 			copyBytes(u)
 			return
 		end 'bytes'
-		copyArray(u, p: p, ty: ty)
+		copyArray(u, p: p, ms: ms, ty: ty)
 		return
 	end 'array'
 	if kind == ast.TypeKind.funcTy 'function'
@@ -363,7 +363,7 @@ function emitCopy(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		copyShared(u, countOffset: cownCountOffset)
 		return
 	end 'cown'
-	panic("routines: no copy routine for {ast.typeName(p.types, t: ty)}, which the driver should have refused")
+	panic("routines: no copy routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitCopy'
 
 // returnIfEmpty is the start of a drop: a value that is 0 holds nothing.
@@ -374,20 +374,20 @@ function returnIfEmpty(mutates u CodeUnit, done LabelID)
 end 'returnIfEmpty'
 
 // dropWord drops the managed word at an offset of the box that the argument is.
-function dropWord(mutates u CodeUnit, mutates p ast.Project, offset Count, ty ast.TypeID)
+function dropWord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, offset Count, ty ast.TypeID)
 	u.asm.load(rax, base: rbp, disp: routineArg)
 	u.asm.load(rax, base: rax, disp: imm32Of(offset))
-	routineCall(u, p: p, kind: RoutineKind.dropRoutine, ty: ty)
+	routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: ty)
 end 'dropWord'
 
-function dropRecord(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+function dropRecord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	routinePrologue(u, locals: 0)
 	returnIfEmpty(u, done: done)
-	for i in 0 upto fieldCount(p.types, owner: ty) 'fields'
-		let fieldTy = ast.fieldType(p.types, owner: ty, index: i)
-		if ast.isManagedType(p.types, t: fieldTy) 'managed'
-			dropWord(u, p: p, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
+	for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'fields'
+		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
+		if ast.isManagedType(ms.types, reads: p.types, t: fieldTy) 'managed'
+			dropWord(u, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
 		end 'managed'
 	end 'fields'
 	freeArgument(u)
@@ -396,13 +396,13 @@ function dropRecord(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 end 'dropRecord'
 
 // dropUnion drops the payload of the case the box holds, and then the box.
-function dropUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+function dropUnion(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	let release = u.asm.newLabel()
 	routinePrologue(u, locals: 0)
 	returnIfEmpty(u, done: done)
-	for i in 0 upto caseCount(p.types, owner: ty) 'cases'
-		if not anyManagedPayload(p.types, owner: ty, caseIndex: i) 'plain'
+	for i in 0 upto caseCount(ms.types, reads: p.types, owner: ty) 'cases'
+		if not anyManagedPayload(ms.types, reads: p.types, owner: ty, caseIndex: i) 'plain'
 			continue 'cases'
 		end 'plain'
 		let next = u.asm.newLabel()
@@ -410,10 +410,10 @@ function dropUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		u.asm.load(rax, base: rax, disp: imm32Of(ir.tagOffset))
 		u.asm.cmpImm(rax, imm: imm32Of(i))
 		u.asm.jcc(X64CondCode.notEqual, label: next)
-		for j in 0 upto payloadCount(p.types, owner: ty, caseIndex: i) 'payload'
-			let payloadTy = ast.payloadType(p.types, owner: ty, caseIndex: i, index: j)
-			if ast.isManagedType(p.types, t: payloadTy) 'managed'
-				dropWord(u, p: p, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
+		for j in 0 upto payloadCount(ms.types, reads: p.types, owner: ty, caseIndex: i) 'payload'
+			let payloadTy = ast.payloadType(ms.types, reads: p.types, owner: ty, caseIndex: i, index: j)
+			if ast.isManagedType(ms.types, reads: p.types, t: payloadTy) 'managed'
+				dropWord(u, p: p, ms: ms, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
 			end 'managed'
 		end 'payload'
 		u.asm.jmp(release)
@@ -426,12 +426,12 @@ function dropUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 end 'dropUnion'
 
 // dropArray drops each element, and then the buffer and the header.
-function dropArray(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+function dropArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	routinePrologue(u, locals: 1)
 	returnIfEmpty(u, done: done)
-	let elem = elementType(p.types, array: ty)
-	if ast.isManagedType(p.types, t: elem) 'managed'
+	let elem = elementType(ms.types, reads: p.types, array: ty)
+	if ast.isManagedType(ms.types, reads: p.types, t: elem) 'managed'
 		let top = u.asm.newLabel()
 		let out = u.asm.newLabel()
 		u.asm.bitXor(rax, src: rax)
@@ -447,7 +447,7 @@ function dropArray(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		u.asm.imul(rax, src: rdx)
 		u.asm.add(rcx, src: rax)
 		u.asm.load(rax, base: rcx, disp: 0)
-		routineCall(u, p: p, kind: RoutineKind.dropRoutine, ty: elem)
+		routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: elem)
 		u.asm.load(rax, base: rbp, disp: routineLocal0)
 		u.asm.addImm(rax, imm: 1)
 		u.asm.store(rbp, disp: routineLocal0, src: rax)
@@ -493,13 +493,13 @@ function leaveUnlessLast(mutates u CodeUnit, countOffset Count, done LabelID)
 end 'leaveUnlessLast'
 
 // heldType is the type of what a frozen value or a cown holds.
-function heldType(tt ast.TypeTable, owner ast.TypeID) returns ast.TypeID
-	return tt.lists[ast.typeList(tt, t: owner)][ast.typeIndex(tt, t: owner)].typeArgs[0]
+function heldType(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns ast.TypeID
+	return ast.typeEntry(tt, reads: reads, t: owner).typeArgs[0]
 end 'heldType'
 
 // dropFrozen lets go of one owner of a frozen value: the last frees the box and then drops what it held, in the order
 // the interpreter frees them.
-function dropFrozen(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+function dropFrozen(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	routinePrologue(u, locals: 1)
 	returnIfEmpty(u, done: done)
@@ -507,10 +507,10 @@ function dropFrozen(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 	u.asm.load(rax, base: rcx, disp: imm32Of(frozenValueOffset))
 	u.asm.store(rbp, disp: routineLocal0, src: rax)
 	freeArgument(u)
-	let held = heldType(p.types, owner: ty)
-	if ast.isManagedType(p.types, t: held) 'managed'
+	let held = heldType(ms.types, reads: p.types, owner: ty)
+	if ast.isManagedType(ms.types, reads: p.types, t: held) 'managed'
 		u.asm.load(rax, base: rbp, disp: routineLocal0)
-		routineCall(u, p: p, kind: RoutineKind.dropRoutine, ty: held)
+		routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: held)
 	end 'managed'
 	u.asm.bind(done)
 	routineEpilogue(u)
@@ -519,7 +519,7 @@ end 'dropFrozen'
 // dropCown lets go of one owner of a cown: the last frees the cown and then ends its value, with the destructor it was
 // made with or else by the drop of the value's type, in the order the interpreter frees them. A destructor is given only
 // a value that is there.
-function dropCown(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+function dropCown(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	let dropped = u.asm.newLabel()
 	routinePrologue(u, locals: 2)
@@ -541,10 +541,10 @@ function dropCown(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 	u.asm.addImm(rsp, imm: wordBytes)
 	u.asm.jmp(done)
 	u.asm.bind(dropped)
-	let held = heldType(p.types, owner: ty)
-	if ast.isManagedType(p.types, t: held) 'managed'
+	let held = heldType(ms.types, reads: p.types, owner: ty)
+	if ast.isManagedType(ms.types, reads: p.types, t: held) 'managed'
 		u.asm.load(rax, base: rbp, disp: routineLocal0)
-		routineCall(u, p: p, kind: RoutineKind.dropRoutine, ty: held)
+		routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: held)
 	end 'managed'
 	u.asm.bind(done)
 	routineEpilogue(u)
@@ -599,26 +599,26 @@ end 'copyInterfaceValue'
 // is dropped by nothing and copied as it is, and the copy of a value that no copy of the interface value can reach traps.
 // typeNameSymbol is the symbol of the word of data whose address names the type t at run time. It starts with a word and a
 // space, as a routine's does, so it names no function.
-export function typeNameSymbol(p ast.Project, t ast.TypeID) returns String
-	return "type {ast.typeLinkName(p, t: t)}"
+export function typeNameSymbol(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+	return "type {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: t)}"
 end 'typeNameSymbol'
 
-export function emitTable(mutates u CodeUnit, mutates p ast.Project, t ir.WitnessTable, typeSymbol String)
+export function emitTable(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, t ir.WitnessTable, typeSymbol String)
 	u.beginSection()
 	u.defineFunction(t.symbol, instance: true)
-	let managed = ast.isManagedType(p.types, t: t.concrete)
+	let managed = ast.isManagedType(ms.types, reads: p.types, t: t.concrete)
 	var start = u.asm.pos()
 	if managed 'drop'
-		u.asm.jmpSymbol(u.needed.symbol(p, kind: RoutineKind.dropRoutine, ty: t.concrete))
+		u.asm.jmpSymbol(u.needed.symbol(p, ms: ms, kind: RoutineKind.dropRoutine, ty: t.concrete))
 	end 'drop' else 'nothing'
 		u.asm.ret()
 	end 'nothing'
 	padEntry(u, start: start)
 	start = u.asm.pos()
-	if not ast.reachesInterface(p.types, have: t.iface, want: p.builtins.copyableTy) 'uncopied'
+	if not ast.reachesInterface(ms.types, reads: p.types, have: t.iface, want: p.builtins.copyableTy) 'uncopied'
 		u.asm.ud2()
 	end 'uncopied' else if managed 'copy'
-		u.asm.jmpSymbol(u.needed.symbol(p, kind: RoutineKind.copyRoutine, ty: t.concrete))
+		u.asm.jmpSymbol(u.needed.symbol(p, ms: ms, kind: RoutineKind.copyRoutine, ty: t.concrete))
 	end 'copy' else 'same'
 		u.asm.load(rax, base: rsp, disp: imm32Of(wordBytes))
 		u.asm.ret()
@@ -630,7 +630,7 @@ export function emitTable(mutates u CodeUnit, mutates p ast.Project, t ir.Witnes
 	padEntry(u, start: start)
 	for i in 0 upto t.methods.count() 'methods'
 		start = u.asm.pos()
-		u.asm.jmpSymbol(ast.funcLinkName(p, fid: t.methods[i]))
+		u.asm.jmpSymbol(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: t.methods[i]))
 		padEntry(u, start: start)
 	end 'methods'
 end 'emitTable'
@@ -659,13 +659,13 @@ end 'copyShared'
 
 // emitCaptureDrop writes the routine that drops what a closure of the body owns, which the last function value that shares
 // the closure calls before it frees the box.
-export function emitCaptureDrop(mutates u CodeUnit, mutates p ast.Project, symbol String, body ir.IrFunction, instance bool)
+export function emitCaptureDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, body ir.IrFunction, instance bool)
 	u.beginSection()
 	u.defineFunction(symbol, instance: instance)
 	routinePrologue(u, locals: 0)
 	for i in 0 upto body.captureOwned.count() 'captures'
 		if body.captureOwned[i] 'owned'
-			dropWord(u, p: p, offset: try closureCapturesOffset + i * wordBytes otherwise panic("routines: a capture past memory"), ty: body.captureTypes[i])
+			dropWord(u, p: p, ms: ms, offset: try closureCapturesOffset + i * wordBytes otherwise panic("routines: a capture past memory"), ty: body.captureTypes[i])
 		end 'owned'
 	end 'captures'
 	routineEpilogue(u)
@@ -676,7 +676,7 @@ end 'emitCaptureDrop'
 // it drops a consumes parameter; has the runtime hand each cown to the behaviour queued after it; drops the behaviour's
 // hold on each cown, in source order as the interpreter does, which may end a cown and run its destructor on this
 // thread; and frees the record. The scheduler counts the behaviour finished when the thunk returns.
-export function emitBehaviourThunk(mutates u CodeUnit, mutates p ast.Project, symbol String, body ir.IrFunction, bodySymbol String, instance bool)
+export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, body ir.IrFunction, bodySymbol String, instance bool)
 	let cowns = body.cownTypes.count()
 	let start = behaviourWordsOffset(cowns)
 	u.beginSection()
@@ -697,7 +697,7 @@ export function emitBehaviourThunk(mutates u CodeUnit, mutates p ast.Project, sy
 	for i in 0 upto cowns 'holds'
 		u.asm.load(rcx, base: rbp, disp: routineArg)
 		u.asm.load(rax, base: rcx, disp: imm32Of(try start + i * wordBytes otherwise panic("routines: a behaviour past memory")))
-		routineCall(u, p: p, kind: RoutineKind.dropRoutine, ty: body.cownTypes[i])
+		routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: body.cownTypes[i])
 	end 'holds'
 	freeArgument(u)
 	routineEpilogue(u)
@@ -739,36 +739,36 @@ end 'dropBytes'
 
 // copyWord copies the word at an offset of the box that the argument is into the same offset of the new box, which is
 // the first local: a managed word is copied by the routine of its type.
-function copyWord(mutates u CodeUnit, mutates p ast.Project, offset Count, ty ast.TypeID)
+function copyWord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, offset Count, ty ast.TypeID)
 	u.asm.load(rcx, base: rbp, disp: routineArg)
 	u.asm.load(rax, base: rcx, disp: imm32Of(offset))
-	if ast.isManagedType(p.types, t: ty) 'managed'
-		routineCall(u, p: p, kind: RoutineKind.copyRoutine, ty: ty)
+	if ast.isManagedType(ms.types, reads: p.types, t: ty) 'managed'
+		routineCall(u, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: ty)
 	end 'managed'
 	u.asm.load(rcx, base: rbp, disp: routineLocal0)
 	u.asm.store(rcx, disp: imm32Of(offset), src: rax)
 end 'copyWord'
 
-function copyRecord(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
-	let fields = fieldCount(p.types, owner: ty)
+function copyRecord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+	let fields = fieldCount(ms.types, reads: p.types, owner: ty)
 	routinePrologue(u, locals: 1)
 	allocate(u, bytes: ir.boxBytes(fields, tagged: false))
 	u.asm.store(rbp, disp: routineLocal0, src: rax)
 	for i in 0 upto fields 'fields'
-		let fieldTy = ast.fieldType(p.types, owner: ty, index: i)
-		copyWord(u, p: p, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
+		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
+		copyWord(u, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
 	end 'fields'
 	u.asm.load(rax, base: rbp, disp: routineLocal0)
 	routineEpilogue(u)
 end 'copyRecord'
 
 // copyUnion makes a box for the case the value holds, sized for its payload as lowering sizes it.
-function copyUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+function copyUnion(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	routinePrologue(u, locals: 1)
-	let cases = caseCount(p.types, owner: ty)
+	let cases = caseCount(ms.types, reads: p.types, owner: ty)
 	for i in 0 upto cases 'cases'
-		let payload = payloadCount(p.types, owner: ty, caseIndex: i)
+		let payload = payloadCount(ms.types, reads: p.types, owner: ty, caseIndex: i)
 		let last = i + 1 == cases
 		let next = u.asm.newLabel()
 		if not last 'check'
@@ -782,8 +782,8 @@ function copyUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		u.asm.movImm(rcx, imm: try i as FullRangeInt otherwise panic("a case index past memory"))
 		u.asm.store(rax, disp: imm32Of(ir.tagOffset), src: rcx)
 		for j in 0 upto payload 'payload'
-			let payloadTy = ast.payloadType(p.types, owner: ty, caseIndex: i, index: j)
-			copyWord(u, p: p, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
+			let payloadTy = ast.payloadType(ms.types, reads: p.types, owner: ty, caseIndex: i, index: j)
+			copyWord(u, p: p, ms: ms, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
 		end 'payload'
 		if not last 'skip'
 			u.asm.jmp(done)
@@ -796,7 +796,7 @@ function copyUnion(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 end 'copyUnion'
 
 // copyArray makes a header and a buffer of exactly the length, with a copy of each element.
-function copyArray(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
+function copyArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let header = routineLocal0
 	let length = routineLocal1
 	let index = routineLocal2
@@ -834,9 +834,9 @@ function copyArray(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 	u.asm.imul(rax, src: rdx)
 	u.asm.add(rcx, src: rax)
 	u.asm.load(rax, base: rcx, disp: 0)
-	let elem = elementType(p.types, array: ty)
-	if ast.isManagedType(p.types, t: elem) 'managed'
-		routineCall(u, p: p, kind: RoutineKind.copyRoutine, ty: elem)
+	let elem = elementType(ms.types, reads: p.types, array: ty)
+	if ast.isManagedType(ms.types, reads: p.types, t: elem) 'managed'
+		routineCall(u, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: elem)
 	end 'managed'
 	u.asm.load(rcx, base: rbp, disp: index)
 	u.asm.movImm(rdx, imm: wordBytes)

@@ -353,7 +353,7 @@ function execute(mutates run Run, mutates p ast.Project, memory project.SourceFi
 		end 'run'
 		t = try t + 1 otherwise panic("driver: more tasks than memory")
 	end 'tasks'
-	ast.endTasks(p.types, ft: p.funcs)
+	ast.endTasks(p.types)
 end 'execute'
 
 function mustSkip(graph TaskGraph, task Count, failed bool, failedPhase Count) returns bool
@@ -443,9 +443,9 @@ end 'runTimedTask'
 function runTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
 	let m = run.graph.tasks[task].module
 	if isModuleStage(run.graph.tasks[task].stage) 'ofModule'
-		ast.beginModuleTask(p.types, ft: p.funcs, module: p.modules[m].id, phase: frozenStage(run.graph.tasks[task].stage).ordinal)
+		ast.beginModuleTask(p.types, module: p.modules[m].id, phase: frozenStage(run.graph.tasks[task].stage).ordinal)
 	end 'ofModule' else 'ofProject'
-		ast.beginProjectTask(p.types, ft: p.funcs)
+		ast.beginProjectTask(p.types)
 	end 'ofProject'
 	match run.graph.tasks[task].stage 's'
 		parse then parseTask(p, m: m, memory: memory, errs: errs)
@@ -693,7 +693,10 @@ end 'holdProgram'
 
 function emitModule(mutates run Run, mutates p ast.Project, m Count, options Options, mutates errs diag.ErrorList)
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is emitted again")
-	let unit = backend.emitModule(p, fns: run.lowered[slot], verifies: options.verifyIr, clock: run.timings.emit, errs: errs)
+	let module = p.modules[m].id
+	var ms = ast.lendModule(p, module: module, lent: ast.Lent.tables)
+	let unit = backend.emitModule(p, ms: ms, fns: run.lowered[slot], verifies: options.verifyIr, clock: run.timings.emit, errs: errs)
+	ast.giveBack(p, ms: ms)
 	run.units[slot] = unit
 end 'emitModule'
 

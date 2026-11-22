@@ -458,7 +458,7 @@ func emitMaxonVisitors(w *writer) {
 func emitMaxonPrinter(w *writer) {
 	for _, term := range []bool{false, true} {
 		sel, fn, v := "op", "instrText", "x"
-		params := "p ast.Project, tt ast.TypeTable, ft ast.FuncTable, f IrFunction, x Instr"
+		params := "p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction, x Instr"
 		what := "an instruction has no opcode"
 		doc := "// instrText is the text the printer gives an instruction, as Go's InstrString does.\n"
 		if term {
@@ -563,9 +563,9 @@ func maxonText(o op, x operand, unwrap bool) string {
 	case kText:
 		return "{quote(" + get + ")}"
 	case kType:
-		return "{ast.typeName(tt, t: " + get + ")}"
+		return "{ast.typeName(tt, reads: reads, t: " + get + ")}"
 	case kCallee, kRoutine:
-		return "{funcSymbol(p, tt: tt, ft: ft, fid: " + get + ")}"
+		return "{funcSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: " + get + ")}"
 	case kBody:
 		return "{f.bodyName(" + get + ")}"
 	case kTable:

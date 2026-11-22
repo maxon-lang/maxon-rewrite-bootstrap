@@ -93,7 +93,7 @@ end 'namedAliases'
 // parameters, or none for a typealias of the module.
 function aliasSelf(c Checker, p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ref ast.DeclRef) returns ast.TypeID
 	if ast.isExtensionAlias(ms.tables, ordinal: ref.ordinal) 'extension'
-		return ast.selfType(ms.types, declTy: ast.extendedBy(p, ms: ms, ref: ref))
+		return ast.selfType(ms.types, reads: p.types, declTy: ast.extendedBy(p, ms: ms, ref: ref))
 	end 'extension'
 	match consumes ast.nestedAliasOwner(a.name) 'owner'
 		some(ownerName) then return selfOfOwner(c, p: p, ms: ms, ownerName: ownerName)
@@ -110,7 +110,7 @@ end 'selfOfOwner'
 
 function selfOfDecl(p ast.Project, mutates ms ast.ModuleState, ref ast.DeclRef) returns ast.TypeID
 	match consumes ast.declType(p, ms: ms, ref: ref) 'type'
-		some(tid) then return ast.selfType(ms.types, declTy: tid)
+		some(tid) then return ast.selfType(ms.types, reads: p.types, declTy: tid)
 		none then panic("the declaration at ordinal {ref.ordinal} has no type")
 	end 'type'
 end 'selfOfDecl'
@@ -155,10 +155,10 @@ function declareFuncAlias(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		end 'failed'
 	end 'returns'
 	var shape = ast.FuncShape.make(convs, mutatesCaptures: ast.funcTypeCapturesRef(ms.tree, id: a.fn) != 0)
-	if selfTy == ast.noType or ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: selfTy))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: selfTy))].typeParams.count() == 0 'brand'
+	if selfTy == ast.noType or ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: selfTy)).typeParams.count() == 0 'brand'
 		shape.brand = ast.FuncBrand.make("{ast.declKey(ref)}", name: a.name.clone())
 	end 'brand'
-	let t = ast.internFuncType(ms.types, params: params, shape: shape, result: result)
+	let t = ast.internFuncType(ms.types, reads: p.types, params: params, shape: shape, result: result)
 	ast.setDeclType(ms, ref: ref, t: t)
 end 'declareFuncAlias'
 
@@ -302,7 +302,7 @@ function declareSupertype(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		checkFail(c.modID, off: off, code: diag.errAliasRangeDoesNotFit, msg: diag.implementsRangeDoesNotFit(a.name, parentName: parentName), errs: errs)
 		return
 	end 'outside'
-	if parent == own or ast.isSubtypeOf(ms.types, sub: parent, sup: own) 'cycle'
+	if parent == own or ast.isSubtypeOf(ms.types, reads: p.types, sub: parent, sup: own) 'cycle'
 		checkFail(c.modID, off: ms.tree.reportStartOf(a.id), code: diag.errResolutionCycle, msg: diag.aliasCycle(a.name), errs: errs)
 		return
 	end 'cycle'
@@ -318,25 +318,25 @@ end 'declTypeOrNone'
 
 // isRangedAlias is whether t is a typealias of an int or a float range.
 function isRangedAlias(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	let kind = ast.typeKind(ms.types, t: t)
-	return (kind == ast.TypeKind.intRange or kind == ast.TypeKind.floatRange) and ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].name != ""
+	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
+	return (kind == ast.TypeKind.intRange or kind == ast.TypeKind.floatRange) and ast.typeEntry(ms.types, reads: p.types, t: t).name != ""
 end 'isRangedAlias'
 
 // rangePrimitiveName is the primitive a ranged alias is over, as maxon words it: an int range is unsigned when it holds
 // no negative value.
 function rangePrimitiveName(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
-	if ast.typeKind(ms.types, t: t) == ast.TypeKind.floatRange 'float'
+	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.floatRange 'float'
 		return "a `float` range"
 	end 'float'
-	if ms.types.lists[ast.typeList(ms.types, t: t)][ast.typeIndex(ms.types, t: t)].minVal.isNeg() 'signed'
+	if ast.typeEntry(ms.types, reads: p.types, t: t).minVal.isNeg() 'signed'
 		return "a signed `int` range"
 	end 'signed'
 	return "an unsigned `int` range"
 end 'rangePrimitiveName'
 
 function rangeInside(p ast.Project, ms ast.ModuleState, inner ast.TypeID, outer ast.TypeID) returns bool
-	if ast.typeKind(ms.types, t: inner) == ast.TypeKind.floatRange 'float'
-		return ast.floatRangeCovers(ms.types, dst: outer, src: inner)
+	if ast.typeKind(ms.types, reads: p.types, t: inner) == ast.TypeKind.floatRange 'float'
+		return ast.floatRangeCovers(ms.types, reads: p.types, dst: outer, src: inner)
 	end 'float'
-	return intRangeCovers(ms.types, dst: outer, src: inner)
+	return intRangeCovers(ms.types, reads: p.types, dst: outer, src: inner)
 end 'rangeInside'

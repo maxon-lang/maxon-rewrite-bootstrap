@@ -4,7 +4,7 @@
 function lowerRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	var v = lowerExpr(l, p: p, ms: ms, e: e)
 	var t = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
-	while ast.typeKind(ms.types, t: t) == ast.TypeKind.builtinFrozen 'frozen'
+	while ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.builtinFrozen 'frozen'
 		let held = heldType(p, ms: ms, t: t)
 		v = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, ms: ms, t: held), args: argsOf1(v))
 		t = held
@@ -43,7 +43,7 @@ end 'behaviourBodyName'
 
 // lowerBehaviour lowers the body of a `when` as a function, which goes in the one of the function around it.
 function lowerBehaviour(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, info ast.WhenInfo, consumes cownTypes ast.TypeIDList) returns Count
-	let name = behaviourBodyName(irSymbol(p, tt: ms.types, ft: ms.funcs, f: l.b.f), index: l.b.f.bodies.count())
+	let name = behaviourBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count())
 	var body = lowerNested(l, p: p, ms: ms, fn: info.fn, name: name)
 	body.cownTypes = cownTypes
 	return l.b.body(body)
