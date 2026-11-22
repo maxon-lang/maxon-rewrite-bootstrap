@@ -1,0 +1,12 @@
+export type Secret
+	public var code as Count
+	var key as Count
+
+	public function bumped() returns Count
+		return try code + key otherwise 0
+	end 'bumped'
+
+	export static function make(code Count) returns Secret
+		return Secret{code: code, key: 1}
+	end 'make'
+end 'Secret'

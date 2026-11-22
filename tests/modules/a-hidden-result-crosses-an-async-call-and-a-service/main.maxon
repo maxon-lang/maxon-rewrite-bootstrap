@@ -1,0 +1,16 @@
+// native-only
+function main() returns ExitCode
+	let p = async vault.make(3)
+	let q = vault.promised(4)
+	let a = await p
+	let b = await q
+	print("{a.code} {b.code}\n")
+	let h = spawn vault.Keeper.create(9)
+	let c = try await h.fetch() otherwise panic("no")
+	print("{c.code}\n")
+	h.shutdown()
+	return 0
+end 'main'
+
+//> 3 4
+//> 9

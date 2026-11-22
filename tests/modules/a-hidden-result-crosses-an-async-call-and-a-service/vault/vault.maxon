@@ -1,0 +1,29 @@
+type Secret
+	export var code as Count
+	var key as Count
+
+	static function build(code Count) returns Secret
+		return Secret{code: code, key: 1}
+	end 'build'
+end 'Secret'
+
+export function make(code Count) returns Secret
+	sleep(1)
+	return Secret.build(code)
+end 'make'
+
+export function promised(code Count) returns Promise with Secret
+	return async make(code)
+end 'promised'
+
+export type Keeper
+	var held as Count
+
+	export static function create(held Count) returns Self
+		return Self{held: held}
+	end 'create'
+
+	export function fetch() returns Secret
+		return Secret.build(held)
+	end 'fetch'
+end 'Keeper'

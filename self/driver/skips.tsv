@@ -116,3 +116,22 @@ test	generic-opaque-value-store.md	error.a-conformer-binding-an-interface-that-a
 test	generic-opaque-value-store.md	error.a-conformer-binding-an-interface-that-an-extension-stores-is-refused-though-no-body-uses-the-alias	language difference: an interface value is one word that owns its value, so it may stand where any value may
 test	generic-opaque-value-store.md	error.a-conformer-in-the-earlier-file-binding-an-interface-that-an-extension-in-a-later-file-stores-is-refused	language difference: an interface value is one word that owns its value, so it may stand where any value may
 test	map.md	table-aliases-admit-two-to-the-63	language difference: maxon's stdlib/helpers is stdlib/internal here, which a program does not name, so the table's TableCapacity and TableSlotIndex are unknown to it
+test	namespace-qualified-resolution.md	error.a-hidden-type-reached-without-being-written-is-refused-at-its-member	language difference: a result may be a less visible type here
+test	namespace-qualified-resolution.md	error.a-refused-member-of-a-hidden-type-leaves-its-later-uses-unreported	language difference: a result may be a less visible type here
+test	namespace-qualified-resolution.md	error.a-written-hidden-name-does-not-explain-another-hidden-type-reached-without-being-written	language difference: a result may be a less visible type here
+test	namespace-qualified-resolution.md	error.a-written-hidden-name-explains-only-its-own-files-member-reads	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.an-export-function-names-a-file-private-parameter-and-return-type	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.an-export-function-read-in-its-directory-names-an-unmarked-type	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.a-public-function-names-an-export-type	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.a-type-argument-counts	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.a-tuple-element-counts	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.a-generic-instances-base-type-counts	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.a-public-interface-member-names-a-file-private-type	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.a-narrower-generic-alias-in-an-interface-requirement-return-is-refused	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.an-export-function-names-an-unmarked-type-declared-in-another-file	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.an-exported-services-message-names-a-file-private-type	language difference: a result may be a less visible type here
+test	signature-type-visibility.md	error.an-exported-interface-requirement-names-an-unmarked-type	language difference: a result may be a less visible type here
+test	type-name-collision.md	error.two-directories-each-declare-a-type-of-one-name-beside-two-extensions-declaring-its-alias	language difference: a result may be a less visible type here
+test	type-name-collision.md	error.crossfile-a-service-throws-a-contested-name	language difference: a result may be a less visible type here
+test	typealias-file-scope.md	error.an-exported-interface-instance-over-a-file-private-argument-is-refused	language difference: a result may be a less visible type here
+test	typealias-file-scope.md	error.a-files-own-alias-is-no-generic-base-beside-another-directorys-generic-type	language difference: a result may be a less visible type here

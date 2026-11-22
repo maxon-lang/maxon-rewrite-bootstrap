@@ -1,0 +1,10 @@
+function again(s vault.Secret) returns Count
+	return s.code
+end 'again'
+
+function main() returns ExitCode
+	print("{again(vault.make(1))}\n")
+	return 0
+end 'main'
+
+// expect-error: E3008 at 1:18

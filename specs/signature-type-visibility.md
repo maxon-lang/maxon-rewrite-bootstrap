@@ -116,6 +116,7 @@ library signature names is therefore written `public` itself.
 The rule bites where the function outranks a type in its signature.
 
 <!-- test: error.an-export-function-names-a-file-private-parameter-and-return-type -->
+<!-- skip: language difference: a result may be a less visible type here -->
 ⭐ **TWO POSITIONS, ONE TYPE, TWO DIAGNOSTICS, IN SIGNATURE ORDER** — the parameter first, then the
 return type. One offending (function, type) pair per POSITION is what makes the report tell an author
 what to change, and both sit at the function name.
@@ -168,6 +169,7 @@ error E3167: api/<fragment>:7:17: exported function 'api.f' names unexported enu
 ```
 
 <!-- test: error.an-export-function-read-in-its-directory-names-an-unmarked-type -->
+<!-- skip: language difference: a result may be a less visible type here -->
 The only reader sits in `api/` itself, where `Config` is visible, and the rule still holds: an `export`
 function's surface is judged at `export`, whoever calls it. Both tier words are read off the written modifiers.
 ```maxon
@@ -196,6 +198,7 @@ error E3167: api/<fragment>:11:17: exported function 'api.make' names unexported
 ```
 
 <!-- test: error.a-public-function-names-an-export-type -->
+<!-- skip: language difference: a result may be a less visible type here -->
 ⭐ **THE TOP OF THE LADDER.** `public` states API surface, and API surface may not be built out of a
 type that is merely `export`. Nothing else about this program differs from a legal one.
 ```maxon
@@ -224,6 +227,7 @@ error E3167: api/<fragment>:11:17: public function 'api.make' names exported typ
 ```
 
 <!-- test: error.a-type-argument-counts -->
+<!-- skip: language difference: a result may be a less visible type here -->
 ⭐⭐ **THE WALK IS STRUCTURAL, NOT SURFACE.** `SecretArray` is `export` and passes on its own; the
 element it carries does not, and a caller holding the array holds `Secret` values. Asking only the
 written name would let every unmarked type out through one exported alias.
@@ -258,6 +262,7 @@ error E3167: api/<fragment>:11:17: exported function 'api.all' names unexported 
 ```
 
 <!-- test: error.a-tuple-element-counts -->
+<!-- skip: language difference: a result may be a less visible type here -->
 The tuple itself names no declaration and is asked nothing. Its ELEMENTS are asked, one at a time —
 `ExitCode` answers and `Secret` does not.
 ```maxon
@@ -283,6 +288,7 @@ error E3167: api/<fragment>:9:17: exported function 'api.pair' names unexported 
 ```
 
 <!-- test: error.a-generic-instances-base-type-counts -->
+<!-- skip: language difference: a result may be a less visible type here -->
 A generic instance names two things and both are asked: the argument, and the BASE the argument is
 substituted into. `IntBox` is `export` and its argument `ExitCode` is a primitive, so the surface and
 the argument both answer — the base `Box` does not, and a caller holding the returned value holds a
@@ -370,6 +376,7 @@ error E3167: api/<fragment>:10:18: exported function 'api.Holder.unionCasesFor' 
 ```
 
 <!-- test: error.a-public-interface-member-names-a-file-private-type -->
+<!-- skip: language difference: a result may be a less visible type here -->
 An interface member writes no modifier of its own, so it takes the INTERFACE's: a caller reaches the
 requirement through `Sized`, and whatever can name `Sized` must be able to name what `size` returns.
 The conforming `Box.size` is unmarked and names the same alias legally — the tier that was
@@ -407,6 +414,7 @@ error E3167: api/<fragment>:6:11: public function 'api.Sized.size' names unexpor
 ```
 
 <!-- test: error.a-narrower-generic-alias-in-an-interface-requirement-return-is-refused -->
+<!-- skip: language difference: a result may be a less visible type here -->
 A generic alias is a declaration like a ranged one, and a requirement's return type is asked like a
 function's. `Tallies` is unmarked and `Stocked` is `export`, so whatever can name `Stocked` must be able to
 name what `items` returns.
@@ -554,6 +562,7 @@ error E3008: api/<fragment>:4:15: typealias 'SeriesTermLimit' is not exported
 ```
 
 <!-- test: error.an-export-function-names-an-unmarked-type-declared-in-another-file -->
+<!-- skip: language difference: a result may be a less visible type here -->
 The declaring file is not the naming file. `Config` is unmarked, so `api/lib.maxon` may name it and
 `app/main.maxon` may not — which is exactly the gap the rule closes, and the only shape in this file
 where the type and the function are written in two different files.
@@ -1245,6 +1254,7 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-services-message-names-a-file-private-type -->
+<!-- skip: language difference: a result may be a less visible type here -->
 ⭐⭐ **THE EXEMPTION STOPS AT THE SERVICE TYPE'S TIER, AND ONE WORD IS THE WHOLE DIFFERENCE.** This program
 is the case above with `export` written on `type Worker`; every other byte is the same. Now any file may
 name `Worker`, spawn one and hold the handle `run` sits on — so `run`'s reply has to be nameable at that
@@ -2486,6 +2496,7 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-interface-requirement-names-an-unmarked-type -->
+<!-- skip: language difference: a result may be a less visible type here -->
 An interface requirement takes the interface's tier (see above), so an `export` interface's requirement may not
 name an unmarked type.
 ```maxon

@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let s = vault.make(1)
+	print("{s.code} {s.key}\n")
+	return 0
+end 'main'
+
+// expect-error: E3014 at 3:21

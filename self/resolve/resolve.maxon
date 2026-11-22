@@ -1292,9 +1292,17 @@ function signature(mutates r Resolver, p ast.Project, s Surface, params ast.Para
 	for i in 0 upto params.count() 'pars'
 		signatureType(r, p: p, s: s, position: "in the type of parameter '{params[i].name}'", tr: params[i].typeRef, errs: errs)
 	end 'pars'
-	signatureType(r, p: p, s: s, position: "in its return type", tr: returnsRef, errs: errs)
+	resolveResultType(r, p: p, tr: returnsRef, errs: errs)
 	signatureType(r, p: p, s: s, position: "in its throws clause", tr: throwsRef, errs: errs)
 end 'signature'
+
+// resolveResultType resolves the type of a result, which may be less visible than the declaration that returns it, as a
+// function of Go may return a type that is not exported: a caller binds the value by inference and uses what of the
+// type it may see, and cannot write the type's name. A parameter, a field or a clause is held to the surface, because
+// the caller or the implementer must write that type.
+function resolveResultType(mutates r Resolver, p ast.Project, tr ast.NodeID, mutates errs diag.ErrorList)
+	resolveTypeRef(r, p: p, tr: tr, errs: errs)
+end 'resolveResultType'
 
 function resolveConforms(mutates r Resolver, p ast.Project, s Surface, conforms diag.U32, mutates errs diag.ErrorList)
 	resolveInterfaceList(r, p: p, s: s, interfaces: conforms, position: "in its implements clause", errs: errs)

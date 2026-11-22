@@ -1,0 +1,7 @@
+public function relay(code Count) returns deep.inner.vault.Secret
+	return deep.inner.vault.Secret.make(code)
+end 'relay'
+
+public function relayAll(code Count) returns Array with deep.inner.vault.Secret
+	return [deep.inner.vault.Secret.make(code), deep.inner.vault.Secret.make(try code + 1 otherwise 0)]
+end 'relayAll'

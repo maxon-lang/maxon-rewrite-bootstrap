@@ -571,6 +571,7 @@ end 'main'
 ```
 
 <!-- test: error.two-directories-each-declare-a-type-of-one-name-beside-two-extensions-declaring-its-alias -->
+<!-- skip: language difference: a result may be a less visible type here -->
 <!-- positions: moved -->
 Two copies of a `type` that declares a generic-instance alias, in two directories, beside two copies of an
 `extension` of an interface both implement that declares the same alias. Each extension publishes `Items` onto both
@@ -587,27 +588,27 @@ export interface Seq uses Item
 end 'Seq'
 
 // --- file: a/box.maxon
-export type Box implements export.Seq with export.Digit
-	typealias Items = Array with export.Digit
-	export var n as export.Digit
+export type Box implements Seq with Digit
+	typealias Items = Array with Digit
+	export var n as Digit
 
-	export function first() returns export.Digit
+	export function first() returns Digit
 		return self.n
 	end 'first'
 end 'Box'
 
 // --- file: b/box.maxon
-export type Box implements export.Seq with export.Digit
-	typealias Items = Array with export.Digit
-	export var n as export.Digit
+export type Box implements Seq with Digit
+	typealias Items = Array with Digit
+	export var n as Digit
 
-	export function first() returns export.Digit
+	export function first() returns Digit
 		return self.n
 	end 'first'
 end 'Box'
 
 // --- file: a/ext.maxon
-export extension export.Seq
+export extension Seq
 	export typealias Items = Array with Item
 
 	export function all() returns Items
@@ -618,7 +619,7 @@ export extension export.Seq
 end 'Seq'
 
 // --- file: b/ext.maxon
-export extension export.Seq
+export extension Seq
 	export typealias Items = Array with Item
 
 	export function twice() returns Items
@@ -3448,6 +3449,7 @@ error E3219: k/<fragment>:21:6: unused type: 'Handler' is not exported and nothi
 
 
 <!-- test: error.crossfile-a-service-throws-a-contested-name -->
+<!-- skip: language difference: a result may be a less visible type here -->
 <!-- positions: moved -->
 ⭐ **A SERVICE MESSAGE IS A SIGNATURE, AND IT ANSWERS AT THE SAME DOOR.** `divide` is on `Calc`'s message
 surface, so whoever spawns a `Calc` has to be able to name what the message takes, returns and throws —

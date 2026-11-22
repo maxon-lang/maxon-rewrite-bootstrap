@@ -2432,6 +2432,7 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-interface-instance-over-a-file-private-argument-is-refused -->
+<!-- skip: language difference: a result may be a less visible type here -->
 <!-- positions: moved -->
 `lib/b.maxon` and `app/main.maxon` each declare an unmarked `Measure` and `Items`, and `ItemsSource` is `Source with Items` of `lib/b.maxon`'s. An exported alias and an exported function cannot name an unmarked alias, so both are refused and no dispatch through `ItemsSource` reaches `app/main.maxon`'s own `Items`.
 ```maxon
@@ -3053,6 +3054,7 @@ end 'nominalQ'
 ```
 
 <!-- test: error.a-files-own-alias-is-no-generic-base-beside-another-directorys-generic-type -->
+<!-- skip: language difference: a result may be a less visible type here -->
 `b/shadow.maxon` declares its own `Pair`, so the bare `Pair` in `Pair with ExitCode` names that alias and not the
 generic type `a/` exports under the same name. An alias is not a generic base, so the `with` is refused as one
 and nothing else is said about `Pair`: the alias is used by it, and the exported signature names `Bad`.

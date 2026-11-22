@@ -5782,14 +5782,7 @@ signature-type-visibility.md: equal-tiers-are-legal-for-bindings
 signature-type-visibility.md: error.a-contested-function-alias-is-named-as-written
 signature-type-visibility.md: error.a-file-private-tuple-alias-in-an-exported-signature-is-refused
 signature-type-visibility.md: error.a-method-outranks-its-parameter-type
-signature-type-visibility.md: error.a-narrower-generic-alias-in-an-interface-requirement-return-is-refused
-signature-type-visibility.md: error.a-public-function-names-an-export-type
-signature-type-visibility.md: error.a-public-interface-member-names-a-file-private-type
-signature-type-visibility.md: error.a-tuple-element-counts
 signature-type-visibility.md: error.a-user-name-containing-union-cases-is-still-checked
-signature-type-visibility.md: error.an-export-function-names-a-file-private-parameter-and-return-type
-signature-type-visibility.md: error.an-export-function-names-an-unmarked-type-declared-in-another-file
-signature-type-visibility.md: error.an-export-function-read-in-its-directory-names-an-unmarked-type
 signature-type-visibility.md: error.an-export-function-throws-a-file-private-error
 signature-type-visibility.md: error.an-exported-enum-implementing-a-file-private-interface-is-refused
 signature-type-visibility.md: error.an-exported-field-of-a-file-private-enum-type-is-refused
@@ -5797,8 +5790,6 @@ signature-type-visibility.md: error.an-exported-field-typed-by-a-contested-file-
 signature-type-visibility.md: error.an-exported-function-alias-over-a-file-private-enum-is-refused
 signature-type-visibility.md: error.an-exported-generic-alias-over-a-file-private-enum-is-refused
 signature-type-visibility.md: error.an-exported-generic-function-constrained-by-a-file-private-interface-is-refused
-signature-type-visibility.md: error.an-exported-interface-requirement-names-an-unmarked-type
-signature-type-visibility.md: error.an-exported-services-message-names-a-file-private-type
 signature-type-visibility.md: error.an-exported-type-binding-a-file-private-enum-in-its-implements-clause-is-refused
 signature-type-visibility.md: error.an-exported-type-constrained-by-a-file-private-interface-is-refused
 signature-type-visibility.md: error.an-exported-type-implementing-a-file-private-interface-is-refused
@@ -6748,7 +6739,6 @@ type-name-collision.md: error.a-service-throws-the-alias-its-own-directory-decla
 type-name-collision.md: error.a-struct-of-a-name-a-private-alias-also-holds-is-not-offered-a-cast
 type-name-collision.md: error.a-top-level-cast-to-a-directory-qualified-alias-checks-its-range
 type-name-collision.md: error.an-unmarked-type-named-through-its-directory-in-a-signature-is-refused
-type-name-collision.md: error.crossfile-a-service-throws-a-contested-name
 type-name-collision.md: error.crossfile-enum-constant-keeps-its-value-in-an-alias-slot-it-does-not-fit
 type-name-collision.md: error.crossfile-type-and-exported-typealias
 type-name-collision.md: error.duplicate-alias-same-file-while-another-file-declares-it

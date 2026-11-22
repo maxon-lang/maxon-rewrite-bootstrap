@@ -1,0 +1,12 @@
+type Secret
+	export var code as Count
+	var key as Count
+
+	export static function build(code Count) returns Secret
+		return Secret{code: code, key: 1}
+	end 'build'
+end 'Secret'
+
+export function make(code Count) returns Secret
+	return Secret.build(code)
+end 'make'

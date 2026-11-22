@@ -601,6 +601,7 @@ error E3008: app/specs/namespace-qualified-resolution/error.a-hidden-qualified-t
 ```
 
 <!-- test: error.a-hidden-type-reached-without-being-written-is-refused-at-its-member -->
+<!-- skip: language difference: a result may be a less visible type here -->
 A file that never writes the hidden type's name has no refusal of it to rely on, so the first use of a value of
 that type is the refusal.
 ```maxon
@@ -633,6 +634,7 @@ error E3167: lib/specs/namespace-qualified-resolution/error.a-hidden-type-reache
 ```
 
 <!-- test: error.a-refused-member-of-a-hidden-type-leaves-its-later-uses-unreported -->
+<!-- skip: language difference: a result may be a less visible type here -->
 A file that reaches a hidden type without writing its name has its member read refused, and that refusal
 stands. A top-level binding it loses is no fresh error where another file uses it.
 ```maxon
@@ -667,6 +669,7 @@ error E3167: lib/specs/namespace-qualified-resolution/error.a-refused-member-of-
 ```
 
 <!-- test: error.a-written-hidden-name-does-not-explain-another-hidden-type-reached-without-being-written -->
+<!-- skip: language difference: a result may be a less visible type here -->
 The file writes the hidden `Item` in a parameter and reaches the hidden `Box` through an exported function's
 result. Only `Item` has a written refusal, so the member read of `Box` is refused as well.
 ```maxon
@@ -708,6 +711,7 @@ error E3167: lib/specs/namespace-qualified-resolution/error.a-written-hidden-nam
 ```
 
 <!-- test: error.a-written-hidden-name-explains-only-its-own-files-member-reads -->
+<!-- skip: language difference: a result may be a less visible type here -->
 `first.maxon` writes the hidden `Box`; `second.maxon` reaches it without writing it. The refusal of the name is
 `first.maxon`'s, so the member read in `second.maxon` is refused on its own.
 ```maxon

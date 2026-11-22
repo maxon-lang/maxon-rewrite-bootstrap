@@ -350,10 +350,17 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   module: a `public` declaration of an internal module is visible wherever the module may be named, and never becomes a
   bare library name to a program. A value of an internal module's type that a function outside it returns is used as any
   value is; only naming the module is refused.
-- **A signature may not name a less visible type** (`E3167`): each type that the parameters, return type, `throws`
-  clause, `where` clause or `implements` clause of an `export` or `public` declaration name, the type of a field (at the
-  narrower of the field's and its type's visibility), a payload (at its union's) and a typealias's target must be at
-  least as visible. A method is held to its own visibility, a requirement of an interface to the interface's.
+- **A signature may not name a less visible type, except in a result** (`E3167`): each type that the parameters,
+  `throws` clause, `where` clause or `implements` clause of an `export` or `public` declaration name, the type of a
+  field (at the narrower of the field's and its type's visibility), a payload (at its union's) and a typealias's target
+  (the result of a function type too) must be at least as visible. A method is held to its own visibility, a requirement of
+  an interface to the interface's. The result of a function, a method or a requirement is not held to it, as a function
+  of Go may return a type that is not exported, and neither is a type nested in the result (`returns Array with
+  Hidden`, `returns (Hidden, Count)`, `returns borrowed Hidden`, `Promise with Hidden`). A module that the type's
+  visibility does not reach holds such a value like any other: it binds it by inference, passes it on to a generic
+  function or to a function whose bound it meets, and uses the members of the type that are visible to it (a member that
+  is not is `E3008` or `E3014`). It cannot write the type's name (`E3008`), so no declaration of its own can name it in
+  a signature or a field.
 - **One namespace per module:** a name declared twice across the module's files is `E3006`.
 - **No import cycles:** module A depends on B when A names one of B's declarations. A cycle is `E2012`, reported at
   where the first module of the cycle names the second. A module that the root names therefore cannot name `export.X`.
@@ -3899,6 +3906,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the executable's data, which no program can tell apart since building it runs no code. `.rawValue` of such an enum or union
   is the whole record, which the reader owns, where maxon refuses it without a field
   after it (`E2015`); and the record that the enum or union exports is not held to be at least as visible as it (`E3167`).
+- **A result may be less visible than its function**, as a function of Go may return a type that is not exported: `export
+  function make() returns Secret` is fine where `Secret` has no modifier, and the caller outside `Secret`'s module holds
+  the value without naming the type (see "Modules"). Maxon refuses it (`E3167`), as it does a parameter, a field, a payload,
+  a `throws` clause, a `where` or `implements` clause and a typealias's target, which minimaxon still refuses. The spec tests
+  that expect `E3167` on a result are skipped with that reason.
 - A format specifier (see "Format specifiers") reads the integers, floats and Strings, and leaves any other value as it is:
   there is no `FormattedStringable`, so `{c:verbose}` of a type of the program is not interpolated, and no `Character` to
   quote. An empty specifier (`{x:}`) is no specifier.

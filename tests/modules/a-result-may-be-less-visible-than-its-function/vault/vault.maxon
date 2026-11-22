@@ -1,0 +1,40 @@
+type Secret implements names.Namer
+	export var code as Count
+	var key as Count
+
+	static function build(code Count) returns Secret
+		return Secret{code: code, key: 1}
+	end 'build'
+
+	export function name() returns String
+		return "secret {code}"
+	end 'name'
+
+	export function bumped() returns Count
+		return try code + key otherwise 0
+	end 'bumped'
+end 'Secret'
+
+export type Shelf
+	var item as Secret
+
+	export static function stock(code Count) returns Shelf
+		return Shelf{item: make(code)}
+	end 'stock'
+
+	export function look() returns borrowed Secret
+		return item
+	end 'look'
+end 'Shelf'
+
+export function make(code Count) returns Secret
+	return Secret.build(code)
+end 'make'
+
+export function pair(code Count) returns (Secret, Count)
+	return (make(code), code)
+end 'pair'
+
+export function many() returns Array with Secret
+	return [make(1), make(2)]
+end 'many'
