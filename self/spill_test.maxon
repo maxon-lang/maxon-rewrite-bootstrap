@@ -38,17 +38,22 @@ end 'wrapAdd'
 
 // spillOf spills a function and requires it to fit and to have no refusal.
 function spillOf(label String, mutates fn backend.MirFunction) returns backend.SpillResult
-	var s = backend.Spiller.new()
+	return spillUnder(label, fn: fn, convs: backend.Conventions.make())
+end 'spillOf'
+
+// spillUnder is spillOf under the conventions convs.
+function spillUnder(label String, mutates fn backend.MirFunction, convs backend.Conventions) returns backend.SpillResult
+	var s = backend.Spiller.under(convs.clone())
 	let result = backend.spillFunction(fn, s: s)
 	if result.refusals.count() > 0 'refused'
 		panic("{label}: refused with E5001: {backend.pressureRefusalMessage(result.refusals[0], place: label, target: "x64")}")
 	end 'refused'
-	let problems = backend.verifyPressure(fn)
+	let problems = backend.verifyPressureUnder(fn, convs: convs)
 	if problems.count() > 0 'problems'
 		panic("{label}: {problems[0]}")
 	end 'problems'
 	return result
-end 'spillOf'
+end 'spillUnder'
 
 function expectCount(label String, what String, got Count, want Count)
 	if got != want 'differs'
@@ -78,9 +83,11 @@ type LoopShape
 	var call as bool
 	var coldCall as bool
 	var coldUse as bool
+	// keepsNothing spills the loop under an internal convention whose calls keep no register.
+	var keepsNothing as bool
 
 	static function make(accs Count, memory Count, idle Count) returns LoopShape
-		return LoopShape{accs: accs, memory: memory, idle: idle, call: false, coldCall: false, coldUse: false}
+		return LoopShape{accs: accs, memory: memory, idle: idle, call: false, coldCall: false, coldUse: false, keepsNothing: false}
 	end 'make'
 end 'LoopShape'
 
@@ -277,21 +284,24 @@ function accRead(mutates fn backend.MirFunction, current backend.MRegList, j Cou
 	return v
 end 'accRead'
 
-// mirCallDouble calls mir.double on a value, which the internal convention passes on the stack, and gives its result.
+// mirCallDouble calls mir.double on a value, which the internal convention passes in its first argument register, and
+// gives its result.
 function mirCallDouble(mutates fn backend.MirFunction, value backend.MReg) returns backend.MReg
-	mirOp(fn, form: backend.X64Form.pushReg, a: value, b: backend.noMReg, c: backend.noMReg, imm: 0)
+	mirCopyIn(fn, dst: backend.x64InternalArg(0), src: value)
 	let callee = fn.addSymbol(mirDoubleSymbol)
-	fn.emit(backend.newReferring(backend.X64Form.callRel32, a: backend.noMReg, ref: backend.MRef.symbol, aux: callee))
-	let rsp = mirPhys(backend.X64Register.rsp)
-	mirOp(fn, form: backend.chooseAddRegImm(8), a: rsp, b: rsp, c: backend.noMReg, imm: 8)
-	return mirCopyOut(fn, src: backend.X64Register.rax)
+	fn.emit(backend.newCall(backend.X64Form.callRel32, a: backend.noMReg, ref: backend.MRef.symbol, aux: callee, inRegisters: 1))
+	return mirCopyOut(fn, src: backend.x64InternalResult)
 end 'mirCallDouble'
 
 // runSpilledLoop spills a shape's loop, holds it to its spill code, and runs it.
 function runSpilledLoop(mutates p ast.Project, label String, shape LoopShape, spills Count, reloads Count, hotSpills Count, hotReloads Count, restores Count) returns backend.SpillResult
 	let entry = addFunction(p, name: "main", errTy: ast.noType)
 	var fn = mirShapedLoop(ast.funcLinkName(p, fid: entry), shape: shape)
-	let result = spillOf(label, fn: fn)
+	var convs = backend.Conventions.make()
+	if shape.keepsNothing 'nothing'
+		convs = backend.Conventions.keeping(0)
+	end 'nothing'
+	let result = spillUnder(label, fn: fn, convs: convs)
 	expectSpillCode(label, fn: fn, spills: spills, reloads: reloads, hotSpills: hotSpills, hotReloads: hotReloads, restores: restores)
 	var fns = oneMir(fn)
 	if shape.call 'callee'
@@ -342,16 +352,22 @@ function testSpillColdUse(mutates p ast.Project)
 end 'testSpillColdUse'
 
 function testSpillCallInLoop(mutates p ast.Project)
-	// A call keeps no register of the internal convention, so every value live across it is stored where it is defined
+	// Under a convention whose calls keep no register, every value live across a call is stored where it is defined
 	// and reloaded after it: the four accumulators, the bound and the step, in the loop.
 	var shape = LoopShape.make(4, memory: 0, idle: 0)
 	shape.call = true
+	shape.keepsNothing = true
 	_ = runSpilledLoop(p, label: "call", shape: shape, spills: 6, reloads: 6, hotSpills: 5, hotReloads: 6, restores: 0)
 	// In a cold block the same call brackets the values live across it, and the hot path keeps them in registers.
 	var cold = LoopShape.make(4, memory: 0, idle: 0)
 	cold.call = true
 	cold.coldCall = true
+	cold.keepsNothing = true
 	_ = runSpilledLoop(p, label: "coldcall", shape: cold, spills: 6, reloads: 0, hotSpills: 0, hotReloads: 0, restores: 6)
+	// The target's calls keep five registers: of the six values live across the call, one is in memory across it.
+	var kept = LoopShape.make(4, memory: 0, idle: 0)
+	kept.call = true
+	_ = runSpilledLoop(p, label: "callkept", shape: kept, spills: 1, reloads: 1, hotSpills: 0, hotReloads: 1, restores: 0)
 end 'testSpillCallInLoop'
 
 function testSpillRefusal(mutates p ast.Project)

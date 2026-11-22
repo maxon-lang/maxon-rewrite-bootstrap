@@ -5,6 +5,8 @@ package x64table
 // encodeLoadRegBaseDisp, encodePushReg). A Choice selects among forms by the value of an immediate, as the Go backend's
 // AddImm and MovImm do, and a Sequence is several forms in a row that the backend always emits together.
 
+import "minimaxon/internal/targetgen/target"
+
 // Encoding constants that the generated helpers and the reference encoder of the test both read.
 const (
 	rexBase        = 0x40
@@ -83,18 +85,13 @@ var constants = []constant{
 	{"rel32Bytes", rel32Bytes},
 }
 
-// registers are the general registers in the order of their encoding numbers, which is the order of maxon's X64Register.
-var registers = []string{
-	"rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
-	"r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-}
-
-// vectorRegisters are the xmm registers, which the register allocator numbers after the general ones: a register's
-// number is its index in registers, or len(registers) plus its index here.
-var vectorRegisters = []string{
-	"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
-	"xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
-}
+// registers are the general registers in the order of their encoding numbers, which is the order of maxon's X64Register,
+// and vectorRegisters the xmm registers, which the register allocator numbers after the general ones: a register's
+// number is its index in registers, or len(registers) plus its index here. Both are the target table's.
+var (
+	registers       = target.X64Windows.Names(target.General)
+	vectorRegisters = target.X64Windows.Names(target.Vector)
+)
 
 // condition is a condition code and the number that is added to the opcode of jcc and setcc. The names are maxon's
 // X64CondCode, where it has one.

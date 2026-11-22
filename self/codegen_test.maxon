@@ -195,26 +195,29 @@ let testLeakExitCode = 99
 // testPanicExitCode is the runtime's exit code for a panic, which a fault ends as.
 let testPanicExitCode = 1
 
-// runtimeUnit is the entries of the runtime that the test programs and the entry stub call, written in assembly: alloc,
-// free, write, a stand-in for itoa, checkLeaks, which exits with the runtime's leak code and writes no report, schedDrain
-// and workerMain, which have no behaviour to run, and panic, which exits with the panic code and writes nothing.
+// runtimeUnit is the entries of the runtime that the test programs and the entry stub call, written in assembly by the
+// internal convention (the first two arguments in rcx and rdx, the result in r8): alloc, free, write, a stand-in for
+// itoa, checkLeaks, which exits with the runtime's leak code and writes no report, schedDrain and workerMain, which have
+// no behaviour to run, and panic, which exits with the panic code and writes nothing. They call Windows by Win64.
 function runtimeUnit(count bool) returns backend.CodeUnit
+	let result = backend.x64InternalResult
 	var u = backend.CodeUnit.new()
 	u.defineData(testLiveSymbol, size: backend.wordBytes)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtAlloc))
 	asmPrologue(u)
+	u.asm.mov(backend.r8, src: backend.x64InternalArg(0))
 	u.asm.loadSymbol(backend.rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
 	u.asm.movImm(backend.rdx, imm: 8)
-	u.asm.load(backend.r8, base: backend.rbp, disp: 16)
 	u.asm.callImport(backend.impHeapAlloc)
 	if count 'allocCount'
 		asmCountLive(u, delta: 1)
 	end 'allocCount'
+	u.asm.mov(result, src: backend.rax)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtFree))
 	asmPrologue(u)
 	let freed = u.asm.newLabel()
-	u.asm.load(backend.r8, base: backend.rbp, disp: 16)
+	u.asm.mov(backend.r8, src: backend.x64InternalArg(0))
 	u.asm.test(backend.r8, right: backend.r8)
 	u.asm.jcc(backend.X64CondCode.equal, label: freed)
 	if count 'freeCount'
@@ -227,32 +230,32 @@ function runtimeUnit(count bool) returns backend.CodeUnit
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
 	asmPrologue(u)
-	u.asm.load(backend.rcx, base: backend.rbp, disp: 24)
-	u.asm.load(backend.rdx, base: backend.rbp, disp: 16)
-	u.asm.load(backend.r8, base: backend.rdx, disp: 0)
-	u.asm.addImm(backend.rdx, imm: 8)
+	u.asm.mov(backend.r10, src: backend.x64InternalArg(1))
+	u.asm.mov(backend.rcx, src: backend.x64InternalArg(0))
+	u.asm.load(backend.r8, base: backend.r10, disp: 0)
+	u.asm.lea(backend.rdx, base: backend.r10, disp: 8)
 	u.asm.lea(backend.r9, base: backend.rsp, disp: 40)
 	u.asm.bitXor(backend.rax, src: backend.rax)
 	u.asm.store(backend.rsp, disp: 32, src: backend.rax)
 	u.asm.callImport(backend.impWriteFile)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
-	u.asm.leaData(backend.rax, dataOffset: u.data.textOffset("?"))
+	u.asm.leaData(result, dataOffset: u.data.textOffset("?"))
 	u.asm.ret()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
 	asmPrologue(u)
 	let clean = u.asm.newLabel()
+	u.asm.mov(result, src: backend.x64InternalArg(0))
 	u.asm.loadSymbol(backend.rcx, symbol: testLiveSymbol)
 	u.asm.test(backend.rcx, right: backend.rcx)
 	u.asm.jcc(backend.X64CondCode.equal, label: clean)
 	u.asm.movImm(backend.rcx, imm: testLeakExitCode)
 	u.asm.callImport(backend.impExitProcess)
 	u.asm.bind(clean)
-	u.asm.load(backend.rax, base: backend.rbp, disp: 16)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtSchedDrain))
 	asmPrologue(u)
-	u.asm.load(backend.rax, base: backend.rbp, disp: 16)
+	u.asm.mov(result, src: backend.x64InternalArg(0))
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtWorkerMain))
 	u.asm.ret()

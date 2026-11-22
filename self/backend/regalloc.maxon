@@ -444,16 +444,13 @@ export type Colourer
 			if not coloured[v] 'uncoloured'
 				panic("backend: virtual register {vregAt(v)} is live into block {b} before it is coloured")
 			end 'uncoloured'
+			// A value gives its home up only in a block it dies in, so it enters every other block in its home.
+			homeless[v] = false
 			let r = reg[v]
 			self.place(v, r: r)
 			self.flag(v)
 		end 'liveIn'
-		for p in 0 upto fn.blocks[b].paramCount 'params'
-			let v = vregIndex(fn.blockParams[addCounts(fn.blocks[b].params, b: p)])
-			if lv.useStart[v] != lv.useStart[nextCount(v)] 'used'
-				self.colourAt(fn, v: v, b: b, k: first, avail: allocatable(fn.classes[v]), reads: 0, operand: noDef)
-			end 'used'
-		end 'params'
+		self.colourParams(fn, lv: lv, b: b)
 		for k in first upto fn.blocks[b].endAt 'instrs'
 			self.step(fn, lv: lv, b: b, k: k)
 		end 'instrs'
@@ -463,6 +460,32 @@ export type Colourer
 			end 'open'
 		end 'closed'
 	end 'sweepBlock'
+
+	// colourParams colours the parameters of block b that are used, those with the fewest registers they may be in
+	// first, so that a parameter confined to a few registers (live across a call, it may be only in a callee-saved one)
+	// finds one free: at the block's entry nothing can be moved to make room, since every edge into the block delivers
+	// its arguments, beside the values live into it, in their homes.
+	function colourParams(mutates self, mutates fn MirFunction, lv Liveness, b Count)
+		let first = fn.blocks[b].first
+		var left = 0 as Count
+		for p in 0 upto fn.blocks[b].paramCount 'count'
+			let v = vregIndex(fn.blockParams[addCounts(fn.blocks[b].params, b: p)])
+			if lv.useStart[v] != lv.useStart[nextCount(v)] 'used'
+				left = nextCount(left)
+			end 'used'
+		end 'count'
+		var room = 0 as Count
+		while left > 0 'levels'
+			for p in 0 upto fn.blocks[b].paramCount 'params'
+				let v = vregIndex(fn.blockParams[addCounts(fn.blocks[b].params, b: p)])
+				if lv.useStart[v] != lv.useStart[nextCount(v)] and not coloured[v] and maskCount(self.allowed(fn, v: v, k: first, avail: allocatable(fn.classes[v]))) <= room 'due'
+					self.colourAt(fn, v: v, b: b, k: first, avail: allocatable(fn.classes[v]), reads: 0, operand: noDef, atEntry: true)
+					left = prevCount(left)
+				end 'due'
+			end 'params'
+			room = nextCount(room)
+		end 'levels'
+	end 'colourParams'
 
 	// step colours what the instruction at k of block b defines: a definition may take the register of a value that
 	// dies there, since an instruction reads every operand before it writes one. Before a branch, every value out of its
@@ -505,7 +528,7 @@ export type Colourer
 			if kind == MKind.target and reuses(fn.instrs[k]) and isVirtual(fn.instrs[k].b) 'reuse'
 				self.colourReuse(fn, v: v, b: b, k: k, useMask: useMask)
 			end 'reuse' else 'plain'
-				self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(fn.classes[v]), reads: useMask, operand: noDef)
+				self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(fn.classes[v]), reads: useMask, operand: noDef, atEntry: false)
 			end 'plain'
 		end 'defs'
 		for e in dieStart[k] upto dieStart[nextCount(k)] 'deadDefs'
@@ -559,7 +582,7 @@ export type Colourer
 				return
 			end 'swapped'
 		end 'commutes'
-		self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(fn.classes[v]) and not useMask, reads: useMask, operand: indexOfCount(operand))
+		self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(fn.classes[v]) and not useMask, reads: useMask, operand: indexOfCount(operand), atEntry: false)
 		let from = loc[operand]
 		if loc[v] != from 'copy'
 			let r = loc[v]
@@ -625,18 +648,19 @@ export type Colourer
 
 	// colourAt gives v a free register of avail at the instruction k of block b, which reads the registers reads,
 	// repairing the point when none is free; failing that, it gives v a home of its own that it starts outside of, or that
-	// it is moved out of where it may not be in it.
-	function colourAt(mutates self, mutates fn MirFunction, v Count, b Count, k Count, avail RegMask, reads RegMask, operand ir.Index)
+	// it is moved out of where it may not be in it. atEntry says that v is a parameter of b, which edges deliver into its
+	// home beside the values live into b: nothing can be moved there, and v starts in its home.
+	function colourAt(mutates self, mutates fn MirFunction, v Count, b Count, k Count, avail RegMask, reads RegMask, operand ir.Index, atEntry bool)
 		let want = self.allowed(fn, v: v, k: k, avail: avail)
 		var free = want and not busy and not (homes and not self.lentMask())
-		if free == 0 and want != 0 'stuck'
+		if free == 0 and want != 0 and not atEntry 'stuck'
 			free = self.repair(fn, v: v, b: b, k: k, want: want, reads: reads)
 		end 'stuck'
 		if free == 0 'elsewhere'
 			if operand != noDef and self.takeDyingAtRisk(v, k: k, operand: countOfIndex(operand)) 'reused'
 				return
 			end 'reused'
-			self.homeElsewhere(fn, v: v, b: b, k: k, avail: avail)
+			self.homeElsewhere(fn, v: v, b: b, k: k, avail: avail, atEntry: atEntry)
 			return
 		end 'elsewhere'
 		let r = self.choose(v, free: free)
@@ -647,8 +671,10 @@ export type Colourer
 
 	// homeElsewhere gives v, defined at the instruction k of block b where no register it may be in can be freed, a home
 	// that no live value has, one it may be in if there is one, and starts it there or, where that register is taken or
-	// does not suit the instruction or avail, in a free one that does, until its next branch.
-	function homeElsewhere(mutates self, fn MirFunction, v Count, b Count, k Count, avail RegMask)
+	// does not suit the instruction or avail, in a free one that does, until its next branch. A parameter coloured at its
+	// block's entry (atEntry) starts in its home, which no live value has there, and moves out before the first
+	// instruction if that does not suit it.
+	function homeElsewhere(mutates self, fn MirFunction, v Count, b Count, k Count, avail RegMask, atEntry bool)
 		let class = fn.classes[v]
 		let lent = self.bracketMask(v, k: k)
 		let unclaimed = allocatable(class) and not (homes and not self.lentMask())
@@ -667,7 +693,7 @@ export type Colourer
 		coloured[v] = true
 		homes = homes or maskOfCount(h)
 		let suits = allocatable(class) and avail and not busy and not physAfter[k] and not written[k] and not lent
-		if maskHas(suits, number: regNumOfCount(h)) 'home'
+		if atEntry or maskHas(suits, number: regNumOfCount(h)) 'home'
 			self.occupy(v, r: h)
 		end 'home' else 'window'
 			var start = suits and not homes

@@ -8,7 +8,7 @@
 // definition of the variable the pattern binds the result to (d:). A rel32 operand given a block of the pattern goes
 // along that edge, with the arguments the IR gives it. A result that is one name in lowercase is a hand-written helper
 // of self/backend/isel.maxon, called with the selector, the function and the instruction: the calls, which pass their
-// arguments by today's convention, the operations whose code branches, and the boxes. Conditions and expressions call
+// arguments by the target's convention, the operations whose code branches, and the boxes. Conditions and expressions call
 // the helpers in self/backend/rules.maxon, and may name the selector (sel), the IR function (fn) and the instruction
 // (ins).
 //
@@ -23,12 +23,12 @@
 (globalAddr [g]) => (LeaRegRip r [sel.symbolRef(ir.rtSymbol(g))])
 (codeAddress) => (LeaRegRip r [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))])
 
-// The frame: slots and parameters are words at the frame pointer.
+// The frame: slots are words at the frame pointer; emitLoadParam reads parameters, by the convention.
 (loadSlot [n]) => (LoadRegBaseDisp r rbp [slotDisp(n)])
 (storeSlot [n] v) => (StoreBaseDispReg rbp [slotDisp(n)] v)
 (slotAddr [n]) => (LeaRegBaseDisp r rbp [slotDisp(n)])
 (moveSlot [n]) => (LoadRegBaseDisp r rbp [slotDisp(n)]) (StoreBaseDispImm32 rbp [slotDisp(n)] [0])
-(loadParam [k]) => (LoadRegBaseDisp r rbp [paramDisp(fn, index: k)])
+(loadParam) => (emitLoadParam)
 
 // Memory.
 (loadField obj [off]) => (LoadRegBaseDisp r obj [off])
@@ -115,7 +115,7 @@
 (intToFloat) => (emitUnsignedToFloat)
 (floatToInt x) => (MovqXmm0Reg x) (Cvttsd2siRaxXmm0) (Copy r rax)
 
-// Calls, by today's convention, and what allocates or calls a routine.
+// Calls, by the target's convention, and what allocates or calls a routine.
 (callImport) => (emitCallImport)
 (callCode) => (emitCallCode)
 (call) => (emitCall)

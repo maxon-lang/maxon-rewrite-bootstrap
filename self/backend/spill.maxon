@@ -6,9 +6,10 @@
 // 1. a value live across a loop that the loop's hot path neither defines nor reads leaves its registers for the loop:
 //    stored at its definition, reloaded where it is read after the loop or on the loop's cold path;
 // 2. a constant live across a hot point over its pool is made again before its uses instead of being kept;
-// 3. on a hot path, a value live across a call whose convention does not keep it is spilled at the call, or at a point
-//    over the pool before it where its next use is past the call: it is in memory across the call whatever the program
-//    does, so that spill code costs nothing the call does not and is no reason to refuse;
+// 3. on a hot path, the values live across a call past the registers its convention keeps are spilled at the call, or
+//    at a point over the pool before it where their next use is past the call, while more of those are in registers
+//    than the call keeps: they are in memory across the call whatever the program does, so that spill code costs
+//    nothing the call does not and is no reason to refuse;
 // 4. the E5001 test: a point of a loop's hot path still over its class's whole pool is refused;
 // 5. at every point still over the registers free there (a call keeps only the callee-saved ones, a division or a
 //    variable shift fixes rax, rdx or rcx, and code outside hot loops may simply hold too many values), values are
@@ -32,9 +33,9 @@ enum Relief
 	// constants: only make constants again, against the class's whole pool, in hot blocks.
 	constants
 	// calls: in a hot block, spill at a call the values that its convention does not keep, against the registers it
-	// leaves, and at a point over the class's whole pool the values whose next use is past such a call. They are in memory
-	// across the call whatever the program does, so this spill code costs nothing the call does not, and is no reason to
-	// refuse a loop.
+	// leaves, and at a point over the class's whole pool the values whose next use is past such a call while more of
+	// them are in registers than it keeps. They are in memory across the call whatever the program does, so this spill
+	// code costs nothing the call does not, and is no reason to refuse a loop.
 	calls
 	// all: spill whatever the tiers allow, against the registers free at the point, in every block.
 	all
@@ -1227,11 +1228,15 @@ end 'leave'
 function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i Count, relief Relief, c Count, across Count, dying Count, writes Count, before bool)
 	let call = not before and isCallInstr(fn.instrs[k])
 	var callAfter = noDistance as Count
+	var crossing = 0 as Count
+	var keptByCall = 0 as Count
 	if relief == Relief.calls and not call 'beforeCall'
 		callAfter = nextClobberingCall(fn, s: s, b: b, from: k if before else nextCount(k), class: classAt(c))
 		if callAfter == noDistance 'none'
 			return
 		end 'none'
+		crossing = crossingCall(fn, s: s, c: c, callAt: callAfter)
+		keptByCall = maskCount(keptBy(fn.instrs[callAfter], convs: s.convs) and allocatable(classAt(c)))
 	end 'beforeCall'
 	let class = classAt(c)
 	var free = s.scan.pools[c]
@@ -1251,6 +1256,9 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 		if addCounts(held, b: need) <= free and held <= freeAcross 'fits'
 			return
 		end 'fits'
+		if callAfter != noDistance and crossing <= keptByCall 'keptAcross'
+			return
+		end 'keptAcross'
 		let victim = pickVictim(fn, s: s, b: b, k: k, c: c, relief: relief, bracket: cold, before: before, callAfter: callAfter)
 		if victim == noMReg 'none'
 			match relief 'relief'
@@ -1274,6 +1282,9 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 		leave(fn, s: s, r: victim)
 		s.split(fn, r: victim, cutBlock: b, cutPos: nextCount(k), region: ir.noLoop, scanning: indexOfCount(b))
 		t = prevCount(t)
+		if callAfter != noDistance 'crossed'
+			crossing = prevCount(crossing)
+		end 'crossed'
 	end 'over'
 end 'makeRoom'
 
@@ -1281,8 +1292,30 @@ function isCallInstr(x MInstr) returns bool
 	return x.kind == MKind.target and isCall(x.form)
 end 'isCallInstr'
 
+// crossingCall is how many values of class c in registers at the point the sweep is at are next read past the
+// instruction at callAt.
+function crossingCall(fn MirFunction, s Spiller, c Count, callAt Count) returns Count
+	var n = 0 as Count
+	for j in 0 upto s.sReg.count() 'members'
+		let v = vregIndex(s.sReg[j])
+		if classIndex(fn.classes[v]) == c and not s.fwdOut[v] and nextUseOf(s, j: j) > callAt 'crosses'
+			n = nextCount(n)
+		end 'crosses'
+	end 'members'
+	return n
+end 'crossingCall'
+
+// nextUseOf is where the j-th value in registers is next read, or noDistance where the layout does not show it.
+function nextUseOf(s Spiller, j Count) returns Count
+	let cursor = s.sCursor[j]
+	if cursor < s.usesEnd(s.sOwner[j]) 'next'
+		return s.entryAt(cursor)
+	end 'next'
+	return noDistance
+end 'nextUseOf'
+
 // nextClobberingCall is the first call at or after the instruction from of block b, there or further down the hot blocks
-// of b's loop in the layout, whose convention keeps no register of class; or noDistance where there is none.
+// of b's loop in the layout, that leaves a register of class holding nothing; or noDistance where there is none.
 function nextClobberingCall(fn MirFunction, s Spiller, b Count, from Count, class RegClass) returns Count
 	let found = clobberingCallIn(fn, s: s, b: b, from: from, class: class)
 	if found != noDistance or s.graph.loops.loopOf[b] == ir.noLoop 'here'
@@ -1303,7 +1336,7 @@ end 'nextClobberingCall'
 
 function clobberingCallIn(fn MirFunction, s Spiller, b Count, from Count, class RegClass) returns Count
 	for k in from upto fn.blocks[b].endAt 'instrs'
-		if isCallInstr(fn.instrs[k]) and (keptBy(fn.instrs[k], convs: s.convs) and allocatable(class)) == 0 'call'
+		if isCallInstr(fn.instrs[k]) and (allocatable(class) and not keptBy(fn.instrs[k], convs: s.convs)) != 0 'call'
 			return k
 		end 'call'
 	end 'instrs'
@@ -1345,12 +1378,7 @@ function pickVictim(fn MirFunction, mutates s Spiller, b Count, k Count, c Count
 		if l != ir.noLoop and s.graph.cold[b] and not s.isMade(r) and hotIn(s, v: v, loop: countOfIndex(l)) 'hot'
 			tier = tierHotInLoop
 		end 'hot'
-		let owner = s.sOwner[j]
-		let cursor = s.sCursor[j]
-		var distance = noDistance as Count
-		if cursor < s.usesEnd(owner) 'next'
-			distance = s.entryAt(cursor)
-		end 'next'
+		let distance = nextUseOf(s, j: j)
 		if relief == Relief.constants and not before and distance == nextCount(k) 'adjacent'
 			continue 'members'
 		end 'adjacent'

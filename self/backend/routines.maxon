@@ -3,8 +3,10 @@
 // monomorphization, as a routine of its own that the code of every module calls, so a type that contains itself (a record
 // with an array of itself) is a routine that calls itself and not code written out where it is wanted.
 //
-// A routine takes one argument, the value, as every internal call does, and a copy returns the new value in rax. A drop
-// of a value that is 0 does nothing, which is how a place that was moved from, or never assigned, is dropped.
+// A routine is called by the internal convention with one argument, the value, which its prologue stores in its frame,
+// and a copy returns the new value in the convention's result register; between calls the routines work in rax and
+// the other registers every call may leave holding anything, so they keep no callee-saved register. A drop of a value
+// that is 0 does nothing, which is how a place that was moved from, or never assigned, is dropped.
 //
 // The routines are in units of their own, built after the units of the modules, because which of them a program needs is
 // known only once every module has been generated. Which they are, and in what order, comes from the modules in source
@@ -13,16 +15,23 @@
 // routinesPerUnit is how many routines go into one unit.
 let routinesPerUnit = 256
 
-// Frame offsets of the routines: the argument is above the return address, and the locals below the frame pointer.
-let routineArg = 16
+// Frame offsets of the routines below the frame pointer: the argument, and then the locals.
+let routineArg = -8
 
-let routineLocal0 = -8
+let routineLocal0 = -16
 
-let routineLocal1 = -16
+let routineLocal1 = -24
 
-let routineLocal2 = -24
+let routineLocal2 = -32
 
-let routineLocal3 = -32
+let routineLocal3 = -40
+
+// thunkBase is the register a behaviour's thunk holds the record in while it loads the body's arguments: one that the
+// internal convention passes no value in.
+let thunkBase = r11
+
+// thunkWord is the register a thunk loads an argument the body takes on the stack into before pushing it.
+let thunkWord = r10
 
 // A count of owners (of a closure, a frozen value or a cown) is stepped by one locked add, since the owners may be on
 // other threads: a new owner adds ownerJoins, one let go of adds ownerLeaves, and the one that found lastOwner there
@@ -230,29 +239,35 @@ function emitRoutines(p ast.Project, mutates ms ast.ModuleState, routines TypeRo
 	return u
 end 'emitRoutines'
 
-// routineCall calls the routine of a type with the value in rax. A routine that has not been asked for yet is queued.
+// routineCall calls the routine of a type with the value in rax, and leaves a copy's result in rax. A routine that has
+// not been asked for yet is queued.
 function routineCall(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, kind RoutineKind, ty ast.TypeID)
 	let symbol = u.needed.symbol(p, ms: ms, kind: kind, ty: ty)
-	u.asm.push(rax)
+	u.asm.mov(argWord(), src: rax)
 	u.asm.callSymbol(symbol)
-	u.asm.addImm(rsp, imm: wordBytes)
+	takeResult(u)
 end 'routineCall'
 
-// callRuntimeWithRax calls an entry of the runtime with the value in rax as its one argument.
+// callRuntimeWithRax calls an entry of the runtime with the value in rax as its one argument, and leaves its result in rax.
 function callRuntimeWithRax(mutates u CodeUnit, entry ir.Rt)
-	u.asm.push(rax)
+	u.asm.mov(argWord(), src: rax)
 	u.asm.callSymbol(ir.rtSymbol(entry))
-	u.asm.addImm(rsp, imm: wordBytes)
+	takeResult(u)
 end 'callRuntimeWithRax'
 
-// routinePrologue starts a routine that keeps a number of words of its own below the frame pointer. A routine is called once for
-// each level of a nested value, so a tree that is deep enough would use up the stack: a routine reserves only what it uses.
+// takeResult moves what a call returned into rax.
+function takeResult(mutates u CodeUnit)
+	u.asm.mov(rax, src: resultWord())
+end 'takeResult'
+
+// routinePrologue starts a routine that keeps its argument and a number of words of its own below the frame pointer. A
+// routine is called once for each level of a nested value, so a tree that is deep enough would use up the stack: a
+// routine reserves only what it uses.
 function routinePrologue(mutates u CodeUnit, locals Count)
 	u.asm.push(rbp)
 	u.asm.mov(rbp, src: rsp)
-	if locals > 0 'locals'
-		u.asm.subImm(rsp, imm: imm32Of(try locals * wordBytes otherwise panic("a routine with locals past memory")))
-	end 'locals'
+	u.asm.subImm(rsp, imm: imm32Of(try (locals + 1) * wordBytes otherwise panic("a routine with locals past memory")))
+	u.asm.store(rbp, disp: routineArg, src: argWord())
 end 'routinePrologue'
 
 function routineEpilogue(mutates u CodeUnit)
@@ -260,6 +275,12 @@ function routineEpilogue(mutates u CodeUnit)
 	u.asm.pop(rbp)
 	u.asm.ret()
 end 'routineEpilogue'
+
+// routineReturn ends a copy routine, which returns the new value that rax holds.
+function routineReturn(mutates u CodeUnit)
+	u.asm.mov(resultWord(), src: rax)
+	routineEpilogue(u)
+end 'routineReturn'
 
 // freeArgument gives back the box that the routine's argument is.
 function freeArgument(mutates u CodeUnit)
@@ -470,13 +491,11 @@ function dropClosure(mutates u CodeUnit)
 	routinePrologue(u, locals: 0)
 	returnIfEmpty(u, done: done)
 	leaveUnlessLast(u, countOffset: closureCountOffset, done: done)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: imm32Of(closureDropOffset))
+	u.asm.load(argWord(), base: rbp, disp: routineArg)
+	u.asm.load(rax, base: argWord(), disp: imm32Of(closureDropOffset))
 	u.asm.test(rax, right: rax)
 	u.asm.jcc(X64CondCode.equal, label: release)
-	u.asm.push(rcx)
 	u.asm.callRegister(rax)
-	u.asm.addImm(rsp, imm: wordBytes)
 	u.asm.bind(release)
 	freeArgument(u)
 	u.asm.bind(done)
@@ -533,12 +552,10 @@ function dropCown(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 	u.asm.load(rax, base: rbp, disp: routineLocal1)
 	u.asm.test(rax, right: rax)
 	u.asm.jcc(X64CondCode.equal, label: dropped)
-	u.asm.load(rcx, base: rbp, disp: routineLocal0)
-	u.asm.test(rcx, right: rcx)
+	u.asm.load(argWord(), base: rbp, disp: routineLocal0)
+	u.asm.test(argWord(), right: argWord())
 	u.asm.jcc(X64CondCode.equal, label: done)
-	u.asm.push(rcx)
 	u.asm.callRegister(rax)
-	u.asm.addImm(rsp, imm: wordBytes)
 	u.asm.jmp(done)
 	u.asm.bind(dropped)
 	let held = heldType(ms.types, reads: p.types, owner: ty)
@@ -564,10 +581,9 @@ function dropInterfaceValue(mutates u CodeUnit)
 	returnIfEmpty(u, done: done)
 	u.asm.load(rcx, base: rbp, disp: routineArg)
 	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceValueOffset))
-	u.asm.push(rdx)
 	tableEntryAddress(u, entry: tableDropEntry)
+	u.asm.mov(argWord(), src: rdx)
 	u.asm.callRegister(rax)
-	u.asm.addImm(rsp, imm: wordBytes)
 	freeArgument(u)
 	u.asm.bind(done)
 	routineEpilogue(u)
@@ -583,14 +599,14 @@ function copyInterfaceValue(mutates u CodeUnit)
 	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceTableOffset))
 	u.asm.store(rax, disp: imm32Of(ifaceTableOffset), src: rdx)
 	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceValueOffset))
-	u.asm.push(rdx)
 	tableEntryAddress(u, entry: tableCopyEntry)
+	u.asm.mov(argWord(), src: rdx)
 	u.asm.callRegister(rax)
-	u.asm.addImm(rsp, imm: wordBytes)
+	takeResult(u)
 	u.asm.load(rcx, base: rbp, disp: routineLocal0)
 	u.asm.store(rcx, disp: imm32Of(ifaceValueOffset), src: rax)
 	u.asm.mov(rax, src: rcx)
-	routineEpilogue(u)
+	routineReturn(u)
 end 'copyInterfaceValue'
 
 // emitTable writes the table of an interface value, a section of code of an entry for each of its routines and methods:
@@ -620,12 +636,12 @@ export function emitTable(mutates u CodeUnit, p ast.Project, mutates ms ast.Modu
 	end 'uncopied' else if managed 'copy'
 		u.asm.jmpSymbol(u.needed.symbol(p, ms: ms, kind: RoutineKind.copyRoutine, ty: t.concrete))
 	end 'copy' else 'same'
-		u.asm.load(rax, base: rsp, disp: imm32Of(wordBytes))
+		u.asm.mov(resultWord(), src: argWord())
 		u.asm.ret()
 	end 'same'
 	padEntry(u, start: start)
 	start = u.asm.pos()
-	u.asm.leaSymbol(rax, symbol: typeSymbol)
+	u.asm.leaSymbol(resultWord(), symbol: typeSymbol)
 	u.asm.ret()
 	padEntry(u, start: start)
 	for i in 0 upto t.methods.count() 'methods'
@@ -654,7 +670,7 @@ function copyShared(mutates u CodeUnit, countOffset Count)
 	u.asm.load(rax, base: rbp, disp: routineArg)
 	u.asm.movImm(rcx, imm: ownerJoins)
 	u.asm.lockXadd(rax, disp: imm32Of(countOffset), src: rcx)
-	routineEpilogue(u)
+	routineReturn(u)
 end 'copyShared'
 
 // emitCaptureDrop writes the routine that drops what a closure of the body owns, which the last function value that shares
@@ -682,16 +698,26 @@ export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms
 	u.beginSection()
 	u.defineFunction(symbol, instance: instance)
 	routinePrologue(u, locals: 0)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	for i in 0 upto body.paramCount 'params'
-		u.asm.load(rax, base: rcx, disp: imm32Of(try start + i * wordBytes otherwise panic("routines: a behaviour past memory")))
-		if i < cowns 'cown'
-			u.asm.addImm(rax, imm: imm32Of(cownValueOffset))
-		end 'cown'
-		u.asm.push(rax)
-	end 'params'
+	let inRegisters = argsInRegisters(ConventionKind.internal, count: body.paramCount)
+	let scratch = regMaskOf(thunkBase) or regMaskOf(thunkWord)
+	if (scratch and (regsOfArgs(inRegisters) or not x64InternalCallerSaved())) != 0 'scratch'
+		panic("routines: a thunk's scratch register passes an argument or is one a call keeps")
+	end 'scratch'
+	u.asm.load(thunkBase, base: rbp, disp: routineArg)
+	var w = body.paramCount
+	while w > inRegisters 'stack'
+		w = prevCount(w)
+		loadBehaviourWord(u, into: thunkWord, start: start, index: w, cowns: cowns)
+		u.asm.push(thunkWord)
+	end 'stack'
+	for i in 0 upto inRegisters 'registers'
+		loadBehaviourWord(u, into: argRegister(ConventionKind.internal, index: i), start: start, index: i, cowns: cowns)
+	end 'registers'
 	u.asm.callSymbol(bodySymbol)
-	u.asm.addImm(rsp, imm: imm32Of(try body.paramCount * wordBytes otherwise panic("routines: a behaviour past memory")))
+	let pushed = try body.paramCount - inRegisters otherwise panic("routines: more arguments in registers than a body takes")
+	if pushed > 0 'pop'
+		u.asm.addImm(rsp, imm: imm32Of(try pushed * wordBytes otherwise panic("routines: a behaviour past memory")))
+	end 'pop'
 	u.asm.load(rax, base: rbp, disp: routineArg)
 	callRuntimeWithRax(u, entry: ir.Rt.rtCownRelease)
 	for i in 0 upto cowns 'holds'
@@ -702,6 +728,24 @@ export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms
 	freeArgument(u)
 	routineEpilogue(u)
 end 'emitBehaviourThunk'
+
+// loadBehaviourWord loads into a register the word of a behaviour's record, which thunkBase holds, that is the body's
+// argument at index: the address of the value of each cown, and then each capture.
+function loadBehaviourWord(mutates u CodeUnit, into X64Register, start Count, index Count, cowns Count)
+	u.asm.load(into, base: thunkBase, disp: imm32Of(try start + index * wordBytes otherwise panic("routines: a behaviour past memory")))
+	if index < cowns 'cown'
+		u.asm.addImm(into, imm: imm32Of(cownValueOffset))
+	end 'cown'
+end 'loadBehaviourWord'
+
+// regsOfArgs are the registers of the first count arguments of the internal convention.
+function regsOfArgs(count Count) returns RegMask
+	var mask = 0 as RegMask
+	for i in 0 upto count 'args'
+		mask = mask or regMaskOf(argRegister(ConventionKind.internal, index: i))
+	end 'args'
+	return mask
+end 'regsOfArgs'
 
 // jumpIfImmortal jumps when the string that the argument is lives in the executable's data section, which no one frees:
 // its address is between the bounds the linker defines. A string on the heap is never there.
@@ -759,7 +803,7 @@ function copyRecord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleStat
 		copyWord(u, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
 	end 'fields'
 	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	routineEpilogue(u)
+	routineReturn(u)
 end 'copyRecord'
 
 // copyUnion makes a box for the case the value holds, sized for its payload as lowering sizes it.
@@ -792,7 +836,7 @@ function copyUnion(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	end 'cases'
 	u.asm.bind(done)
 	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	routineEpilogue(u)
+	routineReturn(u)
 end 'copyUnion'
 
 // copyArray makes a header and a buffer of exactly the length, with a copy of each element.
@@ -850,7 +894,7 @@ function copyArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	u.asm.jmp(top)
 	u.asm.bind(done)
 	u.asm.load(rax, base: rbp, disp: header)
-	routineEpilogue(u)
+	routineReturn(u)
 end 'copyArray'
 
 // copyString is a new string with the same length and bytes, unless the string is in the executable: that one is never
@@ -870,10 +914,10 @@ function copyString(mutates u CodeUnit)
 	u.asm.addImm(rcx, imm: wordBytes)
 	u.asm.repMovsb()
 	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	routineEpilogue(u)
+	routineReturn(u)
 	u.asm.bind(immortal)
 	u.asm.load(rax, base: rbp, disp: routineArg)
-	routineEpilogue(u)
+	routineReturn(u)
 end 'copyString'
 
 function copyBytes(mutates u CodeUnit)
@@ -904,5 +948,5 @@ function copyBytes(mutates u CodeUnit)
 	u.asm.repMovsb()
 	u.asm.bind(done)
 	u.asm.load(rax, base: rbp, disp: header)
-	routineEpilogue(u)
+	routineReturn(u)
 end 'copyBytes'

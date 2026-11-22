@@ -939,12 +939,9 @@ function rule30(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bo
 	return true
 end 'rule30'
 
-// x64.rules:31: (loadParam [k]) => (LoadRegBaseDisp r rbp [paramDisp(fn, index: k)])
+// x64.rules:31: (loadParam) => (emitLoadParam)
 function rule31(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	let vK = ir.loadParamParam(ins)
-	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newTarget(X64Form.loadRegBaseDisp, a: t1, b: physReg(X64Register.rbp), c: noMReg, aux: try (paramDisp(fn, index: vK)) as Imm32 otherwise panic("backend: a value of x64.rules:31 does not fit Imm32"), imm: 0)
-	sel.emit(mi2)
+	emitLoadParam(sel, fn: fn, ins: ins)
 	return true
 end 'rule31'
 

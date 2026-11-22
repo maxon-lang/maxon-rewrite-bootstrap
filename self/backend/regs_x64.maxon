@@ -32,7 +32,7 @@ end 'classMask'
 
 // reservedMask are the registers that hold the stack and the frame, which no value is given.
 function reservedMask() returns RegMask
-	return regMaskOf(X64Register.rsp) or regMaskOf(X64Register.rbp)
+	return x64Reserved()
 end 'reservedMask'
 
 // allocatable is the registers of a class that a value may be given.
@@ -56,84 +56,129 @@ function generalRegister(r MReg) returns X64Register
 	return x64RegisterOf(number)
 end 'generalRegister'
 
-// ConventionKind is the calling convention of a call: the compiler's own for Maxon functions, Win64 for a DLL import.
+// ConventionKind is the calling convention of a call: the compiler's own for Maxon functions, the host's (Win64) for a
+// DLL import. The registers of each are the target table's (regs_x64_gen.maxon).
 enum ConventionKind
 	internal
-	win64
+	host
 end 'ConventionKind'
 
-// CallConvention is where a convention passes values and what a call keeps. Arguments that are not in args go on the
-// stack, pushed in order.
+// argRegisterCount is how many arguments a convention passes in registers.
+function argRegisterCount(kind ConventionKind) returns Count
+	return match kind 'kind'
+		internal gives x64InternalArgCount
+		host gives x64HostArgCount
+	end 'kind'
+end 'argRegisterCount'
+
+// argRegister is the register of an argument that a convention passes in one.
+function argRegister(kind ConventionKind, index Count) returns X64Register
+	return match kind 'kind'
+		internal gives x64InternalArg(index)
+		host gives x64HostArg(index)
+	end 'kind'
+end 'argRegister'
+
+// argsInRegisters is how many of a call's arguments, count of them, a convention passes in registers.
+function argsInRegisters(kind ConventionKind, count Count) returns Count
+	let registers = argRegisterCount(kind)
+	return count if count < registers else registers
+end 'argsInRegisters'
+
+// resultRegister is the register of a call's result.
+function resultRegister(kind ConventionKind) returns X64Register
+	return match kind 'kind'
+		internal gives x64InternalResult
+		host gives x64HostResult
+	end 'kind'
+end 'resultRegister'
+
+// argWord is the register of the first argument of the internal convention: the one argument of the routines and the
+// runtime entries that the routines and the entry stub call.
+function argWord() returns X64Register
+	return argRegister(ConventionKind.internal, index: 0)
+end 'argWord'
+
+// resultWord is the register of the result of the internal convention.
+function resultWord() returns X64Register
+	return resultRegister(ConventionKind.internal)
+end 'resultWord'
+
+// CallConvention is what a call of a convention reads and keeps. Arguments past its registers go on the stack, the
+// first of them nearest the return address.
 type CallConvention
-	export var args as MRegList
-	export var result as RegNum
-	export var error as RegNum
+	// argMasks are, for each number of arguments in registers, the registers that hold them, which the call reads.
+	export var argMasks as RegMaskList
 	// clobbered are the registers a call leaves holding nothing, and calleeSaved the ones it keeps.
 	export var clobbered as RegMask
 	export var calleeSaved as RegMask
 
-	static function make(consumes args MRegList, result RegNum, error RegNum, calleeSaved RegMask) returns CallConvention
+	static function make(kind ConventionKind, calleeSaved RegMask) returns CallConvention
+		var masks = RegMaskList.create(0)
+		var held = 0 as RegMask
+		masks.push(held)
+		for i in 0 upto argRegisterCount(kind) 'args'
+			held = held or regMaskOf(argRegister(kind, index: i))
+			masks.push(held)
+		end 'args'
 		let all = allocatable(RegClass.gpr) or allocatable(RegClass.xmm)
-		return CallConvention{args: args, result: result, error: error, clobbered: all and not calleeSaved, calleeSaved: calleeSaved}
+		return CallConvention{argMasks: masks, clobbered: all and not calleeSaved, calleeSaved: calleeSaved}
 	end 'make'
 end 'CallConvention'
 
-// conventionOf is a convention's table. The internal one is today's: every argument on the stack, the result in rax
-// and the error in rdx, and nothing kept, so a value lives across a call only in the frame.
+// conventionOf is a convention's table.
 function conventionOf(kind ConventionKind) returns CallConvention
 	return match kind 'kind'
-		internal gives internalConvention(0)
-		win64 gives CallConvention.make(win64Args(), result: regNumOf(X64Register.rax), error: regNumOf(X64Register.rdx), calleeSaved: win64CalleeSaved())
+		internal gives CallConvention.make(kind, calleeSaved: x64InternalCalleeSaved())
+		host gives CallConvention.make(kind, calleeSaved: x64HostCalleeSaved())
 	end 'kind'
 end 'conventionOf'
-
-// internalConvention is the internal convention keeping calleeSaved across a call.
-function internalConvention(calleeSaved RegMask) returns CallConvention
-	return CallConvention.make(MRegList.create(0), result: regNumOf(X64Register.rax), error: regNumOf(X64Register.rdx), calleeSaved: calleeSaved)
-end 'internalConvention'
-
-function win64Args() returns MRegList
-	var args = MRegList.create(0)
-	args.push(physReg(X64Register.rcx))
-	args.push(physReg(X64Register.rdx))
-	args.push(physReg(X64Register.r8))
-	args.push(physReg(X64Register.r9))
-	return args
-end 'win64Args'
-
-// win64FirstKeptXmm is the first xmm register a Win64 callee keeps: xmm6 to xmm15 survive a call.
-let win64FirstKeptXmm = 6
-
-function win64CalleeSaved() returns RegMask
-	var kept = regMaskOf(X64Register.rbx) or regMaskOf(X64Register.rsi) or regMaskOf(X64Register.rdi)
-	kept = kept or regMaskOf(X64Register.r12) or regMaskOf(X64Register.r13) or regMaskOf(X64Register.r14) or regMaskOf(X64Register.r15)
-	let firstKept = try (x64FirstVector + win64FirstKeptXmm) as RegNum otherwise panic("backend: a register file past a mask")
-	return kept or (classMask(RegClass.xmm) and not (regBit(firstKept) - 1))
-end 'win64CalleeSaved'
 
 // Conventions are the tables of both conventions, which the allocator makes once.
 export type Conventions
 	var internal as CallConvention
-	var win64 as CallConvention
+	var host as CallConvention
 
 	export static function make() returns Conventions
-		return Conventions{internal: conventionOf(ConventionKind.internal), win64: conventionOf(ConventionKind.win64)}
+		return Conventions{internal: conventionOf(ConventionKind.internal), host: conventionOf(ConventionKind.host)}
 	end 'make'
 
-	// keeping is the conventions with an internal one that keeps calleeSaved across a call, as the convention to come
-	// will keep rbx and r12 to r15, for the allocator's tests.
+	// keeping is the conventions with an internal one that keeps calleeSaved across a call instead of the target's
+	// callee-saved registers, for the allocator's tests.
 	export static function keeping(calleeSaved RegMask) returns Conventions
-		return Conventions{internal: internalConvention(calleeSaved), win64: conventionOf(ConventionKind.win64)}
+		return Conventions{internal: CallConvention.make(ConventionKind.internal, calleeSaved: calleeSaved), host: conventionOf(ConventionKind.host)}
 	end 'keeping'
 end 'Conventions'
 
 // callConvention is the convention of a call instruction: a call through an import's slot is a DLL's.
 function callConvention(x MInstr) returns ConventionKind
 	if x.ref == MRef.importSlot 'import'
-		return ConventionKind.win64
+		return ConventionKind.host
 	end 'import'
 	return ConventionKind.internal
 end 'callConvention'
+
+// A call instruction's imm is how many of its arguments are in its convention's registers, which it reads.
+
+// newCall is a call of a form whose last field refers to ref and aux (none for a call through a register, a), passing
+// inRegisters arguments in the registers of its convention.
+export function newCall(form X64Form, a MReg, ref MRef, aux Imm32, inRegisters Count) returns MInstr
+	var x = newReferring(form, a: a, ref: ref, aux: aux)
+	x.imm = try inRegisters as FullRangeInt otherwise panic("backend: a call past its registers")
+	return x
+end 'newCall'
+
+// callUses are the argument registers a call reads.
+function callUses(x MInstr, convs Conventions) returns RegMask
+	if not isCall(x.form) 'other'
+		return 0
+	end 'other'
+	let n = try x.imm as Count otherwise panic("backend: a call's count of register arguments below 0")
+	return match callConvention(x) 'kind'
+		internal gives convs.internal.argMasks[n]
+		host gives convs.host.argMasks[n]
+	end 'kind'
+end 'callUses'
 
 // isUnconditionalJump is whether a branch along an edge always takes it, so the edge's copies can go before it.
 function isUnconditionalJump(x MInstr) returns bool
@@ -204,7 +249,7 @@ end 'commutes'
 // registers a return reads.
 function implicitUses(x MInstr, convs Conventions, canThrow bool) returns RegMask
 	return match x.kind 'kind'
-		target gives fixedUses(x.form) or returnUses(x, conv: convs.internal, canThrow: canThrow)
+		target gives fixedUses(x.form) or returnUses(x, canThrow: canThrow) or callUses(x, convs: convs)
 		copy or
 		reload or
 		spill or
@@ -215,14 +260,14 @@ function implicitUses(x MInstr, convs Conventions, canThrow bool) returns RegMas
 	end 'kind'
 end 'implicitUses'
 
-function returnUses(x MInstr, conv CallConvention, canThrow bool) returns RegMask
+function returnUses(x MInstr, canThrow bool) returns RegMask
 	if not isReturn(x.form) 'other'
 		return 0
 	end 'other'
 	if canThrow 'error'
-		return regBit(conv.result) or regBit(conv.error)
+		return regMaskOf(x64InternalResult) or regMaskOf(x64InternalError)
 	end 'error'
-	return regBit(conv.result)
+	return regMaskOf(x64InternalResult)
 end 'returnUses'
 
 // implicitDefs are the registers an instruction writes that no operand names: a form's fixed results and clobbers,
@@ -252,7 +297,7 @@ function callClobbers(x MInstr, convs Conventions) returns RegMask
 	end 'other'
 	return match callConvention(x) 'kind'
 		internal gives convs.internal.clobbered
-		win64 gives convs.win64.clobbered
+		host gives convs.host.clobbered
 	end 'kind'
 end 'callClobbers'
 
@@ -260,7 +305,7 @@ end 'callClobbers'
 function keptBy(x MInstr, convs Conventions) returns RegMask
 	return match callConvention(x) 'kind'
 		internal gives convs.internal.calleeSaved
-		win64 gives convs.win64.calleeSaved
+		host gives convs.host.calleeSaved
 	end 'kind'
 end 'keptBy'
 

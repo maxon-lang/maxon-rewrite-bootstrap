@@ -199,7 +199,7 @@ type Operands
 		end 'edge'
 		// The stack and frame pointers are never a value's, so nothing counts them as held.
 		let form = x.form.rawValue as Count
-		physReads = physReads or ((usesOfForm[form] or returnUses(x, conv: convs.internal, canThrow: fn.canThrow)) and not reserved)
+		physReads = physReads or ((usesOfForm[form] or returnUses(x, canThrow: fn.canThrow) or callUses(x, convs: convs)) and not reserved)
 		physWrites = physWrites or ((writesOfForm[form] or callClobbers(x, convs: convs)) and not reserved)
 	end 'gatherTarget'
 

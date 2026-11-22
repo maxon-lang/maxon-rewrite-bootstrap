@@ -46,7 +46,7 @@ end 'mirCopyIn'
 
 // mirReturn returns a value in the internal convention's result register.
 function mirReturn(mutates fn backend.MirFunction, value backend.MReg)
-	mirCopyIn(fn, dst: backend.X64Register.rax, src: value)
+	mirCopyIn(fn, dst: backend.x64InternalResult, src: value)
 	fn.emit(backend.newFrameTeardown())
 	mirOp(fn, form: backend.X64Form.ret, a: backend.noMReg, b: backend.noMReg, c: backend.noMReg, imm: 0)
 end 'mirReturn'
@@ -129,13 +129,12 @@ end 'mirLoop'
 
 let mirDoubleSymbol = "mir.double"
 
-// mirDouble gives twice its one argument, which the internal convention passes on the stack.
+// mirDouble gives twice its one argument, which the internal convention passes in its first argument register.
 function mirDouble() returns backend.MirFunction
 	var fn = backend.MirFunction.new(mirDoubleSymbol, canThrow: false)
 	_ = fn.startBlock()
 	fn.emit(backend.newFrameSetup())
-	let x = mirGpr(fn)
-	fn.emit(backend.newTarget(backend.X64Form.loadRegBaseDisp, a: x, b: mirPhys(backend.X64Register.rbp), c: backend.noMReg, aux: 16, imm: 0))
+	let x = mirCopyOut(fn, src: backend.x64InternalArg(0))
 	let returned = mirAdd(fn, left: x, right: x)
 	mirReturn(fn, value: returned)
 	fn.endBlock()
@@ -148,12 +147,7 @@ function mirCalling(symbol String) returns backend.MirFunction
 	_ = fn.startBlock()
 	fn.emit(backend.newFrameSetup())
 	let v = mirConst(fn, value: 21)
-	mirOp(fn, form: backend.X64Form.pushReg, a: v, b: backend.noMReg, c: backend.noMReg, imm: 0)
-	let callee = fn.addSymbol(mirDoubleSymbol)
-	fn.emit(backend.newReferring(backend.X64Form.callRel32, a: backend.noMReg, ref: backend.MRef.symbol, aux: callee))
-	let rsp = mirPhys(backend.X64Register.rsp)
-	mirOp(fn, form: backend.chooseAddRegImm(8), a: rsp, b: rsp, c: backend.noMReg, imm: 8)
-	let doubled = mirCopyOut(fn, src: backend.X64Register.rax)
+	let doubled = mirCallDouble(fn, value: v)
 	let total = mirAdd(fn, left: doubled, right: v)
 	let returned = mirDef(fn, form: backend.chooseSubRegImm(21), b: total, c: backend.noMReg, imm: 21)
 	mirReturn(fn, value: returned)

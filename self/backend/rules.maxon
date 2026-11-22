@@ -7,9 +7,6 @@ let roundDown = 1 as Imm8
 
 let roundUp = 2 as Imm8
 
-// The arguments of a call are the words above the return address and the saved frame pointer.
-let paramBase = 16
-
 // fitsImm32 is whether a word is the sign extension of a 32-bit immediate, which the forms with one hold.
 function fitsImm32(c ir.Word) returns bool
 	return c >= imm32Min and c <= imm32Max
@@ -19,13 +16,6 @@ end 'fitsImm32'
 function slotDisp(slot Count) returns Imm32
 	return spillSlotOffset(try slot as SpillSlot otherwise panic("backend: a slot past 2 GiB"))
 end 'slotDisp'
-
-// paramDisp is where a parameter of f sits above the frame pointer: the arguments are pushed left to right, so the last
-// is nearest.
-function paramDisp(f ir.IrFunction, index Count) returns Imm32
-	let after = try f.paramCount - 1 - index otherwise panic("backend: a parameter that the function lacks")
-	return imm32Of(try paramBase + wordBytes * after otherwise panic("backend: a parameter past memory"))
-end 'paramDisp'
 
 // cmpCondition is the condition code that holds when a comparison does.
 function cmpCondition(x ir.Instr) returns X64CondCode

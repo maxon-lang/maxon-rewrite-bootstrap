@@ -264,7 +264,7 @@ layering cannot erode:
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, what its arithmetic computes (`evaluate_gen.maxon`, generated from the IR table: `evalBin`, `evalCmp`, `evalGuard` and the rest, one per operation that computes a word from its operands, which the interpreter and the fold pass both call; `evaluate.maxon` has the algorithms the table names: the 64-bit wraps, the wide product, the shifts, the overflow tests and the float conversions), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters) and the fold pass (`Fold`, `self/opt/fold.maxon`), which `optimizeModule` (`self/opt/optimizer.maxon`) runs in that order on every function a native build compiles | `ir` |
-| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
+| `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -288,6 +288,7 @@ run.
 | `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv`, `self/driver/skips.tsv` (the code pairs `fix specs` skips; it names codes of the first) | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon`, `self/driver/skips_gen.maxon` |
 | `internal/irgen` | `internal/irgen/irtable/table.go` and `semantics.go` | `self/ir/ir_gen.maxon`, `self/ir/evaluate_gen.maxon` |
 | `internal/x64gen` | `internal/x64gen/x64table/table.go` | `self/backend/x64_gen.maxon` |
+| `internal/targetgen` | `internal/targetgen/target/target.go`: each target's register file (names, encodings, classes), reserved registers and calling conventions (the internal one and the host's: argument registers in order, result, error flag, callee-saved and caller-saved), checked to split the register file; `x64table` takes its registers from it | `self/backend/regs_x64_gen.maxon` (`x64Reserved`, `x64InternalArg`, `x64InternalResult`, `x64InternalError`, `x64InternalCalleeSaved`, the `x64Host...` ones for Win64, `x64StackAlignment`) |
 | `internal/rulegen` | `internal/rulegen/generic.rules` and `internal/rulegen/x64.rules`, checked against the IR table and the x64 rules against the instruction table | `self/opt/rewrite_gen.maxon`, `self/backend/lower_x64_gen.maxon` |
 | `internal/abigen` | `internal/abigen/table.go`, `internal/abigen/imports.go` (the kernel32 functions of the import table, in slot order; a test checks that every name the runtime and the entry stub call is listed) | `runtime/layout_gen.maxon`, `self/ir/layout_gen.maxon`, `self/backend/layout_gen.maxon`, `self/backend/imports_gen.maxon` (`rtDll`, a slot constant `imp<Name>` for each import, `rtImports`) |
 | `internal/textgen` | `internal/textgen/ucd/*.txt` (Unicode 16.0.0) | `runtime/unicode_gen.maxon`, `self/interp/unicode_gen.maxon` |
@@ -837,9 +838,12 @@ Native code goes from the IR, in SSA form, to machine IR (see "The machine IR") 
 `internal/rulegen/x64.rules` and the helpers of `self/backend/isel.maxon` write; register allocation then spills where the
 registers do not suffice, refusing a hot loop that needs more registers than the target has (E5001), and gives every
 virtual register a register (see "The machine IR"). A frame larger than a page touches each page as it grows, as Windows
-requires. Calls use an internal convention:
-arguments are pushed left to right and the caller pops them. The Win64 ABI applies only to the DLL imports that the runtime calls
-(`import`).
+requires. Calls use the internal convention of the target table (`internal/targetgen`, maxon's): the integer arguments
+in `rcx`, `rdx`, `rax`, `r9`, `rsi` and `rdi`, the rest pushed right to left, so that the first of them is nearest the
+return address, which the caller pops; the result in `r8` and the error flag of a function that throws in `r10`; `rbx`,
+`r12` to `r15` and `xmm6` to `xmm15` are callee-saved, and a function saves in its frame those it uses. A function copies
+its parameters out of the argument registers in its prologue (`Selector.takeParams`), and reads one passed on the stack
+from the frame. The Win64 ABI applies only to the DLL imports that the runtime calls (`import`).
 
 Records and union values are heap boxes of 8-byte words (a union's first word is its case index), allocated with `HeapAlloc` on
 the process heap (`runtime::alloc`) and freed with `HeapFree` (`runtime::free`) where their owner dies (see "Drops"); a box is
@@ -993,9 +997,9 @@ a function is named as a value; a static, immortal box for it would save that an
 and its number among the bodies (`main$fn0`). It takes the closure first and its parameters after it, and reads what it
 captured from the closure (`field %c+24`), which keeps it for every call: a capture is a borrow in the body, and one that a
 mutating closure changes is the address of the variable, which the body reads and writes through as it does a `mutates`
-parameter. Arguments are
-pushed left to right, so the closure is the farthest from the return address, and the code of a named function, which
-takes only its parameters, never reaches it: `callvalue` needs no case for it, and the interpreter skips it for one.
+parameter. Native code passes the closure last (`emitCallValue`, and `paramPosition` in the body), after the arguments in
+the registers or farthest from the return address on the stack, so the code of a named function, which takes only its
+parameters, never reaches it: `callvalue` needs no case for it, and the interpreter skips it for one.
 
 Copying a function value (`copy %s F`, which `clone()`, a consumed place of a function type and the copy of what holds one are) adds 1 to the count and gives the
 same box; dropping one subtracts 1, and the last runs the closure's drop routine and frees the box. Every function type has
@@ -1217,8 +1221,9 @@ function's `symbols`, a data offset, an import), which the encoder turns into th
 of the backend. `regs_x64.maxon` holds the constraints the allocator reads, never the encodings: `operandCount`,
 `defines`, `reuses`, `implicitUses` (a form's fixed uses, and the result registers at a return) and `implicitDefs` (fixed
 results, clobbers and a call's convention), the register file's masks (`classMask`, `allocatable`, `reservedMask`) and the
-calling conventions (`CallConvention`: argument, result and error registers, and what a call keeps): today's internal
-one (every argument on the stack, the result in rax and the error in rdx, nothing kept) and Win64 for an import.
+calling conventions (`CallConvention`: the argument registers a call reads, and what it keeps), built from the
+target table's declarations (`regs_x64_gen.maxon`): the internal one and Win64 for an import. A call's `imm` is how many
+of its arguments are in its convention's registers, which `implicitUses` counts as read by it (`newCall`).
 
 `emitModule` allocates each function it selects with an `Allocator` the module's functions share (`regalloc.maxon`):
 spilling, then colouring, below. The frame holds, from the frame pointer down, the slots given before allocation
@@ -1262,10 +1267,10 @@ colouring then finishes and which run.
   (live across it, neither defined nor read on its hot path), farthest next use first, outermost loop first, so a value
   that only an outer loop reads leaves the inner loop and is reloaded in the outer one; (2) constants over a hot point
   are made again before their uses, but one the next instruction reads, which would be made again at the same point;
-  (3) on a hot path, a value live across a call whose convention keeps no register of its class is spilled at the call,
-  or at a point over the whole pool before the call where its next use is past it (a later call in the loop, by the
-  layout): it is in memory across the call whatever the program does, so that spill code costs nothing the call does not
-  and is no reason to refuse; (4) the E5001 test; (5) everywhere, a point still over its free registers spills by
+  (3) on a hot path, the values live across a call past the registers of their class its convention keeps are spilled
+  at the call, or at a point over the whole pool before the call where their next use is past it (a later call in the
+  loop, by the layout) while more of them are in registers than the call keeps: they are in memory across the call
+  whatever the program does, so that spill code costs nothing the call does not and is no reason to refuse; (4) the E5001 test; (5) everywhere, a point still over its free registers spills by
   farthest next use, constants first, then values already stored or defined outside the loop; in a cold block, a value
   live across a call, or one the loop's hot path reads, is bracketed instead: stored before the point and restored into
   its own register after it, which lends its register to the instructions between, so the hot path keeps it.
@@ -1348,9 +1353,9 @@ from the study's kernels, ours from the same shapes in machine IR): a counted lo
 seven accumulators with the counter, the bound and the half, ten live, 7 moves, one per shift of an accumulator that lives
 on (Maxon 12, Go 4); the branchy loop 1 move on each arm, the test of the counter's bit (Maxon 4 and 7, Go 4 and 6); a
 division and a variable shift 2 moves; two parameters that swap at the back edge 3; a call with 2, 4 and 8 values live
-across it under a convention keeping five callee-saved registers 0, 0 and 5 stack operations with 0, 0 and 2 moves (Maxon 0,
-0 and 6 stack operations, 3, 5 and 14 moves), and under today's internal convention, which keeps nothing, 3, 7 and 15 stack
-operations.
+across it under the internal convention, which keeps five callee-saved registers, 0, 0 and 5 stack operations with 1, 1
+and 3 moves, the one the copy of the argument into its register (Maxon 0, 0 and 6 stack operations, 3, 5 and 14 moves), and
+under a convention that keeps nothing 3, 7 and 15 stack operations.
 
 Against the trivial allocator that every build used before (a frame slot per virtual register), the programs of
 `tests/bench` have 42 to 44% less code and run 1.0 to 2.9 times as fast (the counted loop is the division's), the
@@ -1362,7 +1367,10 @@ allocating, against about 0.9 s for the whole emit stage before, which the faste
 The runtime is Maxon source: the `runtime/` directory at the repository root, beside `self/`, one module that is compiled
 with every program, so a change to it is tested by the next compile with no rebuild of the compiler. Only what is derived from
 the program's types stays compiler-emitted: the drop and copy routines and the entry stub (`self/backend/routines.maxon`,
-`entry.maxon`). `runtime/README.md` lists the files and the rules a runtime file follows.
+`entry.maxon`). Both are written in x64 by the internal convention: a routine takes its value in the first argument
+register, which its prologue stores in its frame, returns a copy in the result register, and works only in registers a
+call may leave holding anything, so it saves none; the stub passes `main`'s exit code to `schedDrain` and `checkLeaks`,
+and their results on, in the same registers. `runtime/README.md` lists the files and the rules a runtime file follows.
 
 **Where it is found.** As maxon finds its library tiers: walking up from the compiler's executable, the first directory
 that holds a `runtime/` directory (`project.runtimeDirectory`), so a compiler built in a checkout uses the checkout's and an
@@ -1410,8 +1418,8 @@ atomic operation and `spinpause` reads and writes memory, so no pass moves a loa
 load is an acquire and a plain store a release, so these are all the scheduler needs. The interpreter never runs the
 runtime's source, so it panics on each of them. The wrapping arithmetic is an unchecked `bin`, `addressOf`
 the `addr` of the local's slot, and `stringAddress` and `stringAt` the word itself. `self/backend` writes them
-(`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, and `visitCallImport`, which aligns the stack itself, since a Maxon
-function's frame is not aligned, and keeps `rsp` in `rbx`, which the callee preserves, saving `rbx` first).
+(`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, and `emitCallImport`, which aligns the stack itself, since a Maxon
+function's frame is not aligned, and keeps `rsp` in a value that allocation puts in a register Win64 keeps).
 
 **From an entry to a function.** The runtime entries the compiler calls are the rows of the table's `entries`
 (`ir.Rt`), and `runtimeFunctions` names the function of `runtime/` that defines each one with its signature
@@ -1419,10 +1427,10 @@ function's frame is not aligned, and keeps `rsp` in `rbx`, which the callee pres
 `ir.rtSymbol`, which gives a mapped entry its function's link name (`runtime::alloc`) and an entry that
 the stub or the linker defines its own symbol (`rt.entry`, `g.heap`); the linker resolves `rtSymbol(x)` by that text as
 it does any call. The two calling conventions are one by construction: a `callruntime` and a `call` of a Maxon function
-are both selected by one helper, `Selector.callWith` (`self/backend/isel.maxon`), which pushes the words left to right, calls and pops them, and the callee reads
-parameter `i` at `rbp + 16 + 8 * (count - 1 - i)` and returns in `rax`. So a runtime function takes only words (an
-integer, a `bool`, a `String` as its box address), takes none `mutates`, is not generic and throws nothing, since a
-function that throws returns its error in `rdx` too. `minimaxon check runtime` holds the runtime to the table: each
+are both selected by one helper, `Selector.callWith` (`self/backend/isel.maxon`), which passes the words by the internal
+convention, and the callee returns in `r8`. So a runtime function takes only words (an integer, a `bool`, a `String` as
+its box address), takes none `mutates`, is not generic and throws nothing, since a function that throws returns its
+error in `r10` too. `minimaxon check runtime` holds the runtime to the table: each
 mapped function exists with exactly that signature (`E3004` when it is missing, `E3005` when it differs) and links as
 `rtSymbol` says. A new entry is a row of each table and a function in `runtime/`.
 
@@ -1439,7 +1447,8 @@ maxon's `emitRequireTebTlsSlot` does, `TLS_OUT_OF_INDEXES` included), keeps its 
 `g.tlsOffset`, and stores the main thread's context, the global `g.mainContext`, with `TlsSetValue`. After `main` it
 calls the runtime's `schedDrain` with `main`'s exit code, which runs the behaviours that are left and gives the code
 back. A thread the runtime makes starts at `rt.threadStart`, which `CreateThread` calls by Win64 with the thread's
-context: it saves the registers Win64 keeps, keeps the fault handler's stack (`SetThreadStackGuarantee`), stores the
+context: it saves the registers Win64 keeps that the internal convention does not (`rsi`, `rdi`) and the one it holds
+the context in (`rbx`), keeps the fault handler's stack (`SetThreadStackGuarantee`), stores the
 context with `TlsSetValue` and calls the runtime's `workerMain` with it. `abigen` also has the layouts of a frozen
 value's box, a cown and a behaviour's record with its request slots, the scheduler's record and a worker's queue.
 

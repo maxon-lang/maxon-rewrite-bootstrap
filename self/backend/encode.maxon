@@ -6,9 +6,6 @@
 // page on the way down, so the guard page is met in order.
 let machinePageSize = 4096
 
-// stackAlignment is the alignment of rsp at a call, which a frame keeps and a call of a DLL import needs.
-let stackAlignment = 16
-
 // encodeMachineFunction writes a function whose registers are allocated into the unit, as a section of its own, and
 // defines its symbol.
 export function encodeMachineFunction(mutates u CodeUnit, fn MirFunction, instance bool)
@@ -100,7 +97,7 @@ function encodeFrameSetup(mutates u CodeUnit, fn MirFunction)
 	let bytes = fn.frameBytes()
 	encodePushReg(u.asm.code, reg: X64Register.rbp)
 	encodeMovRegReg(u.asm.code, dest: X64Register.rbp, src: X64Register.rsp)
-	var frame = alignUp(bytes, alignment: stackAlignment)
+	var frame = alignUp(bytes, alignment: x64StackAlignment)
 	while frame > machinePageSize 'pages'
 		encodeSubRegImm(u.asm.code, dest: X64Register.rsp, imm: machinePageSize)
 		encodeStoreBaseDispReg(u.asm.code, base: X64Register.rsp, disp: 0, src: X64Register.rax)
@@ -109,6 +106,9 @@ function encodeFrameSetup(mutates u CodeUnit, fn MirFunction)
 	if frame > 0 'rest'
 		encodeSubRegImm(u.asm.code, dest: X64Register.rsp, imm: imm32Of(frame))
 	end 'rest'
+	if (fn.savedRegs and classMask(RegClass.xmm)) != 0 'vector'
+		panic("backend: a callee-saved xmm register given a value, which the frame saves only as a general register")
+	end 'vector'
 	var slot = fn.slotsGiven()
 	for r in 0 upto x64FirstVector 'saved'
 		if maskHas(fn.savedRegs, number: regNumOfCount(r)) 'save'

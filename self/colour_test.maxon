@@ -3,12 +3,10 @@
 // costs per iteration are held to what they should be. Every function of the machine IR's and spilling's tests is also
 // run through colouring by runMir.
 
-// calleeSavedFive is the callee-saved set of the convention to come (rbx and r12 to r15), which the call kernels are
-// coloured under beside today's internal convention, which keeps nothing.
+// calleeSavedFive is the callee-saved set of the target's internal convention (rbx and r12 to r15, and xmm6 to xmm15),
+// which the call kernels are coloured under beside a convention that keeps nothing.
 function calleeSavedFive() returns backend.RegMask
-	var mask = backend.regMaskOf(backend.X64Register.rbx)
-	mask = mask or backend.regMaskOf(backend.X64Register.r12) or backend.regMaskOf(backend.X64Register.r13)
-	return mask or backend.regMaskOf(backend.X64Register.r14) or backend.regMaskOf(backend.X64Register.r15)
+	return backend.x64InternalCalleeSaved()
 end 'calleeSavedFive'
 
 // colourOf spills and colours a function under a convention that keeps calleeSaved across a call, and holds it to
@@ -531,11 +529,11 @@ function hallAcrossExpected() returns ExitCode
 	return exitOf(wrapAdd(wrapAdd(sum, b: sum), b: 100))
 end 'hallAcrossExpected'
 
-// allocateColoured spills and colours a function with today's convention and checks it, the way runMir runs every
+// allocateColoured spills and colours a function with the target's convention and checks it, the way runMir runs every
 // function of the machine IR's tests a second time.
 function allocateColoured(mutates fn backend.MirFunction, spilled bool)
 	let label = fn.symbol.clone()
-	_ = colourChecked(label, fn: fn, calleeSaved: 0, spilled: spilled)
+	_ = colourChecked(label, fn: fn, calleeSaved: calleeSavedFive(), spilled: spilled)
 end 'allocateColoured'
 
 // runKernel colours a kernel under calleeSaved, runs it, and gives the cost of its loop at depth.
@@ -593,13 +591,13 @@ function countsOf(a Count, b Count, c Count) returns backend.CountList
 end 'countsOf'
 
 function testColourCalls(mutates p ast.Project)
-	// With five callee-saved registers, two and four values live across the call stay in them with no move (Maxon 0
-	// stack operations and 3 and 5 moves); of eight, three leave the registers around it, which costs five stack
-	// operations and two moves (Maxon 6 and 14). With today's convention, which keeps nothing, every value live across
-	// the call is stored or reloaded.
+	// With five callee-saved registers, two and four values live across the call stay in them, the one move the copy
+	// of the argument into its register (Maxon 0 stack operations and 3 and 5 moves); of eight, three leave the
+	// registers around it, which costs five stack operations and three moves (Maxon 6 and 14). With a convention that
+	// keeps nothing, every value live across the call is stored or reloaded.
 	let live = callLive()
 	let keptStack = countsOf(0, b: 0, c: 5)
-	let keptMoves = countsOf(0, b: 0, c: 2)
+	let keptMoves = countsOf(1, b: 1, c: 3)
 	let noneStack = countsOf(3, b: 7, c: 15)
 	for n in 0 upto live.count() 'live'
 		let kept = addFunction(p, name: "main", errTy: ast.noType)

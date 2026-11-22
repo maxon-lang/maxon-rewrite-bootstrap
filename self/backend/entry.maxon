@@ -7,19 +7,9 @@ let stdOutputHandle = -11
 
 let stdErrorHandle = -12
 
+// windowsShadowSize is the stack the entry and a thread's start keep below their saved registers for the DLL functions
+// they call: the shadow space, and the word above it that a function's output or input goes to.
 let windowsShadowSize = 40
-
-// checkLeaksArguments is what the runtime's checkLeaks takes: main's exit code.
-let checkLeaksArguments = 1
-
-// schedDrainArguments is what the runtime's schedDrain takes: main's exit code.
-let schedDrainArguments = 1
-
-// workerMainArguments is what the runtime's workerMain takes: the thread's context.
-let workerMainArguments = 1
-
-// panicArguments is what the runtime's panic takes: the message.
-let panicArguments = 1
 
 // tebTlsSlotsOffset is where a thread's TEB, which gs addresses, holds its inline thread-local slots (TlsSlots), a word
 // each; a slot that TlsAlloc gives from tebTlsSlots on lives elsewhere, which a read of the context could not reach.
@@ -67,12 +57,13 @@ export function emitRuntime(mainSymbol String, options RuntimeOptions) returns C
 	return u
 end 'emitRuntime'
 
-// callRuntime calls an entry of the runtime that takes the number of arguments it was given, and takes them off the stack.
-function callRuntime(mutates u CodeUnit, entry ir.Rt, args Count)
+// callRuntime calls an entry of the runtime by the internal convention with the word a register holds as its one
+// argument. The entries the stub calls take one word each: main's exit code, the thread's context or the message.
+function callRuntime(mutates u CodeUnit, entry ir.Rt, arg X64Register)
+	if arg != argWord() 'move'
+		u.asm.mov(argWord(), src: arg)
+	end 'move'
 	u.asm.callSymbol(ir.rtSymbol(entry))
-	if args > 0 'pop'
-		u.asm.addImm(rsp, imm: imm32Of(try args * wordBytes otherwise panic("backend: more arguments than memory")))
-	end 'pop'
 end 'callRuntime'
 
 // emitEntry writes the executable's entry point: it sets up the heap, the standard handles and the main thread's
@@ -93,18 +84,15 @@ function emitEntry(mutates u CodeUnit, mainSymbol String, count bool)
 	let pastTheTeb = u.asm.newLabel()
 	emitTlsSetup(u, pastTheTeb: pastTheTeb)
 	u.asm.callSymbol(mainSymbol)
-	u.asm.push(rax)
-	callRuntime(u, entry: ir.Rt.rtSchedDrain, args: schedDrainArguments)
+	callRuntime(u, entry: ir.Rt.rtSchedDrain, arg: resultWord())
 	if count 'leaks'
-		u.asm.push(rax)
-		callRuntime(u, entry: ir.Rt.rtCheckLeaks, args: checkLeaksArguments)
+		callRuntime(u, entry: ir.Rt.rtCheckLeaks, arg: resultWord())
 	end 'leaks'
-	u.asm.mov(rcx, src: rax)
+	u.asm.mov(x64HostArg(0), src: resultWord())
 	u.asm.callImport(impExitProcess)
 	u.asm.bind(pastTheTeb)
-	u.asm.leaData(rax, dataOffset: u.data.textOffset(tlsSlotPastTheTeb))
-	u.asm.push(rax)
-	callRuntime(u, entry: ir.Rt.rtPanic, args: panicArguments)
+	u.asm.leaData(argWord(), dataOffset: u.data.textOffset(tlsSlotPastTheTeb))
+	callRuntime(u, entry: ir.Rt.rtPanic, arg: argWord())
 end 'emitEntry'
 
 // emitTlsSetup takes the thread-local slot every thread keeps its context in, goes to pastTheTeb when the slot is not
@@ -129,46 +117,72 @@ function emitTlsStore(mutates u CodeUnit)
 	u.asm.callImport(impTlsSetValue)
 end 'emitTlsStore'
 
-// emitThreadSaves pushes the registers that Win64 has a callee keep and the code a thread runs does not: rbx, rbp, rsi,
-// rdi and r12 to r15. The xmm registers Win64 keeps are never used. Eight pushes leave rsp as the entry point's is, so
-// the frame below them is the entry's.
-function emitThreadSaves(mutates u CodeUnit)
-	u.asm.push(rbx)
-	u.asm.push(rbp)
-	u.asm.push(rsi)
-	u.asm.push(rdi)
-	u.asm.push(r12)
-	u.asm.push(r13)
-	u.asm.push(r14)
-	u.asm.push(r15)
+// threadContextRegister is where a thread's start holds the thread's context across its calls: a register the internal
+// convention keeps, so that workerMain and the DLL functions leave it.
+function threadContextRegister() returns X64Register
+	let kept = x64InternalCalleeSaved() and x64HostCalleeSaved() and classMask(RegClass.gpr)
+	for r in 0 upto x64FirstVector 'registers'
+		if maskHas(kept, number: regNumOfCount(r)) 'kept'
+			return x64RegisterOf(regNumOfCount(r))
+		end 'kept'
+	end 'registers'
+	panic("backend: no general register that both conventions keep")
+end 'threadContextRegister'
+
+// threadSaves are the registers a thread's start saves, since Win64 has a callee keep them: those that the code it runs
+// by the internal convention may change, and the one it holds the context in. The frame pointer is no value's, and the
+// code it runs keeps it.
+function threadSaves() returns RegMask
+	let changed = x64HostCalleeSaved() and not x64InternalCalleeSaved()
+	return (changed or regMaskOf(threadContextRegister())) and classMask(RegClass.gpr) and not reservedMask()
+end 'threadSaves'
+
+// emitThreadSaves pushes threadSaves, and is how many it pushed. The xmm registers Win64 keeps, the internal convention
+// keeps too.
+function emitThreadSaves(mutates u CodeUnit) returns Count
+	var pushed = 0 as Count
+	for r in 0 upto x64FirstVector 'saved'
+		if maskHas(threadSaves(), number: regNumOfCount(r)) 'save'
+			u.asm.push(x64RegisterOf(regNumOfCount(r)))
+			pushed = nextCount(pushed)
+		end 'save'
+	end 'saved'
+	return pushed
 end 'emitThreadSaves'
 
 function emitThreadRestores(mutates u CodeUnit)
-	u.asm.pop(r15)
-	u.asm.pop(r14)
-	u.asm.pop(r13)
-	u.asm.pop(r12)
-	u.asm.pop(rdi)
-	u.asm.pop(rsi)
-	u.asm.pop(rbp)
-	u.asm.pop(rbx)
+	var r = x64FirstVector as Count
+	while r > 0 'saved'
+		r = prevCount(r)
+		if maskHas(threadSaves(), number: regNumOfCount(r)) 'restore'
+			u.asm.pop(x64RegisterOf(regNumOfCount(r)))
+		end 'restore'
+	end 'saved'
 end 'emitThreadRestores'
+
+// threadFrameBytes is the frame below a thread's saved registers: windowsShadowSize, and a word more when the return
+// address and the pushes leave rsp off the alignment a DLL function's call needs.
+function threadFrameBytes(pushed Count) returns Count
+	let above = try (pushed + 1) * wordBytes otherwise panic("backend: a thread's start past memory")
+	let below = try alignUp(above + windowsShadowSize, alignment: x64StackAlignment) - above otherwise panic("backend: a thread's start past memory")
+	return below
+end 'threadFrameBytes'
 
 // emitThreadStart writes the code a thread the runtime makes starts at, which CreateThread calls by Win64 with the
 // thread's context in rcx: it keeps stack for the fault handler, stores the context in the thread-local slot, and calls
-// the runtime's workerMain with it by the internal convention, rbx holding the context across the calls.
+// the runtime's workerMain with it by the internal convention.
 function emitThreadStart(mutates u CodeUnit)
-	emitThreadSaves(u)
-	u.asm.subImm(rsp, imm: windowsShadowSize)
-	u.asm.mov(rbx, src: rcx)
+	let context = threadContextRegister()
+	let frame = imm32Of(threadFrameBytes(emitThreadSaves(u)))
+	u.asm.subImm(rsp, imm: frame)
+	u.asm.mov(context, src: x64HostArg(0))
 	emitStackGuarantee(u)
-	u.asm.mov(rdx, src: rbx)
+	u.asm.mov(rdx, src: context)
 	emitTlsStore(u)
-	u.asm.push(rbx)
-	callRuntime(u, entry: ir.Rt.rtWorkerMain, args: workerMainArguments)
-	u.asm.addImm(rsp, imm: windowsShadowSize)
+	callRuntime(u, entry: ir.Rt.rtWorkerMain, arg: context)
+	u.asm.addImm(rsp, imm: frame)
 	emitThreadRestores(u)
-	u.asm.movImm(rax, imm: threadExitCode)
+	u.asm.movImm(x64HostResult, imm: threadExitCode)
 	u.asm.ret()
 end 'emitThreadStart'
 
