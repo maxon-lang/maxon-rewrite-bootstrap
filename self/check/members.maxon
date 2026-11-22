@@ -33,7 +33,7 @@ end 'declareRecordMembers'
 
 // declaredTypeName is how a declaration writes a type in a message: the typealias that names it, else the type.
 function declaredTypeName(p ast.Project, ms ast.ModuleState, c Checker, tr ast.NodeID, t ast.TypeID) returns String
-	match consumes ms.resolution.decls.get(tr as Count) 'bound'
+	match consumes ast.nodeDecl(p, ms: ms, node: tr as Count) 'bound'
 		some(ref) then return aliasOrTypeName(p, ms: ms, ref: ref, t: t)
 		none then return ast.typeName(ms.types, reads: p.types, t: t)
 	end 'bound'

@@ -3,10 +3,13 @@
 export enum Lent
 	// none is a module between its tasks, or work of the project as a whole.
 	none
-	// tables are the module's tables and resolution, which a task of the lower reads and nothing after the check writes.
+	// tables are the module's tables, which a task of the lower reads and nothing after the check writes.
 	tables
-	// tree adds the module's tree, which the resolve and the bodies of the check rewrite.
+	// tree adds the module's tree, which the bodies of the check rewrite, and which the check reads.
 	tree
+	// resolution adds the module's resolution to its tree, which the resolve makes: every later stage reads it in the project,
+	// as the resolve's product.
+	resolution
 	// source is the module the parse makes, whole, with the tables its shells are declared in.
 	source
 end 'Lent'
@@ -54,6 +57,7 @@ export function lendModule(mutates p Project, module diag.ModuleID, lent Lent, p
 		none then return ms
 		tables then _ = 0
 		tree then ms.tree = lendTree(p, module: module, phase: phase)
+		resolution then ms.tree = lendTree(p, module: module, phase: phase)
 		source then ms.source = exchange(p.modules[m], value: Module.new(module, path: "", text: "", files: FileSpanList.create(0)))
 	end 'lent'
 	if lent == Lent.source 'source'
@@ -61,9 +65,29 @@ export function lendModule(mutates p Project, module diag.ModuleID, lent Lent, p
 	end 'source' else 'held'
 		ms.tables = exchange(p.modules[m].tables, value: ModuleTables.lentOut())
 	end 'held'
-	ms.resolution = exchange(p.resolutions[m], value: Resolution.new(module))
+	ms.tables.phase = phase.ordinal
+	if lent == Lent.resolution 'resolution'
+		ms.resolution = exchange(p.resolutions[m], value: Resolution.new(module))
+	end 'resolution'
 	return ms
 end 'lendModule'
+
+// resolutionOf is the resolution of the module of ms, which its resolve made: a product every later stage of the module
+// reads in the project.
+export function resolutionOf(p Project, ms ModuleState) returns borrowed Resolution
+	return p.resolutions[modIndex(ms.module)]
+end 'resolutionOf'
+
+// nodeDecl is the declaration that the name or the type written at node, in the module of ms, is bound to: by the resolve,
+// or, for a type written Owner.member, which the resolve leaves unbound, by the stage of the check that found the typealias
+// it names.
+export function nodeDecl(p Project, ms ModuleState, node Count) returns table.Option with DeclRef
+	let bound = p.resolutions[modIndex(ms.module)].decls.get(node)
+	if bound.isSome() 'bound'
+		return bound
+	end 'bound'
+	return ms.tables.memberDecl(node)
+end 'nodeDecl'
 
 // lendTree is the tree of module for the task of the stage of phase to write. The bodies stage desugars into a copy of the
 // tree that the resolve made, which is that stage's product, so that a task that waited on the resolve and not on the bodies
@@ -98,11 +122,13 @@ export function giveBack(mutates p Project, consumes ms ModuleState)
 	if held.lent == Lent.source 'source'
 		p.modules[m] = exchange(held.source, value: Module.new(held.module, path: "", text: "", files: FileSpanList.create(0)))
 	end 'source'
-	if held.lent == Lent.tree 'tree'
+	if held.lent == Lent.tree or held.lent == Lent.resolution 'tree'
 		p.modules[m].tree = exchange(held.tree, value: Tree.new(held.module, text: ""))
 	end 'tree'
 	p.modules[m].tables = exchange(held.tables, value: ModuleTables.lentOut())
-	p.resolutions[m] = exchange(held.resolution, value: Resolution.new(held.module))
+	if held.lent == Lent.resolution 'resolution'
+		p.resolutions[m] = exchange(held.resolution, value: Resolution.new(held.module))
+	end 'resolution'
 end 'giveBack'
 
 // makeType makes a nominal type that module declares from work outside the tasks of a compile, which holds no slot of the
@@ -111,7 +137,7 @@ export function makeType(mutates p Project, module diag.ModuleID, consumes e Typ
 	let segment = outsideSegment(p.types, ft: p.funcs, module: module)
 	var held = lendTypeSlot(p.types, module: module, segment: segment, inputs: Inputs.new())
 	let id = allocType(held, module: module, e: e)
-	returnTypeSlot(p.types, held: held)
+	keepTypeSlot(p.types, held: held)
 	return id
 end 'makeType'
 
@@ -120,6 +146,108 @@ export function makeFunc(mutates p Project, module diag.ModuleID, consumes f Fun
 	let segment = outsideSegment(p.types, ft: p.funcs, module: module)
 	var held = lendFuncSlot(p.funcs, module: module, segment: segment)
 	let id = allocFunc(held, module: module, f: f)
-	returnFuncSlot(p.funcs, held: held)
+	keepFuncSlot(p.funcs, held: held)
 	return id
 end 'makeFunc'
+
+// HiddenModule is what a view of the products of the stages the running task waited on (--verify-reads) holds out of the
+// project of a module whose parse or resolve the task did not wait on: its declarations and their names, which the parse
+// made, and its resolution, which the resolve made.
+export type HiddenModule
+	var module as Count
+	var hidesDecls as bool
+	var decls as DeclList
+	var names as DeclIndex
+	var hidesResolution as bool
+	var resolution as Resolution
+
+	static function make(module Count) returns HiddenModule
+		return HiddenModule{module: module, hidesDecls: false, decls: DeclList.create(0), names: DeclIndex.new(), hidesResolution: false, resolution: Resolution.new(0 as diag.ModuleID)}
+	end 'make'
+end 'HiddenModule'
+
+export typealias HiddenModules = Array with HiddenModule
+
+// enterModulesView makes the project show the running task, of a stage of module own, only the products of the stages it
+// waited on, visible, of each other module the compile compiles from first on: the parts of its tables (a read of another
+// stops the compile), and, of a module whose parse or resolve it did not wait on, no declarations or no resolution. It
+// gives what it hid, which leaveModulesView puts back.
+export function enterModulesView(mutates p Project, own diag.ModuleID, first Count, visible Inputs) returns HiddenModules
+	var hidden = HiddenModules.create(0)
+	// A task that waited on a module's parse reads the segments before the resolve's, and one that waited on its resolve
+	// those before the aliases'.
+	let parsed = Phase.resolve.ordinal
+	let resolved = Phase.aliases.ordinal
+	for a in first upto p.modules.count() 'modules'
+		if a == modIndex(own) 'own'
+			continue 'modules'
+		end 'own'
+		let waited = visible.of(moduleSlot(p.modules[a].id), present: everySegment)
+		p.modules[a].tables.setSeen(waited, by: visible.reader.clone())
+		if waited >= resolved 'whole'
+			continue 'modules'
+		end 'whole'
+		var h = HiddenModule.make(a)
+		h.hidesResolution = true
+		h.resolution = exchange(p.resolutions[a], value: Resolution.new(p.modules[a].id))
+		if waited < parsed 'unparsed'
+			h.hidesDecls = true
+			h.decls = exchange(p.modules[a].decls, value: DeclList.create(0))
+			h.names = exchange(p.modules[a].names, value: DeclIndex.new())
+		end 'unparsed'
+		hidden.push(h)
+	end 'modules'
+	return hidden
+end 'enterModulesView'
+
+// leaveModulesView puts back what enterModulesView hid, and lets every read of the tables read every part again.
+export function leaveModulesView(mutates p Project, first Count, consumes hidden HiddenModules)
+	for a in first upto p.modules.count() 'modules'
+		p.modules[a].tables.setSeen(everySegment, by: "")
+	end 'modules'
+	var held = hidden
+	while held.count() > 0 'hidden'
+		var h = try held.pop() otherwise panic("a hidden module was taken off an empty list")
+		let a = h.module
+		if h.hidesResolution 'resolution'
+			p.resolutions[a] = exchange(h.resolution, value: Resolution.new(p.modules[a].id))
+		end 'resolution'
+		if h.hidesDecls 'decls'
+			p.modules[a].decls = exchange(h.decls, value: DeclList.create(0))
+			p.modules[a].names = exchange(h.names, value: DeclIndex.new())
+		end 'decls'
+	end 'hidden'
+end 'leaveModulesView'
+
+// HeldTables are the project's tables while a task of a module runs, in whose place the project holds the task's view of them
+// (enterTaskView).
+export type HeldTables
+	var types as TypeTable
+	var funcs as FuncTable
+
+	export static function none() returns HeldTables
+		return HeldTables{types: TypeTable.new(), funcs: FuncTable.new()}
+	end 'none'
+
+	static function make(consumes types TypeTable, consumes funcs FuncTable) returns HeldTables
+		return HeldTables{types: types, funcs: funcs}
+	end 'make'
+end 'HeldTables'
+
+// enterTaskView makes the project's tables, for the running task of a stage of module own, the view of the products of the
+// stages it waited on, visible (viewTypes, viewFuncs), and gives the tables it holds in their place, which leaveTaskView puts
+// back. verifies names the reader of an entry the view does not hold.
+export function enterTaskView(mutates p Project, own diag.ModuleID, visible Inputs, verifies bool) returns HeldTables
+	let types = viewTypes(p.types, own: own, visible: visible, verifies: verifies)
+	let funcs = viewFuncs(p.funcs, own: own, visible: visible, verifies: verifies)
+	let heldTypes = exchange(p.types, value: types)
+	let heldFuncs = exchange(p.funcs, value: funcs)
+	return HeldTables.make(heldTypes, funcs: heldFuncs)
+end 'enterTaskView'
+
+// leaveTaskView puts back the tables that enterTaskView held, dropping the view.
+export function leaveTaskView(mutates p Project, consumes held HeldTables)
+	var back = held
+	p.types = exchange(back.types, value: TypeTable.new())
+	p.funcs = exchange(back.funcs, value: FuncTable.new())
+end 'leaveTaskView'

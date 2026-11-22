@@ -232,7 +232,7 @@ end 'unknownFunction'
 // callNamed types a call of a name that no local stands for: print, a function, or the cown type.
 function callNamed(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = ast.nameExprName(ms.tree, id: callee)
-	match consumes ms.resolution.decls.get(callee as Count) 'bound'
+	match consumes ast.nodeDecl(p, ms: ms, node: callee as Count) 'bound'
 		some(ref) then return callDeclared(c, p: p, ms: ms, call: call, ref: ref, name: name, errs: errs)
 		none then _ = 0
 	end 'bound'
@@ -412,8 +412,8 @@ function typeParamNamed(c Checker, p ast.Project, ms ast.ModuleState, e ast.Node
 	if ms.tree.kindOf(e) != ast.NodeKind.nameExpr 'notName'
 		return ast.noType
 	end 'notName'
-	match ms.resolution.typeParamSlots.get(e as Count) 'slot'
-		some(slot) then return typeParamOfNode(c, p: p, ms: ms, node: ms.resolution.typeParams[slot].id)
+	match ast.resolutionOf(p, ms: ms).typeParamSlots.get(e as Count) 'slot'
+		some(slot) then return typeParamOfNode(c, p: p, ms: ms, node: ast.resolutionOf(p, ms: ms).typeParams[slot].id)
 		none then return ast.noType
 	end 'slot'
 end 'typeParamNamed'

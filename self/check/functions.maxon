@@ -225,7 +225,7 @@ function returnsExitCode(c Checker, p ast.Project, ms ast.ModuleState, f ast.Fun
 	if f.returnsRef == 0 'none'
 		return false
 	end 'none'
-	match consumes ms.resolution.decls.get(f.returnsRef as Count) 'bound'
+	match consumes ast.nodeDecl(p, ms: ms, node: f.returnsRef as Count) 'bound'
 		some(ref) then return namesExitCode(ast.moduleDecl(p, ref: ref))
 		none then return false
 	end 'bound'

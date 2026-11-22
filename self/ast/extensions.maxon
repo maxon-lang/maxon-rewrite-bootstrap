@@ -36,9 +36,9 @@ end 'extensionKey'
 
 // methodIn is the method of that name that the module's extensions add to the type owner, or none.
 export function methodIn(tables ModuleTables, owner TypeID, name String) returns FuncID
-	for i in 0 upto tables.extMethods.count() 'each'
-		if tables.extMethods[i].owner == owner and tables.extMethods[i].name == name 'hit'
-			return tables.extMethods[i].func
+	for i in 0 upto tables.extMethodCount() 'each'
+		if tables.extMethod(i).owner == owner and tables.extMethod(i).name == name 'hit'
+			return tables.extMethod(i).func
 		end 'hit'
 	end 'each'
 	return noFunc
@@ -46,9 +46,9 @@ end 'methodIn'
 
 // aliasIn is the typealias of that name that the module's extensions add to the type owner, or none.
 function aliasIn(module diag.ModuleID, tables ModuleTables, owner TypeID, name String) returns table.Option with DeclRef
-	for i in 0 upto tables.extAliases.count() 'each'
-		if tables.extAliases[i].owner == owner and tables.extAliases[i].name == name 'hit'
-			return table.Option.some(DeclRef.make(module, ordinal: tables.extAliases[i].ordinal))
+	for i in 0 upto tables.extAliasCount() 'each'
+		if tables.extAlias(i).owner == owner and tables.extAlias(i).name == name 'hit'
+			return table.Option.some(DeclRef.make(module, ordinal: tables.extAlias(i).ordinal))
 		end 'hit'
 	end 'each'
 	return table.Option.none
@@ -87,8 +87,8 @@ end 'aliasOfBody'
 // isRefusedExtensionAlias is whether the typealias at the ordinal is one that an extension declares and that was refused, which
 // gives it no type: a type that the extension does not extend, or a name that is taken.
 export function isRefusedExtensionAlias(tables ModuleTables, ordinal DeclOrdinal) returns bool
-	for i in 0 upto tables.extAliases.count() 'each'
-		if tables.extAliases[i].ordinal == ordinal and tables.extAliases[i].extended == noType 'hit'
+	for i in 0 upto tables.extAliasCount() 'each'
+		if tables.extAlias(i).ordinal == ordinal and tables.extAlias(i).extended == noType 'hit'
 			return true
 		end 'hit'
 	end 'each'
@@ -105,9 +105,9 @@ export function extendedBy(p Project, ms ModuleState, ref DeclRef) returns TypeI
 end 'extendedBy'
 
 function extendedIn(tables ModuleTables, ref DeclRef) returns TypeID
-	for i in 0 upto tables.extAliases.count() 'each'
-		if tables.extAliases[i].ordinal == ref.ordinal 'hit'
-			return tables.extAliases[i].extended
+	for i in 0 upto tables.extAliasCount() 'each'
+		if tables.extAlias(i).ordinal == ref.ordinal 'hit'
+			return tables.extAlias(i).extended
 		end 'hit'
 	end 'each'
 	panic("the typealias at ordinal {ref.ordinal} is added by no extension")
@@ -115,8 +115,8 @@ end 'extendedIn'
 
 // isExtensionAlias is whether an extension of the module declares the typealias at the ordinal.
 export function isExtensionAlias(tables ModuleTables, ordinal DeclOrdinal) returns bool
-	for i in 0 upto tables.extAliases.count() 'each'
-		if tables.extAliases[i].ordinal == ordinal 'hit'
+	for i in 0 upto tables.extAliasCount() 'each'
+		if tables.extAlias(i).ordinal == ordinal 'hit'
 			return true
 		end 'hit'
 	end 'each'
@@ -128,8 +128,8 @@ end 'isExtensionAlias'
 // that m declares (Hylo's rule for orphans), so a module cannot change what a type it does not own means to an interface
 // it does not own anywhere but in itself.
 function conformsInModule(p Project, ms ModuleState, module diag.ModuleID, tables ModuleTables, owner TypeID, iface TypeID, outside bool) returns bool
-	for i in 0 upto tables.extConforms.count() 'each'
-		if tables.extConforms[i].owner == owner and extendsInterface(ms.types, reads: p.types, have: tables.extConforms[i].iface, want: iface) and givesConformance(p, ms: ms, module: module, tables: tables, index: i, outside: outside) 'hit'
+	for i in 0 upto tables.extConformCount() 'each'
+		if tables.extConform(i).owner == owner and extendsInterface(ms.types, reads: p.types, have: tables.extConform(i).iface, want: iface) and givesConformance(p, ms: ms, module: module, tables: tables, index: i, outside: outside) 'hit'
 			return true
 		end 'hit'
 	end 'each'
@@ -139,7 +139,7 @@ end 'conformsInModule'
 // givesConformance is whether the index-th conformance that the extensions of the module m declare holds where code sees
 // it: everywhere in m, and outside it only where m declares the type or the interface.
 function givesConformance(p Project, ms ModuleState, module diag.ModuleID, tables ModuleTables, index Count, outside bool) returns bool
-	return not outside or declaringModuleIn(ms.types, reads: p.types, t: tables.extConforms[index].owner) == module or declaringModuleIn(ms.types, reads: p.types, t: tables.extConforms[index].iface) == module
+	return not outside or declaringModuleIn(ms.types, reads: p.types, t: tables.extConform(index).owner) == module or declaringModuleIn(ms.types, reads: p.types, t: tables.extConform(index).iface) == module
 end 'givesConformance'
 
 // seenInterfaces are the interfaces that the declarations code in the module from sees say t implements, as they are
@@ -166,9 +166,9 @@ export function seenInterfaces(p Project, ms ModuleState, from diag.ModuleID, t 
 end 'seenInterfaces'
 
 function appendConformsInModule(p Project, ms ModuleState, module diag.ModuleID, tables ModuleTables, owner TypeID, outside bool, mutates out TypeIDList)
-	for i in 0 upto tables.extConforms.count() 'each'
-		if tables.extConforms[i].owner == owner and givesConformance(p, ms: ms, module: module, tables: tables, index: i, outside: outside) 'hit'
-			out.push(tables.extConforms[i].iface)
+	for i in 0 upto tables.extConformCount() 'each'
+		if tables.extConform(i).owner == owner and givesConformance(p, ms: ms, module: module, tables: tables, index: i, outside: outside) 'hit'
+			out.push(tables.extConform(i).iface)
 		end 'hit'
 	end 'each'
 end 'appendConformsInModule'
@@ -202,10 +202,10 @@ export function interfaceExtensionMethod(p Project, ms ModuleState, from diag.Mo
 end 'interfaceExtensionMethod'
 
 function collectInterfaceMethods(p Project, ms ModuleState, tables ModuleTables, have TypeIDList, name String, mutates found FuncIDList)
-	for i in 0 upto tables.extMethods.count() 'each'
-		let owner = tables.extMethods[i].owner
-		if tables.extMethods[i].name == name and typeKind(ms.types, reads: p.types, t: owner) == TypeKind.interfaceTy and reachedBy(ms.types, reads: p.types, have: have, want: owner) and not found.contains(tables.extMethods[i].func) 'hit'
-			found.push(tables.extMethods[i].func)
+	for i in 0 upto tables.extMethodCount() 'each'
+		let owner = tables.extMethod(i).owner
+		if tables.extMethod(i).name == name and typeKind(ms.types, reads: p.types, t: owner) == TypeKind.interfaceTy and reachedBy(ms.types, reads: p.types, have: have, want: owner) and not found.contains(tables.extMethod(i).func) 'hit'
+			found.push(tables.extMethod(i).func)
 		end 'hit'
 	end 'each'
 end 'collectInterfaceMethods'
@@ -542,7 +542,7 @@ end 'requirementSlot'
 // in the task's state, another's in the project.
 export function namedCount(p Project, ms ModuleState, module diag.ModuleID) returns Count
 	if module == ms.module 'own'
-		return ms.resolution.deps.count()
+		return resolutionOf(p, ms: ms).deps.count()
 	end 'own'
 	p.modules[modIndex(module)].tables.requireHeld()
 	return p.resolutions[modIndex(module)].deps.count()
@@ -550,7 +550,7 @@ end 'namedCount'
 
 export function namedModule(p Project, ms ModuleState, module diag.ModuleID, index Count) returns diag.ModuleID
 	if module == ms.module 'own'
-		return ms.resolution.deps[index].module
+		return resolutionOf(p, ms: ms).deps[index].module
 	end 'own'
 	p.modules[modIndex(module)].tables.requireHeld()
 	return p.resolutions[modIndex(module)].deps[index].module

@@ -501,9 +501,12 @@ end 'Phase'
 export type TypeSlot
 	// slot is the slot these are, by which a handle names them.
 	var slot as Count
-	// lists are the entries by segment: at the list nominalTypes of a segment the nominal types whose entries its stage
-	// completes, in the order they were made, and at shapeTypes the structural types its stage made or took from a slot it
-	// read (segmentList).
+	// The entries are by segment: at the list nominalTypes of a segment the nominal types whose entries its stage completes,
+	// in the order they were made, and at shapeTypes the structural types its stage made or took from a slot it read
+	// (segmentList). sealed are the lists of the segments that are complete, frozen when their stage ended, so that a task
+	// that waited on the stage shares them; lists are the ones after them, which the task holding the slot may still write:
+	// the list at l is lists[l - sealed.count()] (typeList gives that index).
+	var sealed as Array with frozen with TypeEntryList
 	export var lists as TypeEntryLists
 	// phase is the segment the task that holds the slot writes: the segments before it are complete.
 	var phase as Count
@@ -522,19 +525,66 @@ export type TypeSlot
 		var lists = TypeEntryLists.create(0)
 		lists.push(TypeEntryList.create(0))
 		lists.push(TypeEntryList.create(0))
-		return TypeSlot{slot: slot, lists: lists, phase: Phase.builtins.ordinal, shapeIndex: ShapeIndex.new(), reads: SlotList.create(0), imported: SlotList.create(0), shells: ShellList.create(0)}
+		return TypeSlot{slot: slot, sealed: Array.create(0), lists: lists, phase: Phase.builtins.ordinal, shapeIndex: ShapeIndex.new(), reads: SlotList.create(0), imported: SlotList.create(0), shells: ShellList.create(0)}
 	end 'make'
 
 	// none is the slot of no module: what the project's table holds in place of a slot that a task holds, and what work that
 	// makes no type holds, which reads every slot in the project's table.
 	export static function none() returns TypeSlot
-		return TypeSlot{slot: noneSlot, lists: TypeEntryLists.create(0), phase: Phase.builtins.ordinal, shapeIndex: ShapeIndex.empty(), reads: SlotList.create(0), imported: SlotList.create(0), shells: ShellList.create(0)}
+		return TypeSlot{slot: noneSlot, sealed: Array.create(0), lists: TypeEntryLists.create(0), phase: Phase.builtins.ordinal, shapeIndex: ShapeIndex.empty(), reads: SlotList.create(0), imported: SlotList.create(0), shells: ShellList.create(0)}
 	end 'none'
 
 	// segments is how many segments the slot has.
 	function segments() returns Count
-		return lists.count() / listsPerSegment
+		return listCount() / listsPerSegment
 	end 'segments'
+
+	// listCount is how many lists the slot has, sealed and open.
+	function listCount() returns Count
+		return try sealed.count() + lists.count() otherwise panic("more lists than memory")
+	end 'listCount'
+
+	// listLength is how many entries the list l holds, none for a list past the slot's.
+	function listLength(l Count) returns Count
+		let n = sealed.count()
+		if l < n 'sealed'
+			return sealed[l].count()
+		end 'sealed'
+		if l >= listCount() 'past'
+			return 0
+		end 'past'
+		return lists[l - n].count()
+	end 'listLength'
+
+	// entryIn is the entry at index of the list l.
+	function entryIn(l Count, index Count) returns borrowed TypeEntry
+		let n = sealed.count()
+		if l < n 'sealed'
+			return sealed[l][index]
+		end 'sealed'
+		return lists[l - n][index]
+	end 'entryIn'
+
+	// seal freezes the lists before upTo, which are complete, making the lists before it that the slot has none of yet.
+	function seal(mutates self, upTo Count)
+		if upTo <= sealed.count() 'sealed'
+			return
+		end 'sealed'
+		let n = try upTo - sealed.count() otherwise panic("a seal before the lists sealed already")
+		var rest = TypeEntryLists.create(0)
+		for i in 0 upto lists.count() 'lists'
+			let entries = exchange(lists[i], value: TypeEntryList.create(0))
+			if i < n 'complete'
+				sealed.push(freeze(entries))
+			end 'complete' else 'open'
+				rest.push(entries)
+			end 'open'
+		end 'lists'
+		while sealed.count() < upTo 'empty'
+			sealed.push(freeze(TypeEntryList.create(0)))
+		end 'empty'
+		lists = rest
+	end 'seal'
 end 'TypeSlot'
 
 export typealias TypeSlots = Array with TypeSlot
@@ -546,63 +596,38 @@ type Shell
 	// stage is the segment whose product the shell is.
 	var stage as Count
 	var list as Count
-	var entries as TypeEntryList
+	var entries as frozen with TypeEntryList
 
-	static function make(stage Count, list Count, consumes entries TypeEntryList) returns Shell
+	static function make(stage Count, list Count, consumes entries frozen with TypeEntryList) returns Shell
 		return Shell{stage: stage, list: list, entries: entries}
 	end 'make'
 end 'Shell'
 
 typealias ShellList = Array with Shell
 
-// Hidden is a list of a slot that a view of the tables (enterView) holds in place of another: the list itself, or the
-// shell at shell, which goes back to its place when the view ends.
-type Hidden
-	var slot as Count
-	var list as Count
-	var isShell as bool
-	var shell as Count
-	var entries as TypeEntryList
-
-	static function make(slot Count, list Count, isShell bool, shell Count, consumes entries TypeEntryList) returns Hidden
-		return Hidden{slot: slot, list: list, isShell: isShell, shell: shell, entries: entries}
-	end 'make'
-end 'Hidden'
-
-typealias HiddenList = Array with Hidden
-
-// HiddenFuncs is a list of a function slot that a view holds in place of another.
-type HiddenFuncs
-	var slot as Count
-	var list as Count
-	var entries as FuncEntryList
-
-	static function make(slot Count, list Count, consumes entries FuncEntryList) returns HiddenFuncs
-		return HiddenFuncs{slot: slot, list: list, entries: entries}
-	end 'make'
-end 'HiddenFuncs'
-
-typealias HiddenFuncsList = Array with HiddenFuncs
-
 export type TypeTable
-	// slots are the slots by number, each of them here but the one a running task holds.
+	// slots are the slots by number, each of them here but the one a running task holds. The table a task of a module reads
+	// is a view (viewTypes): of each slot it does not hold, the lists of the segments it waited on, shared, and of each later
+	// list the shell the last of those stages left, or nothing, as an executor of behaviours gives a task what it captured.
 	var slots as TypeSlots
 	// kinds are the kinds by their ordinal, which a structural handle holds.
 	var kinds as Array with TypeKind
-	// verifies is whether the running task sees a view of the slots it does not hold (enterView): the products of the stages it
-	// waited on, visible, as an executor of behaviours gives it, and whether a read of an entry that is in none of them stops
-	// the compile (--verify-reads). hidden are the lists the view holds in place of others.
+	// verifies is whether a read of an entry that the view does not hold stops the compile with the reader's name, visible
+	// (--verify-reads), rather than at the bound of a list.
 	var verifies as bool
 	var visible as Inputs
-	var hidden as HiddenList
 
 	export static function new() returns TypeTable
 		var shared = TypeSlot.make(sharedSlot)
 		shared.lists[nominalTypes].push(TypeEntry.make(TypeKind.invalid, name: "<invalid>"))
 		var slots = TypeSlots.create(0)
 		slots.push(shared)
-		return TypeTable{slots: slots, kinds: TypeKind.allCases, verifies: false, visible: Inputs.new(), hidden: HiddenList.create(0)}
+		return TypeTable{slots: slots, kinds: TypeKind.allCases, verifies: false, visible: Inputs.new()}
 	end 'new'
+
+	static function view(consumes slots TypeSlots, verifies bool, consumes visible Inputs) returns TypeTable
+		return TypeTable{slots: slots, kinds: TypeKind.allCases, verifies: verifies, visible: visible}
+	end 'view'
 end 'TypeTable'
 
 // Inputs are what of each slot a task reads: by slot, how many of its segments, which are the products of the stages it
@@ -610,7 +635,7 @@ end 'TypeTable'
 // task's stage begins.
 export type Inputs
 	var segments as SlotList
-	// reader names the task, for a read that verifyReads refuses.
+	// reader names the task, for a read that its view refuses.
 	export var reader as String
 
 	export static function new() returns Inputs
@@ -628,6 +653,23 @@ export type Inputs
 		end 'room'
 		segments[slot] = count
 	end 'waited'
+
+	// raise records that the task waited on the first count segments of slot, a slot it reads in part, unless it waited on
+	// more already.
+	export function raise(mutates self, slot Count, count Count)
+		if slot < segments.count() and segments[slot] != everySegment and segments[slot] < count 'more'
+			segments[slot] = count
+		end 'more'
+	end 'raise'
+
+	// merge records that the task waited on what other says another task waited on.
+	export function merge(mutates self, other Inputs)
+		for s in 0 upto other.segments.count() 'slots'
+			if other.segments[s] != everySegment 'waited'
+				raise(s, count: other.segments[s])
+			end 'waited'
+		end 'slots'
+	end 'merge'
 
 	// of is how many of the segments of slot, which has present, the task reads.
 	export function of(slot Count, present Count) returns Count
@@ -759,7 +801,7 @@ export function typeList(tt TypeSlot, t TypeID) returns Count
 	requireHeld(tt.slot, slot: handleSlot(h))
 	let list = handleList(h)
 	requireOpen(tt.slot, phase: tt.phase, segment: list / listsPerSegment)
-	return list
+	return try list - tt.sealed.count() otherwise panic("an entry of list {list} of slot {tt.slot} is written after its segment was sealed")
 end 'typeList'
 
 // typeIndex is the position of the type t in the list typeList gives.
@@ -779,7 +821,7 @@ function heldTypeEntry(tt TypeSlot, t TypeID) returns borrowed TypeEntry
 		h = heldShapePlace(tt, word: h)
 	end 'shape'
 	requireHeld(tt.slot, slot: handleSlot(h))
-	return tt.lists[handleList(h)][handleIndex(h)]
+	return tt.entryIn(handleList(h), index: handleIndex(h))
 end 'heldTypeEntry'
 
 // typeKind is the kind of the type t, which a structural type's handle holds, so that reading it reads no entry.
@@ -805,12 +847,12 @@ end 'typeEntry'
 function entryAt(tt TypeSlot, reads TypeTable, place Count) returns borrowed TypeEntry
 	let s = handleSlot(place)
 	if s == tt.slot 'held'
-		return tt.lists[handleList(place)][handleIndex(place)]
+		return tt.entryIn(handleList(place), index: handleIndex(place))
 	end 'held'
 	if reads.verifies 'verify'
-		requireVisible(reads.visible, slot: s, list: handleList(place), index: handleIndex(place), count: reads.slots[s].lists[handleList(place)].count())
+		requireVisible(reads.visible, slot: s, list: handleList(place), index: handleIndex(place), count: reads.slots[s].listLength(handleList(place)))
 	end 'verify'
-	return reads.slots[s].lists[handleList(place)][handleIndex(place)]
+	return reads.slots[s].entryIn(handleList(place), index: handleIndex(place))
 end 'entryAt'
 
 // shapeAt is the entry of the shape at place.
@@ -891,15 +933,22 @@ function shapePlace(tt TypeSlot, reads TypeTable, word Count) returns Count
 	return place
 end 'shapePlace'
 
-// openList is the list of kind of segment of the slot tt, made with the lists before it where the slot has none yet.
+// openList is the index in tt.lists of the list of kind of segment of the slot tt, made with the lists before it where the
+// slot has none yet.
 function openList(mutates tt TypeSlot, segment Count, kind Count) returns Count
 	requireOpen(tt.slot, phase: tt.phase, segment: segment)
 	let whole = segmentList(try segment + 1 otherwise panic("a segment past memory"), kind: nominalTypes)
-	while tt.lists.count() < whole 'room'
+	while tt.listCount() < whole 'room'
 		tt.lists.push(TypeEntryList.create(0))
 	end 'room'
-	return segmentList(segment, kind: kind)
+	return try segmentList(segment, kind: kind) - tt.sealed.count() otherwise panic("a list of slot {tt.slot} is written after its segment was sealed")
 end 'openList'
+
+// openHandle is the handle of the next entry of the list at open in tt.lists.
+function openHandle(tt TypeSlot, open Count) returns Count
+	let list = try tt.sealed.count() + open otherwise panic("more lists than memory")
+	return handleWord(tt.slot, list: list, index: tt.lists[open].count())
+end 'openHandle'
 
 // allocType makes a nominal type that module declares, in the slot tt, which is its module's, and in the segment its task
 // writes.
@@ -916,23 +965,23 @@ end 'allocShell'
 
 function allocTypeIn(mutates tt TypeSlot, module diag.ModuleID, consumes e TypeEntry, segment Count) returns TypeID
 	requireHeld(tt.slot, slot: moduleSlot(module))
-	let list = openList(tt, segment: segment, kind: nominalTypes)
-	let id = try handleWord(tt.slot, list: list, index: tt.lists[list].count()) as TypeID otherwise panic("a type handle past its bits")
+	let open = openList(tt, segment: segment, kind: nominalTypes)
+	let id = try openHandle(tt, open: open) as TypeID otherwise panic("a type handle past its bits")
 	var copyE = e
 	copyE.id = id
-	tt.lists[list].push(copyE)
+	tt.lists[open].push(copyE)
 	return id
 end 'allocTypeIn'
 
 // allocShape makes the structural type of word in the shapes of the slot tt, which no slot it reads holds.
 function allocShape(mutates tt TypeSlot, consumes e TypeEntry, word Count) returns TypeID
 	let segment = tt.phase
-	let list = openList(tt, segment: segment, kind: shapeTypes)
-	let place = handleWord(tt.slot, list: list, index: tt.lists[list].count())
+	let open = openList(tt, segment: segment, kind: shapeTypes)
+	let place = openHandle(tt, open: open)
 	let id = try word as TypeID otherwise panic("a structural word past the bits of a handle")
 	var copyE = e
 	copyE.id = id
-	tt.lists[list].push(copyE)
+	tt.lists[open].push(copyE)
 	tt.shapeIndex.insert(word, place: place)
 	return id
 end 'allocShape'
@@ -944,10 +993,10 @@ function adoptShape(mutates tt TypeSlot, reads TypeTable, place Count, word Coun
 		return
 	end 'held'
 	let segment = tt.phase
-	let list = openList(tt, segment: segment, kind: shapeTypes)
-	let own = handleWord(tt.slot, list: list, index: tt.lists[list].count())
+	let open = openList(tt, segment: segment, kind: shapeTypes)
+	let own = openHandle(tt, open: open)
 	let e = shapeAt(tt, reads: reads, place: place).clone()
-	tt.lists[list].push(e)
+	tt.lists[open].push(e)
 	tt.shapeIndex.repoint(word, place: own)
 end 'adoptShape'
 
@@ -968,8 +1017,8 @@ function importShapes(mutates tt TypeSlot, reads TypeTable, inputs Inputs)
 		let waited = inputs.of(r, present: reads.slots[r].segments())
 		for g in from upto waited 'segments'
 			let list = segmentList(g, kind: shapeTypes)
-			for i in 0 upto reads.slots[r].lists[list].count() 'shapes'
-				let word = reads.slots[r].lists[list][i].id as Count
+			for i in 0 upto reads.slots[r].listLength(list) 'shapes'
+				let word = reads.slots[r].entryIn(list, index: i).id as Count
 				tt.shapeIndex.include(word, place: handleWord(r, list: list, index: i))
 			end 'shapes'
 		end 'segments'
@@ -992,63 +1041,95 @@ export function setShapeReads(mutates tt TypeTable, module diag.ModuleID, consum
 	tt.slots[moduleSlot(module)].reads = slots
 end 'setShapeReads'
 
-// lendTypeSlot takes the slot of module out of the table for its task, which writes segment, and makes its index find the
-// shapes of what the task waited on, inputs.
+// lendTypeSlot takes the slot of module out of the table for its task, which writes segment: the segments before it are
+// complete, so they are sealed, and its index finds the shapes of what the task waited on, inputs.
 export function lendTypeSlot(mutates tt TypeTable, module diag.ModuleID, segment Count, inputs Inputs) returns TypeSlot
 	var held = exchange(tt.slots[moduleSlot(module)], value: TypeSlot.none())
 	held.phase = segment
+	held.seal(segmentList(segment, kind: nominalTypes))
 	importShapes(held, reads: tt, inputs: inputs)
 	return held
 end 'lendTypeSlot'
 
-// returnTypeSlot puts a slot that lendTypeSlot lent back in the table, with the shells its task made or wrote: the lists of
-// later segments as the task left them, which a task that waits on its stage and not on theirs reads.
+// returnTypeSlot puts a slot that lendTypeSlot lent back in the table once its task's stage ended, which completes the
+// segment it wrote, so the slot seals it, with the shells its task made or wrote: the lists of later segments as the task
+// left them, which a task that waits on its stage and not on theirs reads.
 export function returnTypeSlot(mutates tt TypeTable, consumes held TypeSlot)
 	var back = held
-	let later = segmentList(try back.phase + 1 otherwise panic("a segment past memory"), kind: nominalTypes)
-	for l in later upto back.lists.count() 'later'
-		if back.lists[l].count() > 0 'shells'
-			let phase = back.phase
-			back.shells.push(Shell.make(phase, list: l, entries: back.lists[l].clone()))
+	let phase = back.phase
+	let later = segmentList(try phase + 1 otherwise panic("a segment past memory"), kind: nominalTypes)
+	let n = back.sealed.count()
+	for open in 0 upto back.lists.count() 'later'
+		let l = try n + open otherwise panic("more lists than memory")
+		if l >= later and back.lists[open].count() > 0 'shells'
+			back.shells.push(Shell.make(phase, list: l, entries: freeze(back.lists[open].clone())))
 		end 'shells'
 	end 'later'
+	back.seal(later)
 	let s = back.slot
 	tt.slots[s] = back
 end 'returnTypeSlot'
 
-// enterView makes the slots of the tables that the running task does not hold show it only the products of the stages it
-// waited on, visible, as an executor of behaviours gives a task what it captured: of a slot, the lists of the segments it
-// waited on, and of each later one the shell that the last of those stages left, or nothing. leaveView puts them back.
-export function enterView(mutates tt TypeTable, mutates ft FuncTable, own diag.ModuleID, visible Inputs)
-	let held = moduleSlot(own)
+// keepTypeSlot puts back a slot that work outside the tasks lent, which may make more entries in the same segment later
+// (outsideSegment), so it stays open.
+export function keepTypeSlot(mutates tt TypeTable, consumes held TypeSlot)
+	let s = held.slot
+	tt.slots[s] = held
+end 'keepTypeSlot'
+
+// sealTables seals every list of sharedSlot and of the slots of the modules before first, which a compile of the modules
+// from first on begins: what work outside its tasks made there is complete, so that its tasks share it. The tasks of a
+// module the compile compiles seal its slot's segments as their stages end, and those of the stages still to come are open.
+export function sealTables(mutates tt TypeTable, mutates ft FuncTable, first Count)
+	let firstSlot = try first + 1 otherwise panic("a module past the slots of a handle")
 	for s in 0 upto tt.slots.count() 'types'
-		if s == held 'own'
-			continue 'types'
-		end 'own'
-		let waited = visible.of(s, present: tt.slots[s].segments())
-		let first = segmentList(waited, kind: nominalTypes)
-		for l in first upto tt.slots[s].lists.count() 'lists'
-			var shell as Count
-			let isShell = latestShell(tt.slots[s], list: l, before: waited, at: shell)
-			var view = TypeEntryList.create(0)
-			if isShell 'shell'
-				view = exchange(tt.slots[s].shells[shell].entries, value: TypeEntryList.create(0))
-			end 'shell'
-			let hidden = exchange(tt.slots[s].lists[l], value: view)
-			tt.hidden.push(Hidden.make(s, list: l, isShell: isShell, shell: shell, entries: hidden))
-		end 'lists'
+		if s == sharedSlot or s < firstSlot 'done'
+			let n = tt.slots[s].listCount()
+			tt.slots[s].seal(n)
+		end 'done'
 	end 'types'
 	for s in 0 upto ft.slots.count() 'funcs'
-		if s == held 'ownFuncs'
-			continue 'funcs'
-		end 'ownFuncs'
-		let waited = visible.of(s, present: ft.slots[s].lists.count())
-		for l in waited upto ft.slots[s].lists.count() 'lists'
-			let hidden = exchange(ft.slots[s].lists[l], value: FuncEntryList.create(0))
-			ft.hidden.push(HiddenFuncs.make(s, list: l, entries: hidden))
-		end 'lists'
+		if s == sharedSlot or s < firstSlot 'done'
+			let n = ft.slots[s].listCount()
+			ft.slots[s].seal(n)
+		end 'done'
 	end 'funcs'
-end 'enterView'
+end 'sealTables'
+
+// viewTypes is the table a task of a module, which holds the slot of own, reads: of each other slot, the lists of the
+// segments of the stages it waited on, visible, shared, and of each later list the shell that the last of those stages
+// left, or an empty list, as an executor of behaviours gives the task what it captured, so that what a stage it did not wait
+// on made is never seen. A read of an entry that the view does not hold stops the compile, naming the reader where
+// verifies.
+export function viewTypes(tt TypeTable, own diag.ModuleID, visible Inputs, verifies bool) returns TypeTable
+	let held = moduleSlot(own)
+	let empty = freeze(TypeEntryList.create(0))
+	var slots = TypeSlots.create(0)
+	for s in 0 upto tt.slots.count() 'slots'
+		var view = TypeSlot.none()
+		view.slot = s
+		if s != held 'read'
+			let waited = visible.of(s, present: tt.slots[s].segments())
+			let shared = segmentList(waited, kind: nominalTypes)
+			if shared > tt.slots[s].sealed.count() 'open'
+				panic("{visible.reader} waited on {waited} segments of slot {s}, of which only {tt.slots[s].sealed.count()} lists are sealed")
+			end 'open'
+			for l in 0 upto shared 'complete'
+				view.sealed.push(share(tt.slots[s].sealed[l]))
+			end 'complete'
+			for l in shared upto tt.slots[s].listCount() 'later'
+				var shell as Count
+				if latestShell(tt.slots[s], list: l, before: waited, at: shell) 'shell'
+					view.sealed.push(share(tt.slots[s].shells[shell].entries))
+				end 'shell' else 'none'
+					view.sealed.push(share(empty))
+				end 'none'
+			end 'later'
+		end 'read'
+		slots.push(view)
+	end 'slots'
+	return TypeTable.view(slots, verifies: verifies, visible: visible.copy())
+end 'viewTypes'
 
 // latestShell finds the shell of list of slot that the last stage before segment before left, and sets at to its place.
 function latestShell(slot TypeSlot, list Count, before Count, sets at Count) returns bool
@@ -1065,24 +1146,26 @@ function latestShell(slot TypeSlot, list Count, before Count, sets at Count) ret
 	return found
 end 'latestShell'
 
-// leaveView puts back what enterView hid.
-export function leaveView(mutates tt TypeTable, mutates ft FuncTable)
-	while tt.hidden.count() > 0 'types'
-		var h = try tt.hidden.pop() otherwise panic("a hidden list was taken off an empty list")
-		let s = h.slot
-		let l = h.list
-		let view = exchange(tt.slots[s].lists[l], value: exchange(h.entries, value: TypeEntryList.create(0)))
-		if h.isShell 'shell'
-			tt.slots[s].shells[h.shell].entries = view
-		end 'shell'
-	end 'types'
-	while ft.hidden.count() > 0 'funcs'
-		var h = try ft.hidden.pop() otherwise panic("a hidden list was taken off an empty list")
-		let s = h.slot
-		let l = h.list
-		ft.slots[s].lists[l] = exchange(h.entries, value: FuncEntryList.create(0))
-	end 'funcs'
-end 'leaveView'
+// viewFuncs is the function table a task of a module reads, as viewTypes is the type table.
+export function viewFuncs(ft FuncTable, own diag.ModuleID, visible Inputs, verifies bool) returns FuncTable
+	let held = moduleSlot(own)
+	var slots = FuncSlots.create(0)
+	for s in 0 upto ft.slots.count() 'slots'
+		var view = FuncSlot.none()
+		view.slot = s
+		if s != held 'read'
+			let waited = visible.of(s, present: ft.slots[s].listCount())
+			if waited > ft.slots[s].sealed.count() 'open'
+				panic("{visible.reader} waited on {waited} segments of function slot {s}, of which only {ft.slots[s].sealed.count()} are sealed")
+			end 'open'
+			for l in 0 upto waited 'complete'
+				view.sealed.push(share(ft.slots[s].sealed[l]))
+			end 'complete'
+		end 'read'
+		slots.push(view)
+	end 'slots'
+	return FuncTable.view(slots, verifies: verifies, visible: visible.copy())
+end 'viewFuncs'
 
 // laterSegment is a segment of the slot of module after every one it has, and not before from: that of work that runs
 // after the stages that wrote the others, a task of the project among it.
@@ -1092,30 +1175,26 @@ export function laterSegment(tt TypeTable, ft FuncTable, module diag.ModuleID, f
 	if tt.slots[slot].segments() > segment 'types'
 		segment = tt.slots[slot].segments()
 	end 'types'
-	if ft.slots[slot].lists.count() > segment 'funcs'
-		segment = ft.slots[slot].lists.count()
+	if ft.slots[slot].listCount() > segment 'funcs'
+		segment = ft.slots[slot].listCount()
 	end 'funcs'
 	return segment
 end 'laterSegment'
 
 // outsideSegment is the segment of the slot of module that work outside the tasks of a compile writes: the last the slot
-// has, when that is one of such work already, so that making entries one at a time does not use a segment for each.
+// has, when that is one of such work already and still open, so that making entries one at a time does not use a segment
+// for each.
 export function outsideSegment(tt TypeTable, ft FuncTable, module diag.ModuleID) returns Count
 	let later = laterSegment(tt, ft: ft, module: module, from: Phase.project)
 	if later > Phase.project.ordinal 'after'
-		return later - 1
+		let last = later - 1
+		let slot = moduleSlot(module)
+		if tt.slots[slot].sealed.count() <= segmentList(last, kind: nominalTypes) and ft.slots[slot].sealed.count() <= last 'open'
+			return last
+		end 'open'
 	end 'after'
 	return later
 end 'outsideSegment'
-
-// verifyReads holds every read of an entry of a slot the running task does not hold to visible, the segments of the stages
-// it waited on, or lets it read every segment again when verifies is false.
-export function verifyReads(mutates tt TypeTable, mutates ft FuncTable, verifies bool, visible Inputs)
-	tt.verifies = verifies
-	ft.verifies = verifies
-	ft.visible = visible.copy()
-	tt.visible = visible.copy()
-end 'verifyReads'
 
 export function cloneTypeArgs(args TypeIDList) returns TypeIDList
 	return args.clone()
@@ -1900,7 +1979,10 @@ end 'typeName'
 export type FuncSlot
 	// slot is the slot these are, by which a handle names them.
 	var slot as Count
-	// lists are the slot's functions by segment (Phase), each in the order its stage made them.
+	// The functions are by segment (Phase), each in the order its stage made them: sealed are the lists of the segments that
+	// are complete, frozen when their stage ended, and lists the ones after them, the list at l being lists[l -
+	// sealed.count()] (funcList gives that index), as TypeSlot keeps its lists.
+	var sealed as Array with frozen with FuncEntryList
 	export var lists as FuncEntryLists
 	// phase is the segment the task that holds the slot writes: the segments before it are complete.
 	var phase as Count
@@ -1910,32 +1992,83 @@ export type FuncSlot
 	static function make(slot Count) returns FuncSlot
 		var lists = FuncEntryLists.create(0)
 		lists.push(FuncEntryList.create(0))
-		return FuncSlot{slot: slot, lists: lists, phase: Phase.builtins.ordinal, instCache: FuncInternMap.new()}
+		return FuncSlot{slot: slot, sealed: Array.create(0), lists: lists, phase: Phase.builtins.ordinal, instCache: FuncInternMap.new()}
 	end 'make'
 
 	// none is the slot of no module, as TypeSlot.none is.
 	export static function none() returns FuncSlot
-		return FuncSlot{slot: noneSlot, lists: FuncEntryLists.create(0), phase: Phase.builtins.ordinal, instCache: FuncInternMap.new()}
+		return FuncSlot{slot: noneSlot, sealed: Array.create(0), lists: FuncEntryLists.create(0), phase: Phase.builtins.ordinal, instCache: FuncInternMap.new()}
 	end 'none'
+
+	// listCount is how many lists the slot has, sealed and open.
+	function listCount() returns Count
+		return try sealed.count() + lists.count() otherwise panic("more lists than memory")
+	end 'listCount'
+
+	// listLength is how many entries the list l holds, none for a list past the slot's.
+	function listLength(l Count) returns Count
+		let n = sealed.count()
+		if l < n 'sealed'
+			return sealed[l].count()
+		end 'sealed'
+		if l >= listCount() 'past'
+			return 0
+		end 'past'
+		return lists[l - n].count()
+	end 'listLength'
+
+	// entryIn is the entry at index of the list l.
+	function entryIn(l Count, index Count) returns borrowed FuncEntry
+		let n = sealed.count()
+		if l < n 'sealed'
+			return sealed[l][index]
+		end 'sealed'
+		return lists[l - n][index]
+	end 'entryIn'
+
+	// seal freezes the lists before upTo, which are complete, as TypeSlot.seal does.
+	function seal(mutates self, upTo Count)
+		if upTo <= sealed.count() 'sealed'
+			return
+		end 'sealed'
+		let n = try upTo - sealed.count() otherwise panic("a seal before the lists sealed already")
+		var rest = FuncEntryLists.create(0)
+		for i in 0 upto lists.count() 'lists'
+			let entries = exchange(lists[i], value: FuncEntryList.create(0))
+			if i < n 'complete'
+				sealed.push(freeze(entries))
+			end 'complete' else 'open'
+				rest.push(entries)
+			end 'open'
+		end 'lists'
+		while sealed.count() < upTo 'empty'
+			sealed.push(freeze(FuncEntryList.create(0)))
+		end 'empty'
+		lists = rest
+	end 'seal'
 end 'FuncSlot'
 
 export typealias FuncSlots = Array with FuncSlot
 
 export type FuncTable
-	// slots are the slots by number, each of them here but the one a running task holds.
+	// slots are the slots by number, each of them here but the one a running task holds; a task of a module reads a view
+	// (viewFuncs), as it reads the type table.
 	var slots as FuncSlots
-	// verifies, visible and hidden are those of the type table (TypeTable).
+	// verifies and visible are those of the type table (TypeTable).
 	var verifies as bool
 	var visible as Inputs
-	var hidden as HiddenFuncsList
 
 	export static function new() returns FuncTable
 		var shared = FuncSlot.make(sharedSlot)
 		shared.lists[0].push(FuncEntry.make("<invalid>", visibility: "", module: 0 as diag.ModuleID, nodeID: 0 as NodeID))
 		var slots = FuncSlots.create(0)
 		slots.push(shared)
-		return FuncTable{slots: slots, verifies: false, visible: Inputs.new(), hidden: HiddenFuncsList.create(0)}
+		return FuncTable{slots: slots, verifies: false, visible: Inputs.new()}
 	end 'new'
+
+	static function view(consumes slots FuncSlots, verifies bool, consumes visible Inputs) returns FuncTable
+		return FuncTable{slots: slots, verifies: verifies, visible: visible}
+	end 'view'
 end 'FuncTable'
 
 // funcEntry is the entry of the function f, read in place: in ft, the slot the task holds, or in another slot of the
@@ -1944,29 +2077,29 @@ export function funcEntry(ft FuncSlot, funcReads FuncTable, f FuncID) returns bo
 	let h = f as Count
 	let s = handleSlot(h)
 	if s == ft.slot 'held'
-		return ft.lists[handleList(h)][handleIndex(h)]
+		return ft.entryIn(handleList(h), index: handleIndex(h))
 	end 'held'
 	if funcReads.verifies 'verify'
-		requireVisible(funcReads.visible, slot: s, list: handleList(h), index: handleIndex(h), count: funcReads.slots[s].lists[handleList(h)].count())
+		requireVisible(funcReads.visible, slot: s, list: handleList(h), index: handleIndex(h), count: funcReads.slots[s].listLength(handleList(h)))
 	end 'verify'
-	return funcReads.slots[s].lists[handleList(h)][handleIndex(h)]
+	return funcReads.slots[s].entryIn(handleList(h), index: handleIndex(h))
 end 'funcEntry'
 
-// funcList is the list of ft that holds the entry of the function f, which a task writes: one of the slot it holds, of the
-// segment it writes or of a later one.
+// funcList is the index in ft.lists of the list that holds the entry of the function f, which a task writes: one of the
+// slot it holds, of the segment it writes or of a later one.
 export function funcList(ft FuncSlot, f FuncID) returns Count
 	let h = f as Count
 	requireHeld(ft.slot, slot: handleSlot(h))
 	let list = handleList(h)
 	requireOpen(ft.slot, phase: ft.phase, segment: list)
-	return list
+	return try list - ft.sealed.count() otherwise panic("a function of list {list} of slot {ft.slot} is written after its segment was sealed")
 end 'funcList'
 
 // heldFuncEntry is the entry of the function f, of the slot ft that the task holds, in whichever segment it is.
 function heldFuncEntry(ft FuncSlot, f FuncID) returns borrowed FuncEntry
 	let h = f as Count
 	requireHeld(ft.slot, slot: handleSlot(h))
-	return ft.lists[handleList(h)][handleIndex(h)]
+	return ft.entryIn(handleList(h), index: handleIndex(h))
 end 'heldFuncEntry'
 
 // funcIndex is the position of the function f in the list funcList gives.
@@ -2000,28 +2133,41 @@ end 'allocFunc'
 
 function allocFuncIn(mutates ft FuncSlot, consumes f FuncEntry) returns FuncID
 	let list = ft.phase
-	while ft.lists.count() <= list 'room'
+	while ft.listCount() <= list 'room'
 		ft.lists.push(FuncEntryList.create(0))
 	end 'room'
-	let id = try handleWord(ft.slot, list: list, index: ft.lists[list].count()) as FuncID otherwise panic("a function handle past its bits")
+	let open = try list - ft.sealed.count() otherwise panic("a function is made in list {list} of slot {ft.slot} after its segment was sealed")
+	let id = try handleWord(ft.slot, list: list, index: ft.lists[open].count()) as FuncID otherwise panic("a function handle past its bits")
 	var copyF = f
 	copyF.id = id
-	ft.lists[list].push(copyF)
+	ft.lists[open].push(copyF)
 	return id
 end 'allocFuncIn'
 
-// lendFuncSlot takes the slot of module out of the table for its task, which writes segment.
+// lendFuncSlot takes the slot of module out of the table for its task, which writes segment: the segments before it are
+// complete, so they are sealed.
 export function lendFuncSlot(mutates ft FuncTable, module diag.ModuleID, segment Count) returns FuncSlot
 	var held = exchange(ft.slots[moduleSlot(module)], value: FuncSlot.none())
 	held.phase = segment
+	held.seal(segment)
 	return held
 end 'lendFuncSlot'
 
-// returnFuncSlot puts a slot that lendFuncSlot lent back in the table.
+// returnFuncSlot puts a slot that lendFuncSlot lent back in the table once its task's stage ended, sealing the segment it
+// wrote.
 export function returnFuncSlot(mutates ft FuncTable, consumes held FuncSlot)
+	var back = held
+	let later = try back.phase + 1 otherwise panic("a segment past memory")
+	back.seal(later)
+	let s = back.slot
+	ft.slots[s] = back
+end 'returnFuncSlot'
+
+// keepFuncSlot puts back a slot that work outside the tasks lent, which stays open, as keepTypeSlot does.
+export function keepFuncSlot(mutates ft FuncTable, consumes held FuncSlot)
 	let s = held.slot
 	ft.slots[s] = held
-end 'returnFuncSlot'
+end 'keepFuncSlot'
 
 // typeParamOwnerName is the name of the generic type or function that declares the type parameter param, for a message.
 export function typeParamOwnerName(tt TypeSlot, reads TypeTable, ft FuncSlot, funcReads FuncTable, param TypeID) returns String
@@ -2049,10 +2195,10 @@ export function typeParamOwnerName(tt TypeSlot, reads TypeTable, ft FuncSlot, fu
 end 'typeParamOwnerName'
 
 function typeParamOwnerIn(slot TypeSlot, param TypeID) returns table.Option with String
-	for l in 0 upto slot.lists.count() 'lists'
-		for i in 0 upto slot.lists[l].count() 'types'
-			if slot.lists[l][i].origin == noType and slot.lists[l][i].typeParams.contains(param) 'type'
-				return table.Option.some(slot.lists[l][i].name.clone())
+	for l in 0 upto slot.listCount() 'lists'
+		for i in 0 upto slot.listLength(l) 'types'
+			if slot.entryIn(l, index: i).origin == noType and slot.entryIn(l, index: i).typeParams.contains(param) 'type'
+				return table.Option.some(slot.entryIn(l, index: i).name.clone())
 			end 'type'
 		end 'types'
 	end 'lists'
@@ -2060,10 +2206,10 @@ function typeParamOwnerIn(slot TypeSlot, param TypeID) returns table.Option with
 end 'typeParamOwnerIn'
 
 function funcParamOwnerIn(slot FuncSlot, param TypeID) returns table.Option with String
-	for l in 0 upto slot.lists.count() 'lists'
-		for i in 0 upto slot.lists[l].count() 'funcs'
-			if slot.lists[l][i].generics.contains(param) 'func'
-				return table.Option.some(slot.lists[l][i].name.clone())
+	for l in 0 upto slot.listCount() 'lists'
+		for i in 0 upto slot.listLength(l) 'funcs'
+			if slot.entryIn(l, index: i).generics.contains(param) 'func'
+				return table.Option.some(slot.entryIn(l, index: i).name.clone())
 			end 'func'
 		end 'funcs'
 	end 'lists'

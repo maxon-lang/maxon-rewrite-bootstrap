@@ -65,8 +65,8 @@ end 'typeParamOfNode'
 
 // boundedParamOf is the type that a 'where' constraint bounds: the one its parameter name resolved to.
 function boundedParamOf(c Checker, p ast.Project, ms ast.ModuleState, cs ast.Constraint) returns ast.TypeID
-	match ms.resolution.typeParamSlots.get(cs.id as Count) 'slot'
-		some(slot) then return typeParamOfNode(c, p: p, ms: ms, node: ms.resolution.typeParams[slot].id)
+	match ast.resolutionOf(p, ms: ms).typeParamSlots.get(cs.id as Count) 'slot'
+		some(slot) then return typeParamOfNode(c, p: p, ms: ms, node: ast.resolutionOf(p, ms: ms).typeParams[slot].id)
 		none then _ = 0
 	end 'slot'
 	panic("the constraint at node {cs.id} of module {c.modID} names no type parameter")
@@ -316,7 +316,7 @@ function typeNamed(c Checker, p ast.Project, ms ast.ModuleState, name ast.NodeID
 	if rt != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt)).findField(spelling).isSome() 'field'
 		return ast.noType
 	end 'field'
-	match consumes ms.resolution.decls.get(name as Count) 'bound'
+	match consumes ast.nodeDecl(p, ms: ms, node: name as Count) 'bound'
 		some(ref) then return nominalTypeOf(p, ms: ms, ref: ref)
 		none then return ast.noType
 	end 'bound'

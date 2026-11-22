@@ -75,7 +75,7 @@ end 'pushIfInstanceAlias'
 // namedAliases appends the typealiases of instances that a type reference of the module names, itself or in its type
 // arguments.
 function namedAliases(p ast.Project, ms ast.ModuleState, tr ast.NodeID, mutates out DeclRefList)
-	match consumes ms.resolution.decls.get(tr as Count) 'bound'
+	match consumes ast.nodeDecl(p, ms: ms, node: tr as Count) 'bound'
 		some(ref) then pushIfInstanceAlias(p, ref: ref, out: out)
 		none then _ = 0
 	end 'bound'
@@ -284,7 +284,7 @@ function declareSupertype(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	let off = ms.tree.startOf(a.parent)
 	let parentName = ast.typeRefName(ms.tree, id: a.parent)
 	var parent = ast.noType
-	match ms.resolution.decls.get(a.parent as Count) 'named'
+	match ast.nodeDecl(p, ms: ms, node: a.parent as Count) 'named'
 		some(pref) then parent = declTypeOrNone(p, ms: ms, ref: pref)
 		none then return
 	end 'named'

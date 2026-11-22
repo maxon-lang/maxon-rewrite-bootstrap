@@ -1068,11 +1068,11 @@ end 'instantiateGeneric'
 export function resolveBoundTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = ms.tree.startOf(tr)
 	let tName = ast.typeRefName(ms.tree, id: tr)
-	match ms.resolution.decls.get(tr as Count) 'hit'
+	match ast.nodeDecl(p, ms: ms, node: tr as Count) 'hit'
 		some(ref) then return checkInterfaceRef(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, isBound: isBound, errs: errs)
 		none then _ = 0
 	end 'hit'
-	if ms.resolution.typeParamSlots.has(tr as Count) 'typeParameter'
+	if ast.resolutionOf(p, ms: ms).typeParamSlots.has(tr as Count) 'typeParameter'
 		checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
 		return ast.noType
 	end 'typeParameter'
@@ -1185,7 +1185,7 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	let tName = ast.typeRefName(ms.tree, id: tr)
 	let argsRef = ast.typeRefTypeArgsRef(ms.tree, id: tr)
 	let hasArgs = ms.tree.listLen(argsRef) > 0
-	match ms.resolution.typeParamSlots.get(tr as Count) 'tpSlot'
+	match ast.resolutionOf(p, ms: ms).typeParamSlots.get(tr as Count) 'tpSlot'
 		some(slot) then return resolveBoundTP(c, p: p, ms: ms, off: off, name: tName, slot: slot, hasArgs: hasArgs, errs: errs)
 		none then _ = 0
 	end 'tpSlot'
@@ -1228,7 +1228,7 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 			return ast.noType
 		end 'bareFloat'
 	end 'unqual'
-	match ms.resolution.decls.get(tr as Count) 'declHit'
+	match ast.nodeDecl(p, ms: ms, node: tr as Count) 'declHit'
 		some(ref) then return applyTypeArgs(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, selfTy: selfTy, errs: errs)
 		none then _ = 0
 	end 'declHit'
@@ -1240,7 +1240,7 @@ function resolveBoundTP(c Checker, p ast.Project, ms ast.ModuleState, off diag.U
 	if hasArgs 'badA'
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{name}' is not generic and takes no type arguments", errs: errs)
 	end 'badA'
-	let tpNode = ms.resolution.typeParams[slot].id
+	let tpNode = ast.resolutionOf(p, ms: ms).typeParams[slot].id
 	match ast.paramType(p, ms: ms, module: c.modID, node: tpNode) 'tid'
 		some(id) then return id
 		none then _ = 0

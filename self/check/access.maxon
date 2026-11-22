@@ -6,7 +6,7 @@ function checkStructLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if typeName == "Self" 'selfType'
 		target = c.owner
 	end 'selfType' else 'named'
-		match consumes ms.resolution.decls.get(e as Count) 'bound'
+		match consumes ast.nodeDecl(p, ms: ms, node: e as Count) 'bound'
 			some(ref) then target = declaredTypeOrNone(p, ms: ms, ref: ref)
 			none then _ = 0
 		end 'bound'
@@ -300,7 +300,7 @@ end 'checkTypeMember'
 // writtenType is a type's name as the source writes it: the path of its module comes first where another module declares it.
 function writtenType(c Checker, p ast.Project, ms ast.ModuleState, obj ast.NodeID) returns String
 	let written = writtenName(ms.tree, e: obj)
-	match consumes ms.resolution.decls.get(obj as Count) 'bound'
+	match consumes ast.nodeDecl(p, ms: ms, node: obj as Count) 'bound'
 		some(ref) then return written if ref.module == c.modID else ast.inModule(p, modID: ref.module, name: written)
 		none then return written
 	end 'bound'

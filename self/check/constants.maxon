@@ -212,7 +212,7 @@ function constReadsOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) return
 	end 'other'
 	if ast.declIsConst(p, ref: ref) 'constant'
 		match p.modules[modIdx].decls[ref.ordinal as Count] 'k'
-			constDecl(cd) then constRefs(p, ms: ms, tree: ms.tree, res: ms.resolution, e: cd.value, out: out)
+			constDecl(cd) then constRefs(p, ms: ms, tree: ms.tree, res: ast.resolutionOf(p, ms: ms), e: cd.value, out: out)
 			funcDecl(_) then panic("the constant at ordinal {ref.ordinal} is a function")
 			typeDecl(_) then panic("the constant at ordinal {ref.ordinal} is a type")
 			enumDecl(_) then panic("the constant at ordinal {ref.ordinal} is an enum")
@@ -225,7 +225,7 @@ function constReadsOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) return
 	end 'constant'
 	let tid = declTypeOf(p, ms: ms, ref: ref)
 	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: tid).cases.count() 'cases'
-		constRefs(p, ms: ms, tree: ms.tree, res: ms.resolution, e: ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].rawExpr, out: out)
+		constRefs(p, ms: ms, tree: ms.tree, res: ast.resolutionOf(p, ms: ms), e: ast.typeEntry(ms.types, reads: p.types, t: tid).cases[i].rawExpr, out: out)
 	end 'cases'
 	return out
 end 'constReadsOf'
@@ -430,7 +430,7 @@ function isLiteralFactory(p ast.Project, ms ast.ModuleState, fn ast.FuncID) retu
 	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).module
 	let body = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).bodyRef
 	if module == ms.module 'own'
-		return returnsLiteral(p, ms: ms, tree: ms.tree, res: ms.resolution, body: body)
+		return returnsLiteral(p, ms: ms, tree: ms.tree, res: ast.resolutionOf(p, ms: ms), body: body)
 	end 'own'
 	let mi = ast.modIndex(module)
 	p.modules[mi].tables.requireHeld()

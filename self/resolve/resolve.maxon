@@ -1534,7 +1534,7 @@ end 'resolveProject'
 export function resolveFrom(mutates p ast.Project, first Count, mutates errs diag.ErrorList)
 	for i in first upto p.modules.count() 'eachM'
 		let module = p.modules[i].id
-		var ms = ast.lendModule(p, module: module, lent: ast.Lent.tree, phase: ast.Phase.resolve, inputs: ast.Inputs.new())
+		var ms = ast.lendModule(p, module: module, lent: ast.Lent.resolution, phase: ast.Phase.resolve, inputs: ast.Inputs.new())
 		resolveModule(ms, p: p, errs: errs)
 		ast.giveBack(p, ms: ms)
 	end 'eachM'

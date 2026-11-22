@@ -25,7 +25,7 @@ function extendedType(mutates c Checker, p ast.Project, ms ast.ModuleState, xd a
 	end 'integer'
 	let name = ast.typeRefName(ms.tree, id: xd.target)
 	let off = offsetOf(c, p: p, ms: ms, node: xd.target)
-	match consumes ms.resolution.decls.get(xd.target as Count) 'bound'
+	match consumes ast.nodeDecl(p, ms: ms, node: xd.target as Count) 'bound'
 		some(ref) then return declaredExtendedType(c, p: p, ms: ms, ref: ref, name: name, off: off, errs: errs)
 		none then _ = 0
 	end 'bound'
@@ -42,7 +42,7 @@ end 'extendedType'
 
 // bindExtensionParams makes the type parameters the extension's code names the parameters of the extended type.
 function bindExtensionParams(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, xd ast.ExtensionDecl, nt ast.TypeID)
-	match ms.resolution.extParams.get(xd.id as Count) 'first'
+	match ast.resolutionOf(p, ms: ms).extParams.get(xd.id as Count) 'first'
 		some(first) then bindParamsFrom(c, p: p, ms: ms, first: first, nt: nt)
 		none then _ = 0
 	end 'first'
@@ -51,8 +51,8 @@ end 'bindExtensionParams'
 function bindParamsFrom(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, first Count, nt ast.TypeID)
 	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams.count() 'params'
 		let slot = try first + i otherwise panic("too many type parameters")
-		let node = ms.resolution.typeParams[slot].id
-		let name = ms.resolution.typeParams[slot].name.clone()
+		let node = ast.resolutionOf(p, ms: ms).typeParams[slot].id
+		let name = ast.resolutionOf(p, ms: ms).typeParams[slot].name.clone()
 		match paramNamed(p, ms: ms, owner: nt, name: name) 'shell'
 			some(tid) then ast.setParamType(ms, module: c.modID, node: node, t: tid)
 			none then panic("the type parameter '{name}' of an extension is not one of '{ast.typeEntry(ms.types, reads: p.types, t: nt).name}'")
@@ -108,7 +108,7 @@ function addExtensionMethod(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if ast.typeKind(ms.types, reads: p.types, t: key) == ast.TypeKind.interfaceTy 'ofInterface'
 		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].extendedIface = key
 	end 'ofInterface'
-	ms.tables.extMethods.push(ast.ExtMethod.make(key, name: m.name.clone(), func: fid))
+	ms.tables.pushExtMethod(ast.ExtMethod.make(key, name: m.name.clone(), func: fid))
 	addFunction(c, p: p, ms: ms, f: m, fid: fid, nt: nt, declared: declared, errs: errs)
 	var conditional = 0 as Count
 	for i in 0 upto xd.whereList.count() 'conditions'
@@ -132,7 +132,7 @@ function declareExtension(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	let key = ast.extensionKey(p, ms: ms, t: nt).unwrap()
 	let interfaces = conformedInterfaces(c, p: p, ms: ms, interfaces: xd.conforms, capabilities: false, errs: errs)
 	for i in 0 upto interfaces.count() 'conforms'
-		ms.tables.extConforms.push(ast.ExtConform.make(key, iface: interfaces[i], site: xd.id))
+		ms.tables.pushExtConform(ast.ExtConform.make(key, iface: interfaces[i], site: xd.id))
 	end 'conforms'
 	if failedSince(errs, mark: mark) 'badConforms'
 		return
@@ -164,8 +164,8 @@ end 'declareInterfaceExtension'
 // which are the type's own and those that extensions add, and refuses one that another declaration the module sees says
 // too: a type has one conformance to an interface wherever it is used.
 export function checkExtensionConformances(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates errs diag.ErrorList)
-	for i in 0 upto ms.tables.extConforms.count() 'each'
-		let entry = ms.tables.extConforms[i].clone()
+	for i in 0 upto ms.tables.extConformCount() 'each'
+		let entry = ms.tables.extConform(i).clone()
 		let mark = errs.count()
 		match consumes ast.conformanceSource(p, ms: ms, from: c.modID, t: entry.owner, iface: entry.iface) 'source'
 			ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: offsetOf(c, p: p, ms: ms, node: entry.site), typeName: ast.typeName(ms.types, reads: p.types, t: entry.owner), ifaceName: spelled(c, p: p, ms: ms, iface: entry.iface), first: first, second: second, errs: errs)
@@ -189,9 +189,9 @@ end 'checkExtensionConformances'
 // says the same: one of the type to the same interface, or to one that this one extends or that extends it, which would
 // give the type two sets of methods for one interface.
 function requireOnceInModule(mutates c Checker, p ast.Project, ms ast.ModuleState, index Count, mutates errs diag.ErrorList) returns bool
-	let entry = ms.tables.extConforms[index].clone()
+	let entry = ms.tables.extConform(index).clone()
 	for j in 0 upto index 'earlier'
-		let other = ms.tables.extConforms[j].clone()
+		let other = ms.tables.extConform(j).clone()
 		if other.owner == entry.owner and (ast.extendsInterface(ms.types, reads: p.types, have: other.iface, want: entry.iface) or ast.extendsInterface(ms.types, reads: p.types, have: entry.iface, want: other.iface)) 'same'
 			let typeName = ast.typeName(ms.types, reads: p.types, t: entry.owner)
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: entry.site), code: diag.errAmbiguousConformance, msg: "'{typeName}' implements {spelled(c, p: p, ms: ms, iface: entry.iface)} twice in {ast.describeModule(p, modID: c.modID)}: by this extension and by an earlier one, which already says '{typeName}' implements {spelled(c, p: p, ms: ms, iface: other.iface)}; remove one of them", errs: errs)
@@ -204,8 +204,8 @@ end 'requireOnceInModule'
 // verifyExtensions refuses a method that an extension adds under the name of one the type's own body declares. The type may
 // be declared in another module, so this waits for the verify stage, when its methods are declared.
 export function verifyExtensions(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)
-	for i in 0 upto ms.tables.extMethods.count() 'each'
-		let entry = ms.tables.extMethods[i].clone()
+	for i in 0 upto ms.tables.extMethodCount() 'each'
+		let entry = ms.tables.extMethod(i).clone()
 		if bodyDeclares(p, ms: ms, owner: entry.owner, name: entry.name) 'dup'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: entry.func).nodeID), code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(entry.name, typeName: ast.typeName(ms.types, reads: p.types, t: entry.owner)), errs: errs)
 		end 'dup'
@@ -283,10 +283,10 @@ end 'refuseExtensionAliases'
 // was refused. A refused alias is filed with no type, so that the aliases stage leaves it without one.
 function fileExtensionAlias(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ord ast.DeclOrdinal, key ast.TypeID, nt ast.TypeID, mutates errs diag.ErrorList)
 	if nt == ast.noType or refuseExtensionAlias(c, p: p, ms: ms, a: a, key: key, nt: nt, errs: errs) 'refused'
-		ms.tables.extAliases.push(ast.ExtAlias.make(ast.noType, name: a.name.clone(), ordinal: ord, extended: ast.noType))
+		ms.tables.pushExtAlias(ast.ExtAlias.make(ast.noType, name: a.name.clone(), ordinal: ord, extended: ast.noType))
 		return
 	end 'refused'
-	ms.tables.extAliases.push(ast.ExtAlias.make(key, name: a.name.clone(), ordinal: ord, extended: nt))
+	ms.tables.pushExtAlias(ast.ExtAlias.make(key, name: a.name.clone(), ordinal: ord, extended: nt))
 end 'fileExtensionAlias'
 
 // refuseExtensionAlias reports why an extension of the type nt may not declare the typealias a, and tells whether it did: a
@@ -307,8 +307,8 @@ end 'refuseExtensionAlias'
 // bindMemberRefs finds the typealias that each type written Owner.member in the module names: one that the body of Owner's
 // declaration declares, or one that an extension seen from the module adds, as its methods are found.
 export function bindMemberRefs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates errs diag.ErrorList)
-	for i in 0 upto ms.resolution.memberRefs.count() 'each'
-		bindMemberRef(c, p: p, ms: ms, ref: ms.resolution.memberRefs[i].clone(), errs: errs)
+	for i in 0 upto ast.resolutionOf(p, ms: ms).memberRefs.count() 'each'
+		bindMemberRef(c, p: p, ms: ms, ref: ast.resolutionOf(p, ms: ms).memberRefs[i].clone(), errs: errs)
 	end 'each'
 end 'bindMemberRefs'
 
@@ -381,5 +381,5 @@ function bindMemberDecl(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		checkFail(c.modID, off: off, code: diag.errNotExported, msg: ast.notVisible(p, name: ast.declName(p, ref: found), v: level, owner: found.module, from: c.modID), errs: errs)
 		return
 	end 'hidden'
-	ms.resolution.bindDecl(node, d: found.clone())
+	ms.tables.bindMemberDecl(node, d: found.clone())
 end 'bindMemberDecl'

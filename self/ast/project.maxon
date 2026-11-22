@@ -77,9 +77,326 @@ end 'FuncLocals'
 
 export typealias FuncLocalsList = Array with FuncLocals
 
-// ModuleTables are what the stages of one module decide about its declarations. Only that module's stages write them, and a
-// stage of another module reads them once it has waited for the stage that wrote them.
+// ModuleTables are what the stages of one module decide about its declarations, by the stage that decided it (Phase): each
+// stage writes only its own part, so that a part is complete, and could be frozen and shared, when its stage ends. Only
+// that module's stages write them, and a stage of another module reads the parts of the stages it waited on. A read finds
+// the latest part that holds the entry, as a stage after another overrides what it decided.
 export type ModuleTables
+	var parts as Array with TablesPart
+	// phase is the part that the task holding the tables writes.
+	var phase as Count
+	// seen is how many parts a reader of another module's tables may read, where a view of the products of the stages it waited
+	// on holds them to it (--verify-reads), and reader names the reader for a read past them.
+	var seen as Count
+	var reader as String
+	// lent is whether these are the tables a project holds while a task of the module holds the module's own: no stage reads
+	// them, as the task reads its module's tables in its state.
+	var lent as bool
+
+	export static function new() returns Self
+		return Self{parts: Array.create(0), phase: Phase.builtins.ordinal, seen: everySegment, reader: "", lent: false}
+	end 'new'
+
+	export static function lentOut() returns Self
+		var t = Self.new()
+		t.lent = true
+		return t
+	end 'lentOut'
+
+	// requireHeld panics where the tables are lent to a task: a read of them is one of a module the task holds, which it
+	// reads in its state.
+	export function requireHeld()
+		if lent 'lent'
+			panic("a module's tables are read in the project while a task of the module holds them")
+		end 'lent'
+	end 'requireHeld'
+
+	// requireSeen stops the compile where a read finds an entry in part k, which a stage the reader did not wait on decided.
+	function requireSeen(k Count)
+		if k >= seen 'unwaited'
+			panic("{reader} reads part {k} of a module's tables, which no product of a stage it waited on holds")
+		end 'unwaited'
+	end 'requireSeen'
+
+	// written is the part the holder writes, made with the parts before it where the tables have none yet.
+	function written(mutates self) returns Count
+		while parts.count() <= phase 'room'
+			parts.push(TablesPart.new())
+		end 'room'
+		return phase
+	end 'written'
+
+	// partCount is how many parts the tables have, which is how many a read looks through.
+	export function partCount() returns Count
+		return parts.count()
+	end 'partCount'
+
+	// setSeen holds the reads of the tables to their first count parts, or lets them read every part again.
+	export function setSeen(mutates self, count Count, consumes by String)
+		seen = count
+		reader = by
+	end 'setSeen'
+
+	export function declType(ord DeclOrdinal) returns table.Option with TypeID
+		let i = ord as Count
+		var k = parts.count()
+		while k > 0 'parts'
+			k = k - 1
+			if i < parts[k].declTypes.count() and parts[k].declTypes[i] != noType 'hit'
+				requireSeen(k)
+				return table.Option.some(parts[k].declTypes[i])
+			end 'hit'
+		end 'parts'
+		return table.Option.none
+	end 'declType'
+
+	export function setDeclType(mutates self, ord DeclOrdinal, t TypeID)
+		let k = written()
+		parts[k].setDeclType(ord, t: t)
+	end 'setDeclType'
+
+	export function paramType(node NodeID) returns table.Option with TypeID
+		var k = parts.count()
+		while k > 0 'parts'
+			k = k - 1
+			if parts[k].paramTypes.isEmpty() 'none'
+				continue 'parts'
+			end 'none'
+			let found = parts[k].paramTypes.get(node as Count)
+			if found.isSome() 'hit'
+				requireSeen(k)
+				return found
+			end 'hit'
+		end 'parts'
+		return table.Option.none
+	end 'paramType'
+
+	export function setParamType(mutates self, node NodeID, t TypeID)
+		let k = written()
+		parts[k].paramTypes.insert(node as Count, value: t)
+	end 'setParamType'
+
+	export function declFunc(ord DeclOrdinal) returns table.Option with FuncID
+		let i = ord as Count
+		var k = parts.count()
+		while k > 0 'parts'
+			k = k - 1
+			if i < parts[k].declFuncs.count() and parts[k].declFuncs[i] != noFunc 'hit'
+				requireSeen(k)
+				return table.Option.some(parts[k].declFuncs[i])
+			end 'hit'
+		end 'parts'
+		return table.Option.none
+	end 'declFunc'
+
+	export function setDeclFunc(mutates self, ord DeclOrdinal, f FuncID)
+		let k = written()
+		parts[k].setDeclFunc(ord, f: f)
+	end 'setDeclFunc'
+
+	export function nodeFunc(node NodeID) returns table.Option with FuncID
+		var k = parts.count()
+		while k > 0 'parts'
+			k = k - 1
+			if parts[k].nodeFuncs.isEmpty() 'none'
+				continue 'parts'
+			end 'none'
+			let found = parts[k].nodeFuncs.get(node as Count)
+			if found.isSome() 'hit'
+				requireSeen(k)
+				return found
+			end 'hit'
+		end 'parts'
+		return table.Option.none
+	end 'nodeFunc'
+
+	export function setNodeFunc(mutates self, node NodeID, f FuncID)
+		let k = written()
+		parts[k].nodeFuncs.insert(node as Count, value: f)
+	end 'setNodeFunc'
+
+	export function declConst(ord DeclOrdinal) returns table.Option with ConstValue
+		var k = parts.count()
+		while k > 0 'parts'
+			k = k - 1
+			if parts[k].declConsts.has(ord as Count) 'hit'
+				requireSeen(k)
+				return parts[k].declConsts.get(ord as Count)
+			end 'hit'
+		end 'parts'
+		return table.Option.none
+	end 'declConst'
+
+	export function setDeclConst(mutates self, ord DeclOrdinal, consumes value ConstValue)
+		let k = written()
+		parts[k].declConsts.insert(ord as Count, value: value)
+	end 'setDeclConst'
+
+	export function rawType(t TypeID) returns TypeID
+		var k = parts.count()
+		while k > 0 'parts'
+			k = k - 1
+			if parts[k].rawTypes.isEmpty() 'none'
+				continue 'parts'
+			end 'none'
+			let found = parts[k].rawTypes.get(t as Count)
+			if found.isSome() 'hit'
+				requireSeen(k)
+				return found.unwrap()
+			end 'hit'
+		end 'parts'
+		return noType
+	end 'rawType'
+
+	export function setRawType(mutates self, t TypeID, raw TypeID)
+		let k = written()
+		parts[k].rawTypes.insert(t as Count, value: raw)
+	end 'setRawType'
+
+	// localsPart is the part that holds the locals the bodies stage bound to the function f, where it bound any, and sets at
+	// to their place in it.
+	function localsPart(f FuncID, sets at Count) returns table.Option with Count
+		var k = parts.count()
+		while k > 0 'parts'
+			k = k - 1
+			if parts[k].localsAt.isEmpty() 'none'
+				continue 'parts'
+			end 'none'
+			let found = parts[k].localsAt.get(f as Count)
+			if found.isSome() 'hit'
+				requireSeen(k)
+				at = found.unwrap()
+				return table.Option.some(k)
+			end 'hit'
+		end 'parts'
+		at = 0 as Count
+		return table.Option.none
+	end 'localsPart'
+
+	export function receiverLocal(f FuncID) returns LocalID
+		var at as Count
+		match localsPart(f, at: at) 'part'
+			some(k) then return parts[k].funcLocals[at].receiver
+			none then return noLocal
+		end 'part'
+	end 'receiverLocal'
+
+	export function paramLocal(f FuncID, index Count) returns LocalID
+		var at as Count
+		match localsPart(f, at: at) 'part'
+			some(k) then return parts[k].funcLocals[at].params[index]
+			none then panic("a parameter is read of a function whose body has bound none")
+		end 'part'
+	end 'paramLocal'
+
+	export function setReceiverLocal(mutates self, f FuncID, l LocalID)
+		let k = written()
+		let at = parts[k].localsFor(f)
+		parts[k].funcLocals[at].receiver = l
+	end 'setReceiverLocal'
+
+	export function pushParamLocal(mutates self, f FuncID, l LocalID)
+		let k = written()
+		let at = parts[k].localsFor(f)
+		parts[k].funcLocals[at].params.push(l)
+	end 'pushParamLocal'
+
+	// memberDecl is the typealias that a check stage bound the type written Owner.member at node to.
+	export function memberDecl(node Count) returns table.Option with DeclRef
+		var k = parts.count()
+		while k > 0 'parts'
+			k = k - 1
+			if not parts[k].memberDecls.isEmpty() and parts[k].memberDecls.has(node) 'hit'
+				requireSeen(k)
+				return parts[k].memberDecls.get(node)
+			end 'hit'
+		end 'parts'
+		return table.Option.none
+	end 'memberDecl'
+
+	export function bindMemberDecl(mutates self, node NodeID, consumes d DeclRef)
+		let k = written()
+		parts[k].memberDecls.insert(node as Count, value: d)
+	end 'bindMemberDecl'
+
+	export function pushExtMethod(mutates self, consumes e ExtMethod)
+		let k = written()
+		parts[k].extMethods.push(e)
+	end 'pushExtMethod'
+
+	export function pushExtAlias(mutates self, consumes e ExtAlias)
+		let k = written()
+		parts[k].extAliases.push(e)
+	end 'pushExtAlias'
+
+	export function pushExtConform(mutates self, consumes e ExtConform)
+		let k = written()
+		parts[k].extConforms.push(e)
+	end 'pushExtConform'
+
+	// extMethodCount and the rest read what the module's extensions add, all parts as one list in the order of the parts, an
+	// index running through them; a part past seen stops the read.
+	export function extMethodCount() returns Count
+		return extCount(ExtList.methods)
+	end 'extMethodCount'
+
+	export function extAliasCount() returns Count
+		return extCount(ExtList.aliases)
+	end 'extAliasCount'
+
+	export function extConformCount() returns Count
+		return extCount(ExtList.conforms)
+	end 'extConformCount'
+
+	export function extMethod(i Count) returns borrowed ExtMethod
+		var at = i
+		let k = extPart(ExtList.methods, at: at)
+		return parts[k].extMethods[at]
+	end 'extMethod'
+
+	export function extAlias(i Count) returns borrowed ExtAlias
+		var at = i
+		let k = extPart(ExtList.aliases, at: at)
+		return parts[k].extAliases[at]
+	end 'extAlias'
+
+	export function extConform(i Count) returns borrowed ExtConform
+		var at = i
+		let k = extPart(ExtList.conforms, at: at)
+		return parts[k].extConforms[at]
+	end 'extConform'
+
+	function extCount(list ExtList) returns Count
+		var n = 0 as Count
+		for k in 0 upto parts.count() 'parts'
+			n = try n + parts[k].extLength(list) otherwise panic("more extensions than memory")
+		end 'parts'
+		return n
+	end 'extCount'
+
+	// extPart is the part that holds the i-th entry of the list, and makes at its index in that part.
+	function extPart(list ExtList, mutates at Count) returns Count
+		for k in 0 upto parts.count() 'parts'
+			let n = parts[k].extLength(list)
+			if at < n 'here'
+				requireSeen(k)
+				return k
+			end 'here'
+			at = at - n
+		end 'parts'
+		panic("an extension past those the module's tables hold")
+	end 'extPart'
+end 'ModuleTables'
+
+// ExtList names a list of what a module's extensions add.
+enum ExtList
+	methods
+	aliases
+	conforms
+end 'ExtList'
+
+// TablesPart is what one stage of a module decided about its declarations.
+type TablesPart
 	// declTypes is the type of each declaration, by its ordinal; noType is a declaration that has none.
 	var declTypes as TypeIDList
 	// paramTypes is the type of each type parameter the module declares, by its node.
@@ -99,43 +416,18 @@ export type ModuleTables
 	var localsAt as FuncLocalsMap
 	var funcLocals as FuncLocalsList
 	// extMethods, extAliases and extConforms are what the module's extensions add to types, whichever module declares them.
-	export var extMethods as ExtMethodList
-	export var extAliases as ExtAliasList
-	export var extConforms as ExtConformList
-	// lent is whether these are the tables a project holds while a task of the module holds the module's own: no stage reads
-	// them, as the task reads its module's tables in its state.
-	var lent as bool
+	var extMethods as ExtMethodList
+	var extAliases as ExtAliasList
+	var extConforms as ExtConformList
+	// memberDecls are the typealiases that the types written Owner.member are bound to, by their node, which a check stage
+	// finds after the resolve, as an extension of Owner may add them.
+	var memberDecls as NodeDeclMap
 
-	export static function new() returns Self
-		return Self{declTypes: TypeIDList.create(0), paramTypes: NodeTypeMap.new(), declFuncs: FuncIDList.create(0), nodeFuncs: NodeFuncMap.new(), declConsts: OrdinalConstMap.new(), rawTypes: TypeRawMap.new(), localsAt: FuncLocalsMap.new(), funcLocals: FuncLocalsList.create(0), extMethods: ExtMethodList.create(0), extAliases: ExtAliasList.create(0), extConforms: ExtConformList.create(0), lent: false}
+	static function new() returns Self
+		return Self{declTypes: TypeIDList.create(0), paramTypes: NodeTypeMap.new(), declFuncs: FuncIDList.create(0), nodeFuncs: NodeFuncMap.new(), declConsts: OrdinalConstMap.new(), rawTypes: TypeRawMap.new(), localsAt: FuncLocalsMap.new(), funcLocals: FuncLocalsList.create(0), extMethods: ExtMethodList.create(0), extAliases: ExtAliasList.create(0), extConforms: ExtConformList.create(0), memberDecls: NodeDeclMap.new()}
 	end 'new'
 
-	export static function lentOut() returns Self
-		var t = Self.new()
-		t.lent = true
-		return t
-	end 'lentOut'
-
-	// requireHeld panics where the tables are lent to a task: a read of them is one of a module the task holds, which it
-	// reads in its state.
-	export function requireHeld()
-		if lent 'lent'
-			panic("a module's tables are read in the project while a task of the module holds them")
-		end 'lent'
-	end 'requireHeld'
-
-	export function declType(ord DeclOrdinal) returns table.Option with TypeID
-		let i = ord as Count
-		if i >= declTypes.count() 'past'
-			return table.Option.none
-		end 'past'
-		if declTypes[i] == noType 'none'
-			return table.Option.none
-		end 'none'
-		return table.Option.some(declTypes[i])
-	end 'declType'
-
-	export function setDeclType(mutates self, ord DeclOrdinal, t TypeID)
+	function setDeclType(mutates self, ord DeclOrdinal, t TypeID)
 		if t == noType 'none'
 			panic("a declaration is given no type")
 		end 'none'
@@ -146,26 +438,7 @@ export type ModuleTables
 		declTypes[i] = t
 	end 'setDeclType'
 
-	export function paramType(node NodeID) returns table.Option with TypeID
-		return paramTypes.get(node as Count)
-	end 'paramType'
-
-	export function setParamType(mutates self, node NodeID, t TypeID)
-		paramTypes.insert(node as Count, value: t)
-	end 'setParamType'
-
-	export function declFunc(ord DeclOrdinal) returns table.Option with FuncID
-		let i = ord as Count
-		if i >= declFuncs.count() 'past'
-			return table.Option.none
-		end 'past'
-		if declFuncs[i] == noFunc 'none'
-			return table.Option.none
-		end 'none'
-		return table.Option.some(declFuncs[i])
-	end 'declFunc'
-
-	export function setDeclFunc(mutates self, ord DeclOrdinal, f FuncID)
+	function setDeclFunc(mutates self, ord DeclOrdinal, f FuncID)
 		if f == noFunc 'none'
 			panic("a declaration is given no function")
 		end 'none'
@@ -175,57 +448,6 @@ export type ModuleTables
 		end 'room'
 		declFuncs[i] = f
 	end 'setDeclFunc'
-
-	export function nodeFunc(node NodeID) returns table.Option with FuncID
-		return nodeFuncs.get(node as Count)
-	end 'nodeFunc'
-
-	export function setNodeFunc(mutates self, node NodeID, f FuncID)
-		nodeFuncs.insert(node as Count, value: f)
-	end 'setNodeFunc'
-
-	export function declConst(ord DeclOrdinal) returns table.Option with ConstValue
-		return declConsts.get(ord as Count)
-	end 'declConst'
-
-	export function setDeclConst(mutates self, ord DeclOrdinal, consumes value ConstValue)
-		declConsts.insert(ord as Count, value: value)
-	end 'setDeclConst'
-
-	export function rawType(t TypeID) returns TypeID
-		match rawTypes.get(t as Count) 'raw'
-			some(raw) then return raw
-			none then return noType
-		end 'raw'
-	end 'rawType'
-
-	export function setRawType(mutates self, t TypeID, raw TypeID)
-		rawTypes.insert(t as Count, value: raw)
-	end 'setRawType'
-
-	export function receiverLocal(f FuncID) returns LocalID
-		match localsAt.get(f as Count) 'at'
-			some(at) then return funcLocals[at].receiver
-			none then return noLocal
-		end 'at'
-	end 'receiverLocal'
-
-	export function paramLocal(f FuncID, index Count) returns LocalID
-		match localsAt.get(f as Count) 'at'
-			some(at) then return funcLocals[at].params[index]
-			none then panic("a parameter is read of a function whose body has bound none")
-		end 'at'
-	end 'paramLocal'
-
-	export function setReceiverLocal(mutates self, f FuncID, l LocalID)
-		let at = localsFor(f)
-		funcLocals[at].receiver = l
-	end 'setReceiverLocal'
-
-	export function pushParamLocal(mutates self, f FuncID, l LocalID)
-		let at = localsFor(f)
-		funcLocals[at].params.push(l)
-	end 'pushParamLocal'
 
 	function localsFor(mutates self, f FuncID) returns Count
 		match localsAt.get(f as Count) 'at'
@@ -237,7 +459,15 @@ export type ModuleTables
 		funcLocals.push(FuncLocals.new())
 		return at
 	end 'localsFor'
-end 'ModuleTables'
+
+	function extLength(list ExtList) returns Count
+		return match list 'l'
+			methods gives extMethods.count()
+			aliases gives extAliases.count()
+			conforms gives extConforms.count()
+		end 'l'
+	end 'extLength'
+end 'TablesPart'
 
 // The accessors of the module tables read the tables of the module that decides the entry: the standard library's in the
 // project, the task's own module's in its state, and another module's in the project once the task waited for it. Only a
