@@ -1,0 +1,88 @@
+typealias Names = Array with String
+
+type Entry
+	export var name as String
+	export var fields as Names
+	export var size as Count
+
+	static function make(consumes name String, consumes fields Names) returns Entry
+		let size = fields.count()
+		return Entry{name: name, fields: fields, size: size}
+	end 'make'
+end 'Entry'
+
+typealias Entries = Array with Entry
+
+typealias Tables = Array with Entries
+
+type View
+	export var own as Count
+	export var mine as Entries
+	export var read as Tables
+
+	static function make(own Count, consumes mine Entries, consumes read Tables) returns View
+		return View{own: own, mine: mine, read: read}
+	end 'make'
+
+	function entry(slot Count, index Count) returns borrowed Entry
+		if slot == own 'mine'
+			return mine[index]
+		end 'mine'
+		return read[slot][index]
+	end 'entry'
+end 'View'
+
+function typeEntry(v View, slot Count, index Count) returns borrowed Entry
+	if slot == v.own 'mine'
+		return v.mine[index]
+	end 'mine'
+	return v.read[slot][index]
+end 'typeEntry'
+
+function nameOf(v View, slot Count, index Count) returns borrowed String
+	return typeEntry(v, slot: slot, index: index).name
+end 'nameOf'
+
+function first(e Entry) returns borrowed String
+	return e.fields[0]
+end 'first'
+
+function countOf(e Entry) returns borrowed Count
+	return e.size
+end 'countOf'
+
+function pick(a T, b T, left bool) uses T returns borrowed T
+	if left 'left'
+		return a
+	end 'left'
+	return b
+end 'pick'
+
+function main() returns ExitCode
+	var mine = Entries.create(0)
+	mine.push(Entry.make("Count", fields: ["a", "b"]))
+	var other = Entries.create(0)
+	other.push(Entry.make("Other", fields: ["x"]))
+	var read = Tables.create(0)
+	read.push(Entries.create(0))
+	read.push(other)
+	let v = View.make(0, mine: mine, read: read)
+	let n = typeEntry(v, slot: 0, index: 0).fields.count()
+	print("{n}\n")
+	if typeEntry(v, slot: 1, index: 0).name == "Other" 'c'
+		print("other\n")
+	end 'c'
+	print("{v.entry(0, index: 0).name} {nameOf(v, slot: 1, index: 0)}\n")
+	print("{first(typeEntry(v, slot: 0, index: 0))} {countOf(v.mine[0])}\n")
+	let s = pick(v.mine[0].name, b: v.read[1][0].name, left: false).clone()
+	let x = 3 as Count
+	let y = 4 as Count
+	print("{s} {pick(x, b: y, left: true)}\n")
+	return 0
+end 'main'
+
+//> 2
+//> other
+//> Count Other
+//> a 2
+//> Other 3

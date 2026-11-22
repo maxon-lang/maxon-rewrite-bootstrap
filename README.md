@@ -875,6 +875,12 @@ runtime each implement the entries. The element is always visible in the call:
   it and `arrayPacked` (`self/ir/arrays.maxon`) is the one place lowering asks, so every array operation goes through it. A byte
   has no word address: a `mutates` argument `a[i]` is a slot that holds the byte, which is stored back into the element after the
   call returns, on its failure path too.
+- A function that returns a borrowed place (`returns borrowed T`) returns the word its `let` borrow would be passed as:
+  the box of a managed value, which neither it nor its caller drops (`IrFunction.lendsResult`), and the value of a
+  scalar. It is not an address, which a byte of a packed array and a `let` parameter do not have beyond the call. A
+  call of it is an ordinary call that returns a word; the caller reads through the box as through a `let` parameter,
+  and the optimizer and the register allocator see nothing new. The interpreter holds such a return to giving a live
+  value that an owner still holds, where any other return must give one that nothing owns.
 - An entry that is given an index, a key or a handle that names nothing traps. The queries that cannot miss
   (`rt.<primitive>.len`, `rt.map.has`, `rt.pool.contains`, `rt.list.contains`) are what lowering tests before it calls an entry
   that would trap, failing with the operation's error when the test fails (see "Primitives").
@@ -1825,7 +1831,32 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   of a temporary, which is dropped when its statement ends, are not moved out either (`E3901`); `clone()` is the fix for
   all of them. A match binding also cannot
   be assigned, and the subject cannot be assigned, moved or passed `mutates` while the arm runs (`E3186`). There are no
-  local projection bindings (`mutates r = a.f`): borrows exist only as parameters, match bindings and call arguments.
+  local projection bindings (`mutates r = a.f`): borrows exist only as parameters, match bindings, call arguments and
+  the results of functions that return a borrowed place.
+- **A function can return a borrowed place.** `function typeEntry(v TypeView, t TypeID) returns borrowed TypeEntry`
+  gives a place of type `TypeEntry` that it borrows from its arguments, where `returns TypeEntry` gives a value the
+  caller owns. `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else. Every
+  `return` of such a function names a place in what the caller lent it: a `let` or `mutates` parameter or a `self` that
+  is not `consumes`, a field or a subscript of one at any depth, or a call of another such function whose lenders are
+  such places (a scalar argument lends nothing to a place that is not a scalar). A local, a match binding, the variable
+  of a for, a value made in the function (a call, a literal, a string with parts, a conditional), a `consumes` or `sets`
+  parameter, and a place that would be boxed to be an interface it returns are `E3926`. A miss inside, such as an index
+  out of range, traps as it does anywhere. It may be a method, generic, exported and called from another module, and
+  added by an extension. For now it may not throw, be a requirement of an interface or meet one, be a function value, be
+  the `current()` or `createIterator()` of a for, or be the `init` of `Type from "text"` (each `E9000`); a function
+  type and a closure have no syntax for it.
+- **Its call is a projection**, under the rules of a subscript (see "Primitives"), through one notion of a place in
+  the checker (`projectionOf` and `lentPaths`, `self/check/paths.maxon`) and in lowering (`ast.isStorage`): read, the
+  result is a `let` borrow, a base of a field, a subscript, a method with a `let` receiver, and an argument to a `let`
+  parameter; binding it, returning it from an ordinary function or passing it to `consumes` is `E3901`, or `E3900` where
+  what it borrows from is borrowed itself, and `clone()` is the fix; a scalar result is copied like any scalar.
+  Assigning through it, passing it to `mutates`, calling a `mutates self` method on it and moving it on as a for's cursor
+  are `E2013` in this form, which lends a place only to be read. Which argument the place lies in is the callee's to
+  decide, so, as a `let` projection in Hylo borrows its `let` arguments, the result borrows every argument the call
+  passes to a `let` or `mutates` parameter, the receiver among them, for as long as the caller uses it: everywhere a
+  subscript holds its collection (an argument while later ones are evaluated, an operand, a for over it, a match binding
+  of it) it holds each of those, and an argument passed `mutates`, `consumes` or `sets` beside it that overlaps one is
+  `E3186`.
 - **Exclusivity.** A place is a local or parameter followed by field selections and element selections (`a[i]`, see
   "Primitives"), and two places overlap when one is a prefix of the other (`a` and `a.f`; `a.f` and `a.g` do not;
   `a[i]` and `a[j]` do, for every index). An argument passed `mutates`, `consumes` or `sets`
@@ -2872,6 +2903,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and a default on a discard parameter `_` (which maxon's calls name with a synthesized label) are not supported, a default that
   trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. A `static let` is only a
   `type`'s, and a call in its initializer that names a sibling by its bare name is not resolved to the sibling.
+- `returns borrowed T` (see "Ownership") is minimaxon's: maxon has no function that gives a place instead of a value,
+  so a lookup through a function there gives a copy. It is Hylo's `subscript` with only a `let` accessor, written as a
+  function and restricted so that it needs no coroutine: the place is returned, never yielded, so no code of the callee
+  runs after the caller's use of it, and a projection borrows its arguments for as long as the caller uses it, as Hylo's
+  does. Not built yet: the `mutates` form, which lends a place the caller may change (Hylo's `inout` accessor), and
+  subscript syntax on user types (`v[t]` calling such a function).
 - `extension`: there is no `typealias` in the extension of an enum or a union, and none of `Set`, `Iterable`, `Iterator` or
   other library types the compiler does not have. An extension of an interface is Hylo's: its body is checked once, generic over the
   conformer, where maxon parses it again for each conformer with the conformer's names in scope, so there it may use what

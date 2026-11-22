@@ -13,6 +13,11 @@ function functionValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupported, msg: "'{name}' is generic or built in, so it is not a value of one function type; pass a closure that calls it: 'function(x T) gives {name}(x)'", errs: errs)
 		return ast.noType
 	end 'generic'
+	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].result != ast.ResultConv.resultOwned 'borrowed'
+		// A function type gives a value, and has no way to say which of its arguments a lent place is borrowed from.
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupported, msg: "'{name}' returns a borrowed place, so it is not a value of a function type yet; pass a closure that copies the place: 'function(x T) gives {name}(x).clone()'", errs: errs)
+		return ast.noType
+	end 'borrowed'
 	if ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].errTy != ast.noType 'throws'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errFunctionValueThrows, msg: diag.throwingFunctionAsValue(name, errorType: nameOfType(p, ms: ms, t: ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].errTy)), errs: errs)
 		return ast.noType

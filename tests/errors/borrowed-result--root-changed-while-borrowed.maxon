@@ -1,0 +1,31 @@
+typealias Names = Array with String
+
+type Shelf
+	export var label as String
+	export var names as Names
+
+	static function make(consumes label String) returns Shelf
+		return Shelf{label: label, names: ["a", "b"]}
+	end 'make'
+end 'Shelf'
+
+function labelOf(s Shelf) returns borrowed String
+	return s.label
+end 'labelOf'
+
+function wipe(mutates s Shelf) returns Count
+	s.label = ""
+	return 0
+end 'wipe'
+
+function show(t String, n Count)
+	print("{t}{n}")
+end 'show'
+
+function main() returns ExitCode
+	var s = Shelf.make("x")
+	show(labelOf(s), n: wipe(s))
+	return 0
+end 'main'
+
+// expect-error: E3186 at 27:27

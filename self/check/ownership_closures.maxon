@@ -206,6 +206,9 @@ function requireCallable(mutates o Ownership, p ast.Project, mutates ms ast.Modu
 	if not ast.isMutatingFunction(ms.types, t: t) 'reads'
 		return
 	end 'reads'
+	if changesProjection(o, p: p, ms: ms, e: callee, site: offsetOfOwn(o, p: p, ms: ms, node: callee), what: "called, since '{nameOfType(p, ms: ms, t: t)}' mutates captures") 'projection'
+		return
+	end 'projection'
 	let path = pathOf(o, p: p, ms: ms, e: callee)
 	if path.isPlace() 'place'
 		requireWritableFor(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: callee), path: path, call: t)

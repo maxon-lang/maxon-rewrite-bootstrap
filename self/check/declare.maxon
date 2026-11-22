@@ -286,6 +286,11 @@ function declareSignature(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	if failedSince(errs, mark: mark) 'badReturn'
 		return
 	end 'badReturn'
+	if ast.parseResultConv(m.resultMode) != ast.ResultConv.resultOwned 'borrowed'
+		// A call through a witness table would need every implementation to lend the same kind of place.
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: m.id), code: diag.errUnsupported, msg: "the requirement '{m.name}' returns a borrowed place, which an interface does not support yet; declare it 'returns T' to give a value", errs: errs)
+		return
+	end 'borrowed'
 	fn.errTy = errorOf(c, p: p, ms: ms, site: m.id, throwsRef: m.throwsRef, specs: fn.params, errs: errs)
 	if failedSince(errs, mark: mark) 'badThrows'
 		return

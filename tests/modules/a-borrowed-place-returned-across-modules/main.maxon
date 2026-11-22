@@ -1,0 +1,10 @@
+function main() returns ExitCode
+	let s = shelves.Shelf.make(["red", "green"])
+	let t = shelves.Shelf.make(["blue"])
+	print("{shelves.firstOf(s)} {s.at(1)} {shelves.either(s, b: t, left: false).at(0)}\n")
+	print("{shelves.firstOf(shelves.either(s, b: t, left: true)).byteLength()}\n")
+	return 0
+end 'main'
+
+//> red green blue
+//> 3

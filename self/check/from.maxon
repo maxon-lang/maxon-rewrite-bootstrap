@@ -144,6 +144,9 @@ function checkFromString(mutates c Checker, p ast.Project, mutates ms ast.Module
 	if not requireVisible(c, p: p, ms: ms, node: e, target: init, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'
+	if not requireOwnedResult(c, p: p, ms: ms, node: e, target: init, use: "'{name} from'", errs: errs) 'borrowed'
+		return ast.noType
+	end 'borrowed'
 	let stringTy = p.builtins.stringTy
 	if checkExpecting(c, p: p, ms: ms, e: value, want: stringTy, errs: errs) == ast.noType 'failed'
 		return ast.noType

@@ -194,7 +194,8 @@ function witnessMatches(c Checker, p ast.Project, mutates ms ast.ModuleState, m 
 		ret = ast.substituteType(ms.types, t: ret, params: generics, args: args)
 		err = ast.substituteType(ms.types, t: err, params: generics, args: args)
 	end 'ofInterface'
-	return sameSpecs(specs, b: wantSpecs) and ret == wantReturn and err == wantError
+	// A requirement gives a value, so a method that lends a place is no witness of it.
+	return sameSpecs(specs, b: wantSpecs) and ret == wantReturn and err == wantError and ms.funcs.slots[ast.funcSlot(m)][ast.funcIndex(m)].result == ast.ResultConv.resultOwned
 end 'witnessMatches'
 
 // requirementsNamed are the requirements of that name that an interface has: one, or none, or two where an interface

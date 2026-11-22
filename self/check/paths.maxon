@@ -106,6 +106,8 @@ export type AccessPath
 	end 'overlaps'
 end 'AccessPath'
 
+typealias AccessPaths = Array with AccessPath
+
 // fieldName is the name of the field a step selects.
 function fieldName(p ast.Project, ms ast.ModuleState, step PathStep) returns String
 	return ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: step.owner))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: step.owner))].fields[step.field].name.clone()
@@ -225,3 +227,81 @@ function projectsElement(o Ownership, p ast.Project, ms ast.ModuleState, e ast.N
 	end 'member'
 	return false
 end 'projectsElement'
+
+// projectionOf is the call of a function that returns a borrowed place which e is, or selects a field or an element of, or
+// 0 where e is no part of such a place. Such a place is a projection as an element is: it is read where it stands, and
+// never moved, changed or kept.
+function projectionOf(o Ownership, ms ast.ModuleState, e ast.NodeID) returns ast.NodeID
+	let n = ast.through(ms.tree, e: e)
+	let k = ms.tree.kindOf(n)
+	if k == ast.NodeKind.callExpr 'call'
+		if ast.isProjectionCall(o.c.typing, call: n) 'projects'
+			return n
+		end 'projects'
+		return 0 as ast.NodeID
+	end 'call'
+	if k == ast.NodeKind.memberExpr 'member'
+		if ownMember(o, node: n).kind != ast.MemberKind.memberField 'notField'
+			return 0 as ast.NodeID
+		end 'notField'
+		return projectionOf(o, ms: ms, e: ast.memberExprObj(ms.tree, id: n))
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'index'
+		return projectionOf(o, ms: ms, e: ast.indexExprObj(ms.tree, id: n))
+	end 'index'
+	return 0 as ast.NodeID
+end 'projectionOf'
+
+// lenders are the arguments that a call of a function returning a borrowed place may lend it from: each one it passes to a
+// let or a mutates parameter, the receiver among them. Which one the place is in is the callee's to decide and is not
+// known at the call, so the place borrows all of them, as a let projection borrows its let arguments in Hylo.
+function lenders(o Ownership, ms ast.ModuleState, call ast.NodeID) returns ast.NodeIDList
+	let info = ownCall(o, node: call)
+	var out = ast.NodeIDList.create(0)
+	let receiver = ast.callReceiver(ms.tree, e: call, kind: info.kind)
+	if receiver != 0 and lends(info.selfConv) 'receiver'
+		out.push(receiver)
+	end 'receiver'
+	for i in 0 upto info.ordered.count() 'args'
+		if info.ordered[i] != 0 and lends(info.paramSpecs[i].conv) 'lent'
+			out.push(info.ordered[i])
+		end 'lent'
+	end 'args'
+	return out
+end 'lenders'
+
+// lends is whether a parameter of a convention borrows its argument for the call, so that a place the callee returns may
+// lie in it.
+function lends(conv ast.Convention) returns bool
+	return conv == ast.Convention.convLet or conv == ast.Convention.convMutates
+end 'lends'
+
+// lentPaths are the places that a borrow of e keeps: the place e names, or for a part of a borrowed result, every place
+// its call may lend it from, through the calls nested in those. A fresh value among the lenders is a temporary of the
+// statement, which nothing else can reach.
+function lentPaths(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns AccessPaths
+	var out = AccessPaths.create(0)
+	addLentPaths(o, p: p, ms: ms, e: e, paths: out)
+	return out
+end 'lentPaths'
+
+function addLentPaths(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates paths AccessPaths)
+	let call = projectionOf(o, ms: ms, e: e)
+	if call == 0 'place'
+		let path = pathOf(o, p: p, ms: ms, e: e)
+		if path.isPlace() 'named'
+			paths.push(path)
+		end 'named'
+		return
+	end 'place'
+	let from = lenders(o, ms: ms, call: call)
+	for i in 0 upto from.count() 'each'
+		addLentPaths(o, p: p, ms: ms, e: from[i], paths: paths)
+	end 'each'
+end 'addLentPaths'
+
+// projectionName is how a message names the function whose borrowed result a projection is part of.
+function projectionName(o Ownership, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns String
+	let info = ownCall(o, node: call)
+	return ms.funcs.slots[ast.funcSlot(info.fn)][ast.funcIndex(info.fn)].name.clone()
+end 'projectionName'

@@ -95,6 +95,28 @@ end 'Convention'
 
 export typealias ConventionList = Array with Convention
 
+// ResultConv is how a function gives its result: a value the caller owns, or a place that the function borrows from its
+// arguments and the caller only reads (`returns borrowed T`), as a let parameter lends one. A borrowed place the caller
+// may change would be the next member.
+export enum ResultConv
+	resultOwned
+	resultBorrowed
+end 'ResultConv'
+
+// borrowedWord is the word after `returns` that makes a function's result a borrowed place.
+export let borrowedWord = "borrowed"
+
+// parseResultConv is the convention that the word after `returns` gives a function's result: none for an owned value.
+export function parseResultConv(word String) returns ResultConv
+	if word == "" 'owned'
+		return ResultConv.resultOwned
+	end 'owned'
+	if word == borrowedWord 'borrowed'
+		return ResultConv.resultBorrowed
+	end 'borrowed'
+	panic("ast: '{word}' is no convention of a result")
+end 'parseResultConv'
+
 export function parseConvention(kw String) returns Convention
 	if kw == "mutates" 'm'
 		return Convention.convMutates
@@ -393,6 +415,8 @@ export type FuncEntry
 	export var params as ParamSpecList
 	export var paramTypes as TypeIDList
 	export var retTy as TypeID
+	// result says whether the function gives a value of retTy or a place of it that it borrows from its arguments.
+	export var result as ResultConv
 	export var errTy as TypeID
 	export var genericOrigin as FuncID
 	export var typeArgs as TypeIDList
@@ -410,7 +434,7 @@ export type FuncEntry
 	export var conditionalBounds as Count
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
 	end 'make'
 end 'FuncEntry'
 
@@ -1697,6 +1721,7 @@ export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, orig
 	inst.selfConv = ft.slots[funcSlot(origin)][funcIndex(origin)].selfConv
 	inst.intrinsic = ft.slots[funcSlot(origin)][funcIndex(origin)].intrinsic
 	inst.errTy = ft.slots[funcSlot(origin)][funcIndex(origin)].errTy
+	inst.result = ft.slots[funcSlot(origin)][funcIndex(origin)].result
 	inst.genericOrigin = origin
 	inst.extendedIface = ft.slots[funcSlot(origin)][funcIndex(origin)].extendedIface
 	inst.typeArgs = cloneTypeArgs(args)
@@ -1808,5 +1833,17 @@ export function isStorage(tree Tree, typing Typing, node NodeID) returns bool
 			none panic("ast: the member at node {e} was not recorded by the check")
 		end 'hit'
 	end 'member'
+	if k == NodeKind.callExpr 'call'
+		return isProjectionCall(typing, call: e)
+	end 'call'
 	return false
 end 'isStorage'
+
+// isProjectionCall is whether a call gives a place that its callee borrows from the arguments, as a subscript gives an
+// element of its collection, rather than a value of its own.
+export function isProjectionCall(typing Typing, call NodeID) returns bool
+	return match typing.calls.get(call as Count) 'hit'
+		some(info) gives info.result == ResultConv.resultBorrowed
+		none gives false
+	end 'hit'
+end 'isProjectionCall'

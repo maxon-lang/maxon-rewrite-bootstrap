@@ -108,12 +108,14 @@ testDecl builds FuncDecl
     : Name testName=(Label | TestName) body=funcBody 'end' end=endLabel?
     ;
 
+// `returns borrowed T` gives a place of type T that the function borrows from its parameters instead of a value it makes.
+// `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else.
 funcDecl
     : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | 'from')
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
-      ')' typeParams=usesClause? ('returns' returns=typeRef)? ('throws' throws=typeRef)? where=whereClause?
+      ')' typeParams=usesClause? ('returns' ({atBorrowedResult}? resultMode=Name)? returns=typeRef)? ('throws' throws=typeRef)? where=whereClause?
       body=funcBody
       'end' end=endLabel?
     ;
@@ -302,7 +304,7 @@ funcSig
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
-      ')' ('returns' returns=typeRef)? ('throws' throws=typeRef)?
+      ')' ('returns' ({atBorrowedResult}? resultMode=Name)? returns=typeRef)? ('throws' throws=typeRef)?
     ;
 
 @ast::FuncSig {

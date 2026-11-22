@@ -293,11 +293,14 @@ function requireSlotsDropped(mutates vm Vm, f ir.IrFunction) throws Halt
 end 'requireSlotsDropped'
 
 // execRet hands the result to the caller. It must be a value that nothing owns, and no slot may still own anything: an owner
-// that dies without dropping what it holds leaks it.
+// that dies without dropping what it holds leaks it. A function that lends its result returns a live value that an owner
+// the caller reaches still holds.
 function execRet(mutates vm Vm, f ir.IrFunction, t ir.Term) throws Halt
 	endWindows(vm)
 	let src = ir.retValue(t)
-	if isManaged(f, r: src) 'managed'
+	if isManaged(f, r: src) and f.lendsResult 'lent'
+		try requireLent(vm, src: src)
+	end 'lent' else if isManaged(f, r: src) 'managed'
 		try requireHandedOn(vm, src: src, verb: "returns")
 	end 'managed'
 	try requireSlotsDropped(vm, f: f)
@@ -320,6 +323,19 @@ function requireHandedOn(mutates vm Vm, src ir.Reg, verb String) throws Halt
 		throw violation(vm, kind: ownership, message: message)
 	end 'owned'
 end 'requireHandedOn'
+
+// requireLent is a violation unless the managed register src holds a live value that an owner holds, which a function that
+// lends its result gives the caller to read.
+function requireLent(mutates vm Vm, src ir.Reg) throws Halt
+	let o = vm.ref(src)
+	if o == 0 'moved'
+		throw violation(vm, kind: movedUse, message: "the function lends a value that was moved out or never assigned")
+	end 'moved'
+	try requireLive(vm, o: o, what: "lent")
+	if not vm.h.oImmortal[o] and vm.h.oOwner[o] == 0 'unowned'
+		throw violation(vm, kind: ownership, message: "the function lends {objectText(vm, o: o)}, which nothing owns, so nothing would drop it: a lent result is a place of the caller's")
+	end 'unowned'
+end 'requireLent'
 
 // managedErrorMark is the number that the error register of a call holds while it holds the box of an error union, which
 // a branch on the register reads as an error.

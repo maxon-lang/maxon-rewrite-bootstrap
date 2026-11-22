@@ -1,0 +1,24 @@
+export typealias Names = Array with String
+
+export type Shelf
+	export var names as Names
+
+	export static function make(consumes names Names) returns Shelf
+		return Shelf{names: names}
+	end 'make'
+
+	export function at(i Count) returns borrowed String
+		return names[i]
+	end 'at'
+end 'Shelf'
+
+export function firstOf(s Shelf) returns borrowed String
+	return s.at(0)
+end 'firstOf'
+
+export function either(a T, b T, left bool) uses T returns borrowed T
+	if left 'left'
+		return a
+	end 'left'
+	return b
+end 'either'

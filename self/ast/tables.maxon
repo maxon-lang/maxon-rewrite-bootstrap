@@ -149,9 +149,11 @@ export type CallInfo
 	export var dropFn as FuncID
 	export var dropOrdered as NodeIDList
 	export var intrinsic as Intrinsic
+	// result is the callee's: whether the call gives a value or a place it borrows from the arguments.
+	export var result as ResultConv
 
 	export static function make(kind CallKind, fn FuncID, receiverTy TypeID) returns CallInfo
-		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.create(0), paramSpecs: ParamSpecList.create(0), selfConv: Convention.convLet, receiverTy: receiverTy, ordered: NodeIDList.create(0), method: noFunc, unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropOrdered: NodeIDList.create(0), intrinsic: Intrinsic.intrNone}
+		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.create(0), paramSpecs: ParamSpecList.create(0), selfConv: Convention.convLet, receiverTy: receiverTy, ordered: NodeIDList.create(0), method: noFunc, unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropOrdered: NodeIDList.create(0), intrinsic: Intrinsic.intrNone, result: ResultConv.resultOwned}
 	end 'make'
 end 'CallInfo'
 

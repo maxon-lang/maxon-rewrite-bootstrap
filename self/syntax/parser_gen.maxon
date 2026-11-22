@@ -18,17 +18,17 @@ let lookahead7 = "00010000000000000000000000000000000011111111111111111111111111
 
 let lookahead8 = "0000000000000000000000000000000000000000001110000000000000000000000000000000000000000000000000000000"
 
-let lookahead9 = "0000000000000000000000000000000000000000001100001000000000000000000000000000000000000000000000000000"
+let lookahead9 = "0001000000000001000000000000000000000100000000000000000001000000100000000000000000000000000000000000"
 
-let lookahead10 = "0000000000000000000000000000000000000000000000000010001000000000000000000000000000000000000000000000"
+let lookahead10 = "0000000000000000000000000000000000000000001100001000000000000000000000000000000000000000000000000000"
 
-let lookahead11 = "0000000000000000000000000000000000000111100000000000000000000000000000000000000000000000000000000000"
+let lookahead11 = "0000000000000000000000000000000000000000000000000010001000000000000000000000000000000000000000000000"
 
-let lookahead12 = "0000000000000000000000000000000000000111100000000010001000001000000000000000000000000000000000000000"
+let lookahead12 = "0000000000000000000000000000000000000111100000000000000000000000000000000000000000000000000000000000"
 
-let lookahead13 = "0000000000000100000000000000000000000000000000000000000000000001000100000000000000000000000000000000"
+let lookahead13 = "0000000000000000000000000000000000000111100000000010001000001000000000000000000000000000000000000000"
 
-let lookahead14 = "0001000000000001000000000000000000000100000000000000000001000000100000000000000000000000000000000000"
+let lookahead14 = "0000000000000100000000000000000000000000000000000000000000000001000100000000000000000000000000000000"
 
 let lookahead15 = "0000000000000000000000000000000000000111100000000000000000001000000000000000000000000000000000000000"
 
@@ -319,27 +319,31 @@ function parseFuncDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 	end 'b12'
 	if p.at(TokenKind.kw_returns) 'b13'
 		_ = try p.expect(TokenKind.kw_returns, what: "'returns'")
-		let v8 = try parseTypeRef(p)
-		n.returnsRef = v8
-	end 'b13'
-	if p.at(TokenKind.kw_throws) 'b14'
-		_ = try p.expect(TokenKind.kw_throws, what: "'throws'")
+		if p.at(TokenKind.name) and p.peekIn(lookahead9) and p.atBorrowedResult() 'b14'
+			let v8 = try p.expect(TokenKind.name, what: "a name")
+			n.resultMode = p.text(v8)
+		end 'b14'
 		let v9 = try parseTypeRef(p)
-		n.throwsRef = v9
-	end 'b14'
-	if p.at(TokenKind.kw_where) 'b15'
-		let v10 = try parseWhereClause(p)
-		n.whereList = v10
+		n.returnsRef = v9
+	end 'b13'
+	if p.at(TokenKind.kw_throws) 'b15'
+		_ = try p.expect(TokenKind.kw_throws, what: "'throws'")
+		let v10 = try parseTypeRef(p)
+		n.throwsRef = v10
 	end 'b15'
-	let v11 = try parseFuncBody(p)
-	n.body = v11
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
-	if p.inSet(lookahead4) 'b16'
-		let v12 = try parseEndLabel(p)
-		n.endRef = v12
+	if p.at(TokenKind.kw_where) 'b16'
+		let v11 = try parseWhereClause(p)
+		n.whereList = v11
 	end 'b16'
-	let v13 = p.lists.ptr_Param.take(mark_n_Params)
-	n.params = v13
+	let v12 = try parseFuncBody(p)
+	n.body = v12
+	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	if p.inSet(lookahead4) 'b17'
+		let v13 = try parseEndLabel(p)
+		n.endRef = v13
+	end 'b17'
+	let v14 = p.lists.ptr_Param.take(mark_n_Params)
+	n.params = v14
 	return n
 end 'parseFuncDecl'
 
@@ -347,7 +351,7 @@ function parseParam(mutates p Parser) returns ast.Param throws SyntaxError
 	let t = p.curStart()
 	var n = ast.newParam(p.tree, start: t)
 	if (p.at(TokenKind.kw_consumes) and p.peekIn(lookahead7)) or (p.at(TokenKind.kw_mutates) and p.peekIn(lookahead7)) or (p.at(TokenKind.kw_sets) and p.peekIn(lookahead7)) 'b1'
-		if not p.inSet(lookahead9) 'b2'
+		if not p.inSet(lookahead10) 'b2'
 			throw p.expected("'consumes', 'mutates' or 'sets'")
 		end 'b2'
 		let v1 = try p.next()
@@ -430,30 +434,30 @@ function parseTypeDecl(mutates p Parser) returns ast.TypeDecl throws SyntaxError
 		if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b8'
 			let v6 = try parseAliasDecl(p)
 			p.lists.ptr_AliasDecl.push(v6)
-		end 'b8' else if p.inSet(lookahead10) or (p.at(TokenKind.kw_export) and p.peekIn(lookahead10)) or (p.at(TokenKind.kw_public) and p.peekIn(lookahead10)) 'b9'
+		end 'b8' else if p.inSet(lookahead11) or (p.at(TokenKind.kw_export) and p.peekIn(lookahead11)) or (p.at(TokenKind.kw_public) and p.peekIn(lookahead11)) 'b9'
 			let v7 = try parseFieldDecl(p)
 			p.lists.ptr_FieldDecl.push(v7)
 		end 'b9' else if ((p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_static) and p.peekIs(TokenKind.kw_let))) and p.atStaticLet() 'b10'
 			let v8 = try parseStaticLetDecl(p)
 			p.lists.ptr_ConstDecl.push(v8)
-		end 'b10' else if p.inSet(lookahead11) 'b11'
+		end 'b10' else if p.inSet(lookahead12) 'b11'
 			let v9 = try parseFuncDecl(p)
 			p.lists.ptr_FuncDecl.push(v9)
 		end 'b11' else 'b12'
 			throw p.expected("'export', 'function', 'let', 'public', 'static', 'typealias' or 'var'")
 		end 'b12'
 		_ = try p.expect(TokenKind.newline, what: "the end of the line")
-		while p.inSet(lookahead12) 'b13'
+		while p.inSet(lookahead13) 'b13'
 			if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b14'
 				let v10 = try parseAliasDecl(p)
 				p.lists.ptr_AliasDecl.push(v10)
-			end 'b14' else if p.inSet(lookahead10) or (p.at(TokenKind.kw_export) and p.peekIn(lookahead10)) or (p.at(TokenKind.kw_public) and p.peekIn(lookahead10)) 'b15'
+			end 'b14' else if p.inSet(lookahead11) or (p.at(TokenKind.kw_export) and p.peekIn(lookahead11)) or (p.at(TokenKind.kw_public) and p.peekIn(lookahead11)) 'b15'
 				let v11 = try parseFieldDecl(p)
 				p.lists.ptr_FieldDecl.push(v11)
 			end 'b15' else if ((p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_static) and p.peekIs(TokenKind.kw_let))) and p.atStaticLet() 'b16'
 				let v12 = try parseStaticLetDecl(p)
 				p.lists.ptr_ConstDecl.push(v12)
-			end 'b16' else if p.inSet(lookahead11) 'b17'
+			end 'b16' else if p.inSet(lookahead12) 'b17'
 				let v13 = try parseFuncDecl(p)
 				p.lists.ptr_FuncDecl.push(v13)
 			end 'b17' else 'b18'
@@ -552,10 +556,10 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 		n.visibility = p.text(v1)
 	end 'b1'
 	_ = try p.expect(TokenKind.kw_extension, what: "'extension'")
-	if p.at(TokenKind.kw_int) and p.peekIn(lookahead13) 'b3'
+	if p.at(TokenKind.kw_int) and p.peekIn(lookahead14) 'b3'
 		_ = try p.expect(TokenKind.kw_int, what: "'int'")
 		n.isInt = true
-	end 'b3' else if p.inSet(lookahead14) 'b4'
+	end 'b3' else if p.inSet(lookahead9) 'b4'
 		let v2 = try parseTypeRef(p)
 		n.target = v2
 	end 'b4' else 'b5'
@@ -575,7 +579,7 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 		if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b9'
 			let v5 = try parseAliasDecl(p)
 			p.lists.ptr_AliasDecl.push(v5)
-		end 'b9' else if p.inSet(lookahead11) 'b10'
+		end 'b9' else if p.inSet(lookahead12) 'b10'
 			let v6 = try parseFuncDecl(p)
 			p.lists.ptr_FuncDecl.push(v6)
 		end 'b10' else 'b11'
@@ -586,7 +590,7 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 			if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b13'
 				let v7 = try parseAliasDecl(p)
 				p.lists.ptr_AliasDecl.push(v7)
-			end 'b13' else if p.inSet(lookahead11) 'b14'
+			end 'b13' else if p.inSet(lookahead12) 'b14'
 				let v8 = try parseFuncDecl(p)
 				p.lists.ptr_FuncDecl.push(v8)
 			end 'b14' else 'b15'
@@ -633,7 +637,7 @@ function parseEnumDecl(mutates p Parser) returns ast.EnumDecl throws SyntaxError
 		if p.inSet(lookahead6) 'b5'
 			let v4 = try parseEnumCaseDecl(p)
 			p.lists.ptr_EnumCaseDecl.push(v4)
-		end 'b5' else if p.inSet(lookahead11) 'b6'
+		end 'b5' else if p.inSet(lookahead12) 'b6'
 			let v5 = try parseFuncDecl(p)
 			p.lists.ptr_FuncDecl.push(v5)
 		end 'b6' else 'b7'
@@ -644,7 +648,7 @@ function parseEnumDecl(mutates p Parser) returns ast.EnumDecl throws SyntaxError
 			if p.inSet(lookahead6) 'b9'
 				let v6 = try parseEnumCaseDecl(p)
 				p.lists.ptr_EnumCaseDecl.push(v6)
-			end 'b9' else if p.inSet(lookahead11) 'b10'
+			end 'b9' else if p.inSet(lookahead12) 'b10'
 				let v7 = try parseFuncDecl(p)
 				p.lists.ptr_FuncDecl.push(v7)
 			end 'b10' else 'b11'
@@ -720,7 +724,7 @@ function parseUnionDecl(mutates p Parser) returns ast.UnionDecl throws SyntaxErr
 		if p.inSet(lookahead6) 'b8'
 			let v6 = try parseUnionCaseDecl(p)
 			p.lists.ptr_UnionCaseDecl.push(v6)
-		end 'b8' else if p.inSet(lookahead11) 'b9'
+		end 'b8' else if p.inSet(lookahead12) 'b9'
 			let v7 = try parseFuncDecl(p)
 			p.lists.ptr_FuncDecl.push(v7)
 		end 'b9' else 'b10'
@@ -731,7 +735,7 @@ function parseUnionDecl(mutates p Parser) returns ast.UnionDecl throws SyntaxErr
 			if p.inSet(lookahead6) 'b12'
 				let v8 = try parseUnionCaseDecl(p)
 				p.lists.ptr_UnionCaseDecl.push(v8)
-			end 'b12' else if p.inSet(lookahead11) 'b13'
+			end 'b12' else if p.inSet(lookahead12) 'b13'
 				let v9 = try parseFuncDecl(p)
 				p.lists.ptr_FuncDecl.push(v9)
 			end 'b13' else 'b14'
@@ -881,8 +885,8 @@ end 'parseFuncType'
 function parseFuncTypeParam(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newFuncTypeParam(p.tree, start: t)
-	if p.inSet(lookahead9) 'b1'
-		if not p.inSet(lookahead9) 'b2'
+	if p.inSet(lookahead10) 'b1'
+		if not p.inSet(lookahead10) 'b2'
 			throw p.expected("'consumes', 'mutates' or 'sets'")
 		end 'b2'
 		let v1 = try p.next()
@@ -954,7 +958,7 @@ end 'parseAliasInstance'
 function parseAliasTypeArgs(mutates p Parser) returns diag.U32 throws SyntaxError
 	var args = 0 as diag.U32
 	let mark_args = p.lists.ids_aliasTypeArgs.mark()
-	if p.at(TokenKind.lParen) and p.peekIn(lookahead14) 'b1'
+	if p.at(TokenKind.lParen) and p.peekIn(lookahead9) 'b1'
 		_ = try p.expect(TokenKind.lParen, what: "'('")
 		let v1 = try parseTypeRef(p)
 		let v2 = v1 as diag.U32
@@ -966,7 +970,7 @@ function parseAliasTypeArgs(mutates p Parser) returns diag.U32 throws SyntaxErro
 			p.lists.ids_aliasTypeArgs.push(v4)
 		end 'b2'
 		_ = try p.expect(TokenKind.rParen, what: "')'")
-	end 'b1' else if p.inSet(lookahead14) 'b3'
+	end 'b1' else if p.inSet(lookahead9) 'b3'
 		let v5 = try parseTypeRef(p)
 		let v6 = v5 as diag.U32
 		p.lists.ids_aliasTypeArgs.push(v6)
@@ -1086,7 +1090,7 @@ end 'parseTypeCount'
 function parseTypeArgs(mutates p Parser) returns diag.U32 throws SyntaxError
 	var args = 0 as diag.U32
 	let mark_args = p.lists.ids_typeArgs.mark()
-	if p.at(TokenKind.lParen) and p.peekIn(lookahead14) 'b1'
+	if p.at(TokenKind.lParen) and p.peekIn(lookahead9) 'b1'
 		_ = try p.expect(TokenKind.lParen, what: "'('")
 		let v1 = try parseTypeRef(p)
 		let v2 = v1 as diag.U32
@@ -1098,7 +1102,7 @@ function parseTypeArgs(mutates p Parser) returns diag.U32 throws SyntaxError
 			p.lists.ids_typeArgs.push(v4)
 		end 'b2'
 		_ = try p.expect(TokenKind.rParen, what: "')'")
-	end 'b1' else if p.inSet(lookahead14) 'b3'
+	end 'b1' else if p.inSet(lookahead9) 'b3'
 		let v5 = try parseTypeRef(p)
 		let v6 = v5 as diag.U32
 		p.lists.ids_typeArgs.push(v6)
@@ -1324,16 +1328,20 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig throws SyntaxError
 	_ = try p.expect(TokenKind.rParen, what: "')'")
 	if p.at(TokenKind.kw_returns) 'b10'
 		_ = try p.expect(TokenKind.kw_returns, what: "'returns'")
-		let v6 = try parseTypeRef(p)
-		n.returnsRef = v6
-	end 'b10'
-	if p.at(TokenKind.kw_throws) 'b11'
-		_ = try p.expect(TokenKind.kw_throws, what: "'throws'")
+		if p.at(TokenKind.name) and p.peekIn(lookahead9) and p.atBorrowedResult() 'b11'
+			let v6 = try p.expect(TokenKind.name, what: "a name")
+			n.resultMode = p.text(v6)
+		end 'b11'
 		let v7 = try parseTypeRef(p)
-		n.throwsRef = v7
-	end 'b11'
-	let v8 = p.lists.ptr_Param.take(mark_n_Params)
-	n.params = v8
+		n.returnsRef = v7
+	end 'b10'
+	if p.at(TokenKind.kw_throws) 'b12'
+		_ = try p.expect(TokenKind.kw_throws, what: "'throws'")
+		let v8 = try parseTypeRef(p)
+		n.throwsRef = v8
+	end 'b12'
+	let v9 = p.lists.ptr_Param.take(mark_n_Params)
+	n.params = v9
 	return n
 end 'parseFuncSig'
 
@@ -1582,7 +1590,7 @@ end 'parseTupleAssignStmt'
 function parseAssignTarget(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newAssignTarget(p.tree, start: t)
-	if p.inSet(lookahead10) 'b1'
+	if p.inSet(lookahead11) 'b1'
 		if p.at(TokenKind.kw_let) 'b2'
 			_ = try p.expect(TokenKind.kw_let, what: "'let'")
 			ast.setAssignTargetIsLet(p.tree, id: n)
@@ -1689,7 +1697,7 @@ function parseIfTryStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newIfTryStmt(p.tree, start: t)
 	_ = try p.expect(TokenKind.kw_if, what: "'if'")
-	if p.inSet(lookahead10) 'b1'
+	if p.inSet(lookahead11) 'b1'
 		if p.at(TokenKind.kw_let) 'b2'
 			_ = try p.expect(TokenKind.kw_let, what: "'let'")
 			ast.setIfTryStmtIsLet(p.tree, id: n)
@@ -2768,8 +2776,8 @@ end 'parseClosureExpr'
 function parseClosureParam(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newClosureParam(p.tree, start: t)
-	if p.inSet(lookahead9) 'b1'
-		if not p.inSet(lookahead9) 'b2'
+	if p.inSet(lookahead10) 'b1'
+		if not p.inSet(lookahead10) 'b2'
 			throw p.expected("'consumes', 'mutates' or 'sets'")
 		end 'b2'
 		let v1 = try p.next()
@@ -2782,7 +2790,7 @@ function parseClosureParam(mutates p Parser) returns ast.NodeID throws SyntaxErr
 	let v3 = try p.next()
 	let v4 = p.textRef(v3)
 	ast.setClosureParamNameRef(p.tree, id: n, ref: v4)
-	if p.inSet(lookahead14) 'b4'
+	if p.inSet(lookahead9) 'b4'
 		let v5 = try parseTypeRef(p)
 		ast.setClosureParamType(p.tree, id: n, value: v5)
 	end 'b4'

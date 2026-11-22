@@ -453,6 +453,9 @@ function checkIteration(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if not requireVisible(c, p: p, ms: ms, node: s, target: current, errs: errs) or not requireVisible(c, p: p, ms: ms, node: s, target: advance, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'
+	if (factory != ast.noFunc and not requireOwnedResult(c, p: p, ms: ms, node: s, target: factory, use: "a for", errs: errs)) or not requireOwnedResult(c, p: p, ms: ms, node: s, target: current, use: "a for", errs: errs) 'borrowed'
+		return ast.noType
+	end 'borrowed'
 	c.typing.iterations.insert(s as Count, value: info)
 	if generic 'instances'
 		recordUse(c, call: s)

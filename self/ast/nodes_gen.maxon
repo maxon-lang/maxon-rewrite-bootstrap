@@ -216,6 +216,7 @@ export type FuncDecl
 	export var receiver as String
 	export var params as ParamList
 	export var typeParams as TypeParamList
+	export var resultMode as String
 	export var returnsRef as NodeID
 	export var throwsRef as NodeID
 	export var whereList as ConstraintList
@@ -224,7 +225,7 @@ export type FuncDecl
 	export var testName as String
 
 	export static function make(id NodeID) returns FuncDecl
-		return FuncDecl{id: id, name: "", visibility: "", isStatic: false, receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, whereList: ConstraintList.create(0), body: 0 as diag.U32, endRef: 0 as NodeID, testName: ""}
+		return FuncDecl{id: id, name: "", visibility: "", isStatic: false, receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), resultMode: "", returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, whereList: ConstraintList.create(0), body: 0 as diag.U32, endRef: 0 as NodeID, testName: ""}
 	end 'make'
 end 'FuncDecl'
 
@@ -662,11 +663,12 @@ export type FuncSig
 	export var name as String
 	export var receiver as String
 	export var params as ParamList
+	export var resultMode as String
 	export var returnsRef as NodeID
 	export var throwsRef as NodeID
 
 	export static function make(id NodeID) returns FuncSig
-		return FuncSig{id: id, isStatic: false, name: "", receiver: "", params: ParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID}
+		return FuncSig{id: id, isStatic: false, name: "", receiver: "", params: ParamList.create(0), resultMode: "", returnsRef: 0 as NodeID, throwsRef: 0 as NodeID}
 	end 'make'
 end 'FuncSig'
 

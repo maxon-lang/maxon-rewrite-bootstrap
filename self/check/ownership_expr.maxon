@@ -48,6 +48,11 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	if not isManagedOwn(p, ms: ms, t: t) or ast.sharesOnCopy(ms.types, t: t) 'scalar'
 		return out
 	end 'scalar'
+	let projection = projectionOf(o, ms: ms, e: e)
+	if projection != 0 'projection'
+		moveOfProjection(o, p: p, ms: ms, e: e, call: projection, t: t, dest: dest)
+		return out
+	end 'projection'
 	if lacksDroppable(o, p: p, ms: ms, t: t) 'inFlight'
 		o.inFlight.push(e)
 	end 'inFlight'
@@ -91,6 +96,32 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	requireNotProjected(o, p: p, ms: ms, path: path, site: site)
 	return withFact(out, fact: OwnFact.make(path.root, site: site, kind: OwnFactKind.factMoved, dest: dest))
 end 'consume'
+
+// moveOfProjection refuses to move a part of a borrowed result, which its function lends from its arguments: E3900 where
+// what it lends from is itself borrowed, and E3901 where it is a part of a value that stays where it is, as for an element.
+function moveOfProjection(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, call ast.NodeID, t ast.TypeID, dest OwnDest)
+	let name = projectionName(o, p: p, ms: ms, call: call)
+	let lent = lentPaths(o, p: p, ms: ms, e: e)
+	var code = diag.errMoveOutOfField
+	if lent.count() > 0 and isBorrowed(o.c.typing.locals[lent[0].root as Count]) 'borrowed'
+		code = diag.errMoveOutOfBorrow
+	end 'borrowed'
+	let advice = copyAdvice(o, p: p, ms: ms, t: t, ifCopyable: "copy it with '.clone()'", fallback: "declare '{name}' 'returns T' to give a value")
+	let fix = cloneFixIf(o, p: p, ms: ms, e: e, t: t)
+	failFixed(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: code, msg: "'{name}' returns a place it borrows from its arguments, not a value of its own, so it cannot be moved into {dest.text()}; {advice}", fix: fix)
+end 'moveOfProjection'
+
+// changesProjection refuses a change to a part of a borrowed result, which its function lends only to be read, and says
+// whether e is one. what is how the change is said.
+function changesProjection(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, site diag.U32, what String) returns bool
+	let call = projectionOf(o, ms: ms, e: e)
+	if call == 0 'notProjection'
+		return false
+	end 'notProjection'
+	let name = projectionName(o, p: p, ms: ms, call: call)
+	fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{name}' returns a borrowed place to be read, so what it gives cannot be {what}; change the place it borrows from instead, or change a copy: 'var x = {name}(...).clone()'")
+	return true
+end 'changesProjection'
 
 // borrowedMoveFix is the change that lets a borrowed value be stored: a copy when its type can be copied, and otherwise,
 // for a parameter given whole, taking it with consumes, which is the move of the whole value the message asks for.
@@ -627,9 +658,17 @@ end 'isCapturedReceiver'
 // found only when something in the rest changes or moves a place.
 function hold(mutates o Ownership, p ast.Project, ms ast.ModuleState, place ast.NodeID, kind OwnProjectionKind, byAddress bool)
 	let t = ownType(o, node: place)
-	if byAddress or isManagedOwn(p, ms: ms, t: t) 'held'
-		o.projections.push(OwnProjection.make(AccessPath.none(), place: place, kind: kind, ty: t))
-	end 'held'
+	if not byAddress and not isManagedOwn(p, ms: ms, t: t) 'value'
+		return
+	end 'value'
+	if projectionOf(o, ms: ms, e: place) != 0 'lent'
+		let lent = lentPaths(o, p: p, ms: ms, e: place)
+		for i in 0 upto lent.count() 'each'
+			o.projections.push(OwnProjection.make(lent[i].clone(), place: 0 as ast.NodeID, kind: kind, ty: t))
+		end 'each'
+		return
+	end 'lent'
+	o.projections.push(OwnProjection.make(AccessPath.none(), place: place, kind: kind, ty: t))
 end 'hold'
 
 // holdAcross is hold for a borrow that an expression uses again after evaluating next. Most operands are a name or a
@@ -697,8 +736,11 @@ end 'closureCaptures'
 
 function mutatesArgument(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, dest OwnDest, consumes s OwnState) returns OwnState
 	let out = eval(o, p: p, ms: ms, e: e, s: s)
-	let path = pathOf(o, p: p, ms: ms, e: e)
 	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
+	if changesProjection(o, p: p, ms: ms, e: e, site: site, what: "passed to the 'mutates' parameter '{dest.name}'") 'projection'
+		return out
+	end 'projection'
+	let path = pathOf(o, p: p, ms: ms, e: e)
 	if not path.isPlace() and ast.isMutatingFunction(ms.types, t: ownType(o, node: e)) 'temporary'
 		// A new function value is changed only by the call it is passed to, as one called where it is made is.
 		return out
@@ -786,10 +828,10 @@ function requireApartFromClosure(mutates o Ownership, p ast.Project, ms ast.Modu
 end 'requireApartFromClosure'
 
 function addAccess(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, conv ast.Convention)
-	let path = pathOf(o, p: p, ms: ms, e: e)
-	if path.isPlace() 'place'
-		o.accesses.push(CallAccess.make(e, path: path, conv: conv))
-	end 'place'
+	let lent = lentPaths(o, p: p, ms: ms, e: e)
+	for i in 0 upto lent.count() 'each'
+		o.accesses.push(CallAccess.make(e, path: lent[i].clone(), conv: conv))
+	end 'each'
 end 'addAccess'
 
 function overlapMessage(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, a CallAccess, b CallAccess) returns String

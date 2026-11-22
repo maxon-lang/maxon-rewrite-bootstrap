@@ -1,0 +1,26 @@
+typealias Names = Array with String
+
+type Shelf
+	export var label as String
+	export var names as Names
+
+	static function make(consumes label String) returns Shelf
+		return Shelf{label: label, names: ["a", "b"]}
+	end 'make'
+end 'Shelf'
+
+function labelOf(s Shelf) returns borrowed String
+	return s.label
+end 'labelOf'
+
+function shelfOf(s Shelf) returns borrowed Shelf
+	return s
+end 'shelfOf'
+
+function main() returns ExitCode
+	var s = Shelf.make("x")
+	shelfOf(s).names.push("c")
+	return 0
+end 'main'
+
+// expect-error: E2013 at 22:12

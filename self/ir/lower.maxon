@@ -4,6 +4,7 @@
 export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, consumes name String)
 	let paramCount = try ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].params.count() + ast.leadingParams(ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)]) otherwise panic("ir: too many parameters")
 	l.b.start(fn, name: name, paramCount: paramCount)
+	l.b.f.lendsResult = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].result == ast.ResultConv.resultBorrowed
 	l.fn = fn
 	l.origin = fn
 	if ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].genericOrigin != ast.noFunc 'instance'

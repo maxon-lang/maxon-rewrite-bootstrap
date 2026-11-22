@@ -153,6 +153,9 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	if k == ast.NodeKind.memberExpr 'member'
 		let field = ast.memberExprName(ms.tree, id: target)
 		let out = consumeInto(o, p: p, ms: ms, target: target, value: value, dest: OwnDest.make(OwnDestKind.destField, name: field.clone()), s: s)
+		if changesProjection(o, p: p, ms: ms, e: target, site: site, what: "assigned") 'projection'
+			return out
+		end 'projection'
 		let path = pathOf(o, p: p, ms: ms, e: target)
 		if not path.isPlace() 'temporary'
 			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "the field '{field}' belongs to a temporary value, so assigning it changes nothing; assign it on a variable")
@@ -169,6 +172,9 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	if k == ast.NodeKind.indexExpr 'index'
 		let collection = placeText(ms.tree, e: ast.indexExprObj(ms.tree, id: target))
 		let out = consumeInto(o, p: p, ms: ms, target: target, value: value, dest: OwnDest.make(OwnDestKind.destElement, name: collection), s: s)
+		if changesProjection(o, p: p, ms: ms, e: target, site: site, what: "assigned") 'projection'
+			return out
+		end 'projection'
 		let path = pathOf(o, p: p, ms: ms, e: target)
 		if not path.isPlace() 'temporary'
 			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "the element belongs to a temporary collection, so assigning it changes nothing; assign it on a variable")
@@ -404,7 +410,10 @@ end 'tryExprOwn'
 function returnStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
 	var out = s
 	let value = ast.returnStmtValue(ms.tree, id: st)
-	if value != 0 'value'
+	if value != 0 and ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].result == ast.ResultConv.resultBorrowed 'lent'
+		out = expr(o, p: p, ms: ms, e: value, s: out)
+		requireLentByParameters(o, p: p, ms: ms, e: value)
+	end 'lent' else if value != 0 'value'
 		out = consume(o, p: p, ms: ms, e: value, dest: OwnDest.of(OwnDestKind.destReturn), s: out)
 	end 'value'
 	let site = offsetOfOwn(o, p: p, ms: ms, node: st)
@@ -412,6 +421,51 @@ function returnStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	requireEnded(o, p: p, ms: ms, from: 0 as Count, s: out, site: site, kind: OwnDropKind.dropReturn)
 	return OwnState.unreachable()
 end 'returnStmtOwn'
+
+// requireLentByParameters is the law of a function that returns a borrowed place: the place lies in what the caller lent
+// it, a let or a mutates parameter or a self that is not consumed, so it outlives the call. Through a call of another
+// such function it lies in whatever that call may lend it from. A managed place cannot lie in a scalar, so a scalar
+// argument of such a call lends nothing to a managed result.
+function requireLentByParameters(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID)
+	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
+	let fnName = ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].name.clone()
+	if ast.boxedTo(o.c.typing, node: e) != ast.noType 'boxed'
+		fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' returns a borrowed place, and this one would be put in a new box to be the interface it returns; return a place that holds the interface value, or declare 'returns T' to give a value")
+		return
+	end 'boxed'
+	let call = projectionOf(o, ms: ms, e: e)
+	if call != 0 'projection'
+		let managed = isManagedOwn(p, ms: ms, t: ownType(o, node: e))
+		let from = lenders(o, ms: ms, call: call)
+		for i in 0 upto from.count() 'each'
+			if not managed or isManagedOwn(p, ms: ms, t: ownType(o, node: from[i])) 'mayHold'
+				requireLentByParameters(o, p: p, ms: ms, e: from[i])
+			end 'mayHold'
+		end 'each'
+		return
+	end 'projection'
+	let path = pathOf(o, p: p, ms: ms, e: e)
+	if not path.isPlace() 'fresh'
+		fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' returns a borrowed place, and this is a value made here, which nothing owns once it returns; return a parameter, or a field or an element of one, or declare 'returns T' to give a value")
+		return
+	end 'fresh'
+	let root = o.c.typing.locals[path.root as Count].clone()
+	let text = pathText(o, p: p, ms: ms, path: path)
+	if root.isSelf 'self'
+		let conv = ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].selfConv
+		if not lends(conv) 'owned'
+			fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{text}' lies in 'self', which '{fnName}' takes '{conv.keyword()} self' and so ends when it returns; take 'self' as a let or as 'mutates self', or declare 'returns T' to give a value")
+		end 'owned'
+		return
+	end 'self'
+	if root.isParam 'param'
+		if not lends(root.conv) 'owned'
+			fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{text}' lies in '{root.name}', a '{root.conv.keyword()}' parameter, which '{fnName}' owns and ends when it returns; take '{root.name}' as a let or a 'mutates' parameter, or declare 'returns T' to give a value")
+		end 'owned'
+		return
+	end 'param'
+	fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{text}' lies in the local '{root.name}', which ends when '{fnName}' returns; return a place in a let or a 'mutates' parameter or in 'self', or declare 'returns T' to give a value")
+end 'requireLentByParameters'
 
 // throwStmtOwn is a failure that always happens: it goes to the innermost try's handler, or with none out of the
 // function.
@@ -494,16 +548,19 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	let source = ast.forStmtFrom(ms.tree, id: st)
 	let start = expr(o, p: p, ms: ms, e: source, s: s)
 	let path = pathOf(o, p: p, ms: ms, e: source)
-	var held = path.isPlace()
-	var lends = held
+	// A borrowed result is held where it lies, but lends no part of itself to be changed through the variable.
+	let projected = projectionOf(o, ms: ms, e: source) != 0
+	var held = path.isPlace() or projected
+	var lends = path.isPlace()
 	var fresh = ast.noLocal
 	if o.c.typing.iterations.has(st as Count) 'protocol'
 		let info = iterationOwn(o, node: st)
 		lends = false
 		fresh = ownLocalOf(o, node: st)
 		held = held and not info.hasFactory
-		if held and ast.isByAddress(info.advance.selfConv) 'advances'
-			requireWritable(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: source), path: path)
+		let site = offsetOfOwn(o, p: p, ms: ms, node: source)
+		if held and ast.isByAddress(info.advance.selfConv) and not changesProjection(o, p: p, ms: ms, e: source, site: site, what: "moved on as the cursor of a for") 'advances'
+			requireWritable(o, p: p, ms: ms, site: site, path: path)
 		end 'advances'
 	end 'protocol'
 	var lent = ast.LocalIDList.create(0)
@@ -515,13 +572,15 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	for i in 0 upto lent.count() 'lend'
 		o.lenders.push(OwnLender.make(lent[i], collection: path.clone()))
 	end 'lend'
+	let mark = o.projections.count()
 	if held 'hold'
-		o.projections.push(OwnProjection.make(path, place: 0 as ast.NodeID, kind: OwnProjectionKind.projectLoop, ty: ownType(o, node: source)))
+		let lent = lentPaths(o, p: p, ms: ms, e: source)
+		for i in 0 upto lent.count() 'each'
+			o.projections.push(OwnProjection.make(lent[i].clone(), place: 0 as ast.NodeID, kind: OwnProjectionKind.projectLoop, ty: ownType(o, node: source)))
+		end 'each'
 	end 'hold'
 	let out = loopOwn(o, p: p, ms: ms, target: st, s: start, body: ast.forStmtBodyRef(ms.tree, id: st), cond: 0 as ast.NodeID, fresh: fresh)
-	if held 'release'
-		_ = try o.projections.pop() otherwise panic("ownership: the hold of a loop's collection vanished")
-	end 'release'
+	release(o, mark: mark)
 	for _ in 0 upto lent.count() 'unlend'
 		_ = try o.lenders.pop() otherwise panic("ownership: the lender of a loop's variable vanished")
 	end 'unlend'
@@ -563,7 +622,7 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 		start = expr(o, p: p, ms: ms, e: subject, s: start)
 	end 'reads'
 	pushFrameOwn(o, target: core)
-	var subjectPath = AccessPath.none()
+	var subjectPaths = AccessPaths.create(0)
 	var subjectKnown = false
 	var result = OwnState.unreachable()
 	let arms = ast.matchCoreArmsRef(ms.tree, id: core)
@@ -577,12 +636,14 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 		end 'takeApart'
 		let borrows = armBorrows(o, p: p, ms: ms, arm: arm)
 		if borrows and not subjectKnown 'find'
-			subjectPath = pathOf(o, p: p, ms: ms, e: subject)
+			subjectPaths = lentPaths(o, p: p, ms: ms, e: subject)
 			subjectKnown = true
 		end 'find'
-		let held = borrows and subjectPath.isPlace()
-		if held 'hold'
-			o.projections.push(OwnProjection.make(subjectPath.clone(), place: 0 as ast.NodeID, kind: OwnProjectionKind.projectMatch, ty: ownType(o, node: subject)))
+		let held = o.projections.count()
+		if borrows 'hold'
+			for j in 0 upto subjectPaths.count() 'each'
+				o.projections.push(OwnProjection.make(subjectPaths[j].clone(), place: 0 as ast.NodeID, kind: OwnProjectionKind.projectMatch, ty: ownType(o, node: subject)))
+			end 'each'
 		end 'hold'
 		let form = ast.matchArmForm(ms.tree, id: arm)
 		if form == ast.ArmKind.armThen 'then'
@@ -595,9 +656,7 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 			_ = expr(o, p: p, ms: ms, e: ast.matchArmValue(ms.tree, id: arm), s: a)
 			a = OwnState.unreachable()
 		end 'panics'
-		if held 'release'
-			_ = try o.projections.pop() otherwise panic("ownership: the match hold vanished")
-		end 'release'
+		release(o, mark: held)
 		a = endScope(o, p: p, ms: ms, mark: mark, s: a)
 		fell = OwnState.unreachable()
 		if ast.matchArmFalls(ms.tree, id: arm) 'falls'

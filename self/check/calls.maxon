@@ -525,6 +525,17 @@ function requireNotFrozenChange(c Checker, p ast.Project, ms ast.ModuleState, ca
 	return true
 end 'requireNotFrozenChange'
 
+// requireOwnedResult refuses a function that returns a borrowed place where the language calls it for the program and
+// takes what it gives as a value of its own: the cursor and the elements of a for, and 'Type from "text"'.
+function requireOwnedResult(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, target ast.FuncID, use String, mutates errs diag.ErrorList) returns bool
+	if ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].result == ast.ResultConv.resultOwned 'owned'
+		return true
+	end 'owned'
+	let name = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].name.clone()
+	failAt(c, p: p, ms: ms, node: node, code: diag.errUnsupported, msg: "'{name}' returns a borrowed place, and {use} takes a value of its own from it, which is not supported yet; declare it 'returns T' to give a value", errs: errs)
+	return false
+end 'requireOwnedResult'
+
 // callFunction types a call of a function, a method or a static function, once it is known which. given are the type
 // arguments of the instance a method or a static function is called on, which a generic callee takes as they are.
 function callFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, kind ast.CallKind, target ast.FuncID, hasGiven bool, given ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
@@ -544,6 +555,7 @@ function callFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	info.paramSpecs = specs.clone()
 	info.selfConv = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].selfConv
 	info.intrinsic = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].intrinsic
+	info.result = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].result
 	if declares(c, p: p, ms: ms, f: target) 'declared'
 		let mark = errs.count()
 		info.ordered = bindArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: receiverCount(p, ms: ms, f: target), argsChecked: false, payload: false, errs: errs)
@@ -650,6 +662,7 @@ function callGeneric(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	info.paramSpecs = specs.clone()
 	info.selfConv = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].selfConv
 	info.intrinsic = intrinsic
+	info.result = ms.funcs.slots[ast.funcSlot(target)][ast.funcIndex(target)].result
 	info.ordered = ordered.clone()
 	c.typing.calls.insert(call as Count, value: info)
 	if intrinsic == ast.Intrinsic.intrNone 'user'

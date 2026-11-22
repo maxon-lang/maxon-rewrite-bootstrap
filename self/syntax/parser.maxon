@@ -370,6 +370,15 @@ type Parser
 		return self.at(TokenKind.kw_mutates) and self.peekIs(TokenKind.name) and self.text(self.peekTok()) == capturesWord
 	end 'atMutatesCaptures'
 
+	// atBorrowedResult is whether the name here is the word `borrowed` before the type of a function's result, which a type
+	// starts after: anywhere else, and as the whole result type, it is a name.
+	function atBorrowedResult() returns bool
+		if not self.at(TokenKind.name) or self.text(self.cur()) != ast.borrowedWord 'notWord'
+			return false
+		end 'notWord'
+		return self.peekIs(TokenKind.name) or self.peekIs(TokenKind.kw_export) or self.peekIs(TokenKind.kw_Self) or self.peekIs(TokenKind.kw_int) or self.peekIs(TokenKind.lParen)
+	end 'atBorrowedResult'
+
 	function atEndOfInput() returns bool
 		return self.at(TokenKind.fileEnd) or self.at(TokenKind.eof)
 	end 'atEndOfInput'

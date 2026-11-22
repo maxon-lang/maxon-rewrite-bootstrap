@@ -1,0 +1,58 @@
+typealias Names = Array with String
+
+union Tag
+	plain
+	named(text String)
+end 'Tag'
+
+typealias Tags = Array with Tag
+
+type Shelf
+	export var names as Names
+	export var tags as Tags
+
+	static function make() returns Shelf
+		var tags = Tags.create(0)
+		tags.push(Tag.plain)
+		tags.push(Tag.named("kept"))
+		return Shelf{names: ["a", "b", "c"], tags: tags}
+	end 'make'
+
+	function all() returns borrowed Names
+		return names
+	end 'all'
+
+	function at(i Count) returns borrowed String
+		return all()[i]
+	end 'at'
+
+	function tag(i Count) returns borrowed Tag
+		return self.tags[i]
+	end 'tag'
+end 'Shelf'
+
+extension Shelf
+	function last() returns borrowed String
+		return self.at(try names.count() - 1 otherwise 0)
+	end 'last'
+end 'Shelf'
+
+function main() returns ExitCode
+	var shelf = Shelf.make()
+	print("{shelf.at(1)} {shelf.last()}\n")
+	for name in shelf.all() 'each'
+		print(name)
+		shelf.names.push("x")
+	end 'each'
+	print("\n")
+	match shelf.tag(1) 't'
+		plain then print("plain\n")
+		named(text) then print("{text}\n")
+	end 't'
+	print("{Shelf.make().at(0)}\n")
+	shelf.names.push(shelf.at(0).clone())
+	print("{shelf.all().count()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3186 at 45:8
