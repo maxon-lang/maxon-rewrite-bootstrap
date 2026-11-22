@@ -1,10 +1,11 @@
-// The optimizer's passes in the order a native build runs them, in two parts on either side of the copy a function that may
-// loop keeps of its IR as its fallback (ir.Fallbacks), which the backend compiles where it refuses a hot loop of the
-// optimized IR (E5001). A pass before the copy never makes an instruction hold more values at once than the code it
+// The optimizer's passes in the order a native build runs them, in two parts on either side of the fallback of a function
+// that may loop (fallbackOf), the IR it has between them, which the backend compiles where it refuses a hot loop of the
+// optimized IR (E5001). A pass before the fallback never makes an instruction hold more values at once than the code it
 // replaces, so the fallback needs no more registers than the program as written; a pass after it may, so a loop that
 // would compile without it always compiles.
 //
-// Before the copy, on each function: SSA construction, then the fold pass with the rules of generic.rules.
+// Before the fallback, on each function (optimizeFunction): SSA construction, then the fold pass with the rules of
+// generic.rules.
 // After it, on the module (inline.maxon): the expansion of the primitives (expand.maxon), whose operations hold no call
 // that values were in memory across; the fold again with the rules of pressure.rules, on each function that holds an
 // instruction they rewrite (a division by a constant, whose multiply holds x beside the high word); leaf inlining, which
@@ -33,10 +34,30 @@ end 'Optimizer'
 // optimizeModule runs the optimizer on the functions of a module that the backend compiles.
 export function optimizeModule(mutates o Optimizer, mutates fns ir.IrFunctionList)
 	for i in 0 upto fns.count() 'each'
-		o.ssa.construct(fns[i])
-		o.fold.foldFunction(fns[i], raises: false)
+		optimizeFunction(o, f: fns[i])
 	end 'each'
 end 'optimizeModule'
+
+// optimizeFunction runs the passes before the fallback on f.
+function optimizeFunction(mutates o Optimizer, mutates f ir.IrFunction)
+	o.ssa.construct(f)
+	o.fold.foldFunction(f, raises: false)
+end 'optimizeFunction'
+
+// fallbackOf is the fallback of the function at place at of fns, a module's functions as lowerModule lowered them and the
+// optimizer then changed: the function lowered again from its declaration and taken through the passes before the
+// fallback, which give the same IR each time, so no function keeps a copy that its emit may never ask for. A function that
+// may hold no loop has none, and has no hot loop to refuse.
+export function fallbackOf(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns table.Option with ir.IrFunction
+	var instances = ir.instancesOf(p, ms: ms, fns: fns)
+	var f = ir.lowerFunction(p, ms: ms, fn: fns[at].decl, instances: instances)
+	var o = Optimizer.new()
+	optimizeFunction(o, f: f)
+	if not mayLoop(f) 'straight'
+		return table.Option.none
+	end 'straight'
+	return table.Option.some(f)
+end 'fallbackOf'
 
 // refine runs the passes that come after leaf inlining on f and the bodies of its closures and behaviours. A function
 // with a refusal is never compiled, so it is left as it is.

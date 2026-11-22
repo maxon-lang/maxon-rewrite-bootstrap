@@ -55,9 +55,6 @@ type ModuleWork
 	var kept as ir.IrFunctionList
 	var code as frozen with ir.IrFunctionList
 	var leaves as frozen with opt.Leaves
-	// fallbacks are the IR some of its functions had before leaf inlining, which its emit compiles where it refuses a hot loop
-	// of the inlined one.
-	var fallbacks as ir.Fallbacks
 	var unit as backend.CodeUnit
 	// reach is how far the module's stages run, which the order decides.
 	var reach as Reach
@@ -80,7 +77,7 @@ type ModuleWork
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), fallbacks: ir.Fallbacks.none(), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none()}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none()}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -534,7 +531,7 @@ function inlineModule(c Compile, mutates work ModuleWork, p ast.Project, m Count
 		end 'compiled'
 	end 'deps'
 	let before = optimizer.inliner.sites
-	opt.inlineModule(optimizer, fns: fns, fallbacks: work.fallbacks, own: leaves, lowered: lowered, leaves: named, reads: reads, first: c.first)
+	opt.inlineModule(optimizer, fns: fns, own: leaves, lowered: lowered, leaves: named, reads: reads, first: c.first)
 	work.leaves = freeze(leaves)
 	timing.inlined = try timing.inlined + (optimizer.inliner.sites - before) otherwise panic("driver: more calls inlined than memory")
 end 'inlineModule'
@@ -560,7 +557,8 @@ function emitModule(c Compile, mutates work ModuleWork, known Known, inputs ast.
 			return giveTask(work, ms: ms, stage: Stage.emit)
 		end 'hit'
 	end 'probe'
-	work.unit = backend.emitModule(view, ms: ms, fns: work.code, fallbacks: work.fallbacks, verifies: c.options.verifyIr, clock: timing.emit, errs: errs)
+	var fallbacks = Relowering.new()
+	work.unit = backend.emitModule(view, ms: ms, fns: work.code, fallbacks: fallbacks, verifies: c.options.verifyIr, clock: timing.emit, errs: errs)
 	backend.carryRoutines(view, ms: ms, u: work.unit)
 	if c.cache.enabled() and errs.count() == 0 'keep'
 		if work.found.isSome() 'verify'
@@ -572,6 +570,18 @@ function emitModule(c Compile, mutates work ModuleWork, known Known, inputs ast.
 	end 'keep'
 	return giveTask(work, ms: ms, stage: Stage.emit)
 end 'emitModule'
+
+// Relowering is the source of the fallbacks of a module's functions that the lower of this compile optimized: each lowered
+// and optimized again where its emit asks for it (opt.fallbackOf).
+type Relowering implements backend.FallbackSource
+	static function new() returns Relowering
+		return Relowering{}
+	end 'new'
+
+	function fallbackOf(mutates self, p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns table.Option with ir.IrFunction
+		return opt.fallbackOf(p, ms: ms, fns: fns, at: at)
+	end 'fallbackOf'
+end 'Relowering'
 
 // Ordered is what the order decides: the order the stages that read the modules a module names visit them in, the modules
 // each names, by module, what the declarations of every module decide about the program's entry function, and how each

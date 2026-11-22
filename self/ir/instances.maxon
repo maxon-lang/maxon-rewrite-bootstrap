@@ -360,6 +360,18 @@ export function findInstances(p ast.Project, mutates ms ast.ModuleState, callers
 	return found
 end 'findInstances'
 
+// instancesOf are the instances among fns, the functions that lowerModule lowered for a module: every one it found, which
+// are the instances a function of the module calls when it is lowered again.
+export function instancesOf(p ast.Project, ms ast.ModuleState, fns IrFunctionList) returns InstanceSet
+	var found = InstanceSet.new()
+	for i in 0 upto fns.count() 'functions'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl).genericOrigin != ast.noFunc 'instance'
+			found.add(fns[i].decl)
+		end 'instance'
+	end 'functions'
+	return found
+end 'instancesOf'
+
 // requireFinite refuses an instance whose type arguments nest without end: a generic function that calls itself with a
 // larger type each time would otherwise never run out of instances. Every module that reaches such an instance refuses it
 // at the call that asks for the too deep one, so which module found it first does not matter.

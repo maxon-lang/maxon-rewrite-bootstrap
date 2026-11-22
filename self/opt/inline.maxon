@@ -28,7 +28,7 @@
 // A copy must not make a loop fail to compile: a loop that needs more registers than the target has is E5001, and with the
 // call, the values live across it were in memory across it, which they need not be across the copy, nor across the
 // expansion of a primitive, nor across what the passes after inlining merge or move out of a loop. So a function that may
-// hold a loop keeps the IR it had before its expansions, its copies and those passes as its fallback (ir.Fallbacks), which
+// hold a loop has the IR it had before its expansions, its copies and those passes as its fallback (fallbackOf), which
 // the backend compiles in its place where it refuses a hot loop of the optimized one: such a function compiles exactly as
 // it would have without any of them.
 
@@ -457,19 +457,16 @@ function inlineInto(mutates o Optimizer, mutates f ir.IrFunction, own Leaves, ow
 	return true
 end 'inlineInto'
 
-// inlineModule runs the passes after the fallback copy (optimizer.maxon) on the functions of a module, fns, once the
-// optimizer has run on them: it expands their primitives (expand.maxon) and folds with the rules that may raise register
-// pressure, then replaces their calls of leaves, folds again each function that got a copy, and runs the passes after
-// inlining; a function that may hold a loop keeps the IR it had before all of them in fallbacks, since each can make a
+// inlineModule runs the passes after the fallback (optimizer.maxon) on the functions of a module, fns, once the optimizer
+// has run on them: it expands their primitives (expand.maxon) and folds with the rules that may raise register pressure,
+// then replaces their calls of leaves, folds again each function that got a copy, and runs the passes after inlining; a
+// function that may hold a loop has the IR it had before all of them as its fallback (fallbackOf), since each can make a
 // loop need more registers. Every function is expanded and folded before any is copied, so every copy of a leaf is the
 // same body. own are the module's leaves; lowered and leaves are the
 // functions and leaves of the modules this compile lowers, by their index from first, of which the module may read those
 // reads marks: the ones it names, whose lower its own waited for. The module's own entry in lowered is not read.
-export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates fallbacks ir.Fallbacks, own Leaves, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
+export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, own Leaves, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
 	for i in 0 upto fns.count() 'expand'
-		if mayLoop(fns[i]) 'fallback'
-			fallbacks.add(i, f: fns[i].clone())
-		end 'fallback'
 		_ = o.expander.expandFunction(fns[i])
 		if holdsRaising(fns[i]) 'raising'
 			o.fold.foldFunction(fns[i], raises: true)

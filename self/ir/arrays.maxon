@@ -77,7 +77,7 @@ end 'arrayLoad'
 
 // arrayRead reads the element at index as arrayLoad does; where the checker or a check before it has proved the index
 // inside the array (not checked), the entry's call is proven, which the expansion of the primitives makes the read alone.
-// It stays a call until then: a function's fallback is its IR from before the expansion (ir.Fallbacks), and a loop that
+// It stays a call until then: a function's fallback is its IR from before the expansion (opt.fallbackOf), and a loop that
 // compiled with the call must compile with the fallback.
 function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
 	if arrayPacked(p, ms: ms, box: box) 'packed'

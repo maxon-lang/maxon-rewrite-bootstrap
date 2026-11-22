@@ -11,8 +11,9 @@ export function buildProgram(mutates p ast.Project, modules FunctionLists, ready
 	var errs = diag.ErrorList.create(0)
 	var clock = EmitClock.off()
 	var ms = ast.lendProject(p)
+	var none = NoFallbacks.new()
 	for i in 0 upto modules.count() 'modules'
-		units.push(emitModule(p, ms: ms, fns: modules[i], fallbacks: ir.Fallbacks.none(), verifies: true, clock: clock, errs: errs))
+		units.push(emitModule(p, ms: ms, fns: modules[i], fallbacks: none, verifies: true, clock: clock, errs: errs))
 	end 'modules'
 	ast.giveBack(p, ms: ms)
 	if errs.count() > 0 'refused'

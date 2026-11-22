@@ -1264,20 +1264,79 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	return refusals
 end 'selectFunction'
 
-// selectOrFallBack writes the code of f, or, where a hot loop of f needs more registers than the target has and the
-// function had other IR before the expansion of the primitives, leaf inlining and the passes after it (fallback), the code
-// of that: a loop that compiled without them compiles so, whatever they did to it (README, "Leaf inlining"). A hot loop
-// refused all the same is E5001, reported at the function.
-function selectOrFallBack(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, hasFallback bool, fallback ir.IrFunction, symbol String, instance bool, closure bool, mutates errs diag.ErrorList)
+// FallbackSource gives the emit of a module the fallback of one of its functions, the IR the function had before the
+// expansion of the primitives, leaf inlining and the passes after it, which the emit compiles where it refuses a hot loop
+// of the optimized IR. It is asked only then, so a module whose loops compile holds no second form of its functions.
+export interface FallbackSource
+	// fallbackOf is the fallback of the function at place at of the module's functions fns, or none for one that has no
+	// other IR.
+	function fallbackOf(mutates self, p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns table.Option with ir.IrFunction
+end 'FallbackSource'
+
+// NoFallbacks is the source of a program whose functions have no IR but the one the emit compiles.
+type NoFallbacks implements FallbackSource
+	static function new() returns NoFallbacks
+		return NoFallbacks{}
+	end 'new'
+
+	function fallbackOf(mutates self, p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns table.Option with ir.IrFunction
+		return table.Option.none
+	end 'fallbackOf'
+end 'NoFallbacks'
+
+// Fallback is what the emit of a function of the module knows of its fallback, which is the same for the function and the
+// bodies of its closures and behaviours: whether it asked the source yet, and what the source gave.
+type Fallback
+	var asked as bool
+	var found as table.Option with ir.IrFunction
+
+	static function new() returns Fallback
+		return Fallback{asked: false, found: table.Option.none}
+	end 'new'
+
+	// forget makes it the fallback of the next function, not asked for yet.
+	function forget(mutates self)
+		asked = false
+		found = table.Option.none
+	end 'forget'
+end 'Fallback'
+
+// selectOrFallBack writes the code of f, the body that path names of the function at place at of fns, or, where a hot loop
+// of f needs more registers than the target has and the function has a fallback, which source gives the first time one of
+// its bodies asks, the code of the fallback's body there: a loop that compiled without the passes after the fallback
+// compiles so, whatever they did to it (README, "Leaf inlining"). A hot loop refused all the same is E5001, reported at
+// the function.
+function selectOrFallBack(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count, f ir.IrFunction, path CountList, mutates fallback Fallback, mutates source F, symbol String, instance bool, closure bool, mutates errs diag.ErrorList) uses F where F implements FallbackSource
 	var refusals = selectFunction(sel, p: p, ms: ms, f: f, symbol: symbol, instance: instance, closure: closure)
-	if refusals.count() > 0 and hasFallback 'fallBack'
-		refusals = selectFunction(sel, p: p, ms: ms, f: fallback, symbol: symbol, instance: instance, closure: closure)
-		sel.allocator.spiller.clock.fallbacks = try sel.allocator.spiller.clock.fallbacks + 1 otherwise panic("backend: more fallbacks than memory")
-	end 'fallBack'
+	if refusals.count() == 0 'compiled'
+		return
+	end 'compiled'
+	if not fallback.asked 'ask'
+		fallback.found = source.fallbackOf(p, ms: ms, fns: fns, at: at)
+		fallback.asked = true
+	end 'ask'
+	match fallback.found 'found'
+		some(other) then refusals = selectFallback(sel, p: p, ms: ms, fallback: other, path: path, symbol: symbol, instance: instance, closure: closure)
+		none then _ = 0
+	end 'found'
 	if refusals.count() > 0 'refused'
 		reportRefusals(p, ms: ms, f: f, refusals: refusals, errs: errs)
 	end 'refused'
 end 'selectOrFallBack'
+
+// selectFallback writes the code of the body of fallback that path names, which --timings counts as a fallback taken.
+function selectFallback(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, fallback ir.IrFunction, path CountList, symbol String, instance bool, closure bool) returns PressureRefusalList
+	sel.allocator.spiller.clock.fallbacks = try sel.allocator.spiller.clock.fallbacks + 1 otherwise panic("backend: more fallbacks than memory")
+	return selectBodyAt(sel, p: p, ms: ms, f: fallback, path: path, depth: 0, symbol: symbol, instance: instance, closure: closure)
+end 'selectFallback'
+
+// selectBodyAt writes the code of the body of f that path names from depth on: f itself past its end.
+function selectBodyAt(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, path CountList, depth Count, symbol String, instance bool, closure bool) returns PressureRefusalList
+	if depth == path.count() 'here'
+		return selectFunction(sel, p: p, ms: ms, f: f, symbol: symbol, instance: instance, closure: closure)
+	end 'here'
+	return selectBodyAt(sel, p: p, ms: ms, f: f.bodies[path[depth]], path: path, depth: ir.succ(depth), symbol: symbol, instance: instance, closure: closure)
+end 'selectBodyAt'
 
 // targetName is the target's name in a diagnostic.
 let targetName = "x64"
@@ -1350,24 +1409,21 @@ function ownsCaptures(body ir.IrFunction) returns bool
 	return false
 end 'ownsCaptures'
 
-// selectFunctionTree writes the code of a function with the link name symbol, and of the bodies of its closures and its
-// behaviours, each closure's with the routine that drops what the closure owns and each behaviour's with its thunk, and
-// the tables that they name and the unit does not have yet. closure says that f is the body of a closure. Where
-// hasFallback, fallback is the function as it was before leaf inlining, each of its bodies the fallback of the body in the
-// same place.
-function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction, hasFallback bool, fallback ir.IrFunction, symbol String, instance bool, closure bool, mutates errs diag.ErrorList)
-	selectOrFallBack(sel, p: p, ms: ms, f: f, hasFallback: hasFallback, fallback: fallback, symbol: symbol, instance: instance, closure: closure, errs: errs)
+// selectFunctionTree writes the code of f, the body that path names of the function at place at of fns, with the link name
+// symbol, and of the bodies of its closures and its behaviours, each closure's with the routine that drops what the closure
+// owns and each behaviour's with its thunk, and the tables that they name and the unit does not have yet. closure says that
+// f is the body of a closure. fallback is the function's fallback as far as one of its bodies asked source for it.
+function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count, f ir.IrFunction, mutates path CountList, mutates fallback Fallback, mutates source F, symbol String, instance bool, closure bool, mutates errs diag.ErrorList) uses F where F implements FallbackSource
+	selectOrFallBack(sel, p: p, ms: ms, fns: fns, at: at, f: f, path: path, fallback: fallback, source: source, symbol: symbol, instance: instance, closure: closure, errs: errs)
 	let due = exchange(sel.due, value: ir.WitnessTableList.create(0))
 	for i in 0 upto due.count() 'tables'
 		emitTable(sel.u, p: p, ms: ms, t: due[i], typeSymbol: typeNameSymbol(p, ms: ms, t: due[i].concrete))
 	end 'tables'
 	for i in 0 upto f.bodies.count() 'bodies'
 		let body = bodySymbol(symbol, index: i)
-		if hasFallback 'withFallback'
-			selectFunctionTree(sel, p: p, ms: ms, f: f.bodies[i], hasFallback: true, fallback: fallback.bodies[i], symbol: body, instance: instance, closure: not isBehaviourBody(f.bodies[i]), errs: errs)
-		end 'withFallback' else 'alone'
-			selectFunctionTree(sel, p: p, ms: ms, f: f.bodies[i], hasFallback: false, fallback: f.bodies[i], symbol: body, instance: instance, closure: not isBehaviourBody(f.bodies[i]), errs: errs)
-		end 'alone'
+		path.push(i)
+		selectFunctionTree(sel, p: p, ms: ms, fns: fns, at: at, f: f.bodies[i], path: path, fallback: fallback, source: source, symbol: body, instance: instance, closure: not isBehaviourBody(f.bodies[i]), errs: errs)
+		try path.pop() otherwise panic("backend: the path of a body ran out")
 		if isBehaviourBody(f.bodies[i]) 'behaviour'
 			emitBehaviourThunk(sel.u, p: p, ms: ms, symbol: thunkSymbol(body), body: f.bodies[i], bodySymbol: body, instance: instance)
 		end 'behaviour' else if ownsCaptures(f.bodies[i]) 'owns'
@@ -1376,22 +1432,21 @@ function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.
 	end 'bodies'
 end 'selectFunctionTree'
 
-// emitModule is the unit with the code of a module's functions, and the hot loops E5001 refuses in errs. fallbacks are the
-// IR some of them had before leaf inlining. With verifies, register allocation holds each function to its invariants. clock
-// is charged the time of each phase.
-export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, fallbacks ir.Fallbacks, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) returns CodeUnit
+// emitModule is the unit with the code of a module's functions, and the hot loops E5001 refuses in errs. fallbacks gives the
+// fallback of a function where a hot loop of it is refused. With verifies, register allocation holds each function to its
+// invariants. clock is charged the time of each phase.
+export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, mutates fallbacks F, verifies bool, mutates clock EmitClock, mutates errs diag.ErrorList) uses F returns CodeUnit where F implements FallbackSource
 	var sel = Selector.new(verifies)
 	sel.system = p.target.system
 	sel.allocator.spiller.clock = exchange(clock, value: EmitClock.off())
 	sel.allocator.spiller.clock.restart()
+	var path = CountList.create(0)
+	var fallback = Fallback.new()
 	for i in 0 upto fns.count() 'each'
 		let symbol = ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fns[i].decl)
 		let instance = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl).genericOrigin != ast.noFunc
-		if fallbacks.has(i) 'withFallback'
-			selectFunctionTree(sel, p: p, ms: ms, f: fns[i], hasFallback: true, fallback: fallbacks.of(i), symbol: symbol, instance: instance, closure: false, errs: errs)
-		end 'withFallback' else 'alone'
-			selectFunctionTree(sel, p: p, ms: ms, f: fns[i], hasFallback: false, fallback: fns[i], symbol: symbol, instance: instance, closure: false, errs: errs)
-		end 'alone'
+		fallback.forget()
+		selectFunctionTree(sel, p: p, ms: ms, fns: fns, at: i, f: fns[i], path: path, fallback: fallback, source: fallbacks, symbol: symbol, instance: instance, closure: false, errs: errs)
 	end 'each'
 	sel.u.asm.endLabels()
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)

@@ -339,42 +339,6 @@ end 'IrFunction'
 
 export typealias IrFunctionList = Array with IrFunction
 
-// Fallbacks are the IR that some functions of a module's list had before the expansion of their primitives and leaf
-// inlining, which the backend compiles in place of a function whose IR has a hot loop it refuses (E5001): by a function's
-// place in the list, the place of its copy in functions plus 1, or noFallback.
-export type Fallbacks
-	var functions as IrFunctionList
-	var places as Array with Count
-
-	export static function none() returns Fallbacks
-		return Fallbacks{functions: IrFunctionList.create(0), places: Array.create(0)}
-	end 'none'
-
-	// add keeps f as the fallback of the function at place at.
-	export function add(mutates self, at Count, consumes f IrFunction)
-		while places.count() <= at 'grow'
-			places.push(noFallback)
-		end 'grow'
-		functions.push(f)
-		places[at] = functions.count()
-	end 'add'
-
-	// has is whether the function at place at has a fallback.
-	export function has(at Count) returns bool
-		return at < places.count() and places[at] != noFallback
-	end 'has'
-
-	// of is the fallback of the function at place at, which has one.
-	export function of(at Count) returns borrowed IrFunction
-		return functions[try places[at] - 1 otherwise panic("ir: the fallback of a function that has none")]
-	end 'of'
-end 'Fallbacks'
-
-export typealias FallbacksList = Array with Fallbacks
-
-// noFallback is a function's place in Fallbacks.places when it has no fallback.
-let noFallback = 0 as Count
-
 // renamedReg is the register that names puts in place of r.
 export function renamedReg(names RegList, r Reg) returns Reg
 	return names[try r as Count otherwise panic("ir: a register that does not exist is renamed")]
