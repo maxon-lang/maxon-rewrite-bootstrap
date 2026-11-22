@@ -510,11 +510,10 @@ function lowerArrayPop(mutates l Lowerer, mutates p ast.Project, c CallSite, rec
 	return arrayRemove(l, p: p, box: a, arr: recv, index: last)
 end 'lowerArrayPop'
 
-// lowerArrayClear drops every element.
+// lowerArrayClear drops every element and keeps the buffer.
 function lowerArrayClear(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, c: c)
-	let n = arrayLength(l, p: p, box: a, arr: recv)
-	arrayDropLast(l, p: p, box: a, arr: recv, n: n)
+	arrayClear(l, p: p, box: a, arr: recv)
 	return konst(l, value: 0 as Word)
 end 'lowerArrayClear'
 

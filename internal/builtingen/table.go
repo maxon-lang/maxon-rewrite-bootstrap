@@ -637,6 +637,7 @@ var entries = []entry{
 	{"ArrayElem", "rt.array.elem", "Arrays", roleCall, "(array, index) -> address of the element"},
 	{"ArrayInsert", "rt.array.insert", "Arrays", roleCall, "(array, index, element): moves it in at index, which may be the length"},
 	{"ArrayRemove", "rt.array.remove", "Arrays", roleCall, "(array, index) -> element: moves it out"},
+	{"ArrayShrink", "rt.array.shrink", "Arrays", roleCall, "(array or byte array, length): sets the length to one that is not above it, keeping the buffer; what was above it was moved out or needs no drop"},
 
 	{"MapNew", "rt.map.new", "Interpreter", roleCall, "() -> map"},
 	{"MapLen", "rt.map.len", "Interpreter", roleCall, "(map) -> count"},
@@ -766,6 +767,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ArrayElem", "arrayElem(array Count, index Count) Count"},
 	{"ArrayInsert", "arrayInsert(array Count, index Count, element Count)"},
 	{"ArrayRemove", "arrayRemove(array Count, index Count) Count"},
+	{"ArrayShrink", "arrayShrink(array Count, length Count)"},
 	{"BytesNew", "bytesNew() Count"},
 	{"BytesLen", "bytesLength(array Count) Count"},
 	{"BytesGet", "bytesGet(array Count, index Count) Byte"},

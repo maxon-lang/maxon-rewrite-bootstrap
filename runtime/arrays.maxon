@@ -33,6 +33,15 @@ function arrayRemove(array Count, index Count) returns Count
 	return element
 end 'arrayRemove'
 
+// arrayShrink makes an array or a byte array a length that is not above its own, and keeps the buffer. The elements
+// above the length are the caller's to have moved out or dropped already, or need no drop.
+function arrayShrink(array Count, length Count)
+	if length > collectionLength(array) 'above'
+		panicIndex()
+	end 'above'
+	__Raw.storeWord(array, offset: arrayLengthOffset, value: length)
+end 'arrayShrink'
+
 function collectionLength(box Count) returns Count
 	return __Raw.loadWord(box, offset: arrayLengthOffset)
 end 'collectionLength'

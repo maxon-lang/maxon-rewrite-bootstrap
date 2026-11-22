@@ -115,9 +115,7 @@ function writeBack(mutates l Lowerer, mutates p ast.Project, mark Count)
 		let v = load(l, slot: w.slot)
 		arrayStore(l, p: p, box: w.box, arr: w.arr, index: w.index, v: v)
 	end 'each'
-	while l.writeBacks.count() > mark 'cut'
-		try l.writeBacks.pop() otherwise ignore
-	end 'cut'
+	l.writeBacks.truncate(mark)
 end 'writeBack'
 
 // arrayAppendCopy pushes a copy of each element of other, which is only read. The length of other is read once, before
@@ -186,23 +184,43 @@ function saturatingSub(mutates l Lowerer, a Reg, b Reg) returns Reg
 	return load(l, slot: result)
 end 'saturatingSub'
 
-// arrayDropLast removes the last n elements, n at most the length, and drops them.
-function arrayDropLast(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, n Reg)
-	let loop = countedLoopBegin(l, limit: n)
-	let length = arrayLength(l, p: p, box: box, arr: arr)
-	let one = konst(l, value: 1 as Word)
-	let last = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newBin(last, op: BinOp.binSub, left: length, right: one, unsigned: true, fail: noBlock))
-	let element = arrayRemove(l, p: p, box: box, arr: arr, index: last)
-	dropValue(l, p: p, v: element, t: arrayElem(p, box: box))
-	countedLoopEnd(l, loop: loop)
-end 'arrayDropLast'
+// arrayShrinkTo makes the array keep elements long, which is at most its length, and drops the elements above that, last
+// first. An element that needs no drop is not visited: the length is all that changes, so clearing an array of numbers is
+// one entry whatever its length. An element that owns something is dropped in place, one loop with one lookup of its address
+// each, before the length is set.
+function arrayShrinkTo(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, keep Reg)
+	let elem = arrayElem(p, box: box)
+	if kindOf(l, p: p, t: elem) == IrKind.kindManaged 'owning'
+		let length = arrayLength(l, p: p, box: box, arr: arr)
+		let extra = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newBin(extra, op: BinOp.binSub, left: length, right: keep, unsigned: true, fail: noBlock))
+		let one = konst(l, value: 1 as Word)
+		let last = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newBin(last, op: BinOp.binSub, left: length, right: one, unsigned: true, fail: noBlock))
+		let loop = countedLoopBegin(l, limit: extra)
+		let offset = countedLoopIndex(l, loop: loop)
+		let index = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newBin(index, op: BinOp.binSub, left: last, right: offset, unsigned: true, fail: noBlock))
+		let addr = arrayAddress(l, p: p, box: box, arr: arr, index: index)
+		dropAt(l, p: p, addr: addr, t: elem)
+		countedLoopEnd(l, loop: loop)
+	end 'owning'
+	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayShrink, args: argsOf2(arr, b: keep))
+end 'arrayShrinkTo'
+
+// arrayClear drops every element and keeps the buffer.
+function arrayClear(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg)
+	let none = konst(l, value: 0 as Word)
+	arrayShrinkTo(l, p: p, box: box, arr: arr, keep: none)
+end 'arrayClear'
 
 // arrayTruncate drops the elements at and above newLength, and does nothing for a newLength that is not below the length.
 function arrayTruncate(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg)
 	let length = arrayLength(l, p: p, box: box, arr: arr)
 	let extra = saturatingSub(l, a: length, b: newLength)
-	arrayDropLast(l, p: p, box: box, arr: arr, n: extra)
+	let keep = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(keep, op: BinOp.binSub, left: length, right: extra, unsigned: true, fail: noBlock))
+	arrayShrinkTo(l, p: p, box: box, arr: arr, keep: keep)
 end 'arrayTruncate'
 
 // arrayGrowZero pushes zero elements until the array has newLength of them, which the checker has held to an element that has a zero.
@@ -262,8 +280,7 @@ end 'arrayGrowFilled'
 
 // arrayRefill makes the array newLength copies of value: every element it held is dropped.
 function arrayRefill(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, newLength Reg, value Reg)
-	let length = arrayLength(l, p: p, box: box, arr: arr)
-	arrayDropLast(l, p: p, box: box, arr: arr, n: length)
+	arrayClear(l, p: p, box: box, arr: arr)
 	arrayPushCopies(l, p: p, box: box, arr: arr, n: newLength, value: value)
 end 'arrayRefill'
 

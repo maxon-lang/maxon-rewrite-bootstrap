@@ -843,7 +843,7 @@ runtime each implement the entries. The element is always visible in the call:
 `bytes.maxon`, `os.maxon`, `subprocess.maxon`) that the program links like any other function. An array is a box of three
 words, the length, the capacity and the address of its elements, which are 8-byte words; `rt.array.insert` grows it by doubling
 and shifts what follows, and frees the buffer it leaves (the elements moved to the new one, so only the buffer goes), and
-`rt.array.remove` hands the element it removes to the caller, who owns it. A byte array has the same three words, with a buffer
+`rt.array.remove` hands the element it removes to the caller, who owns it. `rt.array.shrink` sets the length of an array or a byte array and keeps the buffer: `clear` and `truncate` of an element that needs no drop are that one call, and of an element that owns something they drop each element in place, last first, in one loop in the IR (`arrayShrinkTo`), and then call it. A byte array has the same three words, with a buffer
 of one byte to an element; its copy and drop routines copy and free the buffer whole. A map, a list and a pool are lowered all
 the same, which is what the interpreter runs, but the driver refuses a function that needs one before it generates code:
 `E9900`, at the first use in each function. A function that only drops, copies or holds a value that contains one (a `consumes`

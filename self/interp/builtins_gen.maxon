@@ -143,6 +143,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryArrayRemove(vm, f: f, x: x)
 		return
 	end 'rtArrayRemove'
+	if symbol == ir.Rt.rtArrayShrink 'rtArrayShrink'
+		try entryArrayShrink(vm, f: f, x: x)
+		return
+	end 'rtArrayShrink'
 	if symbol == ir.Rt.rtMapNew 'rtMapNew'
 		try entryMapNew(vm, f: f, x: x)
 		return
